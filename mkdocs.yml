@@ -75,6 +75,8 @@ nav:
     - DGX terminal dashboard: recipes/dgx-terminal-dashboard.md
     - GPU mode-swap: recipes/gpu-mode-swap.md
     - Observability boot: recipes/observability-boot.md
+    - Token management (lean-ctx + RTK): recipes/token-management-lean-ctx-rtk.md
+    - Chrome DevTools MCP agent loop: recipes/chrome-devtools-mcp-agent-loop.md
   - Decisions (ADR):
     - Overview: adr/README.md
     - ADR-0001 — Repo scope: adr/ADR-0001-repo-scope.md
