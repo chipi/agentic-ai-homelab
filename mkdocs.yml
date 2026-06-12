@@ -89,6 +89,7 @@ nav:
     - Overview: history/README.md
     - "0001 — Genesis": history/0001-genesis.md
     - "0002 — Decisions log": history/0002-decisions.md
+    - "0003 — v0.2 arc": history/0003-v0.2-arc.md
 
 extra:
   social:

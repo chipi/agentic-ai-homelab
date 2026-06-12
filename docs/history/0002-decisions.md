@@ -8,6 +8,42 @@ entry (don't edit the original — the trail of reasoning is the value).
 
 ---
 
+## D-0008 — Top-level lift-able mini-projects (provider-bakeoff pattern)
+
+**Date:** 2026-06-12
+**Context:** v0.2 work surfaced a comparison example that grew well past
+the size of an `examples/` skeleton: 10 providers across 4 countries, 2
+tasks, runnable Makefile, project-local `AGENTS.md`, `.env`-driven
+secrets. Operator wanted it framed so it could be lifted into its own
+GitHub project later — clearer namespacing, easier to share.
+**Decision:** Establish a "top-level lift-able mini-project" pattern.
+First instance: `provider-bakeoff/` at the repo root (sibling to `docs/`,
+`infra/`, `templates/`, `examples/`). Each such project:
+- Self-contained: its own `README.md`, `AGENTS.md`, `Makefile`,
+  `requirements.txt`, `.env.example`, `.gitignore`.
+- Project-local `AGENTS.md` layers on the global rules; documents how
+  an agent should run it cold + the `git subtree split` recipe to
+  spin it out.
+- No imports from the parent repo. The parent's narrative docs
+  (`docs/cloud-ai-workflow.md` in this case) reference it; the project
+  itself doesn't need the parent to function.
+**Alternatives:**
+- Keep it under `examples/provider-bakeoff/` — rejected; the polished
+  shape doesn't match the "skeleton" framing of the other example dirs.
+- New top-level `apps/` or `projects/` dir — rejected; over-anticipating
+  a category for what's currently one entry. Lift the category when
+  there are 3+ examples.
+**Consequence:**
+- Root `.gitignore` had to be narrowed: `data/` → `infra/**/data/`
+  (and same for `volumes/`) so mini-projects can have tracked
+  `data/` dirs. Caught when `provider-bakeoff/data/*.jsonl` was
+  silently excluded from the first push.
+- README.md + docs/index.md updated to surface the mini-project as a
+  named sibling of the four pillars, not a 5th pillar (four-pillar
+  structure stands; ADR-0001 unchanged).
+- Future top-level mini-projects follow the same shape: README +
+  AGENTS + Makefile + .env.example + lift instructions in AGENTS.
+
 ## D-0007 — LibreChat removed from scope; Chatbox for mobile if wanted
 
 **Date:** 2026-06-12
