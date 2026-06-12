@@ -1,0 +1,3 @@
+# Minimal — just the Anthropic SDK.
+# Pin to a major.minor range; bump deliberately.
+anthropic>=0.40,<1.0
