@@ -3,11 +3,36 @@
 The self-hosted LLM stack on a single DGX-class box, reached over
 Tailscale.
 
-> **Status: v0.1 partial.** Observability layer is real and templated
-> (`infra/observability/`). vLLM compose template is a placeholder for
-> v0.2.
+> **Status: v0.2.** Both deployables — `infra/vllm/` (hardened
+> coder-next compose) and `infra/observability/` (Alloy stack) — are
+> templated. Operational moves (boot, mode-swap, dashboard) covered by
+> recipes in `docs/recipes/`.
 
-## The stack (target state)
+## Why this shape
+
+Single GPU. Single operator. Tailnet-only access. Three honest constraints,
+and the stack falls out of them:
+
+- **One GPU** → workloads are *mutex*, not concurrent. The coder vLLM and
+  the autoresearch vLLM can't share. Treat that as a feature: the
+  `gpu-mode-swap` recipe makes the toggle explicit instead of
+  whoever-grabbed-it-first chaos.
+- **One operator** → no internal users, no SSO, no auth beyond a single
+  shared `--api-key`. Tailscale handles identity at the network layer.
+  Anything fancier than that is overhead.
+- **Tailnet-only** → no public ingress, no Caddy / nginx / TLS termination
+  to maintain. The only outbound flow is observability → Grafana Cloud
+  (HTTPS, no ACL change).
+
+What's NOT in this pillar (and why):
+- **Self-hosted multi-model chat UIs.** Tried in genesis, dropped after
+  evaluation (D-0007). Chatbox covers the only real use case (phone access
+  to vLLM) with zero deploy cost.
+- **Multi-host orchestration.** This is a homelab repo. One box.
+- **Cloud LLM API patterns.** Different problem, different pillar — see
+  [`cloud-ai-workflow.md`](cloud-ai-workflow.md).
+
+## The stack
 
 ```
 +--------------------------------------------------------------------+
@@ -27,7 +52,7 @@ Tailscale.
 |    vllm-openwebui/              <-- alt model + UI (mutex w/ above)|
 |    grafana-alloy/               <-- observability                  |
 |                                                                    |
-|  Other services already on box:                                    |
+|  Other services already on box (not deployed by this repo):        |
 |    ollama (:11434)              <-- model catalog + smaller models |
 |    pyannote (:8001)             <-- diarization                    |
 |    whisper-openai (:8002)       <-- transcription                  |
@@ -45,7 +70,7 @@ Plus optionally **3000** (Open WebUI), **8080** (cAdvisor UI), **12345**
 
 ## What's in this pillar
 
-### `infra/vllm/` — vLLM compose template *(v0.2)*
+### `infra/vllm/` — vLLM compose template *(v0.2, real)*
 
 Hardened compose for vLLM serving on NVIDIA GB10-class hardware. The
 template captures the decisions from `docs/history/0002-decisions.md`:
@@ -56,9 +81,15 @@ template captures the decisions from `docs/history/0002-decisions.md`:
 - `vllm-cache` mount (avoids CUDA-graph recompile on cold start)
 - `env_file` for `HF_TOKEN` (gated-model support)
 - Tool-call parser configured for Qwen3-Coder family
+  (`--tool-call-parser qwen3_coder` + `--enable-auto-tool-choice`)
 - Log rotation (`50m × 3`)
-- Healthcheck with 10-min start_period
-- Image-bump sibling-file convention (`docker-compose.yml.<newtag>`)
+- Healthcheck with 10-min `start_period` (cold start can take ~5 min
+  on first revision-pull + CUDA-graph compile)
+- Image-bump sibling-file convention (`docker-compose.yml.<newtag>`) —
+  stage an upgrade without touching the live config
+
+See [`infra/vllm/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/README.md)
+for model selection, port + GPU mem tuning, and the image-bump dance.
 
 ### `infra/observability/` — Grafana Alloy stack *(v0.1, real)*
 
@@ -74,9 +105,34 @@ Four containers, all `host` network for trivial localhost scraping:
   required).
 
 Recommended Grafana dashboards: **1860** (node), **12239** (DCGM), **17296**
-(vLLM).
+(vLLM), **893** (cAdvisor).
 
-See `infra/observability/README.md` for setup.
+Boot walkthrough lives in [`recipes/observability-boot.md`](recipes/observability-boot.md);
+config-layer details in
+[`infra/observability/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/observability/README.md).
+
+### Ollama — supporting role *(not deployed by this repo)*
+
+Ollama already runs on the DGX (`:11434`) and stays there. It's not
+deployed by this repo, but Pillar 2 covers it because it shares the GPU
+and shows up in dashboards.
+
+What Ollama is for in this setup:
+
+- **Model catalog** — `ollama pull` is the cheapest way to try a new
+  model without writing a compose.
+- **Smaller models** — Qwen 2.5-7B, Llama 3.2-3B, etc. Anything that
+  doesn't need vLLM's throughput.
+- **Background availability** — when the vLLM coder-next is *down*
+  (mid-swap, image bump, model download), Ollama is the fallback for
+  opencode / Claude Code via OpenAI-compatible API.
+
+What Ollama is *not* for:
+- The coder vLLM workload. Qwen3-Coder-Next-FP8 needs vLLM throughput +
+  tool-call parsing. Ollama lacks the right tool-call schema and saturates
+  the GPU less efficiently.
+- Production-style serving with metrics. Per Level-1 observability
+  decision, Ollama shows up as "model inventory + RAM gauges" only.
 
 ### Mobile access *(out of scope)*
 
@@ -92,13 +148,15 @@ see [`docs/wip/NEXT_STEPS.md`](wip/NEXT_STEPS.md) "Not in scope".
 
 `gpu-memory-utilization=0.92` on vLLM coder-next is "I own the GPU" mode.
 It cannot coexist with:
+
 - The autoresearch vLLM (`infra/dgx/vllm-autoresearch/` in
   podcast_scraper, runs at `gpu-memory-utilization=0.60` on port 8003)
-- Ollama (uses GPU when serving)
-- pyannote / whisper services if they're under load
+- Ollama actively serving a request
+- pyannote / whisper services under load
 
-In practice it's one-or-the-other. The mode-swap helper script (open
-thread, see `docs/wip/NEXT_STEPS.md`) automates the toggle.
+In practice it's one-at-a-time. The toggle is scripted, not muscle
+memory — see [`recipes/gpu-mode-swap.md`](recipes/gpu-mode-swap.md) for
+the three-mode (`code` / `research` / `idle`) script + recipe.
 
 ### Image pinning
 
@@ -106,10 +164,15 @@ All NVIDIA vLLM images are tagged `:25.11-py3`, `:26.05-py3`, etc. Pin
 explicitly — `:latest` will drift and break model-arch compatibility
 unpredictably. The `docker-compose.yml.<newtag>` sibling-file pattern
 lets you stage an upgrade without touching the live config:
+
 1. Copy current → `docker-compose.yml.<oldtag>.bak`
 2. Edit live → new tag
 3. `docker compose up -d`
 4. Validate; revert by `cp` if needed
+
+Full walkthrough in
+[`infra/vllm/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/README.md)
+→ "Image-bump dance".
 
 ### Tailscale ACL
 
@@ -122,13 +185,24 @@ change needed.
 
 ### Disk budget
 
-HF model cache: `/opt/llm-models/huggingface/`. Models:
-- `Qwen/Qwen3-Coder-Next-FP8` — ~75 GB (the working set)
-- `Qwen3.6-35B-A3B` — ~67 GB (autoresearch path)
-- `Qwen2.5-7B-Instruct` — ~14 GB (openwebui demo path)
+HF model cache: `/opt/llm-models/huggingface/`. Working set of models:
 
-Rule: keep FP8 over BF16 of the same model on Blackwell (FP8 is ~1.5-2×
-throughput at <1% quality loss for code).
+| Model | Size | Used by |
+|---|---|---|
+| `Qwen/Qwen3-Coder-Next-FP8` | ~75 GB | coder-next vLLM |
+| `Qwen3.6-35B-A3B` | ~67 GB | autoresearch vLLM (podcast_scraper) |
+| `Qwen2.5-7B-Instruct` | ~14 GB | openwebui demo path |
+
+Rule: prefer FP8 over BF16 of the same model on Blackwell. FP8 is
+~1.5-2× throughput at <1% quality loss for code. Bf16 stays only if
+the model doesn't have an FP8 release.
+
+### CUDA-graph cache
+
+The shared `vllm-cache` volume (`/opt/llm-models/vllm-cache` on host)
+holds compiled CUDA graphs across compose stops/starts. Without it,
+every `docker compose up` pays a 5-10 minute recompile penalty. The
+infra/vllm/ template mounts this by default.
 
 ### Operator terminal dashboard
 
@@ -143,3 +217,14 @@ One-liner to connect:
 ```bash
 mosh <dgx-host>.<your-tailnet>.ts.net -- tmux attach -t dgx
 ```
+
+## Recipes that operate this stack
+
+| Recipe | When |
+|---|---|
+| [DGX terminal dashboard](recipes/dgx-terminal-dashboard.md) | Daily — your `dgx` ⏎ moment |
+| [GPU mode-swap](recipes/gpu-mode-swap.md) | Every time you switch between coder/research/idle |
+| [Observability boot](recipes/observability-boot.md) | Once per DGX rebuild / first install of Grafana Cloud |
+
+The recipes are the operator-facing surface. The compose templates in
+`infra/` are the artifact; the recipes are how you actually use them.

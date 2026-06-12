@@ -1,0 +1,67 @@
+# vLLM coder-next — hardened compose template.
+#
+# Captures the decisions from docs/history/0002-decisions.md and the genesis
+# session (docs/history/0001-genesis.md, Phase 2). Target: serve a coding-
+# class LLM on NVIDIA GB10-class hardware behind an --api-key gate.
+#
+# Default model: Qwen/Qwen3-Coder-Next-FP8.
+#
+# Before first boot:
+#   1. Copy .env.example → .env and fill in HF_TOKEN + VLLM_API_KEY
+#   2. Replace MODEL_REVISION below with a verified-good revision SHA
+#      (after the first successful boot, pin to that snapshot)
+#   3. Pre-create the cache directories on the host (see Quick start in README)
+#
+# Image tag is pinned to :25.11-py3 — the validated build from genesis.
+# To stage an upgrade, copy this file to docker-compose.yml.<newtag>,
+# edit the tag, test, then promote. See README "Image-bump dance".
+
+services:
+  vllm-coder-next:
+    image: nvcr.io/nvidia/vllm:25.11-py3
+    container_name: vllm-coder-next
+    runtime: nvidia
+    network_mode: host
+    ipc: host                                # required for NCCL / large tensor moves
+    env_file:
+      - .env
+    environment:
+      # GB10 Blackwell hot-fix — torch.compile path miscompiles certain ops
+      # on this arch in the 25.11 image; disabling falls back to eager + CUDA-graphs.
+      - VLLM_DISABLE_TORCH_COMPILE=1
+      # Keep HF cache + vLLM cache out of the container layer.
+      - HF_HOME=/opt/llm-models/huggingface
+      - VLLM_CACHE_ROOT=/opt/llm-models/vllm-cache
+    volumes:
+      - /opt/llm-models/huggingface:/opt/llm-models/huggingface
+      - /opt/llm-models/vllm-cache:/opt/llm-models/vllm-cache
+    command:
+      - --model=Qwen/Qwen3-Coder-Next-FP8
+      # Pin the revision after first verified boot. The SHA on disk = the
+      # validated build; substitute your own.
+      - --revision=MODEL_REVISION_PLACEHOLDER
+      - --host=0.0.0.0
+      - --port=9000
+      - --api-key=${VLLM_API_KEY}
+      # Tool-call wiring — Qwen3-Coder family parser + auto choice.
+      - --enable-auto-tool-choice
+      - --tool-call-parser=qwen3_coder
+      # GPU budget — 0.92 = "I own the GPU" mode. Coexist with nothing on
+      # this card. See gpu-mode-swap recipe.
+      - --gpu-memory-utilization=0.92
+      # Context window. Tune down to free KV-cache memory if needed.
+      - --max-model-len=131072
+      - --served-model-name=coder-next
+    healthcheck:
+      # vLLM exposes /health once warm — that's the readiness signal.
+      # start_period: cold start (first revision pull + CUDA-graph compile)
+      # can take 5-10 minutes; don't let the healthcheck restart-loop it.
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10m
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
+    restart: unless-stopped
