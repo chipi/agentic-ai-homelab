@@ -28,8 +28,8 @@ This repo covers FOUR pillars, no more, no less:
    ADR/RFC conventions, docs/wip/ pattern, layered Makefile gates, PR
    template.
 2. **Local AI infrastructure** — self-hosted LLM stack templates. Hardened
-   vLLM compose, observability (Alloy → Grafana Cloud), mobile access
-   (LibreChat).
+   vLLM compose, Ollama for catalog + smaller models, observability
+   (Alloy → Grafana Cloud).
 3. **Cloud AI workflow** — patterns for Claude API / OpenAI / Gemini:
    prompt caching, batch API, multi-provider routing, eval harness, cost
    gates.

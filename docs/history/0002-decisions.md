@@ -44,11 +44,12 @@ is maintained in this repo.
 - `docs/history/0001-genesis.md` Phase 5 description preserved unchanged
   per append-only history convention — that's the record of what was
   tried.
-- `docs/adr/ADR-0001-repo-scope.md` Pillar 2 description still mentions
-  "mobile access (LibreChat)" — preserved per ADR convention
-  ("supersede with a new ADR" if the high-level repo scope itself needs
-  re-stating). Not warranted for this narrow component drop; the
-  four-pillar structure is unchanged.
+- `docs/adr/ADR-0001-repo-scope.md` Pillar 2 description: operator
+  directed a complete removal of LibreChat from forward-looking docs
+  including the ADR. The line "mobile access (LibreChat)" was rewritten
+  to "Ollama for catalog + smaller models" — narrow component swap, not
+  a supersession. The four-pillar structure is unchanged; no ADR-0002
+  needed.
 
 ## D-0006 — Single global AGENTS.md, projects layer on top
 
