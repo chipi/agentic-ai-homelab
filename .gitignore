@@ -32,9 +32,10 @@ secrets/
 *.bak
 *.bak.*
 
-# Local data / volumes (when running infra/ compose stacks locally)
-data/
-volumes/
+# Local data / volumes (only under infra/* compose stacks; other dirs may
+# have legitimate tracked data/ — e.g. provider-bakeoff/data/).
+infra/**/data/
+infra/**/volumes/
 *.local.yml
 
 # Build artifacts
