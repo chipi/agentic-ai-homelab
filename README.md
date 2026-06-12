@@ -34,8 +34,7 @@ start if you (or a future agent session) need full context.
 │   └── opencode/             — drop into ~/.config/opencode/
 ├── infra/
 │   ├── vllm/                 — vLLM compose templates (hardened)
-│   ├── observability/        — Grafana Alloy + DCGM + cAdvisor + Ollama metrics
-│   └── librechat/            — LibreChat slim self-hosted deploy
+│   └── observability/        — Grafana Alloy + DCGM + cAdvisor + Ollama metrics
 └── examples/                 — small concrete code samples (cloud + local)
 ```
 
@@ -43,8 +42,8 @@ start if you (or a future agent session) need full context.
 
 1. **Project setup** — how I scaffold a new repo. AGENTS.md template, ADR
    convention, docs/wip/ pattern, layered Makefile gates, PR template.
-2. **Local AI infra** — DGX homelab stack: hardened vLLM compose, observability
-   layer (Alloy → Grafana Cloud), mobile access via LibreChat.
+2. **Local AI infra** — DGX homelab stack: hardened vLLM compose, Ollama
+   for catalog + smaller models, observability layer (Alloy → Grafana Cloud).
 3. **Cloud AI workflow** — patterns for Claude API, OpenAI, Gemini: prompt
    caching, batch API, multi-provider routing, eval harnesses, cost gates.
 4. **Agent harnesses** — the connective tissue. Global AGENTS.md, opencode

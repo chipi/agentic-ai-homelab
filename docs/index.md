@@ -21,8 +21,8 @@ deploy (with secrets stripped). Take what's useful, leave the rest.
    template, ADR convention, `docs/wip/` pattern, layered Makefile gates,
    PR template.
 2. [**Local AI infra**](local-ai-infra.md) — DGX homelab stack: hardened vLLM
-   compose, observability layer (Alloy → Grafana Cloud), mobile access via
-   LibreChat.
+   compose, Ollama for catalog + smaller models, observability layer
+   (Alloy → Grafana Cloud).
 3. [**Cloud AI workflow**](cloud-ai-workflow.md) — patterns for Claude,
    OpenAI, Gemini APIs: prompt caching, batch API, multi-provider routing,
    eval harnesses, cost gates.

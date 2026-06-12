@@ -50,7 +50,7 @@ The agent landscape changes fast. Today:
 | **Claude Code** (CLI) | Most polished agentic harness. Best for "do significant work, verify, ship" sessions. | The bulk of project work. |
 | **opencode** (CLI) | Local-model-first; great with vLLM. | Quick interactive sessions where I want zero cloud cost or zero latency. |
 | **Cursor** (IDE) | In-editor "edit this file" + chat. | Less now that Claude Code in terminal is better. Occasional. |
-| **LibreChat** (web) | Multi-model chat with light tool use. Mobile-friendly. | Casual chat / phone access. |
+| **Chatbox** (mobile / desktop) | OpenAI-compatible client, no deploy. | Phone access to local vLLM or any cloud provider. |
 
 This is a snapshot. Update when the picture changes.
 

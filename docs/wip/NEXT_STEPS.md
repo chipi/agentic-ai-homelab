@@ -104,21 +104,6 @@ Thinnest pillar; most of this is to-be-authored, not extracted.
       Or roll always at HEAD with the README's "Status" line being the
       truth? Lean toward the latter for a personal config repo.
 
-## Under evaluation (not committed)
-
-These were stood up in the genesis session but pulled from the active
-work list pending hands-on usefulness check. Reinstate by moving back
-into the relevant section.
-
-- **LibreChat self-hosted web UI** (was: mobile access, MCP-aware chat,
-  RAG-friendly). Stack is already templated in `infra/librechat/` and
-  documented in `docs/local-ai-infra.md` — but the operator wants to
-  play with it live before committing to maintain the compose / docs /
-  ACL hole long-term. If retained → re-add `infra/librechat/` + ACL
-  :3080 items above. If dropped → tear out the related sections from
-  `local-ai-infra.md` and add a brief "see Chatbox if you want mobile"
-  line.
-
 ## What's deliberately NOT in scope
 
 Per ADR-0001 — for context if anyone asks why something isn't here.
@@ -129,7 +114,8 @@ Per ADR-0001 — for context if anyone asks why something isn't here.
   ADR.
 - Cloud-deployed agentic services (Lambda, Cloud Run, Functions). This
   is a homelab repo.
-- Mobile-native apps (custom iOS / Android dev). If mobile access ends
-  up wanted post-evaluation, Chatbox (OpenAI-compatible client, no
-  deploy) is the lightweight path; LibreChat (currently "under
-  evaluation") is the richer alternative.
+- **Self-hosted multi-model chat UIs as deploy targets.** Tried in
+  genesis, pulled out (see `docs/history/0002-decisions.md` D-0007).
+  Phone access to the local vLLM is via Chatbox (OpenAI-compatible
+  client, no deploy) — see `docs/agent-harnesses.md`.
+- Mobile-native apps (custom iOS / Android dev).

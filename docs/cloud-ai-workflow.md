@@ -64,7 +64,7 @@ both.
 
 When the agent needs to *do* things (read files, search code, run shell)
 rather than just reason about them. FastMCP + my project tools wired
-into opencode / Claude Code / LibreChat.
+into opencode / Claude Code.
 
 → `examples/mcp-tool-template/`
 

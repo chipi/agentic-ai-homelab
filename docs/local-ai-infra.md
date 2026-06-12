@@ -4,8 +4,8 @@ The self-hosted LLM stack on a single DGX-class box, reached over
 Tailscale.
 
 > **Status: v0.1 partial.** Observability layer is real and templated
-> (`infra/observability/`). vLLM and LibreChat composes are placeholders
-> for v0.2.
+> (`infra/observability/`). vLLM compose template is a placeholder for
+> v0.2.
 
 ## The stack (target state)
 
@@ -14,7 +14,6 @@ Tailscale.
 |  Tailnet (encrypted transport, ACL'd ports)                        |
 |                                                                    |
 |  laptop  --opencode-->                              :9000  vLLM    |
-|  phone   --LibreChat web-->                         :3080  Lib     |
 |  phone   --Chatbox/OpenAI-compat-->                 :9000  vLLM    |
 |                                                                    |
 +--------------------------------------------------------------------+
@@ -27,7 +26,6 @@ Tailscale.
 |    vllm-Qwen3-Coder-Next/      <-- the coding LLM (port 9000)      |
 |    vllm-openwebui/              <-- alt model + UI (mutex w/ above)|
 |    grafana-alloy/               <-- observability                  |
-|    librechat/                   <-- mobile-friendly multi-model UI |
 |                                                                    |
 |  Other services already on box:                                    |
 |    ollama (:11434)              <-- model catalog + smaller models |
@@ -42,7 +40,6 @@ Tailscale.
 ```
 
 Single FW port to remember: **9000** (vLLM coding model).
-Plus **3080** if mobile via LibreChat is enabled.
 Plus optionally **3000** (Open WebUI), **8080** (cAdvisor UI), **12345**
 (Alloy admin UI) if local browsing is wanted (none required).
 
@@ -81,14 +78,13 @@ Recommended Grafana dashboards: **1860** (node), **12239** (DCGM), **17296**
 
 See `infra/observability/README.md` for setup.
 
-### `infra/librechat/` — LibreChat slim deploy *(v0.2)*
+### Mobile access *(out of scope)*
 
-3-container deploy: `api + mongodb + meilisearch`. Skips nginx (tailnet
-handles encryption) and RAG containers (deferred).
-
-Pre-wires vLLM coder-next as a custom endpoint via `librechat.yaml`.
-Optional RAG / MCP / multi-provider additions documented in
-`infra/librechat/README.md` (v0.2).
+No self-hosted UI in this pillar. If phone access to the local vLLM is
+wanted, **Chatbox** (OpenAI-compatible client, mobile app, no deploy)
+points at `http://<dgx-host>.<your-tailnet>.ts.net:9000` and works
+directly. Anything richer (multi-model chat, RAG, MCP) is out of scope —
+see [`docs/wip/NEXT_STEPS.md`](wip/NEXT_STEPS.md) "Not in scope".
 
 ## Operational notes
 
@@ -118,7 +114,6 @@ lets you stage an upgrade without touching the live config:
 ### Tailscale ACL
 
 Only inbound port that needs an ACL hole: **9000** (vLLM).
-Optionally **3080** (LibreChat web).
 Also **UDP 60000-61000** if mosh is used for the operator session (see
 [`recipes/dgx-terminal-dashboard.md`](recipes/dgx-terminal-dashboard.md)).
 

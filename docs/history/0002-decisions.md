@@ -8,6 +8,48 @@ entry (don't edit the original — the trail of reasoning is the value).
 
 ---
 
+## D-0007 — LibreChat removed from scope; Chatbox for mobile if wanted
+
+**Date:** 2026-06-12
+**Supersedes:** D-0005 (LibreChat over Open WebUI for mobile).
+**Context:** Genesis-session decision D-0005 picked LibreChat as the
+mobile / multi-model chat UI. Stack was deployed and templated. After
+the v0.2 work landed (docs site, recipes, project-setup templates), the
+operator wanted hands-on time with LibreChat before committing to
+maintain the compose + docs + ACL hole long-term. That evaluation
+concluded LibreChat doesn't earn its keep relative to the simpler
+Chatbox path (OpenAI-compatible client, no deploy, no maintenance).
+**Decision:** Remove LibreChat entirely from Pillar 2 scope. Mobile /
+phone access to the local vLLM, if wanted, is via **Chatbox** pointed at
+`http://<dgx-host>.<your-tailnet>.ts.net:9000`. No self-hosted chat UI
+is maintained in this repo.
+**Alternatives:**
+- Keep LibreChat templated but mark "experimental" — rejected; either
+  the maintenance cost is justified or it's not, and "experimental"
+  durably rots.
+- Switch to Open WebUI as the mobile path — rejected; same trade-off,
+  same conclusion.
+- Keep no mobile story at all — rejected; Chatbox is zero-cost to mention
+  and genuinely useful for the cases that come up.
+**Consequence:**
+- `infra/librechat/` directory removed.
+- `docs/local-ai-infra.md` no longer documents LibreChat (stack diagram,
+  port list, subsection, ACL note all stripped).
+- `docs/cloud-ai-workflow.md`, `docs/agent-harnesses.md`, `README.md`,
+  `docs/index.md` no longer mention LibreChat in forward-looking sections.
+- `docs/wip/NEXT_STEPS.md` adds "self-hosted multi-model chat UIs" to
+  the deliberately-not-in-scope list.
+- Tailscale ACL :3080 entry can be removed from the operator's tailnet
+  ACL when they next touch it.
+- `docs/history/0001-genesis.md` Phase 5 description preserved unchanged
+  per append-only history convention — that's the record of what was
+  tried.
+- `docs/adr/ADR-0001-repo-scope.md` Pillar 2 description still mentions
+  "mobile access (LibreChat)" — preserved per ADR convention
+  ("supersede with a new ADR" if the high-level repo scope itself needs
+  re-stating). Not warranted for this narrow component drop; the
+  four-pillar structure is unchanged.
+
 ## D-0006 — Single global AGENTS.md, projects layer on top
 
 **Date:** 2026-06-11
