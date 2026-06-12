@@ -1,0 +1,93 @@
+# Bootstrap checklist before first build (find-and-replace in this file
+# and elsewhere in the template):
+#   <project-name>         e.g. my-project
+#   <owner>                e.g. chipi
+#   <project-description>  one-line description
+#
+# Or run:
+#   find . -type f \( -name '*.md' -o -name '*.yml' -o -name 'Makefile' \) \
+#     -exec sed -i '' \
+#       -e 's|<project-name>|my-project|g' \
+#       -e 's|<owner>|chipi|g' \
+#       -e 's|<project-description>|My new project|g' {} \;
+
+site_name: <project-name>
+site_description: <project-description>
+site_url: https://<owner>.github.io/<project-name>/
+site_author: <owner>
+
+repo_name: <owner>/<project-name>
+repo_url: https://github.com/<owner>/<project-name>
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Decisions (ADR):
+    - Overview: adr/README.md
+  - Proposals (RFC):
+    - Overview: rfc/README.md
+  - In progress:
+    - Overview: wip/README.md
+  - History:
+    - Overview: history/README.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/<owner>/<project-name>

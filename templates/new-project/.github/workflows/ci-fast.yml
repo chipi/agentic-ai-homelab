@@ -1,0 +1,47 @@
+# Fast feedback CI — what every push must pass.
+#
+# Language-neutral skeleton. Fill in the `setup` step (Python/Node/Go/etc.)
+# and let `make ci-fast` orchestrate the actual gates from the Makefile.
+# Per global AGENTS.md #3: red on this is "fix until green", not advice.
+
+name: ci-fast
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-fast-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci-fast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---- Language setup — pick one and delete the rest ----------------
+      # Python:
+      # - uses: actions/setup-python@v5
+      #   with:
+      #     python-version: '3.12'
+      #     cache: pip
+      # - run: pip install -r requirements-dev.txt
+      #
+      # Node:
+      # - uses: actions/setup-node@v4
+      #   with:
+      #     node-version: '20'
+      #     cache: npm
+      # - run: npm ci
+      #
+      # Go:
+      # - uses: actions/setup-go@v5
+      #   with:
+      #     go-version: '1.22'
+      # - run: go mod download
+
+      - name: Run ci-fast
+        run: make ci-fast
