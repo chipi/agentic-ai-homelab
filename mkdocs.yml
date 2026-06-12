@@ -73,6 +73,8 @@ nav:
     - Agent harnesses: agent-harnesses.md
   - Recipes:
     - DGX terminal dashboard: recipes/dgx-terminal-dashboard.md
+    - GPU mode-swap: recipes/gpu-mode-swap.md
+    - Observability boot: recipes/observability-boot.md
   - Decisions (ADR):
     - Overview: adr/README.md
     - ADR-0001 — Repo scope: adr/ADR-0001-repo-scope.md
