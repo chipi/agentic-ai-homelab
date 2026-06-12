@@ -13,7 +13,10 @@ services:
       - /opt/llm-models/huggingface:/root/.cache/huggingface
       - /opt/llm-models/vllm-cache:/root/.cache/vllm
     env_file:
-      - .env
+      # Repo-root master .env (HF_TOKEN + VLLM_API_KEY + everything else).
+      # Container ends up with extra env vars it doesn't use (provider keys,
+      # observability creds) — harmless for a personal homelab.
+      - ../../../.env
     environment:
       - HF_HOME=/root/.cache/huggingface
       - HF_HUB_CACHE=/root/.cache/huggingface

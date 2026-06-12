@@ -38,9 +38,17 @@ infra/vllm/
   instances of the template, customized for actual use on the DGX. Their
   composes have stack-specific values (model name, port, gpu-memory-
   utilization budget) baked in; they're not meant to be cp'd.
-- Per-stack `.env` files sit next to each `docker-compose.yml` and are
-  gitignored. Operator-master sheet (cross-stack secrets reference) lives
-  at the repo root `.env` on the operator's deploy.
+- **`.env` location differs by intent.**
+  - `template/docker-compose.yml` uses `env_file: .env` (sibling) — so
+    when someone copies `template/` to a new dir, they drop a `.env`
+    alongside and it just works.
+  - `coder-next/docker-compose.yml` and `openwebui/docker-compose.yml`
+    use `env_file: ../../../.env` — they read the **repo-root master
+    `.env`** directly (which already aggregates HF_TOKEN + VLLM_API_KEY
+    + everything else). No per-deploy `.env` files; one source of truth.
+    Slight leakiness — the vLLM container sees env vars it doesn't use
+    (provider API keys, observability creds) — but harmless for a
+    personal homelab.
 
 ## Image-bump pattern
 
