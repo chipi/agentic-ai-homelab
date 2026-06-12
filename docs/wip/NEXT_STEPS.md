@@ -20,7 +20,6 @@ Landed since v0.1 (not yet promoted to a pillar narrative):
 
 These were surfaced in the session that produced v0.1 but not closed:
 
-- [ ] Open Tailscale ACL on port 3080 → live-test LibreChat from mobile.
 - [ ] Fill in `~/docker-compose/grafana-alloy/.env` with Grafana Cloud
       creds → `docker compose up -d` → verify in Grafana Cloud Explore.
       *Recipe drafted: [`recipes/observability-boot.md`](../recipes/observability-boot.md) —
@@ -65,13 +64,8 @@ Observability is in already (`infra/observability/`). Still missing:
       log rotation, healthcheck). Templated for substitution.
 - [ ] `infra/vllm/README.md` — model selection, port + GPU mem tuning,
       mode-swap pattern, image-bump sibling-file convention.
-- [ ] `infra/librechat/` — copy LibreChat slim compose + sanitized
-      `librechat.yaml` template + `.env.example` with generated-secret
-      placeholders.
-- [ ] `infra/librechat/README.md` — registration flow, lockdown after
-      first user, optional add-ons (RAG, MCP, multi-provider).
 - [ ] `docs/local-ai-infra.md` filled in — the operator narrative across
-      vLLM + observability + LibreChat as a cohesive stack.
+      vLLM + observability + Ollama as a cohesive stack.
 
 ## v0.3 — Pillar 3 (cloud AI workflow)
 
@@ -110,6 +104,21 @@ Thinnest pillar; most of this is to-be-authored, not extracted.
       Or roll always at HEAD with the README's "Status" line being the
       truth? Lean toward the latter for a personal config repo.
 
+## Under evaluation (not committed)
+
+These were stood up in the genesis session but pulled from the active
+work list pending hands-on usefulness check. Reinstate by moving back
+into the relevant section.
+
+- **LibreChat self-hosted web UI** (was: mobile access, MCP-aware chat,
+  RAG-friendly). Stack is already templated in `infra/librechat/` and
+  documented in `docs/local-ai-infra.md` — but the operator wants to
+  play with it live before committing to maintain the compose / docs /
+  ACL hole long-term. If retained → re-add `infra/librechat/` + ACL
+  :3080 items above. If dropped → tear out the related sections from
+  `local-ai-infra.md` and add a brief "see Chatbox if you want mobile"
+  line.
+
 ## What's deliberately NOT in scope
 
 Per ADR-0001 — for context if anyone asks why something isn't here.
@@ -120,5 +129,7 @@ Per ADR-0001 — for context if anyone asks why something isn't here.
   ADR.
 - Cloud-deployed agentic services (Lambda, Cloud Run, Functions). This
   is a homelab repo.
-- Mobile-native apps (custom iOS / Android dev). Mobile access is via
-  Chatbox + LibreChat web UI per D-0005.
+- Mobile-native apps (custom iOS / Android dev). If mobile access ends
+  up wanted post-evaluation, Chatbox (OpenAI-compatible client, no
+  deploy) is the lightweight path; LibreChat (currently "under
+  evaluation") is the richer alternative.
