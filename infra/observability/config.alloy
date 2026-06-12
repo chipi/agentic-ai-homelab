@@ -18,7 +18,7 @@ prometheus.scrape "host" {
 
 // ---------- GPU: NVIDIA DCGM ----------
 prometheus.scrape "dcgm" {
-  targets         = [{ __address__ = "localhost:9400", instance = "homelab-1" }]
+  targets         = [{ __address__ = "localhost:9400", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
   job_name        = "dcgm"
   scrape_interval = "15s"
@@ -26,7 +26,7 @@ prometheus.scrape "dcgm" {
 
 // ---------- CONTAINERS: cAdvisor ----------
 prometheus.scrape "cadvisor" {
-  targets         = [{ __address__ = "localhost:8080", instance = "homelab-1" }]
+  targets         = [{ __address__ = "localhost:8080", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
   job_name        = "cadvisor"
   scrape_interval = "30s"
@@ -36,7 +36,7 @@ prometheus.scrape "cadvisor" {
 // vLLM exposes Prometheus metrics natively at /metrics. model_name label is set
 // per-metric so dashboards can split by model.
 prometheus.scrape "vllm" {
-  targets         = [{ __address__ = "localhost:9000", instance = "homelab-1" }]
+  targets         = [{ __address__ = "localhost:9000", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
   job_name        = "vllm"
   scrape_interval = "15s"
@@ -46,7 +46,7 @@ prometheus.scrape "vllm" {
 // Level 1 (passive) — exporter polls /api/ps independently. Returns model
 // inventory + RAM metrics without any client retargeting.
 prometheus.scrape "ollama" {
-  targets         = [{ __address__ = "localhost:9778", instance = "homelab-1" }]
+  targets         = [{ __address__ = "localhost:9778", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
   job_name        = "ollama"
   scrape_interval = "15s"
@@ -55,7 +55,7 @@ prometheus.scrape "ollama" {
 // ---------- Optional: secondary vLLM (e.g., autoresearch eval) on port 8003 ----------
 // Uncomment if running a second vLLM compose for sweeps / evals.
 // prometheus.scrape "vllm_secondary" {
-//   targets         = [{ __address__ = "localhost:8003", instance = "homelab-1" }]
+//   targets         = [{ __address__ = "localhost:8003", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
 //   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
 //   job_name        = "vllm-secondary"
 //   scrape_interval = "15s"
@@ -65,8 +65,8 @@ prometheus.scrape "ollama" {
 // Uncomment + adjust ports/services after wiring prometheus_client into your app.
 // prometheus.scrape "fastapi" {
 //   targets = [
-//     { __address__ = "localhost:8001", instance = "homelab-1", service = "service-a" },
-//     { __address__ = "localhost:8002", instance = "homelab-1", service = "service-b" },
+//     { __address__ = "localhost:8001", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "service-a" },
+//     { __address__ = "localhost:8002", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "service-b" },
 //   ]
 //   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
 //   job_name        = "fastapi"
@@ -81,5 +81,11 @@ prometheus.remote_write "grafana_cloud" {
       username = sys.env("GRAFANA_CLOUD_PROM_USERNAME")
       password = sys.env("GRAFANA_CLOUD_PROM_API_KEY")
     }
+  }
+
+  // Logical group label, set per-deploy via .env (HOMELAB_CLUSTER).
+  // Useful when multiple stacks push to the same Grafana Cloud endpoint.
+  external_labels = {
+    cluster = coalesce(sys.env("HOMELAB_CLUSTER"), "default"),
   }
 }
