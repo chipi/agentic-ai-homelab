@@ -3,10 +3,10 @@
 The self-hosted LLM stack on a single DGX-class box, reached over
 Tailscale.
 
-> **Status: v0.2.** Both deployables — `infra/vllm/` (hardened
-> coder-next compose) and `infra/observability/` (Alloy stack) — are
-> templated. Operational moves (boot, mode-swap, dashboard) covered by
-> recipes in `docs/recipes/`.
+> **Status: v0.2.** Both deployables — `infra/vllm/` (template + two
+> operator deploys: coder-next and openwebui) and `infra/observability/`
+> (Alloy stack) — are real. Operational moves (boot, mode-swap, dashboard)
+> covered by recipes in `docs/recipes/`.
 
 ## Why this shape
 
@@ -70,10 +70,19 @@ Plus optionally **3000** (Open WebUI), **8080** (cAdvisor UI), **12345**
 
 ## What's in this pillar
 
-### `infra/vllm/` — vLLM compose template *(v0.2, real)*
+### `infra/vllm/` — template + operator deploys *(v0.2, real)*
 
-Hardened compose for vLLM serving on NVIDIA GB10-class hardware. The
-template captures the decisions from `docs/history/0002-decisions.md`:
+Three subdirs:
+
+- **`template/`** — the canonical hardened compose for vLLM serving on
+  NVIDIA GB10-class hardware. Copy this when standing up a new stack.
+- **`coder-next/`** — the operator's daily-driver deploy
+  (`Qwen3-Coder-Next-FP8` on port 9000) + the image-bump sibling
+  (`.26.05-py3`).
+- **`openwebui/`** — alt path: Qwen 2.5-7B served via vLLM behind Open
+  WebUI on port 3000. Mutex with `coder-next` at runtime (same GPU).
+
+The template captures the decisions from `docs/history/0002-decisions.md`:
 
 - `--api-key` enabled (`buddy-is-the-king` placeholder — change it)
 - `--revision <sha>` pinned to known-good model snapshot
@@ -88,7 +97,7 @@ template captures the decisions from `docs/history/0002-decisions.md`:
 - Image-bump sibling-file convention (`docker-compose.yml.<newtag>`) —
   stage an upgrade without touching the live config
 
-See [`infra/vllm/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/README.md)
+See [`infra/vllm/template/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/template/README.md)
 for model selection, port + GPU mem tuning, and the image-bump dance.
 
 ### `infra/observability/` — Grafana Alloy stack *(v0.1, real)*
@@ -171,7 +180,7 @@ lets you stage an upgrade without touching the live config:
 4. Validate; revert by `cp` if needed
 
 Full walkthrough in
-[`infra/vllm/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/README.md)
+[`infra/vllm/template/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/template/README.md)
 → "Image-bump dance".
 
 ### Tailscale ACL
@@ -202,7 +211,7 @@ the model doesn't have an FP8 release.
 The shared `vllm-cache` volume (`/opt/llm-models/vllm-cache` on host)
 holds compiled CUDA graphs across compose stops/starts. Without it,
 every `docker compose up` pays a 5-10 minute recompile penalty. The
-infra/vllm/ template mounts this by default.
+infra/vllm/template/ mounts this by default.
 
 ### Operator terminal dashboard
 

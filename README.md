@@ -64,7 +64,7 @@ the four pillars to real.
    for catalog + smaller models, observability layer (Alloy → Grafana
    Cloud). Three recipes (terminal dashboard, GPU mode-swap,
    observability boot) cover daily operation.
-   → [Pillar 2](docs/local-ai-infra.md) · `infra/vllm/` + `infra/observability/`
+   → [Pillar 2](docs/local-ai-infra.md) · `infra/vllm/{template,coder-next,openwebui}/` + `infra/observability/`
 3. **Cloud AI workflow** — patterns for Claude API, OpenAI, Gemini:
    prompt caching as discipline, batch API, multi-provider routing, eval
    harnesses, cost gates.
@@ -104,7 +104,7 @@ blog post.
   then sed-substitute the placeholders (`<project-name>`, `<owner>`,
   `<project-description>`).
 - **Setting up the homelab stack**: start with [`docs/recipes/observability-boot.md`](docs/recipes/observability-boot.md)
-  (lightest deploy, zero ACL change) → then [`infra/vllm/README.md`](infra/vllm/README.md)
+  (lightest deploy, zero ACL change) → then [`infra/vllm/`](infra/vllm/README.md) (template + the operator's two deploys)
   → then the operator tools per [`docs/recipes/dgx-terminal-dashboard.md`](docs/recipes/dgx-terminal-dashboard.md).
 - **Comparing LLM providers**: `provider-bakeoff/` (see above).
 - **Resuming after a break**: [`docs/history/`](docs/history/) is the

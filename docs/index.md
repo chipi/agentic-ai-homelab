@@ -27,10 +27,10 @@ deploy (with secrets stripped). Take what's useful, leave the rest.
 1. [**Project setup**](project-setup.md) — `templates/new-project/` is
    bootstrap-ready: AGENTS.md layered on global, layered Makefile gates,
    GH Pages docs site workflow, pre-commit baseline, PR template.
-2. [**Local AI infra**](local-ai-infra.md) — hardened vLLM compose
-   (`infra/vllm/`), Grafana Alloy observability stack
-   (`infra/observability/`), Ollama supporting role, three recipes for
-   daily ops.
+2. [**Local AI infra**](local-ai-infra.md) — hardened vLLM template +
+   operator deploys (`infra/vllm/{template,coder-next,openwebui}/`),
+   Grafana Alloy observability stack (`infra/observability/`), Ollama
+   supporting role, three recipes for daily ops.
 3. [**Cloud AI workflow**](cloud-ai-workflow.md) — prompt-caching
    discipline, cost gates, three example skeletons
    (`claude-api-with-caching/`, `mcp-tool-template/`, `eval-harness/`).
