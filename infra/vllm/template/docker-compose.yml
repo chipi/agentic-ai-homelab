@@ -29,20 +29,22 @@ services:
       # GB10 Blackwell hot-fix — torch.compile path miscompiles certain ops
       # on this arch in the 25.11 image; disabling falls back to eager + CUDA-graphs.
       - VLLM_DISABLE_TORCH_COMPILE=1
-      # Keep HF cache + vLLM cache out of the container layer.
-      - HF_HOME=/opt/llm-models/huggingface
-      - VLLM_CACHE_ROOT=/opt/llm-models/vllm-cache
+      # Keep HF cache + vLLM cache out of the container layer. Container-side
+      # path equals host-side path so model references that include the path
+      # (e.g., manifests) resolve identically inside and out.
+      - HF_HOME=${HF_HOME:-/opt/llm-models/huggingface}
+      - VLLM_CACHE_ROOT=${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
     volumes:
-      - /opt/llm-models/huggingface:/opt/llm-models/huggingface
-      - /opt/llm-models/vllm-cache:/opt/llm-models/vllm-cache
+      - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
+      - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
     command:
       - --model=Qwen/Qwen3-Coder-Next-FP8
       # Pin the revision after first verified boot. The SHA on disk = the
       # validated build; substitute your own.
       - --revision=MODEL_REVISION_PLACEHOLDER
       - --host=0.0.0.0
-      - --port=9000
-      - --api-key=${VLLM_API_KEY}
+      - --port=${VLLM_PORT:-9000}
+      - --api-key=${VLLM_API_KEY:-buddy-is-the-king}
       # Tool-call wiring — Qwen3-Coder family parser + auto choice.
       - --enable-auto-tool-choice
       - --tool-call-parser=qwen3_coder
@@ -56,7 +58,7 @@ services:
       # vLLM exposes /health once warm — that's the readiness signal.
       # start_period: cold start (first revision pull + CUDA-graph compile)
       # can take 5-10 minutes; don't let the healthcheck restart-loop it.
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${VLLM_PORT:-9000}/health"]
       interval: 30s
       timeout: 5s
       retries: 3

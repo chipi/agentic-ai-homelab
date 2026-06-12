@@ -50,6 +50,33 @@ infra/vllm/
     (provider API keys, observability creds) — but harmless for a
     personal homelab.
 
+## Rule of the game for this folder
+
+Every operational value that could reasonably change between deploys is
+wired via `${VAR:-default}` substitution. The compose works with no `.env`
+at all (defaults kick in); setting the var in master `.env` overrides.
+
+Currently substitutable (master sets, compose defaults match operator's
+DGX values):
+
+| Var | What it controls | Default |
+|---|---|---|
+| `HF_TOKEN` | HuggingFace token for gated model downloads | (none — required for gated models) |
+| `VLLM_API_KEY` | vLLM `--api-key` + open-webui's `OPENAI_API_KEY` | `buddy-is-the-king` |
+| `HF_HOME` | Host path for HF cache (volume mount source) | `/opt/llm-models/huggingface` |
+| `VLLM_CACHE_PATH` | Host path for vLLM CUDA-graph cache | `/opt/llm-models/vllm-cache` |
+| `VLLM_PORT` | vLLM listening port (host + container side) | `9000` |
+| `OPENWEBUI_PORT` | Open WebUI port (openwebui deploy only) | `3000` |
+
+Rotation procedure for any of these: edit master `.env` → `docker compose
+up -d` from the deploy dir. No compose edits required.
+
+> For substitution to actually pick up master values when running compose
+> from a deploy dir, use `docker compose --env-file ../../../.env up -d`.
+> Without the flag, compose falls back to the in-file defaults (which are
+> wired to match the operator's DGX values, so the result is the same
+> today — but rotation only takes effect via the flag).
+
 ## Image-bump pattern
 
 `coder-next/docker-compose.yml.26.05-py3` is a sibling-file stage of an

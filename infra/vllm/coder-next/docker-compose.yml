@@ -8,10 +8,10 @@ services:
       stack: 67108864
     ipc: host
     ports:
-      - "9000:9000"
+      - "${VLLM_PORT:-9000}:9000"
     volumes:
-      - /opt/llm-models/huggingface:/root/.cache/huggingface
-      - /opt/llm-models/vllm-cache:/root/.cache/vllm
+      - ${HF_HOME:-/opt/llm-models/huggingface}:/root/.cache/huggingface
+      - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:/root/.cache/vllm
     env_file:
       # Repo-root master .env (HF_TOKEN + VLLM_API_KEY + everything else).
       # Container ends up with extra env vars it doesn't use (provider keys,
@@ -42,9 +42,9 @@ services:
       - --tool-call-parser
       - qwen3_coder
       - --api-key
-      - buddy-is-the-king
+      - ${VLLM_API_KEY:-buddy-is-the-king}
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen(\"http://localhost:9000/health\")"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen(\"http://localhost:${VLLM_PORT:-9000}/health\")"]
       interval: 30s
       timeout: 10s
       retries: 30
