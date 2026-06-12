@@ -7,20 +7,31 @@
 Status as of v0.1 scaffold: most pillars are placeholders. The phased
 landing plan from ADR-0001 is what drives ordering.
 
+Landed since v0.1 (not yet promoted to a pillar narrative):
+
+- [x] First commit (`b9fb56f v0.1 scaffold`).
+- [x] LICENSE chosen + committed (MIT).
+- [x] Docs site pipeline: MkDocs Material + Makefile (`docs-*` targets) +
+      GH Pages publish workflow. Site at
+      <https://chipi.github.io/agentic-ai-homelab/>.
+- [x] DGX terminal dashboard recipe templated + moved to `docs/recipes/`.
+
 ## Immediately open (from genesis session)
 
 These were surfaced in the session that produced v0.1 but not closed:
 
-- [ ] First commit shape decided + made (no commits in scaffolded repo yet).
 - [ ] Open Tailscale ACL on port 3080 → live-test LibreChat from mobile.
 - [ ] Fill in `~/docker-compose/grafana-alloy/.env` with Grafana Cloud
       creds → `docker compose up -d` → verify in Grafana Cloud Explore.
+      *Recipe drafted: [`recipes/observability-boot.md`](../recipes/observability-boot.md) —
+      run-it-and-walk-through.*
 - [ ] Pin the Alloy / DCGM exporter / cAdvisor / ollama-metrics image
       tags after first successful boot (currently `:latest` — sufficient
       for v0.1 but generates churn).
 - [ ] Write a `gpu-mode-swap` helper script (toggle between
-      coder-next-vLLM up vs autoresearch-vLLM up — operator suggested it
-      in design review but it's not written yet).
+      coder-next-vLLM up vs autoresearch-vLLM up).
+      *Recipe + script drafted: [`recipes/gpu-mode-swap.md`](../recipes/gpu-mode-swap.md) —
+      compose paths need operator fill-in.*
 
 ## v0.2 — Pillar 1 (project setup)
 
