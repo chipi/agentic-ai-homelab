@@ -119,6 +119,8 @@ lets you stage an upgrade without touching the live config:
 
 Only inbound port that needs an ACL hole: **9000** (vLLM).
 Optionally **3080** (LibreChat web).
+Also **UDP 60000-61000** if mosh is used for the operator session (see
+[`recipes/dgx-terminal-dashboard.md`](recipes/dgx-terminal-dashboard.md)).
 
 All observability traffic is *outbound* HTTPS to Grafana Cloud — no ACL
 change needed.
@@ -132,3 +134,17 @@ HF model cache: `/opt/llm-models/huggingface/`. Models:
 
 Rule: keep FP8 over BF16 of the same model on Blackwell (FP8 is ~1.5-2×
 throughput at <1% quality loss for code).
+
+### Operator terminal dashboard
+
+Day-to-day "what's the DGX doing" view runs in a 4-pane tmux session
+(nvitop / btop / ctop / custom llm-status), reached over mosh so it
+survives laptop sleep. Full setup, file contents, troubleshooting, and
+keyboard cheat sheet in
+[`recipes/dgx-terminal-dashboard.md`](recipes/dgx-terminal-dashboard.md).
+
+One-liner to connect:
+
+```bash
+mosh <dgx-host>.<your-tailnet>.ts.net -- tmux attach -t dgx
+```
