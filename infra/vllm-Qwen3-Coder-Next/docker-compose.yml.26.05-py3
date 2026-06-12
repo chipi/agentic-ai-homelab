@@ -1,0 +1,54 @@
+services:
+  vllm:
+    image: nvcr.io/nvidia/vllm:26.05-py3
+    container_name: vllm-coder-next
+    runtime: nvidia
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ipc: host
+    ports:
+      - "9000:9000"
+    volumes:
+      - /opt/llm-models/huggingface:/root/.cache/huggingface
+      - /opt/llm-models/vllm-cache:/root/.cache/vllm
+    env_file:
+      - .env
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - HF_HUB_CACHE=/root/.cache/huggingface
+      - VLLM_DISABLE_TORCH_COMPILE=1
+      - NVIDIA_VISIBLE_DEVICES=all
+    command:
+      - vllm
+      - serve
+      - Qwen/Qwen3-Coder-Next-FP8
+      - --revision
+      - da6e2ed27304dd39abadd9c82ef50e8de67bdd4c
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9000"
+      - --dtype
+      - bfloat16
+      - --max-model-len
+      - "131072"
+      - --gpu-memory-utilization
+      - "0.92"
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
+      - --api-key
+      - buddy-is-the-king
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen(\"http://localhost:9000/health\")"]
+      interval: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 600s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    restart: unless-stopped
