@@ -1,0 +1,85 @@
+// =============================================================================
+// Grafana Alloy — unified DGX-class homelab observability.
+// Scrapes host + GPU + containers + LLM serving endpoints on localhost.
+// Forwards to Grafana Cloud Prometheus via prometheus.remote_write.
+// =============================================================================
+
+// ---------- HOST: CPU, memory, disk, network, filesystem ----------
+prometheus.exporter.unix "host" {
+  rootfs_path = "/rootfs"
+}
+
+prometheus.scrape "host" {
+  targets         = prometheus.exporter.unix.host.targets
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  job_name        = "node"
+  scrape_interval = "30s"
+}
+
+// ---------- GPU: NVIDIA DCGM ----------
+prometheus.scrape "dcgm" {
+  targets         = [{ __address__ = "localhost:9400", instance = "homelab-1" }]
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  job_name        = "dcgm"
+  scrape_interval = "15s"
+}
+
+// ---------- CONTAINERS: cAdvisor ----------
+prometheus.scrape "cadvisor" {
+  targets         = [{ __address__ = "localhost:8080", instance = "homelab-1" }]
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  job_name        = "cadvisor"
+  scrape_interval = "30s"
+}
+
+// ---------- LLM SERVING: vLLM coder model on port 9000 ----------
+// vLLM exposes Prometheus metrics natively at /metrics. model_name label is set
+// per-metric so dashboards can split by model.
+prometheus.scrape "vllm" {
+  targets         = [{ __address__ = "localhost:9000", instance = "homelab-1" }]
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  job_name        = "vllm"
+  scrape_interval = "15s"
+}
+
+// ---------- LLM SERVING: Ollama via NorskHelsenett exporter ----------
+// Level 1 (passive) — exporter polls /api/ps independently. Returns model
+// inventory + RAM metrics without any client retargeting.
+prometheus.scrape "ollama" {
+  targets         = [{ __address__ = "localhost:9778", instance = "homelab-1" }]
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  job_name        = "ollama"
+  scrape_interval = "15s"
+}
+
+// ---------- Optional: secondary vLLM (e.g., autoresearch eval) on port 8003 ----------
+// Uncomment if running a second vLLM compose for sweeps / evals.
+// prometheus.scrape "vllm_secondary" {
+//   targets         = [{ __address__ = "localhost:8003", instance = "homelab-1" }]
+//   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+//   job_name        = "vllm-secondary"
+//   scrape_interval = "15s"
+// }
+
+// ---------- Optional: project FastAPI servers with prometheus_client wired in ----------
+// Uncomment + adjust ports/services after wiring prometheus_client into your app.
+// prometheus.scrape "fastapi" {
+//   targets = [
+//     { __address__ = "localhost:8001", instance = "homelab-1", service = "service-a" },
+//     { __address__ = "localhost:8002", instance = "homelab-1", service = "service-b" },
+//   ]
+//   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+//   job_name        = "fastapi"
+//   scrape_interval = "30s"
+// }
+
+// ---------- PUSH to Grafana Cloud ----------
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_CLOUD_PROM_URL")
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_PROM_USERNAME")
+      password = sys.env("GRAFANA_CLOUD_PROM_API_KEY")
+    }
+  }
+}

@@ -1,0 +1,78 @@
+# Grafana Alloy + DCGM + cAdvisor + Ollama metrics — unified DGX observability.
+# Scrapes: host (CPU/mem/disk/net), GPU (DCGM), all containers (cAdvisor),
+#          vLLM + Ollama /metrics endpoints on localhost.
+# Pushes to Grafana Cloud via prometheus.remote_write (outbound HTTPS only).
+#
+# Prereqs: NVIDIA Container Toolkit installed; ./vllm-cache directory pre-created
+# if you want to share with other vLLM composes (see infra/vllm/).
+#
+# v0.1: image tags are :latest — PIN after first successful boot.
+
+services:
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    network_mode: host
+    pid: host
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /:/rootfs:ro,rslave
+    env_file:
+      - .env
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
+
+  dcgm-exporter:
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:latest
+    container_name: dcgm-exporter
+    network_mode: host
+    runtime: nvidia
+    cap_add: [SYS_ADMIN]
+    environment:
+      - DCGM_EXPORTER_LISTEN=:9400
+      - DCGM_EXPORTER_KUBERNETES=false
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    network_mode: host
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
+
+  ollama-metrics:
+    # NorskHelsenett/ollama-metrics — transparent proxy + Prometheus exporter.
+    # Level 1 (passive) deployment: clients keep hitting Ollama directly at :11434.
+    # The exporter polls /api/ps in the background for model inventory metrics.
+    # See README.md for Level 2/3 promotion path.
+    image: ghcr.io/norskhelsenett/ollama-metrics:latest
+    container_name: ollama-metrics
+    network_mode: host
+    environment:
+      - OLLAMA_HOST=http://localhost:11434
+      - PORT=9778
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped

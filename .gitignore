@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Node
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets — NEVER commit .env files
+.env
+.env.local
+.env.*.local
+secrets/
+*.key
+*.pem
+
+# Backups produced by config edits — keep templates only
+*.bak
+*.bak.*
+
+# Local data / volumes (when running infra/ compose stacks locally)
+data/
+volumes/
+*.local.yml
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
