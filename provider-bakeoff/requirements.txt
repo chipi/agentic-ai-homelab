@@ -1,0 +1,7 @@
+# Provider SDKs. Pinned to major version ranges; bump deliberately.
+anthropic>=0.40,<1.0
+openai>=1.50,<2.0
+google-genai>=0.3,<2.0
+
+# Used by the LLM-judge prompt construction.
+# (stdlib json/re cover everything else.)

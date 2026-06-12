@@ -131,13 +131,29 @@ opencode / Claude Code via the MCP server registry pattern in
 | Cheap eval sweeps | Anthropic / OpenAI batch | 50% discount, 24h turnaround |
 | Tool calls + structured output | Claude or vLLM with tool parser | Most reliable across models |
 
+## See also — provider bake-off
+
+`provider-bakeoff/` at the repo root is a self-contained mini-project
+for comparing 10 LLM providers across 4 countries (🇺🇸 US, 🇫🇷 EU, 🇨🇳 CN, 🏠 local)
+on the same tasks, with real cost numbers. Picks the "when which" question
+out of theoretical-table territory and into "here's what your workload
+actually does on each".
+
+```bash
+cd provider-bakeoff
+cp .env.example .env       # fill in whichever keys you have
+make bakeoff               # ~$0.50-$2 for a full sweep
+```
+
+Designed to lift into its own GitHub project later — see
+`provider-bakeoff/README.md` for the layout and
+`provider-bakeoff/AGENTS.md` for the agent-runnable contract.
+
 ## Open in v0.2 → v0.3
 
-- [ ] `examples/claude-api-with-caching/` — Python skeleton with cache
-      hit/miss telemetry + model-version migration pattern.
-- [ ] `examples/mcp-tool-template/` — minimal FastMCP server.
-- [ ] `examples/eval-harness/` — provider-agnostic harness, pending
-      operator's pointer to the canonical `finale_runner.py`.
+All Pillar 3 items landed. Future work is judgment-call territory —
+e.g., examples for batch API, multi-provider router (still deferred to
+podcast_scraper-infra's real reference).
 
 ## Inspirations
 
