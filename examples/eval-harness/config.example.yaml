@@ -1,0 +1,45 @@
+# Eval harness config — all knobs documented inline.
+#
+# Run:  python runner.py --config config.example.yaml
+# Demo: python runner.py --config config.example.yaml --use-fake-judge
+
+# Where the harness writes its outputs. A subdir named <tag> is created
+# under this path. Stamped with config + git SHA at write time.
+output_root: out
+tag: demo
+
+# The candidate-pool definition.
+# Each entry is a "run" — a unit of work being evaluated. For the demo,
+# the harness synthesizes runs from this list; for real use, replace with
+# a glob of run dirs (see runner.py:load_run_candidate).
+runs:
+  - {run_id: cloud-claude-sonnet-46-v1, stratum: cloud,  primary_score: 0.82}
+  - {run_id: cloud-claude-sonnet-46-v2, stratum: cloud,  primary_score: 0.81}
+  - {run_id: cloud-claude-haiku-45-v1,  stratum: cloud,  primary_score: 0.74}
+  - {run_id: cloud-gpt-5-v1,            stratum: cloud,  primary_score: 0.79}
+  - {run_id: local-qwen-coder-v1,       stratum: local,  primary_score: 0.71}
+  - {run_id: local-qwen-coder-v2,       stratum: local,  primary_score: 0.73}
+  - {run_id: local-llama-70b-v1,        stratum: local,  primary_score: 0.65}
+
+# Promotion rule — how many finalists to judge.
+promotion:
+  per_stratum_top_k: 3          # top-K within each stratum
+  floor_fraction: 0.80          # drop if score < floor_fraction * stratum_leader
+  overall_cap: 6                # absolute ceiling after stratum trimming
+  # Force-include these even if floor / top_k / cap excluded them. Useful for
+  # "I want to see the current production model's judged score regardless of
+  # what the cheap metric says".
+  carte_blanche: []
+
+# Judging — who, with what budget.
+judging:
+  primary_judge: claude-sonnet-4-6
+  cross_judge:   claude-opus-4-7        # null to skip the cross-judge pass
+  cost_cap_usd:  10.0                   # hard mid-run abort
+  max_items_per_finalist: 20            # cap per finalist for cost predictability
+  dimensions: [accuracy, completeness, clarity]
+
+# Aggregation — disagreement threshold for the contested flag.
+aggregation:
+  contested_threshold: 0.5     # on the 1-5 scale; > 0.5 between judges = contested
+  agreement_tolerance: 1       # exact-or-adjacent within ±N counts as agreement

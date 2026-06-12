@@ -1,0 +1,5 @@
+# Eval harness deps.
+# anthropic — for the LLMJudge example.
+# pyyaml — config parsing.
+anthropic>=0.40,<1.0
+PyYAML>=6.0,<7.0
