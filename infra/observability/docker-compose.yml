@@ -10,7 +10,7 @@
 
 services:
   alloy:
-    image: grafana/alloy:latest
+    image: grafana/alloy:v1.17.0
     container_name: alloy
     network_mode: host
     pid: host
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   dcgm-exporter:
-    image: nvcr.io/nvidia/k8s/dcgm-exporter:latest
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:4.2.3-4.1.3-ubuntu22.04
     container_name: dcgm-exporter
     network_mode: host
     runtime: nvidia
@@ -66,7 +66,7 @@ services:
     # Level 1 (passive) deployment: clients keep hitting Ollama directly at :11434.
     # The exporter polls /api/ps in the background for model inventory metrics.
     # See README.md for Level 2/3 promotion path.
-    image: ghcr.io/norskhelsenett/ollama-metrics:latest
+    image: ghcr.io/norskhelsenett/ollama-metrics@sha256:3dd32882666cf0e77272086446b5639c636fb090ac9ea629c11874200c629164
     container_name: ollama-metrics
     network_mode: host
     environment:
