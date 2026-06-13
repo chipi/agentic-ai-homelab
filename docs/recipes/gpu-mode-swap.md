@@ -1,7 +1,7 @@
 # GPU mode-swap — toggle coder-LLM vs autoresearch-LLM on a single GPU
 
 **Date:** 2026-06-12 (v0.1 inline template) → 2026-06-13 (v0.2 promoted to repo)
-**Status:** v0.2 — script lives at [`infra/dgx/bin/gpu-mode-swap.sh`](../../infra/dgx/bin/gpu-mode-swap.sh); config via env vars (no fill-in required)
+**Status:** v0.2 — script lives at [`infra/dgx/bin/gpu-mode-swap.sh`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/gpu-mode-swap.sh); config via env vars (no fill-in required)
 **Reach:** runs on DGX directly (no remote invocation)
 
 A single DGX-class GPU can't host the coder-next vLLM and the autoresearch
@@ -12,7 +12,7 @@ both down for idle / ML training / batch jobs.
 The script is version-controlled in the repo and reads its config from env
 vars with sensible defaults. The legend below documents the defaults —
 override any of them via env vars or `~/.config/gpu-mode.env`, see
-[`infra/dgx/bin/README.md`](../../infra/dgx/bin/README.md).
+[`infra/dgx/bin/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/README.md).
 
 > **Default config (env-var overridable).**
 >
@@ -74,14 +74,14 @@ Or if you didn't install the alias (agents: always use this form):
 ## The script
 
 The script lives in the repo at
-[`infra/dgx/bin/gpu-mode-swap.sh`](../../infra/dgx/bin/gpu-mode-swap.sh).
+[`infra/dgx/bin/gpu-mode-swap.sh`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/gpu-mode-swap.sh).
 Versioned, agent-friendly (supports `--json`, `--mode-only`, `--no-color`,
 auto-disables color for non-TTY), env-var configurable (no placeholders
 to fill in for the default homelab layout).
 
 Co-located reference (install, agent contract, exit codes, output modes,
 sudo expectation, env vars, common failure modes):
-[`infra/dgx/bin/README.md`](../../infra/dgx/bin/README.md).
+[`infra/dgx/bin/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/README.md).
 
 ### Shell wrapper (optional, in `~/.zshrc`)
 
@@ -107,7 +107,7 @@ source ~/.zshrc
 Defaults assume your repo clone is at `~/agentic-ai-homelab/` and
 podcast_scraper at `~/Projects/podcast_scraper/`. Override paths via
 `~/.config/gpu-mode.env` if your layout differs — see
-[`infra/dgx/bin/README.md`](../../infra/dgx/bin/README.md).
+[`infra/dgx/bin/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/README.md).
 
 Verify:
 

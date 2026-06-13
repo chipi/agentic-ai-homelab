@@ -27,7 +27,7 @@ drafted, but they haven't been run for real yet.
       and verify (`gpu-mode-swap.sh status`). Defaults assume repo at
       `~/agentic-ai-homelab/` and podcast_scraper at `~/Projects/`; if
       layout differs, drop a `~/.config/gpu-mode.env`.
-      *Co-located reference: [`infra/dgx/bin/README.md`](../../infra/dgx/bin/README.md);
+      *Co-located reference: [`infra/dgx/bin/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/README.md);
       recipe: [`recipes/gpu-mode-swap.md`](../recipes/gpu-mode-swap.md).*
 - [ ] Run `provider-bakeoff/` with your real API keys; pick a primary
       cloud provider for the next round of work. *(Sweep cost ~$2-5.)*
