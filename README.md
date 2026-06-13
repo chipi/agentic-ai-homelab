@@ -27,7 +27,8 @@ the four pillars to real.
 
 ```
 .
-├── AGENTS.md                 — global agent rules (drop into any project)
+├── AGENTS.md                 — repo-scoped agent rules (layers on operator-global at templates/opencode/)
+├── CLAUDE.md                 — Claude Code entry; imports AGENTS.md so opencode + Claude share one source of truth
 ├── LICENSE                   — MIT
 ├── docs/                     — narrative + recipes + history (MkDocs site)
 │   ├── philosophy.md         — the underlying "how I work" 1-pager
@@ -126,8 +127,10 @@ MIT — see [LICENSE](LICENSE). Same license I use across my projects.
 
 ## Repo conventions
 
-See [`AGENTS.md`](AGENTS.md) for the global agent rules that govern any
-work in this repo. For decisions that shape the repo itself, see
-[`docs/adr/`](docs/adr/).
+See [`AGENTS.md`](AGENTS.md) for the **repo-scoped** rules that govern
+work in this repo. The **operator-global** (drop into
+`~/.config/opencode/`) lives at
+[`templates/opencode/AGENTS.md`](templates/opencode/AGENTS.md). For
+decisions that shape the repo itself, see [`docs/adr/`](docs/adr/).
 
 Site: <https://chipi.github.io/agentic-ai-homelab/>.

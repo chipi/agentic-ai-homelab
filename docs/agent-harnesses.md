@@ -44,7 +44,7 @@ for the install walkthrough.
 
 | File | Purpose |
 |---|---|
-| `AGENTS.md` | 34-rule global agent rules. Same as repo root `AGENTS.md`. |
+| `AGENTS.md` | 34-rule operator-global agent rules. **This is the canonical copy** — drops into `~/.config/opencode/`. The repo root `AGENTS.md` is now a separate repo-scoped layer that builds on top. |
 | `rules/lean-ctx.md` | lean-ctx MCP usage rules (tool preference, read modes). |
 | `opencode.json.example` | Provider + MCP config — local vLLM live, Anthropic/OpenAI/Google add-on snippets in README. |
 
