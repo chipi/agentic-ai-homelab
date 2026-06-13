@@ -1,10 +1,16 @@
 # AGENTS.md — agentic-ai-homelab (repo-scoped)
 
-Loaded by opencode / Claude Code at this repo's root. **Layers on top of
-the operator-global file** (`~/.config/opencode/AGENTS.md`; canonical
-copy lives at [`templates/opencode/AGENTS.md`](templates/opencode/AGENTS.md)).
-This file never duplicates and never contradicts the global — it
-captures conventions specific to working *in this repo*.
+Repo-scoped rules for any agent working in this codebase. `AGENTS.md` is
+a convention multiple harnesses follow — Claude Code picks this up via
+[`CLAUDE.md`](CLAUDE.md), Cursor and Codex read it natively, and the
+operator's chosen harness (opencode) does too. This file is harness-
+agnostic; nothing in this repo depends on which harness you run.
+
+This file captures conventions specific to working *in this repo*. The
+operator's broader cross-repo rules (collab style, safety floor, comm
+defaults) layer underneath — when those exist as a separate file (e.g.
+`~/.config/<harness>/AGENTS.md`), this file builds on top, never
+duplicates or contradicts.
 
 ## Repo conventions
 
@@ -64,13 +70,14 @@ captures conventions specific to working *in this repo*.
 | [`infra/dgx/AGENTS.md`](infra/dgx/AGENTS.md) | DGX-host work, GPU mode coordination |
 | [`provider-bakeoff/AGENTS.md`](provider-bakeoff/AGENTS.md) | provider-bakeoff sub-project |
 
-Templates (not active rules — copy-out artifacts):
+Templates (not active rules — copy-out artifacts; see pillar 4 for context):
 - `templates/new-project/AGENTS.md` — bootstrap for fresh project repos
-- `templates/opencode/AGENTS.md` — canonical operator-global, drops
-  into `~/.config/opencode/`
+- `templates/opencode/AGENTS.md` — the operator's personal cross-repo
+  default, kept here as a drop-in for `~/.config/opencode/` only because
+  that's the harness the operator runs. Not a dependency of this repo.
 
 ## What overrides this file
 
-Per the operator-global's "What overrides this file" section: direct
-chat instruction > persistent memory > scoped AGENTS.md > this file >
-operator-global. When in doubt, the more-specific layer wins.
+Direct chat instruction > persistent memory > scoped AGENTS.md (e.g.
+`infra/dgx/AGENTS.md`) > this file > any harness-global rules the
+operator carries cross-repo. More-specific layer wins.

@@ -1,7 +1,7 @@
 # CLAUDE.md — agentic-ai-homelab
 
-Repo-scoped rules live in [`AGENTS.md`](AGENTS.md) — same file opencode
-loads. Claude Code loads this file; we import the AGENTS.md content
-inline so there's one source of truth.
+Repo-scoped rules live in [`AGENTS.md`](AGENTS.md) — the harness-
+agnostic convention this repo uses. Claude Code reads this file; we
+import AGENTS.md so every harness picks up the same rules.
 
 @AGENTS.md
