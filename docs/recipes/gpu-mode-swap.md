@@ -1,7 +1,7 @@
 # GPU mode-swap — toggle coder-LLM vs autoresearch-LLM on a single GPU
 
-**Date:** 2026-06-12
-**Status:** v0.1 — script template; operator fill-in for compose paths
+**Date:** 2026-06-12 (v0.1 inline template) → 2026-06-13 (v0.2 promoted to repo)
+**Status:** v0.2 — script lives at [`infra/dgx/bin/gpu-mode-swap.sh`](../../infra/dgx/bin/gpu-mode-swap.sh); config via env vars (no fill-in required)
 **Reach:** runs on DGX directly (no remote invocation)
 
 A single DGX-class GPU can't host the coder-next vLLM and the autoresearch
@@ -9,16 +9,23 @@ vLLM at the same time — both want ~90% of VRAM in their respective profiles.
 This recipe is the toggle: one command swaps which one is up, or brings
 both down for idle / ML training / batch jobs.
 
-> **Placeholder legend.**
+The script is version-controlled in the repo and reads its config from env
+vars with sensible defaults. The legend below documents the defaults —
+override any of them via env vars or `~/.config/gpu-mode.env`, see
+[`infra/dgx/bin/README.md`](../../infra/dgx/bin/README.md).
+
+> **Default config (env-var overridable).**
 >
-> | Placeholder | What it stands for |
-> |---|---|
-> | `<coder-compose-dir>` | Directory holding the coder vLLM compose, e.g. `~/docker-compose/vllm-Qwen3-Coder-Next` |
-> | `<research-compose-dir>` | Directory holding the autoresearch vLLM compose, e.g. `~/Projects/podcast_scraper/infra/dgx/vllm-autoresearch` |
-> | `<coder-port>` | Listening port for the coder vLLM (e.g. `9000`) |
-> | `<research-port>` | Listening port for the autoresearch vLLM (e.g. `8003`) |
-> | `<coder-svc>` | Service name inside the coder compose (e.g. `vllm-coder-next`) |
-> | `<research-svc>` | Service name inside the autoresearch compose (e.g. `vllm-autoresearch`) |
+> | Knob | Default | Env var |
+> |---|---|---|
+> | Coder compose dir | `<repo>/infra/vllm/coder-next` | `GPU_MODE_CODER_DIR` |
+> | Research compose dir | `~/Projects/podcast_scraper/infra/dgx/vllm-autoresearch` | `GPU_MODE_RESEARCH_DIR` |
+> | Coder vLLM port | `9000` | `GPU_MODE_CODER_PORT` |
+> | Research vLLM port | `8003` | `GPU_MODE_RESEARCH_PORT` |
+> | Coder service name | `vllm-coder-next` | `GPU_MODE_CODER_SVC` |
+> | Research service name | `vllm-autoresearch` | `GPU_MODE_RESEARCH_SVC` |
+> | Docker command | `sudo docker` | `GPU_MODE_DOCKER` |
+> | Start timeout (s) | `120` | `GPU_MODE_START_TIMEOUT` |
 
 ---
 
@@ -47,14 +54,16 @@ Three modes:
 ## Quick reference
 
 ```bash
-gpu-mode               # → show current state
-gpu-mode code          # → switch to coder-next
-gpu-mode research      # → switch to autoresearch
-gpu-mode idle          # → bring both down
-gpu-mode status        # → same as no-arg
+gpu-mode                       # → show current state
+gpu-mode code                  # → switch to coder-next
+gpu-mode research              # → switch to autoresearch
+gpu-mode idle                  # → bring both down
+gpu-mode status                # → same as no-arg
+gpu-mode status --mode-only    # → just "code" / "research" / "idle" (agent-friendly)
+gpu-mode code --json           # → switch + machine-readable result on stdout
 ```
 
-Or if you didn't install the wrapper:
+Or if you didn't install the alias (agents: always use this form):
 
 ```bash
 ~/bin/gpu-mode-swap.sh code
@@ -64,143 +73,15 @@ Or if you didn't install the wrapper:
 
 ## The script
 
-### `~/bin/gpu-mode-swap.sh`
+The script lives in the repo at
+[`infra/dgx/bin/gpu-mode-swap.sh`](../../infra/dgx/bin/gpu-mode-swap.sh).
+Versioned, agent-friendly (supports `--json`, `--mode-only`, `--no-color`,
+auto-disables color for non-TTY), env-var configurable (no placeholders
+to fill in for the default homelab layout).
 
-```bash
-#!/usr/bin/env bash
-# gpu-mode-swap.sh — toggle which vLLM owns the GPU.
-#
-# Modes: code | research | idle | status (default)
-#
-# Idempotent: re-running the same mode is a no-op (skips bring-down + bring-up).
-# Per global AGENTS.md #6: each invocation reports cost (GPU mem freed/allocated)
-# and final exit state.
-
-set -euo pipefail
-
-CODER_DIR="<coder-compose-dir>"
-RESEARCH_DIR="<research-compose-dir>"
-CODER_PORT=<coder-port>
-RESEARCH_PORT=<research-port>
-CODER_SVC="<coder-svc>"
-RESEARCH_SVC="<research-svc>"
-
-MODE="${1:-status}"
-
-# ── helpers ──────────────────────────────────────────────────────────────
-
-C_OK='\033[32m'; C_BAD='\033[31m'; C_DIM='\033[2m'; C_HDR='\033[1;36m'; C_RST='\033[0m'
-
-log()   { printf "${C_HDR}[gpu-mode]${C_RST} %s\n" "$*"; }
-ok()    { printf "  ${C_OK}✓${C_RST} %s\n" "$*"; }
-warn()  { printf "  ${C_BAD}✗${C_RST} %s\n" "$*"; }
-dim()   { printf "  ${C_DIM}%s${C_RST}\n" "$*"; }
-
-is_listening() {
-    ss -lntH 2>/dev/null | awk -v p=":$1$" '$4 ~ p {print; exit}' | grep -q ':'
-}
-
-gpu_mib_used() {
-    nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1
-}
-
-compose_up()   { ( cd "$1" && sudo docker compose up -d ); }
-compose_down() { ( cd "$1" && sudo docker compose down ); }
-
-current_mode() {
-    local code_up=0 research_up=0
-    is_listening "$CODER_PORT"    && code_up=1
-    is_listening "$RESEARCH_PORT" && research_up=1
-    if   (( code_up && research_up )); then echo "BROKEN-BOTH"
-    elif (( code_up ));                then echo "code"
-    elif (( research_up ));            then echo "research"
-    else                                    echo "idle"
-    fi
-}
-
-wait_for_port() {
-    local port=$1 timeout=${2:-120}
-    for ((i=0; i<timeout; i++)); do
-        is_listening "$port" && return 0
-        sleep 1
-    done
-    return 1
-}
-
-# ── actions ──────────────────────────────────────────────────────────────
-
-action_status() {
-    log "current state"
-    local mode; mode=$(current_mode)
-    case "$mode" in
-        code)         ok "coder-next vLLM up on :$CODER_PORT"; dim "research is down" ;;
-        research)     ok "autoresearch vLLM up on :$RESEARCH_PORT"; dim "coder is down" ;;
-        idle)         dim "both vLLM composes are down" ;;
-        BROKEN-BOTH)  warn "BOTH listening — this is the GPU-contention failure mode" ;;
-    esac
-    dim "GPU mem used: $(gpu_mib_used) MiB"
-}
-
-action_code()     { do_swap "code" "$RESEARCH_DIR" "$CODER_DIR" "$CODER_PORT"; }
-action_research() { do_swap "research" "$CODER_DIR" "$RESEARCH_DIR" "$RESEARCH_PORT"; }
-
-action_idle() {
-    log "→ idle (bringing both down)"
-    local before; before=$(gpu_mib_used)
-    [[ -d "$CODER_DIR" ]]    && compose_down "$CODER_DIR"    || true
-    [[ -d "$RESEARCH_DIR" ]] && compose_down "$RESEARCH_DIR" || true
-    sleep 2
-    local after; after=$(gpu_mib_used)
-    ok "GPU mem ${before}→${after} MiB"
-}
-
-do_swap() {
-    local target=$1 stop_dir=$2 start_dir=$3 start_port=$4
-    local current; current=$(current_mode)
-
-    if [[ "$current" == "$target" ]]; then
-        log "already in $target mode — no-op"
-        action_status
-        return 0
-    fi
-
-    log "→ $target (stopping $current, starting $target)"
-    local before; before=$(gpu_mib_used)
-
-    if [[ "$current" != "idle" && "$current" != "BROKEN-BOTH" ]]; then
-        compose_down "$stop_dir"
-        sleep 2
-    elif [[ "$current" == "BROKEN-BOTH" ]]; then
-        warn "BOTH were up — bringing both down before starting $target"
-        compose_down "$CODER_DIR"    || true
-        compose_down "$RESEARCH_DIR" || true
-        sleep 3
-    fi
-
-    compose_up "$start_dir"
-
-    if wait_for_port "$start_port"; then
-        local after; after=$(gpu_mib_used)
-        ok "$target vLLM listening on :$start_port (GPU mem ${before}→${after} MiB)"
-    else
-        warn "$target vLLM did not start listening within 120s — check 'docker compose logs'"
-        exit 1
-    fi
-}
-
-# ── dispatch ─────────────────────────────────────────────────────────────
-
-case "$MODE" in
-    status|"")  action_status ;;
-    code)       action_code ;;
-    research)   action_research ;;
-    idle)       action_idle ;;
-    *)
-        echo "usage: $0 [code | research | idle | status]" >&2
-        exit 2
-        ;;
-esac
-```
+Co-located reference (install, agent contract, exit codes, output modes,
+sudo expectation, env vars, common failure modes):
+[`infra/dgx/bin/README.md`](../../infra/dgx/bin/README.md).
 
 ### Shell wrapper (optional, in `~/.zshrc`)
 
@@ -215,13 +96,18 @@ Then `gpu-mode code` ⏎ from anywhere on the DGX.
 ## Install
 
 ```bash
+# Symlink the repo script into ~/bin so `git pull` ships updates:
 mkdir -p ~/bin
-$EDITOR ~/bin/gpu-mode-swap.sh           # paste above, edit placeholders
-chmod +x ~/bin/gpu-mode-swap.sh
+ln -sf ~/agentic-ai-homelab/infra/dgx/bin/gpu-mode-swap.sh ~/bin/gpu-mode-swap.sh
 echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc   # if ~/bin isn't on PATH already
 echo 'alias gpu-mode="~/bin/gpu-mode-swap.sh"' >> ~/.zshrc
 source ~/.zshrc
 ```
+
+Defaults assume your repo clone is at `~/agentic-ai-homelab/` and
+podcast_scraper at `~/Projects/podcast_scraper/`. Override paths via
+`~/.config/gpu-mode.env` if your layout differs — see
+[`infra/dgx/bin/README.md`](../../infra/dgx/bin/README.md).
 
 Verify:
 

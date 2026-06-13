@@ -16,16 +16,19 @@ Full continuity of how v0.2 landed: see
 These need DGX / Grafana Cloud / live-infra access — the recipes are
 drafted, but they haven't been run for real yet.
 
-- [ ] Fill in `~/docker-compose/grafana-alloy/.env` with Grafana Cloud
-      creds → `docker compose up -d` → verify in Grafana Cloud Explore.
-      *Recipe: [`recipes/observability-boot.md`](../recipes/observability-boot.md).*
-- [ ] Pin the Alloy / DCGM exporter / cAdvisor / ollama-metrics image
-      tags after first successful boot (currently `:latest`).
-      *Walkthrough in the same recipe.*
-- [ ] Fill in `~/bin/gpu-mode-swap.sh` placeholder paths
-      (`<coder-compose-dir>`, `<research-compose-dir>`, ports, service
-      names) and install per the recipe.
-      *Recipe + script template: [`recipes/gpu-mode-swap.md`](../recipes/gpu-mode-swap.md).*
+- [x] ~~Fill in `infra/observability/.env` with Grafana Cloud creds →
+      `docker compose up -d` → verify in Grafana Cloud Explore.~~
+      *Done 2026-06-12; all four dashboards (Node, DCGM, vLLM, cAdvisor)
+      confirmed live. Recipe: [`recipes/observability-boot.md`](../recipes/observability-boot.md).*
+- [x] ~~Pin the Alloy / DCGM exporter / cAdvisor / ollama-metrics image
+      tags after first successful boot (currently `:latest`).~~
+      *Done — versions captured after the verified boot.*
+- [ ] Symlink `infra/dgx/bin/gpu-mode-swap.sh` into `~/bin/` on the DGX
+      and verify (`gpu-mode-swap.sh status`). Defaults assume repo at
+      `~/agentic-ai-homelab/` and podcast_scraper at `~/Projects/`; if
+      layout differs, drop a `~/.config/gpu-mode.env`.
+      *Co-located reference: [`infra/dgx/bin/README.md`](../../infra/dgx/bin/README.md);
+      recipe: [`recipes/gpu-mode-swap.md`](../recipes/gpu-mode-swap.md).*
 - [ ] Run `provider-bakeoff/` with your real API keys; pick a primary
       cloud provider for the next round of work. *(Sweep cost ~$2-5.)*
 

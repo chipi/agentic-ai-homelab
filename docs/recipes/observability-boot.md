@@ -62,17 +62,17 @@ Treat the token like a password. **Never commit it.** `.env` is in
 
 ---
 
-## Step 2 — Copy and configure on DGX
+## Step 2 — Configure on DGX (run from repo in place)
 
-From your laptop or directly on the DGX:
+The compose runs from the repo directly — no copy-out. `.env` is
+gitignored and lives next to the compose file.
 
 ```bash
 # On the DGX (via mosh / ssh):
 mosh <dgx-host>.<your-tailnet>.ts.net -- bash
 
-# Copy the templated stack into your compose root:
-cp -r ~/agentic-ai-homelab/infra/observability/ ~/docker-compose/observability/
-cd ~/docker-compose/observability/
+# Work inside the repo's observability dir:
+cd ~/agentic-ai-homelab/infra/observability
 
 # Create the .env from the example:
 cp .env.example .env
@@ -174,8 +174,8 @@ iteration. After the first successful boot, freeze the working versions:
 sudo docker compose ps --format json | jq -r '.[] | "\(.Service)  \(.Image)"'
 ```
 
-Note each image's SHA or pinned tag. Then edit
-`~/docker-compose/observability/docker-compose.yml`:
+Note each image's SHA or pinned tag. Then edit the compose file in the
+repo (`infra/observability/docker-compose.yml`):
 
 ```yaml
 # Before:
@@ -185,8 +185,7 @@ image: grafana/alloy:v1.5.1
 ```
 
 Repeat for dcgm-exporter, cadvisor, ollama-metrics. Re-run
-`docker compose up -d` to validate. Commit the pin back to the repo's
-`infra/observability/docker-compose.yml`.
+`docker compose up -d` to validate, then commit the pinned tags.
 
 ---
 
@@ -250,7 +249,7 @@ Run that in Explore. Should be > 0 if scrapes are reaching remote_write.
 ## Tear-down (clean removal)
 
 ```bash
-cd ~/docker-compose/observability/
+cd ~/agentic-ai-homelab/infra/observability/
 sudo docker compose down                   # stops + removes containers
 sudo docker compose down -v                # + removes named volumes (none used here, but defensive)
 ```
@@ -277,8 +276,8 @@ arriving. Old series are retained per your stack's retention policy
 ## Quick reference card
 
 ```
-First boot:
-  cp -r infra/observability/ ~/docker-compose/observability/
+First boot (run from the repo in place):
+  cd ~/agentic-ai-homelab/infra/observability
   cp .env.example .env  &&  $EDITOR .env  &&  chmod 600 .env
   sudo docker compose up -d
   sudo docker compose ps

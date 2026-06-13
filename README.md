@@ -45,7 +45,8 @@ the four pillars to real.
 │   └── opencode/             — drop into ~/.config/opencode/
 ├── infra/
 │   ├── vllm/                 — hardened vLLM compose template (Qwen3-Coder-Next-FP8)
-│   └── observability/        — Grafana Alloy + DCGM + cAdvisor + Ollama metrics
+│   ├── observability/        — Grafana Alloy + DCGM + cAdvisor + Ollama metrics
+│   └── dgx/bin/              — DGX-host operator scripts (gpu-mode-swap.sh)
 ├── examples/                 — small concrete code samples (cloud + local)
 │   ├── claude-api-with-caching/  — prompt-cache discipline demo
 │   ├── mcp-tool-template/        — FastMCP skeleton with 3 tool shapes

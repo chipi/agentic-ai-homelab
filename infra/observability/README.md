@@ -24,13 +24,13 @@ allowed by default).
 ## Quick start
 
 ```bash
-# On the DGX-class host:
+# On the DGX-class host — run the compose from the repo in place:
 git clone <this repo>
-cp -r agentic-ai-homelab/infra/observability/ ~/docker-compose/observability/
-cd ~/docker-compose/observability
+cd agentic-ai-homelab/infra/observability
 
-cp .env.example .env
-$EDITOR .env   # paste the 3 Grafana Cloud values
+cp .env.example .env   # .env is gitignored; never commit it
+$EDITOR .env           # paste the 3 Grafana Cloud values
+chmod 600 .env
 
 sudo docker compose up -d
 sudo docker compose ps
