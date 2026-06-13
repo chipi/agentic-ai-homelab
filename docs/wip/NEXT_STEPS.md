@@ -39,10 +39,13 @@ drafted, but they haven't been run for real yet.
       `orrery`, `chemigram`, `oceancanvas`. Each has its own AGENTS.md
       that predates the global rules; the project-level files should now
       keep only project-specific content.
-- [ ] **Versioning scheme** — semver-style tags (`v0.1`, `v0.2`, …) or
-      roll always at HEAD with README "Status" as the truth? Lean toward
-      the latter for a personal config repo; revisit if the repo gets
-      external consumers.
+- [x] ~~**Versioning scheme** decision.~~ **Decided 2026-06-13:** HEAD is
+      the source of truth + README "Status" line carries the meaningful
+      label. Drop lightweight `git tag`s at the moments
+      `docs/history/<arc>.md` already marks as significant
+      (`v0.1-genesis`, `v0.2-four-pillars-real`, …) — bookmarks, not
+      releases. First tag lands once v0.1 is stable; not yet. Revisit if
+      the repo gains external consumers who need pinning.
 - [ ] **`templates/claude-code/`** — currently deferred (per
       `agent-harnesses.md`). If a clean minimum-viable
       `~/.claude/settings.json` extraction becomes viable, ship it. Hook
