@@ -77,12 +77,19 @@ patterns just work without `--no-color`.
 {
   "mode": "code",
   "success": true,
-  "gpu_mib_used": 75234,
-  "gpu_mib_before": 412,
-  "gpu_mib_after": 75234,
+  "gpu_util_pct": 42,
+  "gpu_compute_app_count": 1,
+  "compute_apps_before": 0,
+  "compute_apps_after": 1,
   "port": 9000
 }
 ```
+
+**Why util + app count, not VRAM:** GB10 (Grace+Blackwell) uses unified
+memory — there's no separate VRAM chip, so `nvidia-smi
+--query-gpu=memory.used` returns `[N/A]`. `utilization.gpu` and compute-app
+count work on every nvidia-smi variant and give the same "did the swap
+take effect" signal the VRAM delta used to give on discrete GPUs.
 
 **Exit codes:**
 
