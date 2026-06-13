@@ -100,7 +100,13 @@ is_listening() {
 }
 
 gpu_mib_used() {
-    nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' '
+    # On unified-memory parts (e.g. GB10 Grace+Blackwell), nvidia-smi returns
+    # "[N/A]" for the discrete-VRAM query. Emit a clean integer or empty
+    # string, so callers using ${var:-null} get valid JSON and ${var:-?}
+    # get a readable human placeholder.
+    local raw
+    raw="$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"
+    [[ "$raw" =~ ^[0-9]+$ ]] && echo "$raw" || echo ""
 }
 
 compose_up()   { ( cd "$1" && $DOCKER_CMD compose up -d ) >&2; }
@@ -157,7 +163,8 @@ action_status() {
         idle)         dim "both vLLM composes are down" ;;
         BROKEN-BOTH)  warn "BOTH listening — GPU-contention failure mode" ;;
     esac
-    dim "GPU mem used: $(gpu_mib_used) MiB"
+    local gpu; gpu="$(gpu_mib_used)"
+    dim "GPU mem used: ${gpu:-?} MiB"
     (( JSON )) && emit_json "$mode" true
 }
 
@@ -171,7 +178,7 @@ action_idle() {
     [[ -d "$RESEARCH_DIR" ]] && compose_down "$RESEARCH_DIR" || true
     sleep 2
     local after; after=$(gpu_mib_used)
-    ok "GPU mem ${before}→${after} MiB"
+    ok "GPU mem ${before:-?}→${after:-?} MiB"
     (( JSON )) && emit_json "idle" true "gpu_mib_before=${before:-null}" "gpu_mib_after=${after:-null}"
 }
 
@@ -203,7 +210,7 @@ do_swap() {
 
     if wait_for_port "$start_port"; then
         local after; after=$(gpu_mib_used)
-        ok "$target vLLM listening on :$start_port (GPU mem ${before}→${after} MiB)"
+        ok "$target vLLM listening on :$start_port (GPU mem ${before:-?}→${after:-?} MiB)"
         (( JSON )) && emit_json "$target" true "gpu_mib_before=${before:-null}" "gpu_mib_after=${after:-null}" "port=$start_port"
     else
         warn "$target vLLM did not start listening within ${START_TIMEOUT}s — check 'docker compose logs'"
