@@ -45,3 +45,6 @@ build/
 
 # MkDocs build output
 site/
+
+# lean-ctx runtime cache
+.lean-ctx/
