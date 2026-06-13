@@ -99,14 +99,26 @@ is_listening() {
     ss -lntH 2>/dev/null | awk -v p=":$1$" '$4 ~ p {print; exit}' | grep -q ':'
 }
 
-gpu_mib_used() {
-    # On unified-memory parts (e.g. GB10 Grace+Blackwell), nvidia-smi returns
-    # "[N/A]" for the discrete-VRAM query. Emit a clean integer or empty
-    # string, so callers using ${var:-null} get valid JSON and ${var:-?}
-    # get a readable human placeholder.
+gpu_util_pct() {
+    # GPU utilization % — works on both discrete and unified-memory parts.
+    # On GB10 (Grace+Blackwell) this is the load-bearing signal since the
+    # discrete-VRAM query (memory.used) returns "[N/A]".
     local raw
-    raw="$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"
+    raw="$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' ')"
     [[ "$raw" =~ ^[0-9]+$ ]] && echo "$raw" || echo ""
+}
+
+gpu_compute_app_count() {
+    # Count of processes holding a CUDA context. idle → 0, vLLM up → 1,
+    # something else grabbed the GPU → >1. Works on every nvidia-smi.
+    nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | grep -cE '^[0-9]+$' || echo 0
+}
+
+# Compact "util%/N-apps" string for human output. Empty fields render as "?".
+gpu_state_line() {
+    local u; u="$(gpu_util_pct)"
+    local n; n="$(gpu_compute_app_count)"
+    echo "util ${u:-?}% / ${n} compute app$([ "$n" = "1" ] || echo s)"
 }
 
 compose_up()   { ( cd "$1" && $DOCKER_CMD compose up -d ) >&2; }
@@ -135,8 +147,10 @@ wait_for_port() {
 # Emit JSON result on stdout. Args: <mode> <success(0|1)> [extra k=v pairs]
 emit_json() {
     local mode="$1" success="$2"; shift 2
-    local gpu; gpu="$(gpu_mib_used)"
-    printf '{"mode":"%s","success":%s,"gpu_mib_used":%s' "$mode" "$success" "${gpu:-null}"
+    local util; util="$(gpu_util_pct)"
+    local apps; apps="$(gpu_compute_app_count)"
+    printf '{"mode":"%s","success":%s,"gpu_util_pct":%s,"gpu_compute_app_count":%s' \
+        "$mode" "$success" "${util:-null}" "${apps:-0}"
     while (( $# )); do
         printf ',"%s":%s' "${1%%=*}" "${1#*=}"
         shift
@@ -163,8 +177,7 @@ action_status() {
         idle)         dim "both vLLM composes are down" ;;
         BROKEN-BOTH)  warn "BOTH listening — GPU-contention failure mode" ;;
     esac
-    local gpu; gpu="$(gpu_mib_used)"
-    dim "GPU mem used: ${gpu:-?} MiB"
+    dim "GPU: $(gpu_state_line)"
     (( JSON )) && emit_json "$mode" true
 }
 
@@ -173,13 +186,13 @@ action_research() { do_swap "research" "$CODER_DIR"    "$RESEARCH_DIR" "$RESEARC
 
 action_idle() {
     log "→ idle (bringing both down)"
-    local before; before=$(gpu_mib_used)
+    local apps_before; apps_before=$(gpu_compute_app_count)
     [[ -d "$CODER_DIR" ]]    && compose_down "$CODER_DIR"    || true
     [[ -d "$RESEARCH_DIR" ]] && compose_down "$RESEARCH_DIR" || true
     sleep 2
-    local after; after=$(gpu_mib_used)
-    ok "GPU mem ${before:-?}→${after:-?} MiB"
-    (( JSON )) && emit_json "idle" true "gpu_mib_before=${before:-null}" "gpu_mib_after=${after:-null}"
+    local apps_after; apps_after=$(gpu_compute_app_count)
+    ok "compute apps ${apps_before}→${apps_after}; now: $(gpu_state_line)"
+    (( JSON )) && emit_json "idle" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}"
 }
 
 do_swap() {
@@ -194,7 +207,7 @@ do_swap() {
     fi
 
     log "→ $target (stopping $current, starting $target)"
-    local before; before=$(gpu_mib_used)
+    local apps_before; apps_before=$(gpu_compute_app_count)
 
     if [[ "$current" != "idle" && "$current" != "BROKEN-BOTH" ]]; then
         compose_down "$stop_dir"
@@ -209,12 +222,12 @@ do_swap() {
     compose_up "$start_dir"
 
     if wait_for_port "$start_port"; then
-        local after; after=$(gpu_mib_used)
-        ok "$target vLLM listening on :$start_port (GPU mem ${before:-?}→${after:-?} MiB)"
-        (( JSON )) && emit_json "$target" true "gpu_mib_before=${before:-null}" "gpu_mib_after=${after:-null}" "port=$start_port"
+        local apps_after; apps_after=$(gpu_compute_app_count)
+        ok "$target vLLM listening on :$start_port (compute apps ${apps_before}→${apps_after}; $(gpu_state_line))"
+        (( JSON )) && emit_json "$target" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" "port=$start_port"
     else
         warn "$target vLLM did not start listening within ${START_TIMEOUT}s — check 'docker compose logs'"
-        (( JSON )) && emit_json "$target" false "gpu_mib_before=${before:-null}" "port=$start_port"
+        (( JSON )) && emit_json "$target" false "compute_apps_before=${apps_before}" "port=$start_port"
         exit 1
     fi
 }
