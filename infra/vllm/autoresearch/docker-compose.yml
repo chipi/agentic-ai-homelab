@@ -1,0 +1,79 @@
+# vLLM autoresearch — podcast_scraper's contention / sweep target.
+#
+# Sibling to coder-next/, sharing the same GB10 GPU. ``gpu-mode-swap.sh``
+# enforces the "single owner at a time" rule (see
+# ../../../docs/recipes/gpu-mode-swap.md). When the operator's IDE needs
+# the GPU, switch to `code`. When podcast_scraper needs to run an
+# autoresearch sweep (e.g. summary/GI ratchet against #928 Cell C
+# Qwen3-served-by-vLLM baselines, or #996 catastrophic-tail
+# characterization), switch to `research`.
+#
+# Default model: a Qwen 3.5/3.6 family ~30-35B at bf16 — picked to match
+# the #928 Cell C eval baseline ("Qwen3.6-35B-A3B" in that report's
+# wording). The exact upstream HF repo id moved several times during the
+# Qwen 3 → 3.5 → 3.6 → 3-Next renames; **leaving MODEL_PLACEHOLDER below**
+# so the operator can pin to whichever Qwen 3-family A3B MoE checkpoint
+# is current at boot time. See README.md for the candidates and how to
+# pin the exact revision once verified.
+#
+# Default port: 8003 (the GPU_MODE_RESEARCH_PORT default in
+# gpu-mode-swap.sh). Keep this separate from coder-next's :9000 so
+# `status` mode can tell which one is up without ambiguity.
+
+services:
+  vllm-autoresearch:
+    image: nvcr.io/nvidia/vllm:25.11-py3
+    container_name: vllm-autoresearch
+    runtime: nvidia
+    network_mode: host
+    ipc: host                                # NCCL / large tensor moves
+    env_file:
+      - .env
+    environment:
+      # GB10 Blackwell torch.compile hot-fix — see coder-next/ for the
+      # genesis. Same image, same workaround.
+      - VLLM_DISABLE_TORCH_COMPILE=1
+      - HF_HOME=${HF_HOME:-/opt/llm-models/huggingface}
+      - VLLM_CACHE_ROOT=${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    volumes:
+      - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
+      - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    command:
+      # Pinned 2026-06-14: Qwen3-30B-A3B-Instruct-2507 (BF16, MoE, 30B
+      # total / ~3B active). Closest current canonical HF repo to the
+      # eval report's "Qwen3.6-35B-A3B" baseline (same family, same A3B
+      # MoE shape, same quant). Caveat: 30B vs 35B baseline = 5B smaller
+      # — re-run #928 Cell C against this pin to confirm scoring parity
+      # before treating it as the new canonical autoresearch baseline.
+      # See README.md § Model selection for the full rationale.
+      - --model=Qwen/Qwen3-30B-A3B-Instruct-2507
+      # Pin the revision SHA after first verified boot, same dance as
+      # coder-next. Until then keep this commented to take the model's
+      # current main revision.
+      # - --revision=MODEL_REVISION_PLACEHOLDER
+      - --host=0.0.0.0
+      - --port=${VLLM_PORT:-8003}
+      - --api-key=${VLLM_API_KEY:-buddy-is-the-king}
+      # No tool-call parser flags here — autoresearch sweeps measure
+      # summary / GI / KG quality, not tool use. The eval harness drives
+      # /v1/chat/completions directly; tool routing is the runtime
+      # provider's concern.
+      # GPU budget — same 0.75 GB10 cap as coder-next. See PROD_RUNBOOK
+      # § DGX vs cloud per stage for why 0.92 OOM-crashes the host.
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.75}
+      # Context window — Qwen 3.x family supports very long contexts;
+      # autoresearch summary inputs cap at ~30k tokens so we don't need
+      # the full 128k window. Reducing this frees KV-cache for higher
+      # throughput at sweep time.
+      - --max-model-len=32768
+      - --served-model-name=autoresearch
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${VLLM_PORT:-8003}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10m
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
+    restart: unless-stopped
