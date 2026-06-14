@@ -39,6 +39,12 @@ services:
       - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
       - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
     command:
+      # NVIDIA vllm:25.11-py3 entrypoint requires `vllm serve <model>` as
+      # the leading positional args — flag-only `--model=...` makes the
+      # entrypoint exec `-- --model=...` and bash refuses `--` as a flag.
+      # Mirror the coder-next pattern: subcommand + model name positionally.
+      - vllm
+      - serve
       # Pinned 2026-06-14: Qwen3-30B-A3B-Instruct-2507 (BF16, MoE, 30B
       # total / ~3B active). Closest current canonical HF repo to the
       # eval report's "Qwen3.6-35B-A3B" baseline (same family, same A3B
@@ -46,7 +52,7 @@ services:
       # — re-run #928 Cell C against this pin to confirm scoring parity
       # before treating it as the new canonical autoresearch baseline.
       # See README.md § Model selection for the full rationale.
-      - --model=Qwen/Qwen3-30B-A3B-Instruct-2507
+      - Qwen/Qwen3-30B-A3B-Instruct-2507
       # Pin the revision SHA after first verified boot, same dance as
       # coder-next. Until then keep this commented to take the model's
       # current main revision.

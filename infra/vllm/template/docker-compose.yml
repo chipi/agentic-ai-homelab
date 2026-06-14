@@ -38,7 +38,14 @@ services:
       - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
       - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
     command:
-      - --model=Qwen/Qwen3-Coder-Next-FP8
+      # NVIDIA vllm:25.11-py3 entrypoint requires `vllm serve <model>` as
+      # the leading positional args — flag-only `--model=...` makes the
+      # entrypoint exec `-- --model=...` and bash refuses `--` as a flag.
+      # (Discovered booting the autoresearch fork of this template,
+      # 2026-06-14.) Use subcommand + positional model name.
+      - vllm
+      - serve
+      - Qwen/Qwen3-Coder-Next-FP8
       # Pin the revision after first verified boot. The SHA on disk = the
       # validated build; substitute your own.
       - --revision=MODEL_REVISION_PLACEHOLDER
