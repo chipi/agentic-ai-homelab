@@ -5,8 +5,18 @@
 // =============================================================================
 
 // ---------- HOST: CPU, memory, disk, network, filesystem ----------
+// disable_collectors: drop collectors that produce zero useful series on
+// this homelab (no NFS, no IPVS, no tape drives, no bonded interfaces,
+// no Infiniband, no btrfs). Saves ~50-150 active series with zero info
+// loss for dashboards 1860 / similar. Dashboard 1860 still has every-
+// thing it needs (cpu, diskstats, filesystem, loadavg, meminfo, netdev,
+// netstat, sockstat, vmstat, time, uname, stat, hwmon, thermal_zone, edac).
 prometheus.exporter.unix "host" {
-  rootfs_path = "/rootfs"
+  rootfs_path        = "/rootfs"
+  disable_collectors = [
+    "mountstats", "infiniband", "nfs", "nfsd", "tapestats",
+    "ipvs", "bonding", "btrfs",
+  ]
 }
 
 prometheus.scrape "host" {
@@ -25,11 +35,21 @@ prometheus.scrape "dcgm" {
 }
 
 // ---------- CONTAINERS: cAdvisor ----------
+// metric_relabel_config keep-list: cAdvisor exports ~150 metric names with
+// high per-container × per-device × per-interface cardinality (3-5k active
+// series for 10 containers). Dashboard 893 only uses ~15 of those metrics.
+// Keeping just those drops cAdvisor's series count by ~70-80% (~5k → ~1k)
+// with no visible difference in the dashboard.
 prometheus.scrape "cadvisor" {
   targets         = [{ __address__ = "localhost:8080", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
   job_name        = "cadvisor"
   scrape_interval = "30s"
+  metric_relabel_config {
+    source_labels = ["__name__"]
+    regex         = "container_cpu_usage_seconds_total|container_memory_(usage|working_set|max_usage|rss)_bytes|container_fs_(reads|writes)_bytes_total|container_network_(receive|transmit)_bytes_total|container_oom_events_total|container_start_time_seconds|container_last_seen|container_spec_memory_limit_bytes|container_spec_cpu_(quota|period)|container_tasks_state|machine_cpu_cores|machine_memory_bytes"
+    action        = "keep"
+  }
 }
 
 // ---------- LLM SERVING: vLLM coder model on port 9000 ----------
