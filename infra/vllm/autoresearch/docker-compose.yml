@@ -78,7 +78,15 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10m
+      # Cold boot here is dominated by checkpoint shard load + torch.compile.
+      # Observed at 2026-06-14 first boot: ~24 min total before /health flipped
+      # 200. start_period: 10m was too short — container showed "unhealthy" for
+      # ~15 min after start_period ended, until the model finished loading.
+      # 30m absorbs the worst case without exposing a spurious unhealthy flag
+      # (port-based readiness via gpu-mode-swap.sh is the source of truth for
+      # "is it serving," but docker ps showing healthy avoids confusing
+      # orchestrators / monitors that watch container state).
+      start_period: 30m
     logging:
       driver: json-file
       options: { max-size: "50m", max-file: "3" }
