@@ -49,8 +49,8 @@ curl -fsS http://localhost:9000/v1/models -H "Authorization: Bearer $(grep VLLM_
 The template defaults to **`Qwen/Qwen3-Coder-Next-FP8`** — the operator's
 working coder model. Reasons:
 
-- FP8 quant fits comfortably in GB10's VRAM at the 0.92 utilization
-  budget with a 131k context window.
+- FP8 quant fits comfortably in GB10's unified memory at the 0.75
+  utilization budget (~90 GB) with a 131k context window.
 - Native tool-call schema (`qwen3_coder` parser) works cleanly with
   opencode + Claude Code's MCP tool flow.
 - Active model series — Qwen 3 is what the Qwen team is currently
@@ -73,16 +73,24 @@ To swap models:
 
 ## Port + GPU memory tuning
 
-The defaults (port 9000, `--gpu-memory-utilization=0.92`) assume the
-single-GPU "I own the box" pattern. Adjust per scenario:
+The defaults (port 9000, `--gpu-memory-utilization=0.75`) assume the
+single-GPU "I own the box" pattern on **GB10 unified memory**. Adjust
+per scenario:
+
+> **GB10 vs discrete VRAM.** On unified-memory parts (GB10 Grace+
+> Blackwell) the 121 GB pool is shared between CPU and GPU, so 0.75 is
+> already "exclusive GPU mode" — pushing higher starves the host. On a
+> discrete-VRAM GPU (A100, H100, RTX 4090) you can push to 0.92 because
+> system RAM is independent. The table below assumes GB10; bump the
+> top-of-range column by ~0.17 on a discrete card.
 
 | Scenario | `--gpu-memory-utilization` | `--max-model-len` | Notes |
 |---|---|---|---|
-| Single coder vLLM, exclusive GPU | 0.92 | 131072 | The default. Use with mode-swap. |
+| Single coder vLLM, exclusive GPU | 0.75 | 131072 | The default. Use with mode-swap. |
 | Sharing GPU with Ollama (rare) | 0.60 | 65536 | Leaves room for occasional Ollama serving |
 | Multiple vLLM (different ports) | 0.40-0.50 each | 32768 | Possible but not recommended on GB10 |
-| Long context priority | 0.92 | 262144 | At the cost of throughput |
-| Throughput priority | 0.92 | 32768 | Maximizes batch size |
+| Long context priority | 0.75 | 262144 | At the cost of throughput |
+| Throughput priority | 0.75 | 32768 | Maximizes batch size |
 
 > Tune `--max-model-len` down before tuning utilization down — KV cache
 > scales linearly with context, so trimming 131k → 32k frees a lot of VRAM.
@@ -95,7 +103,8 @@ it.
 ## GPU contention — use the mode-swap recipe
 
 Don't try to run this vLLM alongside the autoresearch vLLM or while
-Ollama is under load. The 0.92 utilization budget is "I own the GPU".
+Ollama is under load. The 0.75 utilization budget is "I own the GPU"
+on GB10 unified memory (0.92 on a discrete-VRAM card).
 Mode-swap is the explicit toggle:
 
 ```bash

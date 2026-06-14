@@ -155,8 +155,11 @@ see [`docs/wip/NEXT_STEPS.md`](wip/NEXT_STEPS.md) "Not in scope".
 
 ### GPU contention
 
-`gpu-memory-utilization=0.92` on vLLM coder-next is "I own the GPU" mode.
-It cannot coexist with:
+`gpu-memory-utilization=0.75` on vLLM coder-next is "I own the GPU" mode.
+The default is 0.75 (not 0.92) because GB10 has 121 GB of **unified**
+CPU+GPU memory — pushing to 0.92 grabs ~112 GB and starves the host /
+sibling services. Override transiently via `${VLLM_GPU_MEM_UTIL}` on a
+quieter box. Even at 0.75 it cannot coexist with:
 
 - The autoresearch vLLM (`infra/dgx/vllm-autoresearch/` in
   podcast_scraper, runs at `gpu-memory-utilization=0.60` on port 8003)

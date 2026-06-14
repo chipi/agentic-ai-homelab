@@ -48,9 +48,12 @@ services:
       # Tool-call wiring — Qwen3-Coder family parser + auto choice.
       - --enable-auto-tool-choice
       - --tool-call-parser=qwen3_coder
-      # GPU budget — 0.92 = "I own the GPU" mode. Coexist with nothing on
-      # this card. See gpu-mode-swap recipe.
-      - --gpu-memory-utilization=0.92
+      # GPU budget — 0.75 = "I own the GPU" mode on GB10 unified memory.
+      # (Higher than ~0.78 starves the host on a 121 GB Grace+Blackwell
+      # pool; on a discrete-VRAM card you can push to 0.92.) Overridable
+      # via VLLM_GPU_MEM_UTIL for eval / contention tests. See
+      # gpu-mode-swap recipe.
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.75}
       # Context window. Tune down to free KV-cache memory if needed.
       - --max-model-len=131072
       - --served-model-name=coder-next

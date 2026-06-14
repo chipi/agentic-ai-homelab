@@ -33,7 +33,7 @@ override any of them via env vars or `~/.config/gpu-mode.env`, see
 
 Both vLLM composes are configured to claim most of GPU memory:
 
-- `coder-next` runs with `--gpu-memory-utilization 0.92` on `<coder-port>`
+- `coder-next` runs with `--gpu-memory-utilization 0.75` on `<coder-port>` (GB10 unified-memory default; overridable via `VLLM_GPU_MEM_UTIL`)
 - `autoresearch` runs with `--gpu-memory-utilization 0.60` on `<research-port>`
 
 Running them together either fails OOM at startup or thrashes — they're
