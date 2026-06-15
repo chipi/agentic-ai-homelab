@@ -102,6 +102,20 @@ the original tuning-by-static-JSON approach doesn't apply here.
 `coder-next/` remains on `25.11-py3` for now (different stack, different
 upgrade decision).
 
+Full eval write-up — methodology, side-by-side numbers, side effects
+surfaced, rollback procedure — lives at
+[`decisions/2026-06-15-image-bump-25.11-to-26.05.md`](decisions/2026-06-15-image-bump-25.11-to-26.05.md).
+
+## Decision history
+
+`decisions/` is the durable home for autoresearch-stack decisions
+(image bumps, model re-pins, scaling moves, contention investigations).
+File-per-decision, `YYYY-MM-DD-<slug>.md`, captures methodology +
+results + rollback so future-me can answer "why did we make this
+choice?" from the repo, not from git log spelunking. Entries are
+**append-only**: superseded decisions get a new entry referencing the
+old one, not edits in place.
+
 ### Historical context for this pin
 
 The podcast_scraper `EVAL_HYBRID_ROUTING_2026_06.md` § Summary refers
