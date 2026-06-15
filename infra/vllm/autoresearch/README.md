@@ -61,6 +61,47 @@ is whichever Qwen3-32B/35B A3B MoE the team ships after this one — do
 NOT pin upward to the 80 B Qwen3-Next variant (different size class,
 different latency profile, conclusions don't transfer).
 
+### Vendor watch — when to revisit this pin
+
+Closes chipi/agentic-ai-homelab#3. The 30 B vs 35 B drift from the
+original eval baseline is acceptable today; nothing on the horizon
+ships in the right size class, so re-pinning would just trade one
+drift for another. **Check in occasionally — roughly quarterly, or
+when you see a vendor announcement** — for a fresh A3B MoE in the
+30-35 B total-param band (same family, same quant). When one shows
+up, evaluate it against the criteria above; if it's a good fit,
+coordinate with `podcast_scraper` #928 to re-baseline Cell C before
+flipping the pin.
+
+Practical signals to watch:
+- Qwen team blog / HuggingFace org for a mid-tier MoE between the
+  existing 7 B and 80 B tiers
+- DeepSeek / Mistral / Cohere occasional A3B-shaped releases in this
+  band
+- Any community port of an existing 30-35 B dense model into A3B MoE
+  form (unlikely but possible)
+
+The current pin stays in place by default — there is no calendar
+alarm and no CI check; this is just a "next time you happen to look,
+look here too" note.
+
+### Image: `nvcr.io/nvidia/vllm:26.05-py3` (bumped 2026-06-15)
+
+This stack was bumped from `25.11-py3` → `26.05-py3` on 2026-06-15
+(chipi/agentic-ai-homelab#2). Result: strictly equal or better on every
+dimension measured (cold boot +7%, steady-state −4%, run-1 cold-cache
+spike −34%, 256-request 5-min load test 0 errors p99=4.67s, 96% GPU
+saturation). The bump also obsoleted chipi/agentic-ai-homelab#1: the
+old `fused_moe.py:798` "Using default MoE config" warning no longer
+appears, replaced by an on-the-fly `flashinfer + trtllm` runtime
+autotuner. There is no static `E=128,N=768,device_name=NVIDIA_GB10.json`
+to ship anymore. If the autotuner ever surfaces obviously sub-optimal
+kernel choices on GB10, open a fresh ticket for that specific gap —
+the original tuning-by-static-JSON approach doesn't apply here.
+
+`coder-next/` remains on `25.11-py3` for now (different stack, different
+upgrade decision).
+
 ### Historical context for this pin
 
 The podcast_scraper `EVAL_HYBRID_ROUTING_2026_06.md` § Summary refers

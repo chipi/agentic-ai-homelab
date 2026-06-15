@@ -22,7 +22,7 @@
 
 services:
   vllm-autoresearch:
-    image: nvcr.io/nvidia/vllm:25.11-py3
+    image: nvcr.io/nvidia/vllm:26.05-py3
     container_name: vllm-autoresearch
     runtime: nvidia
     network_mode: host
@@ -30,17 +30,20 @@ services:
     env_file:
       - .env
     environment:
-      # GB10 Blackwell torch.compile hot-fix — see coder-next/ for the
-      # genesis. Same image, same workaround.
-      - VLLM_DISABLE_TORCH_COMPILE=1
+      # NOTE: VLLM_DISABLE_TORCH_COMPILE was set on 25.11-py3 as the GB10
+      # Blackwell hot-fix. Dropped on the 2026-06-15 image bump to
+      # 26.05-py3 (chipi/agentic-ai-homelab#2 promotion): the Blackwell
+      # torch.compile fix landed upstream and the env var is no longer
+      # recognized (would emit a startup warning). coder-next/ still
+      # needs it because that stack remains on 25.11.
       - HF_HOME=${HF_HOME:-/opt/llm-models/huggingface}
       - VLLM_CACHE_ROOT=${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
     volumes:
       - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
       - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
     command:
-      # NVIDIA vllm:25.11-py3 entrypoint requires `vllm serve <model>` as
-      # the leading positional args — flag-only `--model=...` makes the
+      # NVIDIA vllm:*-py3 entrypoint requires `vllm serve <model>` as the
+      # leading positional args — flag-only `--model=...` makes the
       # entrypoint exec `-- --model=...` and bash refuses `--` as a flag.
       # Mirror the coder-next pattern: subcommand + model name positionally.
       - vllm
