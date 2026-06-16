@@ -45,6 +45,17 @@ gpu-mode-swap.sh status      # confirm vllm-autoresearch is the active mode
 # start_period: 10m absorbs CUDA-graph compile.
 ```
 
+## Right-sizing the KV cache budget
+
+See [`KV_CACHE_SIZING.md`](./KV_CACHE_SIZING.md) for the methodology on
+picking `--gpu-memory-utilization`. The upstream `0.75` default
+over-allocates dramatically for single-request sweep workloads on
+GB10's unified memory — observed at 95% RAM pressure + 10 GiB swap
+during the `podcast_scraper` #1016 sweep before any right-sizing. The
+note documents how to measure peak KV cache usage live during a
+workload, apply the formula, and pin the right value with a
+`decisions/` entry.
+
 ## Model selection
 
 **Currently pinned: `Qwen/Qwen3-30B-A3B-Instruct-2507`** (since 2026-06-14).
