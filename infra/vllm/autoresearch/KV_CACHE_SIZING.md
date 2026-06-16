@@ -84,16 +84,157 @@ enough.
 - Total KV pool at 0.75 util: **24,426 blocks** (`cache_config_info{num_gpu_blocks="24426"}`)
 - Predicted peak usage: 937 / 24,426 = **~3.8%**
 
-Right-size: `0.75 × 0.038 × 1.5 = 0.043`. That's below vLLM's sane-default
-floor for KV scheduling, so the realistic minimum lands at
-**`--gpu-memory-utilization=0.20-0.25`** for this workload — frees
-~50-60 GiB of unified memory vs. the 0.75 default.
+Right-size formula: `0.75 × 0.038 × 1.5 = 0.043`. That's below vLLM's
+sane-default floor for KV scheduling, so the formula's theoretical
+minimum lands at **`--gpu-memory-utilization=0.20-0.25`** for this
+workload purely on KV-cache grounds.
+
+**BUT — that's not the binding constraint.** See the floor below.
 
 For a production serving role (multi-request batched), the same model
 would size very differently — peak `kv_cache_usage_perc` under load
 would be much higher and the right value might genuinely be 0.65-0.75.
 **The number depends on the workload, not the model.** Right-size
 per-stack, not per-model.
+
+## Floor constraint — model weights have to fit too
+
+The right-size formula above tells you **how much KV cache the workload
+actually needs.** It does NOT tell you whether the resulting budget is
+big enough to hold the **model weights**.
+
+`--gpu-memory-utilization` is a single budget split across:
+
+```
+total_budget = weights + activations + CUDA graphs + KV cache pool
+```
+
+If you pin the budget so low that weights + activations don't fit, the
+model fails to load (cold-boot crash) or evicts pages into swap (host
+death spiral).
+
+The **weight floor** is roughly:
+
+```
+weight_floor_util = (weight_GB + margin_GB) / total_unified_memory_GB
+```
+
+with `margin_GB ≈ 5` for activations + CUDA graphs + worker overhead.
+
+For GB10 (128 GiB unified):
+
+- Qwen3-30B-A3B-Instruct-2507 (bf16, 60 GB weights):
+  `(60 + 5) / 128 = 0.508` → can't go below **~0.50**
+- Mistral-Small-3.2-24B (bf16, 45 GB):
+  `(45 + 5) / 128 = 0.391` → can't go below **~0.40**
+
+**The right value is `max(KV_formula_output, weight_floor)`.** For
+sweep workloads on GB10 the weight floor dominates — the formula's
+KV-only answer (0.20-0.25 for this workload) sits below the weight
+floor (0.50), so 0.50 wins. Tighter quants (FP8, NVFP4, INT8) drop the
+weight floor proportionally and let you go lower.
+
+The math example above gave the KV-only answer; the actual right value
+for that workload is the weight floor (~0.50) plus the recommended
+margin (see profile table below).
+
+## Per-workload profiles
+
+Two named profiles. Real workloads always fall into one of these
+buckets; the right `--gpu-memory-utilization` depends on **which
+bucket**, not on the model.
+
+### Profile: `sweep` (single-request, isolated)
+
+The autoresearch / eval / benchmark shape. One request in flight at a
+time, predictable input length, predictable output length. KV cache
+peaks at single-digit percent of the pool. The binding constraint is
+the weight floor, not the KV cache.
+
+Per-model recommendations on GB10 bf16, derived from the 2026-06-16
+sweep (Magistral-Small-2509 D + Mistral-Small-3.2-24B-Instruct-2506 E +
+Qwen3-30B-A3B-Instruct-2507 B all measured at peak
+`kv_cache_usage_perc ≈ 1.86%`):
+
+| Model (bf16)                          | Weight GB | Weight floor | **Recommended sweep util** |
+|---------------------------------------|-----------|--------------|----------------------------|
+| Mistral-Small-3.2-24B-Instruct-2506   | 45        | 0.40         | **0.50**                   |
+| Magistral-Small-2509                  | 45        | 0.40         | **0.50**                   |
+| Qwen/Qwen3-30B-A3B-Instruct-2507      | 60        | 0.50         | **0.55**                   |
+| DeepSeek-R1-Distill-Qwen-32B          | 64        | 0.54         | **0.60**                   |
+| Qwen3.5-35B-A3B (if-when-shipped)     | 70        | 0.59         | **0.65**                   |
+
+**Recommended = floor + ~0.05** (≈ 6 GiB headroom over the weight
+floor). Anything more is wasted on a single-request sweep; the KV cache
+pool will never see ~2% peak utilization.
+
+Source data + measurement methodology:
+[`decisions/2026-06-16-kv-cache-per-workload-profiles.md`](decisions/2026-06-16-kv-cache-per-workload-profiles.md).
+
+### Profile: `prod` (concurrent / batched serving)
+
+The serving-many-clients shape. Multiple concurrent requests, variable
+input length, variable output length. KV cache peaks at much higher
+percentages because vLLM packs multiple in-flight requests into the
+pool.
+
+**Not measured on this homelab yet.** Don't carry the sweep numbers
+into a prod role without a real measurement run. The vLLM upstream
+default (`0.75`) is the right placeholder until you have a measured
+peak; bump or drop from there per the methodology above.
+
+When a prod measurement lands, add a sibling
+`decisions/YYYY-MM-DD-kv-cache-prod-profile.md` capturing the run.
+
+## Boot times — first vs second cold boot
+
+Cold-boot wall-clock on a fresh `gpu-mode-swap.sh research` is
+dominated by **whether the weights + CUDA graphs are already cached
+locally.** The vLLM "Time spent downloading weights" log line is a bit
+misleading — when weights are already on disk it's measuring **HF
+snapshot validation against the cache**, not network download.
+
+### First boot (cold cache)
+
+```
+HF snapshot fetch + checksum validation:  ~5-10 min (network-dependent for first pull)
+Safetensor read from disk into memory:    ~3-5 min
+CUDA graph compile + capture:             ~2-3 min (no flashinfer autotuner) to ~5 min (with autotuner)
+Warmup pass:                              ~30-60 s
+TOTAL (≤35B bf16 on GB10):                ~20-25 min
+```
+
+Today's empirical: 774 s (~12.9 min) of "Time spent downloading
+weights" for `Mistral-Small-3.2-24B` even though weights were on disk
+— that's the snapshot validation step, not network. Confirmed by
+re-booting the same model right after; the second boot dropped to
+sub-minute on that step because the validated snapshot path was
+remembered.
+
+### Second boot (warm cache)
+
+```
+HF snapshot cache hit:                    ~30 s
+Safetensor read:                          ~2-3 min
+CUDA graph compile:                       ~30-60 s (cached if same shape)
+Warmup pass:                              ~30 s
+TOTAL (≤35B bf16 on GB10):                ~3-5 min
+```
+
+### Cache invalidation triggers (force back to first-boot cost)
+
+Any of these wipe the second-boot speed advantage:
+
+| Trigger | Why it invalidates |
+|---|---|
+| vLLM image bump (e.g. 25.11 → 26.05) | `VLLM_CACHE_ROOT` schemas can change between vLLM versions; CUDA graphs are re-captured |
+| `--max-model-len` change | KV cache pool shape changes → block table + CUDA graph re-capture |
+| Attention backend change (flash-attn → flashinfer, etc.) | Different kernel selection → graph re-capture |
+| Different model id (even within the same family) | Fresh snapshot validation + read |
+| Quantized variant of same model (FP8 / NVFP4 / INT8) | Different HF repo id → fresh snapshot + safetensor read |
+
+The second-boot speedup is robust to **container restart** (no compose
+change), not to **compose change**.
 
 ## Operator workflow
 

@@ -51,10 +51,27 @@ See [`KV_CACHE_SIZING.md`](./KV_CACHE_SIZING.md) for the methodology on
 picking `--gpu-memory-utilization`. The upstream `0.75` default
 over-allocates dramatically for single-request sweep workloads on
 GB10's unified memory — observed at 95% RAM pressure + 10 GiB swap
-during the `podcast_scraper` #1016 sweep before any right-sizing. The
-note documents how to measure peak KV cache usage live during a
-workload, apply the formula, and pin the right value with a
-`decisions/` entry.
+during the `podcast_scraper` #1016 sweep before any right-sizing.
+
+**Two named profiles** now drive the choice — pick based on workload
+shape, not on the model:
+
+- **`sweep`** (single-request, isolated — autoresearch / eval / benchmark):
+  default `0.60`, per-model recommendations in the
+  [§ Per-workload profiles](./KV_CACHE_SIZING.md#per-workload-profiles)
+  table. The current `Qwen3-30B-A3B-Instruct-2507` pin → `0.55`. Closes
+  chipi/agentic-ai-homelab#5.
+- **`prod`** (concurrent / batched serving): vLLM upstream `0.75` as
+  placeholder until a real concurrent-request soak gets measured. Hard
+  ceiling on GB10 unified memory: `0.78`. The two profile blocks live
+  in `.env.example`.
+
+See also [§ Boot times](./KV_CACHE_SIZING.md#boot-times--first-vs-second-cold-boot)
+for the first-vs-second cold-boot delta (the 774 s "downloading
+weights" line is HF snapshot validation, not network — second boot
+drops to sub-minute on that step).
+
+Source data: [`decisions/2026-06-16-kv-cache-per-workload-profiles.md`](decisions/2026-06-16-kv-cache-per-workload-profiles.md).
 
 ## Model selection
 
