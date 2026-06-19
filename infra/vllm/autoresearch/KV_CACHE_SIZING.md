@@ -156,20 +156,31 @@ sweep (Magistral-Small-2509 D + Mistral-Small-3.2-24B-Instruct-2506 E +
 Qwen3-30B-A3B-Instruct-2507 B all measured at peak
 `kv_cache_usage_perc ≈ 1.86%`):
 
-| Model (bf16)                          | Weight GB | Weight floor | **Recommended sweep util** |
-|---------------------------------------|-----------|--------------|----------------------------|
-| Mistral-Small-3.2-24B-Instruct-2506   | 45        | 0.40         | **0.50**                   |
-| Magistral-Small-2509                  | 45        | 0.40         | **0.50**                   |
-| Qwen/Qwen3-30B-A3B-Instruct-2507      | 60        | 0.50         | **0.55**                   |
-| DeepSeek-R1-Distill-Qwen-32B          | 64        | 0.54         | **0.60**                   |
-| Qwen3.5-35B-A3B (if-when-shipped)     | 70        | 0.59         | **0.65**                   |
+| Model                                          | Quant | Weight GB | Weight floor | **Recommended sweep util** |
+|------------------------------------------------|-------|-----------|--------------|----------------------------|
+| **NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4** (current pin) | **NVFP4** | **18** | **0.18** | **0.25** |
+| Mistral-Small-3.2-24B-Instruct-2506            | bf16  | 45        | 0.40         | **0.50**                   |
+| Magistral-Small-2509                           | bf16  | 45        | 0.40         | **0.50**                   |
+| Qwen/Qwen3-30B-A3B-Instruct-2507 (BF16 baseline) | bf16 | 60        | 0.50         | **0.55**                   |
+| DeepSeek-R1-Distill-Qwen-32B                   | bf16  | 64        | 0.54         | **0.60**                   |
+| Qwen3.5-35B-A3B (if-when-shipped)              | bf16  | 70        | 0.59         | **0.65**                   |
 
 **Recommended = floor + ~0.05** (≈ 6 GiB headroom over the weight
 floor). Anything more is wasted on a single-request sweep; the KV cache
 pool will never see ~2% peak utilization.
 
+**On the NVFP4 row:** 18 GB weights drops the weight floor to 0.18.
+The `.env.example` profile default (`sweep` = 0.60 from 2026-06-16) is
+now over-allocated by ~2.4× the recommended value for this model —
+**fine for correctness** (host has memory to spare), but if a sibling
+service is competing for unified memory, dropping to 0.25 frees
+~45 GiB. The profile default stays at 0.60 as a "safe middle" that
+works for any model in the table; right-size per-deploy when memory
+pressure justifies it.
+
 Source data + measurement methodology:
-[`decisions/2026-06-16-kv-cache-per-workload-profiles.md`](decisions/2026-06-16-kv-cache-per-workload-profiles.md).
+- BF16 rows: [`decisions/2026-06-16-kv-cache-per-workload-profiles.md`](decisions/2026-06-16-kv-cache-per-workload-profiles.md)
+- NVFP4 row: [`decisions/2026-06-19-nvfp4-quant-swap.md`](decisions/2026-06-19-nvfp4-quant-swap.md)
 
 ### Profile: `prod` (concurrent / batched serving)
 

@@ -75,14 +75,34 @@ Source data: [`decisions/2026-06-16-kv-cache-per-workload-profiles.md`](decision
 
 ## Model selection
 
-**Currently pinned: `Qwen/Qwen3-30B-A3B-Instruct-2507`** (since 2026-06-14).
+**Currently pinned: `NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4`** (since 2026-06-19).
 
-BF16, MoE, 30 B total / ~3 B active. Closest current canonical HF repo
-to the report's "Qwen3.6-35B-A3B" baseline shape: same family, same
-A3B (active-3-billion) MoE structure, same quant. Caveat: **30 B vs
-35 B total = 5 B smaller than the original eval baseline.** Re-run #928
-Cell C against this pin to confirm scoring parity before treating it
-as the new canonical autoresearch target.
+NVIDIA Model Optimizer's official NVFP4 quant of the
+`Qwen/Qwen3-30B-A3B-Instruct-2507` model pinned 2026-06-14 (now the
+BF16 baseline). Drop-in replacement: same MoE architecture, same prompt
+convention, same sampling defaults, same `served-model-name`
+(`autoresearch`) so consumer profiles need no change.
+
+Validation evidence: chipi/podcast_scraper#1022 (Cell F daily-driver
+selection). Held out on `curated_5feeds_benchmark_v2` with Sonnet 4.6
+cross-vendor silver. Result: ~2× faster end-to-end (-47.8% wall-clock
+on dev_v1 10-episode sweep, 380 s vs 728 s baseline); no measurable
+regression on summary embedding cosine, GI coverage, or KG topic
+coverage; wins the #1016 Round 3 cohort GI stage outright (cov 0.425
+vs prior winner Gemma-4 at 0.413). 18 GB weight footprint vs 57 GB
+BF16 (-68%), boots in ~2 min vs ~6 min.
+
+Caveat: same 30 B vs 35 B total-param drift carries over from the BF16
+pin (5 B smaller than `EVAL_HYBRID_ROUTING_2026_06.md`'s
+"Qwen3.6-35B-A3B" baseline shape). Re-confirm against #928 Cell C if
+treating this as the new canonical autoresearch baseline.
+
+**For highest-stakes one-shot evals where summary or KG quality
+matters more than wall-clock**, manually edit `docker-compose.yml`
+back to `Qwen/Qwen3-30B-A3B-Instruct-2507` (BF16) for that run. The
+rollback is a single-line diff in this file — see
+[`decisions/2026-06-19-nvfp4-quant-swap.md`](decisions/2026-06-19-nvfp4-quant-swap.md)
+for the procedure and the data behind the trade.
 
 If parity fails (drift outside scoring noise), the next pin candidate
 is whichever Qwen3-32B/35B A3B MoE the team ships after this one — do
