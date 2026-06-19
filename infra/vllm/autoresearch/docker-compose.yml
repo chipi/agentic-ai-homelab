@@ -55,7 +55,7 @@ services:
       # — re-run #928 Cell C against this pin to confirm scoring parity
       # before treating it as the new canonical autoresearch baseline.
       # See README.md § Model selection for the full rationale.
-      - Qwen/Qwen3-30B-A3B-Instruct-2507
+      - NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4
       # Pin the revision SHA after first verified boot, same dance as
       # coder-next. Until then keep this commented to take the model's
       # current main revision.
