@@ -82,6 +82,13 @@ nav:
     - Overview: reading/README.md
     - LLM stack — end-to-end: reading/llm-end-to-end.md
     - a16z AI Canon: reading/a16z-ai-canon.md
+    - State of AI Report: reading/state-of-ai-report.md
+    - Anthropic Transformer Circuits: reading/anthropic-transformer-circuits.md
+    - Lilian Weng — Lil'Log: reading/lilian-weng-blog.md
+    - Andrej Karpathy — selected writing: reading/karpathy-blog.md
+    - Jay Alammar — visual explainers: reading/jay-alammar-blog.md
+    - Chip Huyen — production-AI writing: reading/chip-huyen-blog.md
+    - Simon Willison — practitioner stream: reading/simon-willison-blog.md
   - Decisions (ADR):
     - Overview: adr/README.md
     - ADR-0001 — Repo scope: adr/ADR-0001-repo-scope.md

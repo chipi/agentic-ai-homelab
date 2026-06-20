@@ -12,10 +12,29 @@ homelab's specific deployments in mind.
 
 ## Pages
 
+### Homelab-curated
+
 | Page | Topic | Status |
 |---|---|---|
 | [LLM stack — end-to-end](llm-end-to-end.md) | Tokenization · transformer fundamentals · architectural variants (MoE, state-space, multi-modal) · embedding & retrieval · RAG · serving (vLLM, Ollama) · sampling · constrained decoding · quantization · spec-dec · parallelism · fine-tuning · reasoning · tool use. Keyed to the homelab's actual stack. | Living, actively built |
-| [a16z AI Canon](a16z-ai-canon.md) | Offline-friendly markdown port of [a16z.com/ai-canon](https://a16z.com/ai-canon/) (Derrick Harris, Matt Bornstein, Guido Appenzeller, 2023-05-25). Foundational layer the homelab end-to-end list builds on top of. Tribute / port; vintage May-2023 snapshot. | Static snapshot |
+
+### Ports of external curated lists
+
+| Page | Source | What it is |
+|---|---|---|
+| [a16z AI Canon](a16z-ai-canon.md) | [a16z.com/ai-canon](https://a16z.com/ai-canon/) — Derrick Harris, Matt Bornstein, Guido Appenzeller (2023-05-25) | Foundational reading layer. The "what the field built" companion to our end-to-end list. Static snapshot. |
+| [State of AI Report](state-of-ai-report.md) | [stateof.ai](https://www.stateof.ai/) — Nathan Benaich / Air Street Capital (annual since 2018) | Annual zeitgeist. ~200-slide deck + practitioner survey + compute index per year. Six recurring dimensions: research, industry, politics, safety, survey, predictions. |
+| [Anthropic Transformer Circuits](anthropic-transformer-circuits.md) | [transformer-circuits.pub](https://transformer-circuits.pub/) — Anthropic Interpretability team | Cumulative interpretability research thread. ~53 entries, organized as a chronological curriculum. Mandatory if you want to understand what's happening *inside* the models you run. |
+
+### Author archives — indexes of single-author bodies of work
+
+| Page | Source | What you get |
+|---|---|---|
+| [Lilian Weng — Lil'Log](lilian-weng-blog.md) | [lilianweng.github.io](https://lilianweng.github.io/) | Long-form research surveys: attention, RLHF, agents, hallucination, inference optimization, prompt engineering. 40+ posts since 2017. |
+| [Andrej Karpathy — selected writing](karpathy-blog.md) | [karpathy.medium.com](https://karpathy.medium.com/) + YouTube + older blog | Foundational essays (Software 2.0, backprop, training recipes) + the "Neural Networks: Zero to Hero" video curriculum. The field's clearest teacher. |
+| [Jay Alammar — visual explainers](jay-alammar-blog.md) | [jalammar.github.io](https://jalammar.github.io/) | The "Illustrated X" series: Transformer, GPT-2, BERT, Stable Diffusion, Word2vec, Retrieval. Visual mental models cited everywhere. |
+| [Chip Huyen — production-AI writing](chip-huyen-blog.md) | [huyenchip.com](https://huyenchip.com/blog/) | Practitioner-perspective: building LLM applications, MLOps, sampling, RLHF, system architecture. Companion to her books. |
+| [Simon Willison — practitioner stream](simon-willison-blog.md) | [simonwillison.net](https://simonwillison.net/) — particularly the [LLM tag](https://simonwillison.net/tags/llms/) | High-cadence practitioner news: prompt injection (he coined the term), model releases, agents, MCP, security. 1,800+ posts; this page is a topical map, not an enumeration. |
 
 ## Conventions
 
