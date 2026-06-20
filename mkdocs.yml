@@ -78,6 +78,9 @@ nav:
     - Token management (lean-ctx + RTK): recipes/token-management-lean-ctx-rtk.md
     - Chrome DevTools MCP agent loop: recipes/chrome-devtools-mcp-agent-loop.md
     - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md
+  - Reading:
+    - Overview: reading/README.md
+    - LLM fundamentals: reading/llm-fundamentals.md
   - Decisions (ADR):
     - Overview: adr/README.md
     - ADR-0001 — Repo scope: adr/ADR-0001-repo-scope.md

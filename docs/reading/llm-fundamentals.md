@@ -1,8 +1,10 @@
 # LLM Fundamentals — Mandatory Reading List
 
-> Living doc, built up alongside a teaching arc on LLMs / vLLM / Ollama.
-> Destined for the `agentic-ai-homelab` repo. Each entry is tagged with what
-> conversation topic it backs.
+> Living doc, built up alongside a teaching arc on LLMs / vLLM / Ollama
+> for the homelab. Each entry is tagged with what conversation topic it
+> backs — section titles call out specific homelab connections
+> ("relevant to your `Qwen3-30B-A3B-Instruct-2507` serve", "relevant to
+> your LanceDB stack").
 >
 > Legend:
 > - ★ = mandatory, read/watch this first
@@ -17,7 +19,9 @@
 >
 > Format per item: `tag` — **title** — author/source — practical why.<br>
 > Each ★ item also carries a `**Why ★:**` line explaining which of the five
-> criteria it satisfies.
+> criteria it satisfies. A `Why ☆ not ★` line is used when an item *looks
+> like* a ★ but is intentionally downgraded for a workload-relative or
+> scoping reason.
 
 ---
 
@@ -64,7 +68,7 @@
 | | Item | Why |
 |---|---|---|
 | ★ | **Mixtral of Experts** — Mistral 2024 — arxiv.org/abs/2401.04088 | The cleanest modern MoE report. Read this first for "what is an MoE and why does it work."<br>**Why ★:** primary source; short; self-contained; the canonical "what is an open MoE" reference; not superseded as the entry point even though larger MoEs exist. |
-| ★ | **DeepSeek-V3 Technical Report** — DeepSeek 2024 — arxiv.org/abs/2412.19437 | 671B/37B-active. State of the art for open MoE. The auxiliary-loss-free routing trick alone is worth the read.<br>**Why ★:** primary source from the current frontier of open MoE; introduces production techniques (aux-loss-free routing, MLA) you will literally meet in vLLM/SGLang flags; self-contained recap of the design. |
+| ★ | **DeepSeek-V3 Technical Report** — DeepSeek 2024 — arxiv.org/abs/2412.19437 | 671B/37B-active. State of the art for open MoE. The auxiliary-loss-free routing trick alone is worth the read.<br>**Why ★:** primary source from the current frontier of open MoE; introduces production techniques (aux-loss-free routing, MLA) you will literally meet in vLLM/SGLang flags; self-contained recap of the design. **Read AFTER Mixtral** — DeepSeek-V3 assumes you already understand the basic top-K router + expert-balancing loss setup that Mixtral introduces cleanly. |
 | ☆ | **Switch Transformer** — Fedus et al. 2021 — arxiv.org/abs/2101.03961 | The paper that put modern MoE on the map. Explains routing, load balancing, expert capacity. |
 | · | **GShard** — Lepikhin et al. 2020 — arxiv.org/abs/2006.16668 | Earlier; explains expert parallelism across many devices. Background for vLLM's EP. |
 
@@ -72,7 +76,7 @@
 
 | | Item | Why |
 |---|---|---|
-| ★ | **Mamba: Linear-Time Sequence Modeling with Selective State Spaces** — Gu & Dao 2023 — arxiv.org/abs/2312.00752 | The selective SSM paper. Dense but essential for the post-transformer era.<br>**Why ★:** primary source for the only currently credible attention alternative; self-contained; not superseded — Mamba-2 extends it but Mamba-1 remains the canonical entry; every hybrid model paper cites it. |
+| ☆ | **Mamba: Linear-Time Sequence Modeling with Selective State Spaces** — Gu & Dao 2023 — arxiv.org/abs/2312.00752 | The selective SSM paper. Dense but essential reading **once you actively consider non-transformer serving.**<br>**Why ☆ not ★** *(workload-relative)*: there's a real gap between "everyone cites it" and "everyone *runs* it." Production stacks — yours included — remain transformer-only. ★ implies "mandatory for orientation"; Mamba is mandatory only when a Mamba/hybrid model lands in autoresearch or coder-next. Promote to ★ at that point. |
 | ☆ | **A Visual Guide to Mamba and State Space Models** — Maarten Grootendorst (newsletter.maartengrootendorst.com) | Pictures-first walkthrough; tames the math. |
 | ☆ | **Jamba: A Hybrid Transformer-Mamba Language Model** — AI21 2024 — arxiv.org/abs/2403.19887 | First production-grade hybrid. Shows the engineering trade you'd make in vLLM. |
 
@@ -103,6 +107,7 @@
 | ☆ | **FlashAttention-2** — Dao 2023 — arxiv.org/abs/2307.08691 | The version actually deployed in production. Read after v1. |
 | ☆ | **Orca: A Distributed Serving System for Transformer-Based Generative Models** — Yu et al., OSDI 2022 | Where "continuous batching" comes from. Foundational for high-throughput serving. |
 | ☆ | **vLLM docs — Architecture page** — docs.vllm.ai (latest) | Read after the PagedAttention paper. The engineering glue. |
+| ☆ | **Large Transformer Model Inference Optimization** — Lilian Weng — lilianweng.github.io/posts/2023-01-10-inference-optimization/ | Single-post survey of serving-side optimizations: quantization, distillation, attention variants, MoE serving, speculative decoding — all in one place. The bridge between the PagedAttention paper and "why is my vLLM flag doing what it's doing." |
 
 ## 9. Quantization (FP8 / INT4 / GPTQ / AWQ)
 
@@ -146,6 +151,7 @@
 |---|---|---|
 | ★ | **Andrej Karpathy — "Neural Networks: Zero to Hero"** (YouTube playlist) | Builds backprop → MLPs → transformers → GPT from scratch. The single best video resource in the field.<br>**Why ★:** foundational; finite (~10 episodes, build-along); zero prereqs (starts from `dy/dx`); nothing supersedes it; near-universal recommendation in the field. |
 | ★ | **Andrej Karpathy — "Let's reproduce GPT-2 (124M)"** (YouTube) | 4 hours of training a real GPT-2. Watch after the "Let's build GPT" video.<br>**Why ★:** primary instructor; finite (one video, follow-along repo); self-contained continuation of the Zero-to-Hero arc; still current — modern training tricks (FlashAttention, mixed precision, DDP) are all in it. |
+| ☆ | **Andrej Karpathy — "State of GPT"** (Microsoft Build 2023, YouTube ~40 min) | Pretraining → SFT → RLHF as a pipeline, narrated by the field's clearest teacher. Pairs with "Intro to LLMs": Intro covers *what* an LLM is; State of GPT covers *how the modern stack actually trains one*. Some specific tooling references (RLHF as the alignment recipe) have aged into the more diverse DPO/IPO/KTO landscape, but the pipeline framing is durable. |
 | ★ | **3Blue1Brown — "But what is a GPT?" / "Attention in transformers" / "How LLMs store facts"** (YouTube, "Deep Learning" series Ch. 5–7) | Best visual intuition for attention and FFN in the field. ~25 min each.<br>**Why ★:** *the* answer to "transformers feel too abstract." Every matrix multiplication is animated frame-by-frame; you watch Q × Kᵀ form, softmax distribute weights, and V vectors get pulled together. Self-contained, finite (3 videos), not superseded — nothing else is this visually concrete. |
 | ☆ | **Stanford CS25 — Transformers United** (YouTube) | Guest lectures from authors of major papers. Cherry-pick episodes by topic. |
 | ☆ | **Umar Jamil — "Coding Llama 2 from scratch" / "Mistral / Mixtral from scratch"** (YouTube) | Long-form code walkthroughs. Heavier than Karpathy but covers GQA, RoPE, MoE in code. |
