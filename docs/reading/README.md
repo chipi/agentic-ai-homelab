@@ -14,7 +14,7 @@ homelab's specific deployments in mind.
 
 | Page | Topic | Status |
 |---|---|---|
-| [LLM fundamentals](llm-fundamentals.md) | Transformer / MoE / serving / quant / fine-tuning / parallelism / state-space — keyed to the homelab's vLLM + Ollama stack | Living, actively built |
+| [LLM stack — end-to-end](llm-end-to-end.md) | Tokenization · transformer fundamentals · architectural variants (MoE, state-space, multi-modal) · embedding & retrieval · RAG · serving (vLLM, Ollama) · sampling · constrained decoding · quantization · spec-dec · parallelism · fine-tuning · reasoning · tool use. Keyed to the homelab's actual stack. | Living, actively built |
 
 ## Conventions
 

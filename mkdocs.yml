@@ -80,7 +80,7 @@ nav:
     - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md
   - Reading:
     - Overview: reading/README.md
-    - LLM fundamentals: reading/llm-fundamentals.md
+    - LLM stack — end-to-end: reading/llm-end-to-end.md
   - Decisions (ADR):
     - Overview: adr/README.md
     - ADR-0001 — Repo scope: adr/ADR-0001-repo-scope.md
