@@ -17,6 +17,8 @@ homelab's specific deployments in mind.
 | Page | Topic | Status |
 |---|---|---|
 | [LLM stack — end-to-end](llm-end-to-end.md) | Tokenization · transformer fundamentals · architectural variants (MoE, state-space, multi-modal) · embedding & retrieval · RAG · serving (vLLM, Ollama) · sampling · constrained decoding · quantization · spec-dec · parallelism · fine-tuning · reasoning · tool use. Keyed to the homelab's actual stack. | Living, actively built |
+| [Self-hosting LLMs — end-to-end](self-hosting-llms.md) | The decisions behind self-hosting: TCO break-even, hardware tiers (consumer GPU vs Apple Silicon vs datacenter), quantization picks, serving framework choice (vLLM vs Ollama vs SGLang vs llama.cpp), production patterns. Reading list shaped around the homelab's working vLLM + Ollama stack. | Living, actively built |
+| [Running your own coding models — end-to-end](coding-models-local.md) | The coding-specific cousin: model landscape (Qwen3-Coder, Codestral, DeepSeek-Coder), FIM autocomplete vs agentic coding, IDE integration layer (Continue, Aider, opencode, Cline), end-to-end recipes mapping to the homelab's coder-next stack. | Living, actively built |
 
 ### Ports of external curated lists
 

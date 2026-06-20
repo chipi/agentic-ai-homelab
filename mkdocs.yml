@@ -84,6 +84,8 @@ nav:
   - Reading:
     - Overview: reading/README.md
     - LLM stack — end-to-end: reading/llm-end-to-end.md
+    - Self-hosting LLMs — end-to-end: reading/self-hosting-llms.md
+    - Running your own coding models — end-to-end: reading/coding-models-local.md
     - a16z AI Canon: reading/a16z-ai-canon.md
     - State of AI Report: reading/state-of-ai-report.md
     - Anthropic Transformer Circuits: reading/anthropic-transformer-circuits.md
