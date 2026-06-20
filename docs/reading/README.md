@@ -15,11 +15,12 @@ homelab's specific deployments in mind.
 | Page | Topic | Status |
 |---|---|---|
 | [LLM stack — end-to-end](llm-end-to-end.md) | Tokenization · transformer fundamentals · architectural variants (MoE, state-space, multi-modal) · embedding & retrieval · RAG · serving (vLLM, Ollama) · sampling · constrained decoding · quantization · spec-dec · parallelism · fine-tuning · reasoning · tool use. Keyed to the homelab's actual stack. | Living, actively built |
+| [a16z AI Canon](a16z-ai-canon.md) | Offline-friendly markdown port of [a16z.com/ai-canon](https://a16z.com/ai-canon/) (Derrick Harris, Matt Bornstein, Guido Appenzeller, 2023-05-25). Foundational layer the homelab end-to-end list builds on top of. Tribute / port; vintage May-2023 snapshot. | Static snapshot |
 
 ## Conventions
 
-Every page in this section uses the **★ / ☆ / ·** tagging scheme
-documented in the LLM fundamentals page header:
+Most pages in this section use the **★ / ☆ / ·** tagging scheme
+documented in the LLM stack end-to-end page header:
 
 - **★** — mandatory, read first
 - **☆** — strongly recommended, second pass
@@ -33,6 +34,14 @@ satisfies; downgrades from ★ → ☆ carry a `**Why ☆ not ★**` line.
 The criteria framework keeps the lists honest as the field evolves —
 when a ★ item ceases to satisfy criterion 4 (superseded), it drops
 to ☆ or · with a note.
+
+**Exception — tribute / port pages** (currently:
+[`a16z-ai-canon.md`](a16z-ai-canon.md)) **do not** apply the ★/☆/·
+scheme. These are offline-friendly renderings of external curated
+lists; overlaying the homelab's tagging scheme on someone else's
+curation would distort it. Tribute pages preserve the source's
+original structure and ordering verbatim, with attribution and a
+prominent link to the original.
 
 ## Adding a new page
 

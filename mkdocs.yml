@@ -81,6 +81,7 @@ nav:
   - Reading:
     - Overview: reading/README.md
     - LLM stack — end-to-end: reading/llm-end-to-end.md
+    - a16z AI Canon: reading/a16z-ai-canon.md
   - Decisions (ADR):
     - Overview: adr/README.md
     - ADR-0001 — Repo scope: adr/ADR-0001-repo-scope.md
