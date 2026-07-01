@@ -5,7 +5,6 @@
   },
   "hooks": {
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "rtk hook claude" }] },
       { "matcher": "Bash|bash", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook rewrite" }] },
       { "matcher": "Read|read|ReadFile|read_file|View|view|Grep|grep|Search|search|ListFiles|list_files|ListDirectory|list_directory|Glob|glob", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook redirect" }] }
     ],
