@@ -34,7 +34,11 @@ link config/lean-ctx/config.toml   "$HOME/.config/lean-ctx/config.toml"
 link config/ponytail/config.json   "$HOME/.config/ponytail/config.json"
 link claude/CLAUDE.md              "$HOME/.claude/CLAUDE.md"
 link claude/RTK.md                 "$HOME/.claude/RTK.md"
-link claude/skills/docs-preflight  "$HOME/.claude/skills/docs-preflight"
+for _sk in "$WS"/claude/skills/*/; do
+  [ -d "$_sk" ] || continue
+  _n="$(basename "$_sk")"
+  link "claude/skills/$_n" "$HOME/.claude/skills/$_n"
+done
 
 echo
 echo "== secret-bearing templates — copy + fill by hand (NOT symlinked) =="
