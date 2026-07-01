@@ -105,6 +105,7 @@ nav:
     - Overview: adr/README.md
     - ADR-0001 — Repo scope: adr/ADR-0001-repo-scope.md
     - ADR-0002 — AGENTS.md per-folder split: adr/ADR-0002-agents-md-per-folder-split.md
+    - ADR-0003 — Subagent roster: adr/ADR-0003-subagent-roster.md
   - Proposals (RFC):
     - Overview: rfc/README.md
   - In progress:
