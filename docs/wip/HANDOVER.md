@@ -29,8 +29,13 @@ Three connected pieces landed this session, all committed on `agentic-setup`:
 *Both original top items are DONE (2026-07-01):* `.env`-location reconciled in
 `infra/AGENTS.md`; rtk retired from the Claude path (`D-0010`). Remaining:
 
+0. **Activate + prove the subagent fleet.** The 6 agents (ADR-0003) are built
+   + committed but need a **session restart** to become invocable (skills
+   hot-load; agents don't). After restart: run a fleet task (e.g. `reviewer`
+   on a diff → escalates to `advisor`), then run the `fleet-stats` skill to
+   see per-agent token/cost spread by model tier — validates the cost model.
 1. **Push `agentic-setup`** — operator gates every push (rule #1); rebase on
-   `main` first (15 commits).
+   `main` first (now ~22 commits).
 2. **Phase 2** — `./workstation/install.sh` to symlink live `~/.config` +
    `~/.claude` into the repo. Shared-state; backs up originals; needs a go.
 3. **Rollout** — replicate the per-folder split to orrery (871) +
