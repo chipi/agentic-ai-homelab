@@ -44,3 +44,4 @@ Keep it short. ADRs that grow past 200 lines usually need to be split.
 ## Index
 
 - [ADR-0001 — Repo scope: four pillars, personal framing](ADR-0001-repo-scope.md)
+- [ADR-0002 — Root + per-folder AGENTS.md split](ADR-0002-agents-md-per-folder-split.md)
