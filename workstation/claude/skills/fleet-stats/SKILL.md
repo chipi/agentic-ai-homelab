@@ -32,3 +32,12 @@ aggregates `totalTokens` + `resolvedModel`.
 
 Cost rates in the script are approximate — update to current pricing (see the
 `claude-api` skill); tokens-per-model is the real signal.
+
+## Known limitation (v1)
+
+Only **top-level** subagent calls (those the orchestrator made) appear in the main
+transcript. A **nested** call — an executor consulting the `advisor` — runs in the
+executor's own context, so its (opus) tokens roll into the *parent's* total and
+show under the parent's model tier. Escalation therefore reads as `0 nested` here
+even when it happened. Attributing nested opus cost correctly needs parsing the
+sub-agent transcripts — a v2 item.
