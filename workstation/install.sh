@@ -33,11 +33,15 @@ link config/AGENTS.md              "$HOME/.config/AGENTS.md"
 link config/lean-ctx/config.toml   "$HOME/.config/lean-ctx/config.toml"
 link config/ponytail/config.json   "$HOME/.config/ponytail/config.json"
 link claude/CLAUDE.md              "$HOME/.claude/CLAUDE.md"
-link claude/RTK.md                 "$HOME/.claude/RTK.md"
 for _sk in "$WS"/claude/skills/*/; do
   [ -d "$_sk" ] || continue
   _n="$(basename "$_sk")"
   link "claude/skills/$_n" "$HOME/.claude/skills/$_n"
+done
+for _ag in "$WS"/claude/agents/*.md; do
+  [ -e "$_ag" ] || continue
+  _n="$(basename "$_ag")"
+  link "claude/agents/$_n" "$HOME/.claude/agents/$_n"
 done
 
 echo
