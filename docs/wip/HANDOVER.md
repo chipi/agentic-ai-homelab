@@ -1,6 +1,6 @@
 # Handover — next session start here
 
-**Written:** 2026-07-01 · **Branch:** `agentic-setup` (9 commits, **NOT pushed**,
+**Written:** 2026-07-01 · **Branch:** `agentic-setup` (15 commits, **NOT pushed**,
 not merged to `main`). Full arc: [`../history/0004-agent-config-and-skills.md`](../history/0004-agent-config-and-skills.md).
 
 ## Where we are
@@ -19,25 +19,24 @@ Three connected pieces landed this session, all committed on `agentic-setup`:
    `scoped-agents`, `gpu-mode`, `dgx-status`, `homelab-endpoint`, `vllm-deploy`,
    `obs-boot`, `new-doc`, `close-arc`. Read-only ones tested live; mutating ones
    gate their state-changing steps.
+4. **Config hygiene** — per-stack `.env` documented (`infra/AGENTS.md`); rtk
+   fully retired from the Claude path (hook + `@RTK.md` import + `RTK.md` +
+   allow entry purged; docs reconciled; `D-0010`). rtk binary kept for
+   other-harness use.
 
 ## Open threads — next actions (priority order)
 
-1. **[requested, NOT done] `.env` location reconciliation.** `infra/AGENTS.md`
-   over-generalizes "reads the repo-root `.env`". Reality: `coder-next` +
-   `openwebui` read repo-root `.env`; `autoresearch`, `observability`, `template`
-   have stack-local `.env`. Fix the doc to describe per-stack (it may be
-   intentional — obs has Grafana creds, autoresearch has tuning).
-2. **[requested, NOT done] rtk vs lean-ctx Bash-hook overlap.** Both
-   `rtk hook claude` and `lean-ctx hook rewrite` fire on `PreToolUse` for Bash
-   (see `~/.claude/settings.json`). Investigate whether they double-rewrite or
-   compose; decide keep/disable/reorder. Global settings = shared-state → operator
-   approval before changing; update `workstation/claude/settings.json.example` too.
-3. **Push `agentic-setup`** — operator gates every push (rule #1). Rebase on
-   `main` first.
-4. **Phase 2** — run `./workstation/install.sh` to symlink live `~/.config` +
+*Both original top items are DONE (2026-07-01):* `.env`-location reconciled in
+`infra/AGENTS.md`; rtk retired from the Claude path (`D-0010`). Remaining:
+
+1. **Push `agentic-setup`** — operator gates every push (rule #1); rebase on
+   `main` first (15 commits).
+2. **Phase 2** — `./workstation/install.sh` to symlink live `~/.config` +
    `~/.claude` into the repo. Shared-state; backs up originals; needs a go.
-5. **Rollout** — replicate the per-folder split to orrery (871 lines) +
+3. **Rollout** — replicate the per-folder split to orrery (871) +
    podcast_scraper-FUTURE (802); podcast also needs global-dedup.
+4. **Global best-practices** (before project-specific) — custom subagents /
+   commands / rule-enforcing skills; see the next-opportunities discussion.
 
 ## Gotchas / facts for next session
 
