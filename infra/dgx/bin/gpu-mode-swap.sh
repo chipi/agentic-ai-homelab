@@ -21,10 +21,14 @@
 #   GPU_MODE_RESEARCH_SVC    Autoresearch vLLM compose service name
 #   GPU_MODE_DOCKER          Docker command prefix (default "sudo docker";
 #                            set to "docker" for rootless setups)
+#   GPU_MODE_SUDO            Privilege prefix for host commands like
+#                            `systemctl restart ollama` (default "sudo";
+#                            set to "" when already root / passwordless)
 #   GPU_MODE_START_TIMEOUT   Seconds to wait for target port (default 120)
 #   GPU_MODE_RESEARCH_MIN_FREE_GIB  Free VRAM (GiB) required before starting
 #                            the autoresearch vLLM (default 73 — matches
-#                            --gpu-memory-utilization=0.6 on the 128 GB GB10)
+#                            --gpu-memory-utilization=0.6 on the GB10's ~121
+#                            GiB usable, not the 128 GB nominal)
 #   GPU_MODE_OLLAMA_FLUSH_TIMEOUT   Seconds to wait for Ollama GPU memory to
 #                            free after `systemctl restart ollama` (default 30)
 #   GPU_MODE_GPU_TOTAL_GIB   Total GPU memory (GiB) for the free-VRAM estimate,
@@ -59,6 +63,7 @@ RESEARCH_PORT="${GPU_MODE_RESEARCH_PORT:-8003}"
 RESEARCH_SVC="${GPU_MODE_RESEARCH_SVC:-vllm-autoresearch}"
 
 DOCKER_CMD="${GPU_MODE_DOCKER:-sudo docker}"
+SUDO="${GPU_MODE_SUDO:-sudo}"                    # host-privilege prefix; "" if root
 START_TIMEOUT="${GPU_MODE_START_TIMEOUT:-120}"
 
 # research-mode GPU prep — Ollama shares the GPU and is flushed before vLLM
@@ -163,7 +168,7 @@ gpu_free_gib() {
 
 prepare_gpu_for_research() {
     log "research: flushing Ollama GPU models before vLLM start"
-    if sudo systemctl restart ollama; then
+    if $SUDO systemctl restart ollama; then
         ok "ollama restarted — models drop from GPU, reload on demand"
     else
         warn "could not restart ollama (absent / no sudo?) — continuing"
@@ -194,12 +199,15 @@ prepare_gpu_for_research() {
 
 remove_stale_research_container() {
     # A prior failed boot leaves an Exited container; `compose up` then fails
-    # with a name Conflict. Remove it (only if it exists and is not running).
-    local name="$RESEARCH_SVC"
-    if $DOCKER_CMD ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$name" \
-       && ! $DOCKER_CMD ps --format '{{.Names}}' 2>/dev/null | grep -qx "$name"; then
-        log "removing exited $name container (avoids compose name conflict)"
-        $DOCKER_CMD rm -f "$name" 1>&2 || true
+    # with a name Conflict. Remove it — but never a running one. A single
+    # `docker inspect` reads the state atomically; the old two-`docker ps`
+    # check could race if the container's state changed between the calls.
+    local name="$RESEARCH_SVC" state
+    state="$($DOCKER_CMD inspect -f '{{.State.Status}}' "$name" 2>/dev/null)" || state=""
+    if [[ -n "$state" && "$state" != "running" ]]; then
+        log "removing $state $name container (avoids compose name conflict)"
+        $DOCKER_CMD rm -f "$name" 1>&2 \
+            || warn "could not remove $state $name container — compose up may hit a name conflict"
     fi
 }
 
