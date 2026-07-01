@@ -1,0 +1,34 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"${HOME}/.claude/plugins/cache/ponytail/ponytail/<VERSION>/hooks/ponytail-statusline.sh\""
+  },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "rtk hook claude" }] },
+      { "matcher": "Bash|bash", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook rewrite" }] },
+      { "matcher": "Read|read|ReadFile|read_file|View|view|Grep|grep|Search|search|ListFiles|list_files|ListDirectory|list_directory|Glob|glob", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook redirect" }] }
+    ],
+    "PostToolUse":     [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook observe" }] }],
+    "UserPromptSubmit":[{ "matcher": ".*", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook observe" }] }],
+    "PreCompact":      [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook observe" }] }],
+    "SessionStart": [
+      { "matcher": ".*", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook observe" }] },
+      { "matcher": "",   "hooks": [{ "type": "command", "command": "lavish-axi", "timeout": 10 }] }
+    ],
+    "SessionEnd": [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook observe" }] }],
+    "Stop":       [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "/opt/homebrew/bin/lean-ctx hook observe" }] }]
+  },
+  "permissions": {
+    "defaultMode": "auto",
+    "additionalDirectories": ["/tmp"],
+    "allow": []
+  },
+  "effortLevel": "xhigh",
+  "enabledPlugins": { "ponytail@ponytail": false },
+  "extraKnownMarketplaces": { "ponytail": { "source": { "source": "github", "repo": "DietrichGebert/ponytail" } } },
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "skipDangerousModePermissionPrompt": true,
+  "skipWorkflowUsageWarning": true
+}
