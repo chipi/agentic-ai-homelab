@@ -44,9 +44,10 @@ only points at the local DGX vLLM (whose `apiKey` is a throwaway).
 - **`permissions.defaultMode` must be `auto`.** Setting it to `delegate`
   prevents Claude Code from starting on the current CLI build (tried
   2026-07-01, reverted). The template ships `auto` — do not "fix" it.
-- **Two Bash-rewrite hook layers coexist** — `rtk hook claude` and
-  `lean-ctx hook rewrite` both fire on `PreToolUse` for Bash. Deciding their
-  relationship is an open item from the agent-config restructure.
+- **Bash-rewrite hook — lean-ctx owns it** (resolved 2026-07-01). `rtk hook
+  claude` was removed from `PreToolUse`; it competed with `lean-ctx hook
+  rewrite` (both rewrote the same command to different things). lean-ctx owns
+  Bash rewriting; rtk stays available manually (`rtk <cmd>`, `rtk gain`).
 - **`templates/opencode/AGENTS.md`** (207 lines) is a stale partial copy of the
   canonical `config/AGENTS.md` (326 lines). It should point at / be regenerated
   from the canonical file rather than drift as a third copy.

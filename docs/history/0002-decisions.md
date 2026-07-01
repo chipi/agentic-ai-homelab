@@ -202,3 +202,19 @@ operator reverted to `auto`, which works.
 to `delegate`.
 **Consequence:** Corrected the restructure memory (item 6), which had the
 direction backwards.
+---
+
+## D-0010 — lean-ctx owns Bash-command rewriting (rtk hook removed)
+
+**Date:** 2026-07-01
+**Context:** `~/.claude/settings.json` had two `PreToolUse` Bash hooks —
+`rtk hook claude` and `lean-ctx hook rewrite` — both rewriting the same command
+to different things (`rtk git status` vs `lean-ctx -c 'git status'`), competing on
+every native Bash call.
+**Decision:** lean-ctx owns Bash rewriting. Removed the `rtk hook claude`
+`PreToolUse` entry; kept lean-ctx rewrite + observe + redirect. rtk stays
+available manually (`rtk <cmd>`, `rtk gain`). Mirrored into
+`workstation/claude/settings.json.example`.
+**Alternatives:** keep rtk as the rewriter for its specialized per-tool proxies —
+not chosen; lean-ctx is the declared primary context runtime and wraps all
+commands, and `ctx_shell` (the main shell) bypasses both hooks anyway.
