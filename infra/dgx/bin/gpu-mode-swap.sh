@@ -147,9 +147,18 @@ gpu_free_gib() {
     # GB10 unified memory reports total/used/free as [N/A] in nvidia-smi; but
     # per-process used_memory IS available via --query-compute-apps. Sum it and
     # subtract from the known total (env GPU_MODE_GPU_TOTAL_GIB) for free GiB.
-    local used_mib
-    used_mib="$(nvidia-smi --query-compute-apps=used_memory --format=csv,noheader,nounits 2>/dev/null | awk '{s+=$1} END{print s+0}')"
-    awk -v tot="$GPU_TOTAL_GIB" -v used="${used_mib:-0}" 'BEGIN{ printf "%.0f", tot - used/1024 }'
+    # On nvidia-smi failure, returns empty string (sentinel) rather than a nonzero
+    # exit — a nonzero return trips set -e at the caller's command-substitution site.
+    # This makes a genuine failure distinguishable from a real "0 MiB used" reading.
+    local raw used_mib
+    if ! raw="$(nvidia-smi --query-compute-apps=used_memory \
+                 --format=csv,noheader,nounits 2>/dev/null)"; then
+        echo ""   # sentinel: nvidia-smi failed; caller detects via non-numeric output
+        return 0
+    fi
+    used_mib="$(awk '{s+=$1} END{print s+0}' <<<"$raw")"
+    awk -v tot="$GPU_TOTAL_GIB" -v used="${used_mib:-0}" \
+        'BEGIN{ printf "%.0f", tot - used/1024 }'
 }
 
 prepare_gpu_for_research() {
@@ -159,12 +168,24 @@ prepare_gpu_for_research() {
     else
         warn "could not restart ollama (absent / no sudo?) — continuing"
     fi
-    local free=""
+    local free="" smi_fails=0
     for ((i=0; i<OLLAMA_FLUSH_TIMEOUT; i++)); do
         free="$(gpu_free_gib)"
-        if [[ "$free" =~ ^[0-9]+$ ]] && (( RESEARCH_MIN_FREE_GIB <= free )); then
-            ok "GPU free ${free} GiB (need ${RESEARCH_MIN_FREE_GIB}) — ready"
-            return 0
+        if [[ "$free" =~ ^[0-9]+$ ]]; then
+            smi_fails=0   # reset blind counter on a good read
+            if (( RESEARCH_MIN_FREE_GIB <= free )); then
+                ok "GPU free ${free} GiB (need ${RESEARCH_MIN_FREE_GIB}) — ready"
+                return 0
+            fi
+        else
+            # nvidia-smi returned no output — driver hiccup, binary absent, or sudo issue.
+            # Don't spin the full timeout on a deterministic failure; abort after 3
+            # consecutive misses with a message distinct from the below-threshold case.
+            smi_fails=$(( smi_fails + 1 ))
+            if (( smi_fails >= 3 )); then
+                warn "nvidia-smi failed ${smi_fails} consecutive times — cannot read VRAM; starting vLLM blind (may OOM)"
+                return 0
+            fi
         fi
         sleep 1
     done
