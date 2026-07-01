@@ -1,0 +1,38 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "plugin": [
+    "oh-my-openagent@latest"
+  ],
+
+  "mcp": {
+    "lean-ctx": {
+      "command": ["/opt/homebrew/bin/lean-ctx"],
+      "enabled": true,
+      "environment": {
+        "LEAN_CTX_DATA_DIR": "${HOME}/.lean-ctx"
+      },
+      "type": "local"
+    }
+  },
+
+  "provider": {
+    "vllm": {
+      "models": {
+        "Qwen/Qwen3-Coder-Next-FP8": {
+          "name": "Qwen3-Coder-Next (Spark)",
+          "tools": true
+        }
+      },
+      "name": "DGX Spark vLLM",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "apiKey": "buddy-is-the-king",
+        "baseURL": "http://<your-dgx-tailnet-host>:9000/v1"
+      }
+    }
+  },
+
+  "model": "vllm/Qwen/Qwen3-Coder-Next-FP8",
+  "small_model": "vllm/Qwen/Qwen3-Coder-Next-FP8"
+}

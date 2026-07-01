@@ -48,3 +48,7 @@ site/
 
 # lean-ctx runtime cache
 .lean-ctx/
+
+# workstation/ — never commit filled secret config, only *.example
+workstation/claude/settings.json
+workstation/config/opencode/opencode.json
