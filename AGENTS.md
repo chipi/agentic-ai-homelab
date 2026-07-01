@@ -19,7 +19,8 @@ duplicates or contradicts.
 - **`.env` belongs in `.gitignore`, never in git.** Always. Reasserted
   here because this repo has many compose stacks and the temptation to
   commit "just the example values" comes up regularly. Compose stacks
-  read the repo-root `.env` directly (see [`infra/AGENTS.md`](infra/AGENTS.md)).
+  read a repo-root or stack-local `.env` depending on the stack (see
+  [`infra/AGENTS.md`](infra/AGENTS.md)).
 
 ## Scoped AGENTS.md in this repo
 

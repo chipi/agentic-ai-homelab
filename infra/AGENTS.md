@@ -10,10 +10,19 @@ place*.
 
 ## Run docker composes from the repo in place
 
-No copy-out to `~/docker-compose/...`. Every operator deploy reads the
-repo-root `.env` directly (per commit `fa24a27`). Recipes that still tell
-you to copy out are stale — fix the doc when you hit it, don't leave a
-TODO.
+No copy-out to `~/docker-compose/...` — run each stack where it lives so its
+`.env` and relative paths resolve (the run-from-repo migration, commit
+`fa24a27`). Recipes that still tell you to copy out are stale — fix the doc when
+you hit it, don't leave a TODO.
+
+`.env` location is **per-stack**, not uniform:
+
+- **`coder-next`, `openwebui`** read the **repo-root `.env`** (`../../../.env`) —
+  the shared serving-vLLM secrets (`HF_TOKEN`, `VLLM_API_KEY`; see the root
+  `.env.example`).
+- **`autoresearch`, `observability`, `template`** keep a **stack-local `.env`**
+  (their own secrets / tuning — autoresearch KV-cache params, observability's
+  Grafana Cloud creds). Each ships a co-located `.env.example`.
 
 ## Run operator scripts from the repo too — symlink, don't copy
 
