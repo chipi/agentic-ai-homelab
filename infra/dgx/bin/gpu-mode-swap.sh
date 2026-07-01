@@ -22,6 +22,13 @@
 #   GPU_MODE_DOCKER          Docker command prefix (default "sudo docker";
 #                            set to "docker" for rootless setups)
 #   GPU_MODE_START_TIMEOUT   Seconds to wait for target port (default 120)
+#   GPU_MODE_RESEARCH_MIN_FREE_GIB  Free VRAM (GiB) required before starting
+#                            the autoresearch vLLM (default 73 — matches
+#                            --gpu-memory-utilization=0.6 on the 128 GB GB10)
+#   GPU_MODE_OLLAMA_FLUSH_TIMEOUT   Seconds to wait for Ollama GPU memory to
+#                            free after `systemctl restart ollama` (default 30)
+#   GPU_MODE_GPU_TOTAL_GIB   Total GPU memory (GiB) for the free-VRAM estimate,
+#                            since nvidia-smi memory.total reads N/A on GB10 (default 121)
 #
 # Exit codes:
 #   0  success — requested mode is active (or no-op confirmed)
@@ -53,6 +60,11 @@ RESEARCH_SVC="${GPU_MODE_RESEARCH_SVC:-vllm-autoresearch}"
 
 DOCKER_CMD="${GPU_MODE_DOCKER:-sudo docker}"
 START_TIMEOUT="${GPU_MODE_START_TIMEOUT:-120}"
+
+# research-mode GPU prep — Ollama shares the GPU and is flushed before vLLM
+RESEARCH_MIN_FREE_GIB="${GPU_MODE_RESEARCH_MIN_FREE_GIB:-73}"
+OLLAMA_FLUSH_TIMEOUT="${GPU_MODE_OLLAMA_FLUSH_TIMEOUT:-30}"
+GPU_TOTAL_GIB="${GPU_MODE_GPU_TOTAL_GIB:-121}"   # GB10 usable ~121.7 GiB; memory.total reads N/A
 
 # ── parse args ───────────────────────────────────────────────────────────
 
@@ -123,6 +135,52 @@ gpu_state_line() {
 
 compose_up()   { ( cd "$1" && $DOCKER_CMD compose up -d ) >&2; }
 compose_down() { ( cd "$1" && $DOCKER_CMD compose down ) >&2; }
+
+# ── research-mode GPU preparation (research slot only) ───────────────────
+# Ollama's systemd service keeps models resident in GPU memory even when idle.
+# On a fresh autoresearch vLLM start that can leave too little free VRAM, and
+# vLLM aborts at CUDA init if free is under what --gpu-memory-utilization needs.
+# Restart Ollama to drop its models (they reload on demand — cold start is
+# acceptable), then wait until enough VRAM is free before starting vLLM.
+
+gpu_free_gib() {
+    # GB10 unified memory reports total/used/free as [N/A] in nvidia-smi; but
+    # per-process used_memory IS available via --query-compute-apps. Sum it and
+    # subtract from the known total (env GPU_MODE_GPU_TOTAL_GIB) for free GiB.
+    local used_mib
+    used_mib="$(nvidia-smi --query-compute-apps=used_memory --format=csv,noheader,nounits 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+    awk -v tot="$GPU_TOTAL_GIB" -v used="${used_mib:-0}" 'BEGIN{ printf "%.0f", tot - used/1024 }'
+}
+
+prepare_gpu_for_research() {
+    log "research: flushing Ollama GPU models before vLLM start"
+    if sudo systemctl restart ollama; then
+        ok "ollama restarted — models drop from GPU, reload on demand"
+    else
+        warn "could not restart ollama (absent / no sudo?) — continuing"
+    fi
+    local free=""
+    for ((i=0; i<OLLAMA_FLUSH_TIMEOUT; i++)); do
+        free="$(gpu_free_gib)"
+        if [[ "$free" =~ ^[0-9]+$ ]] && (( RESEARCH_MIN_FREE_GIB <= free )); then
+            ok "GPU free ${free} GiB (need ${RESEARCH_MIN_FREE_GIB}) — ready"
+            return 0
+        fi
+        sleep 1
+    done
+    warn "GPU free ${free:-?} GiB below ${RESEARCH_MIN_FREE_GIB} GiB after ${OLLAMA_FLUSH_TIMEOUT}s — starting vLLM anyway (may OOM)"
+}
+
+remove_stale_research_container() {
+    # A prior failed boot leaves an Exited container; `compose up` then fails
+    # with a name Conflict. Remove it (only if it exists and is not running).
+    local name="$RESEARCH_SVC"
+    if $DOCKER_CMD ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$name" \
+       && ! $DOCKER_CMD ps --format '{{.Names}}' 2>/dev/null | grep -qx "$name"; then
+        log "removing exited $name container (avoids compose name conflict)"
+        $DOCKER_CMD rm -f "$name" 1>&2 || true
+    fi
+}
 
 current_mode() {
     local code_up=0 research_up=0
@@ -217,6 +275,13 @@ do_swap() {
         compose_down "$CODER_DIR"    || true
         compose_down "$RESEARCH_DIR" || true
         sleep 3
+    fi
+
+    # research slot shares the GPU with Ollama — flush it + clear any stale
+    # container before starting. Code slot is intentionally untouched here.
+    if [[ "$target" == "research" ]]; then
+        prepare_gpu_for_research
+        remove_stale_research_container
     fi
 
     compose_up "$start_dir"
