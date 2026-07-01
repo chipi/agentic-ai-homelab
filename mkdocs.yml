@@ -10,6 +10,11 @@ edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: site
 
+# Scoped AGENTS.md files (agent working-rules) live inside docs/ but are
+# not published — they'd otherwise surface as orphan pages on the site.
+exclude_docs: |
+  AGENTS.md
+
 theme:
   name: material
   features:
