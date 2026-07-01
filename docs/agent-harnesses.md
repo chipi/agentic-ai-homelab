@@ -50,15 +50,14 @@ for the install walkthrough.
 
 ### `templates/claude-code/` *(deferred)*
 
-The operator's Claude Code config (`~/.claude/`) carries the RTK hook,
-the lean-ctx MCP wiring, a per-project permission allowlist, and an
+The operator's Claude Code config (`~/.claude/`) carries the lean-ctx MCP wiring, a per-project permission allowlist, and an
 extensively-tuned hooks block. Templating the *shape* is doable; the
 sanitization cost is high (127K of `~/.claude/settings.json` with
 project-specific permissions). Deferred until a clean minimum-viable
 extraction can be authored — until then, the operative pieces live in:
 
 - [`recipes/token-management-lean-ctx-rtk.md`](recipes/token-management-lean-ctx-rtk.md)
-  — RTK hook install + lean-ctx MCP setup
+  — lean-ctx MCP setup (RTK hook retired, D-0010)
 - [`recipes/chrome-devtools-mcp-agent-loop.md`](recipes/chrome-devtools-mcp-agent-loop.md)
   — chrome-devtools MCP per-project install
 
@@ -77,7 +76,7 @@ The agent landscape changes fast. Today's split:
 
 | Harness | Strength | I use it for |
 |---|---|---|
-| **Claude Code** (CLI) | Most polished agentic harness. Cloud-model-strong, multimodal-native, RTK hook integration, deep MCP support. | The bulk of project work — "do significant work, verify, ship" sessions. |
+| **Claude Code** (CLI) | Most polished agentic harness. Cloud-model-strong, multimodal-native, deep MCP support. | The bulk of project work — "do significant work, verify, ship" sessions. |
 | **opencode** (CLI) | Local-model-first; native vLLM via OpenAI-compatible provider. Lean configuration. | Quick interactive sessions where I want zero cloud cost or zero latency. |
 | **Cursor** (IDE) | In-editor "edit this file" + chat. | Less now that Claude Code in terminal is better. Occasional. |
 | **Chatbox** (mobile / desktop) | OpenAI-compatible client, no deploy. | Phone access to local vLLM or any cloud provider. |
@@ -149,7 +148,7 @@ Pruning is as load-bearing as adding.
 
 | Recipe | Covers |
 |---|---|
-| [Token management (lean-ctx + RTK)](recipes/token-management-lean-ctx-rtk.md) | Install, configure, verify the two daily-driver token-compression tools |
+| [Token management (lean-ctx)](recipes/token-management-lean-ctx-rtk.md) | Install, configure, verify the lean-ctx token-compression setup |
 | [Chrome DevTools MCP agent loop](recipes/chrome-devtools-mcp-agent-loop.md) | Per-project MCP for UI work; headless vs visible modes; three loop patterns |
 
 ---

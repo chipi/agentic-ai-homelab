@@ -1,8 +1,17 @@
-# Token management — lean-ctx + RTK pair
+# Token management — lean-ctx
 
-**Date:** 2026-06-12
-**Status:** v0.1 — live, in daily use across podcast_scraper / orrery / this repo
-**Reach:** local — both tools run on the operator's machine; no remote calls
+**Date:** 2026-06-12 (updated 2026-07-01)
+**Status:** v0.2 — lean-ctx live daily; RTK retired from the Claude Code path
+**Reach:** local — runs on the operator's machine; no remote calls
+
+!!! warning "RTK hook retired from Claude Code (2026-07-01)"
+    This recipe originally paired lean-ctx with an **RTK** Bash hook. That hook
+    was **removed** — it competed with lean-ctx's own Bash rewrite (both rewrote
+    the same command; see decision **D-0010**). **lean-ctx now owns Bash
+    rewriting as well as Read/MCP compression.** RTK is kept only as a manual
+    terminal tool (`rtk git …`, `rtk gain`); nothing in the agent loop invokes
+    it. The RTK-hook sections below are retained for historical context and for
+    use in other harnesses.
 
 How I keep token spend bounded across many sessions a day without thinking
 about it. Two complementary tools, both Mac-installed via Homebrew, both
@@ -10,8 +19,8 @@ mostly invisible once configured.
 
 | Tool | What it compresses | How |
 |---|---|---|
-| **lean-ctx** | File reads, MCP tool output, directory listings | MCP server registered in Claude. Auto-selected via tool-preference rules in global CLAUDE.md (`ctx_read` over `Read`, `ctx_shell` over `Bash`, etc.). Caches file content per-project in `.lean-ctx/graph.db` — re-reads cost ~13 tokens instead of full content. |
-| **RTK** | Bash / shell command output | Claude Code hook that rewrites commands transparently. `git status` becomes `rtk git status` behind the scenes, and the output is compressed via 95+ patterns tuned for git / npm / cargo / etc. |
+| **lean-ctx** | File reads, shell command output, MCP tool output, directory listings | MCP server registered in Claude. Auto-selected via tool-preference rules in global CLAUDE.md (`ctx_read` over `Read`, `ctx_shell` over `Bash`, etc.). Caches file content per-project in `.lean-ctx/graph.db` — re-reads cost ~13 tokens instead of full content. |
+| **RTK** *(retired from Claude; manual only)* | Bash / shell command output | Rust CLI proxy. **Previously** a Claude Code hook that rewrote commands transparently; that hook is removed (D-0010). Now invoked by hand (`rtk git status`) when you want its per-tool output. |
 
 Reported savings: 60-90% on dev operations (per RTK's `rtk gain`),
 60-99% on file reads (per lean-ctx's per-call savings stat).
@@ -71,9 +80,11 @@ agent (or operator) actually invokes commands.
 └─────────────────────────────────────────────────────────────┘
 ```
 
-The two are orthogonal: lean-ctx covers Read/MCP traffic, RTK covers
-Bash. Neither touches the other's domain, which is why they compose
-cleanly.
+Originally the two were orthogonal — lean-ctx covered Read/MCP, RTK covered
+Bash. As of 2026-07-01 (**D-0010**) lean-ctx covers Bash too (its `hook rewrite`
+wraps commands, and `ctx_shell` compresses directly), so the RTK hook was
+dropped to stop two rewriters competing. The `rtk hook claude` step in the
+diagram above no longer runs.
 
 ---
 
@@ -126,6 +137,10 @@ Should list `lean-ctx` as connected. If it isn't, check
 `~/.config/lean-ctx/` exists and is writeable.
 
 ### 3. Register the RTK hook
+
+!!! note "Superseded (2026-07-01)"
+    No longer used in Claude Code — the RTK hook was removed (D-0010); lean-ctx
+    owns Bash rewriting. Keep this only for RTK use in a *different* harness.
 
 In `~/.claude/settings.json` add a hook that runs `rtk hook claude`
 before bash invocations. Exact JSON shape varies by Claude Code version,

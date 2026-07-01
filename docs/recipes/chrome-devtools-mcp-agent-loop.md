@@ -370,7 +370,7 @@ Guidelines:
 - **`list_console_messages` is cheap** — read it often, costs little.
 
 This composes well with [`token-management-lean-ctx-rtk.md`](token-management-lean-ctx-rtk.md)
-— lean-ctx and RTK don't touch MCP traffic, so Chrome DevTools is the
+— lean-ctx doesn't touch MCP traffic, so Chrome DevTools is the
 domain where the agent's own discipline matters most.
 
 ---

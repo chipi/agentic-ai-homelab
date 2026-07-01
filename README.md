@@ -74,7 +74,7 @@ the four pillars to real.
    `examples/mcp-tool-template/`, `examples/eval-harness/`
 4. **Agent harnesses** — the connective tissue. Global AGENTS.md,
    opencode provider config, MCP server registry pattern. Two recipes
-   (lean-ctx + RTK token management, Chrome DevTools MCP agent loop)
+   (lean-ctx token management, Chrome DevTools MCP agent loop)
    cover the daily-driver tooling.
    → [Pillar 4](docs/agent-harnesses.md) · `templates/opencode/`
 
