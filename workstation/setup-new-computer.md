@@ -16,15 +16,15 @@ brew install git gh node
 ```bash
 brew install --cask claude                   # Claude Code CLI (Homebrew is canonical)
 npm i -g opencode-ai                          # opencode
-brew install rtk                              # Rust Token Killer (or the project's install)
+brew install rtk                              # OPTIONAL: manual 'rtk <cmd>' only — retired from the Claude hook path (D-0010)
 # lean-ctx: auto-installs on first MCP use, or:
 curl -fsSL https://raw.githubusercontent.com/yvgude/lean-ctx/main/skills/lean-ctx/scripts/install.sh | bash
 lean-ctx setup
 ```
 
 Confirm each is on `PATH` (the hooks call `/opt/homebrew/bin/lean-ctx` by
-absolute path): `claude --version`, `opencode --version`, `lean-ctx --version`,
-`rtk --version`.
+absolute path): `claude --version`, `opencode --version`, `lean-ctx --version`
+(and `rtk --version` only if you opted into the manual rtk tool above).
 
 ## 3. Clone this repo and symlink the config
 
@@ -35,7 +35,7 @@ cd ~/Projects/agentic-ai-homelab
 ./workstation/install.sh                     # symlink ~/.config + ~/.claude into the repo
 ```
 
-This links the **non-secret** files (`AGENTS.md`, `CLAUDE.md`, `RTK.md`,
+This links the **non-secret** files (`AGENTS.md`, `CLAUDE.md`,
 lean-ctx/ponytail config, the `docs-preflight` skill). Existing files are backed
 up as `*.bak.<timestamp>`.
 
