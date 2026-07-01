@@ -83,8 +83,9 @@ ls -l ~/.claude/CLAUDE.md                     # → symlink into workstation/cla
 
 - Open Claude Code: the ponytail statusline renders, and `/docs-preflight` shows
   in the skills list (proves `~/.claude/skills/docs-preflight` is linked).
-- Run something that triggers a Bash tool: the rtk + lean-ctx `PreToolUse` hooks
-  fire (compression/rewrite active).
+- Run something that triggers a Bash tool: the lean-ctx `PreToolUse` hook fires
+  (compression/rewrite active). Try a `git commit` that stages a fake key
+  (`api_key=AKIA...`) in a throwaway repo — the `secrets-guard` hook blocks it.
 - In any docs repo, `make docs-build` (or the `docs-preflight` skill) runs green.
 
 Details and the home↔repo map: [`README.md`](README.md).

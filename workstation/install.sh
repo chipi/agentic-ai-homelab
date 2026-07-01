@@ -43,12 +43,18 @@ for _ag in "$WS"/claude/agents/*.md; do
   _n="$(basename "$_ag")"
   link "claude/agents/$_n" "$HOME/.claude/agents/$_n"
 done
+for _hk in "$WS"/claude/hooks/*; do
+  [ -e "$_hk" ] || continue
+  _n="$(basename "$_hk")"
+  link "claude/hooks/$_n" "$HOME/.claude/hooks/$_n"
+done
 
 echo
 echo "== secret-bearing templates — copy + fill by hand (NOT symlinked) =="
 echo "   config/opencode/opencode.json.example  ->  ~/.config/opencode/opencode.json"
 echo "     (set your DGX tailnet host; OpenRouter key goes in the shell env, not here)"
 echo "   claude/settings.json.example           ->  ~/.claude/settings.json"
-echo "     (set the ponytail <VERSION>; permissions.allow re-accrues via /fewer-permission-prompts)"
+echo "     (set the ponytail <VERSION>; permissions.allow re-accrues via /fewer-permission-prompts;"
+echo "      the secrets-guard PreToolUse hook resolves to the symlinked ~/.claude/hooks/secrets-guard.sh)"
 echo
 echo "done. Safe to re-run; replaced files are backed up as *.bak.$TS"
