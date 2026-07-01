@@ -31,6 +31,7 @@ folder wins (e.g. `infra/dgx/` over `infra/` over root).
 | [`docs/AGENTS.md`](docs/AGENTS.md) | Docs workflow — mkdocs strict gate, doc hygiene, NEXT_STEPS punch list, history arcs |
 | [`infra/AGENTS.md`](infra/AGENTS.md) | Infra stacks — run composes in place, symlink operator scripts |
 | [`infra/dgx/AGENTS.md`](infra/dgx/AGENTS.md) | DGX-host work, GPU mode coordination |
+| [`infra/vllm/AGENTS.md`](infra/vllm/AGENTS.md) | Local vLLM stacks — ports, dummy key, GPU sizing |
 | [`provider-bakeoff/AGENTS.md`](provider-bakeoff/AGENTS.md) | provider-bakeoff sub-project |
 
 Templates (not active rules — copy-out artifacts; see pillar 4 for context):
