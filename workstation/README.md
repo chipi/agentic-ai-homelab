@@ -19,7 +19,9 @@ Full step-by-step for a clean Mac: [`setup-new-computer.md`](setup-new-computer.
 | `~/.config/lean-ctx/config.toml` | `config/lean-ctx/config.toml` | symlink |
 | `~/.config/ponytail/config.json` | `config/ponytail/config.json` | symlink |
 | `~/.claude/CLAUDE.md` | `claude/CLAUDE.md` | symlink |
-| `~/.claude/skills/docs-preflight/` | `claude/skills/docs-preflight/` | symlink (dir) |
+| `~/.claude/skills/*/` | `claude/skills/*/` | symlink per skill (dir) |
+| `~/.claude/agents/*.md` | `claude/agents/*.md` | symlink per subagent |
+| `~/.claude/hooks/*` | `claude/hooks/*` | symlink per hook script |
 | `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | **template** — copy + fill |
 | `~/.claude/settings.json` | `claude/settings.json.example` | **template** — copy + fill |
 
