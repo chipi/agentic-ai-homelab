@@ -188,3 +188,17 @@ self-hosted setup (modest, recognized GH genre, sets honest expectations).
 - `local-agentic-ai` — too narrow (excludes cloud workflow).
 **Consequence:** Repo positioning is "what I run", not "what you should run".
 Reflected in README's "What this is not" section.
+---
+
+## D-0009 — permissions.defaultMode must be "auto", not "delegate"
+
+**Date:** 2026-07-01
+**Context:** The agent-config restructure notes claimed a fix setting
+`~/.claude/settings.json` `permissions.defaultMode` to `delegate`. In reality
+`delegate` prevents Claude Code from starting on the installed CLI build; the
+operator reverted to `auto`, which works.
+**Decision:** Keep `permissions.defaultMode: "auto"`. The
+`workstation/claude/settings.json.example` template ships `auto`; do not "fix" it
+to `delegate`.
+**Consequence:** Corrected the restructure memory (item 6), which had the
+direction backwards.
