@@ -55,6 +55,7 @@ if [ "$is_commit" = 1 ]; then
     else
         diff="$(git diff --cached 2>/dev/null)"; names="$(git diff --cached --name-only 2>/dev/null)"
     fi
+    verb='commit'
 else
     # push: scan the outgoing commit range, best-effort; fail-open if unknown.
     rng=""
@@ -64,6 +65,7 @@ else
     fi
     [ -n "$rng" ] || allow
     diff="$(git diff "$rng" 2>/dev/null)"; names="$(git diff "$rng" --name-only 2>/dev/null)"
+    verb='push'
 fi
 [ -n "$diff" ] || allow
 
@@ -91,6 +93,5 @@ fi
 
 [ -n "$hits" ] || allow
 
-verb="commit"; [ "$is_push" = 1 ] && verb="push"
 deny "secrets-guard blocked this git ${verb} — the change matches secret patterns:
 ${hits}Remove the secret and rotate it (a secret in git is compromised even if later deleted). Run /secrets-scan for file:line detail, or run the git command in a terminal outside Claude to override."
