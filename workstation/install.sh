@@ -48,6 +48,11 @@ for _hk in "$WS"/claude/hooks/*; do
   _n="$(basename "$_hk")"
   link "claude/hooks/$_n" "$HOME/.claude/hooks/$_n"
 done
+for _wf in "$WS"/claude/workflows/*; do
+  [ -e "$_wf" ] || continue
+  _n="$(basename "$_wf")"
+  link "claude/workflows/$_n" "$HOME/.claude/workflows/$_n"
+done
 
 echo
 echo "== secret-bearing templates — copy + fill by hand (NOT symlinked) =="
