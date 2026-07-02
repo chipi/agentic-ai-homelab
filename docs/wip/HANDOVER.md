@@ -36,6 +36,12 @@ arc: [`../history/0004-agent-config-and-skills.md`](../history/0004-agent-config
 
 ## Open threads (priority order)
 
+> **2026-07-02 session:** finished thread #4 + #6, rtk reconciliation, symlink-map.
+> Ran a 5-variant hardening-workflow experiment → **ADR-0004** (inline-by-default;
+> tiered workflow for blind-spots only). Added `.pre-commit-config.yaml` (mechanical
+> floor, not yet enabled) + `secrets-guard` regression tests. `harden.js` kept as an
+> experimental workflow. Still unpushed.
+
 1. **Push `agentic-setup`** — you gate every push (rule #1); rebase on `main` first.
    Use the `ship` skill.
 2. **Phase 2** — `./workstation/install.sh` to symlink live `~/.config` + `~/.claude`
@@ -43,18 +49,16 @@ arc: [`../history/0004-agent-config-and-skills.md`](../history/0004-agent-config
 3. **Deploy the gpu-mode-swap fix to the DGX** — needs the branch pushed + pulled
    on-host, then the on-host test checklist (idle to research etc.) when the DGX is
    free (it had live vLLM + Ollama loaded this session).
-4. **Follow-ups the fleet surfaced** (worth doing before trusting the DGX fix):
-   - gpu-mode-swap: TOCTOU race in the stale-container check (use `docker inspect`
-     for an atomic state read); nits (hardcoded `sudo`, the "128 GB" comment math
-     should say 121, `|| true` masking rm failures).
-   - advisor's out-of-scope flag: per-process `used_memory` may ALSO be `[N/A]` on
-     GB10 while vLLM/Ollama are loaded — confirm with a live reading; if so,
-     `gpu_util_pct` may be the better gate and the free-estimate path needs a rethink.
-   - `fleet-stats` v2: attribute nested-escalation (opus advisor) tokens correctly.
+4. ~~**Follow-ups the fleet surfaced**~~ — **DONE 2026-07-02.** TOCTOU fixed
+   (atomic `docker inspect`), `$SUDO` configurable, 128→121 comment, `|| true`→warn;
+   the `used_memory` question resolved by a live DGX read (per-process `used_memory`
+   IS populated on GB10, so the free-estimate path is correct); `fleet-stats` v2
+   ships (walks `subagents/`).
 5. **Rollout** — replicate the per-folder split to orrery (871) +
    podcast_scraper-FUTURE (802); podcast also needs global-dedup.
-6. **Global best-practices #3-#5** (remaining menu): a secrets-guard hook (#29
-   automation), slash commands (`~/.claude/commands/`), settings hardening.
+6. **Global best-practices** — #3 secrets-guard hook **DONE 2026-07-02** (live in
+   settings.json + committed regression tests). #4 slash commands + #5 settings
+   hardening **deferred by operator choice**. Menu complete.
 
 ## Gotchas / facts
 
