@@ -140,6 +140,7 @@ Available variables (all optional):
 | `GPU_MODE_RESEARCH_PORT` | `8003` | Autoresearch vLLM port |
 | `GPU_MODE_RESEARCH_SVC` | `vllm-autoresearch` | Autoresearch service name |
 | `GPU_MODE_DOCKER` | `sudo docker` | Docker command prefix |
+| `GPU_MODE_SUDO` | `sudo` | Privilege prefix for host cmds (e.g. `systemctl restart ollama`); `""` if root/passwordless |
 | `GPU_MODE_START_TIMEOUT` | `120` | Seconds to wait for target port |
 
 ### Common failure modes
