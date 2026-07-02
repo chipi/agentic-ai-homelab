@@ -63,7 +63,7 @@ RESEARCH_PORT="${GPU_MODE_RESEARCH_PORT:-8003}"
 RESEARCH_SVC="${GPU_MODE_RESEARCH_SVC:-vllm-autoresearch}"
 
 DOCKER_CMD="${GPU_MODE_DOCKER:-sudo docker}"
-SUDO="${GPU_MODE_SUDO:-sudo}"                    # host-privilege prefix; "" if root
+SUDO="${GPU_MODE_SUDO-sudo}"                    # host-privilege prefix; "" if root
 START_TIMEOUT="${GPU_MODE_START_TIMEOUT:-120}"
 
 # research-mode GPU prep — Ollama shares the GPU and is flushed before vLLM
