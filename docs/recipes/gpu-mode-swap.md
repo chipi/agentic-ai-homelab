@@ -25,6 +25,7 @@ override any of them via env vars or `~/.config/gpu-mode.env`, see
 > | Coder service name | `vllm-coder-next` | `GPU_MODE_CODER_SVC` |
 > | Research service name | `vllm-autoresearch` | `GPU_MODE_RESEARCH_SVC` |
 > | Docker command | `sudo docker` | `GPU_MODE_DOCKER` |
+> | Privilege prefix (host cmds) | `sudo` | `GPU_MODE_SUDO` |
 > | Start timeout (s) | `120` | `GPU_MODE_START_TIMEOUT` |
 
 ---
