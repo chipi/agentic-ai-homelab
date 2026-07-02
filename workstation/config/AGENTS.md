@@ -228,6 +228,29 @@ this map is for *my* mental model only.
 
 ---
 
+## Subagent delegation — inline by default
+
+Default to the **main conversation**. Spin up a subagent only when one of these
+clearly holds:
+
+- **Verbose / throwaway process** — I want the conclusion, not the file-dumps or
+  the noise. → recon/search agent (`Explore`), an audit or research fan-out.
+- **Tool boundary** — the work must be read-only or sandboxed. → `reviewer`,
+  `advisor` (both read-only).
+- **Self-contained + summarizable** — a scoped unit that returns a clean result
+  with no back-and-forth. → `tester`, `docs-writer`, `implementer`, `planner`.
+- **Hard sub-decision** needing top-tier (opus) reasoning without bloating the
+  main context. → `advisor` (the escalation target).
+
+Stay **inline** for iterative / back-and-forth work, phases that share heavy
+context (plan → build → test), quick targeted edits, or when latency matters
+(subagents start cold and re-gather context).
+
+**When in doubt, inline.** Delegation carries a cost, a latency, and a
+context-rebuild tax — the 2026-07-02 experiment (ADR-0004) put inline at ~$0.10
+against ~$1–18 for the multi-agent variants. It's the exception, not the reflex.
+I delegate on judgment and tell you — I don't stop to ask each time.
+
 ## What overrides this file
 
 - Per-repo `AGENTS.md`: project-specific rules take precedence inside that
