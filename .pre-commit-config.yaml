@@ -1,0 +1,85 @@
+# Pre-commit — the mechanical floor for agentic-ai-homelab.
+#
+# Harness-agnostic: this catches hand commits too, unlike the Claude-only
+# secrets-guard PreToolUse hook. Deterministic, fast, per-commit. Judgment-level
+# checks (doc-vs-code drift, deferral reckoning, coverage gaps) live one layer up
+# in the /harden segment audit — which runs THIS config as one of its gates rather
+# than re-implementing it.
+#
+# Enable (one-time):
+#   brew install pre-commit            # or: pipx install pre-commit
+#   pre-commit install                 # commit-time hooks
+#   pre-commit install -t pre-push     # pre-push docs-strict
+#   pre-commit run --all-files         # first pass — expect a one-time whitespace/
+#                                      # EOF cleanup churn on adoption
+#   pre-commit autoupdate              # bump the pinned revs below
+#
+# Severity split by design: this gate blocks on ERRORS only (unobtrusive per
+# commit); /harden runs shellcheck at --severity=warning to SURFACE style without
+# blocking every commit.
+
+exclude: '^(\.venv/|site/|.*\.bak\.[0-9]).*$'
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]     # preserve 2-space Markdown line breaks
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-yaml
+        exclude: '^mkdocs\.yml$'                 # mkdocs may carry python tags; CI's
+                                                 # `mkdocs build --strict` validates it
+      - id: check-toml
+      - id: check-json
+      - id: check-ast                            # python utility scripts must parse
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: detect-private-key
+
+  # Secrets — the harness-agnostic floor (self-contained binary; no system gitleaks
+  # needed). The Claude secrets-guard hook and the secrets-scan skill both defer to
+  # gitleaks when present; here it runs on every commit for everyone.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        args: [--severity=error]                 # block on bugs; /harden surfaces warnings
+
+  - repo: local
+    hooks:
+      # A real .env must never be committed — only sanitized *.example (AGENTS.md #29).
+      - id: forbid-real-env
+        name: forbid committing a real .env (only .env.example)
+        language: fail
+        entry: "real .env files must never be committed — commit a sanitized .env.example instead"
+        files: '(^|/)\.env(\.[a-z]+)?$'
+        exclude: '\.example$'
+
+      # The *.json.example restore templates must stay valid JSON — a malformed one
+      # breaks a fresh-machine restore (setup-new-computer.md copies them verbatim).
+      - id: json-example-valid
+        name: validate *.json.example parses as JSON
+        language: system
+        entry: bash -c 'for f in "$@"; do jq empty "$f" || exit 1; done' --
+        files: '\.json\.example$'
+
+      # Strict docs build before push (mirrors the docs.yml CI gate); pre-push stage
+      # so it does not fire on every commit.
+      - id: docs-build-strict
+        name: mkdocs build --strict (pre-push)
+        language: system
+        entry: make docs-build
+        pass_filenames: false
+        stages: [pre-push]
+        files: '(\.md$|^mkdocs\.yml$|^requirements-docs\.txt$)'
