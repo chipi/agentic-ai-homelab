@@ -22,6 +22,7 @@ Full step-by-step for a clean Mac: [`setup-new-computer.md`](setup-new-computer.
 | `~/.claude/skills/*/` | `claude/skills/*/` | symlink per skill (dir) |
 | `~/.claude/agents/*.md` | `claude/agents/*.md` | symlink per subagent |
 | `~/.claude/hooks/*` | `claude/hooks/*` | symlink per hook script |
+| `~/.claude/workflows/*` | `claude/workflows/*` | symlink per workflow |
 | `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | **template** — copy + fill |
 | `~/.claude/settings.json` | `claude/settings.json.example` | **template** — copy + fill |
 
@@ -60,6 +61,6 @@ only points at the local DGX vLLM (whose `apiKey` is a throwaway).
 ## Prerequisites the config assumes
 
 Installed and on `PATH`: `claude` (Homebrew), `opencode`, `lean-ctx`
-(`/opt/homebrew/bin`), `rtk`, `gh`, `node`, the `ponytail` and `oh-my-openagent`
+(`/opt/homebrew/bin`), `rtk` (optional — manual-only per D-0010), `gh`, `node`, the `ponytail` and `oh-my-openagent`
 plugins. Versions and install commands are in
 [`setup-new-computer.md`](setup-new-computer.md).
