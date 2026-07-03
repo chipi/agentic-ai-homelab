@@ -99,6 +99,15 @@ drafted, but they haven't been run for real yet.
       cron → on-VPS systemd timer) and
       [#1879](https://github.com/chipi/podcast_scraper/issues/1879) (63 batched
       signal-fleet proposals, 18 families). If untouched, ping/reassign.
+## Active subprojects
+
+- [ ] **Agentic coding fleet** — multi-agent setup across opencode + Pi,
+      OpenRouter cloud gateway with hard model-locks, FastContext-4B as
+      local recon. Tracking + progress in
+      [`agentic-coding-fleet/README.md`](agentic-coding-fleet/README.md).
+      Eventual graduation target: new `docs/agentic-coding/` section.
+      Phase 0 (OpenRouter keys) is on the operator; Phase 1+ is the
+      harness wiring.
 
 ## Maintenance items (parallel, not urgent)
 
