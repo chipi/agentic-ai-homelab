@@ -32,6 +32,16 @@ drafted, but they haven't been run for real yet.
 - [ ] Run `provider-bakeoff/` with your real API keys; pick a primary
       cloud provider for the next round of work. *(Sweep cost ~$2-5.)*
 
+## Active subprojects
+
+- [ ] **Agentic coding fleet** — multi-agent setup across opencode + Pi,
+      OpenRouter cloud gateway with hard model-locks, FastContext-4B as
+      local recon. Tracking + progress in
+      [`agentic-coding-fleet/README.md`](agentic-coding-fleet/README.md).
+      Eventual graduation target: new `docs/agentic-coding/` section.
+      Phase 0 (OpenRouter keys) is on the operator; Phase 1+ is the
+      harness wiring.
+
 ## Maintenance items (parallel, not urgent)
 
 - [ ] **Dedup existing project AGENTS.md files** against the new global.
