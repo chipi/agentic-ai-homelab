@@ -15,15 +15,6 @@
         ]
       },
       {
-        "matcher": "Read|read|ReadFile|read_file|View|view|Grep|grep|Search|search|ListFiles|list_files|ListDirectory|list_directory|Glob|glob",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/opt/homebrew/bin/lean-ctx hook redirect"
-          }
-        ]
-      },
-      {
         "matcher": "Bash|bash",
         "hooks": [
           {
