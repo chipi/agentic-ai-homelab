@@ -2,13 +2,11 @@
 
 The canonical, harness-neutral operator ruleset ("how I work, what I expect")
 lives in **AGENTS.md** and is imported below. Everything else in this CLAUDE.md
-only *layers* Claude-specific tooling (lean-ctx, RTK) on top — it never
+only *layers* Claude-specific tooling (lean-ctx) on top — it never
 duplicates or overrides AGENTS.md. opencode reads the exact same file via
 `~/.config/opencode/AGENTS.md` (symlink → the path below).
 
 @/Users/markodragoljevic/.config/AGENTS.md
-
-@RTK.md
 
 <!-- lean-ctx -->
 <!-- lean-ctx-claude-v3 -->
