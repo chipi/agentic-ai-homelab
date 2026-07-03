@@ -117,7 +117,7 @@
     ],
     "allow": []
   },
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
   "enabledPlugins": {
     "ponytail@ponytail": false
   },

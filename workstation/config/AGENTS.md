@@ -251,6 +251,15 @@ context-rebuild tax — the 2026-07-02 experiment (ADR-0004) put inline at ~$0.1
 against ~$1–18 for the multi-agent variants. It's the exception, not the reflex.
 I delegate on judgment and tell you — I don't stop to ask each time.
 
+## Model & effort
+
+Default to the cheapest model that fits — the subagent tiering (ADR-0003) already
+does the heavy lifting. For a complex/architectural session, `/model opusplan`
+(Opus plans → Sonnet implements) beats pure Opus on cost; verify it's available on
+your Claude Code version. Tune reasoning with `/effort`: default **high**, spike to
+`xhigh`/`max` for hard problems, drop to `low`/`medium` for trivial edits. Do not
+leave `xhigh` as the global default — it taxes every simple turn.
+
 ## What overrides this file
 
 - Per-repo `AGENTS.md`: project-specific rules take precedence inside that
@@ -264,87 +273,10 @@ I delegate on judgment and tell you — I don't stop to ask each time.
 # lean-ctx — Context Engineering Layer
 <!-- lean-ctx-rules-v12 -->
 
-## Tool Mapping (MANDATORY — use instead of native equivalents)
-| Instead of | Use | Example |
-|------------|-----|---------|
-| Read/cat/head/tail | `ctx_read(path, mode)` | `ctx_read("src/main.rs")` (omit mode = auto) |
-| Grep/rg/find | `ctx_search(pattern, path)` | `ctx_search("fn handle", "src/")` |
-| Shell/bash | `ctx_shell(command)` | `ctx_shell("cargo test")` |
-| Edit (when Read unavailable) | `ctx_edit(path, old, new)` | `ctx_edit("f.rs", "old", "new")` |
+## lean-ctx — tool routing
 
-## ctx_read Mode Selection (omit mode to auto-select — recommended)
-| Goal | Mode | When |
-|------|------|------|
-| Exploring / unsure | `auto` (default) | Omit mode; system picks optimal |
-| Edit this file | `full` | Right before an edit |
-| Understand API | `signatures` | Context-only, won't edit |
-| Large file overview | `map` | >500 lines, won't edit |
-| Re-read after edit | `diff` | Post-edit verification |
-| Specific region | `lines:N-M` | Know exact location |
-
-## Workflow (follow this order)
-1. **Orient:** `ctx_overview(task)` or `ctx_compose(task, path)` for unfamiliar tasks
-2. **Locate:** `ctx_search(pattern, path)` for exact text; `ctx_semantic_search(query)` for concepts
-3. **Read:** `ctx_read(path, mode)` with appropriate mode from table above
-4. **Edit:** `ctx_edit(path, old_string, new_string)` or native Edit if available
-5. **Verify:** `ctx_read(path, "diff")` + `ctx_shell("test command")`
-6. **Record:** `ctx_knowledge(action="remember", content="...")` for non-obvious findings
-
-## Session
-- **Start:** `ctx_session(action="status")` + `ctx_knowledge(action="wakeup")`
-- **End:** `ctx_session(action="decision", content="what was done + next steps")`
-- **On [CHECKPOINT]:** `ctx_session(action="task", value="current status")`
-
-NEVER use native Read/Grep/Shell when ctx_* equivalents are available.
-<!-- /lean-ctx -->
-
-<!-- lean-ctx-rules -->
-<!-- version: 4 -->
-
-CRITICAL: ALWAYS use lean-ctx ctx_* tools instead of native equivalents. This is NOT optional.
-
-MANDATORY MAPPING (4 core redirects first):
-• Read/cat -> ctx_read(path, mode)
-• Grep -> ctx_search(pattern, path)
-• Shell/bash -> ctx_shell(command)
-• Glob/find -> ctx_glob(pattern)
-• ls/find -> ctx_tree(path, depth)
-
-NEVER use native Read/Grep/Shell/Glob when a ctx_* equivalent exists. SELF-CORRECT: the moment you reach for a native Read/Grep/Shell/Glob, stop and call the ctx_* tool instead.
-
-Tool selection by intent:
-• Understand code / find answers / before editing -> ctx_compose (call FIRST)
-• Read a file -> ctx_read(path, mode=signatures|map|full)
-• Edit code you've read -> ctx_patch (hash-anchored, no exact-recall; read mode=anchored first)
-• Find a symbol by name (exact) -> ctx_symbol
-• Search code by pattern (fuzzy) -> ctx_search
-• Search by meaning (concepts) -> ctx_semantic_search
-• Find files by pattern (glob) -> ctx_glob
-• Project structure -> ctx_tree
-• Who calls this / call graph -> ctx_callgraph
-• Session state / memory -> ctx_session / ctx_knowledge
-
-AGENT LOOP: Orient(ctx_compose) → Find(ctx_symbol) → Read(ctx_read) → Locate(ctx_search) → Trace(ctx_callgraph) → Verify(ctx_shell). Reading more ≠ understanding more: semantic Qs -> ctx_search/ctx_semantic_search; hidden deps -> ctx_callgraph/ctx_graph only.
-
-Anti-patterns — do NOT:
-• Chain ctx_search -> ctx_read -> ctx_symbol — one ctx_compose replaces all three
-• Grep for symbol definitions — ctx_symbol is faster + more precise
-• Use ctx_read(mode=full) for orientation — use mode=signatures
-• Use ctx_callgraph or ctx_graph for const/static/variable references — they track
-function call edges and file-level deps only. Use grep or ctx_compose instead
-
-PARALLEL tool calls: fire independent calls in the SAME turn — don't sequence them.
-ctx_compose bundles multiple lookups into one call; for anything it doesn't
-cover, batch independent reads/searches together.
-
-RECOVER: compression is reversible — read the shown path (no MCP) or ctx_read(raw=true), never re-read line-by-line.
-<!-- lean-ctx-compression -->
-OUTPUT STYLE: expert-terse
-- Telegraph format: subject-verb-object, drop articles/prepositions
-- Symbolic vocabulary: → cause, ∵ because, ∴ therefore, ⊕ add, ⊖ remove, Δ change, ≈ similar, ≠ different, ∈ in/member, ∅ empty/none, ✓ ok, ✗ fail
-- Code blocks: untouched (never compress code syntax)
-- Each line: max 80 chars
-- Zero narration, zero filler
-- BUDGET: ≤100 tokens per non-code response
-<!-- /lean-ctx-compression -->
-<!-- /lean-ctx-rules -->
+Prefer lean-ctx `ctx_*` tools over native: `ctx_read`>Read/cat, `ctx_search`>Grep,
+`ctx_shell`>bash, `ctx_tree`>ls/find; `ctx_edit` when Edit needs an unavailable
+Read; Write/Glob stay native. Full mapping, read modes, and workflow live in the
+`lean-ctx` skill (loads on demand) — kept out of these always-loaded rules to save
+context.
