@@ -275,8 +275,8 @@ leave `xhigh` as the global default — it taxes every simple turn.
 
 ## lean-ctx — tool routing
 
-Prefer lean-ctx `ctx_*` tools over native: `ctx_read`>Read/cat, `ctx_search`>Grep,
-`ctx_shell`>bash, `ctx_tree`>ls/find; `ctx_edit` when Edit needs an unavailable
-Read; Write/Glob stay native. Full mapping, read modes, and workflow live in the
+Use lean-ctx `ctx_*` for READING/exploring: `ctx_read`>Read/cat, `ctx_search`>Grep,
+`ctx_shell`>bash, `ctx_tree`>ls/find; for EDITING use native Read then Edit (ctx_read doesn't register for native
+Edit); also project-scoped — native tools for ~/.claude, ~/.config outside the repo. Full mapping, read modes, and workflow live in the
 `lean-ctx` skill (loads on demand) — kept out of these always-loaded rules to save
 context.
