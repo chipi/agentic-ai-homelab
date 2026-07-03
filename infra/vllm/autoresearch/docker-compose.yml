@@ -75,6 +75,18 @@ services:
       # the full 128k window. Reducing this frees KV-cache for higher
       # throughput at sweep time.
       - --max-model-len=32768
+      # autoresearch sweeps are single-stream eval workloads. RFC-097
+      # chunk-7 Phase 2c (2026-06-17) measured KV cache peak at 2.5% even
+      # with max-num-seqs=64, so we drop to 4 to free 20-40 GiB of
+      # KV-cache reservation. Documented in
+      # podcast_scraper/autoresearch/PER_MODEL_OPTIMAL_PARAMS.md
+      # § "Compose defaults updated (2026-06-17, levers A+C applied)".
+      - --max-num-seqs=4
+      # Skip CUDA graph capture: saves 2-4 min per cold boot at ~10-15%
+      # steady-state perf cost. Acceptable for the eval-loop swap cadence
+      # (model swaps every 15-40 min during a sweep); not for prod, where
+      # graph capture amortizes.
+      - --enforce-eager
       - --served-model-name=autoresearch
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${VLLM_PORT:-8003}/health"]
