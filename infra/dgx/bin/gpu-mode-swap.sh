@@ -442,6 +442,7 @@ action_idle() {
 PROD_LLM_MODEL="${GPU_MODE_PROD_LLM_MODEL:-qwen3.5:35b}"
 PROD_WHISPER_PORT="${GPU_MODE_PROD_WHISPER_PORT:-8000}"
 PROD_DIARIZE_PORT="${GPU_MODE_PROD_DIARIZE_PORT:-8001}"
+PROD_MOSS_PORT="${GPU_MODE_PROD_MOSS_PORT:-8004}"
 
 action_prod() {
     log "→ prod (pipeline: no vLLM; Ollama serves the pinned LLM)"
@@ -477,6 +478,11 @@ action_prod() {
         ok "pyannote up on :${PROD_DIARIZE_PORT}"
     else
         warn "pyannote NOT responding on :${PROD_DIARIZE_PORT}"; svc_ok=0
+    fi
+    if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${PROD_MOSS_PORT}/v1/models" 2>/dev/null; then
+        ok "MOSS up on :${PROD_MOSS_PORT}"
+    else
+        warn "MOSS NOT responding on :${PROD_MOSS_PORT} (transcription falls back to faster-whisper)"
     fi
 
     local apps_after; apps_after=$(gpu_compute_app_count)
