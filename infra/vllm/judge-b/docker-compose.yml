@@ -1,0 +1,48 @@
+# vLLM judge-b — second sequential judge model for the autoresearch
+# multi-judge sweep. Sibling to judge-a/ + autoresearch/ + coder-next/,
+# sharing the same GB10 GPU (only one may be up at a time).
+#
+# Model: Llama-3.3-70B-Instruct (RedHatAI NVFP4-quant — the BF16 70B
+# variant would need ~140 GB, doesn't fit).
+#
+# Port: 8003 (shared with autoresearch + judge-a — only one vLLM up at a
+# time, gpu-mode-swap.sh enforces it). Tailscale ACL only allows 8003 +
+# 11434 out to the mac, so all sequential vLLMs multiplex on 8003.
+#
+# Alias: --served-model-name=judge-b.
+
+services:
+  vllm-judge-b:
+    image: nvcr.io/nvidia/vllm:26.05-py3
+    container_name: vllm-judge-b
+    runtime: nvidia
+    network_mode: host
+    ipc: host
+    env_file:
+      - .env
+    environment:
+      - HF_HOME=${HF_HOME:-/opt/llm-models/huggingface}
+      - VLLM_CACHE_ROOT=${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    volumes:
+      - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
+      - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    command:
+      - vllm
+      - serve
+      - RedHatAI/Llama-3.3-70B-Instruct-NVFP4
+      - --host=0.0.0.0
+      - --port=${JUDGE_B_PORT:-8003}
+      - --api-key=${VLLM_API_KEY:-buddy-is-the-king}
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.85}
+      - --max-model-len=32768
+      - --served-model-name=judge-b
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${JUDGE_B_PORT:-8003}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30m
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
+    restart: unless-stopped

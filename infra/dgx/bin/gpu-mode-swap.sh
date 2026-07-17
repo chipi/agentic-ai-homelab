@@ -5,7 +5,10 @@
 # the same time (both want ~90% of VRAM). This script is the explicit,
 # scriptable contract for who owns the GPU right now.
 #
-# Modes: code | research | idle | status (default)
+# Modes: code | research | idle | prod | status (default)
+#
+#   prod — podcast_scraper pipeline: no vLLM, Ollama warm with the pinned
+#          summary/GI/KG model (see PROD_LLM_MODEL), whisper + pyannote checked.
 #
 # Idempotent: re-running the same mode is a no-op. Agent-friendly: supports
 # --json (machine-readable), --no-color (strip ANSI), --mode-only (print
@@ -58,9 +61,39 @@ CODER_DIR="${GPU_MODE_CODER_DIR:-$REPO_ROOT/infra/vllm/coder-next}"
 CODER_PORT="${GPU_MODE_CODER_PORT:-9000}"
 CODER_SVC="${GPU_MODE_CODER_SVC:-vllm-coder-next}"
 
-RESEARCH_DIR="${GPU_MODE_RESEARCH_DIR:-$HOME/Projects/podcast_scraper/infra/dgx/vllm-autoresearch}"
+# Autoresearch compose lives under the homelab repo (same layout as
+# coder-next / judge-a / judge-b), NOT under a checked-out podcast_scraper.
+# The old default pointed at ``$HOME/Projects/podcast_scraper/infra/dgx/…``
+# which never existed for the operator user and resolved to
+# ``/opt/actions-runner/Projects/…`` for the GHA runner — both wrong.
+RESEARCH_DIR="${GPU_MODE_RESEARCH_DIR:-$REPO_ROOT/infra/vllm/autoresearch}"
 RESEARCH_PORT="${GPU_MODE_RESEARCH_PORT:-8003}"
 RESEARCH_SVC="${GPU_MODE_RESEARCH_SVC:-vllm-autoresearch}"
+
+# Judging mode — two sequential judge vLLMs for the autoresearch multi-judge
+# sweep. Only one may be up at a time (same GPU as coder/research). The
+# sweep script calls ``gpu-mode-swap.sh judging a`` before phase 2 and
+# ``judging b`` before phase 3.
+JUDGE_A_DIR="${GPU_MODE_JUDGE_A_DIR:-$REPO_ROOT/infra/vllm/judge-a}"
+JUDGE_A_PORT="${GPU_MODE_JUDGE_A_PORT:-8003}"
+JUDGE_A_SVC="${GPU_MODE_JUDGE_A_SVC:-vllm-judge-a}"
+
+JUDGE_B_DIR="${GPU_MODE_JUDGE_B_DIR:-$REPO_ROOT/infra/vllm/judge-b}"
+JUDGE_B_PORT="${GPU_MODE_JUDGE_B_PORT:-8003}"
+JUDGE_B_SVC="${GPU_MODE_JUDGE_B_SVC:-vllm-judge-b}"
+
+# judge-qwen-next (nvidia/Qwen3-Next-80B-A3B-Instruct-NVFP4) — Round 3
+# successor to judge-a for the multi-judge sweep. Added 2026-07-03.
+JUDGE_QWEN_NEXT_DIR="${GPU_MODE_JUDGE_QWEN_NEXT_DIR:-$REPO_ROOT/infra/vllm/judge-qwen-next}"
+JUDGE_QWEN_NEXT_PORT="${GPU_MODE_JUDGE_QWEN_NEXT_PORT:-8003}"
+JUDGE_QWEN_NEXT_SVC="${GPU_MODE_JUDGE_QWEN_NEXT_SVC:-vllm-judge-qwen-next}"
+
+# judge-nemotron (NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4) — Round 2
+# cross-vendor eval-tuned judge for the multi-judge sweep. Added
+# 2026-07-03.
+JUDGE_NEMOTRON_DIR="${GPU_MODE_JUDGE_NEMOTRON_DIR:-$REPO_ROOT/infra/vllm/judge-nemotron}"
+JUDGE_NEMOTRON_PORT="${GPU_MODE_JUDGE_NEMOTRON_PORT:-8003}"
+JUDGE_NEMOTRON_SVC="${GPU_MODE_JUDGE_NEMOTRON_SVC:-vllm-judge-nemotron}"
 
 DOCKER_CMD="${GPU_MODE_DOCKER:-sudo docker}"
 SUDO="${GPU_MODE_SUDO-sudo}"                    # host-privilege prefix; "" if root
@@ -77,6 +110,7 @@ JSON=0
 MODE_ONLY=0
 NO_COLOR=0
 MODE=""
+JUDGING_SUB=""
 
 while (( $# )); do
     case "$1" in
@@ -87,9 +121,19 @@ while (( $# )); do
             sed -n '2,30p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
-        code|research|idle|status) MODE="$1" ;;
+        code|research|idle|prod|status) MODE="$1" ;;
+        judging)
+            MODE="judging"
+            # judging requires a sub-arg: a, b, n (qwen-next), or x (nemotron)
+            shift
+            if [[ $# -eq 0 || ! "$1" =~ ^[abnx]$ ]]; then
+                echo "usage: $0 judging {a|b|n|x} [--json] [--mode-only] [--no-color]" >&2
+                exit 2
+            fi
+            JUDGING_SUB="$1"
+            ;;
         *)
-            echo "usage: $0 [code|research|idle|status] [--json] [--mode-only] [--no-color]" >&2
+            echo "usage: $0 [code|research|idle|prod|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color]" >&2
             exit 2
             ;;
     esac
@@ -211,14 +255,32 @@ remove_stale_research_container() {
     fi
 }
 
+# Container-name detection: port 8003 is shared across autoresearch +
+# judge-a + judge-b (tailscale ACL only permits 8003 + 11434 out of the DGX),
+# so we can't tell them apart by listening port. ``docker ps`` gives us the
+# exact container that owns the GPU right now.
+running_containers() {
+    $DOCKER_CMD ps --format '{{.Names}}' 2>/dev/null
+}
+
 current_mode() {
-    local code_up=0 research_up=0
-    is_listening "$CODER_PORT"    && code_up=1
-    is_listening "$RESEARCH_PORT" && research_up=1
-    if   (( code_up && research_up )); then echo "BROKEN-BOTH"
-    elif (( code_up ));                then echo "code"
-    elif (( research_up ));            then echo "research"
-    else                                    echo "idle"
+    local names; names="$(running_containers)"
+    local code_up=0 research_up=0 judge_a_up=0 judge_b_up=0 judge_qwen_next_up=0 judge_nemotron_up=0
+    grep -qx "$CODER_SVC"    <<<"$names" && code_up=1
+    grep -qx "$RESEARCH_SVC" <<<"$names" && research_up=1
+    grep -qx "$JUDGE_A_SVC"  <<<"$names" && judge_a_up=1
+    grep -qx "$JUDGE_B_SVC"  <<<"$names" && judge_b_up=1
+    grep -qx "$JUDGE_QWEN_NEXT_SVC" <<<"$names" && judge_qwen_next_up=1
+    grep -qx "$JUDGE_NEMOTRON_SVC" <<<"$names" && judge_nemotron_up=1
+    local total=$((code_up + research_up + judge_a_up + judge_b_up + judge_qwen_next_up + judge_nemotron_up))
+    if   (( total > 1 ));           then echo "BROKEN-BOTH"
+    elif (( code_up ));             then echo "code"
+    elif (( research_up ));         then echo "research"
+    elif (( judge_a_up ));          then echo "judging-a"
+    elif (( judge_b_up ));          then echo "judging-b"
+    elif (( judge_qwen_next_up ));  then echo "judging-qwen-next"
+    elif (( judge_nemotron_up ));   then echo "judging-nemotron"
+    else                                 echo "idle"
     fi
 }
 
@@ -227,6 +289,24 @@ wait_for_port() {
     for ((i=0; i<timeout; i++)); do
         is_listening "$port" && return 0
         sleep 1
+    done
+    return 1
+}
+
+# Wait for a vLLM's /health endpoint to return 200. vLLM binds its port as
+# soon as the ASGI server starts — but /health returns 200 ONLY when the
+# model has finished loading (weights + CUDA graphs + KV cache init). If
+# a client hits /v1/chat/completions before /health is 200 the request
+# hangs / times out. This is the correct readiness signal for a swap.
+wait_for_health() {
+    local port=$1 timeout=${2:-$START_TIMEOUT}
+    local waited=0
+    while (( waited < timeout )); do
+        if curl -fsS --max-time 3 "http://127.0.0.1:${port}/health" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 5
+        waited=$((waited + 5))
     done
     return 1
 }
@@ -251,6 +331,59 @@ require_dir() {
 
 # ── actions ──────────────────────────────────────────────────────────────
 
+# Bring every known vLLM compose down. Called before starting a target when
+# the current mode isn't a clean single-owner state (e.g. BROKEN-BOTH), or
+# by ``action_idle``. Passing ``$1 = <target-dir>`` skips only that one so
+# the caller can then bring it up cleanly.
+stop_all_composes() {
+    local except="${1:-}"
+    for d in "$CODER_DIR" "$RESEARCH_DIR" "$JUDGE_A_DIR" "$JUDGE_B_DIR" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_NEMOTRON_DIR"; do
+        [[ "$d" == "$except" ]] && continue
+        [[ -d "$d" ]] && compose_down "$d" || true
+    done
+}
+
+# Also flush Ollama before starting any vLLM — Ollama holds GPU memory for
+# recently-served models even when idle, which OOM-crashes a vLLM boot that
+# expects ~73 GB free. We unload every resident model via Ollama's own
+# /api/generate {keep_alive: 0} — no daemon restart, no root required
+# (the previous ``sudo systemctl restart ollama`` broke the GHA self-hosted
+# runner because its systemd unit sets NoNewPrivileges=true, blocking sudo).
+# Models reload cold on the next inference request (~30-60 s each), same
+# cost as the old restart path.
+#
+# OLLAMA_HOST override lets the caller point at a non-default endpoint;
+# defaults to the DGX-local socket the daemon already listens on.
+flush_ollama() {
+    local host="${OLLAMA_HOST:-http://127.0.0.1:11434}"
+    # If daemon isn't reachable at all, nothing to flush — quiet no-op.
+    curl -fsS --max-time 3 "${host}/api/ps" >/dev/null 2>&1 || return 0
+    local resident
+    resident="$(curl -fsS --max-time 3 "${host}/api/ps" \
+        | python3 -c 'import json,sys
+try:
+    for m in json.load(sys.stdin).get("models", []):
+        print(m["name"])
+except Exception:
+    pass' 2>/dev/null)" || true
+    if [[ -z "$resident" ]]; then
+        return 0
+    fi
+    log "flushing Ollama GPU-resident models via /api/generate keep_alive=0"
+    while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        dim "unloading: $name"
+        curl -fsS --max-time 5 -X POST "${host}/api/generate" \
+             -H 'Content-Type: application/json' \
+             -d "$(printf '{"model":"%s","keep_alive":0}' "$name")" \
+             >/dev/null 2>&1 || warn "unload $name failed (proceeding)"
+    done <<< "$resident"
+    # Ollama drops the models synchronously on request, but give the
+    # runtime a beat to actually release the CUDA context before the
+    # caller starts the next vLLM boot.
+    sleep 2
+}
+
 action_status() {
     local mode; mode=$(current_mode)
     if (( MODE_ONLY )); then
@@ -259,31 +392,104 @@ action_status() {
     fi
     log "current state"
     case "$mode" in
-        code)         ok "coder-next vLLM up on :$CODER_PORT"; dim "research is down" ;;
-        research)     ok "autoresearch vLLM up on :$RESEARCH_PORT"; dim "coder is down" ;;
-        idle)         dim "both vLLM composes are down" ;;
-        BROKEN-BOTH)  warn "BOTH listening — GPU-contention failure mode" ;;
+        code)         ok "coder-next vLLM up on :$CODER_PORT" ;;
+        research)     ok "autoresearch vLLM up on :$RESEARCH_PORT" ;;
+        judging-a)    ok "judge-a vLLM up on :$JUDGE_A_PORT" ;;
+        judging-b)    ok "judge-b vLLM up on :$JUDGE_B_PORT" ;;
+        judging-qwen-next) ok "judge-qwen-next vLLM up on :$JUDGE_QWEN_NEXT_PORT" ;;
+        judging-nemotron)  ok "judge-nemotron vLLM up on :$JUDGE_NEMOTRON_PORT" ;;
+        idle)         dim "all vLLM composes are down" ;;
+        BROKEN-BOTH)  warn "MULTIPLE listening — GPU-contention failure mode" ;;
     esac
     dim "GPU: $(gpu_state_line)"
-    (( JSON )) && emit_json "$mode" true
+    ((JSON)) && emit_json "$mode" true || true
 }
 
-action_code()     { do_swap "code"     "$RESEARCH_DIR" "$CODER_DIR"    "$CODER_PORT"; }
-action_research() { do_swap "research" "$CODER_DIR"    "$RESEARCH_DIR" "$RESEARCH_PORT"; }
+action_code()     { do_swap "code"     "$CODER_DIR"    "$CODER_PORT"; }
+action_research() { do_swap "research" "$RESEARCH_DIR" "$RESEARCH_PORT"; }
+action_judging_a() { do_swap "judging-a" "$JUDGE_A_DIR" "$JUDGE_A_PORT"; }
+action_judging_b() { do_swap "judging-b" "$JUDGE_B_DIR" "$JUDGE_B_PORT"; }
+action_judging_n() { do_swap "judging-qwen-next" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_QWEN_NEXT_PORT"; }
+action_judging_x() { do_swap "judging-nemotron"  "$JUDGE_NEMOTRON_DIR"  "$JUDGE_NEMOTRON_PORT"; }
 
 action_idle() {
-    log "→ idle (bringing both down)"
+    log "→ idle (bringing all vLLM composes down)"
     local apps_before; apps_before=$(gpu_compute_app_count)
-    [[ -d "$CODER_DIR" ]]    && compose_down "$CODER_DIR"    || true
-    [[ -d "$RESEARCH_DIR" ]] && compose_down "$RESEARCH_DIR" || true
+    stop_all_composes
     sleep 2
     local apps_after; apps_after=$(gpu_compute_app_count)
     ok "compute apps ${apps_before}→${apps_after}; now: $(gpu_state_line)"
-    (( JSON )) && emit_json "idle" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}"
+    ((JSON)) && emit_json "idle" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
+}
+
+# ── prod (podcast_scraper pipeline) ──────────────────────────────────────
+#
+# The pipeline's three GPU consumers are faster-whisper (:8000), pyannote
+# (:8001) and Ollama (:11434) — none of them is a vLLM. A vLLM sitting in the
+# research slot holds ~79 GB and starves them, so "prod" is precisely: no vLLM
+# at all, plus the LLM the pipeline is actually evaluated against, kept warm.
+#
+# The model is PINNED, not incidental. ``qwen3.5:35b`` is the #928 summary/GI/KG
+# championship winner (finale 5.00/5 Sonnet, 4.90 GPT-5.4, 100% judge agreement)
+# and the 2026-07 judges matrix reconfirmed it ("June's champion holds up").
+# Changing it is a decision that invalidates those evals, so it lives here as one
+# named constant rather than being whatever happened to be loaded.
+#
+# Unlike the vLLM modes this does NOT flush Ollama — in prod, Ollama *is* the point.
+#
+# Note: `status` will report `idle`, because mode is derived from which vLLM owns
+# the GPU and prod deliberately runs none. That is accurate: no vLLM owns it.
+PROD_LLM_MODEL="${GPU_MODE_PROD_LLM_MODEL:-qwen3.5:35b}"
+PROD_WHISPER_PORT="${GPU_MODE_PROD_WHISPER_PORT:-8000}"
+PROD_DIARIZE_PORT="${GPU_MODE_PROD_DIARIZE_PORT:-8001}"
+
+action_prod() {
+    log "→ prod (pipeline: no vLLM; Ollama serves the pinned LLM)"
+    local apps_before; apps_before=$(gpu_compute_app_count)
+
+    stop_all_composes
+    sleep 2
+
+    local host="${OLLAMA_HOST:-http://127.0.0.1:11434}"
+    local llm_ok=0
+    if ! curl -fsS --max-time 3 "${host}/api/ps" >/dev/null 2>&1; then
+        warn "Ollama unreachable at ${host} — the pipeline's summary/GI/KG stages will fail"
+    else
+        log "warming pinned prod model: ${PROD_LLM_MODEL} (cold load can take ~1-2 min)"
+        if curl -fsS --max-time 600 -X POST "${host}/api/generate" \
+                -H 'Content-Type: application/json' \
+                -d "$(printf '{"model":"%s","prompt":"ok","keep_alive":"24h","stream":false}' "$PROD_LLM_MODEL")" \
+                >/dev/null 2>&1; then
+            ok "Ollama warm: ${PROD_LLM_MODEL} (keep_alive=24h)"
+            llm_ok=1
+        else
+            warn "could not warm ${PROD_LLM_MODEL} — pulled? try: ollama pull ${PROD_LLM_MODEL}"
+        fi
+    fi
+
+    local svc_ok=1
+    if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${PROD_WHISPER_PORT}/v1/models" 2>/dev/null; then
+        ok "faster-whisper up on :${PROD_WHISPER_PORT}"
+    else
+        warn "faster-whisper NOT responding on :${PROD_WHISPER_PORT}"; svc_ok=0
+    fi
+    if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${PROD_DIARIZE_PORT}/v1/models" 2>/dev/null; then
+        ok "pyannote up on :${PROD_DIARIZE_PORT}"
+    else
+        warn "pyannote NOT responding on :${PROD_DIARIZE_PORT}"; svc_ok=0
+    fi
+
+    local apps_after; apps_after=$(gpu_compute_app_count)
+    ok "compute apps ${apps_before}→${apps_after}; now: $(gpu_state_line)"
+
+    local all_ok=false
+    [[ $llm_ok -eq 1 && $svc_ok -eq 1 ]] && all_ok=true
+    ((JSON)) && emit_json "prod" "$all_ok" "llm=${PROD_LLM_MODEL}" "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
+    [[ "$all_ok" == true ]] || return 1
 }
 
 do_swap() {
-    local target=$1 stop_dir=$2 start_dir=$3 start_port=$4
+    local target=$1 start_dir=$2 start_port=$3
     require_dir "$start_dir"
     local current; current=$(current_mode)
 
@@ -293,18 +499,18 @@ do_swap() {
         return 0
     fi
 
-    log "→ $target (stopping $current, starting $target)"
+    log "→ $target (current: $current)"
     local apps_before; apps_before=$(gpu_compute_app_count)
 
-    if [[ "$current" != "idle" && "$current" != "BROKEN-BOTH" ]]; then
-        compose_down "$stop_dir"
-        sleep 2
-    elif [[ "$current" == "BROKEN-BOTH" ]]; then
-        warn "BOTH were up — bringing both down before starting $target"
-        compose_down "$CODER_DIR"    || true
-        compose_down "$RESEARCH_DIR" || true
-        sleep 3
-    fi
+    # Bring down every other compose (including the current owner, if any).
+    # This is the single-owner invariant: exactly one vLLM at a time.
+    stop_all_composes "$start_dir"
+    sleep 2
+
+    # Flush Ollama's GPU-resident models so vLLM boot doesn't OOM. Only
+    # needed on Ollama→vLLM transitions but idempotent — safe to always
+    # run before compose_up.
+    flush_ollama
 
     # research slot shares the GPU with Ollama — flush it + clear any stale
     # container before starting. Code slot is intentionally untouched here.
@@ -315,13 +521,22 @@ do_swap() {
 
     compose_up "$start_dir"
 
-    if wait_for_port "$start_port"; then
+    if ! wait_for_port "$start_port"; then
+        warn "$target vLLM did not bind :$start_port within ${START_TIMEOUT}s"
+        ((JSON)) && emit_json "$target" false "compute_apps_before=${apps_before}" "port=$start_port" || true
+        exit 1
+    fi
+
+    # Port is bound but the model may still be loading. Poll /health until
+    # 200 (or timeout) so callers know the vLLM is actually ready to serve.
+    log "waiting for $target /health (model load)"
+    if wait_for_health "$start_port"; then
         local apps_after; apps_after=$(gpu_compute_app_count)
-        ok "$target vLLM listening on :$start_port (compute apps ${apps_before}→${apps_after}; $(gpu_state_line))"
-        (( JSON )) && emit_json "$target" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" "port=$start_port"
+        ok "$target vLLM ready on :$start_port (compute apps ${apps_before}→${apps_after}; $(gpu_state_line))"
+        ((JSON)) && emit_json "$target" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" "port=$start_port" || true
     else
-        warn "$target vLLM did not start listening within ${START_TIMEOUT}s — check 'docker compose logs'"
-        (( JSON )) && emit_json "$target" false "compute_apps_before=${apps_before}" "port=$start_port"
+        warn "$target vLLM port :$start_port bound but /health not 200 within ${START_TIMEOUT}s — model still loading? check 'docker logs $target'"
+        ((JSON)) && emit_json "$target" false "compute_apps_before=${apps_before}" "port=$start_port" || true
         exit 1
     fi
 }
@@ -333,8 +548,18 @@ case "$MODE" in
     code)      action_code ;;
     research)  action_research ;;
     idle)      action_idle ;;
+    prod)      action_prod ;;
+    judging)
+        case "$JUDGING_SUB" in
+            a) action_judging_a ;;
+            b) action_judging_b ;;
+            n) action_judging_n ;;
+            x) action_judging_x ;;
+            *) echo "usage: $0 judging {a|b}" >&2; exit 2 ;;
+        esac
+        ;;
     *)
-        echo "usage: $0 [code|research|idle|status] [--json] [--mode-only] [--no-color]" >&2
+        echo "usage: $0 [code|research|idle|prod|status|judging {a|b}] [--json] [--mode-only] [--no-color]" >&2
         exit 2
         ;;
 esac

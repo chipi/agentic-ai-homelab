@@ -1,0 +1,52 @@
+# vLLM judge-a — one of two sequential judge models for the autoresearch
+# multi-judge sweep. Sibling to autoresearch/ + coder-next/, sharing the
+# same GB10 GPU. ``gpu-mode-swap.sh`` enforces single-owner-at-a-time.
+#
+# Purpose: serve one specific model as JUDGE A during the multi-phase
+# autoresearch sweep. The sweep swaps to judge-b/ mid-run.
+#
+# Model: Qwen3-30B-A3B-Instruct-2507 (NVFP4-quant for GB10 fit — the
+# BF16 version won't fit on 128 GB unified with the 0.75 GPU-mem cap).
+#
+# Port: 8003 (shared with autoresearch — only one vLLM up at a time,
+# gpu-mode-swap.sh enforces the invariant). Tailscale ACL only allows
+# 8003 + 11434 out to the mac, so all sequential vLLMs multiplex on 8003.
+#
+# Alias: --served-model-name=judge-a. Client requests set model=judge-a
+# to reach this container; the alias hides the underlying quant/repo.
+
+services:
+  vllm-judge-a:
+    image: nvcr.io/nvidia/vllm:26.05-py3
+    container_name: vllm-judge-a
+    runtime: nvidia
+    network_mode: host
+    ipc: host
+    env_file:
+      - .env
+    environment:
+      - HF_HOME=${HF_HOME:-/opt/llm-models/huggingface}
+      - VLLM_CACHE_ROOT=${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    volumes:
+      - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
+      - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    command:
+      - vllm
+      - serve
+      - NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4
+      - --host=0.0.0.0
+      - --port=${JUDGE_A_PORT:-8003}
+      - --api-key=${VLLM_API_KEY:-buddy-is-the-king}
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.75}
+      - --max-model-len=32768
+      - --served-model-name=judge-a
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${JUDGE_A_PORT:-8003}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30m
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
+    restart: unless-stopped

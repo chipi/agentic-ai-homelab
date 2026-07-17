@@ -54,7 +54,7 @@ What's NOT in this pillar (and why):
 |                                                                    |
 |  Other services already on box (not deployed by this repo):        |
 |    ollama (:11434)              <-- model catalog + smaller models |
-|    pyannote (:8001)             <-- diarization                    |
+|    pyannote (:8001)             <-- diarization (community-1)      |
 |    whisper-openai (:8002)       <-- transcription                  |
 |    speaches (:8000)             <-- alternative whisper            |
 |                                                                    |

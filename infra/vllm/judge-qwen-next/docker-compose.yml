@@ -1,0 +1,46 @@
+# vLLM judge-qwen-next — Round 3 successor to judge-a (Qwen3-30B-A3B).
+#
+# Model: nvidia/Qwen3-Next-80B-A3B-Instruct-NVFP4
+#   Same active-param count as Qwen3-30B (3B) but 2.6x more total
+#   knowledge (80B vs 30B). Direct "bigger judge, same inference cost"
+#   A/B test.
+#
+# Port: 8003 (shared with autoresearch + judge-a + judge-b — single-owner
+# via gpu-mode-swap.sh container-name detection).
+# Alias: judge-qwen-next.
+
+services:
+  vllm-judge-qwen-next:
+    image: nvcr.io/nvidia/vllm:26.05-py3
+    container_name: vllm-judge-qwen-next
+    runtime: nvidia
+    network_mode: host
+    ipc: host
+    env_file:
+      - .env
+    environment:
+      - HF_HOME=${HF_HOME:-/opt/llm-models/huggingface}
+      - VLLM_CACHE_ROOT=${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    volumes:
+      - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
+      - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    command:
+      - vllm
+      - serve
+      - nvidia/Qwen3-Next-80B-A3B-Instruct-NVFP4
+      - --host=0.0.0.0
+      - --port=${JUDGE_QWEN_NEXT_PORT:-8003}
+      - --api-key=${VLLM_API_KEY:-buddy-is-the-king}
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.75}
+      - --max-model-len=32768
+      - --served-model-name=judge-qwen-next
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${JUDGE_QWEN_NEXT_PORT:-8003}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30m
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
+    restart: unless-stopped

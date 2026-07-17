@@ -1,0 +1,48 @@
+# vLLM judge-nemotron — Round 2 cross-vendor Nvidia-eval-tuned judge.
+#
+# Model: RedHatAI/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+#   67.2B total params, 12B active (A12B latent MoE, nemotron_h arch).
+#   Fully cross-vendor to Alibaba/Meta/OpenAI/Google/Mistral candidates
+#   AND all other judges. Trained on nemotron-post-training-v3 which
+#   emphasizes evaluation/critique tasks.
+#
+# Port: 8003 (shared, single-owner via gpu-mode-swap.sh).
+# Alias: judge-nemotron.
+
+services:
+  vllm-judge-nemotron:
+    image: nvcr.io/nvidia/vllm:26.05-py3
+    container_name: vllm-judge-nemotron
+    runtime: nvidia
+    network_mode: host
+    ipc: host
+    env_file:
+      - .env
+    environment:
+      - HF_HOME=${HF_HOME:-/opt/llm-models/huggingface}
+      - VLLM_CACHE_ROOT=${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    volumes:
+      - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
+      - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    command:
+      - vllm
+      - serve
+      - RedHatAI/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+      - --host=0.0.0.0
+      - --port=${JUDGE_NEMOTRON_PORT:-8003}
+      - --api-key=${VLLM_API_KEY:-buddy-is-the-king}
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.80}
+      - --max-model-len=32768
+      - --served-model-name=judge-nemotron
+      - --trust-remote-code
+      - --max-num-seqs=32
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${JUDGE_NEMOTRON_PORT:-8003}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30m
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
+    restart: unless-stopped
