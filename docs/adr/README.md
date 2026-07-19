@@ -46,3 +46,5 @@ Keep it short. ADRs that grow past 200 lines usually need to be split.
 - [ADR-0001 — Repo scope: four pillars, personal framing](ADR-0001-repo-scope.md)
 - [ADR-0002 — Root + per-folder AGENTS.md split](ADR-0002-agents-md-per-folder-split.md)
 - [ADR-0003 — Subagent roster: model tiering + advisor/executor escalation](ADR-0003-subagent-roster.md)
+- [ADR-0004 — Hardening: inline-by-default; dynamic workflow only for blind-spots](ADR-0004-hardening-workflow.md)
+- [ADR-0005 — Self-host LLM tracing (Langfuse) + error tracking (GlitchTip)](ADR-0005-langfuse-glitchtip-self-host.md)
