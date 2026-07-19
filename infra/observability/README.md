@@ -5,7 +5,13 @@ containers, `remote_write` to an env-driven sink — either self-hosted
 VictoriaMetrics ([`backend/`](backend/), recommended) or Grafana Cloud.
 
 This dir is the **collector**; it runs on every host. The storage + viz half
-(VictoriaMetrics + Grafana) lives in [`backend/`](backend/) and runs on one host.
+(VictoriaMetrics + VictoriaLogs + Grafana) lives in [`backend/`](backend/) and
+runs on one host.
+
+Besides metrics, Alloy also ships **Docker container logs** (`loki.source.docker`
+via the mounted Docker socket) to VictoriaLogs — set `LOGS_WRITE_URL` to the
+backend's `http://<ip>:9428/insert/loki/api/v1/push`. Host journald is available
+but commented out in `config.alloy`.
 
 ## What gets scraped
 

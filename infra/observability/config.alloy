@@ -100,6 +100,52 @@ prometheus.scrape "ollama" {
 //   scrape_interval = "30s"
 // }
 
+// ---------- LOGS: docker container stdout/stderr ----------
+// Discover running containers via the Docker socket (mounted read-only in
+// docker-compose.yml) and tail their logs. Relabel gives each stream a clean
+// `container` label (Docker prefixes names with "/").
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.write.logs_sink.receiver]
+}
+
+// ---------- LOGS: host journal (optional) ----------
+// Uncomment to also ship systemd/journald host logs. Needs the journal dir
+// visible to the container (it is, via the /rootfs mount).
+// loki.source.journal "host" {
+//   path       = "/rootfs/var/log/journal"
+//   forward_to = [loki.write.logs_sink.receiver]
+//   labels     = { job = "systemd-journal" }
+// }
+
+// ---------- PUSH logs to VictoriaLogs (Loki push protocol) ----------
+// VictoriaLogs accepts the Loki push API at /insert/loki/api/v1/push. Target is
+// env-driven; on the tailnet point LOGS_WRITE_URL at the backend host's
+// http://<vlogs-tailnet-ip>:9428/insert/loki/api/v1/push.
+loki.write "logs_sink" {
+  endpoint {
+    url = coalesce(sys.env("LOGS_WRITE_URL"), "http://localhost:9428/insert/loki/api/v1/push")
+  }
+  external_labels = {
+    instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"),
+    cluster  = coalesce(sys.env("HOMELAB_CLUSTER"), "default"),
+  }
+}
+
 // ---------- PUSH: remote_write target ----------
 // Target is env-driven so the SAME collector config points at either:
 //   • Grafana Cloud  — set GRAFANA_CLOUD_PROM_URL (+ USERNAME/API_KEY), or

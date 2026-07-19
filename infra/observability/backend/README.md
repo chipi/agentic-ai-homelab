@@ -1,22 +1,25 @@
-# Self-hosted observability backend — VictoriaMetrics + Grafana
+# Self-hosted observability backend — VictoriaMetrics + VictoriaLogs + Grafana
 
 The storage + viz half of the observability stack. Runs on **one** host at a
 time (DGX now, Mac mini once it's up). The Alloy **collectors** in [`../`](../)
-run on every host and `remote_write` here.
+run on every host and push metrics + logs here.
 
 ```
-Alloy@DGX ─┐
-Alloy@VPS ─┼─► VictoriaMetrics :8428 ◄── Grafana :3000
-Alloy@…   ─┘        (this compose)
+Alloy@DGX ─┐  metrics ─► VictoriaMetrics :8428 ─┐
+Alloy@VPS ─┼─                                    ├─► Grafana :3000
+Alloy@…   ─┘  logs    ─► VictoriaLogs    :9428 ─┘        (this compose)
 ```
 
-- **VictoriaMetrics** — single-node TSDB, the remote_write sink. Low RAM,
-  PromQL-compatible, runs fine on a Mac mini.
-- **Grafana OSS** — reads VM, draws dashboards. Datasource + dashboard folders
-  are provisioned from files in git, so they survive host moves.
+- **VictoriaMetrics** — single-node TSDB, the metrics remote_write sink. Low
+  RAM, PromQL-compatible, runs fine on a Mac mini.
+- **VictoriaLogs** — the logs sink (Loki push protocol). Same-family, light,
+  LogsQL. Grafana reads it via the `victoriametrics-logs-datasource` plugin
+  (auto-installed via `GF_INSTALL_PLUGINS`).
+- **Grafana OSS** — reads both, draws dashboards + Explore-logs. Datasources +
+  dashboard folders are provisioned from files in git, so they survive moves.
 
 Ingest and the Grafana UI are published to the **Tailscale IP only** — never a
-public interface. Grafana reaches VM over the internal compose bridge.
+public interface. Grafana reaches VM/VictoriaLogs over the internal compose bridge.
 
 ## Prerequisites
 
@@ -25,10 +28,12 @@ public interface. Grafana reaches VM over the internal compose bridge.
   this host's tailnet IP (`tailscale ip -4`) — call it `100.x.y.z`.
 - **Tailnet ACL:** if your tailnet uses a restrictive per-port ACL (tagged
   hosts with an explicit port allowlist — check with
-  `sudo tailscale debug netmap`), grant **`3000`** (Grafana UI) and **`8428`**
-  (VM ingest, for remote collectors) to this host's tag in the admin console.
-  A default "allow all between own devices" ACL needs nothing. Symptom of a
-  missing grant: the container listens fine locally but tailnet peers time out.
+  `sudo tailscale debug netmap`), grant **`3000`** (Grafana UI), **`8428`**
+  (metrics ingest) and **`9428`** (logs ingest) to this host's tag in the admin
+  console. The last two are only needed for *remote* collectors — a same-host
+  collector reaches them locally (bypasses the ACL). A default "allow all
+  between own devices" ACL needs nothing. Symptom of a missing grant: the
+  container listens fine locally but tailnet peers time out.
 
 ## Bring-up
 

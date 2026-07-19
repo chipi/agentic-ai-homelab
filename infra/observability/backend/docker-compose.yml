@@ -43,10 +43,28 @@ services:
       options: { max-size: "20m", max-file: "3" }
     restart: unless-stopped
 
+  victorialogs:
+    image: victoriametrics/victoria-logs:v1.52.0
+    container_name: victorialogs
+    command:
+      - --httpListenAddr=:9428
+      - --retentionPeriod=${VLOGS_RETENTION:-30d}
+      - --storageDataPath=/victoria-logs-data
+    ports:
+      # Ingest + query to the TAILNET IP only (set VLOGS_LISTEN=100.x.y.z).
+      # Defaults to 127.0.0.1 (local-only) until you wire Tailscale.
+      - "${VLOGS_LISTEN:-127.0.0.1}:9428:9428"
+    volumes:
+      - vlogs-data:/victoria-logs-data
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana-oss:11.6.0
     container_name: grafana
-    depends_on: [victoriametrics]
+    depends_on: [victoriametrics, victorialogs]
     ports:
       # Publish the UI to the TAILNET IP so you can reach it from your laptop
       # over the tailnet. Set GRAFANA_LISTEN=100.x.y.z in .env.
@@ -54,6 +72,7 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
@@ -68,4 +87,5 @@ services:
 
 volumes:
   vm-data:
+  vlogs-data:
   grafana-data:

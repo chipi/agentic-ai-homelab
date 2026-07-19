@@ -27,13 +27,18 @@ collector. Nothing here touches the DGX.
 ## PREREQUISITE — tailnet ACL must allow 8428 to the DGX
 
 This tailnet uses a **restrictive per-port ACL**. The backend host
-(`tag:dgx-llm-host`, `100.69.49.126`) must have port **`8428`** granted or your
-push will silently time out (tailscaled drops it — the collector will log
-remote_write connection errors). The operator adds `8428` to the DGX tag's
-allowlist in the Tailscale admin console (grafana `3000` was added alongside).
-Verify from the VPS BEFORE configuring:
+(`tag:dgx-llm-host`, `100.69.49.126`) must have **`8428`** (metrics) and, if you
+also ship logs, **`9428`** (logs) granted, or the push will silently time out
+(tailscaled drops it — the collector logs connection errors). `8428` + `3000`
+were granted 2026-07-19; **`9428` may still need adding** for VPS logs. The
+operator edits the DGX tag's allowlist in the Tailscale admin console. Verify
+from the VPS BEFORE configuring:
 `curl -m5 -o /dev/null -w "%{http_code}\n" http://100.69.49.126:8428/health`
-(expect `200`; a timeout means the ACL grant is missing — stop and tell the operator).
+(expect `200`; and `.../9428/` if shipping logs — a timeout means the ACL grant
+is missing — stop and tell the operator).
+
+If you ship logs from the VPS too, also set in its collector `.env`:
+`LOGS_WRITE_URL=http://100.69.49.126:9428/insert/loki/api/v1/push`.
 
 ## Key unknown to resolve FIRST
 

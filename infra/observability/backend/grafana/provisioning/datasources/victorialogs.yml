@@ -1,0 +1,12 @@
+# Provisioned datasource — Grafana queries VictoriaLogs over the internal
+# compose bridge. Requires the victoriametrics-logs-datasource plugin
+# (installed via GF_INSTALL_PLUGINS in the compose).
+apiVersion: 1
+
+datasources:
+  - name: VictoriaLogs
+    uid: victorialogs
+    type: victoriametrics-logs-datasource
+    access: proxy
+    url: http://victorialogs:9428
+    editable: false
