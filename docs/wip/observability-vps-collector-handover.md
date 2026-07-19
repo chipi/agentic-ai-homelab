@@ -24,6 +24,17 @@ collector. Nothing here touches the DGX.
 - **It is PRODUCTION** (runs the podcast-scraper stack). Read-only probe first;
   get per-instance approval from the operator before `docker compose up`.
 
+## PREREQUISITE — tailnet ACL must allow 8428 to the DGX
+
+This tailnet uses a **restrictive per-port ACL**. The backend host
+(`tag:dgx-llm-host`, `100.69.49.126`) must have port **`8428`** granted or your
+push will silently time out (tailscaled drops it — the collector will log
+remote_write connection errors). The operator adds `8428` to the DGX tag's
+allowlist in the Tailscale admin console (grafana `3000` was added alongside).
+Verify from the VPS BEFORE configuring:
+`curl -m5 -o /dev/null -w "%{http_code}\n" http://100.69.49.126:8428/health`
+(expect `200`; a timeout means the ACL grant is missing — stop and tell the operator).
+
 ## Key unknown to resolve FIRST
 
 Does the VPS already run the Alloy collector, or not? Two paths:

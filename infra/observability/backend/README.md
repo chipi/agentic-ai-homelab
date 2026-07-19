@@ -23,6 +23,12 @@ public interface. Grafana reaches VM over the internal compose bridge.
 - Docker + compose.
 - **Tailscale** on this host and on every host that pushes (DGX, VPS, …). Note
   this host's tailnet IP (`tailscale ip -4`) — call it `100.x.y.z`.
+- **Tailnet ACL:** if your tailnet uses a restrictive per-port ACL (tagged
+  hosts with an explicit port allowlist — check with
+  `sudo tailscale debug netmap`), grant **`3000`** (Grafana UI) and **`8428`**
+  (VM ingest, for remote collectors) to this host's tag in the admin console.
+  A default "allow all between own devices" ACL needs nothing. Symptom of a
+  missing grant: the container listens fine locally but tailnet peers time out.
 
 ## Bring-up
 
