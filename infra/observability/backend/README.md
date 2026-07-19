@@ -54,8 +54,9 @@ then restart that host's Alloy: `cd infra/observability && docker compose up -d`
 tailnet. Confirm data is landing:
 
 ```sh
-# on the backend host — should climb as collectors report:
-curl -s "http://127.0.0.1:8428/api/v1/query?query=up" | head
+# from any tailnet host — VM binds to VM_LISTEN (the tailnet IP), not loopback.
+# Substitute your backend host's tailnet IP for 100.x.y.z:
+curl -s "http://100.x.y.z:8428/api/v1/query?query=count(up)"
 ```
 
 ## Cutover from Grafana Cloud (no gap)
@@ -83,7 +84,7 @@ VictoriaMetrics and Grafana Cloud are independent sinks. To migrate safely:
 - **Config** is in git (this dir). **Data** is in the two named volumes.
 - Rollback of a bad bring-up: `docker compose down` (add `-v` to also wipe the
   volumes — destructive, only if you want a clean slate).
-- VM snapshot for a real backup: `curl http://127.0.0.1:8428/snapshot/create`
+- VM snapshot for a real backup: `curl http://100.x.y.z:8428/snapshot/create`
   then copy the snapshot dir out of the volume.
 
 ## Notes
