@@ -11,19 +11,24 @@ to persist.
 | File | Source (grafana.com) | Covers |
 |---|---|---|
 | `node-exporter-full.json` | 1860 rev45 | Host: CPU, mem, disk, net, fs, load |
-| `nvidia-dcgm.json` | 12239 rev2 | GPU: util, VRAM, power, temp (DCGM) |
-| `docker-cadvisor.json` | 893 rev5 | Containers: per-container CPU/mem/net |
 
-## Authored (logs)
+Only modern (React-panel) dashboards are vendored. The old DCGM (12239) and
+cAdvisor (893) dashboards were **dropped** — they use Angular panels
+(`graph`/`singlestat`), which Grafana 11 disables by default, so they render
+broken. Replaced by the authored ones below.
+
+## Authored (modern React panels)
 
 | File | Datasource | Covers |
 |---|---|---|
-| `logs-overview.json` | VictoriaLogs (`victoriametrics-logs-datasource`) | Generic log browser: total/error counts, volume by container, errors-over-time, live log stream. Vars: `$container` (multi, from `field_values`), `$search` (free-text LogsQL). |
+| `gpu-dcgm.json` | VictoriaMetrics | GPU (DCGM): utilization, temp, power, SM clock, mem-copy util, XID errors. Var `$gpu`. |
+| `containers-cadvisor.json` | VictoriaMetrics | Containers (cAdvisor): CPU/mem/net per Docker cgroup. Names show as short Docker IDs (cAdvisor isn't resolving Docker metadata here — `name` label absent). |
+| `logs-overview.json` | VictoriaLogs (`victoriametrics-logs-datasource`) | Generic log browser: total/error counts, volume by container, errors-over-time, live log stream. Vars: `$container` (multi, from `field_values`), `$search`. |
 
-The logs dashboard is hand-authored (no grafana.com equivalent) — query shapes
-(`statsRange`/`stats`/`instant`) were validated against the live datasource. To
-add log panels: `stats`/`statsRange` want a `| stats …` pipe in the LogsQL
-`expr`; `instant` returns raw lines for a `logs` panel.
+Authored dashboards are hand-built (or replace an Angular original). Query
+shapes were validated against the live datasources and each was import-tested
+into Grafana before commit. For logs: `stats`/`statsRange` want a `| stats …`
+pipe in the LogsQL `expr`; `instant` returns raw lines for a `logs` panel.
 
 All three were processed on vendor-in: the `${DS_PROMETHEUS}` datasource input
 was replaced with our provisioned datasource uid `victoriametrics`, and the
