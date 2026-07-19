@@ -1,0 +1,16 @@
+# File-provider — every *.json under /var/lib/grafana/dashboards (mounted from
+# ./grafana/dashboards) is auto-loaded into the "Homelab" folder. Drop dashboard
+# JSON there and it appears on next Grafana start / within updateInterval.
+apiVersion: 1
+
+providers:
+  - name: homelab
+    orgId: 1
+    folder: Homelab
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

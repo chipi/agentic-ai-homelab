@@ -1,0 +1,15 @@
+# Provisioned datasource — Grafana reaches VictoriaMetrics over the internal
+# compose bridge (service name DNS), not the published tailnet port.
+apiVersion: 1
+
+datasources:
+  - name: VictoriaMetrics
+    uid: victoriametrics
+    type: prometheus
+    access: proxy
+    url: http://victoriametrics:8428
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
+    editable: false

@@ -1,7 +1,11 @@
 # Observability — Grafana Alloy + DCGM + cAdvisor + Ollama metrics
 
 Unified self-hosted observability for a DGX-class homelab. One compose, four
-containers, push to Grafana Cloud over outbound HTTPS only.
+containers, `remote_write` to an env-driven sink — either self-hosted
+VictoriaMetrics ([`backend/`](backend/), recommended) or Grafana Cloud.
+
+This dir is the **collector**; it runs on every host. The storage + viz half
+(VictoriaMetrics + Grafana) lives in [`backend/`](backend/) and runs on one host.
 
 ## What gets scraped
 
@@ -15,11 +19,16 @@ containers, push to Grafana Cloud over outbound HTTPS only.
 
 ## How it pushes
 
-Alloy uses `prometheus.remote_write` to Grafana Cloud's hosted Prometheus.
-Auth via basic auth (username = instance ID; password = API token).
+Alloy uses `prometheus.remote_write` to an env-driven sink:
 
-Tailscale ACL change required: **none** (outbound HTTPS to grafana.net is
-allowed by default).
+- **Self-hosted VictoriaMetrics** (recommended) — set `REMOTE_WRITE_URL` to the
+  backend host's `http://100.x.y.z:8428/api/v1/write` (Tailscale IP). No auth
+  on the tailnet. See [`backend/`](backend/).
+- **Grafana Cloud** — leave `REMOTE_WRITE_URL` unset; auth via basic auth
+  (username = instance ID, password = API token).
+
+Tailscale: reaching self-hosted VM needs both hosts on the tailnet. Grafana
+Cloud needs nothing (outbound HTTPS to grafana.net is allowed by default).
 
 ## Quick start
 

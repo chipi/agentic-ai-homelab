@@ -1,0 +1,71 @@
+# Self-hosted observability BACKEND — VictoriaMetrics (storage) + Grafana (viz).
+#
+# Runs on the ONE host that stores + views metrics: the DGX today, the Mac mini
+# once it's up. Collectors (the Alloy compose in ../) run on EVERY host — DGX,
+# VPS, Mac mini — and remote_write here over Tailscale.
+#
+# Topology:
+#   Alloy@DGX  ─┐
+#   Alloy@VPS  ─┼─►  VictoriaMetrics :8428  ◄──  Grafana :3000
+#   Alloy@…    ─┘         (this compose, one host only)
+#
+# Ingest + Grafana are published to the TAILSCALE IP only (set VM_LISTEN /
+# GRAFANA_LISTEN in .env) — never to a public interface. Grafana reaches VM
+# over the internal compose bridge (http://victoriametrics:8428), so the
+# published port is ingest/query for remote collectors + your browser only.
+#
+# Move to the Mac mini later:
+#   1. `docker compose down`  (here, on the DGX)
+#   2. carry the `vm-data` + `grafana-data` volumes, OR start fresh (short
+#      retention makes a clean start cheap)
+#   3. `docker compose up -d`  (on the mini)
+#   4. give the mini the same Tailscale name/IP → collectors don't notice.
+#
+# v0.1: images pinned. Bump deliberately (dependency = design change).
+
+services:
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.102.1
+    container_name: victoriametrics
+    command:
+      - --httpListenAddr=:8428
+      - --retentionPeriod=${VM_RETENTION:-6}          # months
+      - --storageDataPath=/victoria-metrics-data
+      - --dedup.minScrapeInterval=15s
+    ports:
+      # Publish ingest + query to the TAILNET IP only. Set VM_LISTEN=100.x.y.z
+      # in .env. Defaults to 127.0.0.1 (local-only) until you wire Tailscale.
+      - "${VM_LISTEN:-127.0.0.1}:8428:8428"
+    volumes:
+      - vm-data:/victoria-metrics-data
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana-oss:11.6.0
+    container_name: grafana
+    depends_on: [victoriametrics]
+    ports:
+      # Publish the UI to the TAILNET IP so you can reach it from your laptop
+      # over the tailnet. Set GRAFANA_LISTEN=100.x.y.z in .env.
+      - "${GRAFANA_LISTEN:-127.0.0.1}:3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
+
+volumes:
+  vm-data:
+  grafana-data:

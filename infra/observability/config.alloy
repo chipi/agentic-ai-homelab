@@ -1,7 +1,8 @@
 // =============================================================================
 // Grafana Alloy — unified DGX-class homelab observability.
 // Scrapes host + GPU + containers + LLM serving endpoints on localhost.
-// Forwards to Grafana Cloud Prometheus via prometheus.remote_write.
+// Forwards via prometheus.remote_write to an env-driven sink: Grafana Cloud,
+// or the self-hosted VictoriaMetrics in backend/ (set REMOTE_WRITE_URL).
 // =============================================================================
 
 // ---------- HOST: CPU, memory, disk, network, filesystem ----------
@@ -21,7 +22,7 @@ prometheus.exporter.unix "host" {
 
 prometheus.scrape "host" {
   targets         = prometheus.exporter.unix.host.targets
-  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  forward_to      = [prometheus.remote_write.sink.receiver]
   job_name        = "node"
   scrape_interval = "30s"
 }
@@ -29,7 +30,7 @@ prometheus.scrape "host" {
 // ---------- GPU: NVIDIA DCGM ----------
 prometheus.scrape "dcgm" {
   targets         = [{ __address__ = "localhost:9400", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
-  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  forward_to      = [prometheus.remote_write.sink.receiver]
   job_name        = "dcgm"
   scrape_interval = "15s"
 }
@@ -50,7 +51,7 @@ prometheus.scrape "cadvisor" {
 }
 
 prometheus.relabel "cadvisor_keep" {
-  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+  forward_to = [prometheus.remote_write.sink.receiver]
   rule {
     source_labels = ["__name__"]
     regex         = "container_cpu_usage_seconds_total|container_memory_(usage|working_set|max_usage|rss)_bytes|container_fs_(reads|writes)_bytes_total|container_network_(receive|transmit)_bytes_total|container_oom_events_total|container_start_time_seconds|container_last_seen|container_spec_memory_limit_bytes|container_spec_cpu_(quota|period)|container_tasks_state|machine_cpu_cores|machine_memory_bytes"
@@ -63,7 +64,7 @@ prometheus.relabel "cadvisor_keep" {
 // per-metric so dashboards can split by model.
 prometheus.scrape "vllm" {
   targets         = [{ __address__ = "localhost:9000", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
-  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  forward_to      = [prometheus.remote_write.sink.receiver]
   job_name        = "vllm"
   scrape_interval = "15s"
 }
@@ -73,7 +74,7 @@ prometheus.scrape "vllm" {
 // inventory + RAM metrics without any client retargeting.
 prometheus.scrape "ollama" {
   targets         = [{ __address__ = "localhost:9778", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
-  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  forward_to      = [prometheus.remote_write.sink.receiver]
   job_name        = "ollama"
   scrape_interval = "15s"
 }
@@ -82,7 +83,7 @@ prometheus.scrape "ollama" {
 // Uncomment if running a second vLLM compose for sweeps / evals.
 // prometheus.scrape "vllm_secondary" {
 //   targets         = [{ __address__ = "localhost:8003", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
-//   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+//   forward_to      = [prometheus.remote_write.sink.receiver]
 //   job_name        = "vllm-secondary"
 //   scrape_interval = "15s"
 // }
@@ -94,15 +95,22 @@ prometheus.scrape "ollama" {
 //     { __address__ = "localhost:8001", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "service-a" },
 //     { __address__ = "localhost:8002", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "service-b" },
 //   ]
-//   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+//   forward_to      = [prometheus.remote_write.sink.receiver]
 //   job_name        = "fastapi"
 //   scrape_interval = "30s"
 // }
 
-// ---------- PUSH to Grafana Cloud ----------
-prometheus.remote_write "grafana_cloud" {
+// ---------- PUSH: remote_write target ----------
+// Target is env-driven so the SAME collector config points at either:
+//   • Grafana Cloud  — set GRAFANA_CLOUD_PROM_URL (+ USERNAME/API_KEY), or
+//   • self-hosted VictoriaMetrics (backend/) — set REMOTE_WRITE_URL to
+//     http://<tsdb-tailnet-ip>:8428/api/v1/write. VM needs no auth on the
+//     tailnet; leave the basic_auth vars set to any dummy value (ignored).
+// REMOTE_WRITE_URL wins when set; otherwise falls back to the Grafana Cloud
+// URL — so existing .env files keep working unchanged.
+prometheus.remote_write "sink" {
   endpoint {
-    url = sys.env("GRAFANA_CLOUD_PROM_URL")
+    url = coalesce(sys.env("REMOTE_WRITE_URL"), sys.env("GRAFANA_CLOUD_PROM_URL"))
     basic_auth {
       username = sys.env("GRAFANA_CLOUD_PROM_USERNAME")
       password = sys.env("GRAFANA_CLOUD_PROM_API_KEY")
