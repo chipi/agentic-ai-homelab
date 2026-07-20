@@ -1,0 +1,48 @@
+# VPS (prod-podcast) observability collector — Alloy + cAdvisor only.
+# Adapted from agentic-ai-homelab/infra/observability/docker-compose.yml for a
+# NO-GPU box: dcgm-exporter + ollama-metrics dropped (nothing to scrape).
+# cAdvisor is moved off :8080 (the viewer owns it) to :8081.
+# Pushes metrics -> VictoriaMetrics and logs -> VictoriaLogs on the DGX (tailnet).
+
+services:
+  alloy:
+    image: grafana/alloy:v1.17.0
+    container_name: alloy
+    network_mode: host
+    pid: host
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /:/rootfs:ro,rslave                              # host metrics + journal + caddy log
+      - /var/run/docker.sock:/var/run/docker.sock:ro     # discovery.docker -> api /metrics scrape
+    env_file:
+      - .env
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    network_mode: host
+    privileged: true
+    cgroup: host               # cgroup v2: see the host's docker-*.scope cgroups (per-container metrics)
+    command:
+      - "--port=8081"          # VPS: :8080 is the viewer; scrape target is localhost:8081
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
