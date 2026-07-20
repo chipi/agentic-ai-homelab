@@ -10,3 +10,16 @@ datasources:
     access: proxy
     url: http://victorialogs:9428
     editable: false
+    jsonData:
+      # Correlation click-through (ADR-119): extract trace_id from a log line —
+      # the structured events' "trace_id":"<hex>" OR the plain-log "trace=<hex>" —
+      # and render it as a link to the trace in VictoriaTraces. So an operator
+      # pivots log -> trace in one click. (VictoriaLogs plugin is Loki-based, so
+      # it honours derivedFields.)
+      derivedFields:
+        - name: trace_id
+          matcherType: regex
+          matcherRegex: 'trace(?:_id)?["=: ]+([a-f0-9]{32})'
+          datasourceUid: victoriatraces-tempo
+          url: "$${__value.raw}"
+          urlDisplayLabel: "View trace"
