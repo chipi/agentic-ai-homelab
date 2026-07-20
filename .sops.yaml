@@ -1,0 +1,18 @@
+# sops config — encrypts the observability secrets file so it can live in git.
+# The encrypted file (values ciphertext, keys visible) is committed; the age
+# PRIVATE key is held by the operator (password manager / on the host at
+# ~/.config/sops/age/keys.txt), never committed.
+#
+# One-time setup (operator):
+#   age-keygen -o ~/.config/sops/age/keys.txt      # prints the public key
+#   # paste the public key (age1...) into `age:` below, commit .sops.yaml
+#   sops infra/observability/secrets.sops.env       # create/edit encrypted secrets
+#
+# Bootstrap decrypts with:  SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt sops -d …
+
+creation_rules:
+  - path_regex: infra/observability/secrets\.sops\.env$
+    # REPLACE with your age public key (from `age-keygen`). Multiple recipients
+    # (one per host that must decrypt) are comma/space separated.
+    age: >-
+      age1REPLACE_WITH_YOUR_AGE_PUBLIC_KEY

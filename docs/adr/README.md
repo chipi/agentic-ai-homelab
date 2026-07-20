@@ -48,3 +48,4 @@ Keep it short. ADRs that grow past 200 lines usually need to be split.
 - [ADR-0003 — Subagent roster: model tiering + advisor/executor escalation](ADR-0003-subagent-roster.md)
 - [ADR-0004 — Hardening: inline-by-default; dynamic workflow only for blind-spots](ADR-0004-hardening-workflow.md)
 - [ADR-0005 — Self-hosted observability platform: metrics/logs, Langfuse, GlitchTip](ADR-0005-langfuse-glitchtip-self-host.md)
+- [ADR-0006 — Mac mini observability host: fresh-start migration + bootstrap/sops provisioning](ADR-0006-mac-mini-observability-provisioning.md)
