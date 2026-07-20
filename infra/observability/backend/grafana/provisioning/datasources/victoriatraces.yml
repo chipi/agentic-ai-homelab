@@ -1,0 +1,20 @@
+# Provisioned datasources for VictoriaTraces — reached over the internal compose
+# bridge. VictoriaTraces speaks BOTH the Jaeger and Tempo query APIs, so we use
+# Grafana's built-in jaeger/tempo datasources (no plugin needed). Tempo enables
+# the service graph + the Explore Traces app (grafana-exploretraces-app).
+apiVersion: 1
+
+datasources:
+  - name: VictoriaTraces (Jaeger)
+    uid: victoriatraces-jaeger
+    type: jaeger
+    access: proxy
+    url: http://victoriatraces:10428/select/jaeger/
+    editable: false
+
+  - name: VictoriaTraces (Tempo)
+    uid: victoriatraces-tempo
+    type: tempo
+    access: proxy
+    url: http://victoriatraces:10428/select/tempo
+    editable: false

@@ -1,25 +1,28 @@
-# Self-hosted observability backend — VictoriaMetrics + VictoriaLogs + Grafana
+# Self-hosted observability backend — VictoriaMetrics + VictoriaLogs + VictoriaTraces + Grafana
 
 The storage + viz half of the observability stack. Runs on **one** host at a
 time (DGX now, Mac mini once it's up). The Alloy **collectors** in [`../`](../)
-run on every host and push metrics + logs here.
+run on every host and push metrics + logs here; apps push traces (OTLP).
 
 ```
-Alloy@DGX ─┐  metrics ─► VictoriaMetrics :8428 ─┐
-Alloy@VPS ─┼─                                    ├─► Grafana :3000
-Alloy@…   ─┘  logs    ─► VictoriaLogs    :9428 ─┘        (this compose)
+metrics ─► VictoriaMetrics :8428 ─┐
+logs    ─► VictoriaLogs    :9428 ─┼─► Grafana :3000
+traces  ─► VictoriaTraces  :10428 ┘        (this compose)
 ```
 
 - **VictoriaMetrics** — single-node TSDB, the metrics remote_write sink. Low
   RAM, PromQL-compatible, runs fine on a Mac mini.
 - **VictoriaLogs** — the logs sink (Loki push protocol). Same-family, light,
-  LogsQL. Grafana reads it via the `victoriametrics-logs-datasource` plugin
-  (auto-installed via `GF_INSTALL_PLUGINS`).
-- **Grafana OSS** — reads both, draws dashboards + Explore-logs. Datasources +
-  dashboard folders are provisioned from files in git, so they survive moves.
+  LogsQL. Grafana reads it via the `victoriametrics-logs-datasource` plugin.
+- **VictoriaTraces** — the traces sink (**OTLP** ingest at
+  `/insert/opentelemetry/v1/traces`). Same family. Grafana reads it via the
+  built-in **Jaeger** and **Tempo** datasources (VictoriaTraces speaks both) —
+  no plugin; plus the `grafana-exploretraces-app` for exploration. Young (pre-1.0).
+- **Grafana OSS** — reads all three, draws dashboards + Explore-logs/traces.
+  Datasources + dashboards are provisioned from files in git, so they survive moves.
 
 Ingest and the Grafana UI are published to the **Tailscale IP only** — never a
-public interface. Grafana reaches VM/VictoriaLogs over the internal compose bridge.
+public interface. Grafana reaches the stores over the internal compose bridge.
 
 ## Prerequisites
 

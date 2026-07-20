@@ -27,13 +27,17 @@ bring their own UIs.
 
 ## Decision
 
-### 0. Metrics + logs — VictoriaMetrics + VictoriaLogs + Grafana (retrospective)
+### 0. Metrics + logs + traces — the Victoria family + Grafana (retrospective)
 
-Implemented 2026-07-19, replacing **Grafana Cloud**:
+Implemented 2026-07-19/20, replacing **Grafana Cloud**:
 
 - **VictoriaMetrics** (TSDB, `:8428`) + **VictoriaLogs** (logs, `:9428`) +
-  **Grafana OSS** (`:3000`) — `infra/observability/backend/`, one host (DGX now,
-  Mac mini later).
+  **VictoriaTraces** (traces, OTLP, `:10428`) + **Grafana OSS** (`:3000`) —
+  `infra/observability/backend/`, one host (DGX now, Mac mini later). One family
+  = full metrics/logs/traces trinity in one Grafana. VictoriaTraces is young
+  (pre-1.0); read via Grafana's built-in Jaeger + Tempo datasources (it speaks
+  both) — chosen over Grafana Tempo to stay same-family + light. Traces here are
+  *general* OTLP app spans, distinct from Langfuse's LLM-specific traces (§1).
 - **Alloy collectors** on each host (`infra/observability/`) scrape host/GPU
   (DCGM)/containers (cAdvisor)/vLLM/Ollama and push metrics (`remote_write`) +
   Docker logs (Loki push protocol) over Tailscale. Env-driven sink
@@ -62,7 +66,7 @@ harness traffic through a new proxy is its **own** change + approval.
 
 | Stack | Containers | Components | State |
 |---|---|---|---|
-| **Metrics/logs backend** | 3 | VictoriaMetrics, VictoriaLogs, Grafana | **live** |
+| **Metrics/logs/traces backend** | 4 | VictoriaMetrics, VictoriaLogs, VictoriaTraces, Grafana | **live** |
 | **Collector** (per host) | 4 | Alloy, dcgm-exporter, cAdvisor, ollama-metrics | **live** |
 | **Langfuse v3** | ~6 | postgres, clickhouse, redis, minio (S3), web, worker | pending |
 | **GlitchTip** | ~4 | web, worker (celery), postgres, redis | pending |
@@ -81,6 +85,9 @@ component — watch RAM (ClickHouse + Postgres + MinIO).
   purpose-built remote-write sink, PromQL-compatible.
 - **Loki** (vs VictoriaLogs): VictoriaLogs chosen — same VM family, lighter,
   LogsQL. Security identical (tailnet + ACL, no store auth).
+- **Grafana Tempo** (vs VictoriaTraces): VictoriaTraces chosen — same family,
+  single-binary, no object-storage dependency. Trade: pre-1.0 maturity vs
+  Tempo's. Grafana still reads it via the Tempo (and Jaeger) datasource.
 - **Full Sentry self-hosted**: ~40 containers, 16GB+ RAM, painful upgrades.
   Rejected — GlitchTip gives the same SDK/DSN experience at ~4 containers.
 - **Langfuse v2** (Postgres-only, lighter): rejected — deprecated upstream for
