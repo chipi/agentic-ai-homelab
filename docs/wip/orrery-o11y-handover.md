@@ -20,10 +20,7 @@ app share project `1`. Set these in orrery's prod env:
 GRAFANA_CLOUD_LOKI_URL=http://homelab:9428/insert/loki/api/v1/push
 #   + labels: app=orrery, env=${APP_ENV}, surface=web|pipeline
 
-# Errors → GlitchTip (orrery's OWN project, id 2)
-GLITCHTIP_DSN=http://<orrery-project2-key>@homelab:8090/2
-SENTRY_ENVIRONMENT=prod          # before_send redaction per glitchtip handover
-#   ⚠ client-side reachability caveat below
+# Errors → NONE for orrery. No GlitchTip (decided) — see note below.
 
 # Traces → VictoriaTraces (when instrumented)
 OTEL_TRACES_EXPORTER=otlp
@@ -40,24 +37,17 @@ GRAFANA=http://homelab:3000
 GRAFANA_TOKEN=<orrery service-account token>        # own SA + `orrery` folder
 ```
 
-`GLITCHTIP_DSN` + `GRAFANA_TOKEN` are secrets — orrery's secret store, never git.
+`GRAFANA_TOKEN` is a secret — orrery's secret store, never git.
 
-### ⚠ Client-side errors vs a tailnet-only GlitchTip
-Orrery is a **static site**, so its Sentry runs **in the browser**. But
-`homelab:8090` resolves only on the tailnet, and public visitors' browsers are on
-the open internet — they **cannot reach it**. The browser DSN above therefore
-works only for tailnet users (you/operators), not real visitors. To capture public
-client-side errors, pick one:
-1. **Public GlitchTip ingest (usual answer)** — expose only the project-2 store
-   path (`/api/2/store/`) through the Caddy edge on a public hostname, and use that
-   host in the browser DSN. (This is how hosted Sentry works: public ingest,
-   private UI.)
-2. **Edge relay** — a narrow reverse-proxy route that forwards browser error POSTs
-   to the tailnet GlitchTip.
-3. **Server-side only** — if orrery gains an SSR/Node layer, capture there (reaches
-   homelab over the tailnet). N/A for a pure static build.
-Metrics/logs/traces are unaffected — they ship server/collector-side over the
-tailnet.
+### Errors: no GlitchTip for orrery (decided)
+Orrery is a **static site**, so its Sentry would run **in the browser** — but
+`homelab:8090` is **tailnet-only**, so public visitors' browsers can't reach it.
+Rather than expose a public GlitchTip ingest just for orrery, the decision is
+**no GlitchTip for orrery**. Its o11y is **logs + metrics + traces**, all shipped
+server/collector-side over the tailnet — none of which have this problem. The
+pre-created GlitchTip project `2` is therefore **unused** (podcast + moss keep
+project `1`); delete it or leave it idle. Revisit only if orrery later gains a
+server-side layer, or you decide public client-error capture is worth an edge route.
 
 ## Signal taxonomy (same as podcast — swap the vendor, not the app)
 
@@ -66,7 +56,7 @@ tailnet.
 | Metrics | *(none yet)* — nginx has no exporter | VictoriaMetrics | nginx-prometheus-exporter sidecar (future) |
 | Logs | nginx access/error + pipeline-runner stdout | VictoriaLogs | orrery's grafana-agent (repoint) → or fold into the VPS Alloy |
 | Traces | OTLP (when instrumented) | VictoriaTraces | OTEL SDK (same env-var pattern as podcast) |
-| Errors | Sentry protocol (client-side today) | GlitchTip | Sentry SDK / browser DSN |
+| Errors | *(none — no GlitchTip; static site's browser can't reach the tailnet backend)* | — | — |
 
 ## What orrery has today (from recon)
 
@@ -104,13 +94,10 @@ Grafana **service account** into an **`orrery`** folder (mirror the podcast
 Minimal set: **Orrery Web** (access/RED from nginx logs) + **Orrery Pipelines**
 (runs/errors). Retire the placeholder `orrery-edge.json`.
 
-### 3. Errors → GlitchTip
-Orrery's project **already exists (id 2)** — use its DSN
-`http://<orrery-project2-key>@homelab:8090/2` (podcast + moss share
-id 1). `environment=${APP_ENV}`; `before_send` redaction per
-`glitchtip-vps-error-tracking-handover.md` (GlitchTip stores what you send — scrub
-secrets/PII). **Mind the client-side reachability caveat** (§Prod o11y settings):
-a public visitor's browser can't reach tailnet-only `homelab:8090`.
+### 3. Errors → SKIPPED (no GlitchTip for orrery)
+Decided: orrery's client-side browser errors can't reach tailnet-only GlitchTip,
+and a public ingest isn't worth it for a static site. Project `2` is unused. See
+§"Errors: no GlitchTip for orrery" above.
 
 ### 4. Metrics (future) — nginx exporter
 Add an `nginx-prometheus-exporter` sidecar to `orrery-web` (scrapes nginx
