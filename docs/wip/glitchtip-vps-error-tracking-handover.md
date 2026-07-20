@@ -1,37 +1,31 @@
-# Handover — wire the podcast app to GlitchTip (error tracking)
+# Handover — integrate the podcast app with GlitchTip (error tracking, from code)
 
 **For:** the VPS/podcast agent. **Goal:** the podcast app reports exceptions to
-the self-hosted GlitchTip, tagged **prod** on the VPS and **dev** on the Mac.
+the self-hosted GlitchTip, split **dev** (Mac) vs **prod** (VPS). GlitchTip is
+Sentry-SDK/DSN compatible — you use the normal `sentry-sdk`, just point it here.
 
-GlitchTip is Sentry-SDK/DSN compatible — you use a normal Sentry SDK, just point
-its DSN at our instance and set `environment`.
+## Status (2026-07-20) — everything is ready
 
-## Status (2026-07-20)
+- **GlitchTip live:** `http://100.69.49.126:8090` (tailnet-only).
+- **Org/team/project created:** org `homelab` → team `podcast` → project
+  `podcast` (id 1). Admin (`admin@homelab.local`) is Owner.
+- **DSN (verified — a test event ingested 200):**
+  ```
+  http://4c40d7bc-0987-427e-84dc-b4b3fcad9a62@100.69.49.126:8090/1
+  ```
+  This is an **ingest (send-only) key**, and the endpoint is **tailnet-only**, so
+  it's not exploitable off the tailnet — safe to keep in repo config. Still,
+  read it from an env var (`GLITCHTIP_DSN`) rather than hardcoding.
+- **ACL:** port `8090` is granted. Preflight from the app host:
+  `curl -m5 -o /dev/null -w "%{http_code}\n" http://100.69.49.126:8090/_health/` → `200`.
 
-- **GlitchTip is LIVE** on the DGX: `http://100.69.49.126:8090`
-  (`infra/glitchtip/`, tailnet-only). Admin user exists (operator has creds).
-- **ACL:** port **`8090`** must be granted to `tag:dgx-llm-host` in the Tailscale
-  admin console (per-port allowlist, like `3000`/`8428`/`9428`). Verify first:
-  `curl -m5 -o /dev/null -w "%{http_code}\n" http://100.69.49.126:8090/_health/`
-  (expect `200`; a timeout = grant missing → tell the operator).
+## Install
 
-## Get the DSN (operator / one-time)
+```sh
+pip install "sentry-sdk"        # GlitchTip speaks the Sentry protocol
+```
 
-The DSN comes from a GlitchTip **project**. Operator (or you, if you have login):
-1. Open `http://100.69.49.126:8090`, log in.
-2. Create an **Organization** (e.g. `homelab`) → **Project** (e.g. `podcast`,
-   platform = Python).
-3. Copy the project **DSN** — looks like
-   `http://<public_key>@100.69.49.126:8090/<project_id>`.
-
-The DSN host MUST be the tailnet IP:port the app can reach. The DSN is an ingest
-key (semi-public) — store it in the podcast app's config/secrets, not hardcoded
-in a public place.
-
-## Integrate (Sentry SDK)
-
-Same DSN in both places; the **`environment`** tag is what separates them.
-Derive it from an env var so the same code does the right thing per host:
+## Minimal init (do this once, at process startup, before app code runs)
 
 ```python
 import os, sentry_sdk
@@ -39,35 +33,111 @@ import os, sentry_sdk
 sentry_sdk.init(
     dsn=os.environ["GLITCHTIP_DSN"],
     environment=os.environ.get("APP_ENV", "dev"),   # VPS sets APP_ENV=prod
-    traces_sample_rate=0.0,     # errors only; raise later for perf tracing
-    release=os.environ.get("APP_RELEASE"),          # optional: git sha
+    release=os.environ.get("APP_RELEASE"),           # optional: git sha / version
+    traces_sample_rate=0.0,        # errors only (perf tracing → VictoriaTraces, not here)
+    send_default_pii=False,        # don't auto-attach request bodies / user IPs
+    max_breadcrumbs=50,
 )
 ```
 
-Per host:
+Env per host:
 - **VPS (prod):** `APP_ENV=prod`, `GLITCHTIP_DSN=…` in the app's env/secrets.
 - **Mac (dev):** `APP_ENV=dev`, same DSN.
 
-One project receives both; filter by `environment` in the GlitchTip UI.
+Once `init()` runs, **unhandled exceptions are captured automatically** — you
+don't need try/except everywhere.
+
+## Framework wiring (auto-integrations)
+
+`sentry-sdk` auto-detects common libs; be explicit for the app's stack:
+
+```python
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration      # if pipeline uses Celery
+from sentry_sdk.integrations.logging import LoggingIntegration
+import logging
+
+sentry_sdk.init(
+    dsn=os.environ["GLITCHTIP_DSN"],
+    environment=os.environ.get("APP_ENV", "dev"),
+    integrations=[
+        FastApiIntegration(), StarletteIntegration(),
+        CeleryIntegration(),
+        LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),  # logging.error() → GlitchTip
+    ],
+)
+```
+
+- **FastAPI/Starlette (api, viewer):** unhandled 500s become issues with the
+  request context.
+- **Celery / pipeline workers:** task failures become issues. For the ephemeral
+  `pipeline`/`pipeline-llm` `docker compose run` containers, just call `init()`
+  at the top of the entrypoint — crashes are captured before the container exits
+  (add `sentry_sdk.flush()` before a hard exit to be safe).
+- **CLI / plain scripts:** `init()` at top; wrap the main in
+  `try/except: sentry_sdk.capture_exception(); raise`.
+
+## Manual capture + context
+
+```python
+# explicit capture
+try:
+    risky()
+except Exception:
+    sentry_sdk.capture_exception()      # or capture_message("...", level="error")
+
+# enrich (shows as filters/facets in GlitchTip)
+sentry_sdk.set_tag("pipeline_stage", "transcribe")
+sentry_sdk.set_context("episode", {"id": ep_id, "feed": feed})
+with sentry_sdk.new_scope() as scope:   # scoped, doesn't leak to other events
+    scope.set_tag("job_id", job_id)
+    do_work()
+```
+
+## Redaction — important (GlitchTip stores what you send)
+
+Errors can carry secrets/PII in locals, args, or messages. Scrub before send:
+
+```python
+def before_send(event, hint):
+    # drop obviously sensitive keys from extra/contexts if present
+    for section in ("extra", "contexts"):
+        data = event.get(section) or {}
+        for k in list(data):
+            if any(s in k.lower() for s in ("token", "secret", "password", "api_key", "authorization")):
+                data[k] = "[redacted]"
+    return event
+
+sentry_sdk.init(..., before_send=before_send)
+```
+
+(`send_default_pii=False` already keeps request bodies / IPs out.)
 
 ## Verify
 
-Trigger a test error and confirm it lands under the right environment:
-
 ```python
 sentry_sdk.capture_message("glitchtip wiring test from VPS", level="error")
-# or:  1 / 0
+# or force one:  1 / 0
 ```
+Then GlitchTip → `http://100.69.49.126:8090` → project `podcast` → filter
+`environment:prod` (or `:dev`) → the event appears within seconds. (There's
+already one test `dev` event from setup.)
 
-Then in GlitchTip → the `podcast` project → filter `environment:prod` → the
-event should appear within seconds.
+## Where GlitchTip fits (don't cross the streams)
 
-## Notes / gotchas
+| Signal | Goes to | How |
+|---|---|---|
+| **errors/exceptions** | **GlitchTip** | **this doc — `sentry-sdk`** |
+| request/distributed traces | VictoriaTraces | OTEL SDK (`podcast-otel-traces-handover.md`) |
+| LLM prompt/cost | Langfuse | capture layer (RFC-0001, later) |
+| host/container metrics + logs | VictoriaMetrics/Logs | Alloy collector (`hosts/prod-podcast/`) |
 
-- Reach GlitchTip at the **tailnet IP** `100.69.49.126:8090`, never loopback,
+## Gotchas
+
+- Endpoint is `http://` (not https) and **tailnet-only** — reach `100.69.49.126`,
   never a public URL. Don't expose `8090` publicly.
-- If ingest 400s on host validation, the GlitchTip `ALLOWED_HOSTS` is wildcard
-  by default (accepts the tailnet IP) — should be fine; tell the operator if not.
-- This is separate from metrics/logs (that's the Alloy collector →
-  VictoriaMetrics/VictoriaLogs, see `observability-vps-collector-handover.md`).
-- Background + ops: `infra/glitchtip/README.md`; decision: `docs/adr/ADR-0005…`.
+- Give a distinct `environment` per host (`dev`/`prod`) — it's the main filter.
+- `traces_sample_rate=0.0` here on purpose: perf tracing lives in VictoriaTraces,
+  not GlitchTip. Set it >0 only if you want GlitchTip's own transaction view too.
+- Background/ops: `infra/glitchtip/README.md`; decision: `docs/adr/ADR-0005`.
