@@ -26,7 +26,7 @@ brew install orbstack           # then launch it once; enable "start at login"
 brew install tailscale sops age git
 ```
 - `tailscale up` — note the mini's tailnet IP (`tailscale ip -4`) and give it a
-  memorable MagicDNS name (e.g. `obs`) in the Tailscale admin console.
+  memorable MagicDNS name (e.g. `homelab`) in the Tailscale admin console.
 
 ## 1. Age key + secrets (once)
 
@@ -43,7 +43,7 @@ git clone <repo> ~/agentic-ai-homelab && cd ~/agentic-ai-homelab
 cp infra/observability/secrets.sops.env.example infra/observability/secrets.sops.env
 $EDITOR infra/observability/secrets.sops.env    # fill every value (fresh + strong)
 sops -e -i infra/observability/secrets.sops.env # encrypt in place
-git add infra/observability/secrets.sops.env && git commit -m "secrets: mac mini obs (encrypted)"
+git add infra/observability/secrets.sops.env && git commit -m "secrets: mac mini homelab (encrypted)"
 ```
 Generators: passwords `openssl rand -hex 16`; keys `openssl rand -hex 32`
 (`ENCRYPTION_KEY` = exactly 64 hex); Langfuse keys `pk-lf-$(uuidgen|tr A-Z a-z)`
@@ -77,7 +77,7 @@ In the Tailscale admin console, grant to this host's tag:
 
 ## 5. Cutover senders DGX → mini
 
-Repoint everything that sends at the mini's IP (or flip the MagicDNS `obs` name):
+Repoint everything that sends at the mini's IP (or flip the MagicDNS `homelab` name):
 
 | Sender | Change |
 |---|---|
@@ -86,8 +86,8 @@ Repoint everything that sends at the mini's IP (or flip the MagicDNS `obs` name)
 | podcast app (errors) | new GlitchTip `GLITCHTIP_DSN` (from step 4) |
 | any Langfuse sender | Langfuse host → `http://<mini>:4000` + new project keys |
 
-Adopting a stable MagicDNS `obs` name up front collapses this to "give the mini
-the `obs` name" — senders that target `obs.<tailnet>.ts.net` don't change.
+Adopting a stable MagicDNS `homelab` name up front collapses this to "give the mini
+the `homelab` name" — senders that target `homelab.<tailnet>.ts.net` don't change.
 
 ## 6. Decommission the DGX backend (once the mini is verified)
 

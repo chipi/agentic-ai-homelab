@@ -28,8 +28,8 @@ Need: a repeatable, low-toil "empty Mac mini → running platform" path.
    hand-generated `.env` living on one host).
 5. **Runtime: OrbStack** (lighter/faster than Docker Desktop; clean start-on-login).
 6. **Stable endpoint via MagicDNS.** Senders target a tailnet **name**
-   (e.g. `obs.<tailnet>.ts.net`), not the DGX IP `100.69.49.126`, so the move is
-   "give the mini the obs role + flip one var" instead of chasing every sender.
+   (e.g. `homelab.<tailnet>.ts.net`), not the DGX IP `100.69.49.126`, so the move is
+   "give the mini the homelab role + flip one var" instead of chasing every sender.
 
 ## Consequences / trade-offs
 

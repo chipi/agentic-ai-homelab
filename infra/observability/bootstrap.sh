@@ -145,5 +145,5 @@ $(say "done — grant these ports to this host's tag in the Tailscale ACL:")
    3000 (Grafana)  8428 (metrics)  9428 (logs)  10428 (traces)
    8090 (GlitchTip)  4000 (Langfuse)
 Then repoint senders (DGX collector REMOTE_WRITE_URL/LOGS_WRITE_URL, app DSNs,
-OTLP endpoint) at $IP — or flip the MagicDNS obs name to this host.
+OTLP endpoint) at $IP — or flip the MagicDNS homelab name to this host.
 EOF

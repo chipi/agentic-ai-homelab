@@ -12,13 +12,13 @@ collector. Nothing here touches the DGX.
 
 ## The target you're pointing at
 
-> **`obs`** is the Tailscale name of the observability host (a MagicDNS device name →
+> **`homelab`** is the Tailscale name of the observability host (a MagicDNS device name →
 > the DGX now, the Mac mini later). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
-> Until `obs` is named (on the mini), substitute the host IP `100.69.49.126`.
+> Until `homelab` is named (on the mini), substitute the host IP `100.69.49.126`.
 
-- **VictoriaMetrics** (ingest): `http://obs:8428/api/v1/write`
+- **VictoriaMetrics** (ingest): `http://homelab:8428/api/v1/write`
   - Reachable from any tailnet host. No auth on the tailnet.
-- **Grafana** (where you'll verify): `http://obs:3000` (Homelab folder).
+- **Grafana** (where you'll verify): `http://homelab:3000` (Homelab folder).
 
 ## The machine you're working on
 
@@ -30,17 +30,17 @@ collector. Nothing here touches the DGX.
 ## PREREQUISITE — tailnet ACL must allow 8428 to the DGX
 
 This tailnet uses a **restrictive per-port ACL**. The backend host
-(`tag:dgx-llm-host`, `obs`) must have **`8428`** (metrics) and, if you
+(`tag:dgx-llm-host`, `homelab`) must have **`8428`** (metrics) and, if you
 also ship logs, **`9428`** (logs) granted, or the push will silently time out
 (tailscaled drops it — the collector logs connection errors). `3000`, `8428`
 and `9428` were all granted 2026-07-19, so no ACL change should be needed —
 but verify from the VPS BEFORE configuring:
-`curl -m5 -o /dev/null -w "%{http_code}\n" http://obs:8428/health`
+`curl -m5 -o /dev/null -w "%{http_code}\n" http://homelab:8428/health`
 (expect `200`; and `.../9428/` if shipping logs — a timeout means the ACL grant
 is missing — stop and tell the operator).
 
 If you ship logs from the VPS too, also set in its collector `.env`:
-`LOGS_WRITE_URL=http://obs:9428/insert/loki/api/v1/push`.
+`LOGS_WRITE_URL=http://homelab:9428/insert/loki/api/v1/push`.
 
 ## Key unknown to resolve FIRST
 
@@ -68,7 +68,7 @@ that's the useful signal here, alongside host CPU/mem/disk/net.
 In the VPS collector's `infra/observability/.env`:
 
 ```sh
-REMOTE_WRITE_URL=http://obs:8428/api/v1/write   # DGX VictoriaMetrics
+REMOTE_WRITE_URL=http://homelab:8428/api/v1/write   # DGX VictoriaMetrics
 HOMELAB_INSTANCE=prod-podcast     # distinct from the DGX so series don't collide
 HOMELAB_CLUSTER=vps               # logical group; filter on this in Grafana
 ```
@@ -89,9 +89,9 @@ reload env). Confirm no `remote_write` errors: `docker logs alloy | grep -iE 're
 
 ```sh
 # new instance should appear:
-curl -s "http://obs:8428/api/v1/query?query=up{instance='prod-podcast'}"
+curl -s "http://homelab:8428/api/v1/query?query=up{instance='prod-podcast'}"
 # host + cadvisor series climbing for the VPS:
-curl -s "http://obs:8428/api/v1/query?query=count({instance='prod-podcast'})"
+curl -s "http://homelab:8428/api/v1/query?query=count({instance='prod-podcast'})"
 ```
 
 Then open Grafana → the Node Exporter Full / Docker dashboards should offer
@@ -108,7 +108,7 @@ Then open Grafana → the Node Exporter Full / Docker dashboards should offer
 
 ## Gotchas
 
-- Ports bind to the **tailnet IP**, so verify with `obs`, never
+- Ports bind to the **tailnet IP**, so verify with `homelab`, never
   `127.0.0.1`.
 - If the VPS runs `ufw` default-deny inbound, outbound push still works (no
   inbound rule needed on the VPS for pushing).
