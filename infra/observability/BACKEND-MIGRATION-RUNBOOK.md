@@ -28,10 +28,10 @@ tailnet-wide as `homelab` / `homelab.<tailnet>.ts.net` once the mini owns the na
 Each row: flip the value from the DGX form to the homelab form, then restart the
 listed process. Nothing else changes.
 
-Paths verified on the hosts 2026-07-20 (DGX self-collector `.env`, moss compose,
-prod-podcast collector `.env` per its README). The prod-podcast **app** `.env`
-filename is the one row not yet live-confirmed — the operator SSH key had expired;
-re-verify against the deploy at cutover.
+All paths verified 2026-07-20: DGX self-collector `.env` (on-host), moss compose
+(on-host), prod-podcast collector `.env` (its README), app `.env` (`deploy.sh` sets
+`REPO_DIR=/srv/podcast-scraper`, stages `.env` there). Access to the VPS is
+`ssh -i ~/.ssh/podcast_prod_operator deploy@prod-podcast`.
 
 ### Host: DGX — self-collector (`~/agentic-ai-homelab/infra/observability/.env`)
 | Key | → homelab | Restart |
@@ -45,7 +45,7 @@ re-verify against the deploy at cutover.
 | `REMOTE_WRITE_URL` | `http://homelab:8428/api/v1/write` | restart the Alloy collector |
 | `LOGS_WRITE_URL` | `http://homelab:9428/insert/loki/api/v1/push` | ↑ same |
 
-### Host: prod-podcast VPS — podcast app (prod `.env`, deploy-managed)
+### Host: prod-podcast VPS — podcast app (`/srv/podcast-scraper/.env`, deploy-staged)
 | Key | → homelab | Restart |
 |---|---|---|
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | `http://homelab:10428/insert/opentelemetry/v1/traces` | redeploy app stack |
