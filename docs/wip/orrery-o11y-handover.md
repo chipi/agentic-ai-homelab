@@ -2,12 +2,62 @@
 
 **For:** the orrery agent. **Goal:** move orrery's observability off Grafana Cloud
 onto the self-hosted stack (VictoriaMetrics/VictoriaLogs/VictoriaTraces + Grafana
-+ GlitchTip on the DGX, tailnet-only), following the same **emit-open-formats /
++ GlitchTip on the homelab mini, tailnet-only), following the same **emit-open-formats /
 ship-pluggably** architecture the podcast app uses
 (`podcast_scraper-infra` ADR-119; guide `docs/guides/OBSERVABILITY_ARCHITECTURE.md`).
 
 Orrery **goes public first**, so this is the priority. Keep it **minimal** — the
 VPS is small; a handful of focused dashboards, not dozens.
+
+## Prod o11y settings — the complete set
+
+Backend = the **homelab** Mac mini (permanent; tailnet name `homelab`, resolves
+tailnet-wide). Orrery has its **own** GlitchTip project (id `2`); moss + the podcast
+app share project `1`. Set these in orrery's prod env:
+
+```env
+# Logs → VictoriaLogs (orrery grafana-agent / collector)
+GRAFANA_CLOUD_LOKI_URL=http://homelab:9428/insert/loki/api/v1/push
+#   + labels: app=orrery, env=${APP_ENV}, surface=web|pipeline
+
+# Errors → GlitchTip (orrery's OWN project, id 2)
+GLITCHTIP_DSN=http://<orrery-project2-key>@homelab:8090/2
+SENTRY_ENVIRONMENT=prod          # before_send redaction per glitchtip handover
+#   ⚠ client-side reachability caveat below
+
+# Traces → VictoriaTraces (when instrumented)
+OTEL_TRACES_EXPORTER=otlp
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://homelab:10428/insert/opentelemetry/v1/traces
+OTEL_SERVICE_NAME=orrery-web
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${APP_ENV}
+
+# Metrics → VictoriaMetrics (when nginx exporter added)
+REMOTE_WRITE_URL=http://homelab:8428/api/v1/write   # if orrery runs its own collector
+#   (or let the VPS Alloy scrape orrery's nginx-exporter — one collector is leaner)
+
+# Dashboards push (orrery Grafana folder)
+GRAFANA=http://homelab:3000
+GRAFANA_TOKEN=<orrery service-account token>        # own SA + `orrery` folder
+```
+
+`GLITCHTIP_DSN` + `GRAFANA_TOKEN` are secrets — orrery's secret store, never git.
+
+### ⚠ Client-side errors vs a tailnet-only GlitchTip
+Orrery is a **static site**, so its Sentry runs **in the browser**. But
+`homelab:8090` resolves only on the tailnet, and public visitors' browsers are on
+the open internet — they **cannot reach it**. The browser DSN above therefore
+works only for tailnet users (you/operators), not real visitors. To capture public
+client-side errors, pick one:
+1. **Public GlitchTip ingest (usual answer)** — expose only the project-2 store
+   path (`/api/2/store/`) through the Caddy edge on a public hostname, and use that
+   host in the browser DSN. (This is how hosted Sentry works: public ingest,
+   private UI.)
+2. **Edge relay** — a narrow reverse-proxy route that forwards browser error POSTs
+   to the tailnet GlitchTip.
+3. **Server-side only** — if orrery gains an SSR/Node layer, capture there (reaches
+   homelab over the tailnet). N/A for a pure static build.
+Metrics/logs/traces are unaffected — they ship server/collector-side over the
+tailnet.
 
 ## Signal taxonomy (same as podcast — swap the vendor, not the app)
 
@@ -34,7 +84,7 @@ VPS is small; a handful of focused dashboards, not dozens.
 
 ### 1. Logs → VictoriaLogs (the immediate win, no app change)
 Repoint orrery's grafana-agent Loki endpoint from Cloud to VictoriaLogs:
-- `GRAFANA_CLOUD_LOKI_URL` → `http://dgx-llm-1:9428/insert/loki/api/v1/push`
+- `GRAFANA_CLOUD_LOKI_URL` → `http://homelab:9428/insert/loki/api/v1/push`
   (tailnet; ACL 9428 granted). No auth needed on the tailnet.
 - Add labels `app=orrery`, `env=${APP_ENV}` (dev/prod), and a **`surface`** label
   (`web` vs `pipeline`) so the two orrery surfaces are differentiable — mirror the
@@ -55,10 +105,12 @@ Minimal set: **Orrery Web** (access/RED from nginx logs) + **Orrery Pipelines**
 (runs/errors). Retire the placeholder `orrery-edge.json`.
 
 ### 3. Errors → GlitchTip
-Point orrery's Sentry DSN at the GlitchTip project (create an `orrery` project
-server-side; the podcast one is `podcast`). `environment=${APP_ENV}`. See
-`glitchtip-vps-error-tracking-handover.md` for the `before_send` redaction pattern
-(GlitchTip stores what you send — scrub secrets/PII).
+Orrery's project **already exists (id 2)** — use its DSN
+`http://<orrery-project2-key>@homelab:8090/2` (podcast + moss share
+id 1). `environment=${APP_ENV}`; `before_send` redaction per
+`glitchtip-vps-error-tracking-handover.md` (GlitchTip stores what you send — scrub
+secrets/PII). **Mind the client-side reachability caveat** (§Prod o11y settings):
+a public visitor's browser can't reach tailnet-only `homelab:8090`.
 
 ### 4. Metrics (future) — nginx exporter
 Add an `nginx-prometheus-exporter` sidecar to `orrery-web` (scrapes nginx
@@ -68,15 +120,15 @@ Add an `nginx-prometheus-exporter` sidecar to `orrery-web` (scrapes nginx
 
 ### 5. Traces (future) — OTEL
 Same env-var pattern as podcast: `opentelemetry-instrument` (or the Node OTEL SDK)
-→ `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://dgx-llm-1:10428/insert/opentelemetry/v1/traces`,
+→ `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://homelab:10428/insert/opentelemetry/v1/traces`,
 `OTEL_SERVICE_NAME=orrery-web`, `deployment.environment=${APP_ENV}`. See
 `podcast-otel-traces-handover.md`.
 
 ## Verify (tailnet)
 
 ```sh
-curl -m5 -o /dev/null -w "%{http_code}\n" http://dgx-llm-1:9428/health   # VL
-curl -sG "http://dgx-llm-1:9428/select/logsql/query" \
+curl -m5 -o /dev/null -w "%{http_code}\n" http://homelab:9428/health   # VL
+curl -sG "http://homelab:9428/select/logsql/query" \
   --data-urlencode "query=app:orrery AND _time:15m | stats by (surface) count()"
 ```
 Then Grafana → the `orrery` folder → the two dashboards populate; filter by `env`.
