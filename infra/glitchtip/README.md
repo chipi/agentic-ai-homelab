@@ -47,7 +47,7 @@ Any Sentry SDK works — just set the DSN + environment. Python example:
 ```python
 import sentry_sdk
 sentry_sdk.init(
-    dsn="http://<public_key>@100.69.49.126:8090/<project_id>",
+    dsn="http://<public_key>@dgx-llm-1:8090/<project_id>",
     environment="prod",        # "dev" on the Mac, "prod" on the VPS
     traces_sample_rate=0.0,    # errors only; raise for perf tracing
 )

@@ -6,7 +6,7 @@ Sentry-SDK/DSN compatible — you use the normal `sentry-sdk`, just point it her
 
 > **`homelab`** is the Tailscale name of the observability host (a MagicDNS device name →
 > the DGX now, the Mac mini later). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
-> Until `homelab` is named (on the mini), substitute the host IP `100.69.49.126`.
+> Backend is on `dgx-llm-1` now (stopgap); flip to `homelab` after migration.
 
 ## Status (2026-07-20) — everything is ready
 

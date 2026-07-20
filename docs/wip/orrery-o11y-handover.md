@@ -34,7 +34,7 @@ VPS is small; a handful of focused dashboards, not dozens.
 
 ### 1. Logs → VictoriaLogs (the immediate win, no app change)
 Repoint orrery's grafana-agent Loki endpoint from Cloud to VictoriaLogs:
-- `GRAFANA_CLOUD_LOKI_URL` → `http://100.69.49.126:9428/insert/loki/api/v1/push`
+- `GRAFANA_CLOUD_LOKI_URL` → `http://dgx-llm-1:9428/insert/loki/api/v1/push`
   (tailnet; ACL 9428 granted). No auth needed on the tailnet.
 - Add labels `app=orrery`, `env=${APP_ENV}` (dev/prod), and a **`surface`** label
   (`web` vs `pipeline`) so the two orrery surfaces are differentiable — mirror the
@@ -68,15 +68,15 @@ Add an `nginx-prometheus-exporter` sidecar to `orrery-web` (scrapes nginx
 
 ### 5. Traces (future) — OTEL
 Same env-var pattern as podcast: `opentelemetry-instrument` (or the Node OTEL SDK)
-→ `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://100.69.49.126:10428/insert/opentelemetry/v1/traces`,
+→ `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://dgx-llm-1:10428/insert/opentelemetry/v1/traces`,
 `OTEL_SERVICE_NAME=orrery-web`, `deployment.environment=${APP_ENV}`. See
 `podcast-otel-traces-handover.md`.
 
 ## Verify (tailnet)
 
 ```sh
-curl -m5 -o /dev/null -w "%{http_code}\n" http://100.69.49.126:9428/health   # VL
-curl -sG "http://100.69.49.126:9428/select/logsql/query" \
+curl -m5 -o /dev/null -w "%{http_code}\n" http://dgx-llm-1:9428/health   # VL
+curl -sG "http://dgx-llm-1:9428/select/logsql/query" \
   --data-urlencode "query=app:orrery AND _time:15m | stats by (surface) count()"
 ```
 Then Grafana → the `orrery` folder → the two dashboards populate; filter by `env`.

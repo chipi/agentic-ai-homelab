@@ -14,7 +14,7 @@ collector. Nothing here touches the DGX.
 
 > **`homelab`** is the Tailscale name of the observability host (a MagicDNS device name →
 > the DGX now, the Mac mini later). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
-> Until `homelab` is named (on the mini), substitute the host IP `100.69.49.126`.
+> Backend is on `dgx-llm-1` now (stopgap); flip to `homelab` after migration.
 
 - **VictoriaMetrics** (ingest): `http://homelab:8428/api/v1/write`
   - Reachable from any tailnet host. No auth on the tailnet.

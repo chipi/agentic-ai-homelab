@@ -32,7 +32,7 @@ via MagicDNS: whichever machine is *named* `homelab` resolves as `homelab.<tailn
 - **Now (DGX stopgap):** the DGX **can't** be renamed `homelab` — it's the GPU box and
   other config (SSH `dgx-llm-1`, gpu-mode) references it. So during the stopgap,
   senders target the DGX directly: `dgx-llm-1.<tailnet>.ts.net` or the IP
-  `100.69.49.126`.
+  `dgx-llm-1`.
 - **The DGX → mini move is a ONE-TIME sender cutover** (flip the endpoint from the
   DGX to `homelab`). After that it's stable.
 
@@ -47,5 +47,6 @@ To keep that one-time cutover trivial, senders read the endpoint from **env vars
   *senders* resolving where to send.
 - The Tailscale **ACL still gates ports** — `homelab` resolving doesn't bypass it;
   the host's tag still needs `3000/8428/9428/10428/8090/4000` granted.
-- **Until `homelab` exists**, substitute the host IP (`100.69.49.126`) wherever a
-  handover shows `homelab`.
+- **During the DGX stopgap**, the backend still runs on the DGX, so senders point
+  at `dgx-llm-1` (its tailnet name); they flip to `homelab` once the backend moves
+  to the mini. `homelab` is already named, so no IPs are needed either way.

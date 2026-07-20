@@ -14,7 +14,7 @@ There is ONE Grafana — everything renders there; only the *source* is split.
 
 ## Already set up on the shared Grafana (2026-07-19)
 
-- **Endpoint:** `http://100.69.49.126:3000` (DGX, over Tailscale; `3000` is
+- **Endpoint:** `http://dgx-llm-1:3000` (DGX, over Tailscale; `3000` is
   ACL-granted). Datasources available by uid: `victoriametrics` (metrics),
   `victorialogs` (logs).
 - **Folder:** `VPS — Podcast`, **folderUid = `vps-podcast`**.
@@ -29,7 +29,7 @@ There is ONE Grafana — everything renders there; only the *source* is split.
 Keep dashboard JSON under `dashboards/` in the podcast repo. On deploy, push each:
 
 ```sh
-GRAFANA="http://100.69.49.126:3000"
+GRAFANA="http://dgx-llm-1:3000"
 for f in dashboards/*.json; do
   # wrap the raw dashboard model in the push envelope, force the folder + overwrite
   jq -c '{dashboard: ., folderUid: "vps-podcast", overwrite: true}' "$f" \
@@ -67,6 +67,6 @@ Rules for clean idempotent pushes:
   types `instant` (log lines) / `stats` / `statsRange` (need a `| stats …`
   pipe); variables use `fieldValue` → `field_values`. See the homelab
   `Logs — Overview` dashboard for a worked example.
-- Ports bind to the tailnet IP — reach Grafana at `100.69.49.126`, not loopback.
+- Ports bind to the tailnet IP — reach Grafana at `dgx-llm-1`, not loopback.
 - The podcast VPS should also be shipping metrics/logs first — see
   `observability-vps-collector-handover.md`.

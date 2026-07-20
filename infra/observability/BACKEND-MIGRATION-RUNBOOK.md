@@ -8,7 +8,7 @@ The DGX keeps only its **collector**.
 **env var**, so the cutover is a per-host `.env` flip — **no config or code edits**.
 `homelab` is a Tailscale device name (free tier: no custom DNS) → it resolves
 tailnet-wide as `homelab` / `homelab.<tailnet>.ts.net` once the mini owns the name
-(it does). All the values below currently point at the DGX (`100.69.49.126`).
+(it does). All the values below currently point at the DGX (`dgx-llm-1`).
 
 ## Preconditions (before flipping anything)
 
@@ -27,6 +27,11 @@ tailnet-wide as `homelab` / `homelab.<tailnet>.ts.net` once the mini owns the na
 
 Each row: flip the value from the DGX form to the homelab form, then restart the
 listed process. Nothing else changes.
+
+Paths verified on the hosts 2026-07-20 (DGX self-collector `.env`, moss compose,
+prod-podcast collector `.env` per its README). The prod-podcast **app** `.env`
+filename is the one row not yet live-confirmed — the operator SSH key had expired;
+re-verify against the deploy at cutover.
 
 ### Host: DGX — self-collector (`~/agentic-ai-homelab/infra/observability/.env`)
 | Key | → homelab | Restart |
@@ -47,7 +52,7 @@ listed process. Nothing else changes.
 | `PODCAST_SENTRY_DSN_API` | host part → `homelab:8090` | ↑ same |
 | `PODCAST_SENTRY_DSN_PIPELINE` | host part → `homelab:8090` | ↑ same |
 
-### Host: DGX — moss server (runtime `env_file`, converge-managed)
+### Host: DGX — moss server (`/opt/moss-server/docker-compose.yml`, converge-managed)
 | Key | → homelab | Restart |
 |---|---|---|
 | `GLITCHTIP_DSN` | host part → `homelab:8090` | redeploy moss (converge) |
@@ -88,6 +93,6 @@ curl -s "http://homelab:10428/select/jaeger/api/services"
 
 ## Rollback
 
-Flip each `.env` value back to `100.69.49.126` and restart the same processes.
+Flip each `.env` value back to `dgx-llm-1` and restart the same processes.
 No schema/volume changes are implied by the flip, so rollback is symmetric and
 < 5 min. (Data written to homelab during the window stays on homelab.)

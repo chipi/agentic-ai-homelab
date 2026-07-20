@@ -38,9 +38,9 @@ alloy fmt config.alloy        # validate before up
 
 ```sh
 # metrics landing:
-curl -s "http://100.69.49.126:8428/api/v1/query?query=up{instance='prod-podcast'}"
+curl -s "http://dgx-llm-1:8428/api/v1/query?query=up{instance='prod-podcast'}"
 # security logs landing (should be journal + caddy only):
-curl -sG "http://100.69.49.126:9428/select/logsql/query" \
+curl -sG "http://dgx-llm-1:9428/select/logsql/query" \
   --data-urlencode "query=instance:prod-podcast AND _time:5m | stats by (job) count()"
 ```
 

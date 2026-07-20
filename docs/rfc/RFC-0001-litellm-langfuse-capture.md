@@ -3,7 +3,7 @@
 **Status:** Proposed
 **Date:** 2026-07-20
 **Relates to:** ADR-0005 §4 (Langfuse capture path deferred). Langfuse is live at
-`infra/langfuse/` (project `agents`, `http://100.69.49.126:4000`) but ingests
+`infra/langfuse/` (project `agents`, `http://dgx-llm-1:4000`) but ingests
 nothing until wired.
 
 ## Motivation
@@ -47,7 +47,7 @@ the **central** Langfuse on the DGX. Why:
 ### Langfuse integration
 
 LiteLLM's native callback: `success_callback: ["langfuse"]` +
-`LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`/`HOST` (→ `http://100.69.49.126:4000`, project
+`LANGFUSE_PUBLIC_KEY`/`SECRET_KEY`/`HOST` (→ `http://dgx-llm-1:4000`, project
 `agents`). Logs prompt/completion/tokens/cost/latency; supports metadata/tags
 (set `environment`). Cost from LiteLLM's pricing map.
 
