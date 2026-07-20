@@ -82,5 +82,30 @@ services:
     restart: unless-stopped
     <<: *logging
 
+  # ---- DB/cache metrics (scraped by the DGX Alloy collector on localhost) ----
+  # Published on 127.0.0.1 only — the host-network Alloy reaches them via
+  # localhost; never exposed to the tailnet. job=glitchtip-postgres / -redis.
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    environment:
+      DATA_SOURCE_NAME: postgresql://glitchtip:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/glitchtip?sslmode=disable
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:9187:9187"
+    restart: unless-stopped
+    <<: *logging
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      redis: { condition: service_started }
+    ports:
+      - "127.0.0.1:9121:9121"
+    restart: unless-stopped
+    <<: *logging
+
 volumes:
   pg-data:

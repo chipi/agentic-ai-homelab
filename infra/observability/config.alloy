@@ -110,6 +110,21 @@ prometheus.scrape "moss" {
   scrape_interval = "30s"
 }
 
+// ---------- SUPPORT DBs: postgres + redis exporters for glitchtip + langfuse ----------
+// Each stack runs postgres_exporter (9187/9188) + redis_exporter (9121/9122),
+// published on localhost only. service label separates the stacks.
+prometheus.scrape "support_dbs" {
+  targets = [
+    { __address__ = "localhost:9187", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "glitchtip-postgres" },
+    { __address__ = "localhost:9121", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "glitchtip-redis" },
+    { __address__ = "localhost:9188", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "langfuse-postgres" },
+    { __address__ = "localhost:9122", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "langfuse-redis" },
+  ]
+  forward_to      = [prometheus.remote_write.sink.receiver]
+  job_name        = "support-dbs"
+  scrape_interval = "30s"
+}
+
 // ---------- LLM SERVING: autoresearch vLLM on port 8003 ----------
 // The research/eval vLLM (Qwen3 etc.) — LIVE, exposes Prometheus metrics natively.
 prometheus.scrape "vllm_autoresearch" {

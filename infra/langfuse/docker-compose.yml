@@ -153,6 +153,32 @@ services:
     volumes:
       - langfuse_postgres_data:/var/lib/postgresql/data
 
+  # ---- DB/cache metrics (scraped by the DGX Alloy collector on localhost) ----
+  # Published on 127.0.0.1 only (host-net Alloy reaches via localhost; never
+  # tailnet-exposed). Host ports 9188/9122 to avoid glitchtip's 9187/9121.
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    <<: *logging
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-postgres}?sslmode=disable
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:9188:9187"
+    restart: always
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    <<: *logging
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_AUTH:?set REDIS_AUTH in .env}
+    depends_on:
+      redis: { condition: service_started }
+    ports:
+      - "127.0.0.1:9122:9121"
+    restart: always
+
 volumes:
   langfuse_postgres_data:
     driver: local
