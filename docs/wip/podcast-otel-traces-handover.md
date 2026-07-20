@@ -14,15 +14,19 @@ It's a different signal from the others the app sends — keep them straight:
 | errors/exceptions | GlitchTip | Sentry SDK (`glitchtip-…-handover.md`) |
 | LLM prompt/cost | Langfuse | capture layer (RFC-0001, later) |
 
+> **`obs`** is the Tailscale name of the observability host (custom DNS record →
+> the DGX now, the Mac mini later). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
+> Until the `obs` record exists, substitute the host IP `100.69.49.126`.
+
 ## Status (2026-07-20)
 
 - **VictoriaTraces is LIVE** on the DGX. OTLP HTTP ingest (verified end-to-end):
-  `http://100.69.49.126:10428/insert/opentelemetry/v1/traces`
+  `http://obs:10428/insert/opentelemetry/v1/traces`
 - Grafana reads it via the **VictoriaTraces (Tempo)** and **(Jaeger)** datasources
   + the **Explore Traces** app.
 - **ACL:** grant port **`10428`** to `tag:dgx-llm-host` in the Tailscale console
   (per-port allowlist, like `8428`/`9428`/`8090`/`4000`). Verify from the app host:
-  `curl -m5 -o /dev/null -w "%{http_code}\n" http://100.69.49.126:10428/health` → `200`.
+  `curl -m5 -o /dev/null -w "%{http_code}\n" http://obs:10428/health` → `200`.
 
 ## Instrument (Python — env-var driven, zero app code if you can auto-instrument)
 
@@ -39,7 +43,7 @@ export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
 # NOTE: use the TRACES-specific var with the FULL path — VictoriaTraces' path is
 # non-standard (/insert/opentelemetry/v1/traces), so the base-endpoint var (which
 # auto-appends /v1/traces) will NOT work here.
-export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://100.69.49.126:10428/insert/opentelemetry/v1/traces"
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://obs:10428/insert/opentelemetry/v1/traces"
 export OTEL_SERVICE_NAME="podcast-api"          # or -pipeline / -viewer per component
 export OTEL_RESOURCE_ATTRIBUTES="deployment.environment=${APP_ENV:-dev}"   # prod on VPS
 export OTEL_METRICS_EXPORTER=none               # metrics already via Alloy; traces only here
@@ -65,7 +69,7 @@ provider = TracerProvider(resource=Resource.create({
     "deployment.environment": os.environ.get("APP_ENV", "dev"),
 }))
 provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(
-    endpoint="http://100.69.49.126:10428/insert/opentelemetry/v1/traces")))
+    endpoint="http://obs:10428/insert/opentelemetry/v1/traces")))
 trace.set_tracer_provider(provider)
 ```
 
@@ -80,7 +84,7 @@ on VPS). Filter by it in Grafana. Keep `service.name` per component
 Generate a request, then either:
 - Grafana → **Explore** → *VictoriaTraces (Tempo)* → search by service, or the
   **Explore Traces** app, or
-- `curl "http://100.69.49.126:10428/select/jaeger/api/services"` → your
+- `curl "http://obs:10428/select/jaeger/api/services"` → your
   `service.name` should be listed.
 
 ## Notes / gotchas

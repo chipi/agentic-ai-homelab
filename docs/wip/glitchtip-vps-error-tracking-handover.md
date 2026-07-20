@@ -4,20 +4,24 @@
 the self-hosted GlitchTip, split **dev** (Mac) vs **prod** (VPS). GlitchTip is
 Sentry-SDK/DSN compatible — you use the normal `sentry-sdk`, just point it here.
 
+> **`obs`** is the Tailscale name of the observability host (custom DNS record →
+> the DGX now, the Mac mini later). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
+> Until the `obs` record exists, substitute the host IP `100.69.49.126`.
+
 ## Status (2026-07-20) — everything is ready
 
-- **GlitchTip live:** `http://100.69.49.126:8090` (tailnet-only).
+- **GlitchTip live:** `http://obs:8090` (tailnet-only).
 - **Org/team/project created:** org `homelab` → team `podcast` → project
   `podcast` (id 1). Admin (`admin@homelab.local`) is Owner.
 - **DSN (verified — a test event ingested 200):**
   ```
-  http://4c40d7bc-0987-427e-84dc-b4b3fcad9a62@100.69.49.126:8090/1
+  http://4c40d7bc-0987-427e-84dc-b4b3fcad9a62@obs:8090/1
   ```
   This is an **ingest (send-only) key**, and the endpoint is **tailnet-only**, so
   it's not exploitable off the tailnet — safe to keep in repo config. Still,
   read it from an env var (`GLITCHTIP_DSN`) rather than hardcoding.
 - **ACL:** port `8090` is granted. Preflight from the app host:
-  `curl -m5 -o /dev/null -w "%{http_code}\n" http://100.69.49.126:8090/_health/` → `200`.
+  `curl -m5 -o /dev/null -w "%{http_code}\n" http://obs:8090/_health/` → `200`.
 
 ## Install
 
@@ -120,7 +124,7 @@ sentry_sdk.init(..., before_send=before_send)
 sentry_sdk.capture_message("glitchtip wiring test from VPS", level="error")
 # or force one:  1 / 0
 ```
-Then GlitchTip → `http://100.69.49.126:8090` → project `podcast` → filter
+Then GlitchTip → `http://obs:8090` → project `podcast` → filter
 `environment:prod` (or `:dev`) → the event appears within seconds. (There's
 already one test `dev` event from setup.)
 
@@ -135,7 +139,7 @@ already one test `dev` event from setup.)
 
 ## Gotchas
 
-- Endpoint is `http://` (not https) and **tailnet-only** — reach `100.69.49.126`,
+- Endpoint is `http://` (not https) and **tailnet-only** — reach `obs`,
   never a public URL. Don't expose `8090` publicly.
 - Give a distinct `environment` per host (`dev`/`prod`) — it's the main filter.
 - `traces_sample_rate=0.0` here on purpose: perf tracing lives in VictoriaTraces,

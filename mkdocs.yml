@@ -84,6 +84,7 @@ nav:
     - GPU mode-swap: recipes/gpu-mode-swap.md
     - Observability boot: recipes/observability-boot.md
     - Mac mini → observability host: recipes/mac-mini-observability.md
+    - Observability endpoints (obs name): recipes/observability-endpoints.md
     - Token management (lean-ctx): recipes/token-management-lean-ctx-rtk.md
     - Chrome DevTools MCP agent loop: recipes/chrome-devtools-mcp-agent-loop.md
     - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md
