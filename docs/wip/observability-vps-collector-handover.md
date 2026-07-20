@@ -12,9 +12,9 @@ collector. Nothing here touches the DGX.
 
 ## The target you're pointing at
 
-> **`obs`** is the Tailscale name of the observability host (a custom DNS record →
+> **`obs`** is the Tailscale name of the observability host (a MagicDNS device name →
 > the DGX now, the Mac mini later). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
-> Until the `obs` record exists, substitute the host IP `100.69.49.126`.
+> Until `obs` is named (on the mini), substitute the host IP `100.69.49.126`.
 
 - **VictoriaMetrics** (ingest): `http://obs:8428/api/v1/write`
   - Reachable from any tailnet host. No auth on the tailnet.

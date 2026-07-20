@@ -17,14 +17,26 @@ All senders reference the **`obs`** tailnet name, never a host IP. `obs` is a
 | `8090` | GlitchTip (errors) | DSN host `obs:8090` |
 | `4000` | Langfuse (LLM tracing) | `http://obs:4000` |
 
-## Create / move the record (operator, Tailscale admin console)
+## How `obs` works on FREE Tailscale (device name, not a custom record)
 
-- **DNS → Custom records** → add `obs` → the observability host's tailnet IP
-  (currently the DGX `100.69.49.126`). Resolves tailnet-wide.
-- **On the Mac-mini move:** edit that record → the mini's IP. That's the whole
-  cutover for senders.
-- If custom records aren't available on your plan, the fallback is a single
-  `OBS_HOST` env var per sender (one line each to change on a move).
+Free Tailscale has **no custom DNS records** — so `obs` is a **device hostname**
+via MagicDNS: whichever machine is *named* `obs` resolves as `obs.<tailnet>.ts.net`
+(and short `obs`) tailnet-wide.
+
+- **Permanent (Mac mini):** name the mini's device **`obs`** (admin console →
+  **Machines → the mini → ⋯ → Edit machine name**, or set its OS hostname).
+  Senders then use `obs` forever; future host swaps = give the new box the `obs`
+  name (rename the old one off first) → zero sender changes.
+- **Now (DGX stopgap):** the DGX **can't** be renamed `obs` — it's the GPU box and
+  other config (SSH `dgx-llm-1`, gpu-mode) references it. So during the stopgap,
+  senders target the DGX directly: `dgx-llm-1.<tailnet>.ts.net` or the IP
+  `100.69.49.126`.
+- **The DGX → mini move is a ONE-TIME sender cutover** (flip the endpoint from the
+  DGX to `obs`). After that it's stable.
+
+To keep that one-time cutover trivial, senders read the endpoint from **env vars**
+(`REMOTE_WRITE_URL`, `LOGS_WRITE_URL`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`,
+`GLITCHTIP_DSN`) — you edit a couple of values, not code.
 
 ## Notes
 
