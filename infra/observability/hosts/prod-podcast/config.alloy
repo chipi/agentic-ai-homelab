@@ -81,9 +81,43 @@ prometheus.scrape "api" {
   scrape_interval = "60s"
 }
 
-// NOTE: container stdout/stderr shipping is intentionally OMITTED — for a
-// self-hosted backend it's a firehose (app logs stay locally via `docker logs`).
-// Only the SECURITY signal (sshd/fail2ban journal + Caddy access log) is shipped.
+// ---------- APP EVENTS: pipeline-runner container stdout (canonical JSONL) -> VL ----------
+// Pipeline runs are ephemeral `docker compose run --rm pipeline[-llm]` containers
+// on the VPS; capture their stdout while they run — it carries the structured
+// events the app emits (llm_cost, ml_inference, pipeline_stage). Long-lived
+// api/viewer stdout is still NOT shipped (avoid the firehose) — only the scoped
+// pipeline containers + the persistent corpus event files below.
+discovery.relabel "pipeline" {
+  targets = discovery.docker.app.targets
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "pipeline(-llm)?"
+    action        = "keep"
+  }
+}
+
+loki.source.docker "pipeline" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.pipeline.output
+  forward_to = [loki.write.logs_sink.receiver]
+  labels     = { job = "podcast-pipeline" }
+}
+
+// ---------- APP EVENTS: persistent corpus JSONL event files -> VL ----------
+// Search / listen / job events are append-only JSONL. file_match watches the
+// globs even before the files exist (created on first search / listen / run).
+local.file_match "app_events" {
+  path_targets = [
+    { __path__ = "/rootfs/srv/podcast-scraper/corpus/search/query_log.jsonl", job = "podcast-search" },
+    { __path__ = "/rootfs/srv/podcast-scraper/corpus/users/*/listen.jsonl", job = "podcast-listen" },
+    { __path__ = "/rootfs/srv/podcast-scraper/corpus/.viewer/jobs.jsonl", job = "podcast-jobs" },
+  ]
+}
+
+loki.source.file "app_events" {
+  targets    = local.file_match.app_events.targets
+  forward_to = [loki.write.logs_sink.receiver]
+}
 
 // ---------- LOGS: host journal (sshd / fail2ban — edge security) -> VictoriaLogs ----------
 // Alloy runs with pid:host + /:/rootfs, so the persistent journal is visible.
