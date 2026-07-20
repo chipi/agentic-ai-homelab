@@ -91,14 +91,14 @@ prometheus.scrape "pyannote" {
   scrape_interval = "30s"
 }
 
-// ---------- Optional: secondary vLLM (e.g., autoresearch eval) on port 8003 ----------
-// Uncomment if running a second vLLM compose for sweeps / evals.
-// prometheus.scrape "vllm_secondary" {
-//   targets         = [{ __address__ = "localhost:8003", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
-//   forward_to      = [prometheus.remote_write.sink.receiver]
-//   job_name        = "vllm-secondary"
-//   scrape_interval = "15s"
-// }
+// ---------- LLM SERVING: autoresearch vLLM on port 8003 ----------
+// The research/eval vLLM (Qwen3 etc.) — LIVE, exposes Prometheus metrics natively.
+prometheus.scrape "vllm_autoresearch" {
+  targets         = [{ __address__ = "localhost:8003", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
+  forward_to      = [prometheus.remote_write.sink.receiver]
+  job_name        = "vllm-autoresearch"
+  scrape_interval = "15s"
+}
 
 // ---------- Optional: project FastAPI servers with prometheus_client wired in ----------
 // Uncomment + adjust ports/services after wiring prometheus_client into your app.
