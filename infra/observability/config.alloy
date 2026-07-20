@@ -50,6 +50,15 @@ prometheus.scrape "cadvisor" {
   scrape_interval = "30s"
 }
 
+// ---------- COLLECTOR SELF-METRICS: Alloy's own health (:12345) ----------
+// Scrape rate, WAL, remote_write queue/failures — so the collector is observable too.
+prometheus.scrape "alloy" {
+  targets         = [{ __address__ = "localhost:12345", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
+  forward_to      = [prometheus.remote_write.sink.receiver]
+  job_name        = "alloy"
+  scrape_interval = "30s"
+}
+
 prometheus.relabel "cadvisor_keep" {
   forward_to = [prometheus.remote_write.sink.receiver]
   rule {
