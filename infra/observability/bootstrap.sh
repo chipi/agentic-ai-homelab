@@ -36,6 +36,24 @@ IP="$(tailscale ip -4 2>/dev/null | head -1)"
 [[ "$IP" =~ ^100\. ]] || die "could not read tailnet IP (tailscale up?) — got '$IP'"
 say "tailnet IP: $IP"
 
+# Bind address for published ports. Default = the tailnet IP (locks ports to the
+# tailnet). On Docker-for-Mac, publishing to the utun tailnet IP can silently
+# fail — if a port is healthy locally but tailnet peers time out, re-run with
+# BIND=0.0.0.0 (also exposes to the LAN; rely on macOS firewall + the tailnet ACL).
+BIND="${BIND:-$IP}"
+say "bind address: $BIND${BIND:+ $([[ "$BIND" == 0.0.0.0 ]] && echo '(all interfaces — LAN-exposed)')}"
+
+# ── soft checks (warn, don't block) ──────────────────────────────────────
+case "$(uname -s)" in
+  Darwin)
+    say "macOS $(sw_vers -productVersion 2>/dev/null) — OrbStack needs 13+ (Ventura)"
+    MEMGB=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1073741824 )) ;;
+  Linux) MEMGB=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0) / 1048576 )) ;;
+  *) MEMGB=0 ;;
+esac
+if (( MEMGB >= 12 )); then say "RAM ${MEMGB}GB — ample for the full stack"
+elif (( MEMGB > 0 )); then say "⚠ RAM ${MEMGB}GB — full stack wants ~12GB+; consider deferring Langfuse"; fi
+
 # ── decrypt secrets into this shell (never written to disk) ──────────────
 say "decrypting secrets"
 # shellcheck disable=SC1090
@@ -48,10 +66,10 @@ write_env() { # $1=path ; stdin=contents
 }
 
 write_env "$OBS/backend/.env" <<EOF
-VM_LISTEN=$IP
-VLOGS_LISTEN=$IP
-VTRACES_LISTEN=$IP
-GRAFANA_LISTEN=$IP
+VM_LISTEN=$BIND
+VLOGS_LISTEN=$BIND
+VTRACES_LISTEN=$BIND
+GRAFANA_LISTEN=$BIND
 VM_RETENTION=6
 VLOGS_RETENTION=30d
 GRAFANA_ADMIN_USER=admin
@@ -59,7 +77,7 @@ GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD
 EOF
 
 write_env "$REPO/infra/glitchtip/.env" <<EOF
-GLITCHTIP_LISTEN=$IP
+GLITCHTIP_LISTEN=$BIND
 GLITCHTIP_PORT=8090
 GLITCHTIP_DOMAIN=http://$IP:8090
 POSTGRES_PASSWORD=$GLITCHTIP_POSTGRES_PASSWORD
@@ -71,7 +89,7 @@ DEFAULT_FROM_EMAIL=glitchtip@homelab.local
 EOF
 
 write_env "$REPO/infra/langfuse/.env" <<EOF
-LANGFUSE_LISTEN=$IP
+LANGFUSE_LISTEN=$BIND
 LANGFUSE_PORT=4000
 NEXTAUTH_URL=http://$IP:4000
 SALT=$LANGFUSE_SALT

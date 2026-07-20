@@ -9,10 +9,14 @@ Decision + rationale: [ADR-0006](../adr/ADR-0006-mac-mini-observability-provisio
 **Data:** fresh start (no migration).
 
 > ⚠️ **Mac-specific bits to validate on first boot** (untested until the mini
-> exists): publishing container ports to the `utun` tailnet IP — if peers can't
-> reach a port that's healthy locally, set the `*_LISTEN` vars to `0.0.0.0` and
-> rely on the tailnet ACL + macOS firewall instead. Also confirm OrbStack is set
-> to start at login and restart containers after reboot.
+> exists): publishing container ports to the `utun` tailnet IP — if a port is
+> healthy locally but tailnet peers time out, re-run bootstrap with
+> **`BIND=0.0.0.0 ./infra/observability/bootstrap.sh`** (binds all interfaces —
+> also LAN-exposed; rely on macOS firewall + the tailnet ACL). Also confirm
+> OrbStack is set to start at login and restart containers after reboot.
+>
+> **Sizing:** the 2018 i7 mini with **32 GB** runs the full stack comfortably
+> (~8–10 GB working set) — no staging needed. `bootstrap.sh` warns if RAM < 12 GB.
 
 ## 0. Prereqs (install once)
 
