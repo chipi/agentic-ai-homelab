@@ -79,6 +79,18 @@ prometheus.scrape "ollama" {
   scrape_interval = "15s"
 }
 
+// ---------- DGX APP: pyannote diarization server (:8001) ----------
+// FastAPI /metrics via prometheus-fastapi-instrumentator. Moved here from the
+// retired podcast VPS grafana-agent (which scraped it over the tailnet) — the DGX
+// self-collects its own apps now. whisper (:8002) exposes /metrics only while its
+// server is up; add a sibling scrape when faster-whisper serves metrics there.
+prometheus.scrape "pyannote" {
+  targets         = [{ __address__ = "localhost:8001", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "pyannote" }]
+  forward_to      = [prometheus.remote_write.sink.receiver]
+  job_name        = "pyannote-app"
+  scrape_interval = "30s"
+}
+
 // ---------- Optional: secondary vLLM (e.g., autoresearch eval) on port 8003 ----------
 // Uncomment if running a second vLLM compose for sweeps / evals.
 // prometheus.scrape "vllm_secondary" {
