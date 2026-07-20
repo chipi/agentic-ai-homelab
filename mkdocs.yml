@@ -110,6 +110,7 @@ nav:
     - ADR-0005 — Self-hosted observability platform: adr/ADR-0005-langfuse-glitchtip-self-host.md
   - Proposals (RFC):
     - Overview: rfc/README.md
+    - RFC-0001 — LiteLLM ↔ Langfuse capture: rfc/RFC-0001-litellm-langfuse-capture.md
   - In progress:
     - Overview: wip/README.md
     - Next steps: wip/NEXT_STEPS.md

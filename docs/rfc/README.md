@@ -34,4 +34,4 @@ landed on an answer.
 
 ## Index
 
-No RFCs yet.
+- [RFC-0001 — LiteLLM proxy as the Langfuse capture layer](RFC-0001-litellm-langfuse-capture.md) — *Proposed*
