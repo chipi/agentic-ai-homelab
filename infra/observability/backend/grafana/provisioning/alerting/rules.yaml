@@ -1,17 +1,10 @@
-# Alert rules — metric-based starters (PromQL over VictoriaMetrics).
+# Alert rules — metric health (VictoriaMetrics) + host/edge security (VictoriaLogs).
 #
-# Deliberately a SMALL, verifiable set: every query here runs against metrics that
-# are live today (up / node_filesystem_* / http_requests_total). Thresholds are
-# conservative starters — tune against real traffic. `severity=critical` also opens
-# a GlitchTip issue (see policies.yaml); everything routes to the default channel.
-#
-# NOT covered yet (honest gap, not silence): the T-11 host/edge SECURITY rules
-# (ssh brute-force, fail2ban, Caddy 5xx) live in the podcast repo as Loki LogQL
-# (config/grafana/alerts/common/security.yaml). They are NOT re-homed here because
-# (a) the prod-VPS tenant=common security-log pipeline is not yet shipping to this
-# VictoriaLogs (job:caddy = 0, no fail2ban unit), and (b) LogQL must be translated
-# to VictoriaLogs LogsQL. Re-home them once that pipeline is confirmed flowing —
-# don't ship rules that can never fire.
+# Thresholds are tuned against real baselines (2026-07-20), not guessed:
+#   - no targets down now; disk 33-58% free everywhere; 5xx baseline 0; ssh
+#     probes ~14/24h (tailnet). See each rule for the headroom rationale.
+# `severity=critical` also opens a GlitchTip issue (policies.yaml); everything
+# routes to the default channel.
 apiVersion: 1
 
 groups:
@@ -21,19 +14,22 @@ groups:
     interval: 1m
     rules:
       # --- Scrape target down ------------------------------------------------------
+      # Excludes the on-demand GPU services (vllm / vllm-autoresearch / ollama) —
+      # they legitimately come and go with `gpu-mode-swap`, so a blanket up==0 would
+      # false-page on every mode swap. Alert only on the always-on estate.
       - uid: infra-target-down
         title: "Scrape target down (up==0)"
         condition: threshold
         for: 5m
         labels: { severity: critical, kind: infra }
         annotations:
-          summary: "A monitored target has been down (up==0) for 5m — {{ $labels.job }} / {{ $labels.instance }}."
+          summary: "Target down (up==0) for 5m — {{ $labels.job }} / {{ $labels.instance }}."
         data:
           - refId: q
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min by (job, instance) (up)'
+              expr: 'min by (job, instance) (up{job!~"vllm|vllm-autoresearch|ollama"})'
               instant: true
               queryType: instant
           - refId: threshold
@@ -43,14 +39,16 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
-      # --- Host disk low (prod-podcast + DGX host) --------------------------------
+      # --- Host disk low (warning <10%) -------------------------------------------
+      # Nearest real value is 33% free, so 10% is pure headroom — only a genuine
+      # fill trips it. Critical tier below at 5%.
       - uid: infra-disk-low
-        title: "Host disk running low (<10% free)"
+        title: "Host disk low (<10% free)"
         condition: threshold
         for: 10m
         labels: { severity: warning, kind: infra }
         annotations:
-          summary: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is below 10% free."
+          summary: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} below 10% free."
         data:
           - refId: q
             relativeTimeRange: { from: 300, to: 0 }
@@ -66,19 +64,45 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [0.10] } }]
 
+      # --- Host disk critical (<5%) — pages + opens a GlitchTip issue -------------
+      - uid: infra-disk-crit
+        title: "Host disk critical (<5% free)"
+        condition: threshold
+        for: 5m
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} below 5% free — imminent fill."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min by (instance, mountpoint) (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [0.05] } }]
+
   - orgId: 1
     name: app-health
     folder: "Alerts"
     interval: 1m
     rules:
-      # --- FastAPI 5xx elevated (any instrumented service: api / pyannote / moss) --
+      # --- FastAPI 5xx elevated ---------------------------------------------------
+      # Baseline is 0/h. 0.01 req/s over 5m ≈ 3+ errors in 5m — past a one-off probe,
+      # into a small sustained problem. Covers api / pyannote / moss (all instrumented).
       - uid: app-http-5xx
         title: "FastAPI 5xx errors elevated"
         condition: threshold
         for: 5m
+        noDataState: OK
         labels: { severity: warning, kind: app }
         annotations:
-          summary: "5xx responses from {{ $labels.job }} over the last 5m — check traces + GlitchTip."
+          summary: "5xx from {{ $labels.job }} over 5m — check traces + GlitchTip."
         data:
           - refId: q
             relativeTimeRange: { from: 300, to: 0 }
@@ -92,4 +116,81 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [0.05] } }]
+              conditions: [{ evaluator: { type: gt, params: [0.01] } }]
+
+  - orgId: 1
+    name: security-common
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      # --- SSH auth-failure / probe spike (re-homed T-11) -------------------------
+      # Loki LogQL -> VictoriaLogs LogsQL. This box's probes are "Connection closed
+      # by authenticating user ... [preauth]" (not "Failed password"), so the match
+      # is broad. SSH is tailnet-only (T-01) → normal ~0/5m; >15 in 5m is a real
+      # burst (agent loop or an unexpected exposure).
+      - uid: sec-ssh-authfail
+        title: "SSH auth failures / probes spiking"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        execErrState: OK
+        labels: { tenant: common, severity: warning, kind: security }
+        annotations:
+          summary: "Elevated SSH auth failures/probes on prod-podcast (>15 in 5m)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast unit:ssh.service ("Failed password" OR "Invalid user" OR "authentication failure" OR "Connection closed by authenticating user") | stats count() as value'
+              queryType: instant
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [15] } }]
+
+      # --- fail2ban issued a ban (re-homed T-11) ----------------------------------
+      # Any ban is worth surfacing (someone tripped a jail). fail2ban.service is
+      # flowing; 0 bans so far → fires on the first real one. Fires + opens a
+      # GlitchTip issue is deliberate: a ban is a confirmed hostile event.
+      - uid: sec-fail2ban-ban
+        title: "fail2ban issued a ban"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: OK
+        labels: { tenant: common, severity: critical, kind: security }
+        annotations:
+          summary: "fail2ban banned a host on prod-podcast — a jail tripped."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast unit:fail2ban.service "Ban" -"Unban" | stats count() as value'
+              queryType: instant
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+# NOT re-homed yet — Caddy edge 5xx (the third T-11 rule). The caddy.service
+# systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
+# (with status codes) is not tailed into VictoriaLogs (status:* = 0 hits). Wire the
+# access log through Alloy first, then add a rule matching `status >= 500` on it.

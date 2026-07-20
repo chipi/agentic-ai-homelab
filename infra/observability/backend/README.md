@@ -107,9 +107,15 @@ Alert **rules + routing** are code (`grafana/provisioning/alerting/`); notificat
 **channels** are pluggable — each ships inert and activates when you set its env in
 `.env` + `docker compose up -d grafana`. Nothing new to deploy per channel.
 
-- **rules.yaml** — metric starters over VictoriaMetrics: `infra-target-down`
-  (`up==0`, critical), `infra-disk-low` (<10% free, warning), `app-http-5xx`
-  (FastAPI 5xx, warning). Tune the thresholds against real traffic.
+- **rules.yaml** — two kinds, thresholds tuned against real baselines:
+  - _Metric_ (VictoriaMetrics): `infra-target-down` (`up==0`, critical; excludes
+    the on-demand GPU services so `gpu-mode-swap` doesn't false-page),
+    `infra-disk-low` (<10%, warning) + `infra-disk-crit` (<5%, critical),
+    `app-http-5xx` (FastAPI 5xx > 0.01/s, warning).
+  - _Security_ (VictoriaLogs, re-homed from T-11): `sec-ssh-authfail` (ssh
+    probe/auth-fail spike) + `sec-fail2ban-ban` (any jail ban, critical). Log
+    rules use a `query → reduce → threshold` chain — the VL datasource returns a
+    _long_ frame and the threshold SSE needs a number, so a `reduce` sits between.
 - **contactpoints.yaml** — `default` (email), `slack`, `glitchtip`. Each reads its
   secret from the container env via `$__env{...}`.
 - **policies.yaml** — everything → `default`; `severity=critical` → **also**
@@ -128,10 +134,11 @@ Alert **rules + routing** are code (`grafana/provisioning/alerting/`); notificat
 through in the compose grafana `environment:`, and route to it in `policies.yaml`.
 No rule changes.
 
-**NOT yet re-homed:** the T-11 host/edge security rules (ssh brute-force,
-fail2ban, Caddy 5xx) still live in the podcast repo as Loki LogQL. They need the
-prod-VPS `tenant=common` security-log pipeline confirmed shipping here **and** a
-LogQL→LogsQL translation before they can fire — don't provision rules that can't.
+**Partially re-homed:** ssh + fail2ban are live (above). The third T-11 rule —
+**Caddy edge 5xx** — is NOT re-homed: the `caddy.service` systemd journal ships
+only startup/runtime stdout; the Caddy JSON **access log** (with status codes) is
+not tailed into VictoriaLogs (`status:*` = 0 hits). Tail the access log through
+Alloy first, then add a rule matching `status >= 500`.
 
 ## Notes
 
