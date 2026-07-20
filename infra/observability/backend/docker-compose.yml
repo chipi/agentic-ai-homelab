@@ -93,6 +93,23 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      # --- Alerting notification channels (generic / add-later) -----------------
+      # The alert rules + routing are provisioned as code; the CHANNELS are
+      # pluggable — each activates the moment you set its env in .env and restart
+      # grafana. Empty = channel defined but silent (alerts still fire in the UI).
+      # provisioning/alerting/contactpoints.yaml reads these via $__env{...}. The
+      # defaults are INERT placeholders (Grafana rejects empty channel settings) —
+      # a channel is defined + valid but sends nowhere until you override the var in
+      # .env with a real value + restart. SMTP stays disabled, so nothing delivers.
+      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-alerts@example.com}
+      - ALERT_SLACK_WEBHOOK_URL=${ALERT_SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/PLACEHOLDER-SET-IN-ENV}
+      - ALERT_GLITCHTIP_WEBHOOK_URL=${ALERT_GLITCHTIP_WEBHOOK_URL:-https://glitchtip.example.com/PLACEHOLDER-SET-IN-ENV}
+      # Email transport (only needed if you wire the email channel). Disabled by default.
+      - GF_SMTP_ENABLED=${GF_SMTP_ENABLED:-false}
+      - GF_SMTP_HOST=${GF_SMTP_HOST:-}
+      - GF_SMTP_USER=${GF_SMTP_USER:-}
+      - GF_SMTP_PASSWORD=${GF_SMTP_PASSWORD:-}
+      - GF_SMTP_FROM_ADDRESS=${GF_SMTP_FROM_ADDRESS:-admin@grafana.localhost}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

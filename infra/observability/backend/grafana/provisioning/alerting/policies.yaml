@@ -1,0 +1,27 @@
+# Notification routing — route by SEVERITY, not by channel. The tree stays stable
+# as you add/remove channels; you only re-point a route's `receiver`.
+#
+# Model the operator asked for:
+#   - everything  -> default (Slack + email once wired)  [anticipated day-to-day]
+#   - CONFIRMED    -> also GlitchTip as an issue          [severity=critical, continue]
+#
+# `continue: true` on the critical route means a critical alert ALSO falls through
+# to the default receiver — so a confirmed issue both opens a GlitchTip issue AND
+# pings the day-to-day channel. Flip default's receiver to `slack` once the Slack
+# webhook is set (or add a `slack` child route) — no rule changes needed.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: default
+    group_by: ["alertname", "job"]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      # Confirmed / high-severity -> GlitchTip issue, then fall through to default.
+      - receiver: glitchtip
+        matchers:
+          - severity = critical
+        continue: true
+        group_wait: 15s

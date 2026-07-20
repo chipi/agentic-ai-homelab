@@ -101,6 +101,38 @@ VictoriaMetrics and Grafana Cloud are independent sinks. To migrate safely:
 - VM snapshot for a real backup: `curl http://100.x.y.z:8428/snapshot/create`
   then copy the snapshot dir out of the volume.
 
+## Alerting (provisioned as code, generic channels)
+
+Alert **rules + routing** are code (`grafana/provisioning/alerting/`); notification
+**channels** are pluggable — each ships inert and activates when you set its env in
+`.env` + `docker compose up -d grafana`. Nothing new to deploy per channel.
+
+- **rules.yaml** — metric starters over VictoriaMetrics: `infra-target-down`
+  (`up==0`, critical), `infra-disk-low` (<10% free, warning), `app-http-5xx`
+  (FastAPI 5xx, warning). Tune the thresholds against real traffic.
+- **contactpoints.yaml** — `default` (email), `slack`, `glitchtip`. Each reads its
+  secret from the container env via `$__env{...}`.
+- **policies.yaml** — everything → `default`; `severity=critical` → **also**
+  GlitchTip (opens an issue), then falls through to default.
+
+**Add / configure a channel:** set the var in `.env`, restart grafana.
+
+| Channel | Var(s) | Notes |
+| --- | --- | --- |
+| Slack | `ALERT_SLACK_WEBHOOK_URL` | incoming-webhook URL; make it the day-to-day channel by pointing the `default` route at `slack` in `policies.yaml` |
+| Email | `GF_SMTP_*` + `ALERT_EMAIL_TO` | SMTP off by default |
+| GlitchTip | `ALERT_GLITCHTIP_WEBHOOK_URL` | for confirmed issues (`severity=critical` route) |
+
+**Add a NEW channel type** (PagerDuty, Telegram, Teams…): add a receiver to
+`contactpoints.yaml` with that type + its `$__env{...}` secret, pass the var
+through in the compose grafana `environment:`, and route to it in `policies.yaml`.
+No rule changes.
+
+**NOT yet re-homed:** the T-11 host/edge security rules (ssh brute-force,
+fail2ban, Caddy 5xx) still live in the podcast repo as Loki LogQL. They need the
+prod-VPS `tenant=common` security-log pipeline confirmed shipping here **and** a
+LogQL→LogsQL translation before they can fire — don't provision rules that can't.
+
 ## Notes
 
 - Images are pinned. Bump deliberately.

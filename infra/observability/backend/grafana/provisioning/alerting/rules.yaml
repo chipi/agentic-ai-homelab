@@ -1,0 +1,95 @@
+# Alert rules — metric-based starters (PromQL over VictoriaMetrics).
+#
+# Deliberately a SMALL, verifiable set: every query here runs against metrics that
+# are live today (up / node_filesystem_* / http_requests_total). Thresholds are
+# conservative starters — tune against real traffic. `severity=critical` also opens
+# a GlitchTip issue (see policies.yaml); everything routes to the default channel.
+#
+# NOT covered yet (honest gap, not silence): the T-11 host/edge SECURITY rules
+# (ssh brute-force, fail2ban, Caddy 5xx) live in the podcast repo as Loki LogQL
+# (config/grafana/alerts/common/security.yaml). They are NOT re-homed here because
+# (a) the prod-VPS tenant=common security-log pipeline is not yet shipping to this
+# VictoriaLogs (job:caddy = 0, no fail2ban unit), and (b) LogQL must be translated
+# to VictoriaLogs LogsQL. Re-home them once that pipeline is confirmed flowing —
+# don't ship rules that can never fire.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: infra-health
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      # --- Scrape target down ------------------------------------------------------
+      - uid: infra-target-down
+        title: "Scrape target down (up==0)"
+        condition: threshold
+        for: 5m
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "A monitored target has been down (up==0) for 5m — {{ $labels.job }} / {{ $labels.instance }}."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min by (job, instance) (up)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # --- Host disk low (prod-podcast + DGX host) --------------------------------
+      - uid: infra-disk-low
+        title: "Host disk running low (<10% free)"
+        condition: threshold
+        for: 10m
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is below 10% free."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min by (instance, mountpoint) (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [0.10] } }]
+
+  - orgId: 1
+    name: app-health
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      # --- FastAPI 5xx elevated (any instrumented service: api / pyannote / moss) --
+      - uid: app-http-5xx
+        title: "FastAPI 5xx errors elevated"
+        condition: threshold
+        for: 5m
+        labels: { severity: warning, kind: app }
+        annotations:
+          summary: "5xx responses from {{ $labels.job }} over the last 5m — check traces + GlitchTip."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum by (job) (rate(http_requests_total{status=~"5.."}[5m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.05] } }]

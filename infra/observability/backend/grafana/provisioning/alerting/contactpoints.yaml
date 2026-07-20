@@ -1,0 +1,49 @@
+# Alert notification channels — GENERIC / add-later.
+#
+# The point: the alert *rules* + *routing* are fixed code; the *channels* are
+# pluggable. Each channel reads its secret from the grafana container env via
+# $__env{...} (passed through from the backend .env by docker-compose). Leave a
+# var empty and that channel is defined-but-silent — the alert still fires and is
+# visible in Grafana's Alerting UI; it just doesn't deliver until you set the env
+# + `docker compose up -d grafana`.
+#
+# To ADD a channel later: set its env in the backend .env, restart grafana, and
+# (if it's not already) reference it from a route in policies.yaml. To add a NEW
+# channel type (PagerDuty, Telegram, Teams, Opsgenie, …) add a receiver here with
+# that type + its $__env{...} secret — no rule changes needed.
+apiVersion: 1
+
+contactPoints:
+  # default — where every alert goes unless a more specific route matches.
+  # Email transport is off until you set GF_SMTP_* + ALERT_EMAIL_TO in .env.
+  - orgId: 1
+    name: default
+    receivers:
+      - uid: cp-default-email
+        type: email
+        settings:
+          addresses: "$__env{ALERT_EMAIL_TO}"
+        disableResolveMessage: false
+
+  # slack — set ALERT_SLACK_WEBHOOK_URL (an incoming-webhook URL) to activate.
+  - orgId: 1
+    name: slack
+    receivers:
+      - uid: cp-slack
+        type: slack
+        settings:
+          url: "$__env{ALERT_SLACK_WEBHOOK_URL}"
+          title: "{{ .CommonLabels.alertname }} [{{ .CommonLabels.severity }}]"
+        disableResolveMessage: false
+
+  # glitchtip — for CONFIRMED issues only (severity=critical routes here). GlitchTip
+  # ingests Grafana's generic webhook as an issue. Set ALERT_GLITCHTIP_WEBHOOK_URL.
+  - orgId: 1
+    name: glitchtip
+    receivers:
+      - uid: cp-glitchtip
+        type: webhook
+        settings:
+          url: "$__env{ALERT_GLITCHTIP_WEBHOOK_URL}"
+          httpMethod: POST
+        disableResolveMessage: false
