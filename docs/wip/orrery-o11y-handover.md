@@ -9,54 +9,40 @@ ship-pluggably** architecture the podcast app uses
 Orrery **goes public first**, so this is the priority. Keep it **minimal** — the
 VPS is small; a handful of focused dashboards, not dozens.
 
-## Prod o11y settings — the complete set
+## Prod o11y settings — orrery is LOGS-ONLY
 
-Backend = the **homelab** Mac mini (permanent; tailnet name `homelab`, resolves
-tailnet-wide). Orrery has its **own** GlitchTip project (id `2`); moss + the podcast
-app share project `1`. Set these in orrery's prod env:
+Orrery is a **static site** — so its observability is **logs only**. No metrics, no
+errors, no traces integration (decided): a static nginx site has no server to emit
+traces or server-side errors, and client-side (browser) errors can't reach the
+tailnet-only backend anyway. Backend = the **homelab** Mac mini (permanent; tailnet
+name `homelab`). Set this in orrery's prod env:
 
 ```env
-# Logs → VictoriaLogs (orrery grafana-agent / collector)
+# Logs → VictoriaLogs (orrery grafana-agent / collector) — the ONLY o11y integration
 GRAFANA_CLOUD_LOKI_URL=http://homelab:9428/insert/loki/api/v1/push
 #   + labels: app=orrery, env=${APP_ENV}, surface=web|pipeline
 
-# Errors → NONE for orrery. No GlitchTip (decided) — see note below.
-
-# Traces → VictoriaTraces (when instrumented)
-OTEL_TRACES_EXPORTER=otlp
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://homelab:10428/insert/opentelemetry/v1/traces
-OTEL_SERVICE_NAME=orrery-web
-OTEL_RESOURCE_ATTRIBUTES=deployment.environment=${APP_ENV}
-
-# Metrics → VictoriaMetrics (when nginx exporter added)
-REMOTE_WRITE_URL=http://homelab:8428/api/v1/write   # if orrery runs its own collector
-#   (or let the VPS Alloy scrape orrery's nginx-exporter — one collector is leaner)
-
-# Dashboards push (orrery Grafana folder)
+# Dashboards push (orrery Grafana folder) — log-based dashboards only
 GRAFANA=http://homelab:3000
 GRAFANA_TOKEN=<orrery service-account token>        # own SA + `orrery` folder
 ```
 
 `GRAFANA_TOKEN` is a secret — orrery's secret store, never git.
 
-### Errors: no GlitchTip for orrery (decided)
-Orrery is a **static site**, so its Sentry would run **in the browser** — but
-`homelab:8090` is **tailnet-only**, so public visitors' browsers can't reach it.
-Rather than expose a public GlitchTip ingest just for orrery, the decision is
-**no GlitchTip for orrery**. Its o11y is **logs + metrics + traces**, all shipped
-server/collector-side over the tailnet — none of which have this problem. The
-pre-created GlitchTip project `2` is therefore **unused** (podcast + moss keep
-project `1`); delete it or leave it idle. Revisit only if orrery later gains a
-server-side layer, or you decide public client-error capture is worth an edge route.
+### Not integrated for orrery (by decision)
+- **Metrics** — none. (nginx has no exporter; a static site isn't worth one.)
+- **Traces** — none. (No server → no spans.)
+- **Errors** — none. No GlitchTip: a static site's Sentry runs in the browser, and
+  `homelab:8090` is tailnet-only, so public visitors can't reach it; exposing a
+  public ingest isn't worth it. The pre-created GlitchTip project `2` is therefore
+  **unused** (podcast + moss keep project `1`) — delete it or leave it idle.
 
-## Signal taxonomy (same as podcast — swap the vendor, not the app)
+## Signal taxonomy — logs only
 
-| Signal | Orrery emits | Backend | Ship |
+| Signal | Orrery | Backend | Ship |
 | --- | --- | --- | --- |
-| Metrics | *(none yet)* — nginx has no exporter | VictoriaMetrics | nginx-prometheus-exporter sidecar (future) |
-| Logs | nginx access/error + pipeline-runner stdout | VictoriaLogs | orrery's grafana-agent (repoint) → or fold into the VPS Alloy |
-| Traces | OTLP (when instrumented) | VictoriaTraces | OTEL SDK (same env-var pattern as podcast) |
-| Errors | *(none — no GlitchTip; static site's browser can't reach the tailnet backend)* | — | — |
+| Logs | nginx access/error + pipeline-runner stdout | VictoriaLogs | orrery's grafana-agent (or fold into the VPS Alloy) |
+| Metrics / Traces / Errors | *(not integrated — static site; see above)* | — | — |
 
 ## What orrery has today (from recon)
 
@@ -99,17 +85,9 @@ Decided: orrery's client-side browser errors can't reach tailnet-only GlitchTip,
 and a public ingest isn't worth it for a static site. Project `2` is unused. See
 §"Errors: no GlitchTip for orrery" above.
 
-### 4. Metrics (future) — nginx exporter
-Add an `nginx-prometheus-exporter` sidecar to `orrery-web` (scrapes nginx
-`/stub_status`), scrape it via the collector → VictoriaMetrics. Then an
-**Orrery Web — RED** dashboard (req rate / status / latency). Defer until nginx
-`stub_status` is enabled.
-
-### 5. Traces (future) — OTEL
-Same env-var pattern as podcast: `opentelemetry-instrument` (or the Node OTEL SDK)
-→ `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://homelab:10428/insert/opentelemetry/v1/traces`,
-`OTEL_SERVICE_NAME=orrery-web`, `deployment.environment=${APP_ENV}`. See
-`podcast-otel-traces-handover.md`.
+### 4. Metrics / Traces / Errors — not integrated
+Out of scope for orrery (static site): no metrics, no traces, no GlitchTip. See
+§"Not integrated for orrery" above. Logs (steps 1–2) are the whole o11y surface.
 
 ## Verify (tailnet)
 
