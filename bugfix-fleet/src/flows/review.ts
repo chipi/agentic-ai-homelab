@@ -6,7 +6,7 @@
 import { Octokit } from "@octokit/rest";
 import { Worker } from "../worker/types.js";
 import { makeReviewer } from "../worker/reviewer.js";
-import { AppConfig, getInstallationToken } from "../github/appAuth.js";
+import { AppConfig, getInstallationToken, installationOctokit, loadReviewerConfig } from "../github/appAuth.js";
 import { getOpenBatchPr, getPrDiff, postReview } from "../github/prOps.js";
 import { ensureClone, ensureFixesBranch, pytest, commitAndPush, checkoutDir } from "../git/repo.js";
 import { setFlow, comment } from "../github/issueOps.js";
@@ -22,6 +22,7 @@ export async function runReview(
   const pr = await getOpenBatchPr(gh, repo);
   if (!pr) { console.error("[review] no open batch PR — run `cutpr` first"); return; }
   const reviewer = makeReviewer(reviewerApiKey, reviewerModel);
+  const reviewerGh = installationOctokit(loadReviewerConfig()); // separate identity → formal reviews
   const setAll = (flow: string) => Promise.all(involved.map((n) => setFlow(gh, repo, n, flow)));
 
   for (let round = 1; round <= MAX_ROUNDS; round++) {
@@ -30,7 +31,7 @@ export async function runReview(
     const blocking = rev.items.filter((i) => i.severity === "blocking");
     console.error(`[review] round ${round}: ${rev.verdict}, ${blocking.length} blocking`);
 
-    await postReview(gh, repo, pr.number, rev.verdict,
+    await postReview(reviewerGh, repo, pr.number, rev.verdict,
       `🤖 reviewer (${reviewerModel}) — round ${round}\n\n${rev.summary}`,
       blocking.map((i) => ({ path: i.path, line: i.line, body: i.instruction })));
 

@@ -14,18 +14,30 @@ export interface AppConfig {
   webhookSecret: string;
 }
 
+function need(k: string): string {
+  const v = process.env[k];
+  if (!v) throw new Error(`missing env ${k} (see .env.example / sops)`);
+  return v;
+}
+
 export function loadAppConfig(): AppConfig {
-  const need = (k: string) => {
-    const v = process.env[k];
-    if (!v) throw new Error(`missing env ${k} (see .env.example / sops)`);
-    return v;
-  };
   return {
     appId: need("GITHUB_APP_ID"),
     // allow \n-escaped single-line PEM in env
     privateKey: need("GITHUB_APP_PRIVATE_KEY").replace(/\\n/g, "\n"),
     installationId: need("GITHUB_APP_INSTALLATION_ID"),
     webhookSecret: need("GITHUB_WEBHOOK_SECRET"),
+  };
+}
+
+/** The SEPARATE reviewer App identity — so it can formally APPROVE /
+ *  REQUEST_CHANGES the fleet's PRs (GitHub forbids self-review). */
+export function loadReviewerConfig(): AppConfig {
+  return {
+    appId: need("REVIEWER_APP_ID"),
+    privateKey: need("REVIEWER_APP_PRIVATE_KEY").replace(/\\n/g, "\n"),
+    installationId: need("REVIEWER_APP_INSTALLATION_ID"),
+    webhookSecret: "",
   };
 }
 
