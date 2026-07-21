@@ -4,6 +4,7 @@
 // Needs (from sops): APP_ID, the App's PRIVATE_KEY (.pem contents), and the
 // INSTALLATION_ID (from installing the App on the target repo).
 
+import * as fs from "node:fs";
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
 
@@ -31,11 +32,16 @@ export function loadAppConfig(): AppConfig {
 }
 
 /** The SEPARATE reviewer App identity — so it can formally APPROVE /
- *  REQUEST_CHANGES the fleet's PRs (GitHub forbids self-review). */
+ *  REQUEST_CHANGES the fleet's PRs (GitHub forbids self-review). Key from a PEM
+ *  file (REVIEWER_APP_PRIVATE_KEY_FILE) or inline (REVIEWER_APP_PRIVATE_KEY). */
 export function loadReviewerConfig(): AppConfig {
+  const keyFile = process.env.REVIEWER_APP_PRIVATE_KEY_FILE;
+  const privateKey = keyFile
+    ? fs.readFileSync(keyFile, "utf8")
+    : need("REVIEWER_APP_PRIVATE_KEY").replace(/\\n/g, "\n");
   return {
     appId: need("REVIEWER_APP_ID"),
-    privateKey: need("REVIEWER_APP_PRIVATE_KEY").replace(/\\n/g, "\n"),
+    privateKey,
     installationId: need("REVIEWER_APP_INSTALLATION_ID"),
     webhookSecret: "",
   };
