@@ -40,26 +40,43 @@ export async function ensureClone(owner: string, repo: string, token: string): P
   }
 }
 
-/** Check out the long-lived `fixes` branch (create from main if it doesn't exist). */
+/** Check out the long-lived `fixes` branch (create from main if it doesn't exist),
+ *  with a clean working tree so each fix starts from a known base. */
 export async function ensureFixesBranch(): Promise<void> {
   const dir = checkoutDir();
+  let base = "origin/main";
   try {
     await git(dir, "fetch", "origin", FIXES);
-    await git(dir, "checkout", "-B", FIXES, `origin/${FIXES}`);
+    base = `origin/${FIXES}`;
   } catch {
     await git(dir, "fetch", "origin", "main");
-    await git(dir, "checkout", "-B", FIXES, "origin/main");
   }
+  await git(dir, "checkout", "-B", FIXES, base);
+  await git(dir, "reset", "--hard", base);
+  await git(dir, "clean", "-fd");
 }
 
-/** The deterministic pre-land gate. */
-export async function runTests(): Promise<boolean> {
+export interface TestOutcome {
+  failures: Set<string>; // failing test node ids
+  broke: boolean; // collection/import error — no recognizable summary
+}
+
+/** Run pytest and report which tests fail (for the regression-aware gate). */
+export async function pytest(): Promise<TestOutcome> {
+  let out = "";
   try {
-    await exec("python3", ["-m", "pytest", "-q"], { cwd: checkoutDir(), env: ENV });
-    return true;
-  } catch {
-    return false;
+    const r = await exec("python3", ["-m", "pytest", "-q", "--tb=no"], { cwd: checkoutDir(), env: ENV });
+    out = r.stdout;
+  } catch (e: any) {
+    out = `${e.stdout ?? ""}${e.stderr ?? ""}`;
   }
+  const failures = new Set<string>();
+  for (const line of out.split("\n")) {
+    const m = line.match(/^FAILED\s+(\S+)/);
+    if (m) failures.add(m[1]);
+  }
+  const broke = !/\d+ (passed|failed)/.test(out);
+  return { failures, broke };
 }
 
 /** Commit whatever the worker changed and push to `fixes`. */

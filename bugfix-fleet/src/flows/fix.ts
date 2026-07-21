@@ -8,7 +8,7 @@ import { Worker, Area } from "../worker/types.js";
 import { FLOW } from "../labels.js";
 import { setFlow, comment } from "../github/issueOps.js";
 import { AppConfig, getInstallationToken } from "../github/appAuth.js";
-import { ensureClone, ensureFixesBranch, runTests, commitAndPush, checkoutDir } from "../git/repo.js";
+import { ensureClone, ensureFixesBranch, pytest, commitAndPush, checkoutDir } from "../git/repo.js";
 
 export async function runFix(
   gh: Octokit,
@@ -23,17 +23,27 @@ export async function runFix(
   await ensureClone(repo.owner, repo.repo, token);
   await ensureFixesBranch();
 
+  // Regression-aware gate: capture the failing set BEFORE the change (fixes may
+  // already contain earlier fixes; other bugs are still red — that's expected).
+  const before = await pytest();
+
   const result = await worker.fix({
     kind: "fix", issueNumber: issue.number, title: issue.title,
     body: issue.body, area: issue.area, worktreeDir: checkoutDir(),
   });
 
-  const green = await runTests();
-  if (!green) {
+  const after = await pytest();
+  const newFails = [...after.failures].filter((f) => !before.failures.has(f));
+  const fixed = [...before.failures].filter((f) => !after.failures.has(f));
+  const accept = !after.broke && newFails.length === 0 && fixed.length > 0;
+
+  if (!accept) {
+    const why = after.broke ? "the change broke test collection"
+      : newFails.length ? `it broke: ${newFails.join(", ")}`
+      : "it fixed nothing (no failing test turned green)";
     await setFlow(gh, repo, issue.number, FLOW.stuck);
     await comment(gh, repo, issue.number,
-      `🤖 fix (${worker.harness}): produced a change but **local tests are red** — needs a human.\n\n` +
-      `Files: ${result.filesChanged.join(", ")}`);
+      `🤖 fix (${worker.harness}): rejected — ${why}. Needs a human.\n\nFiles: ${result.filesChanged.join(", ")}`);
     return;
   }
 
@@ -47,6 +57,7 @@ export async function runFix(
 
   await setFlow(gh, repo, issue.number, FLOW.fixed);
   await comment(gh, repo, issue.number,
-    `🤖 fix (${worker.harness}) — **tests green**, landed on \`fixes\` as \`${landed.sha}\`.\n\n` +
+    `🤖 fix (${worker.harness}) — **turned green:** ${fixed.join(", ")}; broke nothing. ` +
+    `Landed on \`fixes\` as \`${landed.sha}\`.\n\n` +
     `**Change:** ${result.summary}\n**Files:** ${result.filesChanged.join(", ")}\n\n_Awaiting the batch PR._`);
 }
