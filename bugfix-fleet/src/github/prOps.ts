@@ -32,18 +32,22 @@ export async function getPrDiff(gh: Octokit, repo: Repo, pull: number): Promise<
   return res.data as unknown as string;
 }
 
-/** Post a whole-PR review (Review API): overall verdict + inline comments. */
+/** Post a whole-PR review via the Review API.
+ *  NB: a single App identity can't formally APPROVE / REQUEST_CHANGES its OWN
+ *  PR (GitHub 422). So we post a COMMENT review; the verdict lives in the body
+ *  and drives the fleet's internal loop. A separate reviewer identity (e.g.
+ *  Claude's own App) would unlock the formal review state — Phase 2. */
 export async function postReview(
   gh: Octokit,
   repo: Repo,
   pull: number,
-  event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
+  verdict: "approve" | "request_changes",
   body: string,
-  comments: { path: string; line: number; body: string }[],
+  items: { path: string; line: number; body: string }[],
 ): Promise<void> {
-  // inline comments must anchor to lines in the diff; drop any the API rejects
-  await gh.pulls.createReview({ ...repo, pull_number: pull, event, body, comments }).catch(async (e) => {
-    console.error(`  [review] inline anchoring failed (${e.status}) — posting summary only`);
-    await gh.pulls.createReview({ ...repo, pull_number: pull, event, body });
-  });
+  const itemList = items.length
+    ? "\n\n**Blocking items:**\n" + items.map((c) => `- \`${c.path}:${c.line}\` — ${c.body}`).join("\n")
+    : "";
+  const full = `**Verdict: ${verdict.toUpperCase()}**\n\n${body}${itemList}`;
+  await gh.pulls.createReview({ ...repo, pull_number: pull, event: "COMMENT", body: full });
 }

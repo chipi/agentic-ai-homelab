@@ -30,10 +30,9 @@ export async function runReview(
     const blocking = rev.items.filter((i) => i.severity === "blocking");
     console.error(`[review] round ${round}: ${rev.verdict}, ${blocking.length} blocking`);
 
-    await postReview(gh, repo, pr.number,
-      rev.verdict === "approve" ? "APPROVE" : "REQUEST_CHANGES",
+    await postReview(gh, repo, pr.number, rev.verdict,
       `🤖 reviewer (${reviewerModel}) — round ${round}\n\n${rev.summary}`,
-      blocking.map((i) => ({ path: i.path, line: i.line, body: `**[blocking]** ${i.instruction}` })));
+      blocking.map((i) => ({ path: i.path, line: i.line, body: i.instruction })));
 
     if (rev.verdict === "approve") {
       await setAll(FLOW.inReview);
