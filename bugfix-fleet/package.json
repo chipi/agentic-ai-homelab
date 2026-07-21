@@ -1,0 +1,21 @@
+{
+  "name": "bugfix-fleet",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Autonomous bug-fix fleet MVP (RFC-0002) — cheap-harness workers + Claude PR-gate, runs on the homelab mini.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "node --loader ts-node/esm src/main.ts"
+  },
+  "dependencies": {
+    "@octokit/auth-app": "^7.1.0",
+    "@octokit/rest": "^21.0.0",
+    "@octokit/webhooks": "^13.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

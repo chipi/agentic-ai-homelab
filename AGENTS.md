@@ -34,6 +34,7 @@ folder wins (e.g. `infra/dgx/` over `infra/` over root).
 | [`infra/dgx/AGENTS.md`](infra/dgx/AGENTS.md) | DGX-host work, GPU mode coordination |
 | [`infra/vllm/AGENTS.md`](infra/vllm/AGENTS.md) | Local vLLM stacks — ports, dummy key, GPU sizing |
 | [`provider-bakeoff/AGENTS.md`](provider-bakeoff/AGENTS.md) | provider-bakeoff sub-project |
+| [`bugfix-fleet/AGENTS.md`](bugfix-fleet/AGENTS.md) | autonomous bug-fix fleet MVP (RFC-0002) — Pi vs opencode bake-off |
 
 Templates (not active rules — copy-out artifacts; see pillar 4 for context):
 - `templates/new-project/AGENTS.md` — bootstrap for fresh project repos
