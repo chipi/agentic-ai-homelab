@@ -61,9 +61,15 @@ async function main(): Promise<void> {
   if (cmd === "poll") {
     const orch = makeOrchestrator(gh, repo, cfg, worker);
     for (const v of issues) {
-      if (v.labels.includes(FLOW.approved)) { console.error(`\n=== FIX #${v.number}: ${v.title} ===`); await orch.onIssueLabeled(v, FLOW.approved); }
-      else if (!v.labels.some((l) => l.startsWith("flow:"))) { console.error(`\n=== TRIAGE #${v.number}: ${v.title} ===`); await orch.onIssueLabeled(v, ENTRY_LABEL); }
-      else console.error(`  #${v.number} in ${v.labels.filter((l) => l.startsWith("flow:")).join(",")} — no action`);
+      try {
+        if (v.labels.includes(FLOW.approved)) { console.error(`\n=== FIX #${v.number}: ${v.title} ===`); await orch.onIssueLabeled(v, FLOW.approved); }
+        else if (!v.labels.some((l) => l.startsWith("flow:"))) { console.error(`\n=== TRIAGE #${v.number}: ${v.title} ===`); await orch.onIssueLabeled(v, ENTRY_LABEL); }
+        else console.error(`  #${v.number} in ${v.labels.filter((l) => l.startsWith("flow:")).join(",")} — no action`);
+      } catch (e) {
+        // one bad issue must not sink the batch — mark stuck, keep going
+        console.error(`  #${v.number} ERRORED: ${(e as Error).message} → flow:stuck`);
+        await setFlow(gh, repo, v.number, FLOW.stuck).catch(() => {});
+      }
     }
   } else if (cmd === "cutpr") {
     const fixed = issues.filter((v) => v.labels.includes(FLOW.fixed)).map((v) => v.number);

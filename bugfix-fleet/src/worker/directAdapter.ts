@@ -108,11 +108,23 @@ export function makeDirectWorker(opts: DirectOptions): Worker {
         const user =
           `Issue #${task.issueNumber}: ${task.title}\n\n${task.body}\n\n` +
           `=== current source ===\n${filesBlock}`;
-        const raw = await orChat(opts.apiKey, model, system, user);
-        const m = raw.match(/\{[\s\S]*\}/);
-        const obj = JSON.parse(m ? m[0] : raw);
-        const files: { path: string; content: string }[] = obj.files ?? [];
-        if (!files.length) throw new Error("fix returned no files");
+        let files: { path: string; content: string }[] = [];
+        let summary = "";
+        let lastErr: unknown;
+        for (let i = 0; i < 3; i++) {
+          const raw = await orChat(opts.apiKey, model, system, user);
+          try {
+            const obj = JSON.parse((raw.match(/\{[\s\S]*\}/) || [raw])[0]);
+            files = obj.files ?? [];
+            summary = String(obj.summary ?? `fix for #${task.issueNumber}`);
+            if (files.length) { lastErr = undefined; break; }
+            lastErr = new Error("fix returned no files");
+          } catch (e) {
+            lastErr = e;
+          }
+          console.error(`  [direct] fix retry ${i + 1}/3: ${(lastErr as Error)?.message}`);
+        }
+        if (lastErr) throw lastErr;
         for (const f of files) {
           const abs = path.join(task.worktreeDir, f.path);
           await fs.promises.mkdir(path.dirname(abs), { recursive: true });
