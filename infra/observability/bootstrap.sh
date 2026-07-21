@@ -74,6 +74,8 @@ VM_RETENTION=6
 VLOGS_RETENTION=30d
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=$GRAFANA_ADMIN_PASSWORD
+ALERT_EMAIL_TO=alerts@homelab.local
+GF_SMTP_FROM_ADDRESS=grafana@homelab.local
 EOF
 
 write_env "$REPO/infra/glitchtip/.env" <<EOF
