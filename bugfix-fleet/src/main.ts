@@ -12,6 +12,8 @@ import { Worker } from "./worker/types.js";
 import { openBatchPr } from "./github/prOps.js";
 import { runReview } from "./flows/review.js";
 import { setFlow } from "./github/issueOps.js";
+import { loadAgents } from "./fleet/registry.js";
+import { dispatchAgent } from "./fleet/dispatch.js";
 
 type Repo = { owner: string; repo: string };
 
@@ -70,6 +72,14 @@ async function main(): Promise<void> {
       const pr = await openBatchPr(gh, repo, fixed);
       for (const n of fixed) await setFlow(gh, repo, n, FLOW.inReview);
       console.error(`[cutpr] PR #${pr.number} — closes ${fixed.map((n) => `#${n}`).join(", ")}`);
+    }
+  } else if (cmd === "dispatch") {
+    // demo: description-based routing — show which specialist each bug goes to
+    const agents = loadAgents();
+    console.error(`[dispatch] ${agents.length} agents: ${agents.map((a) => a.name).join(", ")}`);
+    for (const v of issues) {
+      const d = await dispatchAgent(process.env.OPENROUTER_API_KEY!, process.env.TRIAGE_MODEL!, agents, v);
+      console.error(`  #${v.number} "${v.title}"\n     → ${d.agent.name} (${d.agent.model}) — ${d.reason}`);
     }
   } else if (cmd === "review") {
     const involved = issues.filter((v) =>
