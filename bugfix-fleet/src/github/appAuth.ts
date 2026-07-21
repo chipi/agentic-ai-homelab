@@ -42,3 +42,11 @@ export function installationOctokit(cfg: AppConfig): Octokit {
     },
   });
 }
+
+/** Raw installation token — for authenticating git push over HTTPS
+ *  (x-access-token:<token>@github.com/...). Expires in ~1h; mint fresh per push. */
+export async function getInstallationToken(cfg: AppConfig): Promise<string> {
+  const auth = createAppAuth({ appId: cfg.appId, privateKey: cfg.privateKey, installationId: cfg.installationId });
+  const { token } = await auth({ type: "installation" });
+  return token;
+}

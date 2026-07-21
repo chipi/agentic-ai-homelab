@@ -5,8 +5,27 @@
 //      how well does a cheap model do structured output with nothing but a
 //      prompt + response_format?
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { Worker, TriageTask, TriageVerdict, FixTask, FixResult } from "./types.js";
 import { trace } from "../observability/langfuse.js";
+
+// naive source reader for the MVP: all *.py under src/ in the worktree.
+function readSource(dir: string): { path: string; content: string }[] {
+  const srcDir = path.join(dir, "src");
+  if (!fs.existsSync(srcDir)) return [];
+  const out: { path: string; content: string }[] = [];
+  for (const f of fs.readdirSync(srcDir)) {
+    if (f.endsWith(".py")) out.push({ path: `src/${f}`, content: fs.readFileSync(path.join(srcDir, f), "utf8") });
+  }
+  return out;
+}
+
+const FIX_SYS =
+  'You are fixing a bug in a software repository. You are given the issue and the ' +
+  'current source files. Reply with ONLY a JSON object (no prose, no fences): ' +
+  '{"summary":"one-line description of the change","files":[{"path":"src/x.py","content":"<FULL corrected file contents>"}]}. ' +
+  'Include ONLY files you actually changed; return their COMPLETE new contents. Preserve everything unrelated.';
 
 export interface DirectOptions {
   apiKey: string;
@@ -73,8 +92,29 @@ export function makeDirectWorker(opts: DirectOptions): Worker {
         throw lastErr;
       });
     },
-    async fix(_task: FixTask): Promise<FixResult> {
-      throw new Error("direct adapter: fix not implemented (Flow A baseline only)");
+    async fix(task: FixTask): Promise<FixResult> {
+      return trace("direct.fix", opts.fixModel, task.issueNumber, async () => {
+        const src = readSource(task.worktreeDir);
+        const filesBlock = src.map((f) => `--- ${f.path} ---\n${f.content}`).join("\n\n");
+        const user =
+          `Issue #${task.issueNumber}: ${task.title}\n\n${task.body}\n\n` +
+          `=== current source ===\n${filesBlock}`;
+        const raw = await orChat(opts.apiKey, opts.fixModel, FIX_SYS, user);
+        const m = raw.match(/\{[\s\S]*\}/);
+        const obj = JSON.parse(m ? m[0] : raw);
+        const files: { path: string; content: string }[] = obj.files ?? [];
+        if (!files.length) throw new Error("fix returned no files");
+        for (const f of files) {
+          const abs = path.join(task.worktreeDir, f.path);
+          await fs.promises.mkdir(path.dirname(abs), { recursive: true });
+          await fs.promises.writeFile(abs, f.content, "utf8");
+        }
+        return {
+          testsGreen: false, // orchestrator runs the tests
+          summary: String(obj.summary ?? `fix for #${task.issueNumber}`),
+          filesChanged: files.map((f) => f.path),
+        };
+      });
     },
   };
 }

@@ -9,6 +9,7 @@
 
 import { Octokit } from "@octokit/rest";
 import { Worker } from "./worker/types.js";
+import { AppConfig } from "./github/appAuth.js";
 import { runTriage } from "./flows/triage.js";
 import { runFix } from "./flows/fix.js";
 import { ENTRY_LABEL, FLOW, AREA } from "./labels.js";
@@ -26,7 +27,7 @@ export interface IssueView {
   labels: string[];
 }
 
-export function makeOrchestrator(gh: Octokit, repo: Repo, worker: Worker): Orchestrator {
+export function makeOrchestrator(gh: Octokit, repo: Repo, cfg: AppConfig, worker: Worker): Orchestrator {
   return {
     async onIssueLabeled(issue, label) {
       // Flow A: a bug appeared and hasn't been triaged yet.
@@ -38,7 +39,7 @@ export function makeOrchestrator(gh: Octokit, repo: Repo, worker: Worker): Orche
       if (label === FLOW.approved) {
         const area = (Object.entries(AREA).find(([, v]) => issue.labels.includes(v))?.[0] ?? "backend") as
           "backend" | "ui" | "infra" | "docs";
-        await runFix(gh, repo, worker, { ...issue, area });
+        await runFix(gh, repo, cfg, worker, { ...issue, area });
         return;
       }
     },

@@ -7,7 +7,7 @@
 import { installationOctokit, loadAppConfig } from "./github/appAuth.js";
 import { makeDirectWorker } from "./worker/directAdapter.js";
 import { makeOrchestrator } from "./orchestrator.js";
-import { ALL_MANAGED_LABELS, ENTRY_LABEL } from "./labels.js";
+import { ALL_MANAGED_LABELS, ENTRY_LABEL, FLOW } from "./labels.js";
 import { Worker } from "./worker/types.js";
 
 type Repo = { owner: string; repo: string };
@@ -37,11 +37,12 @@ function buildWorker(): Worker {
 
 async function main(): Promise<void> {
   const repo: Repo = { owner: process.env.TARGET_OWNER!, repo: process.env.TARGET_REPO! };
-  const gh = installationOctokit(loadAppConfig());
+  const cfg = loadAppConfig();
+  const gh = installationOctokit(cfg);
   const worker = buildWorker();
-  const orch = makeOrchestrator(gh, repo, worker);
+  const orch = makeOrchestrator(gh, repo, cfg, worker);
 
-  console.error(`[main] ${repo.owner}/${repo.repo} · harness=${worker.harness} · triage=${process.env.TRIAGE_MODEL}`);
+  console.error(`[main] ${repo.owner}/${repo.repo} · harness=${worker.harness} · triage=${process.env.TRIAGE_MODEL} · fix=${process.env.FIX_MODEL}`);
   await ensureLabels(gh, repo);
 
   const { data } = await gh.issues.listForRepo({ ...repo, labels: ENTRY_LABEL, state: "open" });
@@ -50,15 +51,21 @@ async function main(): Promise<void> {
 
   for (const i of issues) {
     const labels = (i.labels as any[]).map((l) => (typeof l === "string" ? l : l.name));
-    if (labels.some((l) => l.startsWith("flow:"))) {
-      console.error(`  #${i.number} already in-flow — skip`);
+    const view = { number: i.number, title: i.title, body: i.body ?? "", labels };
+
+    // Flow B: operator approved → fix (takes priority; it's the explicit go).
+    if (labels.includes(FLOW.approved)) {
+      console.error(`\n=== FIX #${i.number}: ${i.title} ===`);
+      await orch.onIssueLabeled(view, FLOW.approved);
       continue;
     }
-    console.error(`\n=== triage #${i.number}: ${i.title} ===`);
-    await orch.onIssueLabeled(
-      { number: i.number, title: i.title, body: i.body ?? "", labels },
-      ENTRY_LABEL,
-    );
+    // Flow A: untriaged bug → triage.
+    if (!labels.some((l) => l.startsWith("flow:"))) {
+      console.error(`\n=== TRIAGE #${i.number}: ${i.title} ===`);
+      await orch.onIssueLabeled(view, ENTRY_LABEL);
+      continue;
+    }
+    console.error(`  #${i.number} in ${labels.filter((l) => l.startsWith("flow:")).join(",")} — no action`);
   }
   console.error("\n[main] done.");
 }
