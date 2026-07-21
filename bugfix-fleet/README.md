@@ -33,7 +33,7 @@ npm run typecheck
 
 ## Bake-off protocol
 
-Implement Flow A + B on both harnesses, run on the sandbox's planted-bug issues,
-compare in Langfuse: (1) effort to get reliable structured output, (2) schema
-adherence + fix quality on a cheap model, (3) how cleanly the orchestrator drives
-it. → pick the harness in an RFC-0002 discussion note.
+The **north star + full evaluation methodology** lives in **[BAKEOFF.md](BAKEOFF.md)**
+— how to think about tool calls, the benchmark-difficulty trap, the eval setup,
+scoring dimensions, and how to assess "which harness is better at what." Read
+that before wiring the opencode/pi adapters.

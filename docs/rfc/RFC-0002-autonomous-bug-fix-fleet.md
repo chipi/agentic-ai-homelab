@@ -150,7 +150,7 @@ Unpolished prototype that *connects everything*; it's the bake-off:
 - **LLM orchestrator** — rejected: deterministic control loop, LLMs at leaves only.
 
 ## Phased rollout
-- **Phase 0 — MVP bake-off** (above): minimal App + Flow A + Flow B on Pi & opencode → pick harness.
+- **Phase 0 — MVP bake-off** (above): minimal App + Flow A + Flow B on Pi & opencode → pick harness. Evaluation methodology (tool calls, benchmark design, scoring, assessment) is the north-star doc `bugfix-fleet/BAKEOFF.md`.
 - **Phase 1 — full pipeline** on the chosen harness: whole-PR review + feedback loop,
   complete `flow:` state machine, batch PR, operator gates, bounded revise loop.
 - **Phase 2 — ergonomics + safety:** inline suggestions / thread-resolve / auto-re-review
