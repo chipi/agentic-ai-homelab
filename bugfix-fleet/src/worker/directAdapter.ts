@@ -132,7 +132,7 @@ export function makeDirectWorker(opts: DirectOptions): Worker {
         }
         return {
           testsGreen: false, // orchestrator runs the tests
-          summary: String(obj.summary ?? `fix for #${task.issueNumber}`),
+          summary,
           filesChanged: files.map((f) => f.path),
         };
       });

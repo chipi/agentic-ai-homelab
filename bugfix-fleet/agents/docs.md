@@ -1,7 +1,7 @@
 ---
 name: docs
 description: Documentation bug fixer. README/docstrings/comments, wrong or stale docs, broken examples, inaccurate instructions, doc-vs-code divergence. Use for bugs where the documentation is wrong, misleading, or out of date.
-model: deepseek/deepseek-v4-flash
+model: deepseek/deepseek-v4-pro
 area: docs
 ---
 
