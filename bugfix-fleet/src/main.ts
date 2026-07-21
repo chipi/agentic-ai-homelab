@@ -9,7 +9,7 @@ import { makeDirectWorker } from "./worker/directAdapter.js";
 import { makeOrchestrator } from "./orchestrator.js";
 import { ALL_MANAGED_LABELS, ENTRY_LABEL, FLOW } from "./labels.js";
 import { Worker } from "./worker/types.js";
-import { openBatchPr } from "./github/prOps.js";
+import { openBatchPr, getOpenBatchPr } from "./github/prOps.js";
 import { runReview } from "./flows/review.js";
 import { setFlow } from "./github/issueOps.js";
 import { loadAgents } from "./fleet/registry.js";
@@ -86,6 +86,18 @@ async function main(): Promise<void> {
     for (const v of issues) {
       const d = await dispatchAgent(process.env.OPENROUTER_API_KEY!, process.env.TRIAGE_MODEL!, agents, v);
       console.error(`  #${v.number} "${v.title}"\n     → ${d.agent.name} (${d.agent.model}) — ${d.reason}`);
+    }
+  } else if (cmd === "ship") {
+    // operator merged the batch PR → close the lifecycle: in-review → shipped
+    const openPr = await getOpenBatchPr(gh, repo);
+    if (openPr) { console.error(`[ship] batch PR #${openPr.number} still open — merge it first`); }
+    else {
+      const involved = issues.filter((v) => v.labels.includes(FLOW.inReview)).map((v) => v.number);
+      for (const n of involved) {
+        await setFlow(gh, repo, n, FLOW.shipped);
+        await gh.issues.update({ ...repo, issue_number: n, state: "closed" }).catch(() => {});
+      }
+      console.error(`[ship] shipped: ${involved.map((n) => `#${n}`).join(", ")}`);
     }
   } else if (cmd === "review") {
     const involved = issues.filter((v) =>
