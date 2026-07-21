@@ -1,0 +1,63 @@
+// =============================================================================
+// homelab (Mac mini) SELF-monitoring collector — runs as a CONTAINER on OrbStack.
+//
+// The DGX collector can't run here (it's Linux: network_mode host, /rootfs, DCGM).
+// On macOS the split is:
+//   • macOS HOST metrics (cpu/mem/DISK/load) → a NATIVE node_exporter (brew) on
+//     :9100, reached from this container via host.docker.internal. A container
+//     CANNOT see real macOS host stats (it sees the OrbStack Linux VM), so the
+//     host exporter MUST run natively — see README.
+//   • CONTAINER logs (the whole observability stack) → Docker socket.
+// Writes to the LOCAL backend on the same box (host.docker.internal published
+// ports). No tailnet / no ACL — everything is loopback-local.
+// =============================================================================
+
+// ---------- HOST: macOS via native node_exporter ----------
+prometheus.scrape "node" {
+  targets         = [{ __address__ = "host.docker.internal:9100", instance = "homelab" }]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "node"
+  scrape_interval = "30s"
+}
+
+// ---------- LOGS: all docker container stdout/stderr ----------
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.write.local.receiver]
+}
+
+// ---------- PUSH: metrics → local VictoriaMetrics ----------
+prometheus.remote_write "local" {
+  endpoint {
+    url = coalesce(sys.env("REMOTE_WRITE_URL"), "http://host.docker.internal:8428/api/v1/write")
+  }
+  external_labels = {
+    instance = "homelab",
+    cluster  = "homelab",
+  }
+}
+
+// ---------- PUSH: logs → local VictoriaLogs ----------
+loki.write "local" {
+  endpoint {
+    url = coalesce(sys.env("LOGS_WRITE_URL"), "http://host.docker.internal:9428/insert/loki/api/v1/push")
+  }
+  external_labels = {
+    instance = "homelab",
+    cluster  = "homelab",
+  }
+}
