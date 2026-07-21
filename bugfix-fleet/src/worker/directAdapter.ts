@@ -1,0 +1,79 @@
+// Direct OpenRouter adapter — the simplest possible worker: a raw chat
+// completion with JSON forced + validate-and-retry. Serves two purposes:
+//   1. gets Flow A running end-to-end NOW (before the harness integrations),
+//   2. is the "no harness" CONTROL baseline for the Pi-vs-opencode bake-off —
+//      how well does a cheap model do structured output with nothing but a
+//      prompt + response_format?
+
+import { Worker, TriageTask, TriageVerdict, FixTask, FixResult } from "./types.js";
+import { trace } from "../observability/langfuse.js";
+
+export interface DirectOptions {
+  apiKey: string;
+  triageModel: string;
+  fixModel: string;
+}
+
+const TRIAGE_SYS = `You are a bug triager for a software repository.
+Classify the bug and reply with ONLY a JSON object (no prose, no markdown fences) of exactly this shape:
+{
+  "area": "backend" | "ui" | "infra" | "docs",
+  "severity": "high" | "med" | "low",
+  "actionable": boolean,      // specified enough to attempt a fix right now?
+  "needsInfo": string,        // if not actionable, the question for the operator; else ""
+  "hypothesis": string,       // one-line root-cause hypothesis
+  "recommend": boolean        // recommend the fleet attempt a fix?
+}`;
+
+async function orChat(apiKey: string, model: string, system: string, user: string): Promise<string> {
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const j: any = await res.json();
+  return j.choices?.[0]?.message?.content ?? "";
+}
+
+function parseVerdict(raw: string): TriageVerdict {
+  const m = raw.match(/\{[\s\S]*\}/);
+  const o = JSON.parse(m ? m[0] : raw);
+  if (!["backend", "ui", "infra", "docs"].includes(o.area)) throw new Error(`bad area: ${o.area}`);
+  if (!["high", "med", "low"].includes(o.severity)) throw new Error(`bad severity: ${o.severity}`);
+  if (typeof o.actionable !== "boolean") throw new Error("actionable not boolean");
+  return {
+    area: o.area, severity: o.severity, actionable: o.actionable,
+    needsInfo: o.needsInfo || undefined, hypothesis: String(o.hypothesis ?? ""),
+    recommend: Boolean(o.recommend),
+  };
+}
+
+export function makeDirectWorker(opts: DirectOptions): Worker {
+  return {
+    harness: "direct",
+    async triage(task: TriageTask): Promise<TriageVerdict> {
+      return trace("direct.triage", opts.triageModel, task.issueNumber, async () => {
+        const user = `Issue #${task.issueNumber}: ${task.title}\n\n${task.body}`;
+        let lastErr: unknown;
+        for (let i = 0; i < 3; i++) {
+          try {
+            return parseVerdict(await orChat(opts.apiKey, opts.triageModel, TRIAGE_SYS, user));
+          } catch (e) {
+            lastErr = e;
+            console.error(`  [direct] triage retry ${i + 1}/3: ${(e as Error).message}`);
+          }
+        }
+        throw lastErr;
+      });
+    },
+    async fix(_task: FixTask): Promise<FixResult> {
+      throw new Error("direct adapter: fix not implemented (Flow A baseline only)");
+    },
+  };
+}

@@ -65,7 +65,7 @@ export type WorkerTask = TriageTask | FixTask;
 /** Every LLM leaf goes through here. label = which model/harness ran, for
  *  Langfuse attribution + the bake-off comparison. */
 export interface Worker {
-  readonly harness: "pi" | "opencode";
+  readonly harness: "pi" | "opencode" | "direct";
   triage(task: TriageTask): Promise<TriageVerdict>;
   fix(task: FixTask): Promise<FixResult>;
 }
