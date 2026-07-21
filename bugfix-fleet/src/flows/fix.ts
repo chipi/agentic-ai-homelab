@@ -9,6 +9,9 @@ import { FLOW } from "../labels.js";
 import { setFlow, comment } from "../github/issueOps.js";
 import { AppConfig, getInstallationToken } from "../github/appAuth.js";
 import { ensureClone, ensureFixesBranch, pytest, commitAndPush, checkoutDir } from "../git/repo.js";
+import { comment as ghComment } from "../github/issueOps.js";
+import { loadAgents } from "../fleet/registry.js";
+import { dispatchAgent } from "../fleet/dispatch.js";
 
 export async function runFix(
   gh: Octokit,
@@ -18,6 +21,12 @@ export async function runFix(
   issue: { number: number; title: string; body: string; area: Area },
 ): Promise<void> {
   await setFlow(gh, repo, issue.number, FLOW.fixing);
+
+  // Description-based dispatch → pick the specialist for this bug.
+  const agents = loadAgents();
+  const d = await dispatchAgent(process.env.OPENROUTER_API_KEY!, process.env.TRIAGE_MODEL!, agents, issue);
+  await ghComment(gh, repo, issue.number,
+    `🤖 dispatched to **${d.agent.name}** specialist (${d.agent.model}) — ${d.reason}`);
 
   const token = await getInstallationToken(cfg);
   await ensureClone(repo.owner, repo.repo, token);
@@ -30,6 +39,7 @@ export async function runFix(
   const result = await worker.fix({
     kind: "fix", issueNumber: issue.number, title: issue.title,
     body: issue.body, area: issue.area, worktreeDir: checkoutDir(),
+    agentPrompt: d.agent.systemPrompt, agentModel: d.agent.model,
   });
 
   const after = await pytest();

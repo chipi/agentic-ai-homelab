@@ -56,6 +56,9 @@ export interface FixTask {
   body: string;
   area: Area;
   worktreeDir: string; // isolated checkout on the `fixes` branch
+  /** the dispatched specialist's knowledge/prompt + model (description-based dispatch) */
+  agentPrompt?: string;
+  agentModel?: string;
   /** present when this is a revise-from-review pass (Phase 1) */
   reviewItem?: ReviewWorkItem;
 }

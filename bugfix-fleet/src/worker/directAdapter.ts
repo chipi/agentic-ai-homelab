@@ -10,22 +10,29 @@ import * as path from "node:path";
 import { Worker, TriageTask, TriageVerdict, FixTask, FixResult } from "./types.js";
 import { trace } from "../observability/langfuse.js";
 
-// naive source reader for the MVP: all *.py under src/ in the worktree.
+// source reader: all *.py under src/ + fixable root files (docs/infra). Tests are
+// intentionally excluded — the fixer must not edit the tests it's gated on.
 function readSource(dir: string): { path: string; content: string }[] {
-  const srcDir = path.join(dir, "src");
-  if (!fs.existsSync(srcDir)) return [];
   const out: { path: string; content: string }[] = [];
-  for (const f of fs.readdirSync(srcDir)) {
-    if (f.endsWith(".py")) out.push({ path: `src/${f}`, content: fs.readFileSync(path.join(srcDir, f), "utf8") });
+  const srcDir = path.join(dir, "src");
+  if (fs.existsSync(srcDir)) {
+    for (const f of fs.readdirSync(srcDir)) {
+      if (f.endsWith(".py")) out.push({ path: `src/${f}`, content: fs.readFileSync(path.join(srcDir, f), "utf8") });
+    }
+  }
+  for (const rf of ["README.md", "docker-compose.yml", "docker-compose.yaml"]) {
+    const p = path.join(dir, rf);
+    if (fs.existsSync(p)) out.push({ path: rf, content: fs.readFileSync(p, "utf8") });
   }
   return out;
 }
 
-const FIX_SYS =
-  'You are fixing a bug in a software repository. You are given the issue and the ' +
-  'current source files. Reply with ONLY a JSON object (no prose, no fences): ' +
+// output-format instruction, appended after the specialist's knowledge prompt
+const FIX_OUTPUT =
+  'Reply with ONLY a JSON object (no prose, no fences): ' +
   '{"summary":"one-line description of the change","files":[{"path":"src/x.py","content":"<FULL corrected file contents>"}]}. ' +
   'Include ONLY files you actually changed; return their COMPLETE new contents. Preserve everything unrelated.';
+const FIX_DEFAULT = "You are fixing a bug in a software repository. You are given the issue and the current source files.";
 
 export interface DirectOptions {
   apiKey: string;
@@ -93,13 +100,15 @@ export function makeDirectWorker(opts: DirectOptions): Worker {
       });
     },
     async fix(task: FixTask): Promise<FixResult> {
-      return trace("direct.fix", opts.fixModel, task.issueNumber, async () => {
+      const model = task.agentModel ?? opts.fixModel;
+      const system = `${task.agentPrompt ?? FIX_DEFAULT}\n\n${FIX_OUTPUT}`;
+      return trace("direct.fix", model, task.issueNumber, async () => {
         const src = readSource(task.worktreeDir);
         const filesBlock = src.map((f) => `--- ${f.path} ---\n${f.content}`).join("\n\n");
         const user =
           `Issue #${task.issueNumber}: ${task.title}\n\n${task.body}\n\n` +
           `=== current source ===\n${filesBlock}`;
-        const raw = await orChat(opts.apiKey, opts.fixModel, FIX_SYS, user);
+        const raw = await orChat(opts.apiKey, model, system, user);
         const m = raw.match(/\{[\s\S]*\}/);
         const obj = JSON.parse(m ? m[0] : raw);
         const files: { path: string; content: string }[] = obj.files ?? [];
