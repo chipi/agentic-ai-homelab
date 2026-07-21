@@ -35,3 +35,4 @@ landed on an answer.
 ## Index
 
 - [RFC-0001 — LiteLLM proxy as the Langfuse capture layer](RFC-0001-litellm-langfuse-capture.md) — *Proposed*
+- [RFC-0002 — Autonomous bug-fix fleet (cheap workers, Claude PR-gate)](RFC-0002-autonomous-bug-fix-fleet.md) — *Proposed*
