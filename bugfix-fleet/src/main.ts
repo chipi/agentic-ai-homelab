@@ -88,6 +88,29 @@ async function main(): Promise<void> {
       const d = await dispatchAgent(process.env.OPENROUTER_API_KEY!, process.env.TRIAGE_MODEL!, agents, v);
       console.error(`  #${v.number} "${v.title}"\n     → ${d.agent.name} (${d.agent.model}) — ${d.reason}`);
     }
+  } else if (cmd === "metrics") {
+    // push the flow: funnel + area distribution to VictoriaMetrics (Grafana reads it)
+    const { data } = await gh.issues.listForRepo({ ...repo, labels: ENTRY_LABEL, state: "all", per_page: 100 });
+    const bugs = (data as any[]).filter((i) => !i.pull_request);
+    const flows = ["triaging", "approved", "fixing", "fixed", "in-review", "changes-requested", "stuck", "shipped"];
+    const counts: Record<string, number> = Object.fromEntries(flows.map((f) => [f, 0]));
+    const areas: Record<string, number> = {};
+    let untriaged = 0;
+    for (const i of bugs) {
+      const labels = (i.labels as any[]).map((l) => (typeof l === "string" ? l : l.name));
+      const f = flows.find((x) => labels.includes(`flow:${x}`));
+      if (f) counts[f]++; else untriaged++;
+      for (const a of ["backend", "database", "ui", "docs", "infra"]) if (labels.includes(`area:${a}`)) areas[a] = (areas[a] ?? 0) + 1;
+    }
+    const lines = [
+      ...flows.map((f) => `bugfix_fleet_issues{flow="${f}"} ${counts[f]}`),
+      `bugfix_fleet_issues{flow="untriaged"} ${untriaged}`,
+      `bugfix_fleet_issues_total ${bugs.length}`,
+      ...Object.entries(areas).map(([a, c]) => `bugfix_fleet_issues_by_area{area="${a}"} ${c}`),
+    ];
+    const url = process.env.METRICS_URL ?? "http://homelab:8428/api/v1/import/prometheus";
+    await fetch(url, { method: "POST", body: lines.join("\n") + "\n" });
+    console.error(`[metrics] pushed ${lines.length} series (${bugs.length} bugs) → VM`);
   } else if (cmd === "ship") {
     // operator merged the batch PR → close the lifecycle: in-review → shipped
     const openPr = await getOpenBatchPr(gh, repo);
