@@ -56,6 +56,23 @@ export async function ensureFixesBranch(): Promise<void> {
   await git(dir, "clean", "-fd");
 }
 
+/** Read the repo's fixable source files for reviewer CONTEXT — so it reasons
+ *  about the whole code (e.g. api.py's RESPONSE_FORMAT), not just the diff. */
+export function readRepoContext(): { path: string; content: string }[] {
+  const dir = checkoutDir();
+  const out: { path: string; content: string }[] = [];
+  const srcDir = `${dir}/src`;
+  if (fs.existsSync(srcDir)) {
+    for (const f of fs.readdirSync(srcDir)) {
+      if (f.endsWith(".py")) out.push({ path: `src/${f}`, content: fs.readFileSync(`${srcDir}/${f}`, "utf8") });
+    }
+  }
+  for (const rf of ["README.md", "docker-compose.yml"]) {
+    if (fs.existsSync(`${dir}/${rf}`)) out.push({ path: rf, content: fs.readFileSync(`${dir}/${rf}`, "utf8") });
+  }
+  return out;
+}
+
 export interface TestOutcome {
   failures: Set<string>; // failing test node ids
   broke: boolean; // collection/import error — no recognizable summary

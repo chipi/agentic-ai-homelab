@@ -48,9 +48,13 @@ async function orChat(apiKey: string, model: string, system: string, user: strin
 export function makeReviewer(apiKey: string, model: string) {
   return {
     model,
-    async review(diff: string, pull: number): Promise<Review> {
+    async review(diff: string, pull: number, context?: { path: string; content: string }[]): Promise<Review> {
       return trace("reviewer.review", model, pull, async () => {
-        const raw = await orChat(apiKey, model, REVIEW_SYS, `PR #${pull} diff:\n\n${diff}`);
+        const ctx = context?.length
+          ? `=== repository files (for context — judge the diff against the ACTUAL code, e.g. constants/config that define intended behavior) ===\n` +
+            context.map((f) => `--- ${f.path} ---\n${f.content}`).join("\n\n") + "\n\n"
+          : "";
+        const raw = await orChat(apiKey, model, REVIEW_SYS, `${ctx}=== PR #${pull} diff ===\n\n${diff}`);
         const m = raw.match(/\{[\s\S]*\}/);
         const o = JSON.parse(m ? m[0] : raw);
         const items: ReviewItem[] = Array.isArray(o.items) ? o.items : [];
