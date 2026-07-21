@@ -9,6 +9,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { Worker, TriageTask, TriageVerdict, FixTask, FixResult } from "./types.js";
 import { trace } from "../observability/langfuse.js";
+import { orChat } from "../llm.js";
 
 // source reader: all *.py under src/ + fixable root files (docs/infra). Tests are
 // intentionally excluded — the fixer must not edit the tests it's gated on.
@@ -51,22 +52,6 @@ const TRIAGE_SYS =
   'needsInfo = a question for the operator if not actionable, else "". ' +
   'recommend = whether the fleet should attempt a fix.';
 
-async function orChat(apiKey: string, model: string, system: string, user: string): Promise<string> {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-    }),
-  });
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const j: any = await res.json();
-  return j.choices?.[0]?.message?.content ?? "";
-}
-
 function parseVerdict(raw: string): TriageVerdict {
   const m = raw.match(/\{[\s\S]*\}/);
   const o = JSON.parse(m ? m[0] : raw);
@@ -88,7 +73,7 @@ export function makeDirectWorker(opts: DirectOptions): Worker {
         const user = `Issue #${task.issueNumber}: ${task.title}\n\n${task.body}`;
         let lastErr: unknown;
         for (let i = 0; i < 3; i++) {
-          const raw = await orChat(opts.apiKey, opts.triageModel, TRIAGE_SYS, user);
+          const raw = await orChat(opts.apiKey, opts.triageModel, TRIAGE_SYS, user, { phase: "triage", issue: task.issueNumber });
           try {
             return parseVerdict(raw);
           } catch (e) {
@@ -112,7 +97,7 @@ export function makeDirectWorker(opts: DirectOptions): Worker {
         let summary = "";
         let lastErr: unknown;
         for (let i = 0; i < 3; i++) {
-          const raw = await orChat(opts.apiKey, model, system, user);
+          const raw = await orChat(opts.apiKey, model, system, user, { phase: "fix", issue: task.issueNumber, area: task.area, harness: "direct" });
           try {
             const obj = JSON.parse((raw.match(/\{[\s\S]*\}/) || [raw])[0]);
             files = obj.files ?? [];

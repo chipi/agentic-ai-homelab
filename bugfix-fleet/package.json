@@ -12,7 +12,8 @@
   "dependencies": {
     "@octokit/auth-app": "^7.1.0",
     "@octokit/rest": "^21.0.0",
-    "@octokit/webhooks": "^13.3.0"
+    "@octokit/webhooks": "^13.3.0",
+    "langfuse": "^3.30.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -14,6 +14,7 @@ import { runReview } from "./flows/review.js";
 import { setFlow } from "./github/issueOps.js";
 import { loadAgents } from "./fleet/registry.js";
 import { dispatchAgent } from "./fleet/dispatch.js";
+import { flushLangfuse } from "./llm.js";
 
 type Repo = { owner: string; repo: string };
 
@@ -109,6 +110,7 @@ async function main(): Promise<void> {
     console.error(`[main] unknown cmd '${cmd}' (poll | cutpr | review)`);
   }
   console.error("\n[main] done.");
+  await flushLangfuse(); // send Langfuse traces before exit
 }
 
 main().catch((e) => {

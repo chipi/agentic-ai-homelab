@@ -5,25 +5,13 @@
 
 import { Agent } from "./registry.js";
 import { trace } from "../observability/langfuse.js";
+import { orChat } from "../llm.js";
 
 const DISPATCH_SYS =
   'You are a dispatcher routing a bug to the best-fit specialist agent. You are given the ' +
   'issue and a list of agents with their descriptions. Pick the ONE agent whose description ' +
   'best matches the bug. Reply with ONLY a JSON object (no prose, no fences): ' +
   '{"agent":"<agent name>","reason":"one line why"}. The agent name must be exactly one from the list.';
-
-async function orChat(apiKey: string, model: string, system: string, user: string): Promise<string> {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model, messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      response_format: { type: "json_object" }, temperature: 0,
-    }),
-  });
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  return (await res.json() as any).choices?.[0]?.message?.content ?? "";
-}
 
 export interface Dispatch {
   agent: Agent;
@@ -37,7 +25,7 @@ export async function dispatchAgent(
   return trace("dispatch", model, issue.number, async () => {
     const roster = agents.map((a) => `- ${a.name}: ${a.description}`).join("\n");
     const user = `Bug #${issue.number}: ${issue.title}\n${issue.body}\n\n=== agents ===\n${roster}`;
-    const raw = await orChat(apiKey, model, DISPATCH_SYS, user);
+    const raw = await orChat(apiKey, model, DISPATCH_SYS, user, { phase: "dispatch", issue: issue.number });
     const o = JSON.parse((raw.match(/\{[\s\S]*\}/) || [raw])[0]);
     const agent = agents.find((a) => a.name === o.agent)
       ?? agents.find((a) => a.name.toLowerCase() === String(o.agent).toLowerCase());
