@@ -92,7 +92,9 @@ async function main(): Promise<void> {
     const openPr = await getOpenBatchPr(gh, repo);
     if (openPr) { console.error(`[ship] batch PR #${openPr.number} still open — merge it first`); }
     else {
-      const involved = issues.filter((v) => v.labels.includes(FLOW.inReview)).map((v) => v.number);
+      // in-review issues get auto-CLOSED by the merge, so query all states by label
+      const { data } = await gh.issues.listForRepo({ ...repo, labels: FLOW.inReview, state: "all" });
+      const involved = (data as any[]).filter((i) => !i.pull_request).map((i) => i.number);
       for (const n of involved) {
         await setFlow(gh, repo, n, FLOW.shipped);
         await gh.issues.update({ ...repo, issue_number: n, state: "closed" }).catch(() => {});
