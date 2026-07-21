@@ -14,16 +14,16 @@ export interface DirectOptions {
   fixModel: string;
 }
 
-const TRIAGE_SYS = `You are a bug triager for a software repository.
-Classify the bug and reply with ONLY a JSON object (no prose, no markdown fences) of exactly this shape:
-{
-  "area": "backend" | "ui" | "infra" | "docs",
-  "severity": "high" | "med" | "low",
-  "actionable": boolean,      // specified enough to attempt a fix right now?
-  "needsInfo": string,        // if not actionable, the question for the operator; else ""
-  "hypothesis": string,       // one-line root-cause hypothesis
-  "recommend": boolean        // recommend the fleet attempt a fix?
-}`;
+// NB: comment-free schema — inline // comments in the example JSON make cheap
+// models echo malformed/off-schema output. Keep the example valid JSON.
+const TRIAGE_SYS =
+  'You are a bug triager for a software repository. Classify the bug and reply ' +
+  'with ONLY a JSON object (no prose, no markdown fences) of exactly this shape: ' +
+  '{"area":"backend|ui|infra|docs","severity":"high|med|low","actionable":true,' +
+  '"needsInfo":"","hypothesis":"one-line root-cause hypothesis","recommend":true}. ' +
+  'area = which part of the system. actionable = specified enough to fix now. ' +
+  'needsInfo = a question for the operator if not actionable, else "". ' +
+  'recommend = whether the fleet should attempt a fix.';
 
 async function orChat(apiKey: string, model: string, system: string, user: string): Promise<string> {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -62,11 +62,12 @@ export function makeDirectWorker(opts: DirectOptions): Worker {
         const user = `Issue #${task.issueNumber}: ${task.title}\n\n${task.body}`;
         let lastErr: unknown;
         for (let i = 0; i < 3; i++) {
+          const raw = await orChat(opts.apiKey, opts.triageModel, TRIAGE_SYS, user);
           try {
-            return parseVerdict(await orChat(opts.apiKey, opts.triageModel, TRIAGE_SYS, user));
+            return parseVerdict(raw);
           } catch (e) {
             lastErr = e;
-            console.error(`  [direct] triage retry ${i + 1}/3: ${(e as Error).message}`);
+            console.error(`  [direct] triage retry ${i + 1}/3: ${(e as Error).message} | raw: ${raw.slice(0, 160)}`);
           }
         }
         throw lastErr;
