@@ -1,7 +1,0 @@
-{
-  "id": "orrery-images-data", "repo": "orrery", "fix_commit": "feb64eaef",
-  "oracle_test_file": "src/lib/data.test.ts",
-  "code_files": ["src/lib/data.ts"],
-  "area": "url-data-logic", "difficulty": "medium",
-  "description": "Image URL/path normalization mishandles mobile stream-origin CDN URLs, configured base-path prefixes, and query/hash. A mobile CDN URL must resolve to the same manifest entry as the plain web path, and normalizeImageKey must strip origin/base/query down to the canonical /images/... path (leaving an already-normalised path unchanged)."
-}

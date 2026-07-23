@@ -378,17 +378,28 @@ B** = the subset of these that happens to coexist at one base (June–July here)
 cumulatively — derived when we build B, not now. Nothing about A/B measurement
 changes; only where each bug's baseline sits.
 
-### `chipi/orrery` (TS) — 8 logic bugs · Scenario A, per-bug base `<fix>^`
-| fix commit | bug (problem statement) | area | difficulty | oracle |
+### `chipi/orrery` (TS) — 6 **run-verified** logic bugs · Scenario A, per-bug base `<fix>^`
+All six verified end-to-end (`bakeoff/verify.sh`): oracle RED at `<fix>^`, GREEN
+after the golden fix. Oracle = the unit test the fix shipped (Opt1), except #251
+(authored). Manifests in `bakeoff/bugs/`.
+
+| fix commit | bug (problem statement) | area | oracle test | RED→GREEN |
 |---|---|---|---|---|
-| `0d6644f9` | vis-viva speed returns **NaN** beyond transfer apohelion (should fall back to circular; 0 at r=0) | orbital physics | hard | Opt1 |
-| `19fb2f17` | transfer-arc geometry ignores **arrival V∞** (endpoints/mid-arc bend wrong) | trajectory math | hard | Opt1 |
-| `a5cf0981` | observer look-angles use wrong geodetic model → **WGS84 RA/Dec/alt-az** wrong | astro coord math | hard | Opt1 |
-| `0cb1f36` | `mergeFlightEvents` drops rich per-event **labels/descriptions** (#335) | data merge | medium | Opt1 |
-| `aaaab7f6` | CMSA/SpaceIL/CSA/USAF **misgrouped** under Wikimedia, not their section | data mapping | easy-med | Opt1 |
-| `feb64eaef` | image **URL/path normalization** mishandles CDN origins, base-path, query/hash | url/data logic | medium | Opt1 |
-| `9ca0f2b3` | tour **navigation targets a non-existent route** | routing integrity | medium | Opt1 |
-| `78a79e8` | `.jpg`-path writes hold **non-JPEG bytes** (#251) | image bytes | medium | Opt2 (author) |
+| `0d6644f9` | vis-viva speed returns **NaN** beyond transfer apohelion (fall back to circular; 0 at r=0) | orbital physics | `orbital/fly-physics.test.ts` | 2→0 ✓ |
+| `19fb2f17` | transfer-arc geometry ignores **arrival V∞** (endpoints/mid-arc bend wrong) | trajectory math | `mission-arc.test.ts` | 1→0 ✓ |
+| `a5cf0981` | observer look-angles use wrong geodetic model → **WGS84** wrong | astro coord math | `satellite/satellite.test.ts` | 2→0 ✓ |
+| `0cb1f36` | `mergeFlightEvents` drops rich per-event **labels/descriptions** (#335) | data merge | `mission-event-merge.test.ts` | 2→0 ✓ |
+| `aaaab7f6` | CMSA/SpaceIL/CSA/USAF **misgrouped** under Wikimedia | data mapping | `credits-grouping.test.ts` | 1→0 ✓ |
+| `78a79e8` | `.jpg`-path writes hold **non-JPEG bytes** (#251) | image bytes | `scripts/lib/image-bytes.test.ts` (authored) | 1→0 ✓ |
+
+**Dropped in verification** (kept honest — they didn't survive the red-at-base gate):
+- `feb64eaef` (image URL normalization) — broad "deep-review" commit; the oracle
+  reproduced (38 red) but the isolated fix left 33 red — not cleanly isolable.
+- `9ca0f2b3` (audio-tour dead route) — the fix is a base-path prepend, but its
+  shipped test only checks *route existence* (orthogonal) → 0 red at base.
+
+*Backfill to 8 later from the logic-bug pool if wanted; 6 verified is enough for
+the first run.*
 
 *7 of 8 ship their own faithful test (Opt1); only #251 is authored (Opt2). Three
 hard physics/math bugs anchor the top; nothing needs a browser. Ladder: 1 easy-med
