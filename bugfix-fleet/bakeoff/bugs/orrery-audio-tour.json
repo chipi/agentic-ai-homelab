@@ -1,0 +1,7 @@
+{
+  "id": "orrery-audio-tour", "repo": "orrery", "fix_commit": "9ca0f2b3",
+  "oracle_test_file": "src/lib/audio-tour.test.ts",
+  "code_files": ["src/lib/components/AudioOverlay.svelte"],
+  "area": "routing-integrity", "difficulty": "medium",
+  "description": "An audio-tour 'navigate' stage points at a route that does not exist, so it 404s. Every tour navigate target must resolve to a real app route (a +page.svelte under src/routes)."
+}

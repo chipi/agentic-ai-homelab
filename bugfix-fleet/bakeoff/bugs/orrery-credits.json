@@ -1,0 +1,7 @@
+{
+  "id": "orrery-credits", "repo": "orrery", "fix_commit": "aaaab7f6",
+  "oracle_test_file": "src/lib/credits-grouping.test.ts",
+  "code_files": ["src/lib/credits-grouping.ts"],
+  "area": "data-mapping", "difficulty": "easy-medium",
+  "description": "The credits grouping misfiles agencies CMSA / SpaceIL / CSA / USAF under Wikimedia-Commons instead of mapping them to their own source sections."
+}

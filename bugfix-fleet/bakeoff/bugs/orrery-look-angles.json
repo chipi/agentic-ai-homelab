@@ -1,0 +1,7 @@
+{
+  "id": "orrery-look-angles", "repo": "orrery", "fix_commit": "a5cf0981",
+  "oracle_test_file": "src/lib/astronomy/horizontal.test.ts",
+  "code_files": ["src/lib/satellite/look-angles.ts"],
+  "area": "astro-coord-math", "difficulty": "hard",
+  "description": "Observer look-angles use the wrong geodetic model, so WGS84 RA/Dec/alt-az come out wrong: the vernal equinox direction should map to RA 0 / Dec 0, the ecliptic north pole to Dec = 90-obliquity, and a meridian body at the observer's declination should sit at the zenith."
+}

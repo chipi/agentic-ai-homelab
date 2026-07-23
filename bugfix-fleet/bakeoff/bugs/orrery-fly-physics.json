@@ -1,0 +1,7 @@
+{
+  "id": "orrery-fly-physics", "repo": "orrery", "fix_commit": "0d6644f9",
+  "oracle_test_file": "src/lib/orbital/fly-physics.test.ts",
+  "code_files": ["src/lib/orbital/fly-physics.ts"],
+  "area": "orbital-physics", "difficulty": "hard",
+  "description": "The vis-viva orbital speed function returns NaN when the radius is beyond the transfer orbit's apohelion (aphelion). It should fall back to the local circular speed there, and return 0 (not NaN) at r=0."
+}

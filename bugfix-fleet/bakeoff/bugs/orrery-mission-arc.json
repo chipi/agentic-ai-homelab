@@ -1,0 +1,7 @@
+{
+  "id": "orrery-mission-arc", "repo": "orrery", "fix_commit": "19fb2f17",
+  "oracle_test_file": "src/lib/mission-arc.test.ts",
+  "code_files": ["src/lib/mission-arc.ts"],
+  "area": "trajectory-math", "difficulty": "hard",
+  "description": "Transfer-arc geometry ignores the supplied arrival V-infinity (hyperbolic excess velocity): the arc endpoints and mid-arc shape come out wrong. Both endpoints must stay pinned to the transfer points; a high arrival V-infinity should bend the mid-arc away from the baseline ellipse."
+}

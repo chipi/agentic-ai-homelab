@@ -19,13 +19,22 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 jqr(){ jq -r "$1" "$BUG_JSON"; }
 ID=$(jqr .id); FIX=$(jqr .fix_commit); BASE="${FIX}^"
 ORACLE=$(jqr .oracle_test_file); DESC=$(jqr .description)
+AUTHORED=$(jqr '.authored_oracle // empty')   # set when the fix shipped no test
 OUT="$ROOT/results/$ID/$HARNESS"; mkdir -p "$OUT"
 
 vitest_json(){ # $1 = output json path ; run the oracle file only
   ( cd "$WT" && npx vitest run "$ORACLE" --reporter=json --outputFile="$1" >/dev/null 2>&1 ) || true
 }
 titles(){ jq -r ".testResults[].assertionResults[] | select(.status==\"$2\") | .title" "$1" 2>/dev/null | sort; }
-apply_oracle(){ git -C "$SRC" diff "$BASE" "$FIX" -- "$ORACLE" | git -C "$WT" apply; }
+# Opt1: the fix shipped the test → apply that test-file hunk. Opt2 (authored):
+# the fix shipped no test → drop our hold-out oracle file at ORACLE's path.
+apply_oracle(){
+  if [ -n "$AUTHORED" ]; then
+    mkdir -p "$WT/$(dirname "$ORACLE")"; cp "$HERE/$AUTHORED" "$WT/$ORACLE"
+  else
+    git -C "$SRC" diff "$BASE" "$FIX" -- "$ORACLE" | git -C "$WT" apply
+  fi
+}
 
 echo "══ [$ID → $HARNESS] reset to base $BASE ══"
 git -C "$WT" reset --hard "$BASE" >/dev/null
@@ -42,14 +51,17 @@ PTP=$(wc -l < "$OUT/pass_to_pass.txt" | tr -d ' ')
 echo "   FAIL_TO_PASS=$FTP  PASS_TO_PASS=$PTP"
 [ "$FTP" -gt 0 ] || { echo "ABORT: bug does not reproduce at base (0 failing oracle tests)"; exit 2; }
 
+# Hide the oracle from the harness: Opt1 tests revert to base; an authored
+# (untracked) oracle must be removed outright — git checkout won't touch it.
+hide_oracle(){ [ -n "$AUTHORED" ] && rm -f "$WT/$ORACLE" || git -C "$WT" checkout -- "$ORACLE"; }
 echo "══ hide oracle, run harness ══"
-git -C "$WT" checkout -- "$ORACLE"
+hide_oracle
 SECONDS=0
 "$HERE/harnesses/$HARNESS.sh" "$WT" "$DESC" 2>&1 | tee "$OUT/harness.log" || true
 echo "   harness wall-clock: ${SECONDS}s"
 
 echo "══ capture harness patch (code only) ══"
-git -C "$WT" checkout -- "$ORACLE" 2>/dev/null || true   # protect oracle: discard harness edits to it
+hide_oracle 2>/dev/null || true                          # protect oracle: discard harness edits to it
 git -C "$WT" add -A >/dev/null && git -C "$WT" diff --cached > "$OUT/harness.patch"
 git -C "$WT" reset >/dev/null
 

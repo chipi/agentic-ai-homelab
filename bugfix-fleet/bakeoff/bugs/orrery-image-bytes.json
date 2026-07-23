@@ -1,0 +1,8 @@
+{
+  "id": "orrery-image-bytes", "repo": "orrery", "fix_commit": "78a79e8",
+  "oracle_test_file": "scripts/lib/image-bytes.test.ts",
+  "authored_oracle": "oracles/orrery/image-bytes.test.ts",
+  "code_files": ["scripts/lib/image-bytes.ts", "scripts/audit-image-mime.ts", "scripts/fetch-assets.ts", "scripts/validate-data.ts"],
+  "area": "image-bytes", "difficulty": "medium",
+  "description": "Files written with a .jpg extension can hold non-JPEG (e.g. PNG) bytes, which the vision API silently rejects. Writes to a .jpg path must contain valid JPEG bytes (SOI magic ff d8 ff), with an audit that fails on any extension/bytes mismatch."
+}

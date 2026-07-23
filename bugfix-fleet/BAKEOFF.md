@@ -299,7 +299,8 @@ per-situation, e.g.:
    (rung 3) is fixed = `fable`; Chinese architect = `kimi-k2.6`.
 5. **Judge** — Claude (bias, mitigated) vs a neutral model.
 6. **App scope** — install on the two real repos (`orrery`, `podcast_scraper`).
-7. **Bug list** — orrery **LOCKED** (8 at base `C = 35283399b`, Appendix); podcast
+7. **Bug list** — orrery **LOCKED** (8 logic bugs, Scenario A per-bug base
+   `<fix>^`, Appendix); podcast
    **to rebuild** at its own base `C` in its Phase 0 (candidate pool in Appendix).
 
 ## 11. Execution rollout — order of operations + git strategy
@@ -334,10 +335,11 @@ verticals? → RFC-0002 conclusion / a new ADR.
 
 ### Git strategy
 
-- **Baseline = an immutable tag** at the coexistence base commit `C`
-  (`bakeoff/<repo>-baseline`, e.g. orrery `C = 35283399b`). No reverting — `C` is
-  the natural historical state where the cluster's bugs are all present. Every
-  reset lands on the identical state.
+- **Baseline = each bug's own parent commit `<fix>^`** (Scenario A, per-bug base —
+  the runner sets `BASE=${FIX}^` from the manifest). Each bug reproduces in its own
+  era where its fix cleanly applies; no reverting onto HEAD. (The earlier
+  single-coexistence-base `C` idea was dropped once the set became diverse logic
+  bugs spanning many eras — see §3.1 / Appendix.)
 - **One long-lived worktree per repo; the eval runner owns git.** The coding
   harness only **edits files** — it does not manage branches.
   `git worktree add ~/.bugfix-fleet/bakeoff/<repo> bakeoff/<repo>-baseline`
