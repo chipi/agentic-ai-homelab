@@ -11,6 +11,11 @@ DASH_MINI=$G/d/homelab-mini/homelab-e28094-mac-mini
 DASH_GPU=$G/d/gpu-dcgm/gpu-e28094-dcgm
 DASH_DGX=$G/d/dgx-services/dgx-e28094-services
 DASH_CAD=$G/d/containers-cadvisor/containers-e28094-cadvisor
+DASH_PROD=$G/d/prod-infra-host-overview/host-overview
+DASH_PCON=$G/d/prod-infra-containers/containers
+DASH_PEDGE=$G/d/prod-infra-edge-security/edge-security
+DASH_OPER=$G/d/podcast-operator-overview/overview
+DASH_PLAYER=$G/d/podcast-player-overview/overview
 row(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td><code>%s</code></td><td><code>%s</code></td></tr>\n' "$2" "$1" "$5" "$3" "$4"; }
 dsvc(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td class=muted>%s</td></tr>\n' "$4" "$1" "$2" "$3"; }
 {
@@ -83,9 +88,27 @@ cat <<MID2
   </tbody></table>
   <p class=sec>Host CPU/mem/disk unavailable (node-exporter :9100 down on DGX).</p>
 </div>
+<div class=col>
+  <h2><a href="$DASH_PROD">Production &middot; prod-podcast &rarr;</a></h2>
+  <div id=prodrow class=sysrow>&hellip;</div>
+  <div class=charts>
+    <a class=card href="$DASH_PROD"><h3>CPU</h3><div id=p_cpu>&hellip;</div></a>
+    <a class=card href="$DASH_PROD"><h3>Memory</h3><div id=p_mem>&hellip;</div></a>
+    <a class=card href="$DASH_PROD"><h3>Disk free</h3><div id=p_disk>&hellip;</div></a>
+  </div>
+  <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a></div>
+  <table><thead><tr><th>Service</th><th>Board</th><th>Role</th></tr></thead><tbody>
+MID2
+dsvc "podcast operator" "ops" "operator API + viewer"  "$DASH_OPER"
+dsvc "podcast player"   "app" "consumer player (public)" "$DASH_PLAYER"
+dsvc "edge / security"  "443" "shared Caddy + fail2ban" "$DASH_PEDGE"
+dsvc "containers"       "cA"  "cAdvisor"               "$DASH_PCON"
+cat <<MID3
+  </tbody></table>
+</div>
 </div>
 <p class=sec id=fresh></p>
-MID2
+MID3
 cat <<'SCRIPT'
 <script>
 const W=260,H=40,G='http://homelab:3000';
@@ -131,8 +154,20 @@ async function dgx(){
   const cc=await g1('count(container_last_seen{host=\"dgx\"})'),mem=await g1('sum(container_memory_usage_bytes{host=\"dgx\",id=\"/\"})');
   const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b>';
 }
-async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg);}
-function refresh(){mini();dgx();fresh();}
+async function prod(){
+  const P='{instance="prod-podcast"}';
+  draw('p_cpu','100-avg(rate(node_cpu_seconds_total{instance="prod-podcast",mode="idle"}[5m]))*100',x=>x.toFixed(0)+'%',100);
+  draw('p_mem','100-node_memory_MemAvailable_bytes'+P+'/node_memory_MemTotal_bytes'+P+'*100',x=>x.toFixed(0)+'%',100);
+  draw('p_disk','node_filesystem_avail_bytes{instance="prod-podcast",mountpoint="/"}',x=>(x/1073741824).toFixed(0)+' GB');
+  const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
+  const l1=await g1('node_load1'+P),l5=await g1('node_load5'+P),l15=await g1('node_load15'+P);
+  const up=await g1('node_time_seconds'+P+'-node_boot_time_seconds'+P);
+  const pr=document.getElementById('prodrow');if(pr)pr.innerHTML='Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
+  const cc=await g1('count(container_last_seen'+P+')');
+  const pd=document.getElementById('pdocker');if(pd)pd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers';
+}
+async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);}
+function refresh(){mini();dgx();prod();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
