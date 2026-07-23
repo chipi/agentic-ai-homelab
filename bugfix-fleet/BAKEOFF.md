@@ -328,6 +328,37 @@ once per repo. The substrate is itself a variable now: manifests may carry
 never pollute the graded patch). Caveat: n=1 per cell (no-doc miss is 3
 observations across the session; with-doc pass is 1) — k-runs pending.
 
+**Observed (2026-07-23, full matrix on pi+v4-pro, n=1/cell): the axis
+discriminates.** All 15 cells run (manifests + results map:
+`bakeoff/bugs/README.md`):
+
+| bug | L0 | L1 | L2 | min level |
+|---|---|---|---|---|
+| fly-physics | FAIL | FAIL · PASS+doc | PASS | **L2** (or L1+repo-doc) |
+| credits | FAIL | PASS | PASS | **L1** |
+| look-angles | FAIL | PASS | PASS | **L1** |
+| 335-merge | PASS | PASS | PASS | **L0** |
+| mission-arc | FAIL | PASS | PASS | **L1** |
+
+Readings, all n=1 pending k-runs:
+- **Min-upping-level spreads L0/L1/L2 across bugs** — intrinsic context need is
+  a real, measurable per-bug property. A true L1 (facts statable in the ticket)
+  sufficed for 3/5; only fly-physics needs more, and its missing fact is
+  *module topology* — exactly what a repo doc supplies once instead of every
+  ticket pinning it (the 2/3 of gate-era L2 pins were unnecessary).
+- **Bad tickets are expensive, not just unsuccessful:** every FAIL cost more
+  than its passing sibling — credits L0 97k output tokens vs L1 42k;
+  look-angles L0 232k vs 52k (4.5×, 27 min wall). Economic case for gating
+  garbage *before* the harness burns.
+- **Failure shape is bimodal** — empty patch (look-angles historical, 0 lines)
+  or expensive wrong-layer grind (same ticket later: 102-line patch into the
+  UI/symptom layer, 43 turns). The harness→triage kick-back trigger must key
+  on FAIL-at-low-level, not on patch emptiness.
+- **Zero regressions in any cell** (PASS_TO_PASS clean) — failures are
+  "didn't fix", never "broke". v4-pro fails safe on this set.
+- **L2 is cheapest to execute** (fewest turns at equal outcome) but costs
+  per-ticket authoring; L1 + doc substrate is the scalable operating point.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify

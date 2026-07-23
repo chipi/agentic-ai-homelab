@@ -14,9 +14,12 @@ without re-running the gate.
 | 335-mission-event-merge | `-L0` | **canonical** | `-L2` |
 | mission-arc | `-L0` | **canonical** | `-L2` |
 
-Gate results known so far (pi+v4-pro, n=1 each): all 5 canonical PASS;
-fly-physics `-L1-noctx` FAIL, `-L1` (+doc) PASS — the doc-substrate isolating
-experiment, BAKEOFF §6.3. Everything else: not yet run.
+Measured (pi+v4-pro, n=1 per cell, 2026-07-23 — full matrix, BAKEOFF §6.3):
+all 5 canonical PASS (the gate); L0: only 335 PASS, other four FAIL;
+L1 variants: credits + look-angles PASS, fly-physics `-L1-noctx` FAIL /
+`-L1` (+doc substrate) PASS; L2 variants (335, mission-arc): PASS.
+Min upping-level per bug: 335=L0 · credits/look-angles/mission-arc=L1 ·
+fly-physics=L2-or-L1+doc.
 
 Authoring rules used:
 - **L0** — realistic degraded reporter ticket: true symptom, visible layer,
