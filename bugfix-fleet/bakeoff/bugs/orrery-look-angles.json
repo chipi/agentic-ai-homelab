@@ -8,5 +8,5 @@
   ],
   "area": "astro-coord-math",
   "difficulty": "hard",
-  "description": "Observer look-angles use the wrong geodetic model, so WGS84 RA/Dec/alt-az come out wrong: the vernal equinox direction should map to RA 0 / Dec 0, the ecliptic north pole to Dec = 90-obliquity, and a meridian body at the observer's declination should sit at the zenith."
+  "description": "In src/lib/satellite/look-angles.ts, observerEci() computes the observer's Earth-centered position using a spherical Earth (a fixed radius ~6378.137 km at every latitude), which is the wrong geodetic model. Fix observerEci to use the WGS84 ellipsoid with flattening, so the observer position magnitude equals the equatorial radius a = 6378.137 km at the equator (lat 0) and the polar radius b = a*(1-f) ≈ 6356.752 km at the pole (lat 90°) — currently the pole is wrong by ~21 km. Use the standard WGS84 constants (a = 6378.137 km, 1/f = 298.257223563). observerEci also takes an altitude argument (km above the ellipsoid); add it along the geodetic normal, i.e. x,y use (N + alt) and z uses (N*(1-e^2) + alt), so a positive altitude increases the position magnitude accordingly."
 }

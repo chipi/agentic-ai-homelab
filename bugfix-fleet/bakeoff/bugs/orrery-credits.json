@@ -3,5 +3,5 @@
   "oracle_test_file": "src/lib/credits-grouping.test.ts",
   "code_files": ["src/lib/credits-grouping.ts"],
   "area": "data-mapping", "difficulty": "easy-medium",
-  "description": "The credits grouping misfiles agencies CMSA / SpaceIL / CSA / USAF under Wikimedia-Commons instead of mapping them to their own source sections."
+  "description": "In src/lib/credits-grouping.ts, provenanceSourceId() misfiles several agencies under 'wikimedia-commons'. Fix the agency->source-id mapping so: CMSA (China Manned Space Agency) folds into China's existing section -> 'cnsa'; SpaceIL -> 'spaceil'; USAF (like USSF / 'air force') folds into the US military space section -> 'us-space-force'; and CSA (Canadian Space Agency) -> 'csa' when CSA is the primary token (e.g. 'CSA / NASA'), while NASA-first joint credits (e.g. 'NASA / ESA') still map to 'nasa'. Do not regress the existing CNSA -> 'cnsa' mapping; note 'csa' is a substring of 'cnsa'/'cmsa' so match CSA on token boundaries, not a bare substring."
 }
