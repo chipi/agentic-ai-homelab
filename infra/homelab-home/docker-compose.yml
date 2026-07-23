@@ -1,0 +1,14 @@
+services:
+  homelab-home:
+    image: nginx:alpine
+    container_name: homelab-home
+    restart: unless-stopped
+    ports: ["100.87.33.61:8888:80"]
+    networks: [backend_default]
+    volumes:
+      - ./www:/usr/share/nginx/html:ro
+      - ./default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./.htpasswd:/etc/nginx/.htpasswd:ro
+networks:
+  backend_default:
+    external: true
