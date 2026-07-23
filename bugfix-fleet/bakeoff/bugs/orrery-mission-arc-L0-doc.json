@@ -1,0 +1,19 @@
+{
+  "id": "orrery-mission-arc-L0-doc",
+  "repo": "orrery",
+  "fix_commit": "19fb2f17",
+  "oracle_test_file": "src/lib/mission-arc.test.ts",
+  "code_files": [
+    "src/lib/mission-arc.ts"
+  ],
+  "area": "trajectory-math",
+  "difficulty": "hard",
+  "level": "L0+doc",
+  "description": "The transfer arc drawn for some missions looks wrong — the endpoints are in the right places but the middle of the arc has the wrong shape.",
+  "context_files": [
+    {
+      "repo_path": "src/lib/mission-arc.README.md",
+      "src": "substrates/orrery-mission-arc-README.md"
+    }
+  ]
+}

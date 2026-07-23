@@ -376,6 +376,25 @@ Readings, all n=1 pending k-runs:
 - **L2 is cheapest to execute** (fewest turns at equal outcome) but costs
   per-ticket authoring; L1 + doc substrate is the scalable operating point.
 
+**Observed (2026-07-23, doc-flip experiment): docs fix localization, not
+acceptance.** Four L0 (garbage) tickets re-run with maintainer-voice module
+docs injected (`substrates/`, no bug mentioned in any doc): **0/4 verdicts
+flipped — but 3/4 `scope` flipped to the correct file** (credits,
+mission-arc, look-angles; the no-doc L0 runs had mis-targeted). fly-physics
+L0 stayed off-scope even with the explicit HUD→fly-physics mapping in the
+doc — a thin enough symptom anchors the model at the symptom layer. Combined
+with the L1+doc PASS, the two-factor model is measured from both directions:
+
+- **repo docs carry topology/ownership** → they rescue *localization*;
+- **the ticket must carry acceptance** (what "fixed" means) → only
+  normalization to L1 rescues the *verdict*.
+
+Active triage and the doc substrate are complementary halves; neither
+substitutes for the other. Corollary: validate a module doc by the
+**localization quiz** (right file/function named with the doc, not without),
+not by end-to-end fix success — the latter also depends on ticket quality,
+which is not the doc's job.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify

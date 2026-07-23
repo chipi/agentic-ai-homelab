@@ -21,6 +21,11 @@ L1 variants: credits + look-angles PASS, fly-physics `-L1-noctx` FAIL /
 Min upping-level per bug: 335=L0 · credits/look-angles/mission-arc=L1 ·
 fly-physics=L2-or-L1+doc.
 
+Doc-flip cells (`-L0-doc`, same L0 tickets + module docs from
+`../substrates/`): 0/4 verdict flips, 3/4 scope flips to the correct file
+(all but fly-physics). Docs rescue localization; acceptance must come from
+the ticket — see BAKEOFF §6.3.
+
 Authoring rules used:
 - **L0** — realistic degraded reporter ticket: true symptom, visible layer,
   no acceptance criteria, no localization. Never invents facts.
