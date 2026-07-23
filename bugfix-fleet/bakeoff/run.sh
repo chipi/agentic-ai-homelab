@@ -85,7 +85,26 @@ echo "══ hide oracle, run harness ══"
 hide_oracle
 SECONDS=0
 # stdout = the adapter's JSON result (usage/cost); stderr = its log.
-"$HERE/harnesses/$HARNESS.sh" "$WT" "$DESC" > "$OUT/harness.json" 2> "$OUT/harness.err" || true
+# Wall-clock budget (BAKEOFF_MAX_WALL, default 1200s = ~2x the passing
+# envelope measured 2026-07-23): a runaway attempt is cut and marked, since
+# FAILs cost 2-4.5x their passing siblings (§6.3) — the cut itself is a
+# spec-suspect signal. Kills the adapter + its direct child (pi/opencode/
+# claude); short-lived tool-call grandchildren may briefly orphan.
+MAX_WALL="${BAKEOFF_MAX_WALL:-1200}"
+BUDGET=0
+"$HERE/harnesses/$HARNESS.sh" "$WT" "$DESC" > "$OUT/harness.json" 2> "$OUT/harness.err" &
+HPID=$!
+while kill -0 "$HPID" 2>/dev/null; do
+  if [ "$SECONDS" -ge "$MAX_WALL" ]; then
+    BUDGET=1
+    echo "   budget: wall ${MAX_WALL}s exceeded — cutting the attempt"
+    pkill -P "$HPID" 2>/dev/null || true; kill "$HPID" 2>/dev/null || true
+    sleep 2; pkill -9 -P "$HPID" 2>/dev/null || true; kill -9 "$HPID" 2>/dev/null || true
+    break
+  fi
+  sleep 5
+done
+wait "$HPID" 2>/dev/null || true
 # Per-harness output shapes, unified: claude = one result object; opencode =
 # step_finish events (.part.cost/.part.tokens); pi = message events
 # (.message.usage.cost.total/.output). Slurp (-s) → one value each, never a flood.
@@ -102,6 +121,17 @@ hide_oracle 2>/dev/null || true                          # protect oracle: disca
 git -C "$WT" add -A >/dev/null && git -C "$WT" diff --cached > "$OUT/harness.patch"
 git -C "$WT" reset >/dev/null
 
+# Scope signal (kick-back payload, §6.2): non-test files touched vs the
+# manifest's code_files. A FAIL whose patch is entirely off-scope is the
+# wrong-layer signature — machine-detectable without reading the patch.
+TOUCHED=$(grep -E '^\+\+\+ b/' "$OUT/harness.patch" 2>/dev/null | sed 's|^+++ b/||' | grep -vE '\.(test|spec)\.' || true)
+SCOPE_HIT=no
+while IFS= read -r cf; do
+  { [ -n "$cf" ] && echo "$TOUCHED" | grep -qxF "$cf" && SCOPE_HIT=yes; } || true
+done < <(jq -r '.code_files[]?' "$BUG_JSON")
+OFF_SCOPE=$(echo "$TOUCHED" | grep -vxF -f <(jq -r '.code_files[]?' "$BUG_JSON") 2>/dev/null | grep -v '^$' | paste -sd, - || true)
+echo "   scope: hit=$SCOPE_HIT${OFF_SCOPE:+  off_scope=$OFF_SCOPE}"
+
 echo "══ re-apply hidden oracle, grade ══"
 apply_oracle
 vitest_json "$OUT/after.json"
@@ -116,9 +146,12 @@ if [ "$FTP_FAIL" -eq 0 ] && [ "$PTP_FAIL" -eq 0 ]; then
 else
   VERDICT="FAIL (ftp_still_failing=$FTP_FAIL, regressions=$PTP_FAIL)"
 fi
-echo "VERDICT: $VERDICT   | ${WALL:-?}s  \$${COST:-?}  ${TURNS:-?} turns"
-# one-line machine-readable result for aggregation
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$ID" "$HARNESS" "$VERDICT" "${WALL:-}" "${COST:-}" "${TURNS:-}" "${OUTTOK:-}" > "$OUT/result.tsv"
+# a budget cut still grades the partial patch (data is data) but is marked —
+# it is a spec/cost verdict, not a clean model grade
+if [ "$BUDGET" -eq 1 ]; then VERDICT="BUDGET_EXCEEDED(${MAX_WALL}s) $VERDICT"; fi
+echo "VERDICT: $VERDICT   | ${WALL:-?}s  \$${COST:-?}  ${TURNS:-?} turns  scope=$SCOPE_HIT"
+# one-line machine-readable result for aggregation (v2: +scope_hit +budget)
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$ID" "$HARNESS" "$VERDICT" "${WALL:-}" "${COST:-}" "${TURNS:-}" "${OUTTOK:-}" "$SCOPE_HIT" "$BUDGET" > "$OUT/result.tsv"
 echo "$VERDICT" > "$OUT/verdict.txt"
 # push trace + per-call generations + passed score to Langfuse (no-op without creds)
 python3 "$HERE/langfuse_push.py" "$ID" "$HARNESS" "$MODEL" "$VERDICT" "${COST:-0}" "${TURNS:-0}" "${WALL:-0}" "$OUT/harness.json" 2>&1 | sed 's/^/   /' || true

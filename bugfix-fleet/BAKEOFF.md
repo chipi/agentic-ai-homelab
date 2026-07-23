@@ -292,6 +292,23 @@ against. Same gradeability invariant we enforce on the bug set ("protect the
 oracle", §6), applied at intake. Keep it lean: a **template-filler with a reject
 valve**, not RAG and not a mini-fixer.
 
+**The kick-back protocol (harness → triage), parameterized by the 2026-07-23
+matrix.** Failure shapes at too-low a level are bimodal — empty patch OR an
+expensive wrong-layer grind — so the trigger keys on the **verdict**, never on
+patch emptiness. Deterministic (orchestrator-side, no LLM):
+
+- *Trigger:* FAIL, or `BUDGET_EXCEEDED` — the runner cuts any attempt at
+  `BAKEOFF_MAX_WALL` (default 1200s ≈ 2× the measured passing envelope);
+  runaways cost 2–4.5× a passing sibling and still fail (§6.3).
+- *Payload back to triage — the failed attempt is evidence:* verdict ·
+  `scope_hit` (did the patch touch the expected `code_files` / triage SCOPE
+  at all — an entirely off-scope patch is the machine-readable wrong-layer
+  signature) · off-scope file list · turns/wall/tokens burned · empty-vs-grind
+  shape. Triage re-enters with this evidence: what the harness *tried* often
+  localizes exactly which field (DOMAIN fact, layer, acceptance) was missing.
+- *Both signals ship in `result.tsv`* (`scope_hit`, `budget`), so the loop is
+  wired the day the active triager exists.
+
 ### 6.3 Upping-level as a harness measurement axis
 
 The upping-level is not a fixed setting — it is a **measurement axis**. Run the
