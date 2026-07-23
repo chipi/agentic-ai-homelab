@@ -22,6 +22,15 @@ ORACLE=$(jqr .oracle_test_file); DESC=$(jqr .description)
 AUTHORED=$(jqr '.authored_oracle // empty')   # set when the fix shipped no test
 OUT="$ROOT/results/$ID/$HARNESS"; mkdir -p "$OUT"
 
+# model label (mirror the adapter defaults) + Langfuse creds (outside the repo)
+case "$HARNESS" in
+  claude)   MODEL="${CLAUDE_MODEL:-claude-sonnet-4-6}";;
+  opencode) MODEL="${OPENCODE_MODEL:-openrouter/deepseek/deepseek-v4-pro}";;
+  pi)       MODEL="${PI_MODEL:-deepseek/deepseek-v4-pro}";;
+  *)        MODEL="unknown";;
+esac
+[ -f "$ROOT/langfuse.env" ] && { set -a; . "$ROOT/langfuse.env"; set +a; }
+
 vitest_json(){ # $1 = output json path ; run the oracle file only
   ( cd "$WT" && npx vitest run "$ORACLE" --reporter=json --outputFile="$1" >/dev/null 2>&1 ) || true
 }
@@ -66,11 +75,15 @@ hide_oracle
 SECONDS=0
 # stdout = the adapter's JSON result (usage/cost); stderr = its log.
 "$HERE/harnesses/$HARNESS.sh" "$WT" "$DESC" > "$OUT/harness.json" 2> "$OUT/harness.err" || true
+# Per-harness output shapes, unified: claude = one result object; opencode =
+# step_finish events (.part.cost/.part.tokens); pi = message events
+# (.message.usage.cost.total/.output). Slurp (-s) → one value each, never a flood.
+# COST + output tokens are incremental → sum; input tokens are cumulative → max.
 WALL=$SECONDS
-COST=$(jq -r '.total_cost_usd // .cost_usd // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
-INTOK=$(jq -r '.usage.input_tokens // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
-OUTTOK=$(jq -r '.usage.output_tokens // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
-TURNS=$(jq -r '.num_turns // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
+COST=$(jq -rs 'map(.total_cost_usd // .cost_usd // .part.cost // .message.usage.cost.total // empty) | add // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
+OUTTOK=$(jq -rs 'map(.usage.output_tokens // .part.tokens.output // .message.usage.output // empty) | add // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
+INTOK=$(jq -rs 'map(.usage.input_tokens // .part.tokens.input // .message.usage.input // empty) | max // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
+TURNS=$(jq -rs 'reduce .[] as $e (0; if ($e.num_turns) then $e.num_turns elif ($e.type=="step_finish" or $e.type=="turn_start") then .+1 else . end)' "$OUT/harness.json" 2>/dev/null || echo 0)
 echo "   harness: ${WALL}s  \$$COST  ${TURNS} turns  (in=$INTOK out=$OUTTOK)"
 
 echo "══ capture harness patch (code only) ══"
@@ -96,4 +109,6 @@ echo "VERDICT: $VERDICT   | ${WALL:-?}s  \$${COST:-?}  ${TURNS:-?} turns"
 # one-line machine-readable result for aggregation
 printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$ID" "$HARNESS" "$VERDICT" "${WALL:-}" "${COST:-}" "${TURNS:-}" "${OUTTOK:-}" > "$OUT/result.tsv"
 echo "$VERDICT" > "$OUT/verdict.txt"
+# push trace + per-call generations + passed score to Langfuse (no-op without creds)
+python3 "$HERE/langfuse_push.py" "$ID" "$HARNESS" "$MODEL" "$VERDICT" "${COST:-0}" "${TURNS:-0}" "${WALL:-0}" "$OUT/harness.json" 2>&1 | sed 's/^/   /' || true
 echo "artifacts → $OUT"
