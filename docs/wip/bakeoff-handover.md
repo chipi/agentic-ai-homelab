@@ -146,14 +146,16 @@ get cost, register model pricing in Langfuse Settings→Models (not yet done).
 
 ## Git state — UNPUSHED, do not push without approval
 
-4 local commits ahead of `origin/main`:
+Several local commits ahead of `origin/main` — source of truth is
+`git log --oneline origin/main..HEAD`. As of this handover:
 ```
+fc826ad docs(wip): bake-off handover note (this file)
 07c08dd bakeoff+RFC-0002: active triage — context-establishment, upping-level, two scores
 5cfbda2 bugfix-fleet(bakeoff): gate bug set on pi+deepseek-v4-pro; pin 3 descriptions, drop image-bytes
 bacbad7 bugfix-fleet(bakeoff): opencode+pi adapters, unified cost parse, Langfuse push
 da1a9f8 bugfix-fleet(bakeoff): Phase 1 — working claude adapter + runner (smoke PASS)
 ```
-Working tree clean after this handover is committed.
+(A follow-up commit updates this list; run the command for the live set.)
 
 ## Next iteration (recommended order)
 
