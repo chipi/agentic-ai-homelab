@@ -343,7 +343,8 @@ owner), not pinning tickets to L2 — pinning does per-ticket what a doc does
 once per repo. The substrate is itself a variable now: manifests may carry
 `context_files` (injected as problem state by the runner, committed so they
 never pollute the graded patch). Caveat: n=1 per cell (no-doc miss is 3
-observations across the session; with-doc pass is 1) — k-runs pending.
+observations across the session; with-doc pass is 1) — superseded by the
+2026-07-24 k=3 block below: the with-doc pass replicated at only 1/3.
 
 **Observed (2026-07-23, full matrix on pi+v4-pro, n=1/cell): the axis
 discriminates.** All 15 cells run (manifests + results map:
@@ -351,7 +352,7 @@ discriminates.** All 15 cells run (manifests + results map:
 
 | bug | L0 | L1 | L2 | min level |
 |---|---|---|---|---|
-| fly-physics | FAIL | FAIL · PASS+doc | PASS | **L2** (or L1+repo-doc) |
+| fly-physics | FAIL | FAIL · PASS+doc | PASS | **L2** (L1+doc = 1/3 at k=3) |
 | credits | FAIL | PASS | PASS | **L1** |
 | look-angles | FAIL | PASS | PASS | **L1** |
 | 335-merge | PASS | PASS | PASS | **L0** |
@@ -394,6 +395,45 @@ substitutes for the other. Corollary: validate a module doc by the
 **localization quiz** (right file/function named with the doc, not without),
 not by end-to-end fix success — the latter also depends on ticket quality,
 which is not the doc's job.
+
+**Observed (2026-07-24, k=3 on the five decisive cells, pi+v4-pro): four
+cells are deterministic; the doc-flip is not.** Each cell run to n=3
+(run 1 = the 2026-07-23 measurement; runs 2–3 fresh; ledger:
+`~/.bugfix-fleet/bakeoff/results/k3-sweep.tsv`, Langfuse `BAKEOFF_RUN_IDX`
+2/3):
+
+| cell | verdicts (k=3) | rate | wall s | out-tokens |
+|---|---|---|---|---|
+| credits-L1 | PASS·PASS·PASS | 3/3 | 155–266 | 38–42k |
+| look-angles-L1 | PASS·PASS·PASS | 3/3 | 195–354 | 39–52k |
+| mission-arc-L0 | FAIL·FAIL·FAIL | 0/3 | 471–617 | 133–167k |
+| fly-physics-L1-noctx | FAIL·FAIL·FAIL | 0/3 | 80–110 | 17–26k |
+| fly-physics-L1 (+doc) | PASS·FAIL·FAIL | **1/3** | 95–179 | 21–36k |
+
+Readings:
+- **L1 sufficiency is a rate now, not an anecdote** — credits and
+  look-angles at 3/3, and mission-arc-L0 at 0/3, confirm the min-level
+  assignments with zero variance. Zero regressions in all 10 new runs.
+- **The doc-flip PASS was the outlier, not the rule.** With the README
+  substrate injected, runs 2–3 still patched the decoy `src/lib/orbital.ts`
+  (scope=no, same as noctx) — and the transcripts show the model *read* the
+  README and even opened `fly-physics.ts`, then fixed the wrong file anyway.
+  fly-physics' effective min level is **L2**; "L1+repo-doc" is a ~1/3
+  stochastic rescue, not an operating point. The §6.3 claim "L1 + doc
+  substrate is the scalable operating point" is downgraded accordingly:
+  the doc substrate reliably moves *scope* (localization), but on a bug
+  with a strong in-repo decoy it does not reliably move the *verdict*.
+- **Why the doc loses: it competes with the repo's own docs.** The orrery
+  `AGENTS.md` file-map at base maps `orbital.ts ← keplerPos(), visViva()`
+  and inlines a `visViva` snippet — two authoritative-looking signals
+  pointing at the decoy vs one README pointing away. A substrate doc must
+  *beat* stale/ambiguous in-repo maps, not merely exist.
+- **mission-arc-L0's failure mode is acceptance, not localization** — runs
+  2–3 hit scope (right file) and still failed the oracle after a 150k+
+  token grind. Sharper than the doc-flip framing: for this bug the L0
+  deficit was never topology; only the ticket (acceptance) can fix it.
+- **FAILs stay expensive** — mission-arc-L0 burns ~3.7× the out-tokens of
+  a passing L1 sibling (155k vs 42k), reproducing the cost asymmetry at k=3.
 
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it

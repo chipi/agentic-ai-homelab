@@ -21,6 +21,12 @@ L1 variants: credits + look-angles PASS, fly-physics `-L1-noctx` FAIL /
 Min upping-level per bug: 335=L0 · credits/look-angles/mission-arc=L1 ·
 fly-physics=L2-or-L1+doc.
 
+k=3 (2026-07-24, five decisive cells, BAKEOFF §6.3): credits-L1 3/3 PASS ·
+look-angles-L1 3/3 PASS · mission-arc-L0 0/3 (scope=yes in 2/3 — acceptance
+gap, not localization) · fly-physics-L1-noctx 0/3 (decoy `orbital.ts` every
+run) · fly-physics-L1+doc **1/3** — the doc-flip PASS was the outlier;
+fly-physics' effective min level is L2.
+
 Doc-flip cells (`-L0-doc`, same L0 tickets + module docs from
 `../substrates/`): 0/4 verdict flips, 3/4 scope flips to the correct file
 (all but fly-physics). Docs rescue localization; acceptance must come from

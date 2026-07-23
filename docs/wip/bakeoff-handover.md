@@ -1,4 +1,4 @@
-# Handover — bug-fix fleet bake-off (updated end of 2026-07-23, session 2)
+# Handover — bug-fix fleet bake-off (updated 2026-07-24, session 3)
 
 Fresh-eyes handover for whoever picks up the RFC-0002 bake-off next. Read this
 top-to-bottom once, then work from the pointers. **North star:**
@@ -20,10 +20,23 @@ from both directions:
   **repo module docs** — they flip *localization* (3/4 scope-flips at L0) and
   turn fly-physics L1 FAIL→PASS.
 
-This directly validates RFC-0002's active-triage L1-gate design: triager and
-doc substrate are complementary halves. Everything is committed AND pushed
-(homelab `main` @ `9e8fd7f`; orrery branch `docs/module-readmes` @
-`4d3ecd1c9c`, Lock-check green, full CI runs when a PR opens).
+**Session 3 (2026-07-24) ran the k=3 repeats** on the five decisive cells.
+Four cells are deterministic (credits-L1 3/3, look-angles-L1 3/3,
+mission-arc-L0 0/3, fly-physics-L1-noctx 0/3, zero regressions anywhere) —
+but the **doc-flip PASS did not replicate: fly-physics-L1+doc = 1/3**. Runs
+2–3 read the injected README, opened `fly-physics.ts`, and still patched the
+decoy `orbital.ts` — the in-repo `AGENTS.md` file-map points `visViva` at
+`orbital.ts` and outguns the substrate. Consequences: fly-physics' effective
+min level is **L2**; the "L1+doc is the scalable operating point" claim is
+downgraded (docs reliably move scope, not verdicts, against a strong decoy);
+mission-arc-L0's k=3 FAILs hit the *right file* in 2/3 runs — its L0 deficit
+is purely acceptance. Full block: BAKEOFF §6.3 "Observed 2026-07-24".
+Per-run ledger: `~/.bugfix-fleet/bakeoff/results/k3-sweep.tsv`.
+
+This still validates RFC-0002's active-triage L1-gate design — but shifts
+weight further onto the triager: the doc substrate alone rescues less than
+the n=1 data suggested. Base state pre-session-3: homelab `main` @
+`9e8fd7f`; orrery branch `docs/module-readmes` @ `4d3ecd1c9c`.
 
 ## Measured results (all n=1, pi+v4-pro, 2026-07-23)
 
@@ -87,9 +100,8 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
 
 ## Next iteration (recommended order)
 
-1. **k=3 repeats on the decisive cells** (~30 min, cents): fly-physics
-   L1-noctx / L1+doc, credits-L1, look-angles-L1, mission-arc-L0. Turns n=1
-   observations into rates before anything is built on them.
+1. ~~k=3 repeats on the decisive cells~~ — **DONE 2026-07-24** (see TL;DR;
+   BAKEOFF §6.3 "Observed 2026-07-24"). Actual wall ≈50 min, not 30.
 2. **opencode column** — same model, same matrix (opencode adapter validated
    with `--pure`, never gated across the set). First true harness-vs-harness
    row; substrate policy: harness rows run substrate-OFF (raw recon), one
@@ -103,7 +115,16 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
 
 ## NOT done / NOT verified (explicit gaps)
 
-- **Everything is n=1** except 335-L0 (n=2). No rates.
+- **Only the 5 decisive cells have k=3** — the other 10 matrix cells
+  (all L2s, 335 rows, credits/look-angles L0, doc-flip L0-doc cells)
+  remain n=1.
+- **fly-physics-L1+doc at 1/3 is still a small k** — distinguishing "doc
+  rescues ~1/3 of the time" from "run-1 was a fluke" needs k=10-ish, only
+  worth it if the doc-substrate lever becomes load-bearing.
+- **Unexplained input-token anomaly** — both +doc FAIL runs report in≈2–3k
+  vs 26–28k for noctx runs (pi usage events, max-of-cumulative). Verdicts
+  unaffected, but unexplained; check pi's cache accounting before comparing
+  input-token costs across substrate cells.
 - **No harness comparison exists** — opencode/claude columns unmeasured on
   the current (post-pin) bug set; old glm/kimi runs are stale/pre-pin.
 - **Active-triager not built** — design + kick-back contract only.
@@ -113,7 +134,10 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
 - **Doc-flip caveat** — substrates were written by an author who knew the
   bugs (module-intent only, but not blind). Blind-authoring is the clean
   protocol if the finding needs defending.
-- **Langfuse $** — only future runs get cost; all 2026-07-23 traces show $0.
+- **Langfuse $** — pricing registration verified working: the 10-run k=3
+  sweep totals ≈$0.43 (Langfuse traces API). Session-2 (2026-07-23) traces
+  still show $0 forever. `result.tsv`'s cost column stays 0 for pi — pi's
+  own usage events carry no cost; Langfuse is the $ source of record.
 
 ## Key pointers
 
