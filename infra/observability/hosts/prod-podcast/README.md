@@ -46,3 +46,18 @@ curl -sG "http://dgx-llm-1:9428/select/logsql/query" \
 
 Backend + tailnet ACL details: `../../backend/README.md` and the handover at
 `docs/wip/observability-vps-collector-handover.md`.
+
+## Log collection: one node Alloy + per-app drop-ins (ADR-121)
+
+This box runs **one** Alloy (the node agent / "router" — reads the Docker socket, so it
+sees every container). Alloy runs against the **directory** `/etc/alloy/config.d/`
+(`command: run /etc/alloy/config.d`) and merges all `*.alloy` files into one config:
+
+- `config.d/base.alloy` — the shared router: `discovery.docker`, the `loki.write` sink
+  (→ homelab VictoriaLogs), + the journal/caddy/podcast sources. Owned here (repo-tracked).
+- `config.d/<app>.alloy` — each app drops its OWN `discovery.relabel` keep-filter + labels
+  (e.g. `orrery.alloy`), delivered by that app's deploy. Mirrors the ADR-114 Caddy edge
+  (`sites/<app>.caddy`). Reload after a drop: `docker kill -s HUP alloy` (no root needed).
+
+**Deploy rule:** the box's `/opt/vps-observability/config.d/` may contain app drop-ins
+from other repos — a deploy here must update **only `base.alloy`**, never wipe the dir.

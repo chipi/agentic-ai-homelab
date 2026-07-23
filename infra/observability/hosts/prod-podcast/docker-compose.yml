@@ -11,7 +11,7 @@ services:
     network_mode: host
     pid: host
     volumes:
-      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - ./config.d:/etc/alloy/config.d:ro                # base.alloy + per-app <app>.alloy drop-ins (ADR-121)
       - /:/rootfs:ro,rslave                              # host metrics + journal + caddy log
       - /var/run/docker.sock:/var/run/docker.sock:ro     # discovery.docker -> api /metrics scrape
     env_file:
@@ -20,7 +20,7 @@ services:
       - run
       - --server.http.listen-addr=127.0.0.1:12345
       - --storage.path=/var/lib/alloy/data
-      - /etc/alloy/config.alloy
+      - /etc/alloy/config.d
     logging:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
