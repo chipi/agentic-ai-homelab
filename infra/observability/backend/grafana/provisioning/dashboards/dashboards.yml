@@ -1,16 +1,21 @@
-# File-provider — every *.json under /var/lib/grafana/dashboards (mounted from
-# ./grafana/dashboards) is auto-loaded into the "Homelab" folder. Drop dashboard
-# JSON there and it appears on next Grafana start / within updateInterval.
+# File-provider — dashboards are provisioned from ./grafana/dashboards, with the
+# FOLDER taken from each subdirectory name (foldersFromFilesStructure: true + empty
+# `folder`). Each subdir is a Grafana folder, persisting the 2026-07-23 reorg as code:
+#   dashboards/Homelab/          -> "Homelab"          (host + DGX + orrery-refresh + logs)
+#   dashboards/Production Infra/ -> "Production Infra"  (VPS host / containers / edge)
+#   dashboards/Podcast Operator/ -> "Podcast Operator"  (operator API + viewer)
+#   dashboards/Podcast Player/   -> "Podcast Player"    (consumer player; source of truth
+#                                   is podcast_scraper-infra, synced here for provisioning)
 apiVersion: 1
 
 providers:
   - name: homelab
     orgId: 1
-    folder: Homelab
+    folder: ""
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
       path: /var/lib/grafana/dashboards
-      foldersFromFilesStructure: false
+      foldersFromFilesStructure: true
