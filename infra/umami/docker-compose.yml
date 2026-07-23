@@ -1,0 +1,48 @@
+# Umami — self-hosted web analytics (ADR-0007). Runs on the homelab Mac mini
+# beside the observability stack. Node app + a dedicated Postgres.
+#
+# Ports: admin UI + collection on :3001 (Grafana holds :3000). The admin UI stays
+# tailnet-only; the tracking beacon is exposed publicly via a separate ingress
+# (Tailscale Funnel / Cloudflare Tunnel — see README + issue #8), because the
+# beacon is loaded by visitor browsers on the public internet.
+services:
+  umami-db:
+    image: postgres:16-alpine
+    container_name: umami-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD}
+    volumes:
+      - umami-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    container_name: umami
+    restart: unless-stopped
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET}
+    # UMAMI_LISTEN → this host's tailnet IP to keep the admin UI off the LAN, or
+    # 0.0.0.0 if a downstream reverse-proxy/tunnel handles exposure. Beacon is
+    # published separately (see README).
+    ports:
+      - "${UMAMI_LISTEN:-127.0.0.1}:3001:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/heartbeat || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  umami-db-data:
