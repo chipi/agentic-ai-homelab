@@ -24,8 +24,18 @@ This is a bug-processing pipeline, nothing else.
 - **Orchestrator** — *deterministic code* (no LLM). An always-on service on the
   mini that moves issues through states, routes work, enforces gates/loops/budgets,
   runs tests, opens PRs, parses reviews. LLMs are only **leaf calls**.
-- **Triager** (cheap LLM) — classifies a bug: area / severity / actionability;
-  emits a **structured JSON verdict**; recommends go/no-go.
+- **Active triager** (cheap LLM) — more than a classifier. First *establishes
+  context* (reads `AGENTS.md` + relevant docs + code), then **normalizes** the raw
+  issue into a fix-ready **problem** — a template (symptom · expected behavior +
+  **acceptance criteria** · evidence · area · domain-facts the repo can't supply) —
+  filling *derivable* gaps from that context. Then **gates**: emits a **structured
+  JSON verdict** `actionable | needs-info | reject`, where the test is
+  *acceptance-statable ⟺ an oracle can exist* (if you can't state what "done" is,
+  reject — don't fake it). It normalizes only up to a well-formed problem (level
+  **L1**); it does **not** localize the target function or prescribe the fix — that
+  is the specialist's recon, and *how much normalization a harness needs to succeed
+  is itself a bake-off axis* (min upping-level = recon score). Template, levels, and
+  gate defined in [BAKEOFF §6.1–6.3](https://github.com/chipi/agentic-ai-homelab/blob/main/bugfix-fleet/BAKEOFF.md).
 - **Specialists** (cheap LLM, routed by area: backend / ui / infra / docs) —
   diagnose + fix, and later *address PR-review comments* (same role, re-invoked).
 - **Reviewer** (Claude, self-hosted) — reviews the **whole PR** via the GitHub

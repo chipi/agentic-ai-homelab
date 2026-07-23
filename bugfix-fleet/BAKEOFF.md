@@ -235,6 +235,88 @@ bug's oracle test to be one a *correct* fix wouldn't need to rewrite.
   `harness`/`model`/`repo`/`bug`/`scenario`/`run_idx`; its scores API holds
   `passed`/quality.
 
+### 6.1 Intake — establishing context, and the description's *upping-level*
+
+Before any fix, **context must be established**: the worker reads the governing
+**instructions** (`AGENTS.md`), the relevant **documentation**, and the
+**codebase**, then reasons about what/why/how. This recon — kicked off by the
+**prompt** (the ticket) — is the hidden first phase of every run, and *how well a
+harness does it is itself something we measure* (§6.3).
+
+Real tickets are noisy. We model description quality as an **upping-level** — how
+far the raw issue has been normalized toward a fix-ready spec:
+
+| Level | Contains | Produced by |
+|---|---|---|
+| **L0** | raw issue, untouched (may be garbage) | reporter |
+| **L1** | normalized: symptom · expected behavior + **acceptance criteria** · evidence · scope/area · domain-facts the repo can't supply · go-no-go | **active triage** (the enricher) |
+| **L2** | + localized: target file/function named, relevant code mapped | *the harness's recon* |
+| **L3** | + prescribed: the fix approach / the diff | *the harness's fix* |
+
+**The line is L1.** Intake normalizes and gates *up to* a well-formed **problem**
+(what / why / what-done-means). It must **not** localize (L2) or prescribe (L3) —
+that is the recon and fix the harness has to earn. Handing the harness an L2/L3
+ticket does the harness's job for it and **flattens the measurement** (every
+harness passes a spoon-fed spec).
+
+### 6.2 Active triage — the normalization template + the actionability gate
+
+Flow A's triager (RFC-0002) is **active**: it establishes context and fills a
+template, each field one of *given* (in the ticket) / *derivable* (recon fills it
+from instructions + docs + code) / *missing*:
+
+```
+WHAT      observed / symptom
+EXPECTED  desired behavior + acceptance criteria     <- load-bearing
+EVIDENCE  repro / trace / example (if any)
+SCOPE     area / subsystem   (NOT the file/function — that's the harness)
+DOMAIN    world-facts the repo can't supply (e.g. "CMSA = China's agency")
+VERDICT   actionable | needs-info(what's missing) | reject
+```
+
+"Normalize + fill the gaps" = turn *derivable* → *given* via recon. **Shit-in /
+shit-out** = a *required* field stays *missing* after recon → **don't fake it,
+gate**. The fatal gap is **`EXPECTED`/acceptance**: subsystem, current behavior,
+and domain-facts are usually recon-able, but if the reporter never said what
+"fixed" means and neither docs nor code imply it, *no recon recovers intent*.
+
+The gate has a razor-sharp, testable form tied to our whole oracle discipline:
+
+> **actionable ⟺ acceptance criteria are statable ⟺ an oracle (pass/fail test)
+> can exist.**
+
+So intake's gate question is literally *"can I write the test that decides
+done?"* — yes → normalize to L1 and pass it on; no → **reject**, because without
+acceptance there is nothing for a human, a harness, *or* a grader to succeed
+against. Same gradeability invariant we enforce on the bug set ("protect the
+oracle", §6), applied at intake. Keep it lean: a **template-filler with a reject
+valve**, not RAG and not a mini-fixer.
+
+### 6.3 Upping-level as a harness measurement axis
+
+The upping-level is not a fixed setting — it is a **measurement axis**. Run the
+same bug at L1 vs L2 across harnesses: **the minimum upping-level a harness needs
+to pass = its context-establishment (recon) score.** A harness that fixes a bug
+from **L1** is measurably stronger at recon than one that needs **L2**.
+
+Observed (2026-07-23, orrery gate): on `fly-physics` at L0/L1 ("the vis-viva
+function returns NaN…"), **both deepseek-v4-pro and sonnet fixed the wrong,
+name-matching function** (`visViva`, not the tested `heliocentricSpeed`) — right
+logic, wrong target. Pinning to L2 → v4-pro passed. The gap was **recon, not
+fix-capability**, and it was invisible until we varied the level.
+
+**Corollary signal — the empty patch.** A description too weak to act on yields
+not a *wrong* fix but **nothing** (`look-angles` at L0: 0-line patch, 848 output
+tokens). Low engagement / empty diff ⇒ *the spec failed, not the model* — a
+detectable **kick-back trigger** from harness → active triage.
+
+**Two scores, kept separate:**
+- **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
+  produce a solvable problem, correctly reject the unsolvable, classify
+  given/derivable/missing right?
+- **Harness (fix) score** — L1 → correct fix via *its own* recon (§7), plus the
+  **min upping-level to pass**.
+
 ## 7. Scoring — keep the dimensions separate (no single number)
 
 Per (harness × model) cell:
@@ -242,6 +324,7 @@ Per (harness × model) cell:
 | Dimension | Measured by |
 |---|---|
 | **Success rate** | % bugs the fix passes the hidden oracle (FAIL→PASS) + regression-clean (PASS→PASS), over k (§6) |
+| **Min upping-level to pass** | lowest description level (L1 < L2 < L3) at which the harness lands the fix — L1 = strong recon; needs-L2 = weak context-establishment (§6.3) |
 | **Quality vs Claude** | judge scores the fix against Claude's fix (correctness beyond the oracle, edge cases, approach) |
 | **Fix completeness** | did it do the full job — wrote a regression test? updated affected tests? updated docs on divergence? (the definition of done, §6) — vs a bare code patch |
 | **A-vs-B robustness** | per-bug delta between isolated (A) and cumulative (B) success — crumbles-under-backlog = weak session robustness (§6) |
