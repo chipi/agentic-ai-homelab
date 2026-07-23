@@ -1,0 +1,109 @@
+{
+  "uid": "orrery-launch-data",
+  "title": "Orrery — launch data refresh",
+  "tags": ["orrery", "o11y"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "",
+  "time": { "from": "now-7d", "to": "now" },
+  "refresh": "5m",
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Successful refreshes (24h)",
+      "type": "stat",
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "timeFrom": "24h",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "expr": "app:orrery job:orrery-data-refresh \"ok\" \"bytes\" | stats count() as value",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Failed refreshes (24h)",
+      "type": "stat",
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "timeFrom": "24h",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "expr": "app:orrery job:orrery-data-refresh \"FETCH FAILED\" | stats count() as value",
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Refresh log (job=orrery-data-refresh)",
+      "type": "logs",
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "expr": "app:orrery job:orrery-data-refresh",
+          "queryType": "instant"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending",
+        "prettifyLogMessage": false
+      },
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    }
+  ]
+}

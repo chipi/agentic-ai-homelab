@@ -190,6 +190,48 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: gt, params: [0] } }]
 
+  # --- Orrery (orrerylearn.com VPS) --------------------------------------------
+  # The launch manifest is refreshed by an on-VPS cron every 6h (Orrery RFC-035),
+  # which logs `[refresh-prod-data] … ok — launches.json <n> bytes` on success
+  # (only success lines carry both "ok" and "bytes") to a file the grafana-agent
+  # tails as job=orrery-data-refresh. Count successes over a 7h window (> one
+  # cron period); zero means a run was missed or the fetch is failing, i.e. prod
+  # launch data has gone stale. noDataState=Alerting so a fully silent log
+  # pipeline also trips it; a query error must not page (execErrState=OK).
+  - orgId: 1
+    name: orrery
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      - uid: orrery-launch-data-stale
+        title: "Orrery launch data stale (no refresh in 7h)"
+        condition: threshold
+        for: 15m
+        noDataState: Alerting
+        execErrState: OK
+        labels: { severity: warning, kind: orrery }
+        annotations:
+          summary: "No successful launch-data refresh on orrerylearn.com in 7h — the 6h VPS cron missed a run or the fetch is failing (job=orrery-data-refresh)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 25200, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'app:orrery job:orrery-data-refresh "ok" "bytes" | stats count() as value'
+              queryType: instant
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
 # NOT re-homed yet — Caddy edge 5xx (the third T-11 rule). The caddy.service
 # systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
 # (with status codes) is not tailed into VictoriaLogs (status:* = 0 hits). Wire the
