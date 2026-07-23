@@ -30,7 +30,7 @@
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "fieldConfig": { "defaults": { "unit": "short", "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } } ] }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" }, "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "up{job=~\"pyannote-app|moss-app|vllm-autoresearch|vllm|ollama|support-dbs\"}", "legendFormat": "{{job}} {{service}}", "instant": true } ]
+      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "dgx_service_up", "legendFormat": "{{service}}", "instant": true } ]
     },
     {
       "id": 2, "type": "stat", "title": "GPU util",
