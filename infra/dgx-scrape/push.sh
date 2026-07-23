@@ -15,17 +15,17 @@ while true; do
     curl -s -m5 "http://$DGX:8080/metrics"
     for s in $SVCS; do
       n=${s%%:*}; port=${s##*:}
-      nc -z -G2 "$DGX" "$port" 2>/dev/null && up=1 || up=0
+      nc -z -G2 -w2 "$DGX" "$port" 2>/dev/null && up=1 || up=0
       printf 'dgx_service_up{service="%s"} %s\n' "$n" "$up"
     done
-  } | curl -s -o /dev/null --data-binary @- "$VM"
+  } | curl -s -m8 -o /dev/null --data-binary @- "$VM"
   # FastAPI app metrics over LAN, labelled by job so the DGX-Services board's
   # $service (= label_values(http_requests_total, job)) + FastAPI panels light up.
   # Only apps exposing a Prometheus /metrics endpoint; a down/empty one is skipped.
   for app in moss-app:8004 pyannote-app:8001; do
     job=${app%%:*}; port=${app##*:}
     curl -s -m5 "http://$DGX:$port/metrics" \
-      | curl -s -o /dev/null --data-binary @- \
+      | curl -s -m8 -o /dev/null --data-binary @- \
         "http://localhost:8428/api/v1/import/prometheus?extra_label=host=dgx&extra_label=instance=dgx-llm-1&extra_label=job=$job"
   done
   sleep 20
