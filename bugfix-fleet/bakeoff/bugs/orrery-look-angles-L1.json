@@ -1,0 +1,8 @@
+{
+  "id": "orrery-look-angles-L1", "repo": "orrery", "fix_commit": "a5cf0981",
+  "oracle_test_file": "src/lib/satellite/satellite.test.ts",
+  "code_files": ["src/lib/satellite/look-angles.ts"],
+  "area": "astro-coord-math", "difficulty": "hard",
+  "level": "L1",
+  "description": "Satellite observer (ground station) geometry uses a spherical Earth instead of the WGS84 ellipsoid, so the observer's Earth-centered position is wrong away from the equator — off by about 21 km at the poles. Expected: the observer position follows WGS84 (equatorial radius a = 6378.137 km, 1/f = 298.257223563): distance from Earth's center equals a at latitude 0 and the polar radius a*(1-f) (about 6356.752 km) at latitude 90. Observer altitude in km above the ellipsoid must also be honored, raising the position along the local ellipsoid normal. Acceptance: observer position magnitude matches those radii at equator and pole, and a positive altitude increases the magnitude accordingly."
+}

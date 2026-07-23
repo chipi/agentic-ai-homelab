@@ -1,0 +1,8 @@
+{
+  "id": "orrery-credits-L1", "repo": "orrery", "fix_commit": "aaaab7f6",
+  "oracle_test_file": "src/lib/credits-grouping.test.ts",
+  "code_files": ["src/lib/credits-grouping.ts"],
+  "area": "data-mapping", "difficulty": "easy-medium",
+  "level": "L1",
+  "description": "The credits/attribution grouping misfiles several agencies under the 'wikimedia-commons' source section. Expected mapping (domain facts a fix must respect): CMSA (China Manned Space Agency) is China's human-spaceflight agency and folds into China's existing section 'cnsa'; SpaceIL is an independent Israeli organization and gets its own section 'spaceil'; USAF space credits belong with the US military space section 'us-space-force' (same bucket as USSF); CSA (Canadian Space Agency) maps to its own section 'csa' when CSA is the primary/first credited agency (e.g. 'CSA / NASA'), while NASA-first joint credits (e.g. 'NASA / ESA') stay under 'nasa'. The existing CNSA -> 'cnsa' mapping must keep working. Acceptance: each credit string above resolves to its stated section id."
+}

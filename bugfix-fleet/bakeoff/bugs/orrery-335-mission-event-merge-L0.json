@@ -1,0 +1,8 @@
+{
+  "id": "orrery-335-mission-event-merge-L0", "repo": "orrery", "fix_commit": "0cb1f36561",
+  "oracle_test_file": "src/lib/mission-event-merge.test.ts",
+  "code_files": ["src/lib/mission-event-merge.ts"],
+  "area": "data-merge", "difficulty": "medium",
+  "level": "L0",
+  "description": "On Cassini every flyby in the event ticker just says 'FLYBY' with an empty note. The mission data definitely has proper names for these events."
+}

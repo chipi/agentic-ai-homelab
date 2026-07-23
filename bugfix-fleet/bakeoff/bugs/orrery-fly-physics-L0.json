@@ -1,0 +1,8 @@
+{
+  "id": "orrery-fly-physics-L0", "repo": "orrery", "fix_commit": "0d6644f9",
+  "oracle_test_file": "src/lib/orbital/fly-physics.test.ts",
+  "code_files": ["src/lib/orbital/fly-physics.ts"],
+  "area": "orbital-physics", "difficulty": "hard",
+  "level": "L0",
+  "description": "Flying out to the outer planets, the HUD speed readout just says 'NaN km/s' the whole way. Looks completely broken."
+}

@@ -1,0 +1,8 @@
+{
+  "id": "orrery-335-mission-event-merge-L2", "repo": "orrery", "fix_commit": "0cb1f36561",
+  "oracle_test_file": "src/lib/mission-event-merge.test.ts",
+  "code_files": ["src/lib/mission-event-merge.ts"],
+  "area": "data-merge", "difficulty": "medium",
+  "level": "L2",
+  "description": "On multi-flyby missions like Cassini, the CAPCOM event ticker shows every flyby as the generic label 'FLYBY' with an empty note — even though the mission data (flight.events) carries specific per-event labels such as 'Venus #1 — gravity assist' and 'Saturn orbit insertion', plus multi-sentence descriptions. The rich per-event text is present in the data but never reaches the ticker. The merge happens in mergeFlightEvents() in src/lib/mission-event-merge.ts: when an event supplies its own label/description, those must override the generic labelMap/DEFAULT_FLIGHT_LABELS fallback; fall back to the type-based label/note only when the event doesn't supply its own. Event severity/colour stays driven by the event type."
+}

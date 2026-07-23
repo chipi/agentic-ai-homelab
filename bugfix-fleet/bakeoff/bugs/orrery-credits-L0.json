@@ -1,0 +1,8 @@
+{
+  "id": "orrery-credits-L0", "repo": "orrery", "fix_commit": "aaaab7f6",
+  "oracle_test_file": "src/lib/credits-grouping.test.ts",
+  "code_files": ["src/lib/credits-grouping.ts"],
+  "area": "data-mapping", "difficulty": "easy-medium",
+  "level": "L0",
+  "description": "On the credits page a bunch of space agencies show up under Wikimedia Commons instead of where they belong."
+}
