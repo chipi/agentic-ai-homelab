@@ -159,11 +159,14 @@ da1a9f8 bugfix-fleet(bakeoff): Phase 1 — working claude adapter + runner (smok
 
 ## Next iteration (recommended order)
 
-1. **Isolating experiment (do first — cheapest, highest info).** Run `fly-physics`
-   at **L1** (no target pinned) but **add/point to the right docs** ("heliocentricSpeed
-   is the HUD transfer-speed; visViva is the generic helper"), then run the harness.
-   Decides the open question: *missing-context vs impossible-ticket*. If recon now
-   bridges L1→fix, the investment is the **doc substrate**, not ticket-pinning.
+1. ~~**Isolating experiment**~~ **DONE 2026-07-23 (later session): answer =
+   missing-context.** A/B on pi+v4-pro, same L1 ticket verbatim: no doc → FAIL
+   (decoy-only, 6 turns); with `src/lib/orbital/README.md` module map → PASS
+   (18 turns, correct target). Result + consequence written into BAKEOFF §6.3.
+   Runner grew a `context_files` manifest hook (substrate committed as problem
+   state, never in the graded patch). Manifests: `bugs/orrery-fly-physics-L1.json`
+   (+`-noctx` control). Also fixed: all 3 adapters hung inheriting a held-open
+   stdin (`< /dev/null` now forced — pi sat 11 min at 0 CPU).
 2. **Ticket triples.** Author each of the 5 bugs at {L0 degraded, L1 normalized,
    L2 pinned}. (We have L2 now; originals ≈ L0/L1.) This is the upping-axis test
    matrix.

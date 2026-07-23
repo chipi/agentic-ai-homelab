@@ -15,4 +15,6 @@ When done, stop — do not commit, push, or open a PR.
 EOF
 cd "$WT"
 export NODE_OPTIONS="--max-old-space-size=4096"
-pi -p --mode json --model "$MODEL" "$PROMPT"
+# </dev/null: headless run must not inherit caller stdin — pi -p blocks reading
+# a held-open stdin socket (bit us 2026-07-23: 11-min 0-CPU hang, zero output)
+pi -p --mode json --model "$MODEL" "$PROMPT" < /dev/null

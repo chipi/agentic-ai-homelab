@@ -50,6 +50,17 @@ git -C "$WT" reset --hard "$BASE" >/dev/null
 git -C "$WT" clean -fd >/dev/null                       # keeps gitignored node_modules
 ( cd "$WT" && npm run i18n:compile >/dev/null 2>&1 ) || true
 
+# Optional doc substrate (manifest .context_files): part of the PROBLEM STATE,
+# committed onto the worktree so it never shows in the captured harness patch.
+if jq -e '.context_files' "$BUG_JSON" >/dev/null 2>&1; then
+  echo "══ inject context substrate ══"
+  jq -r '.context_files[] | .repo_path + "\t" + .src' "$BUG_JSON" | while IFS=$'\t' read -r RP SP; do
+    mkdir -p "$WT/$(dirname "$RP")"; cp "$HERE/$SP" "$WT/$RP"; git -C "$WT" add "$RP"
+    echo "   + $RP"
+  done
+  git -C "$WT" -c user.email=bakeoff@local -c user.name=bakeoff commit -q -m "docs: module notes"
+fi
+
 echo "══ establish oracle at base ══"
 apply_oracle
 vitest_json "$OUT/base.json"

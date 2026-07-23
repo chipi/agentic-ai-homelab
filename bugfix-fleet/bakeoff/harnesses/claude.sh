@@ -23,4 +23,5 @@ cd "$WT"
 export NODE_OPTIONS="--max-old-space-size=4096"   # drop harness's broken --require preload
 # --output-format json → the agent still edits files via tools, and the final
 # JSON carries usage/cost/num_turns/duration (parsed by run.sh for scoring).
-claude -p "$PROMPT" --model "$MODEL" --dangerously-skip-permissions --output-format json
+# </dev/null: headless run must not inherit caller stdin (see pi.sh 2026-07-23)
+claude -p "$PROMPT" --model "$MODEL" --dangerously-skip-permissions --output-format json < /dev/null

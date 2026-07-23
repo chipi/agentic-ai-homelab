@@ -310,6 +310,24 @@ not a *wrong* fix but **nothing** (`look-angles` at L0: 0-line patch, 848 output
 tokens). Low engagement / empty diff ⇒ *the spec failed, not the model* — a
 detectable **kick-back trigger** from harness → active triage.
 
+**Observed (2026-07-23, isolating experiment): the doc substrate flips L1.**
+Same `fly-physics` L1 ticket verbatim, pi+v4-pro, A/B on one variable — a
+module-map doc (`src/lib/orbital/README.md`: which of the two vis-viva
+implementations serves the fly HUD):
+- **No doc → FAIL** (80s, 6 turns): read `orbital.ts`, patched the decoy, done —
+  never opened `fly-physics.ts`. Reproduces the historical miss exactly.
+- **With doc → PASS** (179s, 18 turns): first grep surfaced the README's mapping
+  lines, trajectory deepened, fixed the tested `heliocentricSpeed` correctly.
+
+So the fly-physics gap was **missing repo context, not an impossible ticket**:
+recon bridges L1→fix when the repo documents the disambiguation. Consequence:
+the cheap lever is the **doc substrate** (module maps that name each subsystem's
+owner), not pinning tickets to L2 — pinning does per-ticket what a doc does
+once per repo. The substrate is itself a variable now: manifests may carry
+`context_files` (injected as problem state by the runner, committed so they
+never pollute the graded patch). Caveat: n=1 per cell (no-doc miss is 3
+observations across the session; with-doc pass is 1) — k-runs pending.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify

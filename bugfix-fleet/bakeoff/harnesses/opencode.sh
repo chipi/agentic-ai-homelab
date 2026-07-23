@@ -16,4 +16,5 @@ When done, stop — do not commit, push, or open a PR.
 EOF
 cd "$WT"
 export NODE_OPTIONS="--max-old-space-size=4096"
-opencode run --pure -m "$MODEL" --format json "$PROMPT"
+# </dev/null: headless run must not inherit caller stdin (see pi.sh 2026-07-23)
+opencode run --pure -m "$MODEL" --format json "$PROMPT" < /dev/null
