@@ -1,202 +1,125 @@
-# Handover — bug-fix fleet bake-off (session 2026-07-23)
+# Handover — bug-fix fleet bake-off (updated end of 2026-07-23, session 2)
 
 Fresh-eyes handover for whoever picks up the RFC-0002 bake-off next. Read this
 top-to-bottom once, then work from the pointers. **North star:**
-[`bugfix-fleet/BAKEOFF.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/bugfix-fleet/BAKEOFF.md).
-**Architecture:** [`docs/rfc/RFC-0002`](../rfc/RFC-0002-autonomous-bug-fix-fleet.md).
+[`bugfix-fleet/BAKEOFF.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/bugfix-fleet/BAKEOFF.md)
+(design §6.1–6.3, results are written inline there). **Architecture:**
+[`docs/rfc/RFC-0002`](../rfc/RFC-0002-autonomous-bug-fix-fleet.md).
 
 ## TL;DR — where we are
 
-The eval pipeline **works end-to-end** and the 5-bug orrery set is **green on the
-base config** (`pi + deepseek/deepseek-v4-pro`). The session's real output is a
-**design shift**, now written into BAKEOFF §6.1–6.3 + RFC-0002: **bug-description
-quality is the dominant variable**, and *how much a description must be "upped" to
-succeed is itself a harness measurement axis*. Next up is building/measuring
-**active triage** (the L1 normalizer+gate) — but the immediate recommended step is
-one cheap experiment (see "Next iteration").
+The instrument is **built, calibrated, and hardened**; the first real science
+is done. On the base config (`pi + deepseek/deepseek-v4-pro`), the full
+**L0/L1/L2 upping-level matrix** is measured (15 cells + 4 doc-flip cells,
+all n=1), and the day's durable insight is the **two-factor model**, measured
+from both directions:
 
-**Nothing is pushed.** 4 local commits sit on `main` ahead of `origin/main`,
-awaiting operator approval to push (rule #1). Do **not** push without an explicit
-"push/ship it".
+- **Acceptance** (what "fixed" means) must live in the **ticket** — only
+  normalization to L1 flips verdicts. Docs never did (0/4 at L0).
+- **Topology** (which of the look-alike functions, what owns what) belongs in
+  **repo module docs** — they flip *localization* (3/4 scope-flips at L0) and
+  turn fly-physics L1 FAIL→PASS.
 
-## The base config (decided this session)
+This directly validates RFC-0002's active-triage L1-gate design: triager and
+doc substrate are complementary halves. Everything is committed AND pushed
+(homelab `main` @ `9e8fd7f`; orrery branch `docs/module-readmes` @
+`4d3ecd1c9c`, Lock-check green, full CI runs when a PR opens).
 
-- **Harness = pi**, **model = `deepseek/deepseek-v4-pro`**. Chosen over opencode
-  for lowest friction (single binary, one clean event stream, no plugin/state-db
-  fights). **Swappable** — `PI_MODEL` / `OPENCODE_MODEL` / `CLAUDE_MODEL` env vars
-  are already parameterized in the adapters.
-- **Gate model = deepseek-v4-pro, NOT sonnet.** A bug is "valid" only when this
-  cheap base worker solves it red→green from its description alone. (We tried
-  sonnet-as-gate first; the operator flipped it — v4-pro is cheap enough to iterate
-  freely and is the actual base-worker tier.)
+## Measured results (all n=1, pi+v4-pro, 2026-07-23)
 
-## The 5-bug set — all PASS the gate
+| Bug | L0 | L1 | L2 | min level |
+|---|---|---|---|---|
+| fly-physics | FAIL | FAIL · PASS+doc | PASS | L2 or L1+repo-doc |
+| credits | FAIL | PASS | PASS | L1 |
+| look-angles | FAIL | PASS | PASS | L1 |
+| 335-merge | PASS (n=2) | PASS | PASS | L0 |
+| mission-arc | FAIL | PASS | PASS | L1 |
 
-Manifests: `bugfix-fleet/bakeoff/bugs/orrery-*.json`. All verified PASS on
-`pi + deepseek-v4-pro` on 2026-07-23.
+Plus: FAILs cost 2–4.5× their passing siblings (look-angles L0: 232k
+out-tokens, 27 min); failure shape bimodal (empty patch OR wrong-layer
+grind); zero regressions in any cell. Full readings: BAKEOFF §6.3. Cell map +
+results: `bugfix-fleet/bakeoff/bugs/README.md`.
 
-| Bug | Gate | Description was |
-|---|---|---|
-| orrery-fly-physics | PASS | **re-pinned** — name-trap "vis-viva fn" → two exist; pinned `heliocentricSpeed` (fly-physics.ts), warned off `visViva` decoy |
-| orrery-credits | PASS | **re-pinned** — added exact mappings (CMSA→cnsa, SpaceIL→spaceil, USAF→us-space-force, CSA primary→csa) + substring guard |
-| orrery-look-angles | PASS | **re-pinned (2 iters)** — described RA/Dec symptoms but oracle grades `observerEci` WGS84 radius; retargeted + added altitude param |
-| orrery-335-mission-event-merge | PASS | already good |
-| orrery-mission-arc | PASS | already good |
+## What was built this session (beyond session 1's runner+adapters)
 
-**Dropped:** `orrery-image-bytes` → `bugfix-fleet/bakeoff/bugs/dropped/` (reason in
-that folder's README): only structure-coupled oracle in the set — a feature-add
-with no stable behavioral interface; `validate-data` is unusable at base (missing
-LFS binaries). Do not resurrect without a solution-agnostic oracle.
+- **`context_files` substrate hook** in `run.sh` — manifest lists docs to
+  inject as committed problem state (never pollutes the graded patch).
+- **Budget cap** — `BAKEOFF_MAX_WALL` (default 1200s); runaway attempts cut,
+  graded on partial patch, marked `BUDGET_EXCEEDED`. Smoke-tested.
+- **Scope signal** — patch's non-test files vs manifest `code_files` →
+  `scope_hit` + off-scope list in `result.tsv` (v2: 9 columns, +scope +budget).
+- **Kick-back protocol contract** — BAKEOFF §6.2 (trigger = verdict; payload
+  = the failed attempt as evidence). Wired the day the triager exists.
+- **Module-README convention** — guide + validation
+  (`templates/module-readme-guide.md` here; orrery got its own copy at
+  `docs/guides/module-readme-guide.md` + 3 example maps (`src/lib/ar/`,
+  `scripts/`, `tests/e2e/`) + AGENTS.md/CLAUDE.md wiring, branch
+  `docs/module-readmes`). Validate docs by **localization quiz**, never by
+  end-to-end fix success.
+- **Langfuse model pricing registered** (v4-pro/v4-flash/glm-5.2/kimi-k2.6 at
+  OpenRouter rates) — runs from now on show real $; older traces stay $0.
+- **Adapter stdin fix** — all three adapters force `< /dev/null`; a headless
+  harness inheriting a held-open stdin socket hangs silently (pi: 11 min,
+  0 CPU). Do not remove.
 
-## Key decisions taken (with rationale)
+## The base config + gate (unchanged from session 1)
 
-1. **Gate = v4-pro, base = pi.** (above)
-2. **image-bytes dropped.** No solution-agnostic oracle possible.
-3. **3/5 descriptions re-pinned to L2** to pass the gate — but note the *pinning
-   itself* became the central learning (it does the harness's recon job; see
-   design below). The current manifests are L2 (localized). To measure harnesses
-   we will need L1 versions too (not yet authored).
-4. **OpenRouter data policy = zero-retention only.** Empirically mapped: 14
-   providers allowed (StreamLake, Baidu, GMICloud, Novita, DeepInfra, DigitalOcean,
-   Alibaba, SiliconFlow, Venice, AtlasCloud, BaseTen, WandB, Together, Fireworks);
-   **DeepSeek first-party blocked** (trains on inputs). **Reachable models:
-   `deepseek-v4-pro`, `z-ai/glm-5.2`, `moonshotai/kimi-k2.6` only.** All other
-   deepseek (`v3.2`, `v3.1-terminus`, `r1-0528`, `chat-v3.1`) and **both qwen
-   coders are 404-blocked** — no per-provider workaround (filter is per-endpoint).
-   Operator chose to **keep the strict policy** (do not relax to test qwen/older
-   deepseek unless they say so).
+Harness = **pi**, model = **`deepseek/deepseek-v4-pro`** (swappable via
+`PI_MODEL`/`OPENCODE_MODEL`/`CLAUDE_MODEL`). Gate: a bug is valid only when
+this config solves it red→green from its description. All 5 canonical
+manifests pass the gate. OpenRouter zero-retention policy limits reachable
+models to v4-pro/v4-flash, glm-5.2, kimi-k2.6 (qwen + older deepseek 404).
+pi auth: `~/.pi/agent/auth.json`; no env key needed.
 
-## The major learning + the design (this session's real output)
+## How to run
 
-**Learning:** description quality dominates model choice. Proof: on `fly-physics`
-with a vague spec, **both v4-pro AND sonnet fixed the wrong (name-matching)
-function** (`visViva` not the tested `heliocentricSpeed`) — right logic, wrong
-target. Pinning the target → v4-pro passed. The "model capability" story chased for
-much of the session was an artifact of under-specified descriptions. (Retraction on
-file: an earlier "sonnet navigates better" claim was refuted by sonnet's identical
-fly-physics miss.)
-
-**Design (written into BAKEOFF §6.1–6.3, RFC-0002 role, and memory):**
-- **Upping-level L0→L3:** L0 raw · **L1 normalized + gated (active triage's ceiling)**
-  · L2 localized (harness's recon) · L3 prescribed (harness's fix). Enricher must
-  never cross past L1 or it flattens the measurement.
-- **Active triage** = establish context (AGENTS.md + docs + code) → fill a template
-  (WHAT / EXPECTED+acceptance / EVIDENCE / SCOPE / DOMAIN / VERDICT), each field
-  *given | derivable-by-recon | missing* → **gate**. Gate invariant:
-  **actionable ⟺ acceptance statable ⟺ an oracle can exist.** Missing acceptance
-  that recon can't recover → **reject, never fake** ("shit-in/shit-out").
-- **Min upping-level to pass = the harness's recon score** (new §7 row).
-  Empty-patch / low-engagement = "spec failed, not model" = kick-back trigger.
-- **Two separate scores:** intake (garbage→L1-or-reject) vs harness (L1→fix).
-- Keep it lean: active triage is a **template-filler with a reject valve**, NOT RAG
-  and NOT a mini-fixer.
-
-Memory: `memory/project_bakeoff_description_is_lever.md` (full taxonomy of bad
-descriptions + the fix-ready-spec recipe).
-
-## Pipeline mechanics — how to run
-
-Everything under `bugfix-fleet/bakeoff/`. Run artifacts + the orrery worktrees live
-**outside the repo** at `~/.bugfix-fleet/bakeoff/` (`orrery-src` = clean clone,
-`orrery` = the scratch worktree, `results/<bug>/<harness>/`).
-
-Run one bug:
 ```
 cd bugfix-fleet/bakeoff
 export PI_MODEL="deepseek/deepseek-v4-pro" BAKEOFF_RUN_IDX="label"
-./run.sh bugs/orrery-credits.json pi          # harness = pi|opencode|claude
+./run.sh bugs/orrery-credits.json pi        # pi|opencode|claude
 ```
-`run.sh` (SWE-bench-style): reset worktree to `<fix>^` → apply hidden oracle → run
-(record FAIL_TO_PASS + PASS_TO_PASS) → hide oracle → hand harness ONLY the
-description → capture code-only patch → re-apply oracle fresh → delta-grade →
-push to Langfuse. Verdict PASS iff every FAIL_TO_PASS goes green AND no PASS_TO_PASS
-regresses. Golden-path check: `./verify.sh` (red at base → green at fix).
-
-Adapters (`harnesses/{claude,opencode,pi}.sh`) all use the IDENTICAL fix prompt and
-emit their native JSON; `run.sh` unifies cost/token/turn parse across the three
-shapes. opencode uses `--pure` (disables oh-my-openagent plugin so plain edits are
-captured). All three tuned to output plain edits + a result stream.
-
-## Langfuse
-
-Dedicated project **`agentic-bakeoff`** on self-hosted `http://homelab:4000`.
-Every run auto-pushes a trace + per-call generations + `passed` score via
-`langfuse_push.py`. Source attribution: `userId=harness`, `sessionId=bug`,
-`environment=bakeoff`, tags `[bakeoff, harness, model, bug, run:N]`. Creds in
-**`~/.bugfix-fleet/bakeoff/langfuse.env`** (outside repo, gitignored). Verified
-`207/201`. Note: **pi/opencode report `$0` cost natively** (tokens present) — to
-get cost, register model pricing in Langfuse Settings→Models (not yet done).
-
-## Gotchas (bit us this session)
-
-- **`NODE_OPTIONS`** — the harness env carries a broken `--require
-  restore-node-options.cjs` preload. `run.sh` overrides it
-  (`--max-old-space-size=4096`); in ad-hoc shells `unset NODE_OPTIONS` or vitest/tsx
-  dies with "Cannot find module restore-node-options.cjs".
-- **Shared worktree → no parallel runs.** All bugs use `~/.bugfix-fleet/bakeoff/orrery`;
-  `run.sh` resets it each run. Run bugs **sequentially**.
-- **Reasoning models don't work as agents in pi.** `r1-0528` stalled 26 min
-  (0-CPU, retry-loop on a 404). Use tool-trained models only.
-- **`timeout` is not on macOS** — use `perl -e 'alarm N; exec @ARGV' ...`.
-- **Broad `grep -r ~/Projects`** balloons on huge single-line files (a runaway hit
-  32 GB). Scope with `--exclude-dir` / use `rg`.
-- **mkdocs `--strict`** gates `docs/**` — run `make docs-build` (exit 0) before any
-  docs commit. Links from `docs/` to files outside it must be absolute
-  github-blob URLs.
-
-## Git state — UNPUSHED, do not push without approval
-
-Several local commits ahead of `origin/main` — source of truth is
-`git log --oneline origin/main..HEAD`. As of this handover:
-```
-fc826ad docs(wip): bake-off handover note (this file)
-07c08dd bakeoff+RFC-0002: active triage — context-establishment, upping-level, two scores
-5cfbda2 bugfix-fleet(bakeoff): gate bug set on pi+deepseek-v4-pro; pin 3 descriptions, drop image-bytes
-bacbad7 bugfix-fleet(bakeoff): opencode+pi adapters, unified cost parse, Langfuse push
-da1a9f8 bugfix-fleet(bakeoff): Phase 1 — working claude adapter + runner (smoke PASS)
-```
-(A follow-up commit updates this list; run the command for the live set.)
+Worktrees/results/langfuse.env live outside the repo at
+`~/.bugfix-fleet/bakeoff/`. **Sequential runs only** (shared worktree).
+Results per cell overwrite by (id, harness) — re-running a cell replaces its
+artifacts, so label sweeps via `BAKEOFF_RUN_IDX` and treat Langfuse as the
+run ledger. Gotchas from session 1 still apply (NODE_OPTIONS preload, no
+macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
 
 ## Next iteration (recommended order)
 
-1. ~~**Isolating experiment**~~ **DONE 2026-07-23 (later session): answer =
-   missing-context.** A/B on pi+v4-pro, same L1 ticket verbatim: no doc → FAIL
-   (decoy-only, 6 turns); with `src/lib/orbital/README.md` module map → PASS
-   (18 turns, correct target). Result + consequence written into BAKEOFF §6.3.
-   Runner grew a `context_files` manifest hook (substrate committed as problem
-   state, never in the graded patch). Manifests: `bugs/orrery-fly-physics-L1.json`
-   (+`-noctx` control). Also fixed: all 3 adapters hung inheriting a held-open
-   stdin (`< /dev/null` now forced — pi sat 11 min at 0 CPU).
-2. **Ticket triples.** Author each of the 5 bugs at {L0 degraded, L1 normalized,
-   L2 pinned}. (We have L2 now; originals ≈ L0/L1.) This is the upping-axis test
-   matrix.
-3. **Build active-triager** as a thin worker call (template + given/derivable/missing
-   + oracle-exists gate). Feed L0 tickets → emits L1 or correctly rejects = intake
-   score.
-4. **Measurement grid:** harness × bug × level → min-upping-level per harness.
+1. **k=3 repeats on the decisive cells** (~30 min, cents): fly-physics
+   L1-noctx / L1+doc, credits-L1, look-angles-L1, mission-arc-L0. Turns n=1
+   observations into rates before anything is built on them.
+2. **opencode column** — same model, same matrix (opencode adapter validated
+   with `--pure`, never gated across the set). First true harness-vs-harness
+   row; substrate policy: harness rows run substrate-OFF (raw recon), one
+   substrate-ON row separately.
+3. **Build the active-triager** (RFC-0002 role, thin worker call): template +
+   given/derivable/missing + oracle-exists gate. The measured L0→L1 pairs are
+   its ready-made eval set (intake score = L0 garbage → L1-or-reject).
+4. **Orrery module-README PR** — open PR from `docs/module-readmes`, full CI
+   proves the docs-only change; merge is operator's call.
+5. Then: measurement grid rows (glm/kimi), Scenario B, podcast_scraper Phase 0.
 
 ## NOT done / NOT verified (explicit gaps)
 
-- **Only v4-pro passes are verified.** glm-5.2 + kimi-k2.6 were run on credits/
-  fly-physics **before** the description pins and the drop — those FAILs are stale
-  (mixed with the mis-authored descriptions). No clean harness-comparison grid exists
-  yet.
-- **L1 ticket versions not authored** — current manifests are L2. The upping-axis is
-  designed but unmeasured.
-- **Active-triager not built** — design only.
-- **`podcast_scraper` repo not started** — bake-off Appendix lists 8 candidate bugs
-  "to rebuild"; orrery is the only live repo.
-- **Model pricing not registered in Langfuse** — pi/opencode cost shows `$0`.
-- **k-runs (repeat for rate)** — every result so far is n=1 per cell.
-- **Scenario B (cumulative backlog)** — not exercised; only Scenario A (isolated).
-- **opencode as base** — validated it runs (`--pure`) but not gated across the set.
+- **Everything is n=1** except 335-L0 (n=2). No rates.
+- **No harness comparison exists** — opencode/claude columns unmeasured on
+  the current (post-pin) bug set; old glm/kimi runs are stale/pre-pin.
+- **Active-triager not built** — design + kick-back contract only.
+- **Scenario B (cumulative backlog)** — never exercised.
+- **podcast_scraper** — not started; candidate bugs in BAKEOFF Appendix need
+  re-selection at their own bases.
+- **Doc-flip caveat** — substrates were written by an author who knew the
+  bugs (module-intent only, but not blind). Blind-authoring is the clean
+  protocol if the finding needs defending.
+- **Langfuse $** — only future runs get cost; all 2026-07-23 traces show $0.
 
 ## Key pointers
 
-- North star: `bugfix-fleet/BAKEOFF.md` (design in §6.1–6.3, scoring §7)
-- RFC: `docs/rfc/RFC-0002-autonomous-bug-fix-fleet.md` (Active triager role)
-- Existing triage code (the seed to evolve): `bugfix-fleet/src/flows/triage.ts`
-- Agent defs: `bugfix-fleet/agents/*.md`
-- Runner/adapters/oracles: `bugfix-fleet/bakeoff/{run.sh,verify.sh,harnesses/,oracles/,langfuse_push.py}`
-- Memory: `project_bakeoff_description_is_lever.md`, `project_bugfix_fleet_bakeoff.md`
-- Off-repo state: `~/.bugfix-fleet/bakeoff/` (worktrees, results, langfuse.env)
+- North star + all results: `bugfix-fleet/BAKEOFF.md` (§6.1–6.3, §7)
+- Cell map: `bugfix-fleet/bakeoff/bugs/README.md` · substrates: `bakeoff/substrates/`
+- Runner/adapters: `bugfix-fleet/bakeoff/{run.sh,harnesses/}` · Langfuse project `agentic-bakeoff` @ homelab:4000
+- Module-README guide (operator template): `templates/module-readme-guide.md`
+- RFC: `docs/rfc/RFC-0002-autonomous-bug-fix-fleet.md` (Active triager)
+- Memory: `project_bugfix_fleet_bakeoff.md`, `project_bakeoff_description_is_lever.md`

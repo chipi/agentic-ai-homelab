@@ -124,6 +124,7 @@ nav:
     - "0002 — Decisions log": history/0002-decisions.md
     - "0003 — v0.2 arc": history/0003-v0.2-arc.md
     - "0004 — Agent-config + skills": history/0004-agent-config-and-skills.md
+    - "0005 — Bake-off matrix arc": history/0005-bakeoff-matrix-arc.md
 
 extra:
   social:

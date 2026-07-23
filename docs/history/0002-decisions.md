@@ -218,3 +218,38 @@ available manually (`rtk <cmd>`, `rtk gain`). Mirrored into
 **Alternatives:** keep rtk as the rewriter for its specialized per-tool proxies —
 not chosen; lean-ctx is the declared primary context runtime and wraps all
 commands, and `ctx_shell` (the main shell) bypasses both hooks anyway.
+
+---
+
+## D-0011 — Bake-off runner: wall-clock budget cap, distinct BUDGET verdict
+
+**Date:** 2026-07-23
+**Context:** Matrix measurement showed failing attempts cost 2–4.5× their
+passing siblings (worst: 27 min / 232k output tokens on a wrong-layer grind)
+— under-specified tickets burn money without failing fast.
+**Decision:** `run.sh` cuts any attempt at `BAKEOFF_MAX_WALL` (default 1200s
+≈ 2× the measured passing envelope), grades the partial patch anyway, and
+marks the verdict `BUDGET_EXCEEDED(…)` — a spec-suspect signal distinct from
+a clean FAIL. Alongside it, `result.tsv` v2 carries `scope_hit` (patch's
+non-test files vs manifest `code_files`) as the machine-readable wrong-layer
+signature.
+**Alternatives:** turn-count or token caps — not chosen; no portable flag
+across the three harnesses, and wall-clock is the resource that actually
+bounds sequential sweeps.
+
+---
+
+## D-0012 — Module docs are validated by localization, not fix success
+
+**Date:** 2026-07-23
+**Context:** Doc-flip experiment: module-map docs injected under garbage (L0)
+tickets flipped 0/4 verdicts but 3/4 localizations (right file found where
+the no-doc run mis-targeted). Verdict flips happen only once the ticket
+itself states acceptance (L1).
+**Decision:** A module README is judged load-bearing by the **localization
+quiz** — right file/function named with the doc, not without. End-to-end fix
+success is NOT the doc's bar: acceptance is the ticket's job (active triage),
+topology is the doc's. Encoded in BAKEOFF §6.3, the operator template
+(`templates/module-readme-guide.md`), and orrery's guide.
+**Alternatives:** verdict-flip as the doc bar — rejected; it conflates the
+two factors and fails good docs under bad tickets.
