@@ -44,6 +44,13 @@ git -C "$WT" clean -fd >/dev/null                       # keeps gitignored node_
 echo "══ establish oracle at base ══"
 apply_oracle
 vitest_json "$OUT/base.json"
+# Bugs span many eras; node_modules from a prior base may not fit. If the oracle
+# run produced no test results, the deps are stale → install and retry.
+if ! jq -e '.testResults' "$OUT/base.json" >/dev/null 2>&1; then
+  echo "   deps mismatch for this era → npm install…"
+  ( cd "$WT" && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install >/dev/null 2>&1; npm run i18n:compile >/dev/null 2>&1 )
+  vitest_json "$OUT/base.json"
+fi
 titles "$OUT/base.json" failed  > "$OUT/fail_to_pass.txt"
 titles "$OUT/base.json" passed  > "$OUT/pass_to_pass.txt"
 FTP=$(wc -l < "$OUT/fail_to_pass.txt" | tr -d ' ')
@@ -57,8 +64,14 @@ hide_oracle(){ [ -n "$AUTHORED" ] && rm -f "$WT/$ORACLE" || git -C "$WT" checkou
 echo "══ hide oracle, run harness ══"
 hide_oracle
 SECONDS=0
-"$HERE/harnesses/$HARNESS.sh" "$WT" "$DESC" 2>&1 | tee "$OUT/harness.log" || true
-echo "   harness wall-clock: ${SECONDS}s"
+# stdout = the adapter's JSON result (usage/cost); stderr = its log.
+"$HERE/harnesses/$HARNESS.sh" "$WT" "$DESC" > "$OUT/harness.json" 2> "$OUT/harness.err" || true
+WALL=$SECONDS
+COST=$(jq -r '.total_cost_usd // .cost_usd // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
+INTOK=$(jq -r '.usage.input_tokens // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
+OUTTOK=$(jq -r '.usage.output_tokens // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
+TURNS=$(jq -r '.num_turns // 0' "$OUT/harness.json" 2>/dev/null || echo 0)
+echo "   harness: ${WALL}s  \$$COST  ${TURNS} turns  (in=$INTOK out=$OUTTOK)"
 
 echo "══ capture harness patch (code only) ══"
 hide_oracle 2>/dev/null || true                          # protect oracle: discard harness edits to it
@@ -79,6 +92,8 @@ if [ "$FTP_FAIL" -eq 0 ] && [ "$PTP_FAIL" -eq 0 ]; then
 else
   VERDICT="FAIL (ftp_still_failing=$FTP_FAIL, regressions=$PTP_FAIL)"
 fi
-echo "VERDICT: $VERDICT"
+echo "VERDICT: $VERDICT   | ${WALL:-?}s  \$${COST:-?}  ${TURNS:-?} turns"
+# one-line machine-readable result for aggregation
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$ID" "$HARNESS" "$VERDICT" "${WALL:-}" "${COST:-}" "${TURNS:-}" "${OUTTOK:-}" > "$OUT/result.tsv"
 echo "$VERDICT" > "$OUT/verdict.txt"
 echo "artifacts → $OUT"

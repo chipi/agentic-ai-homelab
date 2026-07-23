@@ -4,7 +4,9 @@
 # The runner grades afterward with the hidden oracle.
 set -euo pipefail
 WT="$1"; DESC="$2"
-MODEL="${CLAUDE_MODEL:-claude-opus-4-8}"     # OPEN: reference-tier model
+# Phase 1 (B): single fix-agent smoke test on sonnet. Dispatch + architect
+# escalation (full fleet) come later.
+MODEL="${CLAUDE_MODEL:-claude-sonnet-4-6}"
 
 read -r -d '' PROMPT <<EOF || true
 You are fixing a bug in the repository at the current working directory.
@@ -19,4 +21,6 @@ EOF
 
 cd "$WT"
 export NODE_OPTIONS="--max-old-space-size=4096"   # drop harness's broken --require preload
-claude -p "$PROMPT" --model "$MODEL" --dangerously-skip-permissions
+# --output-format json → the agent still edits files via tools, and the final
+# JSON carries usage/cost/num_turns/duration (parsed by run.sh for scoring).
+claude -p "$PROMPT" --model "$MODEL" --dangerously-skip-permissions --output-format json
