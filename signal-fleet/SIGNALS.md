@@ -281,60 +281,82 @@ taxonomy is an **explicit part of this fleet's design** — each new type is add
 here and names its consumer. **OPEN:** final label names (`config-enhancement`
 vs `config-improvement` vs a `config:*` namespace) + the full starter set.
 
-### 7.3 PROPOSED EVOLUTION — investigation-driven triage
+### 7.3 PROPOSED EVOLUTION — investigation-driven triage (minimal, round-6 scoped)
 
-**The gap (operator, 2026-07-24).** The MVP triager is a **single-shot classifier
-over a static evidence bundle**. Real triage can't work that way — the disposition
-can't be *derived* from a snapshot; it must be **investigated**: look deeper, check
-state, reach certainty, then act. The single-shot design is too shallow. This
-section is the *target*; §7 above is what's *implemented*.
+**The gap (operator, 2026-07-24).** The MVP triager (§7) is a single-shot
+classifier over a static evidence bundle. Real triage can't work that way — the
+disposition must be **investigated**, not derived from a snapshot. §7 is what's
+*implemented*; this is the *target*, scoped down after Fleet-1's round-6 review
+(their bake-off triager is already agentic, so the numbers below are measured, not
+speculative). The insight is one change; the first draft bundled four — this keeps
+the insight and sheds most of the machinery.
 
-**Richer disposition space — five, not three:**
+**The one hard rule (the crux).** Investigation may establish **what / where /
+how-often** — it may **not** establish **intent**. The intent gate (§4.1) is
+unchanged and out of investigation's reach: acceptance still cites
+reporter / spec / repo-data / code-invariant / baseline, and "high certainty earned
+by investigation" **never** substitutes for a citable source. Measured reason:
+Fleet-1's *most-investigated* outputs were its *most-wrong* (185k tokens of
+diagnostics → a confident, coherent, **wrong** acceptance, ×3). More investigation
+buys conviction, not correctness, on "should" questions. Without this rule,
+"file only with earned certainty" is a **certainty-laundering machine**.
+
+**Four terminal dispositions (not five):**
 
 | Disposition | When | Action |
 |---|---|---|
-| **dismiss** | false alarm / benign | close + log; may carry an instrumentation rec |
-| **cleanup** *(new)* | signal is test/noise at the source ("delete me", validation probes) | remove it **at the source** (resolve/delete the GlitchTip issue) — an action on the *monitoring*, not the app |
-| **investigate-deeper** *(new)* | can't decide from a light pass | hand to a heavier investigation (a deeper agent, or the operator with a *specific* question) |
-| **file** | genuine defect, acceptance-statable **with certainty** | open a labelled issue — only after investigation earns the certainty |
-| **escalate** | ambiguous / high-stakes / no citable intent | operator |
+| **dismiss** | false alarm / benign | close + log; may compose a `config-enhancement` (§7.1) |
+| **cleanup** | signal is test/noise at the source | **resolve + tag** at the source — **never delete** (audit trail; delete is the one barely-reversible act). Gated on a *machine-checkable* marker (test-pattern message, `environment=test`, known probe source) else escalate; propose-first until overturn data |
+| **file** | genuine defect, acceptance cites intent (§4.1) | open a labelled issue |
+| **escalate** | ambiguous / high-stakes / no citable intent / needs a human look | operator, carrying a structured **`question`** |
 
-Each disposition carries a **certainty level**; dispositions still compose (§7.1).
+`investigate-deeper` is **not** a terminal disposition — it's a loop transition
+(below); when the loop can't resolve it, it becomes `escalate` with a `question`.
+As a terminal it would pollute the ledger/dashboard (outcomes vs in-progress) and
+break the eval (no defensible ground-truth label). **Certainty is metadata, never a
+gate** — self-reported confidence is uncalibrated (the most-wrong outputs
+self-score highest); calibrate it *post-hoc* from the overturn ledger.
 
-**The investigation loop (the core change).** Between signal and disposition, a
-**bounded light investigation**: the triager pulls the deeper evidence *it chooses*
-— stacktrace, occurrence count/history, related logs/traces, source-data state —
-until it can decide with stated certainty. Bounded (N steps / token budget). This
-is **agentic-lite**: the triager decides what to look at next and re-assesses. It
-does NOT reopen the harness question — **model-only stays the eval axis** (EVAL.md
-§3.6); what changes is the triage *architecture* (an investigation loop vs one
-call). It is RFC-0002's **active triager**, deepened from *establish context* →
-*investigate to a verdict*.
+**The investigation loop — menu-driven, capped (position (a), decided).** Between
+signal and disposition, a **bounded probe loop**: a fixed, typed probe menu
+(`stacktrace`, `occurrence_history`, `logs(window)`, `source_state`, …); each round
+the model picks the next probe **or** decides; **hard cap N=3** (Fleet-1's recon
+plateaued fast — the useful facts came from the first 2–3 lookups; the mega-
+investigation added conviction, not correctness). This is a state machine where a
+model chooses transitions — deterministic, replayable, cheap to freeze; it is
+**not** the harness question.
+- **The (a)/(b)/middle decision, explicit:** build **(a) the menu**. If it proves
+  insufficient, jump straight to **(b) a real harness** (pi with read-only tools —
+  Fleet-1's measured territory). **Never build the middle** — a hand-rolled
+  open-ended tool loop in `mvp/` (own registry / parser / budget) is rebuilding pi
+  badly, and is exactly where the complexity worry comes true.
+- **Spend bounds:** cap per-signal (N=3) **and** per-hour (hot streams × deep loops
+  compound).
 
-**Cost-aware routing — investigate to file *less*.** An issue is expensive
-downstream (someone picks it up). So the triager invests in the investigation to
-either **resolve it itself** (cleanup/dismiss) or **file with high certainty +
-clear acceptance** — never file on a low-certainty guess. Investigation is the
-lever that keeps low-value issues out of the queue.
+**Cost-aware routing — investigate to file less *garbage*.** A bad File costs
+600–800s + 100–230k worker tokens + kick-back + operator attention; a triage
+investigation is ~$0.01–0.05 of flash — ~10× positive-EV to prevent one bad File.
+**But** discipline costs recall (Fleet-1 v2 shipped 1 where v1 shipped 3), so
+"file less" must mean *less garbage*, not *late/never* → the eval adds a
+**file-recall / time-to-file** metric on the seeded real-defect class, or the fleet
+optimizes into a confident spam filter.
 
-**Instrumentation feedback (the staleness lesson).** Sometimes the right call
-depends on **state we don't have** — e.g. a count of consecutive stale cycles. So
-the output isn't "dismiss"; it's *"dismiss this one, **add a stale-counter to the
-monitoring**, **file if it crosses 24h**."* Triage surfaces an *instrumentation
-gap* + a *threshold rule* — the self-improving `config-enhancement` loop, concrete.
+**Instrumentation feedback — already built.** The staleness case ("dismiss now, add
+a stale-counter, file if >24h") needs *no new machinery*: it is §7.1 composition —
+Dismiss + a `config-enhancement` File carrying the threshold spec. The insight just
+uses what exists.
 
-**Eval implication.** The frozen-*bundle* design (EVAL.md §3.1) assumed a fixed
-bundle → one classification. Investigation makes the bundle **dynamic**, so the
-eval must freeze the **queryable state** (what the investigation can reach at a
-point in time) and replay the *investigation* against it — still replayable, more
-machinery. So the triage architecture is designed **before** the eval is built.
+**Eval implication — ~90% intact.** With the menu, don't freeze queryable state in
+general: freeze the **probe→response table** per labeled case (probe → canned
+response, captured once); replay intercepts probe calls against the table. The
+frozen-bundle design (EVAL.md §3.1) survives — the bundle just becomes *lazy*. So
+architecture-before-eval is **days, not weeks**; don't idle the eval long.
 
-**Open questions:**
-1. **Depth of "light"** — a tight bounded loop (a few tool calls) vs a full
-   agentic investigation (which reopens the harness question). Lean: cap it tight.
-2. **Act on cleanup?** — auto-resolve test-data at the source, or propose-only?
-   The operator leaned "immediate action" for the delete-me cases.
-3. **Taxonomy** — are the five right, or missing one?
+**Deferred (out of the minimal version):** certainty-as-a-gate; full-agentic
+investigation (position (b)); delete-at-source (resolve+tag only).
+
+**Net new mechanism: one** — the probe menu (N=3). Everything else is a taxonomy
+trim + an unchanged intent gate + existing §7.1 composition.
 
 ---
 
@@ -703,3 +725,17 @@ shared across fleets; our signal-specific addition is `slo`/error-budget.
   *state*). Going to a second review before building. R5 fixes + eval machinery
   (freeze/score) already shipped; the shallow single-shot triager (§7) is what
   exists today.
+- **2026-07-24 (round-6 review folded — §7.3 scoped down):** Fleet-1's round-6
+  gut-check contained the complexity: right insight, but the first draft bundled
+  four changes onto it. §7.3 rewritten to the **minimal** version — **one** net-new
+  mechanism (a menu-driven probe loop, hard cap N=3), a **four**-terminal taxonomy
+  (drop `investigate-deeper` → it's `escalate` with a `question`; `cleanup` =
+  resolve+tag, never delete, machine-checkable gate), the **intent gate unchanged**
+  (investigation earns what/where/how-often, *never* intent — else it's
+  certainty-laundering, their most-investigated outputs were their most-wrong),
+  certainty as metadata not a gate, and the (a) menu / (b) real-harness decision
+  made explicit (**never build the middle** — a hand-rolled tool loop is "rebuilding
+  pi badly"). Instrumentation feedback is already §7.1 composition; the eval
+  survives ~90% (freeze the probe→response table). New eval metric: file-recall /
+  time-to-file (or the fleet becomes a confident spam filter). Deferred:
+  certainty-gating, full-agentic, delete-at-source.
