@@ -430,7 +430,83 @@ orrery → podcast), **overturn mechanism** (§9, GH label/comment), **signal sc
 
 ---
 
-## 13. Discussion log
+## 13. MVP — first end-to-end slice (the build plan)
+
+**Goal:** the smallest end-to-end loop that proves the spine — one real orrery
+signal → correlate → disposition → act (File / Dismiss / Escalate) — running on
+the homelab. Phase-0 ([`PHASE-0-infra.md`](PHASE-0-infra.md)) already proved every
+surface is consumable, so the MVP is the orchestrator + triager on top. This fleet
+is "another version" of Fleet 1 (RFC-0002), so we **reuse its scaffolding**
+wherever possible (§13.4).
+
+### 13.1 Decisions to lock first
+1. **Trigger mode (v1):** **poll** — the orchestrator polls the Grafana
+   Alertmanager API + the GlitchTip issues API on an interval. Simplest (no
+   ingress/ACL); the Phase-0 webhook receiver stub is kept for the low-latency
+   upgrade later.
+2. **Triager harness/model:** reuse the bake-off's winner + the cheap model that
+   triages reliably — do not re-run that study.
+3. **File target:** the GitHub repo the fleet opens issues in + the label set
+   (`bug` → Fleet 1, `config-enhancement` → operator). **OPEN:** the target repo
+   (orrery's own vs a dedicated fleet-issues repo).
+4. **Host:** the orchestrator runs on the **mini** (same box as Fleet 1 and every
+   source → localhost reads, no ACL).
+
+### 13.2 Build order (each step small)
+1. **Orchestrator skeleton** — deterministic poll loop on the mini; reuse Fleet-1's
+   worker seam + Langfuse + GitHub App (§13.4).
+2. **Ledger** — append-only `signal_fingerprint → disposition → prompt+model
+   version → timestamp` (idempotency + the overturn dataset, §9). Fleet-1's
+   `runs.tsv` with a new schema.
+3. **Correlation module** — turn the Phase-0 curls into code: given a signal, query
+   VM/VL/VT (§6) → an evidence bundle.
+4. **Triager** — structured output (disposition + L1-candidate + `intent_source`,
+   §4.1). Reuse Fleet-1's structured-output-with-retry harness (§13.4).
+5. **Action handlers** — Dismiss (ledger, propose-first, §10), File (labeled GitHub
+   issue → chains to Fleet 1 at the seam, §4), Escalate (operator ping).
+6. **Observability** — Langfuse traces on the triager calls + a Grafana panel
+   (disposition counts + overturn rate = the trust metric, §11).
+
+### 13.3 First vertical slice (the "Flow A" of RFC-0002)
+The **orrery launch-data-stale** Grafana alert → correlate the refresh logs in
+VictoriaLogs → triager → **File a `config-enhancement`** issue *or* **Dismiss**.
+One path, fully end-to-end. Deliberately *not* the `bug` seam (Phase A doesn't
+exercise it, §8) — that arrives with Phase B (GlitchTip errors + trace
+correlation). Success = the loop runs unattended on the real alert and produces
+the right disposition with a citable intent.
+
+### 13.4 Reuse from Fleet 1 (RFC-0002 orchestrator) — mapped
+
+Recon of the live `bugfix-fleet/` (2026-07-24): it's further along than assumed —
+a real TypeScript service (`src/orchestrator.ts`, `src/main.ts`) *and* a bash
+control loop (`bakeoff/orchestrate.sh`). Ranked lifts, most valuable first:
+
+| # | Reuse | Where (`bugfix-fleet/`) | Verdict | For the signal fleet |
+|---|---|---|---|---|
+| 1 | **Worker seam** | `src/worker/types.ts` | lift pattern | define `SignalTriageTask`/`SignalActionTask` + a `SignalWorker`; orchestrator never talks to LLMs directly |
+| 2 | **Structured output + validate-retry** | `src/worker/directAdapter.ts` (`parseVerdict` + 3-retry) · `schemas.ts` (`TRIAGE_SCHEMA`) | **lift as-is** | the *working* reference (pi/opencode adapters are still `throw "not implemented"`); copy the retry loop, `response_format: json_object`, comment-free-schema tip |
+| 3 | **Intent-source gate (deterministic)** | `bakeoff/triage_run.sh:176` → `orchestrate.sh:40-43` | **lift as-is** | our §4.1 gate exactly: prompt cites sources, **orchestrator mechanically counts uncited criteria → downgrades to needs-info, no LLM in the gate** |
+| 4 | **Control loop** | `bakeoff/orchestrate.sh` (outer triage→reporter, inner action→kickback, bounded, `flow.tsv`) | adapt | swap ticket→signal, `triage_run.sh`→signal triager, `run.sh`→action executor; keep the bounded loops + state append |
+| 5 | **LLM client + Langfuse** | `src/llm.ts` `orChat()` (auto-traced) | lift as-is | add `phase:"signal-triage"` → observable day 1 |
+| 6 | **Ledger** | `runs.tsv`/`triage_runs.tsv`/`flow.tsv` (append-only, `prompt_ver` stamp) | lift pattern | our §9 ledger *is* this; add signal columns |
+| 7 | **GitHub App** | `src/github/appAuth.ts`·`issueOps.ts`·`prOps.ts` | lift as-is | the **File** action = create a labeled issue via the existing App |
+| 8 | **Reporter-oracle** | `bakeoff/reporter_answer.sh` + `reporter/*.md` | pattern | maps to our escalate-for-clarification: a signal-owner facts file answers needs-info |
+
+**Two lessons that change our build:**
+- **Structured output on cheap models is the stated risk** — the pi/opencode
+  adapters are unimplemented; the **directAdapter (raw OpenRouter + validate-retry)
+  is the only working path.** Start our triager there, not on a harness adapter.
+- **The intent gate is a deterministic post-LLM check** (`orchestrate.sh:40-43`),
+  not a prompt hope. Port it exactly.
+
+**Vocabulary alignment:** Fleet-1's `agents/triage.md` (v2) intent_source enum is
+`reporter | spec | repo-data | code-invariant | baseline` — its **`code-invariant`
+= our self-evident invariant** (an acceptance *floor*, §4.1). Keep the vocab
+shared across fleets; our signal-specific addition is `slo`/error-budget.
+
+---
+
+## 14. Discussion log
 
 - **2026-07-24 (initial brainstorm):** Locked — three-fleet separation of
   concerns (bug-fix / signal-to-action / remediation); this fleet is
@@ -490,3 +566,10 @@ orrery → podcast), **overturn mechanism** (§9, GH label/comment), **signal sc
   correlation host pinned `homelab` + DGX→mini migration caveat (§6). **(R2-5)**
   Phase A does not validate the `bug`→Fleet-1 seam (staleness → config/Dismiss);
   that's Phase B (§8).
+- **2026-07-24 (Phase 0 proven + MVP plan):** Every surface confirmed consumable
+  with live data via its prescribed API (`PHASE-0-infra.md`); stack confirmed on
+  `homelab` (R2-4 resolved, migration done). Added **§13 MVP** — smallest
+  end-to-end slice (orrery staleness alert → correlate VictoriaLogs → File
+  `config-enhancement` / Dismiss), the 4 decisions to lock (poll-first trigger,
+  reuse the bake-off model, file-target repo, mini host), and the build order.
+  §13.4 (reuse from Fleet 1's orchestrator) to be detailed from the recon.

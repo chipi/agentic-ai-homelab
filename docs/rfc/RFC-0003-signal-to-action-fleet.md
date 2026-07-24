@@ -155,6 +155,10 @@ Secrets via **sops/age**.
   building the missing correlation links; then Fleet 3 (remediation) as its own
   project, subscribing to `config-enhancement`.
 
+The concrete MVP build order + first vertical slice (orrery staleness alert →
+correlate → File/Dismiss) live in [`signal-fleet/SIGNALS.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/signal-fleet/SIGNALS.md)
+§13, along with the reuse map from Fleet 1's orchestrator.
+
 ## Open questions
 1. **Filed-work taxonomy** — final label names + full starter set.
 2. **Trigger wiring** — **first verify the GlitchTip API on-prem** (one `curl` to
