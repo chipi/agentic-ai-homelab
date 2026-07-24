@@ -609,3 +609,15 @@ shared across fleets; our signal-specific addition is `slo`/error-budget.
   dual-output is recorded via a `followup` column on the dismiss row (no longer
   stdout-deep). **R4-4** (dismiss-gate is a floor) recorded in §10 for the
   autonomy-flip review — acknowledged, no code change per the reviewer.
+- **2026-07-24 (Phase B built — GlitchTip errors + trace correlation):** Second
+  trigger live in `mvp/` (`--glitchtip`): poll unresolved GlitchTip issues → error
+  correlation (latest event → culprit/tags/`trace_id` → VictoriaTraces trace +
+  service logs + 5xx rate) → triage → act. Verified live (dry-run) on real errors:
+  a client-side `SyntaxError` dismissed as browser input-noise (+ config-enhancement
+  Tune follow-up), the ops test event dismissed, one error escalated as "evidence
+  too thin". **Finding:** two identical `SyntaxError` issues (PLAYER-4/5) got
+  different dispositions (dismiss vs escalate) — triager non-determinism, exactly
+  what propose-first + the overturn metric exist to catch. Order reprioritized
+  (operator): build Phase B → observability → least-privilege before going live
+  (File stays dry-run; daemon last). GlitchTip token lives in a mini-local
+  `fleet.env` (least-privilege/sops = task).

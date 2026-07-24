@@ -58,3 +58,40 @@ def orrery_staleness():
         if "launch data stale" in name or ("orrery" in name and "stale" in name):
             return to_signal(a)
     return None
+
+
+# ---- Phase B: GlitchTip errors (Sentry-compat REST API, poll) ----
+
+def _gt(path):
+    return get_json(f"{config.GLITCHTIP_URL}/api/0{path}",
+                    headers={"Authorization": f"Bearer {config.GLITCHTIP_TOKEN}"})
+
+
+def glitchtip_unresolved(limit=10):
+    """Unresolved GlitchTip issues, most-recently-seen first."""
+    issues = _gt(f"/organizations/homelab/issues/?limit={limit}&sort=-last_seen")
+    if not isinstance(issues, list):
+        raise RuntimeError(f"glitchtip issues error: {str(issues)[:160]}")
+    return [i for i in issues if i.get("status") == "unresolved"]
+
+
+def to_error_signal(issue):
+    """Normalize a GlitchTip issue into an error signal. occurrence_id keys on
+    lastSeen so a re-firing after resolve is a fresh occurrence (review R3-1)."""
+    proj = (issue.get("project") or {}).get("slug", "")
+    sid = issue.get("shortId") or str(issue.get("id"))
+    fp = f"glitchtip:{sid}"
+    last = issue.get("lastSeen") or ""
+    return {
+        "fingerprint": fp,
+        "occurrence_id": f"{fp}@{last}",
+        "source": "glitchtip",
+        "alertname": issue.get("title", ""),
+        "labels": {"project": proj, "level": issue.get("level", ""),
+                   "culprit": issue.get("culprit", ""), "count": issue.get("count")},
+        "summary": f"{issue.get('title', '')} (count={issue.get('count')}, "
+                   f"level={issue.get('level')}, culprit={issue.get('culprit', '')})",
+        "startsAt": issue.get("firstSeen"),
+        "issue_id": issue.get("id"),
+        "raw": issue,
+    }
