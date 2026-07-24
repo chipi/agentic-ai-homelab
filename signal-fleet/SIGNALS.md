@@ -281,6 +281,61 @@ taxonomy is an **explicit part of this fleet's design** — each new type is add
 here and names its consumer. **OPEN:** final label names (`config-enhancement`
 vs `config-improvement` vs a `config:*` namespace) + the full starter set.
 
+### 7.3 PROPOSED EVOLUTION — investigation-driven triage
+
+**The gap (operator, 2026-07-24).** The MVP triager is a **single-shot classifier
+over a static evidence bundle**. Real triage can't work that way — the disposition
+can't be *derived* from a snapshot; it must be **investigated**: look deeper, check
+state, reach certainty, then act. The single-shot design is too shallow. This
+section is the *target*; §7 above is what's *implemented*.
+
+**Richer disposition space — five, not three:**
+
+| Disposition | When | Action |
+|---|---|---|
+| **dismiss** | false alarm / benign | close + log; may carry an instrumentation rec |
+| **cleanup** *(new)* | signal is test/noise at the source ("delete me", validation probes) | remove it **at the source** (resolve/delete the GlitchTip issue) — an action on the *monitoring*, not the app |
+| **investigate-deeper** *(new)* | can't decide from a light pass | hand to a heavier investigation (a deeper agent, or the operator with a *specific* question) |
+| **file** | genuine defect, acceptance-statable **with certainty** | open a labelled issue — only after investigation earns the certainty |
+| **escalate** | ambiguous / high-stakes / no citable intent | operator |
+
+Each disposition carries a **certainty level**; dispositions still compose (§7.1).
+
+**The investigation loop (the core change).** Between signal and disposition, a
+**bounded light investigation**: the triager pulls the deeper evidence *it chooses*
+— stacktrace, occurrence count/history, related logs/traces, source-data state —
+until it can decide with stated certainty. Bounded (N steps / token budget). This
+is **agentic-lite**: the triager decides what to look at next and re-assesses. It
+does NOT reopen the harness question — **model-only stays the eval axis** (EVAL.md
+§3.6); what changes is the triage *architecture* (an investigation loop vs one
+call). It is RFC-0002's **active triager**, deepened from *establish context* →
+*investigate to a verdict*.
+
+**Cost-aware routing — investigate to file *less*.** An issue is expensive
+downstream (someone picks it up). So the triager invests in the investigation to
+either **resolve it itself** (cleanup/dismiss) or **file with high certainty +
+clear acceptance** — never file on a low-certainty guess. Investigation is the
+lever that keeps low-value issues out of the queue.
+
+**Instrumentation feedback (the staleness lesson).** Sometimes the right call
+depends on **state we don't have** — e.g. a count of consecutive stale cycles. So
+the output isn't "dismiss"; it's *"dismiss this one, **add a stale-counter to the
+monitoring**, **file if it crosses 24h**."* Triage surfaces an *instrumentation
+gap* + a *threshold rule* — the self-improving `config-enhancement` loop, concrete.
+
+**Eval implication.** The frozen-*bundle* design (EVAL.md §3.1) assumed a fixed
+bundle → one classification. Investigation makes the bundle **dynamic**, so the
+eval must freeze the **queryable state** (what the investigation can reach at a
+point in time) and replay the *investigation* against it — still replayable, more
+machinery. So the triage architecture is designed **before** the eval is built.
+
+**Open questions:**
+1. **Depth of "light"** — a tight bounded loop (a few tool calls) vs a full
+   agentic investigation (which reopens the harness question). Lean: cap it tight.
+2. **Act on cleanup?** — auto-resolve test-data at the source, or propose-only?
+   The operator leaned "immediate action" for the delete-me cases.
+3. **Taxonomy** — are the five right, or missing one?
+
 ---
 
 ## 8. Signal sources (grounded — recon 2026-07-24)
@@ -634,3 +689,17 @@ shared across fleets; our signal-specific addition is `slo`/error-budget.
   org-scoped API key (Langfuse UI → Org Settings → API Keys); the existing keys are
   project-scoped to `agents` (403 on create). Grafana disposition-panel PromQL:
   `sum by (disposition) (count_over_time(signal_fleet_disposition[$__range]))`.
+- **2026-07-24 (reframe — investigation-driven triage, §7.3):** Building the eval
+  label sheet, the operator surfaced that the MVP triager is too shallow: a
+  single-shot classifier over a static bundle can't do real triage — the
+  disposition must be *investigated*, not derived from a snapshot. New §7.3
+  (proposed evolution): a **five-disposition** space (adds **cleanup** for
+  test/noise-at-source and **investigate-deeper**), a **bounded light-investigation
+  loop** before deciding (agentic-lite; model-only stays the eval axis),
+  **cost-aware routing** (investigate to file *less* — issues have downstream cost),
+  and **instrumentation feedback** (the staleness case needs a counter we don't
+  have → emit a config-enhancement + threshold rule). Consequence: the triage
+  architecture must be designed before the eval (frozen *bundle* → frozen queryable
+  *state*). Going to a second review before building. R5 fixes + eval machinery
+  (freeze/score) already shipped; the shallow single-shot triager (§7) is what
+  exists today.
