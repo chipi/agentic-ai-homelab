@@ -24,7 +24,11 @@ from http_util import post_json
 ALLOWED_INTENT = {"reporter", "spec", "repo-data", "code-invariant", "baseline",
                   "operator-rule", "slo"}
 MAX_PROBES = int(config.env("SF_MAX_PROBES", "3"))
+# occurrence_history stays a corroborator but is content-checked, not just usability-
+# checked (review R7): it is self-derived from the same issue, so it is ALWAYS usable
+# — only a BENIGN-looking history (low count / low level / resolved) may corroborate.
 CORROB_PROBES = {"service_logs", "metric", "trace", "source_state", "occurrence_history"}
+INDEP_PROBES = {"service_logs", "metric", "trace", "source_state"}
 CLEANUP_MARKERS = re.compile(
     r"delete me|safe to delete|\btest\b|validation|probe|smoke|e2e|ladder-verify|"
     r"wiring|placeholder|dashless", re.I)
@@ -33,18 +37,38 @@ _SYSTEM = """You are the triager for an autonomous observability signal fleet. Y
 INVESTIGATE each signal with up to %d probes, then decide ONE terminal disposition.
 You never write raw queries — request a probe BY NAME from the menu.
 
-Investigation earns WHAT / WHERE / HOW-OFTEN. It does NOT earn INTENT: a File's
-acceptance must still cite an intent_source; certainty from investigation is NOT a
-source. Prefer dismiss/cleanup over a low-certainty File (a File has downstream cost).
-Write all text in ENGLISH.
+Investigation earns WHAT / WHERE / HOW-OFTEN. It does NOT earn INTENT: whether a
+signal is a real defect, benign, or disposable noise is a question of INTENDED
+behavior, and probing cannot supply intent.
 
-Each turn return exactly ONE FLAT JSON object — either a probe:
+THE CRUX RULE — read twice: if you cannot CITE a source for what "correct" means
+here (reporter / spec / repo-data / code-invariant / baseline / operator-rule / slo),
+you may NOT decide the signal is benign. You ESCALATE with the specific question.
+"I could not find a problem" is NOT evidence of benign — absence of a probe result
+is not a dismiss. Never dismiss to reduce work.
+
+Write all text in ENGLISH. Each turn return exactly ONE FLAT JSON object — either a
+probe:
   {"action":"probe","probe":"<name>","probe_args":{...},"why":"..."}
-or a decision (the "disposition" value is a STRING; the other fields are its siblings):
-  {"action":"decide","disposition":"dismiss","reason":"...","immediate_recommendation":"... or null","certainty":"low|med|high"}
-  {"action":"decide","disposition":"cleanup","reason":"...","marker":"the test/noise marker you saw","certainty":"..."}
-  {"action":"decide","disposition":"file","reason":"...","certainty":"...","file":{"work_type":"bug|config-enhancement","title":"...","symptom":"...","area":"...","evidence":["..."],"acceptance":[{"criterion":"...","intent_source":"reporter|spec|repo-data|code-invariant|baseline|operator-rule|slo"}]}}
-  {"action":"decide","disposition":"escalate","reason":"...","question":"the specific question a human must answer","certainty":"..."}
+or a terminal decision. The four terminals, ordered from LEAST to MOST evidence they
+demand — reach for the earliest one you can justify, not the one that ends the turn:
+
+  1) ESCALATE — you cannot cite intent; a human must answer a specific question.
+     {"action":"decide","disposition":"escalate","reason":"...","question":"the specific question a human must answer","certainty":"..."}
+
+  2) CLEANUP — test/noise you can point to a concrete machine-checkable marker for.
+     {"action":"decide","disposition":"cleanup","reason":"...","marker":"the exact test/noise marker text you saw","certainty":"..."}
+
+  3) FILE — a real defect; every acceptance criterion cites an intent_source.
+     {"action":"decide","disposition":"file","reason":"...","certainty":"...","file":{"work_type":"bug|config-enhancement","title":"...","symptom":"...","area":"...","evidence":["..."],"acceptance":[{"criterion":"...","intent_source":"reporter|spec|repo-data|code-invariant|baseline|operator-rule|slo"}]}}
+
+  4) DISMISS — the HIGHEST-BAR verdict, not the default. You are positively asserting
+     the signal is benign and needs no action. You MUST name, in dismissal_evidence,
+     the INDEPENDENT probe result that shows it is benign (service_logs / metric /
+     trace / source_state, or an occurrence_history that is genuinely benign — low
+     count, low level, resolved). A self-derived count is NOT corroboration. If you
+     cannot name such evidence, you ESCALATE instead.
+     {"action":"decide","disposition":"dismiss","reason":"...","dismissal_evidence":"the independent probe result proving benign","immediate_recommendation":"... or null","certainty":"low|med|high"}
 
 PROBE MENU:
 %s"""
@@ -124,14 +148,49 @@ def _cleanup_gate(d, signal):
     return d, "downgraded (no marker)"
 
 
+def _benign_history(v):
+    """Content check for occurrence_history (review R7): it is self-derived and thus
+    always usable, so only a BENIGN-looking history may corroborate a dismiss."""
+    if not isinstance(v, dict):
+        return False
+    lvl = str(v.get("level", "")).lower()
+    status = str(v.get("status", "")).lower()
+    try:
+        cnt = int(v.get("count") or 0)
+    except (TypeError, ValueError):
+        cnt = 0
+    return lvl in ("debug", "info") or status in ("resolved", "ignored") or cnt <= 1
+
+
+def _corroborates(t):
+    """An independent probe with usable content corroborates benign. occurrence_history
+    may corroborate ONLY when its content is benign — not merely because it returned."""
+    p, r = t["probe"], t["result"]
+    if p not in CORROB_PROBES or not _usable(r):
+        return False
+    if p == "occurrence_history":
+        return _benign_history(r)
+    return p in INDEP_PROBES
+
+
+def _to_escalate(d, reason, question):
+    d["disposition"] = "escalate"
+    d["reason"] = reason + " — " + d.get("reason", "")
+    d["question"] = question
+    return d
+
+
 def _dismiss_gate(d, trace):
     if d.get("disposition") != "dismiss":
         return d, "n/a"
-    if any(t["probe"] in CORROB_PROBES and _usable(t["result"]) for t in trace):
+    if not str(d.get("dismissal_evidence") or "").strip():
+        _to_escalate(d, "dismiss gate: no dismissal_evidence cited",
+                     "Dismissed without citing corroborating evidence — confirm benign?")
+        return d, "downgraded (no evidence cited)"
+    if any(_corroborates(t) for t in trace):
         return d, "passed"
-    d["disposition"] = "escalate"
-    d["reason"] = "dismiss gate: no corroborating probe run — " + d.get("reason", "")
-    d["question"] = "Dismissed without corroborating evidence — confirm benign?"
+    _to_escalate(d, "dismiss gate: no independent corroborating probe",
+                 "Dismissed without independent/benign corroboration — confirm benign?")
     return d, "downgraded (no corroboration)"
 
 
@@ -143,9 +202,12 @@ def _gate(d, signal, trace):
 
 
 def _finish(signal, disp, trace, gates, usage, t0):
+    table_miss = sum(1 for t in trace
+                     if isinstance(t["result"], str) and t["result"].startswith("<TABLE-MISS"))
     disp["_meta"] = {"model": config.TRIAGE_MODEL, "prompt_ver": config.TRIAGE_PROMPT_VER,
                      "prompt_sha": PROMPT_SHA, "gates": gates,
                      "probes": [t["probe"] for t in trace], "n_probes": len(trace),
+                     "table_miss": table_miss,
                      "certainty": disp.get("certainty"), "usage": usage}
     observ.finalize(signal, disp, usage=usage, latency_s=time.time() - t0)
     return disp

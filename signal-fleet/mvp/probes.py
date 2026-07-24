@@ -77,9 +77,25 @@ def probe_key(name, args):
 
 def run_probe(signal, name, args, table=None):
     """Dispatch a probe. If `table` (a frozen probe->response map) is given, replay
-    from it (eval); else run live. Never raises — returns a '<…>' marker on failure."""
+    from it (eval); else run live. Never raises — returns a '<…>' marker on failure.
+
+    Replay coverage on the ARGS axis (review R7): the eager-menu freeze covers every
+    probe NAME, but the model can request non-default ARGS. On an exact-key miss, fall
+    back to (a) the default-args key for this probe, then (b) ANY frozen key for this
+    probe name — so arg drift resolves to the same probe's response. A genuine miss
+    returns a <TABLE-MISS …> sentinel, which the scorer counts as EVAL NOISE, never
+    as model behavior."""
     if table is not None:
-        return table.get(probe_key(name, args), f"<not in frozen table: {probe_key(name, args)}>")
+        key = probe_key(name, args)
+        if key in table:
+            return table[key]
+        alt = probe_key(name, {})
+        if alt in table:
+            return table[alt]
+        for k in table:
+            if k.split(":", 1)[0] == name:
+                return table[k]
+        return f"<TABLE-MISS: {key}>"
     entry = PROBES.get(name)
     if not entry:
         return f"<unknown probe: {name}>"

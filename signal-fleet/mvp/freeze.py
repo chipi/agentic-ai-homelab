@@ -79,8 +79,22 @@ def _record_probe_table(signal):
     return rt.table, dispositions
 
 
+def _existing_ground_truth(path):
+    """Carry a set ground_truth forward across a re-freeze — a re-freeze must never
+    wipe an operator label."""
+    if os.path.exists(path):
+        try:
+            prev = (json.load(open(path)).get("ground_truth") or {})
+            if prev.get("disposition"):
+                return prev
+        except Exception:  # noqa: BLE001
+            pass
+    return {"disposition": None, "work_type": None, "notes": ""}
+
+
 def _write(fid, signal, probe_table, source, seen_dispositions):
     os.makedirs(config.REFERENCE_DIR, exist_ok=True)
+    path = os.path.join(config.REFERENCE_DIR, f"{fid}.json")
     fixture = {
         "id": fid,
         "source": source,
@@ -92,10 +106,10 @@ def _write(fid, signal, probe_table, source, seen_dispositions):
         "probes": {k: _redact(v) for k, v in probe_table.items()},
         # what the model actually did during freeze (a hint for labeling, NOT truth):
         "freeze_dispositions": seen_dispositions,
-        # OPERATOR fills this (the human oracle — EVAL.md §4 sourcing #2):
-        "ground_truth": {"disposition": None, "work_type": None, "notes": ""},
+        # OPERATOR fills this (the human oracle — EVAL.md §4 sourcing #2). Preserved
+        # across re-freezes so relabelling and re-freezing are independent steps.
+        "ground_truth": _existing_ground_truth(path),
     }
-    path = os.path.join(config.REFERENCE_DIR, f"{fid}.json")
     with open(path, "w") as f:
         json.dump(fixture, f, indent=2, ensure_ascii=False)
     print(f"froze {os.path.basename(path)}  ({len(probe_table)} probes, "
@@ -124,7 +138,31 @@ def freeze_orrery_staleness():
     _write("grafana-orrery-stale", sig, table, "grafana", disps)
 
 
+def refreeze_existing():
+    """Re-record the probe table for every already-captured fixture, reading its
+    STORED signal (no live source re-fetch). Migrates legacy evidence-schema fixtures
+    to the probe-table schema; skips fixtures already on the new schema. Labels are
+    preserved by _write, so this is safe to run after relabelling."""
+    for fn in sorted(os.listdir(config.REFERENCE_DIR)):
+        if not fn.endswith(".json"):
+            continue
+        d = json.load(open(os.path.join(config.REFERENCE_DIR, fn)))
+        if "probes" in d:
+            print(f"skip {fn} (already probe-schema)")
+            continue
+        sig = d.get("signal")
+        if not sig:
+            print(f"skip {fn} (no stored signal)")
+            continue
+        table, disps = _record_probe_table(sig)
+        _write(d["id"], sig, table, d.get("source", ""), disps)
+
+
 if __name__ == "__main__":
+    import sys
+    if "--refreeze" in sys.argv:
+        refreeze_existing()
+        raise SystemExit(0)
     if not config.OBSERV_DISABLED:
         print("note: SF_OBSERV_DISABLED not set — freeze passes will emit fleet "
               "traces/metrics. Set SF_OBSERV_DISABLED=1 to suppress.")
