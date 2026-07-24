@@ -11,6 +11,8 @@ Idempotency is keyed on the OCCURRENCE (fingerprint + startsAt), not the
 alertname (review R3-1).
 """
 import datetime
+import hashlib
+import json
 import os
 
 import config
@@ -120,25 +122,40 @@ def _tune_followup(signal, disp):
     }
 
 
+def queue_proposal(signal, issue, kind):
+    """Write a File / config-enhancement proposal as a DRAFT to the queue for
+    operator review (propose-first — EVAL.md transition (i)). Not a real issue;
+    real issue creation is gated on the File-quality eval (transition (iii))."""
+    os.makedirs(config.QUEUE_DIR, exist_ok=True)
+    fp = (signal.get("fingerprint") or "sig").replace(":", "_").replace("/", "_")
+    h = hashlib.sha1((issue.get("title", "")).encode()).hexdigest()[:6]
+    path = os.path.join(config.QUEUE_DIR, f"{kind}-{fp}-{h}.json")
+    with open(path, "w") as f:
+        json.dump({"queued_at": _now(), "kind": kind,
+                   "signal": {k: signal.get(k) for k in
+                              ("fingerprint", "occurrence_id", "source", "alertname")},
+                   "issue": issue}, f, indent=2)
+    return path
+
+
 def act(signal, disp, dry_run=True):
-    import json
     d = disp["disposition"]
     followup = ""
     if d == "dismiss":
-        print(f"[DISMISS] {disp.get('reason', '')[:160]}")
+        print(f"[DISMISS] {disp.get('reason', '')[:140]}")
         follow = _tune_followup(signal, disp)
         if follow:
             followup = "config-enhancement"
-            print("[+ FILE dry-run: config-enhancement follow-up — Tune dual output §7.1]")
-            print(json.dumps(build_issue(signal, follow), indent=2))
+            p = queue_proposal(signal, build_issue(signal, follow), "config-enhancement")
+            print(f"  [+ queued config-enhancement proposal] {os.path.basename(p)}")
     elif d == "file":
-        issue = build_issue(signal, disp["file"])
         if dry_run:
-            print("[FILE dry-run] would open GitHub issue:")
-            print(json.dumps(issue, indent=2))
+            p = queue_proposal(signal, build_issue(signal, disp["file"]),
+                               disp["file"].get("work_type", "bug"))
+            print(f"[FILE queued proposal] {os.path.basename(p)}")
         else:
             raise NotImplementedError(
-                "real issue creation pending target-repo decision (SIGNALS §13.1 #3)")
+                "real issue creation is gated on the File-quality eval (EVAL.md transition iii)")
     elif d == "escalate":
-        print(f"[ESCALATE -> operator] {disp.get('reason', '')[:200]}")
+        print(f"[ESCALATE -> operator] {disp.get('reason', '')[:180]}")
     ledger_append(signal, disp, followup=followup)

@@ -44,3 +44,6 @@ TRIAGE_PROMPT_VER = "mvp-1"
 
 # state
 LEDGER = env("SF_LEDGER", os.path.expanduser("~/signal-fleet/results/dispositions.tsv"))
+# propose-first: File/Tune proposals are queued here as drafts for operator review
+# (never opened as real issues until the File-quality eval gate — EVAL.md (iii)).
+QUEUE_DIR = env("SF_QUEUE", os.path.expanduser("~/signal-fleet/queue"))

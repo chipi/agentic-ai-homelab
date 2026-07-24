@@ -8,6 +8,7 @@ No LLM in the control flow; the model lives only behind triage.triage().
   python3 orchestrator.py --synthetic --no-dry-run   # (blocked: needs target repo)
 """
 import argparse
+import datetime
 
 import actions
 import correlate
@@ -69,14 +70,32 @@ def run_glitchtip(limit=5, dry_run=True):
               f"(intent_gate:{m.get('intent_gate')}, dismiss_gate:{m.get('dismiss_gate')})")
 
 
+def run_poll(limit=10, dry_run=True):
+    """Propose-first daemon cycle — every live trigger in one pass (EVAL.md (i)).
+    Records + queues; takes no real action. Each source pass is isolated so one
+    failing source never sinks the cycle."""
+    print(f"== signal-fleet poll {datetime.datetime.now(datetime.timezone.utc).isoformat()} ==")
+    try:
+        run_once(use_synthetic=False, dry_run=dry_run)   # Grafana alerts
+    except Exception as e:  # noqa: BLE001
+        print("  grafana pass error:", e)
+    try:
+        run_glitchtip(limit=limit, dry_run=dry_run)       # GlitchTip errors
+    except Exception as e:  # noqa: BLE001
+        print("  glitchtip pass error:", e)
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
+    ap.add_argument("--poll", action="store_true", help="propose-first daemon cycle (grafana + glitchtip)")
     ap.add_argument("--synthetic", action="store_true", help="synthetic staleness signal")
     ap.add_argument("--glitchtip", action="store_true", help="process unresolved GlitchTip errors")
     ap.add_argument("--limit", type=int, default=5, help="max GlitchTip issues per run")
-    ap.add_argument("--no-dry-run", action="store_true", help="really create issues (blocked)")
+    ap.add_argument("--no-dry-run", action="store_true", help="really create issues (gated)")
     args = ap.parse_args()
-    if args.glitchtip:
+    if args.poll:
+        run_poll(limit=args.limit, dry_run=not args.no_dry_run)
+    elif args.glitchtip:
         run_glitchtip(limit=args.limit, dry_run=not args.no_dry_run)
     else:
         run_once(use_synthetic=args.synthetic, dry_run=not args.no_dry_run)

@@ -48,6 +48,8 @@ work_type routing: "bug" (behavior/code defect -> dev fleet) or
 "config-enhancement" (monitoring/infra config -> operator). A mis-tuned alert is
 config-enhancement, never bug.
 
+Write every text field (reason, symptom, criteria, recommendation) in ENGLISH.
+
 Return ONE JSON object, no prose, exactly this shape:
 {"disposition":"dismiss|file|escalate","reason":"...",
  "immediate_recommendation":"... or null",

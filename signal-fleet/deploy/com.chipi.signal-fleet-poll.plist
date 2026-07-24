@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  signal-fleet propose-first daemon (EVAL.md transition i). Polls Grafana + GlitchTip
+  every 10 min, records + queues dispositions, takes NO real action (Dismiss/File
+  are proposals for operator review). Install on the homelab mini:
+    cp signal-fleet/deploy/com.chipi.signal-fleet-poll.plist ~/Library/LaunchAgents/
+    launchctl load  ~/Library/LaunchAgents/com.chipi.signal-fleet-poll.plist
+  Stop:   launchctl unload ~/Library/LaunchAgents/com.chipi.signal-fleet-poll.plist
+  Logs:   ~/signal-fleet/logs/poll.{out,err}.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.chipi.signal-fleet-poll</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/markodragoljevic/signal-fleet/mvp/run.sh</string>
+    <string>--poll</string>
+  </array>
+  <key>StartInterval</key><integer>600</integer>
+  <key>RunAtLoad</key><true/>
+  <key>WorkingDirectory</key><string>/Users/markodragoljevic/signal-fleet/mvp</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StandardOutPath</key><string>/Users/markodragoljevic/signal-fleet/logs/poll.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/markodragoljevic/signal-fleet/logs/poll.err.log</string>
+</dict>
+</plist>
