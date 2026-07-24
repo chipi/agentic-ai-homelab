@@ -1,0 +1,13 @@
+{
+  "id": "orrery-fly-physics-L0-triaged-kb1",
+  "repo": "orrery",
+  "fix_commit": "0d6644f9",
+  "oracle_test_file": "src/lib/orbital/fly-physics.test.ts",
+  "code_files": [
+    "src/lib/orbital/fly-physics.ts"
+  ],
+  "area": "orbital-physics",
+  "difficulty": "hard",
+  "level": "L2-triaged-kb1",
+  "description": "The HUD speed readout on the /fly route shows 'NaN km/s' during the cruise phase of any outer-planet mission (Jupiter, Saturn, Uranus, Neptune, Pluto, Ceres).\n\nExpected: The HUD speed readout shows a finite, physically plausible speed (km/s) throughout the entire cruise for every destination, including outer planets. The vis-viva-based speed follows the correct transfer ellipse semi-major axis for the destination.\n\nAcceptance criteria:\n- data-helio-kms on the fly-render-state element is a finite number (not NaN, not ±Infinity) for every outer-planet mission at every simulated time step from departure to arrival\n- The speed readout in the HUD (.hud-val) shows a finite number for outer-planet missions\n- The velocity arrow length (calculated from heliocentricKms) is a finite number for outer-planet missions\n- The speed readout for inner-planet missions (Mercury, Venus, Mars) remains finite and unchanged (not NaN)\n\nTarget: src/lib/orbital/fly-physics.ts — heliocentricSpeed\nDo NOT change src/routes/fly/+page.svelte — the Svelte consumer is the wrong layer; the physics module (fly-physics.ts) must own the destination-aware semi-major axis computation. The call site at +page.svelte:952 is a trivial consumer update that follows once the physics module provides the correct function. — it is not the owner of this symptom."
+}

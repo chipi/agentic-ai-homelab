@@ -131,6 +131,7 @@ while IFS= read -r cf; do
 done < <(jq -r '.code_files[]?' "$BUG_JSON")
 OFF_SCOPE=$(echo "$TOUCHED" | grep -vxF -f <(jq -r '.code_files[]?' "$BUG_JSON") 2>/dev/null | grep -v '^$' | paste -sd, - || true)
 echo "   scope: hit=$SCOPE_HIT${OFF_SCOPE:+  off_scope=$OFF_SCOPE}"
+echo "${OFF_SCOPE:-}" > "$OUT/off_scope.txt"   # kick-back evidence (§6.2): names the decoy
 
 echo "══ re-apply hidden oracle, grade ══"
 apply_oracle

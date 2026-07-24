@@ -1,0 +1,13 @@
+{
+  "id": "orrery-mission-arc-L0-triaged",
+  "repo": "orrery",
+  "fix_commit": "19fb2f17",
+  "oracle_test_file": "src/lib/mission-arc.test.ts",
+  "code_files": [
+    "src/lib/mission-arc.ts"
+  ],
+  "area": "trajectory-math",
+  "difficulty": "hard",
+  "level": "L1-triaged",
+  "description": "On the /fly screen, the heliocentric transfer arc for some missions shows the correct start and end points (Earth at departure day, destination at arrival day) but the arc passes through the wrong intermediate positions — the middle of the arc has an incorrect Keplerian shape.\n\nExpected: Every mission's outbound arc should be a proper Keplerian ellipse with the Sun at one focus, sweeping prograde (CCW) from the live Earth position at departure day to the live destination position at arrival day. The ellipse should have physically plausible eccentricity for the given radii, and the arc should not self-intersect, take the long way around (>180° sweep) when the short path is physically correct, or produce a shape that is visually inconsistent with a realistic transfer orbit between the two endpoints.\n\nAcceptance criteria:\n- The arc passes through both endpoints exactly (within machine epsilon for the first and last samples)\n- The arc lies entirely on a single Keplerian ellipse with the Sun at one focus — every point satisfies r = a(1−e²)/(1+e·cos(ν)) for the same a and e\n- The arc does not self-intersect\n- The arc sweeps ≤ 180° of true anomaly (the shorter CCW arc) for both inner and outer destination transfers — the F2-selection heuristic in transferEllipse picks the candidate whose ellipse sweeps the shorter prograde path between the two position vectors"
+}

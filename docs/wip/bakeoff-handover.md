@@ -122,6 +122,23 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
    in production; it holds the off-scope evidence), and repo docs are
    treated as evidence-not-truth. Defined, not yet wired or evaled —
    its eval set is the measured L0→L1 pairs (intake score, BAKEOFF §6.3).
+1d. ~~Orchestrator MVP + intake eval~~ — **DONE 2026-07-24** (full results:
+   BAKEOFF §6.3 "session 3c"). Built and shaken down: `bakeoff/triage_run.sh`
+   (triager episode + kick-back second-pass mode) and `bakeoff/orchestrate.sh`
+   (deterministic state machine, states in `results/flow.tsv`; 3 crash bugs
+   found by real runs, fixed). All 5 L0s evaluated end-to-end:
+   **credits + look-angles + 335 shipped at round 0; fly-physics +
+   mission-arc stuck correctly after 2 kick-backs each.** The intake
+   discriminator is acceptance *derivability*: repo-derivable → flash
+   triage wins; maintainer-intent → it invents (11 triage calls, 0
+   needs-info). Kick-back L2 pin proven (moved scope no→yes with the exact
+   oracle target). **Next hardening (NOT DONE): intent-source requirement
+   in `agents/triage.md`** (each acceptance criterion cites reporter/spec/
+   repo-data/baseline or verdict degrades to needs-info) — that is a
+   triager-config change (§4.3), so re-run this eval after it as the A/B.
+   Also open: smuggle enforce-vs-tolerate; JSON-flake retry policy;
+   signal-fleet review delivered at
+   `signal-fleet/REVIEW-2026-07-24-fleet1-architectural.md`.
 2. **opencode column** — same model, same matrix (opencode adapter validated
    with `--pure`, never gated across the set). First true harness-vs-harness
    row; substrate policy: harness rows run substrate-OFF (raw recon), one

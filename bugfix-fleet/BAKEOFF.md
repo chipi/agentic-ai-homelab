@@ -382,6 +382,26 @@ Division of labor this implies (the two-factor model as control flow):
   the fly-physics decoy. In-repo docs are evidence, not ground truth; the
   substrate experiments (§6.3) measure exactly how far they can be trusted.
 
+**Orchestrator MVP (2026-07-24, `bakeoff/orchestrate.sh`) — the loop above,
+admitted as a real component.** RFC-0002's orchestrator is deterministic
+code with LLMs as leaf calls; the bake-off now has its minimum shape: one
+script, no LLM in it, that drives one ticket end-to-end —
+`triage_run.sh` (triager episode, rung-0) → gate → `run.sh` (specialist
+episode, rung-1) → grade → on FAIL, triage re-entry with the attempt as
+evidence (2×2 routing) → specialist again, bounded by `KICKBACK_MAX=2` →
+`shipped | needs-info | rejected | stuck`. States land append-only in
+`results/flow.tsv`; every episode self-records to its ledger
+(`runs.tsv` / `triage_runs.tsv`) and to Langfuse.
+
+Deliberate MVP boundaries (growth path, not scope): ticket source = a bug
+manifest (production: a GitHub-issue adapter renders `bug`-labeled issues
+into the same ticket shape); result sink = flow.tsv + artifacts
+(production: labels / `fixes`-branch commit / PR per RFC-0002); invocation
+= operator CLI per ticket (production: always-on webhook service on the
+mini). The state machine itself is the part that does not change — it is
+harness-generic by construction, which is exactly what lets the bake-off
+swap pi/opencode/claude under an identical pipeline.
+
 ### 6.3 Upping-level as a harness measurement axis
 
 The upping-level is not a fixed setting — it is a **measurement axis**. Run the
@@ -540,10 +560,61 @@ snippet left in — substrate: `substrates/orrery-agents-fixmap.md`). Result:
   pinning is cheap and, measured here, deterministic (L2 3/3 at 106–220s,
   the cheapest passing config for this bug).
 
+**Observed (2026-07-24, session 3c): the first intake eval — all 5 L0
+tickets through triage (flash) → orchestrator → specialist (v4-pro).**
+Pipeline: `agents/triage.md` via `triage_run.sh`, chained by
+`orchestrate.sh` (4 tickets fully autonomous; mission-arc's chain run
+leg-by-leg, same sequence). Anchors: raw-L0 floor and hand-L1 ceiling both
+k=3-measured above.
+
+| L0 ticket | raw L0 | orchestrated | rounds | why |
+|---|---|---|---|---|
+| credits | 0/3 | **shipped** | 0 | acceptance mined from repo: `source-logos.json` + ADR-046 primary-credit rule |
+| look-angles | 0/3 | **shipped** | 0 | WGS84 facts derivable from code; heavy smuggle (de-facto L2 ticket) |
+| 335-merge *(control, passes raw)* | 3/3 | **shipped** | 0 | no harm; mild smuggle |
+| fly-physics | 0/3 | **stuck** ✓ | 2 kick-backs | intent (circular-fallback design choice) not in repo → 3 invented theories |
+| mission-arc | 0/3 | **stuck** ✓ | 2 kick-backs | intent (arrival-V∞ bending) not in repo → 3 invented theories, 792s/123k final grind |
+
+Readings:
+- **The intake discriminator is acceptance *derivability*.** Where
+  acceptance is recoverable from the repo (data files, ADRs, code
+  constants), flash triage flips dead tickets to shipped fixes — 2/2, both
+  at round 0. Where acceptance is maintainer *intent* (a design choice
+  among coherent alternatives), triage invents — confidently, with
+  evidence-laden but wrong theories — 0/2, every retry a new theory.
+- **`needs-info` fired 0 times in 11 triage calls** (10 actionable, 1
+  malformed JSON). The valve that separates the two halves does not fire
+  on its own. Consequence for `agents/triage.md`: acceptance criteria must
+  **cite an intent source** (reporter statement, spec/ADR, repo data,
+  baseline) or the verdict must degrade to needs-info — a schema
+  requirement, not a prompt hint. NOTE: that change is a triager-config
+  change (§4.3) — re-run this eval after it as the A/B.
+- **The kick-back L2 pin works for localization** — fly-physics kb1 pinned
+  the oracle's exact file+function from the off-scope evidence and moved
+  the worker scope no→yes. It cannot fix acceptance, matching the k=3
+  two-factor split.
+- **The L1 boundary leaks**: 3/5 first passes smuggled function names
+  (shape=FAIL recorded; orchestrator currently treats shape as signal, not
+  gate). In fleet terms the leak *helps* (look-angles shipped partly on
+  it); in measurement terms it blurs L1-vs-L2 attribution. Open call:
+  enforce (strip pins) vs tolerate (record) — operator's.
+- **Structured-output flake: 1/11** flash calls emitted unparseable JSON
+  (the RFC's pi risk, materialized). Graceful-degrade added (verdict=none
+  → stuck); retry policy is a later decision.
+- **Orchestrator MVP shakedown: 3 crash bugs found by real runs, fixed** —
+  `set -e` vs failing command-substitution, crash-on-malformed-JSON, and
+  leaf-episode crashes now flow to `stuck` instead of dying silently.
+  Terminal states correct in all chains; full audit trail in `flow.tsv`.
+- **Cost:** a shipped round-0 chain ≈ $0.05–0.08 / ~7 min; a full stuck
+  chain (6 episodes) ≈ $0.15–0.25 / ~25–40 min. The stuck chains are the
+  expensive ones — one more argument for the intent-source gate firing
+  *before* the first specialist episode.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify
-  given/derivable/missing right?
+  given/derivable/missing right? *(First measurement: the session-3c block
+  above — 2 shipped, 2 invented-instead-of-needs-info, 1 control clean.)*
 - **Harness (fix) score** — L1 → correct fix via *its own* recon (§7), plus the
   **min upping-level to pass**.
 

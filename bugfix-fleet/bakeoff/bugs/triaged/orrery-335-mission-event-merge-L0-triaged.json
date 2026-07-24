@@ -1,0 +1,13 @@
+{
+  "id": "orrery-335-mission-event-merge-L0-triaged",
+  "repo": "orrery",
+  "fix_commit": "0cb1f36561",
+  "oracle_test_file": "src/lib/mission-event-merge.test.ts",
+  "code_files": [
+    "src/lib/mission-event-merge.ts"
+  ],
+  "area": "data-merge",
+  "difficulty": "medium",
+  "level": "L1-triaged",
+  "description": "Cassini's 4 interplanetary flyby events (Venus #1, Venus #2, Earth, Jupiter) show as 'FLYBY' with empty notes in the CAPCOM event ticker on /fly, instead of their proper names and descriptions from the mission flight data.\n\nExpected: The CAPCOM ticker should show each flyby with its per-event label (e.g. 'Venus #1 — gravity assist') and description (e.g. 'First of four assists building the velocity for Saturn arrival. Closest approach 284 km above the surface.') from the structural flight event, not the generic type default 'FLYBY'.\n\nAcceptance criteria:\n- mergeFlightEvents output includes Cassini's 4 structural flyby events with their `label` values as the event label, not 'FLYBY'\n- Cassini's structural flyby events with a non-empty `description` have that description surfaced as the event note, not ''\n- Collision dedup with editorial events within 0.05-day tolerance still applies — editorial VENUS GRAVITY ASSIST (met 207) does NOT suppress the Venus #1 flyby (met 193, 14 days away)\n- Structural events without explicit `label` or `description` fields still fall back to the current type-keyed defaults (flyby → 'FLYBY' / '', etc.)\n- The same propagation works for any structural flight event that has `label` set (Galileo, Voyager 2, New Horizons, etc.)"
+}
