@@ -148,6 +148,23 @@ and Fleet 1's triager still owes the positive *"what should it do instead?"* —
 that is unanswerable, its own `needs-info` fires. This keeps Fleet 2 from
 laundering symptom-level acceptance through Fleet 1.
 
+**RECONCILED (2026-07-25) — the intent gate vs the ≤5% escalate bar.** These
+were read as fighting (handover note); they don't, once File is priced
+correctly. "No citable intent ⇒ escalate" was over-applied to error-shaped
+signals: an unhandled error *is* a citable `code-invariant` violation, so its
+honest autonomous terminal is **File-with-floor into Fleet 1** (acceptance
+completed downstream by the two-fleet contract), not a trip to the operator.
+Escalate is reserved for genuine *"is this even wrong?"* ambiguity — the
+operator's bar (escalate ≤5%, false-dismiss = 0, both at once) is the fleet's
+success definition: its product is **absorbed operator attention**. Measured
+(2026-07-25, prompt `c2ece738`, v4-pro, 3× k=3 sweeps on the relabeled
+fixtures): false-dismiss **0/27**, escalate 4/89 ≈ 0.045 aggregate
+(PASS / MARGINAL-0.07 / PASS) — first configuration to hold the bar.
+Standing asterisk: class-rules were derived from this 10-fixture set;
+generalization pends the seeded-defect expansion (EVAL). Escalate residue is
+concentrated where no corroboration surface exists for client errors — the
+durable reduction is a client-side corroboration probe, not more prompt.
+
 ---
 
 ## 5. Architecture — replicated from RFC-0002 (this is "another version" of it)

@@ -29,46 +29,64 @@ MAX_PROBES = int(config.env("SF_MAX_PROBES", "3"))
 # — only a BENIGN-looking history (low count / low level / resolved) may corroborate.
 CORROB_PROBES = {"service_logs", "metric", "trace", "source_state", "occurrence_history"}
 INDEP_PROBES = {"service_logs", "metric", "trace", "source_state"}
+# \btest\b misses camelCase hooks (crashOrreryTest) — the known crash-test hook
+# is listed explicitly; do NOT loosen to bare `test` (matches "latest")
 CLEANUP_MARKERS = re.compile(
     r"delete me|safe to delete|\btest\b|validation|probe|smoke|e2e|ladder-verify|"
-    r"wiring|placeholder|dashless", re.I)
+    r"wiring|placeholder|dashless|crashorrerytest", re.I)
 
-_SYSTEM = """You are the triager for an autonomous observability signal fleet. You
-INVESTIGATE each signal with up to %d probes, then decide ONE terminal disposition.
-You never write raw queries — request a probe BY NAME from the menu.
+_SYSTEM = """You are the triager for an autonomous observability signal fleet. Your JOB
+is to DISPOSE of each signal so a human does NOT have to look at it. You INVESTIGATE
+with up to %d probes, then COMMIT to ONE terminal disposition. Request probes BY NAME.
 
-Investigation earns WHAT / WHERE / HOW-OFTEN. It does NOT earn INTENT: whether a
-signal is a real defect, benign, or disposable noise is a question of INTENDED
-behavior, and probing cannot supply intent.
+ESCALATION IS THE EXPENSIVE EXCEPTION. Every escalate lands on the operator's desk and
+spends their attention — the one resource this fleet exists to protect. You should
+escalate at most ~1 IN 20 signals. If you escalate more, you are failing the job.
+Escalate ONLY when, after probing, you genuinely cannot tell whether the signal is a
+real problem or benign — NOT merely because intent is unstated. COMMIT to a decision.
 
-THE CRUX RULE — read twice: if you cannot CITE a source for what "correct" means
-here (reporter / spec / repo-data / code-invariant / baseline / operator-rule / slo),
-you may NOT decide the signal is benign. You ESCALATE with the specific question.
-"I could not find a problem" is NOT evidence of benign — absence of a probe result
-is not a dismiss. Never dismiss to reduce work.
+How to decide (investigation earns WHAT / WHERE / HOW-OFTEN):
 
-Write all text in ENGLISH. Each turn return exactly ONE FLAT JSON object — either a
-probe:
+• FILE — a real problem. This is CHEAP and PREFERRED over escalate: filing hands the
+  work to the downstream fix-fleet, not to the operator. Anything error-shaped is
+  file-able — an unhandled error / exception / null-deref / failed load is ITSELF a
+  code-invariant violation ("code must not throw uncaught"), a citable
+  intent_source=code-invariant. You do NOT need an external spec to file a genuine
+  error. work_type: bug for code defects, config-enhancement for config/infra issues.
+  SPECIAL CASE — telemetry/infra pipeline errors (export timeouts, retry exhaustion,
+  queue drops, batch failures): file as config-enhancement EVEN IF the burst has
+  subsided. A burst of pipeline failures means a mis-tuned component and possibly
+  silent data loss; "it stopped erroring" is NOT "it is healthy".
+
+• DISMISS — the signal is benign / expected / known client-noise. You MUST name the
+  probe result that shows benign in dismissal_evidence (an independent probe, or an
+  occurrence_history that is genuinely benign — low count, low level, resolved). Do
+  not dismiss a real error just because it is rare. The one class where a plain
+  browser error is usually dismissable: CLIENT-SIDE NETWORK TRANSIENTS (failed
+  dynamic-import/module fetch, script or service-worker load failure) with a benign
+  occurrence pattern (low count, no user spread, no recurrence) — dismiss those
+  citing that occurrence evidence. NEVER dismiss a signal that carries a test/
+  synthetic marker — that is cleanup, not dismiss.
+
+• CLEANUP — test / synthetic / noise you can point to a concrete marker for
+  (test hooks, "delete me", validation/smoke events). If you can quote the marker,
+  cleanup is ALWAYS preferred over dismiss: cleanup removes the noise at the source;
+  dismiss leaves it standing to fire again.
+
+• ESCALATE — LAST RESORT, ~1/20. Genuine category ambiguity you could not resolve by
+  probing. Carry a specific question for the human.
+
+Prefer FILE for anything that looks like a real problem; DISMISS (with evidence) or
+CLEANUP (with a marker) for benign or junk. Escalate is the residue, not a default.
+Write all text in ENGLISH.
+
+Each turn return exactly ONE FLAT JSON object — a probe:
   {"action":"probe","probe":"<name>","probe_args":{...},"why":"..."}
-or a terminal decision. The four terminals, ordered from LEAST to MOST evidence they
-demand — reach for the earliest one you can justify, not the one that ends the turn:
-
-  1) ESCALATE — you cannot cite intent; a human must answer a specific question.
-     {"action":"decide","disposition":"escalate","reason":"...","question":"the specific question a human must answer","certainty":"..."}
-
-  2) CLEANUP — test/noise you can point to a concrete machine-checkable marker for.
-     {"action":"decide","disposition":"cleanup","reason":"...","marker":"the exact test/noise marker text you saw","certainty":"..."}
-
-  3) FILE — a real defect; every acceptance criterion cites an intent_source.
-     {"action":"decide","disposition":"file","reason":"...","certainty":"...","file":{"work_type":"bug|config-enhancement","title":"...","symptom":"...","area":"...","evidence":["..."],"acceptance":[{"criterion":"...","intent_source":"reporter|spec|repo-data|code-invariant|baseline|operator-rule|slo"}]}}
-
-  4) DISMISS — the HIGHEST-BAR verdict, not the default. You are positively asserting
-     the signal is benign and needs no action. You MUST name, in dismissal_evidence,
-     the INDEPENDENT probe result that shows it is benign (service_logs / metric /
-     trace / source_state, or an occurrence_history that is genuinely benign — low
-     count, low level, resolved). A self-derived count is NOT corroboration. If you
-     cannot name such evidence, you ESCALATE instead.
-     {"action":"decide","disposition":"dismiss","reason":"...","dismissal_evidence":"the independent probe result proving benign","immediate_recommendation":"... or null","certainty":"low|med|high"}
+or a terminal decision:
+  {"action":"decide","disposition":"file","reason":"...","certainty":"low|med|high","file":{"work_type":"bug|config-enhancement","title":"...","symptom":"...","area":"...","evidence":["..."],"acceptance":[{"criterion":"...","intent_source":"reporter|spec|repo-data|code-invariant|baseline|operator-rule|slo"}]}}
+  {"action":"decide","disposition":"dismiss","reason":"...","dismissal_evidence":"the independent probe result proving benign","immediate_recommendation":"... or null","certainty":"..."}
+  {"action":"decide","disposition":"cleanup","reason":"...","marker":"the exact test/noise marker text you saw","certainty":"..."}
+  {"action":"decide","disposition":"escalate","reason":"...","question":"the specific question a human must answer","certainty":"..."}
 
 PROBE MENU:
 %s"""
@@ -226,6 +244,12 @@ def investigate(signal, max_probes=None, probe_table=None):
         except Exception as e:  # transport
             return _finish(signal, {"disposition": "escalate", "reason": f"triager call failed: {e}",
                                     "question": "transient failure — retry?"}, trace, "n/a", usage, t0)
+        if not isinstance(raw, str) or not raw.strip():
+            # contentless completion = provider flake (measured 2026-07-24:
+            # billing/provider issues present as empty responses) — retry the
+            # same turn; do NOT feed None into the parse-feedback path
+            print(f"    [triage] empty completion at step {step+1} — retrying turn")
+            continue
         try:
             out = _parse(raw)
         except Exception as e:

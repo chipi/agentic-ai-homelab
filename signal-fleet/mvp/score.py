@@ -31,6 +31,7 @@ Metrics:
   SF_OBSERV_DISABLED=1 SF_TRIAGE_MODEL=deepseek/deepseek-v4-pro python3 score.py 3
 """
 import collections
+import datetime
 import json
 import os
 import sys
@@ -70,13 +71,29 @@ def score(k=3):
     confusion = collections.Counter()          # (true_nature -> got)
     autonomy_confusion = collections.Counter()  # (correct_autonomous -> got)
 
+    # per-run record — without it a failing sweep can't be analyzed afterwards
+    runlog_path = os.path.expanduser(
+        f"~/signal-fleet/results/eval-{datetime.datetime.now().strftime('%Y%m%dT%H%M%S')}"
+        f"-{config.TRIAGE_MODEL.split('/')[-1]}-{triage.PROMPT_SHA}.jsonl")
+    os.makedirs(os.path.dirname(runlog_path), exist_ok=True)
+    runlog = open(runlog_path, "a")
+
     for f in labeled:
         gt = f["ground_truth"]
         true_nature = gt["disposition"]
         correct_auto = gt.get("correct_autonomous") or true_nature
         table = f["probes"]
-        for _ in range(k):
+        for run_i in range(k):
             d = triage.investigate(f["signal"], probe_table=table)
+            runlog.write(json.dumps({
+                "fixture": f["id"], "run": run_i, "true_nature": true_nature,
+                "correct_autonomous": correct_auto, "got": d.get("disposition"),
+                "reason": (d.get("reason") or "")[:300],
+                "dismissal_evidence": (d.get("dismissal_evidence") or "")[:200],
+                "gates": d.get("_meta", {}).get("gates") or
+                         {kk: d.get("_meta", {}).get(kk) for kk in ("intent_gate", "dismiss_gate")},
+                "table_miss": bool(d.get("_meta", {}).get("table_miss")),
+            }) + "\n"); runlog.flush()
             if d.get("_meta", {}).get("table_miss"):
                 noise += 1
                 continue                        # coverage artifact — not model behavior
@@ -126,6 +143,23 @@ def score(k=3):
     for (g, got), n in sorted(autonomy_confusion.items()):
         flag = "  <-- SILENT-DROP" if g == "escalate" and got == "dismiss" else ""
         print(f"  {g:>8} -> {got:<8} {n}{flag}")
+
+    # the operator's bar (2026-07-25, non-negotiable): BOTH at once.
+    esc_rate = escalate / scored if scored else 1.0
+    fd = false_dismiss
+    if fd == 0 and esc_rate <= 0.05:
+        print(f"\nBAR: PASS  (false-dismiss=0, escalate {esc_rate:.2f} <= 0.05)")
+    elif fd == 0 and esc_rate <= 0.10:
+        print(f"\nBAR: MARGINAL  (false-dismiss=0, escalate {esc_rate:.2f} in (0.05, 0.10] worst-case band)")
+    else:
+        why = []
+        if fd > 0:
+            why.append(f"false-dismiss={fd} (must be 0)")
+        if esc_rate > 0.10:
+            why.append(f"escalate {esc_rate:.2f} > 0.10")
+        elif esc_rate > 0.05:
+            why.append(f"escalate {esc_rate:.2f} > 0.05")
+        print(f"\nBAR: FAIL  ({'; '.join(why)})")
 
 
 if __name__ == "__main__":
