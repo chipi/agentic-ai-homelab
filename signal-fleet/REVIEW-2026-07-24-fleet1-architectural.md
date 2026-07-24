@@ -341,3 +341,63 @@ Slack-shaped) back into §8, which still presents webhook-vs-poll as open.
 `bugfix-fleet/src/` — accurate; PHASE-0's live-evidence table —
 internally consistent; mvp/ code read in full: config, http_util,
 sources, correlate, triage, actions, orchestrator, probes.)*
+
+---
+
+# Round 4 — verification of the R3 fold (commit `57807f7`) (2026-07-24, operator-requested)
+
+I read the full diff, not the commit message. **Verdict: all R3 items are
+genuinely implemented, and mostly better than asked.** Highlights: the
+R3-1 fix keeps the stable `fingerprint` *alongside* the new
+`occurrence_id` precisely so the R2-2 recurrence/implicit-overturn signal
+survives — that interplay was easy to miss and wasn't; R3-5 is a real
+feedback retry (parse error + prior raw appended to the messages) with
+transport and shape failures correctly separated and `SystemExit` not
+swallowed; the truncation markers, enum alignment, `prompt_sha`
+auto-stamp, and the two-gate `_meta`/ledger split are all exactly right.
+The stale-"unverified" line I hunted for lives only in the discussion log
+(historical record — correct to keep).
+
+Four residuals, none blocking; R4-1 and R4-2 are the two I'd fold:
+
+## R4-1. Ledger schema migration is unhandled (mixed-schema TSV)
+
+The ledger gained columns (`occurrence_id`, `prompt_sha`, `gates`) but
+rows append to whatever file exists: a ledger that already has v1 rows
+keeps its v1 header, new v2 rows land under it misaligned. It's
+harmless-by-luck today (`already_done` matches `fp@startsAt` format,
+which old index-1 values can't collide with) — but the ledger is the
+**overturn dataset**, and mixed-schema TSVs rot analyses silently. Fix
+is one line of policy: version the filename (`dispositions-v2.tsv`) or
+migrate-once on header mismatch.
+
+## R4-2. The Tune follow-up launders the triager's own idea as `operator-rule`
+
+`_tune_followup()` stamps the recommendation's acceptance criterion with
+`intent_source: "operator-rule"` — but no operator stated it; the
+triager invented it. That is precisely the invention-laundered-as-citation
+pattern the intent gate exists to stop, reappearing on the config side.
+Since `config-enhancement` items route to the operator anyway, honesty is
+free: add `triager-recommendation` to the vocabulary (clearly marked as
+below the intent-source bar, acceptable *only* for operator-gated
+work_types), or leave the criterion uncited on this path. Do not let
+`operator-rule` mean "nobody said this."
+
+## R4-3. The Tune follow-up still leaves no ledger trace
+
+The dual output's File half exists as a printed dry-run payload; the
+ledger row records only `disposition=dismiss` with empty `work_type`.
+Until File goes live, the ledger undercounts pending config work — §7.1's
+"not lost" is currently stdout-deep. One extra row (or a `followup`
+column on the dismiss row) closes it.
+
+## R4-4. Residual, acknowledged: the dismiss gate is a floor, not a link
+
+`_dismiss_gate` requires ≥1 usable evidence query globally; it does not
+check that the dismissal's *reason* engages with that evidence (a dismiss
+justified by nothing can pass because an unrelated query returned rows).
+Right-sized for the MVP — recorded here so the autonomy-flip review
+(§10, overturn≈0) remembers the gate's actual strength when it decides.
+
+*(No new review rounds needed for this fold — fold R4-1/R4-2 whenever
+convenient; R4-3/R4-4 can ride along with the next milestone.)*
