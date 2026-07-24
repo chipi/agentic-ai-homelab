@@ -75,6 +75,21 @@ Manufacture near-identical signal pairs (PLAYER-4/5 is the found example); they
 must draw the same disposition across the k frozen replays. Consistency is its own
 score, not folded into accuracy.
 
+### 3.6 Model is the primary swappable axis (harness out of scope)
+The triager is a single classification call over a frozen bundle — **not** an
+agentic harness — so the architectural variable worth sweeping is the **model**,
+not the harness (operator, 2026-07-24: model-only; no Pi/opencode/agentic variant).
+The frozen bundles (§3.1) make the sweep clean: replay the *same* bundle across
+models and compare.
+- **Sweep:** `deepseek-v4-flash` (current) · `deepseek-v4-pro` · `claude-sonnet` ·
+  `kimi-k2.6` · `glm` — selected per run via `SF_TRIAGE_MODEL`, no code change.
+- **Attribution:** every disposition already stamps `model` + `prompt_sha` (ledger
+  + Langfuse), so a model change = a new comparable grid row (BAKEOFF §4.3).
+- **Compare per model:** false-dismiss, escalate-rate, consistency (§3.4/3.5), and
+  **cost** (Langfuse $) — the "is the cheap model good enough" question is the point.
+- **Winner:** lowest false-dismiss within the escalate-rate tolerance at acceptable
+  cost — never raw accuracy.
+
 ## 4. The reference set (grounded in the real inventory, 2026-07-24)
 
 A **reference case** = a frozen fixture: `{signal, evidence_bundle (frozen),
@@ -116,6 +131,12 @@ input only the operator can give; (3) seed real defects from Fleet-1 bugs (§3.2
 - Not a blocker on propose-first (§1). Ship (i) now.
 - Not a single number (§3.4) — false-dismiss and escalate-rate are reported apart.
 - Not rubric-only — the File class is scored executably where an oracle exists (§3.3).
+- Not a harness bake-off — the triager is a single model call, so the sweep is
+  **model-only** (§3.6), not Pi/opencode/agentic.
+- Not a reason to run the daemon *now* — continuous propose-first only earns its
+  keep once real traffic flows AND there's a review loop; until then it just
+  re-polls the same test issues (idempotency skips them). On-demand `--poll` for
+  the build/eval phase; daemon on later.
 
 ## 7. Open (needs operator)
 - The **ground-truth labels** on the ~20–30 real cases (§4 sourcing #2).
