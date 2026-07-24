@@ -204,8 +204,9 @@ if [ "$VERDICT" = "actionable" ] && [ -f "$OUT/triage.json" ]; then
   TDESC=$(jq -r '.problem | .symptom + "\n\nExpected: " + .expected
     + "\n\nAcceptance criteria:\n" + (.acceptance | map(if type == "string" then "- " + . else "- " + .criterion + " [" + (.intent_source // "?") + ((.source_ref // "") | if . == "" then "" else ": " + . end) + "]" end) | join("\n"))
     + (if (.domain_facts | length) > 0 then "\n\nDomain facts:\n" + (.domain_facts | map("- " + .) | join("\n")) else "" end)
-    + (if (.pin.file // "") != "" then "\n\nTarget: " + .pin.file + (if (.pin.function // "") != "" then " — " + .pin.function else "" end)
-       + (if (.pin.decoy // "") != "" then "\nDo NOT change " + .pin.decoy + " — it is not the owner of this symptom." else "" end) else "" end)' "$OUT/triage.json")
+    + (if (.pin.file // "") != "" and $kb == "1" then "\n\nTarget: " + .pin.file + (if (.pin.function // "") != "" then " — " + .pin.function else "" end)
+       + (if (.pin.decoy // "") != "" then "\nDo NOT change " + .pin.decoy + " — it is not the owner of this symptom." else "" end) else "" end)' \
+    --arg kb "$([ "$KB_ROUND" -gt 0 ] && echo 1 || echo 0)" "$OUT/triage.json")
   jq --arg id "${ID}-triaged${SUFFIX}" --arg desc "$TDESC" --arg lvl "$([ "$KB_ROUND" -eq 0 ] && echo L1-triaged || echo L2-triaged-kb$KB_ROUND)" \
      '.id=$id | .description=$desc | .level=$lvl' "$BUG_JSON" > "$HERE/$TRIAGED"
   echo "   triaged manifest → $TRIAGED"

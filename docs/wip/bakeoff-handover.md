@@ -159,10 +159,37 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
    `signal-fleet/REVIEW-2026-07-24-fleet1-architectural.md` (round 3 =
    Phase-0 + MVP code; fix-first items R3-1 idempotency key, R3-2
    ungated Dismiss).
-2. **opencode column** — same model, same matrix (opencode adapter validated
-   with `--pure`, never gated across the set). First true harness-vs-harness
-   row; substrate policy: harness rows run substrate-OFF (raw recon), one
-   substrate-ON row separately.
+1e. ~~Reporter-loop chains for the remaining L0s~~ — **DONE 2026-07-24
+   (session 3f, BAKEOFF §6.3): 4/5 shipped end-to-end** (credits,
+   look-angles, 335 at round 0 without needing the reporter; mission-arc
+   via reporter+pin in 3e). Ladder on the same garbage tickets: raw 1/5 →
+   v1 3/5 (+2 poison) → **v2+reporter 4/5, zero poison**. fly-physics
+   stuck, precisely characterized: ask-starvation (never consults the
+   reporter) + kick-back anchoring cascade (re-pins its own failed pin;
+   first-pass pin render now suppressed as a partial fix). Also: triage
+   content stochastic across runs (credits narrowed-FAIL vs full-PASS);
+   kick-back scope evidence leaks manifest ground truth (upper-bound
+   caveat on file).
+
+**OPERATOR DECISION 2026-07-24: opencode column DEFERRED** — keep digging
+single-harness (pi) until opportunities are exhausted; easier to iterate
+on one harness. Candidate next moves (assessment for the operator):
+   (a) kick-back anti-anchoring — strip/refute the failed pin on
+   re-entry (deterministic, targets fly-physics);
+   (b) production-shape kick-back evidence — remove the code_files leak,
+   re-run the two reporter chains (eval realism);
+   (c) k=3 on the five full chains — turn 4/5 into a rate (~$3);
+   (d) ask-before-fix — consult the reporter when acceptance rests only
+   on floor/derived sources, before the first 600s worker episode
+   (economics: 8s vs 600s);
+   (e) JSON-flake feedback-retry port into triage_run.sh (signal-fleet
+   already ported my gate; their retry pattern comes back);
+   (f) Scenario B (cumulative backlog) — the unexercised realism
+   capstone, still single-harness.
+2. **opencode column** (deferred per above) — same model, same matrix
+   (opencode adapter validated with `--pure`, never gated across the
+   set). First true harness-vs-harness row; substrate policy: harness
+   rows run substrate-OFF (raw recon), one substrate-ON row separately.
 3. **Build the active-triager** (RFC-0002 role, thin worker call): template +
    given/derivable/missing + oracle-exists gate. The measured L0→L1 pairs are
    its ready-made eval set (intake score = L0 garbage → L1-or-reject).

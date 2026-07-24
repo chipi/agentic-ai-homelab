@@ -692,13 +692,53 @@ Readings:
   what v2's first-pass needs-info does when the stochastic draw goes
   right.
 
+**Observed (2026-07-24, session 3f): the full-loop sweep — 4/5 L0 tickets
+shipped end-to-end.** All five L0 chains through the complete orchestrator
+(triage v2 + reporter-oracle + kick-back), each n=1:
+
+| L0 chain | outcome | rounds | reporter used |
+|---|---|---|---|
+| credits | **shipped** | 0 | no — acceptance recovered from repo |
+| look-angles | **shipped** | 0 | no — same (clean scope, zero off-scope) |
+| 335 (control) | **shipped** | 0 | no |
+| mission-arc | **shipped** | QA + kb pin (3e) | **yes** — 3 answers, 8s |
+| fly-physics | **stuck** | 3 rounds, all scope=no | **no — never asked** |
+
+Ladder of configurations on the same five garbage tickets: raw L0 = 1/5 ·
+v1 triage = 3/5 (+2 poison chains) · **v2 + reporter loop = 4/5, zero
+poison chains** (one invented round inside the mission-arc chain
+self-corrected via kick-back).
+
+The fly-physics residual is now precisely characterized, two failure
+modes compounding:
+- **Ask-starvation:** the triager went actionable in every pass — the
+  reporter (whose facts file holds exactly the missing fallback intent)
+  never received a question. The reporter only helps if asked; ask-rate
+  is stochastic and bug-dependent.
+- **Anchoring cascade on kick-back:** the first pass pinned the symptom
+  layer (`fly/+page.svelte`, an L1 violation the shape check flagged but
+  the orchestrator dispatched anyway — gate hole, now partially closed by
+  suppressing first-pass pins at render); each re-entry then received its
+  own prior including the failed pin and re-pinned the same file — kb1
+  even naming it as both target *and* decoy. "Pinned it, patched it,
+  still failed" was not treated as refutation.
+- Also caught: credits' v2 triage content is stochastic across runs (3d
+  narrowed-to-CSA FAIL vs 3f full-mapping PASS) — content, not just
+  verdicts, needs k≥3 before rates are quoted.
+- **Eval-realism note:** kick-back evidence currently derives scope from
+  the manifest's `code_files` (ground truth production won't have) — the
+  off-scope list even *told* the triager its pin was wrong and the anchor
+  held anyway. Results are an upper bound; a production-shape evidence
+  block ("patch touched X, FAILED") is the clean protocol.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify
   given/derivable/missing right? *(Measured: session-3c block — v1: 2
   shipped, 2 invented-instead-of-needs-info, 1 control clean; session-3d —
   v2 closes the invention path; session-3e — v2 + reporter-oracle ships
-  the intent-gap bug end-to-end.)*
+  the intent-gap bug end-to-end; session-3f — full sweep 4/5, fly-physics
+  the characterized residual.)*
 - **Harness (fix) score** — L1 → correct fix via *its own* recon (§7), plus the
   **min upping-level to pass**.
 
