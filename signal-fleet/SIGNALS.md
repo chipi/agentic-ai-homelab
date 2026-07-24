@@ -253,6 +253,11 @@ Dispositions are **not mutually exclusive**. A single signal may yield an
 (Dismiss-now + File-config-later) is the first example. The orchestrator emits a
 *set* of outputs per signal, not a single verdict: the immediate action clears
 the live noise; the follow-up captures the structural work so it is not lost.
+The follow-up `config-enhancement`'s acceptance is cited `triager-recommendation`
+(review R4-2) — a **sub-bar** intent source (the triager invented it; no operator
+stated it), deliberately **not** in the intent gate's `ALLOWED_INTENT`. It is
+acceptable *only* because `config-enhancement` is operator-gated; it is never
+valid for a `bug` File. This keeps invention from laundering into a citation.
 
 ### 7.2 Filed-work taxonomy — the label is the router
 
@@ -381,6 +386,11 @@ dispositions by blast radius:
   autonomous. The ledger (§9) supplies that measurement — and §9 specifies the
   **Dismiss-overturn surface** (implicit, via signal-recurrence / human-reopen)
   that keeps feeding it once Dismiss is autonomous.
+- **Dismiss-gate strength (review R4-4):** the gate is a **floor, not a link** — it
+  requires ≥1 usable evidence query to exist, but does not verify the dismiss
+  *reason* engages that evidence (a dismiss justified by nothing can pass if an
+  unrelated query returned rows). Right-sized for the MVP; the autonomy-flip
+  decision above must weigh this when it reads the overturn rate.
 - **File** — creates a GitHub issue. Cheap, reviewable, non-destructive →
   autonomous is reasonable (a bad issue is a cheap mistake and Fleet 1 + operator
   gate downstream anyway).
@@ -591,3 +601,11 @@ shared across fleets; our signal-specific addition is `slo`/error-budget.
   webhook**; Grafana's "prescribed" softened to note the SA-token path + a
   least-privilege debt list (R3-6); §13.4 overclaim fixed (R3-8). All re-verified
   live on the mini.
+- **2026-07-24 (Fleet-1 round-4 verification fold — R4-1…R4-4):** Round 4 verified
+  the R3 fold from the diff (all genuine). Folded: **R4-1** ledger schema
+  migrate-once on header mismatch (no mixed-schema TSV rot); **R4-2** the Tune
+  follow-up now cites `triager-recommendation`, a sub-bar source not in the intent
+  gate (§7.1) — invention no longer laundered as `operator-rule`; **R4-3** the
+  dual-output is recorded via a `followup` column on the dismiss row (no longer
+  stdout-deep). **R4-4** (dismiss-gate is a floor) recorded in §10 for the
+  autonomy-flip review — acknowledged, no code change per the reviewer.

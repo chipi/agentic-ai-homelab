@@ -2,7 +2,8 @@
 
 - dismiss: record (propose-first for MVP — no source ack yet). If it carries an
   immediate_recommendation, ALSO emit a `config-enhancement` File (dry-run) — the
-  Tune dual output (SIGNALS §7.1 / review R3-3), so the follow-up half isn't lost.
+  Tune dual output (SIGNALS §7.1 / review R3-3), recorded on the ledger row via the
+  `followup` column (review R4-3).
 - file:    build the labelled GitHub issue payload; DRY-RUN until the target repo
            is chosen (SIGNALS §13.1 #3).
 - escalate: operator note.
@@ -10,14 +11,13 @@ Idempotency is keyed on the OCCURRENCE (fingerprint + startsAt), not the
 alertname (review R3-1).
 """
 import datetime
-import json
 import os
 
 import config
 
 LEDGER_COLS = ["ts", "occurrence_id", "fingerprint", "source", "alertname",
-               "disposition", "work_type", "model", "prompt_ver", "prompt_sha",
-               "gates", "reason"]
+               "disposition", "work_type", "followup", "model", "prompt_ver",
+               "prompt_sha", "gates", "reason"]
 
 
 def _now():
@@ -28,16 +28,31 @@ def _cell(s):
     return str(s).replace("\t", " ").replace("\n", " ")
 
 
-def ledger_append(signal, disp):
+def _ensure_ledger_schema():
+    """Migrate-once on header mismatch so the overturn dataset never becomes a
+    mixed-schema TSV (review R4-1). An old-schema file is set aside, not appended
+    to under a stale header."""
+    if not os.path.exists(config.LEDGER):
+        return
+    with open(config.LEDGER) as f:
+        header = f.readline().rstrip("\n")
+    if header != "\t".join(LEDGER_COLS):
+        bak = f"{config.LEDGER}.{_now().replace(':', '').replace('.', '')}.bak"
+        os.rename(config.LEDGER, bak)
+        print(f"  [ledger] schema changed — archived old ledger to {os.path.basename(bak)}")
+
+
+def ledger_append(signal, disp, followup=""):
     os.makedirs(os.path.dirname(config.LEDGER), exist_ok=True)
+    _ensure_ledger_schema()
     new = not os.path.exists(config.LEDGER)
     meta = disp.get("_meta", {})
     wt = (disp.get("file") or {}).get("work_type", "") if disp.get("disposition") == "file" else ""
     gates = f"i:{meta.get('intent_gate', '')}/d:{meta.get('dismiss_gate', '')}"
     row = [_now(), signal.get("occurrence_id", ""), signal.get("fingerprint", ""),
            signal.get("source", ""), signal.get("alertname", ""), disp["disposition"],
-           wt, meta.get("model", ""), meta.get("prompt_ver", ""), meta.get("prompt_sha", ""),
-           gates, disp.get("reason", "")[:300]]
+           wt, followup, meta.get("model", ""), meta.get("prompt_ver", ""),
+           meta.get("prompt_sha", ""), gates, disp.get("reason", "")[:300]]
     with open(config.LEDGER, "a") as f:
         if new:
             f.write("\t".join(LEDGER_COLS) + "\n")
@@ -45,8 +60,8 @@ def ledger_append(signal, disp):
 
 
 def already_done(occurrence_id):
-    """Last disposition for this OCCURRENCE, or None. Keyed on occurrence_id so a
-    correct Dismiss of one firing never silences the next firing (review R3-1)."""
+    """Last disposition for this OCCURRENCE, or None (keyed on occurrence_id so a
+    correct Dismiss of one firing never silences the next firing — review R3-1)."""
     if not os.path.exists(config.LEDGER):
         return None
     oi, di = LEDGER_COLS.index("occurrence_id"), LEDGER_COLS.index("disposition")
@@ -85,7 +100,13 @@ def build_issue(signal, f):
 
 def _tune_followup(signal, disp):
     """The File half of the Tune dual output: a config-enhancement built from the
-    Dismiss's immediate_recommendation (SIGNALS §7.1). None if no recommendation."""
+    Dismiss's immediate_recommendation (SIGNALS §7.1). None if no recommendation.
+
+    intent_source is `triager-recommendation` — the triager invented it, no
+    operator stated it, so it must NOT masquerade as `operator-rule` (review R4-2).
+    This sub-bar source is acceptable ONLY because config-enhancement is
+    operator-gated; it is never valid for a `bug` File (which the intent gate
+    enforces — `triager-recommendation` is deliberately not in ALLOWED_INTENT)."""
     rec = disp.get("immediate_recommendation")
     if not rec:
         return None
@@ -95,16 +116,19 @@ def _tune_followup(signal, disp):
         "symptom": f"Dismissed as false alarm; recurring noise: {disp.get('reason', '')[:180]}",
         "area": "monitoring-config",
         "evidence": [f"signal fingerprint {signal.get('fingerprint')}"],
-        "acceptance": [{"criterion": rec, "intent_source": "operator-rule"}],
+        "acceptance": [{"criterion": rec, "intent_source": "triager-recommendation"}],
     }
 
 
 def act(signal, disp, dry_run=True):
+    import json
     d = disp["disposition"]
+    followup = ""
     if d == "dismiss":
         print(f"[DISMISS] {disp.get('reason', '')[:160]}")
         follow = _tune_followup(signal, disp)
         if follow:
+            followup = "config-enhancement"
             print("[+ FILE dry-run: config-enhancement follow-up — Tune dual output §7.1]")
             print(json.dumps(build_issue(signal, follow), indent=2))
     elif d == "file":
@@ -117,4 +141,4 @@ def act(signal, disp, dry_run=True):
                 "real issue creation pending target-repo decision (SIGNALS §13.1 #3)")
     elif d == "escalate":
         print(f"[ESCALATE -> operator] {disp.get('reason', '')[:200]}")
-    ledger_append(signal, disp)
+    ledger_append(signal, disp, followup=followup)
