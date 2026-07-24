@@ -541,3 +541,131 @@ The eval is the right gate; the unsafe part today isn't the missing
 eval, it's that two of the three Dismiss safeguards (gate, evidence
 neutrality) have Phase-B-specific holes that no amount of k-runs would
 catch from noise-only traffic.
+
+---
+
+# Round 6 — design gut-check: §7.3 investigation-driven triage (2026-07-24, operator-requested)
+
+Fleet-1 has unusually direct data on this question, because our bake-off
+triager was never single-shot: it runs as a pi episode with tools and
+*does* investigate (it read code, mined data files, even executed
+per-mission diagnostics). So we've already measured what investigation
+buys and what it doesn't. Answers in order.
+
+## 1. Right evolution or over-engineering? Right insight, one real risk, and it's four changes riding one insight.
+
+The insight is correct and measured from our side: investigation is what
+made the good outcomes possible (credits shipped *because* the triager
+mined `source-logos.json` + ADR-046 — facts no snapshot bundle would
+carry). But our data also shows the failure mode §7.3 walks toward:
+**investigation raises evidence quality; it does not produce certainty
+about intent — and it actively manufactures false certainty.** Our
+worst outputs were the *most* investigated ones: mission-arc's kick-back
+triage ran 185k tokens of genuinely impressive diagnostics and produced
+a confident, coherent, wrong acceptance — three times. More
+investigation → more conviction, not more correctness, whenever the
+question is *should* rather than *what/where/how-often*.
+
+So the scope rule that keeps §7.3 sound is one sentence: **investigation
+may establish what / where / how-often; acceptance still requires a
+citable intent source, and "high certainty" never substitutes for one.**
+Without that sentence, "file only with certainty earned by
+investigation" becomes a certainty-laundering machine — the exact
+pattern the intent gate exists to stop, now with better-looking
+evidence. The operator's complexity worry is half right: the *insight*
+is one change; the proposal bundles four (dispositions + loop +
+cost-routing + eval machinery). The minimal version (§6 below) keeps
+the insight and sheds most of the machinery.
+
+## 2. Does agentic-lite reopen the harness question? It's a slope, and the dangerous part is the middle.
+
+"Model-only stays the eval axis" conflates the model question with the
+loop question. An investigation loop *is* a tool loop, and who runs the
+tool loop was exactly the harness question. Three positions on the
+slope:
+- **(a) Menu-driven bounded probes** — a fixed, typed probe set
+  (`stacktrace`, `occurrence_history`, `logs(window)`, `source_state`…);
+  each round the model picks the next probe from the menu or decides;
+  hard cap N. That is a state machine where a model chooses transitions
+  — deterministic, replayable, cheap to freeze. **Not** the harness
+  question.
+- **(b) Full agentic investigation** — that is simply *running a harness
+  episode* (pi with read-only tools), and then Fleet-1's measured answer
+  already applies; don't redesign it.
+- **The trap is the middle**: a hand-rolled open-ended tool loop in
+  `mvp/` — own tool registry, own parser, own budget logic — is
+  rebuilding pi badly, and it's where the complexity worry comes true.
+
+Recommendation: build (a); if the menu proves insufficient, jump
+straight to (b) by reusing a harness. Never build the middle. §7.3's
+own open question 1 leans this way — make it a decision, not a lean.
+
+## 3. Taxonomy: 4 of the 5 are sound. `investigate-deeper` is not a disposition.
+
+- **`cleanup` — sound**, and consistent with the §2 boundary as amended
+  in round 1 (may write triage state to monitoring tools). It's Dismiss
+  with a stronger write verb. Two conditions: prefer **resolve+tag over
+  delete** (audit trail; delete is the one barely-reversible act in the
+  fleet), and give it its own mechanical gate — the reason must cite a
+  machine-checkable marker (test-pattern message, `environment=test`,
+  known probe source), else escalate. Propose-first until overturn data
+  exists, same as Dismiss.
+- **`investigate-deeper` — remove from the terminal set.** It's a loop
+  transition, not an outcome — §7.3 itself defines it as "hand to a
+  deeper agent or the operator *with a specific question*", which is
+  escalate-with-question. As a terminal disposition it pollutes the
+  ledger and dashboard (outcomes mixed with in-progress states) and
+  breaks the eval (there is no defensible ground-truth label for
+  "investigate-deeper" — labelers will disagree forever). Keep four
+  terminals: dismiss / cleanup / file / escalate, where escalate carries
+  a structured `question` field.
+- **Certainty levels: metadata only, never a gate.** Self-reported model
+  confidence is uncalibrated — our most-wrong triage outputs would have
+  self-scored highest. Calibrate certainty *post-hoc* from the overturn
+  ledger; don't let the model's own number route anything.
+
+## 4. "Investigate to file less" — directionally supported by our cost data, with a named counter-risk.
+
+Measured, Fleet-1: a bad File costs 600–800s and 100–230k tokens per
+worker episode, plus kick-back rounds, plus operator attention. A triage
+investigation costs 100–400s of flash (~$0.01–0.05). Spending up to
+~10× more at triage to prevent one bad File is clearly positive-EV —
+same shape as our ask-before-fix economics (8s of asking vs 600s of
+grinding). **But** our v2 A/B also measured the inverse: discipline
+costs recall (v2 shipped 1 where v1 shipped 3 in the probe round).
+"File less" must mean *file less garbage*, not *file late or never* —
+add a third metric to the R5 pair: **file-recall / time-to-file on the
+seeded real-defect class**, or the fleet optimizes into a very confident
+spam filter that never files anything. Also bound investigation spend
+per-signal *and* per-hour: hot streams × deep loops compound.
+
+## 5. Eval implication — smaller than §7.3 fears, if you take the menu.
+
+With menu-driven probes, you don't need to "freeze queryable state" in
+general: freeze the **probe-response table** per labeled case (probe →
+canned response, captured once). Replay = intercept probe calls against
+the table. The frozen-bundle design survives almost intact — the bundle
+just becomes lazy. This is the strongest argument for (a): the
+open-ended loop makes the eval machinery balloon; the menu keeps it a
+lookup table. Agree with "architecture before eval," but with the menu
+the delta is days not weeks — don't let architecture design idle the
+eval long.
+
+## 6. The minimal version
+
+1. Four terminal dispositions (cleanup folded in; investigate-deeper →
+   escalate-with-question / internal transition).
+2. Menu-driven probe loop, hard cap **N=3** — our measured recon
+   plateaued fast: the useful facts in every good triage came from the
+   first 2–3 lookups; the 185k-token mega-investigation added conviction,
+   not correctness.
+3. The intent-gate sentence: investigation earns what/where/how-often;
+   acceptance still cites reporter/spec/repo-data/invariant/baseline.
+   Unchanged, explicitly out of investigation's reach.
+4. Instrumentation feedback: already built — it's §7.1 composition
+   (Dismiss + config-enhancement File carrying the threshold spec). No
+   new machinery; the staleness case just uses it well.
+5. Defer: certainty-as-gate, full-agentic investigation, delete-at-source.
+
+That version captures the whole insight, adds one genuinely new
+mechanism (the probe menu), and leaves the eval design ~90% intact.
