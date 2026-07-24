@@ -669,3 +669,127 @@ eval long.
 
 That version captures the whole insight, adds one genuinely new
 mechanism (the probe menu), and leaves the eval design ~90% intact.
+
+---
+
+# Round 7 — §7.3 implementation + the first scored eval (2026-07-24, per REVIEW-ASK-round7.md)
+
+Read: the ask, `probes.py`, `triage.py` (gates, `CORROB_PROBES`,
+`_usable`), the uncommitted `freeze.py` approach, the scored result.
+The build honors Round 6's minimal version faithfully — menu probes,
+N=3, four terminals, gates deterministic. Answers in the ask's order;
+(2) and (3) end with the decisions you asked for.
+
+## 1. Eager-full-menu freeze: right call — it fixes the probe-name axis, but your coverage hole lives on the *args* axis
+
+A frozen table is a simulation of the world, and the world contains
+answers to questions the model didn't happen to ask — pre-populating is
+correct, and union-across-freeze-k is strictly worse (still holey, more
+machinery). A live-failing probe frozen as its error string is *faithful*,
+not masking. Two sharpenings:
+- **The args axis is still open.** `probe_key(name, args)` means a replay
+  requesting `service_logs(window=24h)` against a table frozen at `6h`
+  sentinels out exactly like before. Canonicalize args into small enums
+  (window ∈ {6h, 24h}), and on exact-key miss fall back to the same
+  probe's default-args response with an `args-coerced` marker.
+- **Count table-misses as their own metric line.** Right now a miss
+  degrades toward escalate and pollutes the disposition columns — the
+  confound you built the eager freeze to kill re-enters through
+  accounting. `table-miss` is eval-infrastructure noise, never model
+  behavior.
+
+## 2. The crux: don't relabel — dual-label. False-dismiss keeps `file`; disposition-correctness gets `escalate`
+
+You're reading my Round 6 line correctly, but choosing one label forces a
+false choice between two *different questions*. Give every fixture two
+ground-truth columns:
+- **`true_nature`** (PLAYER-4/5: `file`/bug) — **false-dismiss is scored
+  against this.** A dismissed real defect is a lost defect regardless of
+  what the triager could cite; that harm is what the metric exists to
+  count. Relabeling to `escalate` would make a dismissal of a real bug
+  score as merely "wrong," and your headline safety metric goes blind.
+- **`correct_autonomous_disposition`** (PLAYER-4/5: `escalate`) — the
+  autonomy-gate metric. Under §4.1 the triager cannot cite the operator's
+  head; escalate IS the correct autonomous action, and the intent gate
+  would force it anyway if the model filed. Scoring escalate as an error
+  here punishes intent-gate-correct behavior — Goodhart in the making.
+
+Your measured numbers re-read under the split: `file→escalate 2` are
+**correct autonomous actions**, not failures; `file→dismiss 6` are true
+false-dismisses. "file-recall 1/9" becomes "non-dismiss on real bugs
+3/9" — flash still looks bad, but for the right reason. This also
+matches production semantics: escalate routes to the human who then says
+"bug" — the loop files it one hop later; the asymmetry (escalate costs
+attention, dismiss loses a defect) is exactly why these belong in
+separate cells. **Decision: keep PLAYER-4/5 labeled by nature, add the
+second column, report both metrics.**
+
+## 3. Prompt-fix first — the confusion matrix has prompt fingerprints on it
+
+`dismiss→dismiss 9/9` with everything else leaking *into* dismiss is the
+signature of a model collapsing to the least-friction disposition — and
+in the current design dismiss IS the least-friction path: file carries
+the intent-source ceremony, cleanup carries a marker gate, escalate
+carries a question field; dismiss carries a reason string. Fleet-1's
+flash showed the same collapse with the opposite sign (never
+`needs-info` — always the lowest-effort confident action). Three prompt
+changes before any v4-pro spend:
+1. **Symmetrize the friction:** dismiss must carry a
+   `dismissal_evidence` field naming the specific probe result that
+   positively supports non-defect (recovery, marker, resolved-state) —
+   mirror-image of the intent gate.
+2. **State the crux rule from (2) explicitly:** "a defect you cannot
+   cite intent for is ESCALATE, never dismiss — dismiss requires
+   positive evidence of non-defect, not absence of certainty."
+3. **Order/framing:** present dispositions in cost order (file/cleanup
+   → escalate → dismiss) with dismiss framed as the *privileged* verdict
+   requiring the strongest evidence, not the default.
+
+Then run **both** flash and v4-pro on the fixed prompt (cents): with the
+existing flash-on-old-prompt run you get 3 cells of the model×prompt 2×2
+and can actually attribute the 0.67. Running v4-pro on the known-biased
+prompt would confound exactly as you suspect. **Decision: prompt-fix
+first, then sweep both models.**
+
+## 4. R5-1: closed at the front door, partially reopened through a side door
+
+`event_detail ∉ CORROB_PROBES` — the original hole (the error's own
+details corroborating its own dismissal) is closed by construction.
+But `occurrence_history ∈ CORROB_PROBES`, and that probe is built from
+`signal.raw` — **the same GlitchTip issue restated**. Its fields
+(count/firstSeen/lastSeen/status) exist for every issue, so it is always
+usable → for the GlitchTip class the gate is again passable by
+self-derived evidence alone. It's a *much* weaker hole than R5-1 (the
+model must at least run a probe, and status/staleness genuinely can
+support dismissal — "resolved 3 days ago, zero new events" is real
+evidence), but "always passable" is the property R5-1 was about. Fix
+without losing the legitimate case: make `occurrence_history` count as
+corroboration **only when it shows a dismissal-relevant state**
+(status ≠ unresolved, or lastSeen older than a threshold) — a content
+check for this one probe, not mere usability. As for the 2/9 escalated
+file-runs: that's the gate failing **safe** on a real observability gap
+(client-side errors have no server-side corroboration surface wired —
+no RUM/Umami probe yet). The gate is exposing the gap, not
+malfunctioning; the long-run fix is a client-side corroboration probe,
+not a looser gate.
+
+## 5. Small-N: "flash is unfit" is not defensible — and your file class is thinner than it looks
+
+Two of your three file fixtures are near-duplicates (PLAYER-4/5), so the
+effective independent file cases ≈ 2, and k=3 runs within a fixture are
+correlated. What IS defensible at this N: "flash exhibits a strong,
+consistent dismiss-bias on this fixture family" — a directional finding
+that fully justifies the prompt fix and the model comparison, and
+nothing stronger. Before any "unfit" verdict lands in a doc: widen the
+file class with the seeded-defect generator (Round 5 §2 — run orrery at
+a Fleet-1 bug's base, capture the real GlitchTip error), which gives you
+file-labeled fixtures with *known* ground truth in both columns at ~zero
+labeling cost. Also honestly note the dismiss class is trivially easy
+(9/9) — the current set can't distinguish "good at dismissing noise"
+from "dismisses everything"; the near-duplicate pair PLAYER-4/5 is
+your consistency probe, keep it that way on purpose.
+
+**Net: the eval machinery is sound and the Round-6 build is faithful.
+Sequence: dual-label → prompt-fix (3 changes above) → flash+v4-pro sweep
+on fixed prompt → widen the file class via seeded defects before any
+fitness verdicts.**
