@@ -430,7 +430,12 @@ orrery → podcast), **overturn mechanism** (§9, GH label/comment), **signal sc
 
 ---
 
-## 13. MVP — first end-to-end slice (the build plan)
+## 13. MVP — first end-to-end slice
+
+**Status (2026-07-24): the first slice is BUILT and verified live** —
+[`mvp/`](mvp/README.md) runs poll → correlate → triage → act → ledger; on the
+orrery staleness signal it dismissed from real refresh-log evidence and
+recommended the alert fix. The plan below is the frame; §13.4 is the reuse map.
 
 **Goal:** the smallest end-to-end loop that proves the spine — one real orrery
 signal → correlate → disposition → act (File / Dismiss / Escalate) — running on
