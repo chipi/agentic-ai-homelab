@@ -30,8 +30,9 @@ VT_URL = env("SF_VT_URL", f"http://{HOST}:10428")          # VictoriaTraces (Jae
 
 # trigger sources
 GRAFANA_URL = env("SF_GRAFANA_URL", f"http://{HOST}:3000")
-GRAFANA_USER = env("GRAFANA_ADMIN_USER", "admin")
-GRAFANA_PW = env("GRAFANA_ADMIN_PASSWORD")                 # from observability .env
+GRAFANA_TOKEN = env("GRAFANA_TOKEN")                       # Viewer service-account token (preferred)
+GRAFANA_USER = env("GRAFANA_ADMIN_USER", "admin")          # basic-auth fallback only
+GRAFANA_PW = env("GRAFANA_ADMIN_PASSWORD")
 GLITCHTIP_URL = env("SF_GLITCHTIP_URL", f"http://{HOST}:8090")
 GLITCHTIP_TOKEN = env("GLITCHTIP_TOKEN")                   # signal-fleet token
 

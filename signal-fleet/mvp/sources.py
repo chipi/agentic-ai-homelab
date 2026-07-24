@@ -10,11 +10,13 @@ from http_util import get_json
 
 
 def firing_alerts():
-    """Currently-active Grafana alert instances (Alertmanager v2)."""
-    data = get_json(
-        f"{config.GRAFANA_URL}/api/alertmanager/grafana/api/v2/alerts",
-        config.GRAFANA_USER, config.GRAFANA_PW,
-    )
+    """Currently-active Grafana alert instances (Alertmanager v2). Prefers the
+    Viewer service-account token; falls back to basic-auth only if no token."""
+    url = f"{config.GRAFANA_URL}/api/alertmanager/grafana/api/v2/alerts"
+    if config.GRAFANA_TOKEN:
+        data = get_json(url, headers={"Authorization": f"Bearer {config.GRAFANA_TOKEN}"})
+    else:
+        data = get_json(url, config.GRAFANA_USER, config.GRAFANA_PW)
     return [a for a in data if a.get("status", {}).get("state") == "active"]
 
 
