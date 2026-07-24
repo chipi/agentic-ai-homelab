@@ -120,3 +120,86 @@ kick-back rule, orchestrator MVP), §6.3 ("Observed 2026-07-24" blocks: k=3
 rates, fixmap experiment), §4.3 (prompt-as-config); artifacts under
 `~/.bugfix-fleet/bakeoff/results/` (`triage_runs.tsv`, `runs.tsv`,
 `orrery-mission-arc-L0-triage*/`).*
+
+---
+
+# Round 2 — re-review of `SIGNALS.md` (renamed) + `RFC-0003` (2026-07-24, operator-requested)
+
+All six round-1 items adopted, correctly and with attribution. The
+*self-evident invariant* intent source is an improvement beyond my
+suggestion — it fixes the over-escalation problem I hadn't addressed. The
+grounded o11y recon (§6/§8) and the RFC are consistent with each other.
+New findings below; item 1 is load-bearing, the rest are holes or caveats.
+
+## R2-1. GlitchTip API: the docs contradict themselves, and the fact is checkable in 2 minutes
+
+Both docs simultaneously claim:
+- §8 / RFC triggers: GlitchTip trigger via *"poll the Sentry-compatible
+  REST API (`/api/0/projects/.../issues/`, `:8090`)"* — polling **is**
+  reading;
+- §6 pivot chain / RFC correlation / RFC alternatives-considered:
+  *"GlitchTip … no agent query API (UI-only)"*.
+
+Both cannot be true. To my knowledge GlitchTip, as a Sentry fork, ships
+the Sentry-compatible REST API — reads *and* writes (issue list, update,
+resolve) with token auth — I have not verified this against the on-prem
+instance. Why it matters twice: (a) the **Dismiss disposition requires a
+programmatic close/ack on GlitchTip** — if reads/writes were truly
+UI-only, the Dismiss path is dead for the error source entirely; (b) an
+alternatives-considered rejection is currently justified by the
+possibly-wrong fact. **Action: one curl with a token against
+`:8090/api/0/projects/` settles it; then reconcile the three places.**
+Do this before Phase A/B wiring decisions — it changes the trigger AND
+the Dismiss write-back design.
+
+## R2-2. The Dismiss-overturn surface does not exist (and it's the trust metric)
+
+§9/§12/RFC say the operator overturns via **GitHub label/comment** — but a
+Dismissed signal has **no GitHub object** (pre-File it lives only in the
+ledger + closed monitoring state; that was my round-1 item 4, and the docs
+adopted it). GH overturn works for File only. For Dismiss — the exact
+disposition whose overturn rate gates autonomy (§10) — the surface is
+unspecified. In propose-first mode the proposal itself is the surface
+(operator declines) — fine. But the moment Dismiss flips autonomous, the
+overturn surface vanishes precisely when the metric still needs feeding.
+Suggestion worth considering: **signal recurrence + human reopen as the
+implicit overturn** — the fleet already fingerprints signals in the
+ledger; a human re-opening the GlitchTip issue (or the same fingerprint
+re-firing hot after a Dismiss) is machine-detectable and appends an
+overturn event with zero new UI. Decide something here; today the trust
+metric has no data source in autonomous mode.
+
+## R2-3. Self-evident invariant: it's an acceptance *floor*, not the acceptance
+
+Measured hazard from my eval to guard against: **workers optimize to the
+stated acceptance, efficiently** — whatever it is. "No 5xx" as the whole
+acceptance invites the symptom-suppression fix (swallow the exception,
+return 200/empty — the crash is gone, the defect is not; operator rule 0.7
+territory). One sentence fixes it: a self-evident invariant justifies the
+**File decision**, but the L1-candidate should mark it as an
+**acceptance floor**; Fleet 1's triager still owes the "what should it do
+instead?" question, and if that is unanswerable its own needs-info valve
+fires. Keeps Fleet 2's gate from laundering symptom-level acceptance
+through Fleet 1.
+
+## R2-4. Pin the host, not just the ports
+
+§6/§8 pin `:8428/:9428/:10428` but never name the host — and the
+observability stack is mid-migration (VictoriaMetrics/Grafana currently on
+the DGX, planned move to the Mac mini; the DGX-side repo has diverged —
+operator memory, `project_observability_selfhost`). Phase A wiring should
+name the canonical host explicitly and note the migration, or the fleet
+binds to a target that is about to move under it.
+
+## R2-5. Phase A will not exercise the `bug` seam — say so
+
+The launch-data-stale alert is a good plumbing proof, but its natural
+disposition is data-ops/config (`config-enhancement` or Dismiss), not
+`bug`. Phase A success should not be read as validating the File→Fleet-1
+seam — that arrives with Phase B errors (or a synthetic error in Phase A
+if the seam needs proving earlier). One sentence in §8 prevents the
+over-read.
+
+*(Positive, no action: the intent-source registry as an open question is
+the right call; the ledger schema is right; the self-improving
+config-enhancement loop on missing correlation links is elegant.)*
