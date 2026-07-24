@@ -130,7 +130,9 @@ def _intent_gate(d):
 def _usable(v):
     if isinstance(v, str):
         v = v.strip()
-        return bool(v) and not v.startswith("<error")
+        # absence/error markers all start with "<" (e.g. <error…>, <not expected…>,
+        # <expected but not found…>) — they are not evidence (R5-2).
+        return bool(v) and not v.startswith("<")
     # JSON result: a PromQL vector with a non-empty result array counts
     if isinstance(v, dict):
         data = v.get("data", {})
@@ -139,17 +141,21 @@ def _usable(v):
 
 
 def _dismiss_gate(d, evidence):
-    """A dismiss must be backed by >=1 usable evidence query (review R3-2a).
-    Deterministic — no LLM. Prevents a hallucinated 'already recovered' from
-    passing when the evidence is empty/errored."""
+    """A dismiss must be backed by >=1 usable CORROBORATING evidence query —
+    evidence BEYOND the triggering signal itself (review R5-1). The error's own
+    `event_summary` can't justify dismissing the error, so the gate checks only
+    the `corroborating` keys (trace/logs/metrics), not the self-restated signal.
+    Deterministic — no LLM. No corroboration -> escalate, never silent dismiss."""
     if d.get("disposition") != "dismiss":
         return d, "n/a"
-    qs = (evidence or {}).get("queries", {})
-    if not any(_usable(v) for v in qs.values()):
+    evidence = evidence or {}
+    qs = evidence.get("queries", {})
+    corrob = evidence.get("corroborating", list(qs.keys()))  # default all (Grafana)
+    if not any(_usable(qs.get(k)) for k in corrob):
         d["disposition"] = "escalate"
-        d["reason"] = "dismiss gate: no usable evidence to support dismissal — " + d.get("reason", "")
+        d["reason"] = "dismiss gate: no corroborating evidence beyond the signal itself — " + d.get("reason", "")
         d["immediate_recommendation"] = None
-        return d, "downgraded (no evidence)"
+        return d, "downgraded (no corroboration)"
     return d, "passed"
 
 

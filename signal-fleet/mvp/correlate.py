@@ -43,6 +43,8 @@ def evidence_for_orrery_staleness(signal, window="24h"):
         f'job:orrery-data-refresh AND _time:{window} | sort by (_time) desc | limit 25'))
     # the metric the alert watches (orrery targets up?)
     _try("orrery_up", lambda: vm_query('up{job=~".*orrery.*"}'))
+    # all of these are corroborating (none is the alert restated) — R5-1
+    ev["corroborating"] = ["refresh_logs", "refresh_job_logs", "orrery_up"]
     return ev
 
 
@@ -94,12 +96,26 @@ def evidence_for_glitchtip_error(signal, window="6h"):
 
     summ = ev["queries"].get("event_summary")
     tid = summ.get("trace_id") if isinstance(summ, dict) else None
+    platform = (summ.get("platform") or "") if isinstance(summ, dict) else ""
+    client_side = platform in ("javascript", "node") or "browser" in platform.lower()
+    # Label the KIND of trace absence so a blank never reads as "recovered" (R5-2).
     if tid:
-        _try("trace", lambda: vt_trace(tid))
+        def _trace():
+            r = vt_trace(tid)
+            data = r.get("data") if isinstance(r, dict) else None
+            return r if data else f"<trace {tid[:8]} expected but not found in VictoriaTraces>"
+        _try("trace", _trace)
+    else:
+        ev["queries"]["trace"] = ("<not expected: client-side platform, no server trace_id>"
+                                  if client_side else "<no trace_id on event>")
 
     if proj:
         _try("service_logs", lambda: vl_query(
             f'app:{proj} AND _time:{window} | sort by (_time) desc | limit 15'))
+        # 5xx rate WITH the status filter — was total traffic under a 5xx label (R5-3)
         _try("http_5xx_rate", lambda: vm_query(
-            f'sum(rate(http_requests_total{{job=~".*{proj}.*"}}[5m]))'))
+            f'sum(rate(http_requests_total{{job=~".*{proj}.*",status=~"5.."}}[5m]))'))
+
+    # corroboration = evidence beyond the error itself; event_summary excluded (R5-1)
+    ev["corroborating"] = ["trace", "service_logs", "http_5xx_rate"]
     return ev

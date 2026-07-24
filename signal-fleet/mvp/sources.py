@@ -83,10 +83,14 @@ def to_error_signal(issue):
     proj = (issue.get("project") or {}).get("slug", "")
     sid = issue.get("shortId") or str(issue.get("id"))
     fp = f"glitchtip:{sid}"
-    last = issue.get("lastSeen") or ""
+    # occurrence = one unresolved episode, keyed on firstSeen (STABLE across the
+    # issue's events) — NOT lastSeen, which advances on every new event and would
+    # re-triage a hot error every poll (review R5-4). Regression re-triage of a
+    # resolved->reopened issue is a follow-up (needs status-transition tracking).
+    first = issue.get("firstSeen") or ""
     return {
         "fingerprint": fp,
-        "occurrence_id": f"{fp}@{last}",
+        "occurrence_id": f"{fp}@{first}",
         "source": "glitchtip",
         "alertname": issue.get("title", ""),
         "labels": {"project": proj, "level": issue.get("level", ""),
