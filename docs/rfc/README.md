@@ -36,3 +36,4 @@ landed on an answer.
 
 - [RFC-0001 — LiteLLM proxy as the Langfuse capture layer](RFC-0001-litellm-langfuse-capture.md) — *Proposed*
 - [RFC-0002 — Autonomous bug-fix fleet (cheap workers, Claude PR-gate)](RFC-0002-autonomous-bug-fix-fleet.md) — *Proposed*
+- [RFC-0003 — Signal-to-action fleet (o11y triage: dismiss / file / escalate)](RFC-0003-signal-to-action-fleet.md) — *Proposed*

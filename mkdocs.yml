@@ -115,6 +115,7 @@ nav:
     - Overview: rfc/README.md
     - RFC-0001 — LiteLLM ↔ Langfuse capture: rfc/RFC-0001-litellm-langfuse-capture.md
     - RFC-0002 — Autonomous bug-fix fleet: rfc/RFC-0002-autonomous-bug-fix-fleet.md
+    - RFC-0003 — Signal-to-action fleet: rfc/RFC-0003-signal-to-action-fleet.md
   - In progress:
     - Overview: wip/README.md
     - Next steps: wip/NEXT_STEPS.md
