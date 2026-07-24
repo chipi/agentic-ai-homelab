@@ -1,4 +1,4 @@
-# mini-metrics — mac mini host collector
+# mini-metrics — Mac mini host metrics collector to VictoriaMetrics
 
 A launchd loop on the mini that feeds VictoriaMetrics the signals macOS can't
 get from a containerized exporter. Every 20s it:
@@ -24,3 +24,8 @@ launchctl load -w ~/Library/LaunchAgents/com.homelab.mini-metrics.plist
 The plist hardcodes `/Users/markodragoljevic/...` paths (operator restore).
 Editing `push.sh` requires `pkill -f mini-metrics/push.sh` (launchd respawns
 with the new script — bash caches the running copy).
+
+## Related
+
+- Systems index: [`infra/README.md`](../README.md)
+- Global docs: [Pillar 2 — Local AI infra](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/local-ai-infra.md)

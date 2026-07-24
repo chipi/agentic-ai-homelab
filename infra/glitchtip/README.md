@@ -76,3 +76,8 @@ The DSN host must be the tailnet IP:port the app can reach.
   first user is the superuser.
 - Ports bind to the tailnet IP → reach at `100.x.y.z`, not `127.0.0.1`.
 - Don't expose `8090` publicly — tailnet only.
+
+## Related
+
+- Systems index: [`infra/README.md`](../README.md)
+- Global docs: [Pillar 2 — Local AI infra](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/local-ai-infra.md)

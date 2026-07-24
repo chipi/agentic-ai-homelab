@@ -70,6 +70,23 @@ Plus optionally **3000** (Open WebUI), **8080** (cAdvisor UI), **12345**
 
 ## What's in this pillar
 
+### Systems index — every self-hosted service *(start here)*
+
+The canonical, per-system reference lives next to the code at
+[`infra/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/README.md):
+the three hosts (Mac mini `homelab` / DGX / prod-podcast VPS), a table of every
+system (purpose · host · access · creds · link to its own README), how they
+connect, and access basics. Each system (`observability`, `glitchtip`, `umami`,
+`langfuse`, `homelab-home`, `mini-metrics`, `dgx-scrape`, `dgx`, `vllm`) carries
+its own README covering access + usage.
+
+Observability is documented as-code:
+- **Dashboards** — [`dashboards/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/observability/backend/grafana/dashboards/README.md)
+  (global) + a README per Grafana folder (Homelab / Production Infra / Podcast
+  Operator / Podcast Player) stating that folder's goal and every board.
+- **Alerts** — [`provisioning/alerting/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/observability/backend/grafana/provisioning/alerting/README.md)
+  — every rule, threshold, and intent; contact points; policies.
+
 ### `infra/vllm/` — template + operator deploys *(v0.2, real)*
 
 Three subdirs:

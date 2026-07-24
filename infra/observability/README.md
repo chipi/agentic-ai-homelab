@@ -120,3 +120,10 @@ This config was authored in the session captured in
 `docs/history/0001-genesis.md` Phase 3. Decisions D-0003 (NorskHelsenett
 choice) and D-0004 (Level 1 default) recorded in
 `docs/history/0002-decisions.md`.
+
+## Related
+
+- Systems index: [`infra/README.md`](../README.md)
+- Global docs: [Pillar 2 — Local AI infra](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/local-ai-infra.md)
+- Dashboards: [`backend/grafana/dashboards/README.md`](backend/grafana/dashboards/README.md)
+- Alerts: [`backend/grafana/provisioning/alerting/README.md`](backend/grafana/provisioning/alerting/README.md)

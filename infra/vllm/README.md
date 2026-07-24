@@ -1,4 +1,4 @@
-# vLLM stacks
+# vLLM — Local model serving stacks
 
 Everything in this repo related to vLLM serving lives under here, grouped
 so the relationships are obvious from the tree.
@@ -171,3 +171,8 @@ fourth or fifth time starts to feel silly.
 
 `coder-next/docker-compose.yml.26.05-py3` is a sibling-file stage of an
 NVIDIA vLLM image upgrade. See `template/README.md` → "Image-bump dance".
+
+## Related
+
+- Systems index: [`infra/README.md`](../README.md)
+- Global docs: [Pillar 2 — Local AI infra](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/local-ai-infra.md)

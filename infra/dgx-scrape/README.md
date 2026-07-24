@@ -1,4 +1,4 @@
-# dgx-scrape — DGX telemetry bridge (interim)
+# dgx-scrape — DGX telemetry bridge (interim) to VictoriaMetrics
 
 A launchd loop **on the mini** that pulls DGX telemetry into VictoriaMetrics,
 because OrbStack containers on the mini can't reach the DGX LAN IP but the mini
@@ -25,3 +25,9 @@ cp push.sh ~/obs-dgx-scrape/push.sh && chmod +x ~/obs-dgx-scrape/push.sh
 cp com.homelab.dgx-scrape.plist ~/Library/LaunchAgents/
 launchctl load -w ~/Library/LaunchAgents/com.homelab.dgx-scrape.plist
 ```
+
+## Related
+
+- Systems index: [`infra/README.md`](../README.md)
+- Global docs: [Pillar 2 — Local AI infra](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/local-ai-infra.md)
+- DGX host: [`infra/dgx/README.md`](../dgx/README.md)

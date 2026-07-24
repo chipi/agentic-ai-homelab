@@ -69,3 +69,8 @@ fresh-start loses history) → `up -d` on the mini → update `NEXTAUTH_URL` +
 - No media/browser MinIO endpoint exposed → media previews in traces won't load
   (text LLM traces are unaffected). Publish MinIO on the tailnet if you need media.
 - Reach at the tailnet IP `:4000`, never loopback/public. Don't expose publicly.
+
+## Related
+
+- Systems index: [`infra/README.md`](../README.md)
+- Global docs: [Pillar 2 — Local AI infra](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/local-ai-infra.md)

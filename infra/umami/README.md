@@ -55,3 +55,8 @@ internet. So:
 - Data lives in the `umami-db-data` volume (Postgres). Back it up with the mini's
   usual volume backup.
 - Upgrades: bump the image tag, `docker compose pull && up -d` (Umami self-migrates).
+
+## Related
+
+- Systems index: [`infra/README.md`](../README.md)
+- Global docs: [Pillar 2 — Local AI infra](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/local-ai-infra.md)

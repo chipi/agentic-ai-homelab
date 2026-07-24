@@ -27,3 +27,8 @@ chart/badge deep-links to the matching Grafana dashboard or service.
 docker compose up -d           # (re)start nginx
 ```
 Reachable over the tailnet once `tag:homelab-host:8888` is granted in the ACL.
+
+## Related
+
+- Systems index: [`infra/README.md`](../README.md)
+- Global docs: [Pillar 2 — Local AI infra](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/local-ai-infra.md)
