@@ -180,6 +180,40 @@ Two consequences for the bake-off:
    worker need the architect") is a capability/efficiency signal in §7 — a model
    that phones the architect on every bug is weaker than one that rarely does.
 
+### 4.3 What the bake-off worker actually runs today (config reality, 2026-07-24)
+
+The role definitions exist on two layers, and **the measured cells so far use
+neither**:
+
+- **Fleet roles** — RFC-0002 §Roles (orchestrator / active triager /
+  specialists / reviewer / operator) plus five specialist prompt files in
+  `agents/` (`backend`, `database`, `docs`, `infra`, `ui`; frontmatter pins
+  model + area). Written for the fleet, not yet wired to anything.
+  **No `agents/triage.md` exists yet** — the active triager lives only as
+  design (§6.2 + RFC).
+- **What every measured run used instead** — the adapter's generic 7-line
+  prompt (`bakeoff/harnesses/*.sh`): *"You are fixing a bug in the
+  repository at the current working directory. Bug report: … Diagnose the
+  cause and fix it… don't commit."* No role framing, no area, no template.
+  Only §4.1's rung-1 *model* choice (`deepseek-v4-pro`) is honored.
+
+This was the right call for the instrument — it measures harness+model raw,
+with the ticket as the only variable — but it must stay a **conscious,
+recorded config**, because:
+
+- **The worker prompt is a factor.** Swapping the generic prompt for the
+  `agents/backend.md` specialist prompt is a config change like a model
+  swap: results are not comparable across it. If/when we test role prompts,
+  that is a **new grid row** ("prompted worker"), never an in-place edit —
+  all 2026-07-23/24 cells are the *generic-prompt* row.
+- **Prompt-vs-substrate is a live question the 2×2 makes testable:** the
+  specialist prompt's "root-cause first / reproduce mentally before
+  editing" instruction targets exactly the cheap-fail mode (committing to
+  the decoy early). Whether a role prompt moves fly-physics' scope the way
+  the doc substrate did (§6.3) is a cheap A/B on the same manifests.
+- The specialist files' frontmatter (`model:`) and §4.1's ladder must not
+  drift — `infra.md` divergence already flagged in §4.1.
+
 ## 5. The artifact — a PR per (bug × harness), never merged
 
 Each harness runs **headless** on its **own git worktree/branch** and ends at a
@@ -308,6 +342,40 @@ patch emptiness. Deterministic (orchestrator-side, no LLM):
   localizes exactly which field (DOMAIN fact, layer, acceptance) was missing.
 - *Both signals ship in `result.tsv`* (`scope_hit`, `budget`), so the loop is
   wired the day the active triager exists.
+
+**The verdict × scope 2×2 — the kick-back decision rule (measured at k=3,
+2026-07-24, §6.3).** Both FAIL quadrants were observed with zero variance,
+so the router can be deterministic:
+
+| | scope=yes | scope=no |
+|---|---|---|
+| **PASS** | done | done (fix landed via an unexpected file — rare, audit) |
+| **FAIL** | **acceptance gap** → ticket lacks "what fixed means"; route back to triage for L1 normalization (or needs-info/reject) | **topology gap** → repo docs failed to disambiguate; doc-substrate fix, or escalate this ticket to an L2 pin |
+
+Token-burn shape corroborates the diagnosis for free: topology-FAILs are
+cheap and fast (model commits to the decoy early — fly-physics: 80–120s,
+~20k out-tokens), acceptance-FAILs are expensive grinds (right file, no
+target — mission-arc: 470–620s, 150k+ out-tokens). A cheap fail smells of
+wrong-place, a grind smells of no-definition-of-done.
+
+Division of labor this implies (the two-factor model as control flow):
+- **First pass — acceptance is the triager's axis.** L0→L1 normalization
+  *is* the acceptance fix; docs never supplied acceptance in any measured
+  cell (0/4 L0-doc flips, mission-arc-L0 0/3 even hitting the right file).
+- **Second pass — topology is the repo's axis** (module docs / file maps),
+  and where a decoy beats the docs (fly-physics: 1/3 with README present),
+  the kick-back is the safety net: FAIL+scope=no returns the off-scope
+  list, which *names the decoy* — evidence enough to pin L2 for that
+  ticket alone.
+- **Open contract question (RFC-0002 tension, flagged not resolved):** the
+  RFC says the triager never localizes — but the second-pass L2 pin *is*
+  localization. Someone must own it: triager-on-kickback (armed with the
+  off-scope evidence), or the orchestrator mechanically (pin = manifest
+  `code_files`, which it already knows). Decide when the triager is built.
+- **Caveat the triager design inherits:** the RFC has the triager
+  *establish context from `AGENTS.md` + docs* — the same doc that acted as
+  the fly-physics decoy. In-repo docs are evidence, not ground truth; the
+  substrate experiments (§6.3) measure exactly how far they can be trusted.
 
 ### 6.3 Upping-level as a harness measurement axis
 

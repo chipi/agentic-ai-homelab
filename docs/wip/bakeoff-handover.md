@@ -102,6 +102,21 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
 
 1. ~~k=3 repeats on the decisive cells~~ — **DONE 2026-07-24** (see TL;DR;
    BAKEOFF §6.3 "Observed 2026-07-24"). Actual wall ≈50 min, not 30.
+   Follow-on write-downs also DONE: the verdict×scope 2×2 kick-back rule
+   (§6.2) and the worker-config reality — generic prompt, agents/*.md
+   unused, prompt = a grid factor (§4.3).
+1b. **Close the before/after pairs** (~$0.25, one short session):
+   (a) k=3 on the "after" cells — mission-arc canonical (L1) and
+   fly-physics-L2, both currently n=1 PASS; (b) **decoy-correction
+   experiment**: fly-physics-L1 with a substrate that *corrects the
+   orrery AGENTS.md file-map* (points HUD speed at fly-physics.ts)
+   instead of adding a README — k=3. Decides whether the doc lever is
+   "fix the authoritative map" vs dead-for-strong-decoys.
+1c. **Author `agents/triage.md`** — the active-triager definition (RFC-0002
+   role, §6.2 template + gate, rung-0 model per §4.1). Design questions to
+   settle in the file: who pins L2 on second-pass kick-back (§6.2 open
+   question), and how it treats in-repo docs as evidence-not-truth
+   (fly-physics decoy lesson). Its eval set = the measured L0→L1 pairs.
 2. **opencode column** — same model, same matrix (opencode adapter validated
    with `--pure`, never gated across the set). First true harness-vs-harness
    row; substrate policy: harness rows run substrate-OFF (raw recon), one
