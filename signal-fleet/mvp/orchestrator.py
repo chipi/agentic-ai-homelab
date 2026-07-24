@@ -16,11 +16,12 @@ import triage
 
 SYNTHETIC = {
     "fingerprint": "grafana:synthetic-orrery-stale",
+    "occurrence_id": "grafana:synthetic-orrery-stale@2026-07-24T00:00:00Z",
     "source": "grafana",
     "alertname": "Orrery launch data stale (no refresh in 7h)",
     "labels": {"alertname": "Orrery launch data stale"},
     "summary": "synthetic — orrery data refresh alarm; verify against evidence",
-    "startsAt": None, "raw": {},
+    "startsAt": "2026-07-24T00:00:00Z", "raw": {},
 }
 
 
@@ -30,9 +31,9 @@ def run_once(use_synthetic=False, dry_run=True):
         print("no orrery-staleness alert firing — nothing to do.")
         return
 
-    prior = actions.already_done(sig["fingerprint"])
+    prior = actions.already_done(sig["occurrence_id"])
     if prior:
-        print(f"idempotent: {sig['fingerprint']} already -> {prior}; skipping.")
+        print(f"idempotent: occurrence {sig['occurrence_id']} already -> {prior}; skipping.")
         return
 
     print(f"signal: {sig['alertname']} | fp: {sig['fingerprint']}")
@@ -41,8 +42,10 @@ def run_once(use_synthetic=False, dry_run=True):
                           for k, v in ev["queries"].items()})
     disp = triage.triage(sig, ev)
     actions.act(sig, disp, dry_run=dry_run)
+    m = disp.get("_meta", {})
     print(f"=> disposition: {disp['disposition']} "
-          f"(gate: {disp['_meta'].get('gate')}, attempt: {disp['_meta'].get('attempt')})")
+          f"(intent_gate: {m.get('intent_gate')}, dismiss_gate: {m.get('dismiss_gate')}, "
+          f"attempt: {m.get('attempt')})")
 
 
 if __name__ == "__main__":

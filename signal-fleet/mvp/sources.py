@@ -29,11 +29,19 @@ def _fingerprint(alert):
 
 
 def to_signal(alert):
-    """Normalize a Grafana alert into the fleet's signal shape."""
+    """Normalize a Grafana alert into the fleet's signal shape.
+
+    `fingerprint` is stable across occurrences (tracks recurrence — the R2-2
+    implicit-overturn signal). `occurrence_id` = fingerprint + startsAt is the
+    *idempotency* key, so re-litigating the same occurrence is skipped without
+    silencing a future firing of the same alertname (review R3-1)."""
     labels = alert.get("labels", {})
     ann = alert.get("annotations", {})
+    fp = _fingerprint(alert)
+    starts = alert.get("startsAt") or ""
     return {
-        "fingerprint": _fingerprint(alert),
+        "fingerprint": fp,
+        "occurrence_id": f"{fp}@{starts}",
         "source": "grafana",
         "alertname": labels.get("alertname", ""),
         "labels": labels,

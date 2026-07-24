@@ -20,7 +20,7 @@ are `homelab:<port>` on the tailnet.
 | **VictoriaLogs** | LogsQL HTTP API | `homelab:9428/select/logsql/query` | none | 7607 log lines / 15m |
 | **VictoriaTraces** | Jaeger/Tempo HTTP API | `homelab:10428/select/jaeger/...` | none | services `player-api`, `podcast-api` |
 | **GlitchTip** (errors) | **Sentry-compatible REST API** (poll issues) | `homelab:8090/api/0/...` | **API token** (label `signal-fleet`) | listed 8 projects; issues `PLAYER-4` (SyntaxError ×4), `ORRERY-B/C`, `PLAYER-3` |
-| **Grafana** (alerts) | **read:** Alertmanager API · **push:** webhook contact point | `homelab:3000/api/alertmanager/grafana/api/v2/alerts` · webhook → fleet | admin (basic) | 7 rules incl. *"Orrery launch data stale"*; **push test delivered end-to-end** to the receiver (`status:firing` payload captured) |
+| **Grafana** (alerts) | **read:** Alertmanager API · **push:** webhook contact point | `homelab:3000/api/alertmanager/grafana/api/v2/alerts` · webhook → fleet | admin basic-auth ⚠ *(a service-account token is Grafana's cleaner prescribed path — R3-6 follow-up)* | 7 rules incl. *"Orrery launch data stale"*; **push test delivered end-to-end** to the receiver (`status:firing` payload captured) |
 | **Umami** (UX) | **REST API** after `POST /api/auth/login` | `homelab:3001/api/...` | login → bearer token | logged in; 7 sites (`orrery`, `player`=closelistening.app, `operator`…); stats endpoint returns pageviews/visitors |
 
 ## Consumption pattern (decided from what actually works)
@@ -70,5 +70,12 @@ The fleet must load these from env/sops at runtime; **never commit values.**
 - **Token/cred storage for the fleet** — currently the token exists in GlitchTip
   but isn't yet wired into a fleet secrets file (sops). Do that when the fleet
   ingress is built.
+- **Least-privilege debt (R3-6)** — Phase-0 consumed each source with the broadest
+  handy credential: GlitchTip token minted **full-scope** (needs issue-read + later
+  resolve), Grafana via the **admin** password, Umami via the **admin** login, and
+  `mvp/run.sh` sources whole stack `.env`s into the fleet process. None blocks the
+  MVP; before the daemon/ingress phase, do one scope-down pass: a read/resolve-only
+  GlitchTip token, a Grafana service account, a Umami view-only user, and a
+  fleet-owned sops file.
 
 See [`SIGNALS.md`](SIGNALS.md) §6/§8 for how these surfaces feed the triager.

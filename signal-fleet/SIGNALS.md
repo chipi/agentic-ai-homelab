@@ -188,7 +188,7 @@ Trigger fires  (Grafana alert OR GlitchTip error/regression — §8)
   → VictoriaMetrics  GET :8428/api/v1/query           (PromQL — confirm metric shape)
   → VictoriaLogs     GET :9428/select/logsql/query     (LogsQL — logs for job/instance in window)
        → if a log line carries trace_id → VictoriaTraces :10428/select/jaeger/…  (failing span)
-  → GlitchTip        — cross-check via Sentry-compat REST API (unverified on-prem — §8)
+  → GlitchTip        — cross-check via Sentry-compat REST API (verified live, Phase 0 — §8)
   ⇒ disposition from the WHOLE picture:
       • transient blip, already recovered, no impact      → Dismiss (+ rec if noisy)
       • real regression, traceable + acceptance-statable  → File (L1-candidate)
@@ -290,16 +290,16 @@ Alerting is trigger-ready today (outbound webhook contact points; or poll the
 Alerting API). **GlitchTip triggers too** — on new errors / regressions. As a
 Sentry fork it ships the **Sentry-compatible REST API** (`/api/0/projects/…`,
 token auth — reads *and* writes: list / update / resolve), so it supports both a
-poll-trigger **and** the **Dismiss write-back** (close/ack). **Unverified against
-the on-prem instance and not wired in-repo — one `curl` with a token against
-`homelab:8090/api/0/projects/` confirms it (R2-1, §12), and should happen before
-Phase-B wiring since it decides both the trigger and the Dismiss-writeback
-design.** The Victoria\* backends stay pull-only correlation inputs.
+poll-trigger **and** the **Dismiss write-back** (close/ack). **Verified live in
+Phase 0** (`PHASE-0-infra.md`): the token is minted and the API returns real
+issues — **R2-1 closed.** **Decision (Phase 0): poll the issues API, not the
+webhook** — GlitchTip's generic webhook is Slack-shaped (thin), so the read API is
+the data path regardless. The Victoria\* backends stay pull-only correlation inputs.
 
 | Source | Role | Interface | Verdict |
 |---|---|---|---|
 | **Grafana Alerting** | **trigger** (metric/log alerts) | outbound webhook contact point, or poll Alerting API | ready — fires on `up==0`, disk, FastAPI 5xx, **orrery launch-data stale** (`rules.yaml`) |
-| **GlitchTip** | **trigger** (errors/regressions) **+ correlation input + Dismiss write-back** | Sentry-compat REST API (`homelab:8090/api/0/…`, token; reads+writes) or notification webhook | **wiring prereq** — API unverified on-prem, not wired in-repo (R2-1) |
+| **GlitchTip** | **trigger** (errors/regressions) **+ correlation input + Dismiss write-back** | Sentry-compat REST API (`homelab:8090/api/0/…`, token; reads+writes) — **poll** (webhook is Slack-shaped) | **verified live, Phase 0** (R2-1 closed); token minted |
 | **VictoriaMetrics** | correlation input | PromQL `GET :8428/api/v1/query` (tailnet, no auth) | **queryable** |
 | **VictoriaLogs** | correlation input | LogsQL `GET :9428/select/logsql/query` | **queryable** |
 | **VictoriaTraces** | correlation input | Jaeger/Tempo `:10428/select/…` | **queryable** |
@@ -404,13 +404,11 @@ dispositions by blast radius:
 
 1. **Filed-work taxonomy** (§7.2) — final label names + full starter set. *(Tune
    boundary resolved; taxonomy is a living part of the design.)*
-2. **Trigger wiring** (§8) — **first, verify the GlitchTip API (R2-1):** one
-   `curl` with a token to `homelab:8090/api/0/projects/` settles whether the
-   Sentry-compat REST API (reads+writes) is live on-prem — it decides the GlitchTip
-   trigger *and* the Dismiss write-back; reconcile §6/§8 to the result. Then:
-   *Grafana Alerting* — webhook receiver (Funnel, like RFC-0002's App) vs poll the
-   Alerting API; *GlitchTip* — notification webhook → fleet endpoint vs poll the
-   REST API. RFC-0002's webhook infra is a reuse candidate for both.
+2. **Trigger wiring** (§8) — GlitchTip API **verified live (Phase 0, R2-1 closed)**
+   and **poll chosen** (webhook is Slack-shaped). Remaining: daemonize the poll
+   (launchd/cron), and — if push latency ever matters — *Grafana* webhook receiver
+   (Funnel, like RFC-0002's App) vs poll the Alerting API. RFC-0002's webhook infra
+   is a reuse candidate.
 3. **Correlation-link prerequisites** (§6) — confirm apps emit `trace_id` in logs;
    metrics→trace exemplars; traces→logs reverse pivot. Each is a candidate
    `config-enhancement` filing.
@@ -498,9 +496,11 @@ control loop (`bakeoff/orchestrate.sh`). Ranked lifts, most valuable first:
 | 8 | **Reporter-oracle** | `bakeoff/reporter_answer.sh` + `reporter/*.md` | pattern | maps to our escalate-for-clarification: a signal-owner facts file answers needs-info |
 
 **Two lessons that change our build:**
-- **Structured output on cheap models is the stated risk** — the pi/opencode
-  adapters are unimplemented; the **directAdapter (raw OpenRouter + validate-retry)
-  is the only working path.** Start our triager there, not on a harness adapter.
+- **Structured output on cheap models is the stated risk** — the TS pi/opencode
+  adapters are unimplemented (the bake-off's *bash* pi path does extract+retry
+  structured output). The **directAdapter (raw OpenRouter)** is the simplest
+  observable path, so we start our triager there — not because it's the only one,
+  but because it's the least machinery for the MVP (review R3-8).
 - **The intent gate is a deterministic post-LLM check** (`orchestrate.sh:40-43`),
   not a prompt hope. Port it exactly.
 
@@ -578,3 +578,16 @@ shared across fleets; our signal-specific addition is `slo`/error-budget.
   `config-enhancement` / Dismiss), the 4 decisions to lock (poll-first trigger,
   reuse the bake-off model, file-target repo, mini host), and the build order.
   §13.4 (reuse from Fleet 1's orchestrator) to be detailed from the recon.
+- **2026-07-24 (Fleet-1 round-3 review folded — R3-1…R3-8):** MVP + Phase-0
+  review, all findings adopted. Code (`mvp/`): idempotency re-keyed to
+  **occurrence-id** (fingerprint+startsAt) so a correct Dismiss never silences the
+  next firing (R3-1); a **dismiss-gate** (no usable evidence → escalate) + explicit
+  **truncation markers** in the evidence sent to the model (R3-2); the **Tune dual
+  output** implemented — a Dismiss with a recommendation now also emits a
+  `config-enhancement` File (R3-3); `operator-rule` added to the intent vocab
+  (R3-4); validate-retry now **feeds the parse error back** (R3-5); ledger stamps
+  `prompt_sha` + a clean missing-key error (R3-8). Docs: **R2-1 closed** — the
+  GlitchTip API is verified live (§6/§8/§12 reconciled) and **poll chosen over
+  webhook**; Grafana's "prescribed" softened to note the SA-token path + a
+  least-privilege debt list (R3-6); §13.4 overclaim fixed (R3-8). All re-verified
+  live on the mini.

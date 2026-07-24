@@ -50,3 +50,8 @@ intent-source gate (`triage._intent_gate`); the append-only ledger; the shared
 - **Not yet TypeScript** — this prototype reuses Fleet-1 *patterns*; sharing the
   actual `src/worker` seam + GitHub App is the productionization step.
 - Langfuse tracing of the triager call is not wired yet.
+- **Escalate is print-only** — no operator notification path beyond the ledger row.
+- **`GLITCHTIP_TOKEN` is loaded but unused** — reserved for the Phase-B GlitchTip
+  trigger; wire it then or drop it.
+- **Least-privilege debt** — creds are the broad handy ones (see
+  `../PHASE-0-infra.md` R3-6); scope down before the daemon/ingress phase.
