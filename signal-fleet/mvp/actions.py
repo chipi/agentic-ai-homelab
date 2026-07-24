@@ -19,7 +19,7 @@ import config
 
 LEDGER_COLS = ["ts", "occurrence_id", "fingerprint", "source", "alertname",
                "disposition", "work_type", "followup", "model", "prompt_ver",
-               "prompt_sha", "gates", "reason"]
+               "prompt_sha", "gates", "n_probes", "certainty", "reason"]
 
 
 def _now():
@@ -50,11 +50,11 @@ def ledger_append(signal, disp, followup=""):
     new = not os.path.exists(config.LEDGER)
     meta = disp.get("_meta", {})
     wt = (disp.get("file") or {}).get("work_type", "") if disp.get("disposition") == "file" else ""
-    gates = f"i:{meta.get('intent_gate', '')}/d:{meta.get('dismiss_gate', '')}"
     row = [_now(), signal.get("occurrence_id", ""), signal.get("fingerprint", ""),
            signal.get("source", ""), signal.get("alertname", ""), disp["disposition"],
            wt, followup, meta.get("model", ""), meta.get("prompt_ver", ""),
-           meta.get("prompt_sha", ""), gates, disp.get("reason", "")[:300]]
+           meta.get("prompt_sha", ""), meta.get("gates", ""), str(meta.get("n_probes", "")),
+           meta.get("certainty", "") or "", disp.get("reason", "")[:300]]
     with open(config.LEDGER, "a") as f:
         if new:
             f.write("\t".join(LEDGER_COLS) + "\n")
@@ -148,6 +148,13 @@ def act(signal, disp, dry_run=True):
             followup = "config-enhancement"
             p = queue_proposal(signal, build_issue(signal, follow), "config-enhancement")
             print(f"  [+ queued config-enhancement proposal] {os.path.basename(p)}")
+    elif d == "cleanup":
+        prop = {"title": f"cleanup: {signal.get('alertname', '')}",
+                "action": "resolve+tag (NOT delete)", "target": signal.get("fingerprint"),
+                "marker": disp.get("marker"), "reason": disp.get("reason", "")[:200]}
+        p = queue_proposal(signal, prop, "cleanup")
+        print(f"[CLEANUP queued] resolve+tag {signal.get('fingerprint')} (marker: {disp.get('marker')}) "
+              f"-> {os.path.basename(p)}")
     elif d == "file":
         if dry_run:
             p = queue_proposal(signal, build_issue(signal, disp["file"]),
@@ -157,5 +164,7 @@ def act(signal, disp, dry_run=True):
             raise NotImplementedError(
                 "real issue creation is gated on the File-quality eval (EVAL.md transition iii)")
     elif d == "escalate":
-        print(f"[ESCALATE -> operator] {disp.get('reason', '')[:180]}")
+        q = disp.get("question", "")
+        print(f"[ESCALATE -> operator] {disp.get('reason', '')[:130]}"
+              + (f"  Q: {q[:110]}" if q else ""))
     ledger_append(signal, disp, followup=followup)

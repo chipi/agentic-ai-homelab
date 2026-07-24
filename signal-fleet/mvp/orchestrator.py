@@ -38,15 +38,11 @@ def run_once(use_synthetic=False, dry_run=True):
         return
 
     print(f"signal: {sig['alertname']} | fp: {sig['fingerprint']}")
-    ev = correlate.evidence_for_orrery_staleness(sig)
-    print("correlated:", {k: (len(v) if isinstance(v, str) else 1)
-                          for k, v in ev["queries"].items()})
-    disp = triage.triage(sig, ev)
+    disp = triage.triage(sig)   # investigation self-probes (§7.3)
     actions.act(sig, disp, dry_run=dry_run)
     m = disp.get("_meta", {})
-    print(f"=> disposition: {disp['disposition']} "
-          f"(intent_gate: {m.get('intent_gate')}, dismiss_gate: {m.get('dismiss_gate')}, "
-          f"attempt: {m.get('attempt')})")
+    print(f"=> {disp['disposition']} (gates {m.get('gates')} · probes {m.get('n_probes')} · "
+          f"certainty {m.get('certainty')})")
 
 
 def run_glitchtip(limit=5, dry_run=True):
@@ -60,14 +56,10 @@ def run_glitchtip(limit=5, dry_run=True):
             print(f"  idempotent: {sig['occurrence_id']} -> {prior}; skip")
             continue
         print(f"--- {sig['alertname'][:60]} (fp {sig['fingerprint']}) ---")
-        ev = correlate.evidence_for_glitchtip_error(sig)
-        print("  correlated:", {k: (len(v) if isinstance(v, str) else "obj")
-                                for k, v in ev["queries"].items()})
-        disp = triage.triage(sig, ev)
+        disp = triage.triage(sig)   # investigation self-probes (§7.3)
         actions.act(sig, disp, dry_run=dry_run)
         m = disp.get("_meta", {})
-        print(f"  => {disp['disposition']} "
-              f"(intent_gate:{m.get('intent_gate')}, dismiss_gate:{m.get('dismiss_gate')})")
+        print(f"  => {disp['disposition']} (gates {m.get('gates')} · probes {m.get('n_probes')})")
 
 
 def run_poll(limit=10, dry_run=True):
