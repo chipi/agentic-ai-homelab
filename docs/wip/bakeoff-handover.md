@@ -114,11 +114,14 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
    tickets, not *misleading* ones; de-trapping (or an L2 pin) is triage
    work, which settles the §6.2 kick-back question toward "pin L2 on
    re-run". `run.sh` now auto-appends every run to `results/runs.tsv`.
-1c. **Author `agents/triage.md`** — the active-triager definition (RFC-0002
-   role, §6.2 template + gate, rung-0 model per §4.1). Design questions to
-   settle in the file: who pins L2 on second-pass kick-back (§6.2 open
-   question), and how it treats in-repo docs as evidence-not-truth
-   (fly-physics decoy lesson). Its eval set = the measured L0→L1 pairs.
+1c. ~~Author `agents/triage.md`~~ — **DONE 2026-07-24**: definition at
+   `bugfix-fleet/agents/triage.md` (rung-0 `deepseek-v4-flash`, L1
+   template + oracle-can-exist gate, de-trapping duty, kick-back 2×2
+   routing, JSON output contract). Both design questions settled in the
+   file: the **triager owns the second-pass L2 pin** (no manifest exists
+   in production; it holds the off-scope evidence), and repo docs are
+   treated as evidence-not-truth. Defined, not yet wired or evaled —
+   its eval set is the measured L0→L1 pairs (intake score, BAKEOFF §6.3).
 2. **opencode column** — same model, same matrix (opencode adapter validated
    with `--pure`, never gated across the set). First true harness-vs-harness
    row; substrate policy: harness rows run substrate-OFF (raw recon), one

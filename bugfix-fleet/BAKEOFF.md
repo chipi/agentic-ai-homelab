@@ -189,8 +189,9 @@ neither**:
   specialists / reviewer / operator) plus five specialist prompt files in
   `agents/` (`backend`, `database`, `docs`, `infra`, `ui`; frontmatter pins
   model + area). Written for the fleet, not yet wired to anything.
-  **No `agents/triage.md` exists yet** — the active triager lives only as
-  design (§6.2 + RFC).
+  `agents/triage.md` added 2026-07-24 — the active triager definition
+  (rung-0 model, L1 template + gate, kick-back 2×2 routing, sanctioned
+  L2 pin). Like the specialists: defined, not yet wired.
 - **What every measured run used instead** — the adapter's generic 7-line
   prompt (`bakeoff/harnesses/*.sh`): *"You are fixing a bug in the
   repository at the current working directory. Bug report: … Diagnose the
@@ -367,11 +368,15 @@ Division of labor this implies (the two-factor model as control flow):
   the kick-back is the safety net: FAIL+scope=no returns the off-scope
   list, which *names the decoy* — evidence enough to pin L2 for that
   ticket alone.
-- **Open contract question (RFC-0002 tension, flagged not resolved):** the
-  RFC says the triager never localizes — but the second-pass L2 pin *is*
-  localization. Someone must own it: triager-on-kickback (armed with the
-  off-scope evidence), or the orchestrator mechanically (pin = manifest
-  `code_files`, which it already knows). Decide when the triager is built.
+- **Contract question — SETTLED 2026-07-24 in `agents/triage.md`:** the
+  **triager owns the second-pass L2 pin**. Rationale: in production there
+  is no manifest `code_files` (that is bake-off ground truth), so the
+  orchestrator has nothing mechanical to pin from; the triager on re-entry
+  holds the off-scope evidence (which names the decoy) and verifies the
+  true owner in code. The pin is the one sanctioned L2 — evidence-driven,
+  per-ticket, bounded (2 re-entries max). The fixmap result reinforced the
+  routing: FAIL+scope=no re-entries go straight to a pin, never another
+  doc pass (doc levers 1/3 vs L2 pin 3/3).
 - **Caveat the triager design inherits:** the RFC has the triager
   *establish context from `AGENTS.md` + docs* — the same doc that acted as
   the fly-physics decoy. In-repo docs are evidence, not ground truth; the
