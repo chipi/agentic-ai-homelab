@@ -86,5 +86,7 @@ def push_disposition_metric(signal, disp):
 
 def finalize(signal, disp, usage=None, latency_s=0.0):
     """Emit both observability outputs for one disposition."""
+    if config.OBSERV_DISABLED:
+        return  # eval replay — don't pollute live fleet traces/metrics
     trace_triage(signal, disp, usage=usage, latency_s=latency_s)
     push_disposition_metric(signal, disp)

@@ -42,6 +42,10 @@ OPENROUTER_URL = env("SF_OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/com
 TRIAGE_MODEL = env("SF_TRIAGE_MODEL", "deepseek/deepseek-v4-flash")
 TRIAGE_PROMPT_VER = "mvp-1"
 
+# eval replays (freeze/score) call the triager k times — set truthy to suppress the
+# fleet's own observability so calibration runs never pollute live traces/metrics.
+OBSERV_DISABLED = bool(env("SF_OBSERV_DISABLED"))
+
 # state
 LEDGER = env("SF_LEDGER", os.path.expanduser("~/signal-fleet/results/dispositions.tsv"))
 # propose-first: File/Tune proposals are queued here as drafts for operator review
