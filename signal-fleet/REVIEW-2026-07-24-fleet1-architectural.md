@@ -203,3 +203,141 @@ over-read.
 *(Positive, no action: the intent-source registry as an open question is
 the right call; the ledger schema is right; the self-improving
 config-enhancement loop on missing correlation links is elegant.)*
+
+---
+
+# Round 3 — README, Phase-0 proof, and the MVP first slice (2026-07-24, operator-requested)
+
+Scope: `README.md`, `SIGNALS.md` (post-R2 state, §13–14), `RFC-0003`,
+`PHASE-0-infra.md`, `mvp/` (all files read), `test-receiver/`. I verified
+the §13.4 reuse-table claims against the live `bugfix-fleet/src/` — they
+are accurate (the TS pi/opencode adapters do throw not-implemented;
+directAdapter does carry the 3-retry). Phase-0's empirical bar is the
+best thing in this round: the GlitchTip API was verified live (8 projects,
+real issues listed), the Grafana webhook push was proven end-to-end, and
+the recipes are concrete. The MVP spine is faithful to the design: the
+intent gate is deterministic post-LLM code, parse failure degrades to
+escalate (never a silent bad disposition), the ledger stamps model +
+prompt_ver, and the live Dismiss-from-real-evidence run is a genuine
+end-to-end proof.
+
+Findings, ordered by weight. R3-1 and R3-2 are the two I'd fix before the
+next milestone; the rest are doc-vs-code drift and debt to name.
+
+## R3-1. The idempotency key permanently silences recurring alerts
+
+`actions.already_done()` keys on the signal fingerprint;
+`sources._fingerprint()` is Grafana's label-hash (or a labels digest) —
+**stable across occurrences by construction**. Sequence: alert fires →
+fleet Dismisses (correctly — data was fresh) → alert resolves → *next
+week the same alert fires for a real outage* → same fingerprint → `already
+-> dismiss; skipping`. One correct Dismiss buys every future occurrence of
+that alertname a silent skip. Harmless in the single-shot MVP; a real bug
+the day the poll becomes a daemon — and it inverts §9's intent (don't
+re-litigate the *same occurrence* ≠ never revisit the *same alertname*).
+Fix: make the ledger key an **occurrence id** — fingerprint + `startsAt`
+(Grafana gives it; you already normalize it into the signal) — and note
+that the R2-2 implicit-overturn design *depends* on recurrence being
+visible, which this bug would also break.
+
+## R3-2. Dismiss is the autonomy-bound disposition — and it is the only ungated one, fed by silently truncated evidence
+
+Two halves that compound:
+- **No dismiss-gate exists.** The intent gate protects File; escalate is
+  safe by definition; Dismiss — the disposition §10 wants to make
+  autonomous — passes on the model's say-so. Fleet-1's measured lesson
+  (shape-valid ≠ correct, confident invention) applies with the sign
+  flipped: a hallucinated "already recovered" is exactly the miss the
+  overturn metric is supposed to catch, so until the implicit-overturn
+  loop exists, propose-first is the *only* thing standing between a
+  confident wrong Dismiss and a swallowed real incident. Worth one
+  mechanical check now: require the dismiss `reason` to reference at
+  least one evidence key that is non-empty and non-error (cheap, no LLM).
+- **`build_user()._trim()` cuts each evidence block at 1800 chars with no
+  truncation marker.** The triager cannot distinguish "no error lines
+  in the logs" from "the error lines were cut at char 1801." That bias
+  points *toward* Dismiss — absence of visible evidence reads as absence
+  of a problem. Append an explicit `…[truncated N of M chars]` marker.
+
+## R3-3. Dispositions-compose (§7.1) is designed but not implemented — the Tune case loses its File half
+
+The doc's resolved Tune boundary is a **dual output**: Dismiss now AND
+File a `config-enhancement`. In `mvp/`, `immediate_recommendation` is
+printed and folded into the ledger's reason column — no
+`config-enhancement` issue payload is built, so the follow-up half of the
+dual output evaporates (exactly what §7.1 says must not be lost). The
+live slice's own verified run ("dismissed + recommended the alert fix")
+produced a recommendation that now lives only in a print statement and a
+truncated TSV cell. MVP-acceptable, but it is doc-vs-code divergence on a
+*resolved* decision — either implement the second output (a dry-run File
+alongside the Dismiss) or mark §7.1 as not-yet-implemented in the MVP
+boundaries list.
+
+## R3-4. Intent-source vocabulary drift: `operator rule` is in the docs but not in the code
+
+SIGNALS §4.1's table lists five sources including **operator rule**;
+`triage.py ALLOWED_INTENT = {reporter, spec, repo-data, code-invariant,
+baseline, slo}` — no `operator-rule`. A triager legitimately citing a
+standing operator preference gets mechanically downgraded to escalate.
+Pick one list, write it in both places (and Fleet-1's `agents/triage.md`
+should stay the shared base vocabulary + your `slo` extension, as §13.4
+already says).
+
+## R3-5. The validate-retry loop is decorative for shape failures at temperature 0
+
+`triage.triage()` retries up to 3× with the **same messages** and
+`temperature: 0` — a deterministic request retried unchanged returns the
+same malformed shape; the loop only helps transport flakes. Feed the
+validation error back as an extra message on retry (that is what makes
+validate-*retry* work), or drop the pretense and treat parse failure as
+the escalate-degrade it already is.
+
+## R3-6. Least-privilege debt across every credential — and the "prescribed integration" claim is soft for Grafana
+
+- GlitchTip token minted with **full scopes** for a fleet that needs
+  issue-read now (and later issue-resolve for Dismiss write-back).
+- Grafana consumed with the **admin password** via basic auth — Grafana's
+  actually-prescribed programmatic path is a **service-account token**;
+  Phase-0's "consumed the way its platform prescribes" is not quite true
+  for this row.
+- Umami consumed as the **admin login**.
+- `run.sh` sources whole stack `.env`s (admin creds) into the fleet's
+  process environment.
+
+None of this blocks the MVP; all of it is the kind of debt that becomes
+invisible after productionization. One pass — scoped GlitchTip token,
+Grafana service account, Umami view-only user, a fleet-owned sops file —
+before the daemon/ingress phase.
+
+## R3-7. Close R2-1 fully: stale "unverified" lines contradict Phase-0
+
+PHASE-0 verified the GlitchTip Sentry-compat API **live** (token, 8
+projects, real issue ids). SIGNALS still carries "unverified on-prem"
+(§6 pivot chain, §8 verdict column) and §12.2 still opens with "first,
+verify the GlitchTip API (R2-1): one curl…" — that curl has happened.
+Reconcile the three spots and mark R2-1 closed; also fold the Phase-0
+consumption *decision* (poll-over-webhook because the webhook payload is
+Slack-shaped) back into §8, which still presents webhook-vs-poll as open.
+
+## R3-8. Smaller
+
+- **`prompt_ver` is a hand-bumped constant** (`"mvp-1"`); edit `SYSTEM`
+  without bumping and the ledger lies. Stamp `sha1(SYSTEM)[:8]`
+  alongside the human-readable version — free attribution.
+- **`OPENROUTER_KEY` is not `required=True`** — a missing key today
+  surfaces as a confusing HTTP failure inside the first triage call
+  instead of a clean startup error.
+- **Escalate is a print statement** — no operator notification path
+  beyond the ledger row. Fine for MVP; list it in the boundaries.
+- **`GLITCHTIP_TOKEN` is loaded but unused** in the MVP — either wire the
+  Phase-B stub or drop it until then.
+- **§13.4's "directAdapter is the only working path" is half-right**: the
+  bake-off's *bash* pi path did structured output all day (11/12 calls,
+  extract+retry) — the TS adapters are what's unimplemented. Your choice
+  (raw OpenRouter) is still the right one for the MVP — simpler and
+  observable — but the stated reason overclaims.
+
+*(Verified in this round: §13.4 reuse-table claims against
+`bugfix-fleet/src/` — accurate; PHASE-0's live-evidence table —
+internally consistent; mvp/ code read in full: config, http_util,
+sources, correlate, triage, actions, orchestrator, probes.)*
