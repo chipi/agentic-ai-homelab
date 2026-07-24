@@ -1,0 +1,13 @@
+{
+  "id": "orrery-mission-arc-L0-qa2-triaged",
+  "repo": "orrery",
+  "fix_commit": "19fb2f17",
+  "oracle_test_file": "src/lib/mission-arc.test.ts",
+  "code_files": [
+    "src/lib/mission-arc.ts"
+  ],
+  "area": "trajectory-math",
+  "difficulty": "hard",
+  "level": "L1-triaged",
+  "description": "The transfer arc drawn for some missions has its endpoints pinned correctly at Earth departure and destination arrival, but the middle of the arc curves on the wrong side of the chord — the wrong branch of the two-mirror-ellipse family is rendered.\n\nExpected: The arc should always follow the prograde (CCW) branch of the Keplerian ellipse through both pinned endpoints, bulging in the CCW direction of the heliocentric frame regardless of destination (inner or outer planet).\n\nAcceptance criteria:\n- The arc midpoint (index steps/2) must lie on the CCW side of the chord from p1 to p2 — i.e., the cross product (p2-p1).x * (mid-p1).z - (p2-p1).z * (mid-p1).x must be positive for a CCW sweep. [spec: src/lib/mission-arc.ts line 139: 'Direction: prograde (CCW) sweep from p1's heliocentric angle to p2's heliocentric angle.']\n- The F2 candidate selection must be non-degenerate: the chosen ellipse must depend on the input geometry (p1, p2), not on the arbitrary array ordering of F2candidates[0]. [spec: src/lib/mission-arc.ts lines 177-180: 'Pick the F2 whose resulting elliptic CCW sweep from p1 to p2 matches the desired heliocentric transfer angle most closely. The two candidates produce mirror-image ellipses; only one has the CCW arc that flows in the prograde direction.']\n- All existing trajectory-soundness tests in src/lib/trajectory-soundness.test.ts remain green after the fix (no NaN, endpoints pinned, spacecraftPos invariants, V-inifinity bounding). [code-invariant: regression guard — the arc must not break what already passes]\n\nDomain facts:\n- The two F2 candidates lie on opposite sides of the chord connecting p1 and p2 (perp vector = (-dz/chord, dx/chord), the 90° CCW rotation). F2candidates[0] = mid + h*perp (always CCW of the chord), F2candidates[1] = mid - h*perp (always CW of the chord). The correct F2 for a prograde sweep may be either candidate depending on geometry — there is no universal rule that the CCW-perp side is correct.\n- For outer-planet transfers (Earth→Mars/Jupiter/Saturn) where the destination is farther from the Sun, the correct prograde F2 happens to be on the CCW side of the chord (F2candidates[0]) for typical geometries. For inner-planet transfers (Earth→Venus/Mercury) or retrograde-geometry transfers, the correct F2 may be F2candidates[1]. The sweep-distance discriminator cannot detect this because it's mathematically degenerate."
+}

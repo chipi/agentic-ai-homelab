@@ -1,0 +1,13 @@
+{
+  "id": "orrery-335-mission-event-merge-L0-triaged-kb1",
+  "repo": "orrery",
+  "fix_commit": "0cb1f36561",
+  "oracle_test_file": "src/lib/mission-event-merge.test.ts",
+  "code_files": [
+    "src/lib/mission-event-merge.ts"
+  ],
+  "area": "data-merge",
+  "difficulty": "medium",
+  "level": "L2-triaged-kb1",
+  "description": "In the /fly CAPCOM event ticker, every Cassini flyby event displays as 'FLYBY' with an empty note, instead of the per-event label and description present in the base mission's flight.events[].label and flight.events[].description fields.\n\nExpected: Each Cassini flyby shown in the ticker should display the per-event label (e.g. 'Venus #1 — gravity assist') and description (e.g. 'First of four assists...') from the base mission's flight.events[].label and flight.events[].description fields, rather than the generic 'FLYBY' with an empty note. Events that lack label/description on the event object still show the type-default label (backward compatibility).\n\nAcceptance criteria:\n- Cassini flyby at MET 193 in /fly ticker shows label 'Venus #1 — gravity assist' and a non-empty note matching flight.events[1].description, instead of 'FLYBY' [repo-data: static/data/missions/saturn/cassini.json — flight.events[1] has label 'Venus #1 — gravity assist' and description 'First of four assists...']\n- Cassini flyby at MET 617 in /fly ticker shows label 'Venus #2 — gravity assist' and a non-empty note matching its description [repo-data: static/data/missions/saturn/cassini.json — flight.events[2]]\n- Cassini flyby at MET 672 in /fly ticker shows label 'Earth — gravity assist' and a non-empty note matching its description [repo-data: static/data/missions/saturn/cassini.json — flight.events[3]]\n- Cassini flyby at MET 1172 in /fly ticker shows label 'Jupiter — gravity assist' and a non-empty note matching its description [repo-data: static/data/missions/saturn/cassini.json — flight.events[4]]\n- A structural flight event of type 'flyby' that has no label/description on the event object still shows the default 'FLYBY' label with empty note (backward compatibility) [code-invariant: src/lib/mission-event-merge.ts DEFAULT_FLIGHT_LABELS['flyby'] — the existing default for 'flyby' is the baseline; absent label/description must not crash]\n- The editorial VENUS GRAVITY ASSIST event at MET 207 (which covers Venus #1) continues to display correctly with its editorial note [code-invariant: static/data/i18n/en-US/missions/saturn/cassini.json + existing editorial events must survive merge unchanged per mergeFlightEvents rule 1]\n\nTarget: src/lib/mission-event-merge.ts — mergeFlightEvents"
+}

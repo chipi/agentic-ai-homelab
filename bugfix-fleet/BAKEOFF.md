@@ -731,6 +731,35 @@ modes compounding:
   held anyway. Results are an upper bound; a production-shape evidence
   block ("patch touched X, FAILED") is the clean protocol.
 
+**Observed (2026-07-24 evening, session 3g): v3 k=3 chain sweep — k1
+valid, k2/k3 INVALIDATED by OpenRouter credit exhaustion.** The account
+ran dry mid-sweep (25.196/25.00 used, verified via the credits API):
+v4-pro worker calls began returning empty completions (~20 ledger rows
+with turns≤1, out-tokens≈0) while cheaper flash triage still went
+through, then all models died. Every k2/k3 chain terminal is an artifact
+of dead worker calls — exclude any `orc-*` row with turns≤1 from all
+analysis. The valid **k1 row (v3 config, n=1/ticket):**
+
+| chain (v3-k1) | terminal |
+|---|---|
+| credits | **shipped** (via reporter: needs-info → QA → r0 pass) |
+| 335 (control) | **shipped** (r0) |
+| fly-physics | stuck (asked reporter, then pure-localization miss ×6) |
+| mission-arc | needs-info (2 QA rounds + kick-backs, no convergence) |
+| look-angles | **rejected** — new failure mode: the triager asked
+definition-of-done questions the reporter facts file doesn't cover, got
+"I don't know" across the board, and rejected a bug the hand-L1 ships
+3/3. The reporter-oracle's facts coverage is itself a variable: a
+too-narrow facts file converts fixable bugs into rejections. |
+
+Sweep resumption (k2/k3 re-run) blocked on the operator topping up
+OpenRouter credits. Ops lesson for the fleet: **credit exhaustion
+presents as silent empty completions, not errors** — pi surfaces no
+stderr, the harness "succeeds" with a 5s/0-token episode, and the chain
+grades it as a legitimate FAIL. The orchestrator needs a dead-call guard
+(turns≤1 ∧ out-tokens≈0 → `stuck: provider`, never a graded FAIL) so a
+billing event can't masquerade as model failure.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify
@@ -738,7 +767,8 @@ modes compounding:
   shipped, 2 invented-instead-of-needs-info, 1 control clean; session-3d —
   v2 closes the invention path; session-3e — v2 + reporter-oracle ships
   the intent-gap bug end-to-end; session-3f — full sweep 4/5, fly-physics
-  the characterized residual.)*
+  the characterized residual; session-3g — v3 k1 row valid, k2/k3
+  invalidated by credit exhaustion.)*
 - **Harness (fix) score** — L1 → correct fix via *its own* recon (§7), plus the
   **min upping-level to pass**.
 

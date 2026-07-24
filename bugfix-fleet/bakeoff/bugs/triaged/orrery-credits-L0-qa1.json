@@ -1,0 +1,13 @@
+{
+  "id": "orrery-credits-L0-qa1",
+  "repo": "orrery",
+  "fix_commit": "aaaab7f6",
+  "oracle_test_file": "src/lib/credits-grouping.test.ts",
+  "code_files": [
+    "src/lib/credits-grouping.ts"
+  ],
+  "area": "data-mapping",
+  "difficulty": "easy-medium",
+  "level": "L0",
+  "description": "On the credits page a bunch of space agencies show up under Wikimedia Commons instead of where they belong.\n\n## Reporter answers (follow-up)\n\nQ: Routing target for CMSA (121 entries): should images from agency='CMSA' be grouped under CNSA (the existing 'cnsa' source-logo), or should a new CMSA source-logo entry be added?\nA: Group under the existing 'cnsa' section.\n\nQ: Routing target for USAF (20 entries): should images from agency='USAF' be grouped under the existing 'us-space-force' source-logo, or should a new USAF entry be added?\nA: Group under the existing 'us-space-force' section.\n\nQ: Routing target for SpaceIL (9 entries): should a new source-logo entry be created for SpaceIL, or should it route to an existing bucket?\nA: Create a new source-logo entry for SpaceIL with section id 'spaceil'.\n\nQ: (Optional) Routing target for CFHT (1 entry) and EHT (1 entry) — same question.\nA: I don't know."
+}

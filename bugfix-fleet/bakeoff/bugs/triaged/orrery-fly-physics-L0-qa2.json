@@ -1,0 +1,13 @@
+{
+  "id": "orrery-fly-physics-L0-qa2",
+  "repo": "orrery",
+  "fix_commit": "0d6644f9",
+  "oracle_test_file": "src/lib/orbital/fly-physics.test.ts",
+  "code_files": [
+    "src/lib/orbital/fly-physics.ts"
+  ],
+  "area": "orbital-physics",
+  "difficulty": "hard",
+  "level": "L0",
+  "description": "Flying out to the outer planets, the HUD speed readout just says 'NaN km/s' the whole way. Looks completely broken.\n\n## Reporter answers (follow-up)\n\nQ: The content of the failed 106-line patch: what exactly did the specialist change in +page.svelte that left line 952 untouched? Knowing the decoy logic they grounded on (and any errors/warnings they encountered) would reveal whether there's an obstacle I cannot see from the static source — or confirm that the fix at line 952 is unblocked and the specialist simply missed it.\nA: I don't know.\n\n## Reporter answers (follow-up)\n\nQ: What should the transfer semi-major axis (the second argument to flyHeliocentricSpeed) be for each outer-planet destination? The current code hardcodes Earth-Mars Hohmann (~1.262 AU). The maintainer must choose: (a) compute per-destination Hohmann SMA from DESTINATIONS[activeDestination].a, (b) read a precomputed SMA from the scenario file, or (c) another strategy.\nA: I don't know. The notes only say the transfer SMA input itself is not what I'm reporting — keep the inputs as they are; the speed function's out-of-range behavior is the bug. They do not specify which strategy to adopt.\n\nQ: If the answer is (a) per-destination Hohmann SMA, that is a one-line change at line 952 — the specialist's 17-turn failure on the right file suggests this may not be sufficient. What else did the specialist encounter (e.g., flyHeliocentricSpeed being called from a second code path, or the scenario objects having their own SMA override)?\nA: I don't know.\n\nQ: A log of the specialist's terminal output (errors, warnings, computed values, test failures) would clarify whether the simple formula failed or a different obstruction was hit.\nA: I don't know."
+}

@@ -1,0 +1,13 @@
+{
+  "id": "orrery-look-angles-L0-qa2",
+  "repo": "orrery",
+  "fix_commit": "a5cf0981",
+  "oracle_test_file": "src/lib/satellite/satellite.test.ts",
+  "code_files": [
+    "src/lib/satellite/look-angles.ts"
+  ],
+  "area": "astro-coord-math",
+  "difficulty": "hard",
+  "level": "L0",
+  "description": "Observer look-angles use the wrong geodetic model, so WGS84 RA/Dec/alt-az come out wrong: the vernal equinox direction should map to RA 0 / Dec 0, the ecliptic north pole to Dec = 90-obliquity, and a meridian body at the observer's declination should sit at the zenith.\n\n## Reporter answers (follow-up)\n\nQ: The original acceptance criterion 1 ('dec = geodetic latitude → alt = 90° at H=0') is physically impossible: the zenith's declination equals the geocentric latitude, not the geodetic one. The correct criterion is: after the fix, a body whose declination equals the observer's GEOCENTRIC latitude computes to alt ≈ 90° at H=0. A specific test vector with known expected alt/az (beyond the existing Meeus ex. 13.b) is needed — for example, an observer at lat=45°N with a body at dec=44.81° (the geocentric equivalent) on the meridian should give alt ≈ 90°. Or the reporter can confirm that the existing Meeus ex. 13.b test, plus a Meeus-based meridian check, is sufficient.\nA: I don't know.\n\nQ: The original acceptance criterion 2 claimed the Moon's parallax differs by ~0.002° between equator and 45° latitude. The actual difference is ~0.000004° — negligible at handheld-phone pointing precision. Does the reporter still require the rho-based correction despite this, or is the dominant concern only the geodetic->geocentric conversion?\nA: I don't know.\n\n## Reporter answers (follow-up)\n\nQ: Which definition of done should the maintainer use — Option A (Meeus test suffices) or Option B (Meridian test required)?\nA: I don't know.\n\nQ: Is the geocentric-radius parallax correction (~0.000004° at 45°) in scope, or is the existing fixed EARTH_RADIUS_AU acceptable?\nA: I don't know."
+}
