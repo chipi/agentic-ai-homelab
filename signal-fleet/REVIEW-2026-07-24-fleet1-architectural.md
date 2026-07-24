@@ -401,3 +401,143 @@ Right-sized for the MVP — recorded here so the autonomy-flip review
 
 *(No new review rounds needed for this fold — fold R4-1/R4-2 whenever
 convenient; R4-3/R4-4 can ride along with the next milestone.)*
+
+---
+
+# Round 5 — go-live readiness challenge: Phase B + observability + the eval-gate proposal (2026-07-24, operator-requested)
+
+Scope: commits `18721c1→d3f54d5` (Phase-B GlitchTip trigger +
+error→trace→metric→logs correlation, `observ.py` producer-separated
+observability, least-privilege pass), full diff read. The direct
+questions answered first, then the findings that inform them.
+
+## Answers
+
+**Is a bake-off-style eval the right gate? Yes — for the *autonomy*
+transitions, and only those.** Split "go live" into three transitions
+with different risk shapes: (i) **propose-first live operation** (daemon
+polls, dispositions recorded + observable, Dismiss/File held for operator
+one-click) — safe *now*, needs no eval, and is itself the best data
+collector you have; (ii) **autonomous Dismiss** — gate on the eval,
+specifically false-dismiss; (iii) **unattended File to a real repo** —
+gate on File L1-quality, cheaply measurable the executable way (below).
+Don't let the eval block (i): shadow/propose-first operation *generates*
+the labeled set the eval needs, from real traffic, while costing the
+operator only the review clicks they already make.
+
+**Is the eval design sound? The skeleton yes; five hardenings from
+Fleet-1's measured experience:**
+
+1. **Freeze the evidence bundles.** k-runs against *live* sources are
+   unmeasurable: logs roll and metrics move between runs, so model
+   variance and evidence variance are confounded (you cannot even settle
+   whether PLAYER-4-vs-5 was model inconsistency or evidence drift).
+   Capture each labeled signal's evidence bundle once; replay the frozen
+   bundle k times. This is the exact reason the bake-off resets a
+   worktree per run — pinned problem state is what makes k-runs mean
+   something. Replay measures triage quality; live runs measure only
+   pipeline integration.
+2. **Fight the base rate or the eval teaches "dismiss everything."**
+   Your live stream is noise-dominated (all ~6 runs to date). A labeled
+   set drawn from history will score an always-dismiss triager near-
+   perfect. Seed real-defect signals deliberately — and you have a
+   generator nobody else has: **Fleet-1's replayed bugs.** Run orrery at
+   a bug's base commit, trigger the defect, let the real error land in
+   GlitchTip, capture that signal + evidence → ground truth = File(bug)
+   with *known* acceptance. Cross-fleet reuse that gives the File class
+   real, non-synthetic members.
+3. **Score the File class executably, not by rubric.** Fleet-1's core
+   lesson: shape-valid ≠ good — my triager passed every mechanical check
+   while writing poison. For seeded-bug signals the quality bar is
+   executable: hand the filed L1-candidate to the Fleet-1 pipeline and
+   see if it ships (that is the intake score, already defined in BAKEOFF
+   §6.3). Rubric-score only `config-enhancement`, where no oracle exists.
+4. **Report asymmetric metrics, not accuracy.** False-dismiss is *the*
+   number (a missed real defect is the expensive error; a spurious
+   File/Escalate is operator annoyance). But pair it with
+   **escalate-rate** — an always-escalate triager scores zero
+   false-dismiss trivially. The autonomy gate is a pair: false-dismiss ≈
+   0 **and** escalate-rate under a stated operator tolerance.
+5. **Keep near-duplicate pairs as a first-class probe.** PLAYER-4 vs
+   PLAYER-5 is a *consistency* test case of a kind worth manufacturing:
+   near-identical signals must draw the same disposition. At
+   temperature 0 the remaining variance is provider/MoE nondeterminism —
+   measured in Fleet-1 too (same config, same ticket, different
+   verdicts) — so k≥3 per frozen bundle stays necessary even at temp 0.
+
+**Do Phase-B failure modes make an unevaluated go-live unsafe? Yes —
+three concrete ones found in this diff, the first two on the Dismiss
+path:**
+
+## R5-1. The dismiss gate is structurally vacuous on the error path
+
+`_dismiss_gate` requires ≥1 usable evidence query. For GlitchTip signals,
+`evidence_for_glitchtip_error()` always yields `event_summary` — the
+error's own details — unless the API call itself fails. The error being
+triaged **is** the evidence that satisfies the gate that approves
+dismissing it. On Phase-B signals the R4-4 "floor" is not weak, it is a
+no-op: every hallucinated "transient, already recovered" passes. Fix
+before any autonomous Dismiss: the gate must require usable evidence
+*beyond the triggering event itself* (trace, logs, or metrics), or a
+dismiss-reason that engages with named evidence.
+
+## R5-2. Absence-of-trace reads as absence-of-problem
+
+A client-side error legitimately has no server trace — and a failed
+trace lookup *also* produces nothing. The bundle doesn't distinguish
+"trace not expected (browser error)" from "trace lookup failed" from
+"trace expected but missing." Fleet-1 measured exactly this bias shape
+(silent truncation → dismiss-leaning); label the absence explicitly in
+the bundle (e.g. `trace: <not expected: client-side platform>` vs
+`<error: …>`), or the model will keep reading blanks as recovery.
+
+## R5-3. `http_5xx_rate` is mislabeled evidence — it's total traffic
+
+`sum(rate(http_requests_total{job=~".*proj.*"}[5m]))` has **no status
+filter**: the query returns the *total* request rate, presented to the
+model under the name `http_5xx_rate`. Wrong data under an authoritative
+label is worse than no data — a healthy traffic number read as "5xx rate
+is nonzero and steady" can swing a disposition either way. Add the
+status-label filter (whatever the exporter's convention is), or rename
+the evidence key to what it actually measures.
+
+## R5-4. Occurrence-id churn on hot errors (R3-1's mirror image)
+
+`occurrence_id = shortId@lastSeen` — but `lastSeen` advances on **every
+new event** of an unresolved issue. A hot recurring error gets a fresh
+occurrence id each poll → re-triaged every cycle: the opposite failure
+from R3-1 (cost/churn instead of permanent silence), same root cause
+(occurrence boundary not tied to a state transition). Key it on a real
+transition instead: `firstSeen` + resolved→unresolved regression count
+(the Sentry-compat API exposes status changes), so one occurrence =
+one unresolved episode.
+
+## R5-5. Smaller
+
+- **Langfuse model pricing is project-scoped** — the new `triage-fleet`
+  project won't show $ until the model definitions/prices are registered
+  there too (Fleet-1 hit the same: pricing registered in its own project
+  only). One-time setup, do it before quoting cost dashboards.
+- **`sort=-last_seen&limit=5` starves old-but-real defects** behind hot
+  noise once volume grows; fine for MVP, note it for the daemon.
+- The least-privilege pass and producer separation
+  (`environment=operations`, separate Langfuse project, Viewer SA,
+  scoped token) address R3-6 properly — good close.
+
+## Recommended gate, concretely
+
+1. **Now:** fix R5-1/R5-3 (small), label trace absence (R5-2), then go
+   live **propose-first** — daemon on, everything recorded and
+   observable, File as draft/queued issues, Dismiss as one-click
+   proposals. The shadow ledger + operator clicks become labeled data.
+2. **Autonomous Dismiss:** the eval as amended — frozen bundles,
+   seeded-defect class from Fleet-1 bugs, k≥3, false-dismiss ≈ 0 AND
+   escalate-rate within tolerance, near-duplicate consistency clean.
+3. **Unattended File:** executable L1-quality on the seeded class
+   (filed candidate ships through Fleet 1), plus R4-2/R4-3 folded so
+   the ledger tells the truth about follow-ups.
+
+The eval is the right gate; the unsafe part today isn't the missing
+eval, it's that two of the three Dismiss safeguards (gate, evidence
+neutrality) have Phase-B-specific holes that no amount of k-runs would
+catch from noise-only traffic.
