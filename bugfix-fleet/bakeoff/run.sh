@@ -153,6 +153,11 @@ echo "VERDICT: $VERDICT   | ${WALL:-?}s  \$${COST:-?}  ${TURNS:-?} turns  scope=
 # one-line machine-readable result for aggregation (v2: +scope_hit +budget)
 printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$ID" "$HARNESS" "$VERDICT" "${WALL:-}" "${COST:-}" "${TURNS:-}" "${OUTTOK:-}" "$SCOPE_HIT" "$BUDGET" > "$OUT/result.tsv"
 echo "$VERDICT" > "$OUT/verdict.txt"
+# append-only sweep ledger: per-cell artifacts overwrite on re-run, this never
+# does — (run_idx, model) + the result.tsv row. run_idx via BAKEOFF_RUN_IDX.
+LEDGER="$ROOT/results/runs.tsv"
+[ -f "$LEDGER" ] || printf 'run_idx\tmodel\tid\tharness\tverdict\twall\tcost\tturns\touttok\tscope\tbudget\n' > "$LEDGER"
+printf '%s\t%s\t' "${BAKEOFF_RUN_IDX:-1}" "$MODEL" >> "$LEDGER"; cat "$OUT/result.tsv" >> "$LEDGER"
 # push trace + per-call generations + passed score to Langfuse (no-op without creds)
 python3 "$HERE/langfuse_push.py" "$ID" "$HARNESS" "$MODEL" "$VERDICT" "${COST:-0}" "${TURNS:-0}" "${WALL:-0}" "$OUT/harness.json" 2>&1 | sed 's/^/   /' || true
 echo "artifacts → $OUT"

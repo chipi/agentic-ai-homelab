@@ -8,7 +8,7 @@ without re-running the gate.
 
 | Bug | L0 | L1 | L2 |
 |---|---|---|---|
-| fly-physics | `-L0` | `-L1-noctx` *(pure)* · `-L1` *(+doc substrate)* | **canonical** |
+| fly-physics | `-L0` | `-L1-noctx` *(pure)* · `-L1` *(+doc substrate)* · `-L1-fixmap` *(corrected AGENTS.md map)* | **canonical** |
 | credits | `-L0` | `-L1` | **canonical** |
 | look-angles | `-L0` *(= original wrong-layer RA/Dec ticket)* | `-L1` | **canonical** |
 | 335-mission-event-merge | `-L0` | **canonical** | `-L2` |
@@ -27,6 +27,13 @@ gap, not localization) · fly-physics-L1-noctx 0/3 (decoy `orbital.ts` every
 run) · fly-physics-L1+doc **1/3** — the doc-flip PASS was the outlier;
 fly-physics' effective min level is L2.
 
+k=3 session 3b (2026-07-24): both before/after pairs closed deterministic —
+mission-arc canonical 3/3 (acceptance: L0 0/3 → L1 3/3) · fly-physics
+canonical 3/3 (topology: L1-noctx 0/3 → L2 3/3) · `-L1-fixmap` **1/3** —
+the corrected-map lever scores the same as the README; a ticket name-trap
+("the vis-viva function") beats any doc substrate ~2/3 of the time. Doc
+levers fix vague tickets, not misleading ones — de-trapping is triage work.
+
 Doc-flip cells (`-L0-doc`, same L0 tickets + module docs from
 `../substrates/`): 0/4 verdict flips, 3/4 scope flips to the correct file
 (all but fly-physics). Docs rescue localization; acceptance must come from
@@ -44,6 +51,13 @@ Authoring rules used:
 - Substrate (`context_files` in the manifest) is a separate axis from the
   level — substrate files live in `../substrates/`, injected by `run.sh` as
   committed problem state.
+- `-L1-fixmap` (2026-07-24) injects a **corrected `AGENTS.md`** (base file
+  with the stale file-map fixed: `orbital/fly-physics.ts` +
+  `heliocentricSpeed()` = the /fly HUD speed; `orbital.ts` marked NOT-the-HUD;
+  the inline `visViva` snippet deliberately left in as residual decoy
+  pressure). Tests "fix the authoritative map" vs the `-L1` "add a README"
+  lever after the k=3 doc-flip collapse (BAKEOFF §6.3). Same caveat as all
+  substrates: not blind-authored.
 
 `dropped/` holds bugs that failed the solution-agnostic-oracle bar (see its
 README).

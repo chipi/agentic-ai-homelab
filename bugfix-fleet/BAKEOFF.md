@@ -503,6 +503,38 @@ Readings:
 - **FAILs stay expensive** — mission-arc-L0 burns ~3.7× the out-tokens of
   a passing L1 sibling (155k vs 42k), reproducing the cost asymmetry at k=3.
 
+**Observed (2026-07-24, session 3b): before/after pairs closed at k=3;
+the fixmap experiment kills the doc lever for name-trap bugs.** Three more
+cells to n=3 (ledger: `results/runs.tsv`, now auto-appended by `run.sh`):
+
+| cell | verdicts (k=3) | rate | reading |
+|---|---|---|---|
+| mission-arc canonical (L1) | PASS×3 | 3/3 | acceptance pair **closed**: L0 0/3 → L1 3/3, deterministic both sides |
+| fly-physics canonical (L2) | PASS×3 | 3/3 | topology pair **closed**: L1-noctx 0/3 → L2 3/3, deterministic both sides |
+| fly-physics-L1-**fixmap** | FAIL·PASS·FAIL | **1/3** | corrected `AGENTS.md` map = same rate as the README substrate |
+
+The fixmap cell injected the base `AGENTS.md` with its stale file-map
+corrected (`orbital/fly-physics.ts` + `heliocentricSpeed()` named as the
+/fly HUD speed; `orbital.ts` marked NOT-the-HUD; the inline `visViva`
+snippet left in — substrate: `substrates/orrery-agents-fixmap.md`). Result:
+
+- **Both doc levers land at exactly 1/3** (README 1/3, corrected map 1/3).
+  On a bug whose ticket contains an active **name-trap** ("the vis-viva
+  function" → `visViva()`), no doc substrate reliably rescues localization
+  — the lexical match in the ticket dominates the map. Even the one fixmap
+  PASS hedged: it patched *both* implementations.
+- **Refinement to the two-factor model:** repo docs rescue localization
+  when the ticket is merely *vague* (3/4 L0-doc scope flips); they lose
+  ~2/3 of the time when the ticket is actively *misleading*. A name-trap
+  is ticket poison only the ticket can cure — de-trapping belongs to
+  **triage** (rewrite "the vis-viva function" into behavior/owner terms,
+  or pin L2 outright).
+- **This weighs on the §6.2 open question:** since docs can't reliably
+  beat a name-trap, the kick-back answer for FAIL+scope=no on a re-run is
+  an **L2 pin**, not another doc pass. The off-scope list names the decoy;
+  pinning is cheap and, measured here, deterministic (L2 3/3 at 106–220s,
+  the cheapest passing config for this bug).
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify

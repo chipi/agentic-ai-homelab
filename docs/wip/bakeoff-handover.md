@@ -105,13 +105,15 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
    Follow-on write-downs also DONE: the verdict×scope 2×2 kick-back rule
    (§6.2) and the worker-config reality — generic prompt, agents/*.md
    unused, prompt = a grid factor (§4.3).
-1b. **Close the before/after pairs** (~$0.25, one short session):
-   (a) k=3 on the "after" cells — mission-arc canonical (L1) and
-   fly-physics-L2, both currently n=1 PASS; (b) **decoy-correction
-   experiment**: fly-physics-L1 with a substrate that *corrects the
-   orrery AGENTS.md file-map* (points HUD speed at fly-physics.ts)
-   instead of adding a README — k=3. Decides whether the doc lever is
-   "fix the authoritative map" vs dead-for-strong-decoys.
+1b. ~~Close the before/after pairs~~ — **DONE 2026-07-24** (BAKEOFF §6.3
+   "session 3b"): mission-arc L1 3/3 and fly-physics L2 3/3 → both pairs
+   deterministic end-to-end (acceptance: 0/3→3/3; topology: 0/3→3/3).
+   **Fixmap experiment answered: 1/3** — a corrected AGENTS.md map scores
+   exactly like the README substrate; a ticket name-trap beats any doc
+   ~2/3 of the time. Conclusion on file: doc substrates fix *vague*
+   tickets, not *misleading* ones; de-trapping (or an L2 pin) is triage
+   work, which settles the §6.2 kick-back question toward "pin L2 on
+   re-run". `run.sh` now auto-appends every run to `results/runs.tsv`.
 1c. **Author `agents/triage.md`** — the active-triager definition (RFC-0002
    role, §6.2 template + gate, rung-0 model per §4.1). Design questions to
    settle in the file: who pins L2 on second-pass kick-back (§6.2 open
