@@ -621,3 +621,16 @@ shared across fleets; our signal-specific addition is `slo`/error-budget.
   (operator): build Phase B → observability → least-privilege before going live
   (File stays dry-run; daemon last). GlitchTip token lives in a mini-local
   `fleet.env` (least-privilege/sops = task).
+- **2026-07-24 (Observability + producer-identity separation):** The fleet is now a
+  separated telemetry **producer** — `environment=operations`, `service=triage-fleet`
+  (`config.SF_ENV`/`SF_SERVICE`), so its own signal never mixes with the monitored
+  dev/staging/prod projects (dgx/orrery/podcast). Created a **GlitchTip
+  `triage-fleet` project** (id 10) for the fleet's own errors (DSN in the mini
+  `fleet.env`). Observability wired into the triager (`observ.finalize`): (a) a **VM
+  metric** `signal_fleet_disposition{service,environment,disposition,source,work_type,
+  followup}` — live/queryable; (b) a **Langfuse** trace+generation per triage call —
+  built, tagged `environment=operations`, graceful-skips until the dedicated
+  project's keys exist. **Blocker:** a separate Langfuse *project* needs an
+  org-scoped API key (Langfuse UI → Org Settings → API Keys); the existing keys are
+  project-scoped to `agents` (403 on create). Grafana disposition-panel PromQL:
+  `sum by (disposition) (count_over_time(signal_fleet_disposition[$__range]))`.

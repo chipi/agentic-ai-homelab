@@ -16,6 +16,13 @@ def env(key, default=None, required=False):
 
 HOST = env("SF_HOST", "homelab")
 
+# the fleet's OWN identity as a telemetry PRODUCER — kept separate from the
+# monitored projects (dgx / orrery / podcast use dev|staging|prod). The fleet is
+# its own application in its own environment so its traces/errors/metrics never
+# mix with the systems it watches.
+SF_ENV = env("SF_ENV", "operations")           # not dev/staging/prod
+SF_SERVICE = env("SF_SERVICE", "triage-fleet")  # the application name
+
 # correlation-read backends (no auth on the tailnet)
 VM_URL = env("SF_VM_URL", f"http://{HOST}:8428")           # VictoriaMetrics (PromQL)
 VL_URL = env("SF_VL_URL", f"http://{HOST}:9428")           # VictoriaLogs (LogsQL)

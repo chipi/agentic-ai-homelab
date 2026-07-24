@@ -12,8 +12,10 @@ Gates (SIGNALS §4.1, review R3-2):
 import hashlib
 import json
 import re
+import time
 
 import config
+import observ
 from http_util import post_json
 
 # shared base vocab with Fleet-1 agents/triage.md + our signal extensions
@@ -92,7 +94,7 @@ def _call(messages):
         headers={"Authorization": f"Bearer {config.OPENROUTER_KEY}"},
         timeout=90,
     )
-    return resp["choices"][0]["message"]["content"]
+    return resp["choices"][0]["message"]["content"], resp.get("usage", {})
 
 
 def _parse(raw):
@@ -155,9 +157,11 @@ def triage(signal, evidence, attempts=3):
     messages = [{"role": "system", "content": SYSTEM},
                 {"role": "user", "content": build_user(signal, evidence)}]
     last_err = None
+    usage = {}
+    t0 = time.time()
     for i in range(attempts):
         try:
-            raw = _call(messages)
+            raw, usage = _call(messages)
         except SystemExit:
             raise
         except Exception as e:  # transport flake
@@ -178,11 +182,15 @@ def triage(signal, evidence, attempts=3):
         d, dgate = _dismiss_gate(d, evidence)
         d["_meta"] = {"attempt": i + 1, "intent_gate": igate, "dismiss_gate": dgate,
                       "model": config.TRIAGE_MODEL,
-                      "prompt_ver": config.TRIAGE_PROMPT_VER, "prompt_sha": PROMPT_SHA}
+                      "prompt_ver": config.TRIAGE_PROMPT_VER, "prompt_sha": PROMPT_SHA,
+                      "usage": usage}
+        observ.finalize(signal, d, usage=usage, latency_s=time.time() - t0)
         return d
-    return {"disposition": "escalate",
-            "reason": f"triager unparseable after {attempts}: {last_err}",
-            "immediate_recommendation": None, "file": None,
-            "_meta": {"attempt": attempts, "intent_gate": "n/a", "dismiss_gate": "n/a",
-                      "degraded": True, "model": config.TRIAGE_MODEL,
-                      "prompt_ver": config.TRIAGE_PROMPT_VER, "prompt_sha": PROMPT_SHA}}
+    degraded = {"disposition": "escalate",
+                "reason": f"triager unparseable after {attempts}: {last_err}",
+                "immediate_recommendation": None, "file": None,
+                "_meta": {"attempt": attempts, "intent_gate": "n/a", "dismiss_gate": "n/a",
+                          "degraded": True, "model": config.TRIAGE_MODEL,
+                          "prompt_ver": config.TRIAGE_PROMPT_VER, "prompt_sha": PROMPT_SHA}}
+    observ.finalize(signal, degraded, usage={}, latency_s=time.time() - t0)
+    return degraded
