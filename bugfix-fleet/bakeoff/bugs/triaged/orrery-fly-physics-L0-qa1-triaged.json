@@ -1,0 +1,13 @@
+{
+  "id": "orrery-fly-physics-L0-qa1-triaged",
+  "repo": "orrery",
+  "fix_commit": "0d6644f9",
+  "oracle_test_file": "src/lib/orbital/fly-physics.test.ts",
+  "code_files": [
+    "src/lib/orbital/fly-physics.ts"
+  ],
+  "area": "orbital-physics",
+  "difficulty": "hard",
+  "level": "L1-triaged",
+  "description": "Outer-planet missions (Jupiter/Saturn/Uranus/Neptune/Pluto) in /fly show 'NaN km/s' in the HUD velocity readout the entire flight\n\nExpected: HUD displays a finite speed value in km/s for every mission, computed from vis-viva using the correct heliocentric semi-major axis for the actual destination body\n\nAcceptance criteria:\n- heliocentricKms is a finite number (not NaN, not ±∞) at every simDay for a Jupiter-bound mission (e.g. galileo, juno, juice) [code-invariant: the app must not display NaN — the e2e test (fly-render-validation.spec.ts Layer 4) already asserts 'All readouts are finite numbers (no NaN, no ±∞)' for Mars/Moon cases; the same invariants must hold for outer-planet missions]\n- heliocentricKms is a finite number for a Saturn-bound mission (cassini, voyager-1) [code-invariant: same invariant as above]\n- heliocentricKms is a finite number for an outer-system flyby (neptune: voyager-2, pluto: new-horizons, ceres: dawn) [code-invariant: same invariant as above]\n- The hardcoded (R_EARTH_AU + R_MARS_AU) / 2 transfer SMA on line 952 of +page.svelte is replaced by a destination-aware value derived from the mission's active destination (DESTINATIONS[activeDestination].a) [repo-data: static/data/planets.json — planets Jupiter (a=5.20336), Saturn (a=9.53707), Uranus (a=19.19126), Neptune (a=30.06896), plus Pluto (a=39.482 via small-bodies.json); also DESTINATIONS map in lambert-grid.constants.ts has all DestinationId entries with their .a values]\n- The e2e test cases for outer-planet missions (galileo/jupiter, cassini/saturn, voyager-2/neptune) satisfy the same Layer 4a finite check that the existing Mars/Moon cases already pass [spec: fly-render-validation.spec.ts Layers 3+4: 'All readouts are finite numbers (no NaN, no ±∞)']\n\nDomain facts:\n- Jupiter a=5.20336 AU, Saturn a=9.53707 AU, Uranus a=19.19126 AU, Neptune a=30.06896 AU, Pluto a=39.482 AU (from planets.json / small-bodies.json)\n- The vis-viva equation v = sqrt(µ · (2/r - 1/a)) produces NaN when r > 2a (i.e. the argument becomes negative)"
+}

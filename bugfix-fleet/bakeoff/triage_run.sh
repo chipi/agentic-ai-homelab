@@ -54,31 +54,53 @@ in a \`\`\`json fenced block.
 $DESC
 EOF
 else
-  WVERDICT=$(cut -f3 "$KB_EVIDENCE/result.tsv"); WSCOPE=$(cut -f8 "$KB_EVIDENCE/result.tsv")
+  # Production-shape evidence only (no manifest ground truth leaks to the
+  # triager): verdict, what the patch touched, burn. The triager judges
+  # right-place/wrong-place itself. Grader-side scope stays in result.tsv.
+  WVERDICT=$(cut -f3 "$KB_EVIDENCE/result.tsv")
   WWALL=$(cut -f4 "$KB_EVIDENCE/result.tsv"); WTURNS=$(cut -f6 "$KB_EVIDENCE/result.tsv")
   WOUTTOK=$(cut -f7 "$KB_EVIDENCE/result.tsv")
-  WOFFSCOPE=$(cat "$KB_EVIDENCE/off_scope.txt" 2>/dev/null || echo "")
+  WTOUCHED=$(paste -sd, "$KB_EVIDENCE/touched.txt" 2>/dev/null | sed 's/^,*//;s/,*$//')
+  [ -n "$WTOUCHED" ] || WTOUCHED=$(grep -E '^\+\+\+ b/' "$KB_EVIDENCE/harness.patch" 2>/dev/null | sed 's|^+++ b/||' | grep -vE '\.(test|spec)\.' | paste -sd, - || echo none)
+  # anti-anchoring: the prior's pin was followed and failed — it is refuted.
+  # Strip it from the prior so it cannot re-anchor, and say so explicitly.
+  PRIOR_PIN=$(jq -r '.problem.pin.file // ""' "$KB_PRIOR")
+  PRIOR_PROBLEM=$(jq -c '.problem | .pin = {file:"",function:"",decoy:""}' "$KB_PRIOR")
+  REFUTED=""
+  if [ -n "$PRIOR_PIN" ] && echo ",$WTOUCHED," | grep -qF ",$PRIOR_PIN,"; then
+    REFUTED="Your previous pin was \`$PRIOR_PIN\`. The specialist followed it — the
+patch touched that file — and the attempt STILL FAILED. That pin is REFUTED:
+do not pin it again unless genuinely new evidence names it. If your best
+remaining theory is the refuted file, the honest verdict is needs-info."
+  elif [ -n "$PRIOR_PIN" ]; then
+    REFUTED="Your previous pin was \`$PRIOR_PIN\`; the failed patch did not touch it
+(the specialist did not follow the pin). Weigh that separately."
+  fi
   read -r -d '' TASK <<EOF || true
 This is a KICK-BACK SECOND PASS (kickback_round = $KB_ROUND). A specialist
-attempted your normalized problem and FAILED. Route by the verdict × scope
-2×2 from your definition. Do not edit any file — you only read. End your
-response with the JSON verdict and nothing after it, in a \`\`\`json fenced
-block. Set kickback_round to $KB_ROUND in your output.
+attempted your normalized problem and FAILED. Judge for yourself whether the
+patch went to the right place (compare what it touched against where the
+symptom's owner lives), then route per your definition: wrong place →
+topology gap; right place but oracle still red → acceptance gap. Do not
+edit any file — you only read. End your response with the JSON verdict and
+nothing after it, in a \`\`\`json fenced block. Set kickback_round to
+$KB_ROUND in your output.
 
 ## Original issue (verbatim)
 
 $DESC
 
-## Your prior normalized problem
+## Your prior normalized problem (pin removed — see evidence)
 
-$(jq -c .problem "$KB_PRIOR")
+$PRIOR_PROBLEM
 
 ## Failed attempt — evidence
 
 - verdict: $WVERDICT
-- scope_hit (patch touched the expected area): $WSCOPE
-- off-scope files the patch touched instead: ${WOFFSCOPE:-none}
+- files the patch touched (non-test): ${WTOUCHED:-none}
 - burn: ${WWALL}s wall, ${WTURNS} turns, ${WOUTTOK} output tokens
+${REFUTED:+
+$REFUTED}
 EOF
 fi
 read -r -d '' PROMPT <<EOF || true

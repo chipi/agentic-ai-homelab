@@ -31,8 +31,9 @@ REPORTER_MAX="${REPORTER_MAX:-2}"
 ID=$(jq -r .id "$TICKET")
 
 FLOW="$ROOT/results/flow.tsv"
-[ -f "$FLOW" ] || printf 'ticket\tstate\tdetail\n' > "$FLOW"
-flow(){ echo "FLOW: $1${2:+  ($2)}"; printf '%s\t%s\t%s\n' "$ID" "$1" "${2:-}" >> "$FLOW"; }
+[ -f "$FLOW" ] || printf 'ticket\tstate\tdetail\ttag\n' > "$FLOW"
+# ORC_TAG labels a whole chain run (e.g. v3-k1) so k-run sweeps segment cleanly
+flow(){ echo "FLOW: $1${2:+  ($2)}"; printf '%s\t%s\t%s\t%s\n' "$ID" "$1" "${2:-}" "${ORC_TAG:-}" >> "$FLOW"; }
 
 # the intent gate is enforced deterministically: an actionable verdict whose
 # acceptance criteria are uncited (shape note from triage_run.sh) is an
