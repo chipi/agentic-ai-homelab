@@ -654,13 +654,51 @@ Readings — both directions, honestly:
   disposition** — file the citable slice AND escalate the judgment slice —
   exactly SIGNALS.md §7.1. The binary File/reject shape loses value here.
 
+**Observed (2026-07-24, session 3e): the reporter-oracle closes the loop —
+mission-arc-L0 SHIPPED.** New eval-only component: `bakeoff/reporter/*.md`
+(per-bug intent facts authored from the golden fix, localization stripped)
++ `reporter_answer.sh` (flash leaf, answers only what is asked, only from
+the facts, neutral cwd — no repo access) + orchestrator restructured
+(outer triage loop ⊃ inner fix loop; needs-info at either level routes to
+the reporter ≤2 rounds; the QA-augmented ticket re-enters first-pass
+triage). Full chain on mission-arc-L0 — raw 0/3, v1-stuck, v2-needs-info —
+now, end-to-end unattended (~40 min wall, 9 LLM episodes, flow.tsv audit):
+
+triage→actionable(invented) → fix FAIL(+1 regression) → kick-back→
+**needs-info** (v2 re-audit caught its own invention) → **reporter: 3
+answers in 8s** → re-triage(QA)→actionable → fix FAIL scope=no →
+kick-back→**L2 pin** → fix **PASS → shipped** (round 1).
+
+Readings:
+- **Ask-then-fix ships where invent-then-grind never did.** The loop's
+  terminal state on this bug: v1 stuck (3 inventions), v2 alone
+  needs-info-dead-end, v2+reporter **shipped**. The two-factor model as
+  control flow, demonstrated in one chain: acceptance arrived via the
+  reporter (ticket axis), localization via the kick-back pin (evidence
+  axis).
+- **Triage verdicts are stochastic at n=1** — the same v2 config on the
+  same ticket produced needs-info (3d) and actionable-invention (twice in
+  3e). The safety net is layered for exactly this reason: prompt
+  discipline, then the mechanical uncited-gate, then the kick-back
+  re-audit — invention got through the first layer here and was caught at
+  the third, one worker-episode late (647s + 1 regression of waste).
+  Intake verdicts need k≥3 like every other cell before rates are quoted.
+- **First regressions observed** (2 in 3d's probe, 1 here, all in
+  invention-driven episodes; every shipped chain stays regression-clean).
+  Wrong acceptance doesn't just miss — it breaks passing tests on the way.
+- **Reporter cost is negligible** (8s, one flash call) against the
+  600–800s worker episodes it prevents when it fires early. The economics
+  argue for asking *before* the first fix attempt, not after — which is
+  what v2's first-pass needs-info does when the stochastic draw goes
+  right.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify
   given/derivable/missing right? *(Measured: session-3c block — v1: 2
   shipped, 2 invented-instead-of-needs-info, 1 control clean; session-3d —
-  v2 closes the invention path, at a recall cost pending a
-  reporter-oracle.)*
+  v2 closes the invention path; session-3e — v2 + reporter-oracle ships
+  the intent-gap bug end-to-end.)*
 - **Harness (fix) score** — L1 → correct fix via *its own* recon (§7), plus the
   **min upping-level to pass**.
 

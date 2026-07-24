@@ -1,0 +1,13 @@
+{
+  "id": "orrery-mission-arc-L0-qa1-triaged",
+  "repo": "orrery",
+  "fix_commit": "19fb2f17",
+  "oracle_test_file": "src/lib/mission-arc.test.ts",
+  "code_files": [
+    "src/lib/mission-arc.ts"
+  ],
+  "area": "trajectory-math",
+  "difficulty": "hard",
+  "level": "L1-triaged",
+  "description": "On the /fly screen, the outbound transfer arc for library missions with non-zero arrival V-infinity has the wrong mid-arc curvature — endpoints are pinned correctly at Earth and the destination, but the middle of the arc matches a pure Hohmann ellipse instead of reflecting the mission's actual transfer energy.\n\nExpected: The outbound arc on /fly should bend outward or inward at its midpoint according to the mission's arrival V-infinity, matching the visual convention already implemented and tested in outboundArc() for the /explore overlay.\n\nAcceptance criteria:\n- Outbound arcs rendered on /fly for missions with flight.arrival.v_infinity_km_s (e.g., Curiosity: 2.43 km/s, Perseverance: 2.4 km/s) differ at their midpoint from the pure Keplerian ellipse (transferEllipse baseline) for the same departure/arrival geometry [reporter: \"The arrival V-infinity in the mission data is being ignored when drawing the transfer arc. A high arrival V-infinity should bend the middle of the arc away from the baseline (pure-ellipse) shape\"]\n- The /fly outbound arc endpoints remain pinned to the live Earth position at dep_day and live destination position at arr_day/flyby_day — V∞ shaping affects only the mid-arc curvature, not the termini [code-invariant: The arc connects the physical departure body (Earth) to the arrival body (destination); those endpoints are geometrically determined by the planets' positions on those days]\n- buildArcs in /fly/+page.svelte no longer carries a documented-unused function parameter for V∞ (the value is either consumed or the parameter is removed) [code-invariant: Dead parameters with 'unused now' comments are tech debt per the project's conventions (CLAUDE.md: \"Do not use console.log in production code\" — general code quality)]\n\nDomain facts:\n- Hohmann arrival V∞ for Earth→Mars ~2.94 km/s (computable from vis-viva). Missions with V∞ above this value (e.g., inspiration-mars) have a more energetic transfer that should bulge outward; missions near or below Hohmann (e.g., Curiosity at 2.43 km/s) should show minimal deviation.\n- The outboundArc() function in mission-arc.ts:76-101 contains a reference implementation of the desired V∞ shaping (ratio-based eccentricity bend, clamped to avoid unphysical loops). This is available for reuse or as a spec for the fix."
+}

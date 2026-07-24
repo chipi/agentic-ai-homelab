@@ -142,14 +142,23 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
    caught it (4 uncited → auto-downgrade). Cost: credits + look-angles v2
    tickets FAILed their worker legs (both n=1) — v1's wins leaned on
    correct-invention (CMSA→cnsa guess) and smuggled localization, which
-   the gate removes by design. **Comparability caveat: needs-info is
-   terminal only because the replay eval has no reporter.** Next
-   instrument piece: a **reporter-oracle** (answers needs-info questions
-   from the golden fix's knowledge) so the full loop can be scored; plus
-   composed dispositions (file the citable slice + escalate the judgment
-   slice — converges with SIGNALS.md §7.1). Also open: JSON-flake retry
-   policy. Signal-fleet reviews (rounds 1+2):
-   `signal-fleet/REVIEW-2026-07-24-fleet1-architectural.md`.
+   the gate removes by design. ~~Comparability caveat / reporter-oracle~~
+   — **BUILT + PROVEN (session 3e, BAKEOFF §6.3):** `bakeoff/reporter/*.md`
+   (per-bug golden-intent facts, no localization) + `reporter_answer.sh`;
+   orchestrator restructured so needs-info at either level routes to the
+   reporter (≤2 rounds) and the QA-augmented ticket re-enters triage.
+   **mission-arc-L0 SHIPPED end-to-end unattended** (~40 min, 9 episodes):
+   invention → FAIL → kick-back needs-info → reporter (8s) → re-triage →
+   FAIL scope=no → L2 pin → PASS. Ask-then-fix ships where
+   invent-then-grind never did. Still open: triage verdicts stochastic at
+   n=1 (k≥3 before quoting intake rates); composed dispositions (file the
+   citable slice + escalate the judgment slice — SIGNALS.md §7.1);
+   JSON-flake retry policy; reporter loop exercised only on mission-arc
+   (fly-physics/credits/look-angles chains not re-run with it).
+   Signal-fleet reviews (rounds 1–3):
+   `signal-fleet/REVIEW-2026-07-24-fleet1-architectural.md` (round 3 =
+   Phase-0 + MVP code; fix-first items R3-1 idempotency key, R3-2
+   ungated Dismiss).
 2. **opencode column** — same model, same matrix (opencode adapter validated
    with `--pure`, never gated across the set). First true harness-vs-harness
    row; substrate policy: harness rows run substrate-OFF (raw recon), one
