@@ -132,12 +132,23 @@ macOS `timeout` → `perl -e 'alarm N; exec @ARGV'`, mkdocs strict on docs/**).
    discriminator is acceptance *derivability*: repo-derivable → flash
    triage wins; maintainer-intent → it invents (11 triage calls, 0
    needs-info). Kick-back L2 pin proven (moved scope no→yes with the exact
-   oracle target). **Next hardening (NOT DONE): intent-source requirement
-   in `agents/triage.md`** (each acceptance criterion cites reporter/spec/
-   repo-data/baseline or verdict degrades to needs-info) — that is a
-   triager-config change (§4.3), so re-run this eval after it as the A/B.
-   Also open: smuggle enforce-vs-tolerate; JSON-flake retry policy;
-   signal-fleet review delivered at
+   oracle target). ~~Next hardening: intent-source requirement~~ — **DONE
+   + A/B MEASURED (session 3d, BAKEOFF §6.3):** `agents/triage.md` v2
+   (intent-source schema, `prompt_ver` stamped in the ledger, orchestrator
+   deterministically downgrades uncited-actionable to needs-info via
+   `shape.txt`). A/B on the same 5 L0s: **the poison-ticket path is
+   closed** — mission-arc now ends needs-info with the exact intent
+   question; fly-physics ignored the schema and the mechanical gate
+   caught it (4 uncited → auto-downgrade). Cost: credits + look-angles v2
+   tickets FAILed their worker legs (both n=1) — v1's wins leaned on
+   correct-invention (CMSA→cnsa guess) and smuggled localization, which
+   the gate removes by design. **Comparability caveat: needs-info is
+   terminal only because the replay eval has no reporter.** Next
+   instrument piece: a **reporter-oracle** (answers needs-info questions
+   from the golden fix's knowledge) so the full loop can be scored; plus
+   composed dispositions (file the citable slice + escalate the judgment
+   slice — converges with SIGNALS.md §7.1). Also open: JSON-flake retry
+   policy. Signal-fleet reviews (rounds 1+2):
    `signal-fleet/REVIEW-2026-07-24-fleet1-architectural.md`.
 2. **opencode column** — same model, same matrix (opencode adapter validated
    with `--pure`, never gated across the set). First true harness-vs-harness

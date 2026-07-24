@@ -29,7 +29,14 @@ FLOW="$ROOT/results/flow.tsv"
 [ -f "$FLOW" ] || printf 'ticket\tstate\tdetail\n' > "$FLOW"
 flow(){ echo "FLOW: $1${2:+  ($2)}"; printf '%s\t%s\t%s\n' "$ID" "$1" "${2:-}" >> "$FLOW"; }
 
-triage_verdict(){ jq -r '.verdict' "$1/triage.json" 2>/dev/null || echo none; }
+# the intent gate is enforced deterministically: an actionable verdict whose
+# acceptance criteria are uncited (shape note from triage_run.sh) is an
+# invention by construction — downgrade to needs-info, never dispatch it
+triage_verdict(){
+  V=$(jq -r '.verdict' "$1/triage.json" 2>/dev/null || echo none)
+  if [ "$V" = "actionable" ] && grep -q 'uncited acceptance' "$1/shape.txt" 2>/dev/null; then V=needs-info; fi
+  echo "$V"
+}
 worker_verdict(){ cut -f3 "$1/result.tsv"; }
 
 # ── 1 · triage, first pass ──────────────────────────────────────────────────

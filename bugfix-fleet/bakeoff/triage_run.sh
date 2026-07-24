@@ -23,6 +23,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 jqr(){ jq -r "$1" "$BUG_JSON"; }
 ID=$(jqr .id); FIX=$(jqr .fix_commit); BASE="${FIX}^"; DESC=$(jqr .description)
 MODEL="${TRIAGE_MODEL:-deepseek/deepseek-v4-flash}"   # rung 0 (BAKEOFF §4.1)
+# prompt version from the agent definition frontmatter — a prompt change is a
+# config change (BAKEOFF §4.3); the ledger stamp keeps rows attributable
+TRIAGE_VER=$(awk -F': ' '/^version:/{print $2; exit}' "$HERE/../agents/triage.md")
+TRIAGE_VER="${TRIAGE_VER:-1}"
 KB_ROUND=0
 if [ -n "$KB_EVIDENCE" ]; then
   [ -f "$KB_PRIOR" ] || { echo "ABORT: kick-back needs the prior triage.json"; exit 2; }
@@ -168,6 +172,9 @@ else
     [ "$(jq -r '.problem.acceptance | length' "$OUT/triage.json" 2>/dev/null || echo 0)" -gt 0 ] || note "empty acceptance"
     [ -n "$(jq -r '.problem.symptom // ""' "$OUT/triage.json")" ] || note "empty symptom"
     [ -n "$(jq -r '.problem.expected // ""' "$OUT/triage.json")" ] || note "empty expected"
+    # v2 intent gate: every criterion must carry a non-empty intent_source
+    UNCITED=$(jq -r '[.problem.acceptance[] | select((type=="string") or ((.intent_source // "") == ""))] | length' "$OUT/triage.json" 2>/dev/null || echo 0)
+    [ "$UNCITED" -eq 0 ] || note "$UNCITED uncited acceptance criteria (intent gate)"
     if [ "$KB_ROUND" -eq 0 ]; then
       [ "$LEVEL" = "L1" ] || note "first pass must be L1 (got $LEVEL)"
       [ "$(jq -r '.problem.pin.file // ""' "$OUT/triage.json")" = "" ] || note "pin set on first pass"
@@ -195,7 +202,7 @@ if [ "$VERDICT" = "actionable" ] && [ -f "$OUT/triage.json" ]; then
   mkdir -p "$HERE/bugs/triaged"
   TRIAGED="bugs/triaged/${ID}-triaged${SUFFIX}.json"
   TDESC=$(jq -r '.problem | .symptom + "\n\nExpected: " + .expected
-    + "\n\nAcceptance criteria:\n" + (.acceptance | map("- " + .) | join("\n"))
+    + "\n\nAcceptance criteria:\n" + (.acceptance | map(if type == "string" then "- " + . else "- " + .criterion + " [" + (.intent_source // "?") + ((.source_ref // "") | if . == "" then "" else ": " + . end) + "]" end) | join("\n"))
     + (if (.domain_facts | length) > 0 then "\n\nDomain facts:\n" + (.domain_facts | map("- " + .) | join("\n")) else "" end)
     + (if (.pin.file // "") != "" then "\n\nTarget: " + .pin.file + (if (.pin.function // "") != "" then " — " + .pin.function else "" end)
        + (if (.pin.decoy // "") != "" then "\nDo NOT change " + .pin.decoy + " — it is not the owner of this symptom." else "" end) else "" end)' "$OUT/triage.json")
@@ -206,8 +213,9 @@ fi
 
 echo "──────────────────────────────"
 echo "TRIAGE: verdict=$VERDICT  shape=$SHAPE${NOTES:+  [$NOTES]}  | ${WALL}s \$$COST"
+echo "$SHAPE${NOTES:+ [$NOTES]}" > "$OUT/shape.txt"   # orchestrator gates on this
 LEDGER="$ROOT/results/triage_runs.tsv"
-[ -f "$LEDGER" ] || printf 'run_idx\tmodel\tid\tverdict\tshape\twall\tcost\touttok\tnotes\n' > "$LEDGER"
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "${BAKEOFF_RUN_IDX:-1}" "$MODEL" "${ID}${SUFFIX}" "$VERDICT" "$SHAPE" "$WALL" "$COST" "$OUTTOK" "${NOTES:-—}" >> "$LEDGER"
+[ -f "$LEDGER" ] || printf 'run_idx\tmodel\tid\tverdict\tshape\twall\tcost\touttok\tnotes\tprompt_ver\n' > "$LEDGER"
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "${BAKEOFF_RUN_IDX:-1}" "$MODEL" "${ID}${SUFFIX}" "$VERDICT" "$SHAPE" "$WALL" "$COST" "$OUTTOK" "${NOTES:-—}" "v$TRIAGE_VER" >> "$LEDGER"
 python3 "$HERE/langfuse_push.py" "${ID}-triage${SUFFIX}" "$HARNESS" "$MODEL" "$VERDICT/$SHAPE" "${COST:-0}" "0" "${WALL:-0}" "$OUT/harness.json" 2>&1 | sed 's/^/   /' || true
 echo "artifacts → $OUT"

@@ -610,11 +610,57 @@ Readings:
   expensive ones — one more argument for the intent-source gate firing
   *before* the first specialist episode.
 
+**Observed (2026-07-24, session 3d): triager v2 A/B — the intent gate
+works at intake and costs recall end-to-end.** `agents/triage.md` v2 adds
+the intent-source schema (every acceptance criterion cites
+`reporter | spec | repo-data | code-invariant | baseline`; own-analysis is
+not a source; code-invariant is a floor). Ledger rows stamped
+`prompt_ver`; orchestrator now **deterministically downgrades** an
+actionable verdict with uncited criteria to needs-info (gates on
+`shape.txt`, no LLM). Same 5 L0s, same flash triager:
+
+| ticket | v1 verdict → outcome | v2 verdict → outcome |
+|---|---|---|
+| mission-arc | actionable (invented ×3) → stuck, ~$0.25 | **needs-info**, asks the exact intent question ✓ |
+| fly-physics | actionable (invented ×3) → stuck | actionable but **4 uncited → auto-downgrade to needs-info** ✓ (model ignored the schema; the mechanical gate caught it) |
+| credits | actionable → **shipped** | actionable, cited → worker **FAIL** (n=1) |
+| look-angles | actionable (+smuggle) → **shipped** | actionable, clean → worker **FAIL** (n=1) |
+| 335 (control) | actionable → shipped | actionable, cited → **shipped** ✓ |
+
+Readings — both directions, honestly:
+- **Intake-level: v2 strictly better.** The needs-info valve fired
+  correctly (0/11 calls in v1 → fired on mission-arc in v2); where prompt
+  discipline failed (fly-physics emitted plain uncited strings), the
+  schema check caught it mechanically — defense in depth as designed. The
+  poison-ticket path (worst measured cost, 782s/231k grinds) is closed.
+- **End-to-end vs the binary oracle: v2 ships less (1 vs 3).** Mechanism,
+  verified by diffing v1/v2 tickets: v1's credits win leaned on **correct
+  invention** (CMSA→cnsa is a maintainer judgment; v1 guessed it right),
+  and v1's look-angles win leaned on **smuggled localization with
+  operationally sharp criteria**. v2 refuses both: credits narrowed to the
+  citable CSA slice and explicitly deferred CMSA/USAF/SpaceIL as "needs a
+  design decision" (epistemically correct!); look-angles swapped sharp
+  ECI-value checks for abstract invariants that mostly already held. Both
+  worker FAILs are n=1 but the mechanism is structural: **the gate trades
+  lucky-invention recall for zero-poison precision.**
+- **The eval instrument now under-scores v2 by design:** needs-info is a
+  *terminal* state in the replay eval because there is no reporter to
+  answer. In the real fleet, needs-info returns to a reporter and the
+  loop continues. Next instrument gap: a **reporter-oracle** (answers
+  needs-info questions from the golden fix's knowledge) so the full loop
+  can be scored. Until then, v1-vs-v2 end-to-end counts are not
+  comparable at face value.
+- **Convergence with the signal-fleet design:** credits wants a **composed
+  disposition** — file the citable slice AND escalate the judgment slice —
+  exactly SIGNALS.md §7.1. The binary File/reject shape loses value here.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify
-  given/derivable/missing right? *(First measurement: the session-3c block
-  above — 2 shipped, 2 invented-instead-of-needs-info, 1 control clean.)*
+  given/derivable/missing right? *(Measured: session-3c block — v1: 2
+  shipped, 2 invented-instead-of-needs-info, 1 control clean; session-3d —
+  v2 closes the invention path, at a recall cost pending a
+  reporter-oracle.)*
 - **Harness (fix) score** — L1 → correct fix via *its own* recon (§7), plus the
   **min upping-level to pass**.
 
