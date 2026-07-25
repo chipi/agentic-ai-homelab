@@ -9,7 +9,7 @@
       "interval": "10m",
       "cycle_cmd": "python3 orchestrator.py --cycle --limit 10",
       "workdir": "/Users/markodragoljevic/signal-fleet/mvp",
-      "env_file": "/Users/markodragoljevic/signal-fleet/fleet.env",
+      "env_file": "/Users/markodragoljevic/signal-fleet/fleet-gateway.env",
       "stop_flag": "/Users/markodragoljevic/signal-fleet/STOP",
       "budget_day_usd": 2.0,
       "spend_file": "/Users/markodragoljevic/signal-fleet/results/.last_cycle_spend",

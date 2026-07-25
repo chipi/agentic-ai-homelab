@@ -53,6 +53,11 @@ OBSERV_DISABLED = bool(env("SF_OBSERV_DISABLED"))
 RATES = {
     "deepseek/deepseek-v4-pro":   (4.35e-7, 8.7e-7),
     "deepseek/deepseek-v4-flash": (1.4e-7, 2.8e-7),
+    # gateway aliases (infra/litellm) — same underlying models today; if an
+    # alias is re-routed to a provider with different pricing, update here
+    "fleet-triage-pro":   (4.35e-7, 8.7e-7),
+    "fleet-triage-flash": (1.4e-7, 2.8e-7),
+    "fleet-bugfix-pro":   (4.35e-7, 8.7e-7),
 }
 
 # fleetd cycle contract (RFC-0004): stage + spend report + recurrence window
