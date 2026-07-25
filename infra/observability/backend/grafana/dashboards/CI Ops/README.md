@@ -14,6 +14,7 @@ provisioned as code.
 | Board | uid | Goal | Datasource | Key panels |
 |---|---|---|---|---|
 | **CI / Ops — GitHub Actions** | `podcast-ci-ops-overview` | Deploy + backup outcomes from prod workflows | VictoriaLogs (victoriametrics-logs-datasource) | Deploys / Deploy failures / Backups / Avg deploy duration (stat); Ops event volume by type + Deploys by status over time (timeseries); Event breakdown (type × surface × status) table; recent ops events tail. Var: `$env` (Env). |
+| **CI / Ops — DORA metrics** | `podcast-ci-ops-dora` | The four DORA metrics + CI health, from Tier-1 deploys + Tier-2 CI runs | VictoriaLogs (victoriametrics-logs-datasource) | Deploy frequency, change failures, CI failures, flaky runs (`attempt>1`) (stat); avg CI queue/duration + avg deploy duration + drift/drill failures (stat); deploys-by-status + CI-runs-by-status (timeseries); CI-by-workflow×status + drift/drill-outcomes (table); recent failures tail. No `$env` filter — spans prod deploys + CI. |
 
 ## The `ops_event/v1` schema (what the panels query)
 

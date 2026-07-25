@@ -39,10 +39,11 @@ Stream fields (low cardinality): `app, env, event_type`. `env` defaults to `ci`
 - **Lead time / MTTR** — from `deploy` `duration_ms` + failure→next-success gaps.
 - **CI health** — `ci_run` pass-rate, flaky-rate (`attempt:>1`), `queue_ms`.
 
-A dedicated Tier-2 **DORA dashboard** (same `victorialogs` datasource) is the one
-open piece — the handover author offered to draft the JSON. The Tier-1 board
-(`CI Ops/ci-ops-overview.json`) already renders the `ci_run`/`drift`/`drill`
-events this poller produces.
+Two dashboards render this data, provisioned in the **CI Ops** Grafana folder:
+- `CI Ops/ci-ops-overview.json` (`podcast-ci-ops-overview`) — deploy/backup +
+  event overview.
+- `CI Ops/dora-metrics.json` (`podcast-ci-ops-dora`) — the four DORA metrics +
+  CI health (deploy frequency, change-failure, CI pass/flaky, queue/duration).
 
 ## Install (on the mini)
 
