@@ -874,6 +874,83 @@ per-situation, e.g.:
 > Claude lands 96% at $0.35. → opencode+Kimi is the sweet spot; Claude stays the
 > reviewer."
 
+### 8.1 MEASURED (2026-07-25): the opencode column — first true harness row
+
+opencode + `deepseek-v4-pro` (identical model, cells, prompts, k as the pi
+baseline; 20 runs, $1.65 total, zero flakes/crashes, tags `oc-*` in
+`runs.tsv`, per-run archives kept):
+
+| cell (k=3; gate ×1) | pi | opencode |
+|---|---|---|
+| gate (5 canonical) | 5/5 | **5/5** |
+| credits-L1 | 3/3 | **3/3** |
+| look-angles-L1 | 3/3 | **3/3** |
+| mission-arc-L0 | 0/3 | **0/3** |
+| fly-physics-L1-noctx | 0/3 (orbital.ts decoy) | **0/3 (same decoy)** |
+| fly-physics-L1 (+doc) | 1/3 | **1/3** |
+
+**Headline: success rates are IDENTICAL on every cell — including the
+stochastic doc cell landing 1/3 on both.** Min-upping-level per bug is the
+same across harnesses. The two-factor model (BAKEOFF §6.3) survives its
+strongest test yet: **ticket quality dominates harness choice too, not
+just model choice.** At equal model, the harness barely moves what gets
+fixed — it moves *how*:
+
+- **Failure shape / robustness (the real discriminator):** on the
+  mission-arc-L0 acceptance grind, pi self-terminates (~470–620s);
+  **opencode never does — it ran to the 1200s budget cap all three
+  times** ($0.21–0.27/attempt). The §7 "graceful-stuck vs runaway" axis
+  has a measured answer: pi degrades gracefully, opencode is
+  runaway-prone on grind bugs and *needs* the external budget cap.
+- **Cost:** self-reported real $ (a genuine opencode advantage — pi
+  reports zeros): PASSes $0.026–0.065, in pi's token-estimated range;
+  grind-FAILs pricier via the cap. Structural note: opencode showed
+  cache-read 0 with a ~22k scaffold/turn; pi caches ~95% — different
+  cost *structures* converging to similar per-cell totals at this size.
+- **Latency:** mixed; some PASSes slower (335 gate 511s vs pi 90–220s),
+  others equal. Turns comparable.
+- **Dev cost (subjective, §7):** opencode passed its first probe and ran
+  a clean 20-cell column untouched; pi's adapter cost us the stdin-hang
+  and empty-completion hunts. Point: opencode.
+
+**Decision-relevant summary:** identical success at equal model; pi wins
+failure-cost discipline, opencode wins dev-ergonomics + honest cost
+reporting. The harness pick can therefore weight *operational* factors —
+and the production chain already shells pi.
+
+### 8.2 MEASURED (2026-07-25): the Claude reference row — the walls are spec-bounded
+
+Sonnet 4.6, same cells, k=1 (fixed yardstick per §4), `claude-ref` in
+`runs.tsv`, ~$9.5 on the operator's Anthropic account (one gate cell hung
+at $0/0-turns — infrastructure, not verdict; re-run PASSed):
+
+| cell | pi+v4-pro (k=3) | opencode+v4-pro (k=3) | **Claude sonnet (k=1)** |
+|---|---|---|---|
+| gate (5 canonical) | 5/5 | 5/5 | **5/5** |
+| credits-L1 | 3/3 | 3/3 | PASS |
+| look-angles-L1 | 3/3 | 3/3 | PASS |
+| mission-arc-L0 | 0/3 | 0/3 | **FAIL** — scope=yes, 677s, **$1.86**: the same acceptance grind |
+| fly-physics-L1-noctx | 0/3 | 0/3 | **FAIL** — the same `orbital.ts` name-trap |
+| fly-physics-L1 (+doc) | 1/3 | 1/3 | FAIL — decoy again |
+
+**Sonnet's k=1 outcome equals the cheap stack's modal outcome on every
+single cell — including the failure *shapes*** (right-file acceptance
+grind on mission-arc; name-trap decoy on fly-physics, doc present or
+not). At **~$0.65–1.86/cell vs v4-pro's ~$0.03–0.07 (≈20×)**, the
+industry-standard model buys identical outcomes on this set and hits
+identical walls.
+
+**The bake-off's central claim is now measured across two harnesses, two
+models, and two price tiers: the hard bugs are SPEC-bounded, not
+model-bounded or harness-bounded.** What crosses the walls is better
+tickets — active triage, the reporter loop, the L2 pin — not more
+expensive inference. Consequence for the fleet: the cheap stack
+(pi + v4-pro) is vindicated as the worker seat; Claude's leverage point
+is exactly where RFC-0002 always placed it — the *reviewer* gate, where
+judgment-per-token matters more than fix-per-token. Caveats on file:
+k=1 reference (by design), one repo, five bug families; quality-vs-Claude
+judged comparison of the passing patches remains open (§7).
+
 ## 9. Prep sequence (ordered)
 
 1. ~~**Pick the two repos' bugs together**~~ **DONE** — 7 (`orrery`) + 8
