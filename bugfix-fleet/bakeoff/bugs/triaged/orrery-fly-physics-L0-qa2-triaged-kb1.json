@@ -1,0 +1,13 @@
+{
+  "id": "orrery-fly-physics-L0-qa2-triaged-kb1",
+  "repo": "orrery",
+  "fix_commit": "0d6644f9",
+  "oracle_test_file": "src/lib/orbital/fly-physics.test.ts",
+  "code_files": [
+    "src/lib/orbital/fly-physics.ts"
+  ],
+  "area": "orbital-physics",
+  "difficulty": "hard",
+  "level": "L2-triaged-kb1",
+  "description": "On /fly, the HUD speed readout (heliocentric km/s) shows 'NaN km/s' for outer-planet missions (Jupiter, Saturn, Uranus, Neptune, Pluto) the entire way.\n\nExpected: The HUD speed readout must show a plausible finite numeric heliocentric speed in km/s computed via vis-viva for the actual mission's transfer ellipse, not NaN.\n\nAcceptance criteria:\n- Loading an outer-planet mission (Galileo to Jupiter, Cassini to Saturn, Voyager 2 to Neptune, New Horizons to Pluto) on /fly must show a finite numeric speed on the HUD speed readout, not 'NaN km/s'. [code-invariant: NaN is never a valid display value for a computed quantity — the app must not show NaN to the user]\n- The heliocentric speed at any waypoint must be computed via vis-viva: v = sqrt(µ * (2/r - 1/a)) * conversion_factor, where a is the transfer ellipse semi-major axis derived from the actual destination's heliocentric orbit radius, not the Earth-Mars average. [repo-data: src/lib/orbital/fly-physics.ts:39-41 implements heliocentricSpeed(rAu, aTransferAu); src/routes/fly/+page.svelte:952 hardcodes (R_EARTH_AU + R_MARS_AU) / 2; DESTINATIONS[activeDestination].a at src/lib/lambert-grid.constants.ts:131-144 provides the per-destination semi-major axis for every outer-planet DestinationId]\n- The speed must not be NaN at any point along the transfer arc where the spacecraft is between departure and arrival. [code-invariant: NaN is a bug — the app must not show NaN to the user]\n\nTarget: src/routes/fly/+page.svelte — line 952: $derived heliocentricKms computation"
+}

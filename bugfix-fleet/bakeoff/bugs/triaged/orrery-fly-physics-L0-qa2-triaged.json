@@ -1,0 +1,13 @@
+{
+  "id": "orrery-fly-physics-L0-qa2-triaged",
+  "repo": "orrery",
+  "fix_commit": "0d6644f9",
+  "oracle_test_file": "src/lib/orbital/fly-physics.test.ts",
+  "code_files": [
+    "src/lib/orbital/fly-physics.ts"
+  ],
+  "area": "orbital-physics",
+  "difficulty": "hard",
+  "level": "L1-triaged",
+  "description": "On /fly, the HUD speed readout (heliocentric km/s) shows 'NaN km/s' for outer-planet missions (Jupiter, Saturn, Uranus, Neptune, Pluto) the entire way. The speed readout is also shown in the SpacecraftInfoCard and the NAVIGATION section of the HUD column.\n\nExpected: The HUD speed readout should show a plausible heliocentric speed in km/s that follows the vis-viva equation along the mission's transfer ellipse, not NaN.\n\nAcceptance criteria:\n- Loading an outer-planet mission (e.g. Galileo to Jupiter, Cassini to Saturn, Voyager 2 to Neptune, New Horizons to Pluto) on /fly must show a finite numeric speed on the HUD speed readout, not 'NaN km/s'. [code-invariant: NaN is never a valid display value for a computed quantity — the app must not show NaN to the user]\n- The heliocentric speed at any waypoint must be computable via the vis-viva equation: v = sqrt(µ * (2/r - 1/a)) * conversion_factor, where a is the semi-major axis of the mission's actual transfer ellipse, not hardcoded to the Earth-Mars average. [repo-data: src/lib/orbital/fly-physics.ts line 39-41: heliocentricSpeed() implements vis-viva; src/routes/fly/+page.svelte line 952 hardcodes (R_EARTH_AU + R_MARS_AU)/2 as aTransferAu]\n- The speed must not be NaN at any point along the transfer arc where the spacecraft is between departure and arrival. [spec: ADR-030: 'Pure-function isolation + per-mission validation harness; committed expected values catch regressions' implies the speed computation must be valid for all mission types]"
+}

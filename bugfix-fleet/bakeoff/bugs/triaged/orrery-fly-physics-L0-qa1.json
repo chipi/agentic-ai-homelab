@@ -9,5 +9,5 @@
   "area": "orbital-physics",
   "difficulty": "hard",
   "level": "L0",
-  "description": "Flying out to the outer planets, the HUD speed readout just says 'NaN km/s' the whole way. Looks completely broken.\n\n## Reporter answers (follow-up)\n\nQ: The content of the failed 106-line patch: what exactly did the specialist change in +page.svelte that left line 952 untouched? Knowing the decoy logic they grounded on (and any errors/warnings they encountered) would reveal whether there's an obstacle I cannot see from the static source — or confirm that the fix at line 952 is unblocked and the specialist simply missed it.\nA: I don't know."
+  "description": "Flying out to the outer planets, the HUD speed readout just says 'NaN km/s' the whole way. Looks completely broken.\n\n## Reporter answers (follow-up)\n\nQ: I need the specialist's patch diff and the test failure output to distinguish 'attempted the right fix but a test quirk blocked it' from 'attempted a wrong fix/clamping approach'.\nA: I don't know.\n\nQ: Additionally, what is the exact scenario/test that exercises the outer-planet speed readout? Is there a pre-existing e2e test or validation harness that checks numeric speed values for non-Mars destinations?\nA: I don't know."
 }

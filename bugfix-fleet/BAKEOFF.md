@@ -760,6 +760,46 @@ grades it as a legitimate FAIL. The orchestrator needs a dead-call guard
 (turns≤1 ∧ out-tokens≈0 → `stuck: provider`, never a graded FAIL) so a
 billing event can't masquerade as model failure.
 
+**Observed (2026-07-25, session 3h): the v3 k=3 chain table — the honest
+numbers, and they demote the 4/5 headline.** All 15 chains (triage v3:
+anti-anchoring + production-shape evidence; reporter loop; full
+orchestrator), 3 per ticket:
+
+| chain | k1 | k2 | k3 | shipped |
+|---|---|---|---|---|
+| 335 (control) | shipped | shipped | shipped | **3/3** |
+| credits | shipped (qa1) | shipped (kb2) | needs-info | **2/3** |
+| look-angles | rejected | needs-info | stuck | 0/3 |
+| mission-arc | needs-info | needs-info | needs-info | 0/3 |
+| fly-physics | stuck | needs-info | stuck | 0/3 |
+
+**v3 ships 5/15 where session 3f (v2, n=1/chain) shipped 4/5.** Readings:
+- **The 3f headline was upper-bound-inflated, as flagged then, and k=3
+  confirms it.** Two candidate causes, deliberately not attributed
+  without a controlled A/B: (a) n=1 luck — chain terminals are
+  stochastic top to bottom; (b) **the ground-truth scope leak was doing
+  real work** — v2's kick-back evidence told the triager which files
+  were off-scope (manifest `code_files`), effectively free localization;
+  v3's production-shape evidence removed it and kick-backs got much
+  weaker. Separating (a) from (b) = one sweep with v3 prompt + leaked
+  evidence; run only if the answer changes a build decision.
+- **Terminal honesty held everywhere:** every `shipped` is
+  oracle-passed; the failures land in `needs-info`/`stuck`/`rejected` —
+  never a silently wrong fix. The pipeline fails safe at k=3.
+- **The binding constraint moved: reporter facts coverage.** 6/15
+  chains died as "reporter rounds exhausted" and k1's look-angles was
+  *rejected* after all-"I-don't-know" answers — under honest evidence
+  the triager asks more (the right instinct), and the facts files can't
+  answer enough of what it asks. The reporter-oracle needs a coverage
+  protocol (facts must answer definition-of-done for their bug, verified
+  by a checklist at authoring time), or the eval under-scores every
+  ask-first configuration — the exact failure mode it was built to fix.
+- **Grading discriminates as designed:** acceptance-derivable bugs
+  (credits 2/3, control 3/3) ship; intent-gap and strong-decoy bugs
+  (mission-arc, fly-physics, look-angles) are 0/9 without leaked
+  localization — consistent with every prior measurement of the
+  two-factor model.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify
@@ -768,7 +808,8 @@ billing event can't masquerade as model failure.
   v2 closes the invention path; session-3e — v2 + reporter-oracle ships
   the intent-gap bug end-to-end; session-3f — full sweep 4/5, fly-physics
   the characterized residual; session-3g — v3 k1 row valid, k2/k3
-  invalidated by credit exhaustion.)*
+  invalidated by credit exhaustion; session-3h — v3 k=3 table: 5/15,
+  the honest baseline.)*
 - **Harness (fix) score** — L1 → correct fix via *its own* recon (§7), plus the
   **min upping-level to pass**.
 
