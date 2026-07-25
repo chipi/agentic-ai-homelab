@@ -21,7 +21,10 @@ WT="$ROOT/orrery"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 jqr(){ jq -r "$1" "$BUG_JSON"; }
-ID=$(jqr .id); FIX=$(jqr .fix_commit); BASE="${FIX}^"; DESC=$(jqr .description)
+ID=$(jqr .id); FIX=$(jqr '.fix_commit // empty'); DESC=$(jqr .description)
+# Replay tickets pin base = fix^. REAL tickets (production intake, stage B1)
+# have no fix_commit — triage runs against current main via TRIAGE_BASE.
+if [ -n "$FIX" ]; then BASE="${FIX}^"; else BASE="${TRIAGE_BASE:-origin/main}"; fi
 MODEL="${TRIAGE_MODEL:-deepseek/deepseek-v4-flash}"   # rung 0 (BAKEOFF §4.1)
 # prompt version from the agent definition frontmatter — a prompt change is a
 # config change (BAKEOFF §4.3); the ledger stamp keeps rows attributable
@@ -223,7 +226,7 @@ TRIAGED=""
 if [ "$VERDICT" = "actionable" ] && [ -f "$OUT/triage.json" ]; then
   mkdir -p "$HERE/bugs/triaged"
   TRIAGED="bugs/triaged/${ID}-triaged${SUFFIX}.json"
-  TDESC=$(jq -r '.problem | .symptom + "\n\nExpected: " + .expected
+  TDESC=$(jq -r '.problem | (.symptom|tostring) + "\n\nExpected: " + (.expected|tostring)
     + "\n\nAcceptance criteria:\n" + (.acceptance | map(if type == "string" then "- " + . else "- " + .criterion + " [" + (.intent_source // "?") + ((.source_ref // "") | if . == "" then "" else ": " + . end) + "]" end) | join("\n"))
     + (if (.domain_facts | length) > 0 then "\n\nDomain facts:\n" + (.domain_facts | map("- " + .) | join("\n")) else "" end)
     + (if (.pin.file // "") != "" and $kb == "1" then "\n\nTarget: " + .pin.file + (if (.pin.function // "") != "" then " — " + .pin.function else "" end)
