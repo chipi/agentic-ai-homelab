@@ -64,6 +64,37 @@ Per-folder rules layer on top of the repo-root [`AGENTS.md`](../AGENTS.md); see
   the local `.env`). Secrets live in each stack's `.env` — **gitignored, never
   committed** (see the repo-root and `infra/` `AGENTS.md`).
 
+## Self-service — what you can do yourself, no ask needed
+
+Don't wait for someone to run a command you can run. These are **read-only or
+reversible** — do them directly, no approval:
+
+| I want to… | Do this |
+|---|---|
+| See what's running on the hub | `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes homelab '/usr/local/bin/docker ps'` |
+| Open a dashboard | Grafana at `http://homelab:3000` (tailnet) |
+| Query a metric | `curl -s "http://homelab:8428/api/v1/query?query=up"` |
+| Search logs | VictoriaLogs `http://homelab:9428` (LogsQL) |
+| See traces | VictoriaTraces `http://homelab:10428` (via Grafana) |
+| Check errors / LLM traces | GlitchTip `http://homelab:8090` · Langfuse `http://homelab:4000` |
+| Snapshot the DGX/GPU state | the `dgx-status` skill (read-only) |
+| Know which vLLM owns the GPU | the `gpu-mode` skill, read-only: `~/bin/gpu-mode-swap.sh --mode-only` |
+| Resolve a service's real URL | the `homelab-endpoint` skill, or the tables above |
+
+**These DO need an ask first** — shared-state or destructive, one approval per
+invocation (see the repo-root `AGENTS.md`): switching GPU mode
+(`gpu-mode-swap.sh --mode`), bringing any stack `up`/`down`, `docker compose
+down -v`, migrations, anything mutating the DGX or a shared dataset. Check,
+diagnose, and stage the exact command yourself — then get the one-word go before
+the mutating step. The rule is *"don't wait for someone to look for you,"* not
+*"change shared infra without approval."*
+
+> **The DGX is not the hub.** Metrics, logs, traces, dashboards, error
+> tracking, LLM traces — all live on the **Mac mini** (`homelab`), not the DGX.
+> The DGX only runs GPU/LLM inference and exposes exporters that the mini pulls
+> over the LAN. If you're reaching for the DGX to see a dashboard, you want
+> `homelab`.
+
 ## Dashboards & alerts
 
 The Grafana dashboards and alert rules are provisioned-as-code under

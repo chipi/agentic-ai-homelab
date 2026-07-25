@@ -2,7 +2,9 @@
 
 Langfuse v3, self-hosted (ADR-0005). Captures how the harnesses (Claude Code,
 opencode, Pi) and apps talk to models: prompts, completions, token/cost,
-latency, session/trace trees. Tailnet-only, one host (DGX now, Mac mini later).
+latency, session/trace trees. Tailnet-only, on the always-on **Mac mini**
+(`homelab`) — verified live 2026-07-25; reach it at `http://homelab:4000`. (The
+brief DGX-hosted stopgap has been retired.)
 
 Stack (adapted from upstream): `langfuse-web` + `langfuse-worker` + `postgres` +
 `clickhouse` + `redis` + `minio`. Only **langfuse-web** publishes a host port
@@ -12,8 +14,8 @@ datastores are internal-bridge only.
 ## Prerequisites
 
 - Docker + compose, on the tailnet.
-- **Tailnet ACL:** grant `LANGFUSE_PORT` (default **`4000`**) to
-  `tag:dgx-llm-host` — same per-port allowlist as the observability stack.
+- **Tailnet ACL:** grant `LANGFUSE_PORT` (default **`4000`**) to the mini's
+  (`homelab`) host tag — same per-port allowlist as the observability stack.
 
 ## Bring-up
 
@@ -50,12 +52,12 @@ Two paths (per ADR-0005 §4, chosen at wiring time):
 `environment`) — Mac coding agents + podcast app = `dev`, VPS = `prod` — or use
 separate projects. Decide when wiring.
 
-## Move to the Mac mini later
+## Re-home to another host
 
-`docker compose down` here → migrate the five named volumes (postgres,
-clickhouse data+logs, minio, redis) or start fresh (traces are append-only;
-fresh-start loses history) → `up -d` on the mini → update `NEXTAUTH_URL` +
-`LANGFUSE_LISTEN` to the mini's tailnet IP + any senders' host.
+Runs on the mini today. To move: `docker compose down` → migrate the five named
+volumes (postgres, clickhouse data+logs, minio, redis) or start fresh (traces
+are append-only; fresh-start loses history) → `up -d` on the new host → update
+`NEXTAUTH_URL` + `LANGFUSE_LISTEN` to that host's tailnet IP + any senders' host.
 
 ## Backup / rollback
 

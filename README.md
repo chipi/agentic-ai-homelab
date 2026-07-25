@@ -14,9 +14,9 @@ composes deploy; cloud workflow examples run; agent harness configs
 drop in. Plus a top-level `provider-bakeoff/` that compares 10 LLM
 providers across 4 countries on the same tasks with real cost numbers.
 
-What's still open: ops items that need live access (Grafana Cloud
-creds, image-tag pinning post-boot), Claude Code `settings.json`
-extraction, and existing project AGENTS.md dedup. See
+What's still open: ops items that need live access (image-tag pinning
+post-boot), Claude Code `settings.json` extraction, and existing project
+AGENTS.md dedup. See
 [`docs/wip/NEXT_STEPS.md`](docs/wip/NEXT_STEPS.md).
 
 Continuity log: [`docs/history/`](docs/history/) — `0001-genesis.md`
@@ -44,9 +44,10 @@ the four pillars to real.
 ├── templates/
 │   ├── new-project/          — copy this dir to bootstrap a new repo
 │   └── opencode/             — drop into ~/.config/opencode/
-├── infra/
-│   ├── vllm/                 — hardened vLLM compose template (Qwen3-Coder-Next-FP8)
-│   ├── observability/        — Grafana Alloy + DCGM + cAdvisor + Ollama metrics
+├── infra/                    — homelab systems (see infra/README.md for the full map)
+│   ├── vllm/                 — hardened vLLM compose template (Qwen3-Coder-Next-FP8) · on the DGX
+│   ├── observability/        — self-hosted metrics/logs/traces (VictoriaMetrics + Grafana) · on the Mac mini
+│   ├── glitchtip/ langfuse/ umami/  — error tracking · LLM tracing · web analytics · on the Mac mini
 │   └── dgx/bin/              — DGX-host operator scripts (gpu-mode-swap.sh)
 ├── examples/                 — small concrete code samples (cloud + local)
 │   ├── claude-api-with-caching/  — prompt-cache discipline demo
@@ -62,11 +63,12 @@ the four pillars to real.
    `lint` / `test-*` / `ci-fast` / `ci`), PR template, GH Pages docs site
    workflow, pre-commit baseline.
    → [Pillar 1](docs/project-setup.md) · `templates/new-project/`
-2. **Local AI infra** — DGX homelab stack: hardened vLLM compose, Ollama
-   for catalog + smaller models, observability layer (Alloy → Grafana
-   Cloud). Three recipes (terminal dashboard, GPU mode-swap,
-   observability boot) cover daily operation.
-   → [Pillar 2](docs/local-ai-infra.md) · `infra/vllm/{template,coder-next,openwebui}/` + `infra/observability/`
+2. **Local AI infra** — a few hosts on one tailnet: the **DGX** runs the
+   GPU/LLM stack (hardened vLLM compose, Ollama for catalog + smaller
+   models); the always-on **Mac mini** (`homelab`) runs the self-hosted
+   observability backend (VictoriaMetrics + Grafana) and the app services
+   (GlitchTip, Langfuse, Umami). Recipes cover daily operation.
+   → [Pillar 2](docs/local-ai-infra.md) · [`infra/README.md`](infra/README.md) (host+system map) · `infra/vllm/` + `infra/observability/`
 3. **Cloud AI workflow** — patterns for Claude API, OpenAI, Gemini:
    prompt caching as discipline, batch API, multi-provider routing, eval
    harnesses, cost gates.
@@ -105,9 +107,12 @@ blog post.
 - **Bootstrapping a new project**: `cp -r templates/new-project/ ~/Projects/<name>/`
   then sed-substitute the placeholders (`<project-name>`, `<owner>`,
   `<project-description>`).
-- **Setting up the homelab stack**: start with [`docs/recipes/observability-boot.md`](docs/recipes/observability-boot.md)
-  (lightest deploy, zero ACL change) → then [`infra/vllm/`](infra/vllm/README.md) (template + the operator's two deploys)
-  → then the operator tools per [`docs/recipes/dgx-terminal-dashboard.md`](docs/recipes/dgx-terminal-dashboard.md).
+- **Setting up the homelab stack**: start with [`infra/README.md`](infra/README.md)
+  (the host + system map) → the observability backend per
+  [`docs/recipes/mac-mini-observability.md`](docs/recipes/mac-mini-observability.md)
+  → the DGX GPU stack per [`infra/vllm/`](infra/vllm/README.md) (template + the
+  operator's two deploys) → operator tools per
+  [`docs/recipes/dgx-terminal-dashboard.md`](docs/recipes/dgx-terminal-dashboard.md).
 - **Comparing LLM providers**: `provider-bakeoff/` (see above).
 - **Resuming after a break**: [`docs/history/`](docs/history/) is the
   continuity log. Latest entry has what's current.
@@ -117,7 +122,8 @@ blog post.
 - Not a curated "best practices" guide. Patterns rot. What's here works for me
   right now; if it stops working, I update it or delete it.
 - Not a generic infrastructure-as-code repo. It assumes a single-operator
-  homelab with one DGX-class box and one tailnet.
+  homelab — a DGX GPU box, an always-on Mac mini hub, and a small VPS — on
+  one tailnet.
 - Not a learning resource. If you don't already know what vLLM, MCP, or
   Tailscale are, this won't teach you.
 

@@ -2,7 +2,9 @@
 
 Second Alloy collector (the first is the DGX one at `../../`). Ships the
 podcast-scraper VPS's **host + container metrics** to VictoriaMetrics and its
-**security logs** to VictoriaLogs on the DGX, over the tailnet.
+**security logs** to VictoriaLogs on the **Mac mini** (`homelab`), over the
+tailnet. (The backend was briefly on the DGX during setup — that stopgap is
+retired; ship to `homelab`.)
 
 Deployed on the box at **`/opt/vps-observability/`** (not `~/agentic-ai-homelab`);
 this dir is the tracked source of truth. Copy `.env.example` → `.env` there.
@@ -38,14 +40,13 @@ alloy fmt config.alloy        # validate before up
 
 ```sh
 # metrics landing:
-curl -s "http://dgx-llm-1:8428/api/v1/query?query=up{instance='prod-podcast'}"
+curl -s "http://homelab:8428/api/v1/query?query=up{instance='prod-podcast'}"
 # security logs landing (should be journal + caddy only):
-curl -sG "http://dgx-llm-1:9428/select/logsql/query" \
+curl -sG "http://homelab:9428/select/logsql/query" \
   --data-urlencode "query=instance:prod-podcast AND _time:5m | stats by (job) count()"
 ```
 
-Backend + tailnet ACL details: `../../backend/README.md` and the handover at
-`docs/wip/observability-vps-collector-handover.md`.
+Backend + tailnet ACL details: [`../../backend/README.md`](../../backend/README.md).
 
 ## Log collection: one node Alloy + per-app drop-ins (ADR-121)
 

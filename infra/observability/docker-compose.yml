@@ -1,7 +1,11 @@
-# Grafana Alloy + DCGM + cAdvisor + Ollama metrics — unified DGX observability.
+# Grafana Alloy + DCGM + cAdvisor + Ollama metrics — GPU-host collector.
 # Scrapes: host (CPU/mem/disk/net), GPU (DCGM), all containers (cAdvisor),
 #          vLLM + Ollama /metrics endpoints on localhost.
-# Pushes to Grafana Cloud via prometheus.remote_write (outbound HTTPS only).
+# Pushes via prometheus.remote_write to the self-hosted backend on the Mac mini
+# (`homelab`, REMOTE_WRITE_URL). NOTE: the DGX can't run this yet (no SSH), so
+# today the mini's ../dgx-scrape/ pulls the DGX exporters over the LAN instead;
+# this compose is the GPU-host collector template + what the mini's hosts/homelab/
+# variant is based on.
 #
 # Prereqs: NVIDIA Container Toolkit installed; ./vllm-cache directory pre-created
 # if you want to share with other vLLM composes (see infra/vllm/).

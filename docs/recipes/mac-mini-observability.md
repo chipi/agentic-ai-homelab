@@ -68,9 +68,10 @@ In the Tailscale admin console, grant to this host's tag:
 ## 4. Post-bootstrap (fresh-start setup)
 
 - **GlitchTip:** the org/team/project are NOT auto-created (mobile UI hangs on
-  org creation) — recreate them server-side like before:
-  `docs/wip/glitchtip-vps-error-tracking-handover.md` has the Django-shell
-  snippet; grab the new DSN.
+  org creation) — create them from a desktop browser at `http://homelab:8090`
+  (superuser login, then Organization → Team → Project), or server-side via the
+  container's Django shell; then grab the project DSN. Setup + admin bootstrap:
+  [`infra/glitchtip/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/glitchtip/README.md).
 - **Langfuse:** `LANGFUSE_INIT_*` bootstraps org `homelab` + project `agents` +
   keys automatically — nothing to do; log in with the init user.
 - **Grafana:** datasources + dashboards provision from git automatically.

@@ -1,6 +1,6 @@
 # GlitchTip — self-hosted error tracking (Sentry-SDK/DSN compatible).
-# Part of the observability platform (ADR-0005). Tailnet-only, one host at a
-# time (DGX now, Mac mini later). Apps report errors via a Sentry SDK pointed
+# Part of the observability platform (ADR-0005). Tailnet-only, on the Mac mini
+# (`homelab`). Apps report errors via a Sentry SDK pointed
 # at a project DSN; split dev vs prod with the SDK `environment` tag
 # (Mac coding agents + podcast app = dev; VPS = prod).
 #

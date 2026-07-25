@@ -1,14 +1,25 @@
 # Observability backend migration runbook — DGX → homelab
 
-The o11y backend (VictoriaMetrics/Logs/Traces + Grafana + GlitchTip + Langfuse)
-runs on the DGX as a **stopgap**. It moves to the always-on Mac mini (`homelab`).
-The DGX keeps only its **collector**.
+> ✅ **COMPLETED — the migration is done.** Verified live 2026-07-25: the whole
+> backend (VictoriaMetrics :8428 / VictoriaLogs :9428 / VictoriaTraces :10428 /
+> Grafana :3000 / GlitchTip :8090 / Langfuse :4000 / Umami :3001) runs on the
+> Mac mini (`homelab`, `100.87.33.61`); the DGX runs no backend. This page is
+> kept as the **record of how it was done** and the **re-home / rollback**
+> procedure — not a pending task. Don't execute it as if the backend were still
+> on the DGX.
+
+Historical framing (pre-cutover): the o11y backend ran on the DGX as a
+**stopgap** and moved to the always-on Mac mini (`homelab`); the DGX kept only
+its **collector** (and, since it has no SSH, the mini's `dgx-scrape` now pulls
+its exporters over the LAN).
 
 **The design that makes this cheap:** every sender→backend reference comes from an
 **env var**, so the cutover is a per-host `.env` flip — **no config or code edits**.
 `homelab` is a Tailscale device name (free tier: no custom DNS) → it resolves
-tailnet-wide as `homelab` / `homelab.<tailnet>.ts.net` once the mini owns the name
-(it does). All the values below currently point at the DGX (`dgx-llm-1`).
+tailnet-wide as `homelab` / `homelab.<tailnet>.ts.net`; the mini owns the name.
+The flip-set below shows the **homelab** (post-cutover) form each `.env` value
+now holds; the DGX (`dgx-llm-1`) form is the pre-cutover value, kept in the
+Rollback section.
 
 ## Preconditions (before flipping anything)
 

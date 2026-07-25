@@ -47,7 +47,7 @@ Any Sentry SDK works — just set the DSN + environment. Python example:
 ```python
 import sentry_sdk
 sentry_sdk.init(
-    dsn="http://<public_key>@dgx-llm-1:8090/<project_id>",
+    dsn="http://<public_key>@homelab:8090/<project_id>",
     environment="prod",        # "dev" on the Mac, "prod" on the VPS
     traces_sample_rate=0.0,    # errors only; raise for perf tracing
 )
@@ -55,13 +55,14 @@ sentry_sdk.init(
 
 The DSN host must be the tailnet IP:port the app can reach.
 
-## Move to the Mac mini later
+## Where it runs
 
-1. `docker compose down` here (DGX).
-2. Migrate the `pg-data` volume (or `pg_dump`/restore), or start fresh (errors
-   are append-only — fresh-start loses history).
-3. `docker compose up -d` on the mini; give it the tailnet name/IP apps expect,
-   or update each app's DSN host.
+On the always-on **Mac mini** (`homelab`) — verified live 2026-07-25; reach it
+at `http://homelab:8090`. The brief DGX-hosted stopgap has been retired. To
+**re-home** in future: `docker compose down`, migrate the `pg-data` volume (or
+`pg_dump`/restore) or start fresh (errors are append-only — fresh-start loses
+history), `docker compose up -d` on the new host, give it the `homelab` tailnet
+name apps expect (or update each app's DSN host).
 
 ## Backup / rollback
 

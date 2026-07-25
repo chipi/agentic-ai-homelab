@@ -1,8 +1,10 @@
 # Self-hosted observability backend — VictoriaMetrics + VictoriaLogs + VictoriaTraces + Grafana
 
-The storage + viz half of the observability stack. Runs on **one** host at a
-time (DGX now, Mac mini once it's up). The Alloy **collectors** in [`../`](../)
-run on every host and push metrics + logs here; apps push traces (OTLP).
+The storage + viz half of the observability stack. Runs on the always-on
+**Mac mini** (`homelab`, tailnet `100.87.33.61`) — verified live 2026-07-25.
+**Not the DGX** (the DGX-hosted stopgap has been retired). The Alloy
+**collectors** in [`../`](../) run on every host and push metrics + logs here;
+apps push traces (OTLP).
 
 ```
 metrics ─► VictoriaMetrics :8428 ─┐
@@ -64,8 +66,8 @@ REMOTE_WRITE_URL=http://100.x.y.z:8428/api/v1/write   # backend's tailnet IP
 ```
 
 then restart that host's Alloy: `cd infra/observability && docker compose up -d`.
-`REMOTE_WRITE_URL` overrides the Grafana Cloud vars; VM needs no auth on the
-tailnet. Confirm data is landing:
+`REMOTE_WRITE_URL` points the collector at this backend; VM needs no auth on
+the tailnet. Confirm data is landing:
 
 ```sh
 # from any tailnet host — VM binds to VM_LISTEN (the tailnet IP), not loopback.
@@ -73,25 +75,25 @@ tailnet. Confirm data is landing:
 curl -s "http://100.x.y.z:8428/api/v1/query?query=count(up)"
 ```
 
-## Cutover from Grafana Cloud (no gap)
+## History — cutover from Grafana Cloud, then DGX → Mac mini (both done)
 
-VictoriaMetrics and Grafana Cloud are independent sinks. To migrate safely:
+Kept as a record; **both moves are complete**. The backend now runs on the
+mini and Grafana Cloud is retired.
 
-1. Bring this backend up; point **one** collector at it via `REMOTE_WRITE_URL`.
-2. Verify metrics land in local Grafana for a day.
-3. Flip the rest of the collectors.
-4. Once happy, stop caring about Grafana Cloud (or keep it as an off-site
-   mirror — that needs dual remote_write, not wired yet; ask if you want it).
+- **Grafana Cloud → self-hosted VictoriaMetrics** (done): VM and Cloud were
+  independent sinks, so the cut was gapless — bring VM up, point one collector
+  at it via `REMOTE_WRITE_URL`, verify, flip the rest, then stop caring about
+  Cloud. There is no Cloud account to fall back to now.
+- **DGX (stopgap) → Mac mini** (done): the backend was briefly on the DGX
+  while the mini was being set up, then moved: `docker compose down` on the
+  DGX, start fresh on the mini (short retention made a clean start cheap),
+  collectors re-pointed at the mini's tailnet name (`homelab`). Dashboards +
+  datasources re-provision from git automatically, so nothing was hand-rebuilt.
 
-## Move to the Mac mini later
-
-1. `docker compose down` here (DGX).
-2. Either migrate the named volumes (`vm-data`, `grafana-data`) to the mini, or
-   start fresh — short retention makes a clean start cheap.
-3. `docker compose up -d` on the mini.
-4. Give the mini the tailnet name/IP the collectors expect (or update
-   `REMOTE_WRITE_URL` on each collector). Dashboards + datasource re-provision
-   from git automatically.
+To **re-home again** in future, repeat the second bullet: stand the compose up
+on the new host, give it the `homelab` tailnet name (or update
+`REMOTE_WRITE_URL` on each collector), optionally migrate the `vm-data` /
+`grafana-data` volumes.
 
 ## Backup / rollback
 

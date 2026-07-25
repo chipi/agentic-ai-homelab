@@ -21,8 +21,9 @@ you hit it, don't leave a TODO.
   the shared serving-vLLM secrets (`HF_TOKEN`, `VLLM_API_KEY`; see the root
   `.env.example`).
 - **`autoresearch`, `observability`, `template`** keep a **stack-local `.env`**
-  (their own secrets / tuning — autoresearch KV-cache params, observability's
-  Grafana Cloud creds). Each ships a co-located `.env.example`.
+  (their own secrets / tuning — autoresearch KV-cache params; observability's
+  `REMOTE_WRITE_URL` + Grafana admin password, and its `backend/.env`). Each
+  ships a co-located `.env.example`.
 
 ## Run operator scripts from the repo too — symlink, don't copy
 
@@ -45,5 +46,11 @@ local endpoint (`http://<dgx>:9000/v1`, `:8003/v1`):
 ## What lives here
 
 - `dgx/` — DGX-host operator scripts + GPU mode coordination (own AGENTS.md)
-- `observability/` — Grafana Cloud stack (Alloy, DCGM, cAdvisor)
-- `vllm/` — local vLLM compose stacks (coder-next, autoresearch)
+- `observability/` — self-hosted metrics/logs/traces: Alloy collectors + the
+  VictoriaMetrics/Grafana `backend/` on the Mac mini (not Grafana Cloud, not
+  the DGX)
+- `glitchtip/`, `langfuse/`, `umami/` — error tracking, LLM tracing, web
+  analytics — all on the Mac mini hub
+- `mini-metrics/`, `dgx-scrape/`, `homelab-home/` — mini launchd collectors +
+  the tailnet start page
+- `vllm/` — local vLLM compose stacks (coder-next, autoresearch) on the DGX

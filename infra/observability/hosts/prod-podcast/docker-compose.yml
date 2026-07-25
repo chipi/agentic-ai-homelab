@@ -2,7 +2,8 @@
 # Adapted from agentic-ai-homelab/infra/observability/docker-compose.yml for a
 # NO-GPU box: dcgm-exporter + ollama-metrics dropped (nothing to scrape).
 # cAdvisor is moved off :8080 (the viewer owns it) to :8081.
-# Pushes metrics -> VictoriaMetrics and logs -> VictoriaLogs on the DGX (tailnet).
+# Pushes metrics -> VictoriaMetrics and logs -> VictoriaLogs on the Mac mini
+# (`homelab`), over the tailnet.
 
 services:
   alloy:
