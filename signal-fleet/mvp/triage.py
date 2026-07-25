@@ -30,10 +30,12 @@ MAX_PROBES = int(config.env("SF_MAX_PROBES", "3"))
 CORROB_PROBES = {"service_logs", "metric", "trace", "source_state", "occurrence_history"}
 INDEP_PROBES = {"service_logs", "metric", "trace", "source_state"}
 # \btest\b misses camelCase hooks (crashOrreryTest) — the known crash-test hook
-# is listed explicitly; do NOT loosen to bare `test` (matches "latest")
+# is listed explicitly; do NOT loosen to bare `test` (matches "latest").
+# staging/\bdev\b/\bverify\b: non-prod environments and verification runs are
+# noise-at-source in the prod tracker (PODCAST-7: env=dev from a laptop run).
 CLEANUP_MARKERS = re.compile(
     r"delete me|safe to delete|\btest\b|validation|probe|smoke|e2e|ladder-verify|"
-    r"wiring|placeholder|dashless|crashorrerytest", re.I)
+    r"wiring|placeholder|dashless|crashorrerytest|staging|\bdev\b|\bverify\b", re.I)
 
 _SYSTEM = """You are the triager for an autonomous observability signal fleet. Your JOB
 is to DISPOSE of each signal so a human does NOT have to look at it. You INVESTIGATE

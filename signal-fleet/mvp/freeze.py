@@ -55,6 +55,17 @@ class _RecordingTable:
         self.signal = signal
         self.table = {}
 
+    def __contains__(self, key):
+        # run_probe's replay path membership-tests and iterates the table; a
+        # recording table "contains" every key (it records on demand)
+        return True
+
+    def __iter__(self):
+        return iter(self.table)
+
+    def __getitem__(self, key):
+        return self.get(key)
+
     def get(self, key, default=None):
         if key in self.table:
             return self.table[key]
