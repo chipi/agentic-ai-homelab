@@ -1,0 +1,31 @@
+{
+  "vm_url": "http://localhost:8428",
+  "vl_url": "http://localhost:9428",
+  "state_file": "/Users/markodragoljevic/fleetd/state.json",
+  "fleets": [
+    {
+      "name": "triage",
+      "enabled": false,
+      "interval": "10m",
+      "cycle_cmd": "python3 orchestrator.py --glitchtip --limit 5 && python3 orchestrator.py",
+      "workdir": "/Users/markodragoljevic/signal-fleet/mvp",
+      "env_file": "/Users/markodragoljevic/signal-fleet/fleet.env",
+      "stop_flag": "/Users/markodragoljevic/signal-fleet/STOP",
+      "budget_day_usd": 2.0,
+      "spend_file": "/Users/markodragoljevic/signal-fleet/results/.last_cycle_spend",
+      "stage": "shadow",
+      "cycle_timeout": "20m"
+    },
+    {
+      "name": "bugfix",
+      "enabled": false,
+      "interval": "1h",
+      "cycle_cmd": "echo bugfix cycle not wired yet (Track B gate)",
+      "workdir": "/Users/markodragoljevic",
+      "stop_flag": "/Users/markodragoljevic/bugfix-fleet-STOP",
+      "budget_day_usd": 5.0,
+      "stage": "shadow",
+      "cycle_timeout": "45m"
+    }
+  ]
+}

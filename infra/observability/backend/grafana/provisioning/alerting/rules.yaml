@@ -232,6 +232,32 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+      # --- fleetd cycle failing --------------------------------------------------
+      # The fleet supervisor (RFC-0004) reports every cycle. A non-ok outcome
+      # (error/timeout) means the babysitter itself needs attention; skipped_budget
+      # is informational (guard working) and excluded here.
+      - uid: fleetd-cycle-failing
+        title: "fleetd cycle failing (error/timeout)"
+        condition: threshold
+        for: 0s
+        labels: { severity: critical, kind: fleet }
+        annotations:
+          summary: "fleetd cycle outcome={{ $labels.outcome }} for fleet={{ $labels.fleet }} — the fleet supervisor needs attention (see fleetd.log / VictoriaLogs service=fleetd)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum by (fleet, outcome) (count_over_time(fleetd_cycle{outcome=~"error|timeout"}[30m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
 # NOT re-homed yet — Caddy edge 5xx (the third T-11 rule). The caddy.service
 # systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
 # (with status codes) is not tailed into VictoriaLogs (status:* = 0 hits). Wire the

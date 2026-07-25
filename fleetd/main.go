@@ -15,7 +15,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -26,6 +28,9 @@ import (
 	"syscall"
 	"time"
 )
+
+// set at build time: -ldflags "-X main.version=<git sha>"
+var version = "dev"
 
 type FleetConfig struct {
 	Name         string  `json:"name"`
@@ -43,6 +48,7 @@ type FleetConfig struct {
 
 type Config struct {
 	VMURL     string        `json:"vm_url"`     // VictoriaMetrics import base, "" disables
+	VLURL     string        `json:"vl_url"`     // VictoriaLogs base for log shipping, "" disables
 	StateFile string        `json:"state_file"` // day-spend persistence
 	Fleets    []FleetConfig `json:"fleets"`
 }
@@ -74,6 +80,11 @@ func main() {
 	}
 	s := &supervisor{cfg: cfg}
 	s.loadState()
+	if cfg.VLURL != "" {
+		// dual-write every log line: stderr (launchd file) + VictoriaLogs
+		log.SetOutput(io.MultiWriter(os.Stderr, newVLWriter(cfg.VLURL)))
+	}
+	log.Printf("fleetd %s starting (%d fleet blocks)", version, len(cfg.Fleets))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -149,10 +160,13 @@ func (s *supervisor) runCycle(ctx context.Context, f FleetConfig) {
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	// cycle id: joins fleetd log lines to the fleet's own ledger rows
+	cycleID := fmt.Sprintf("%s-%s-%04d", f.Name, time.Now().Format("20060102T150405"), rand.Intn(10000))
 	cmd := exec.CommandContext(cctx, "sh", "-c", f.CycleCmd)
 	cmd.Dir = f.Workdir
 	cmd.Env = append(os.Environ(),
 		"FLEETD_STAGE="+f.Stage,
+		"FLEETD_CYCLE_ID="+cycleID,
 		fmt.Sprintf("FLEETD_BUDGET_LEFT=%.4f", f.BudgetDayUSD-s.daySpend(f.Name)),
 	)
 	cmd.Env = append(cmd.Env, readEnvFile(f.EnvFile)...)
@@ -166,7 +180,7 @@ func (s *supervisor) runCycle(ctx context.Context, f FleetConfig) {
 	} else if err != nil {
 		outcome = "error"
 	}
-	log.Printf("[%s] cycle %s in %s (%d bytes output)", f.Name, outcome, dur.Round(time.Second), len(out))
+	log.Printf("[%s] cycle %s: %s in %s (%d bytes output)", f.Name, cycleID, outcome, dur.Round(time.Second), len(out))
 	if outcome != "ok" {
 		// keep the tail for forensics — cycles log their own detail in their ledgers
 		tail := out
@@ -203,10 +217,10 @@ func (s *supervisor) pushMetric(f FleetConfig, outcome string, durSec float64) {
 		return
 	}
 	body := fmt.Sprintf(
-		"fleetd_cycle{fleet=%q,outcome=%q,stage=%q,service=\"fleetd\",environment=\"operations\"} 1\n"+
+		"fleetd_cycle{fleet=%q,outcome=%q,stage=%q,version=%q,service=\"fleetd\",environment=\"operations\"} 1\n"+
 			"fleetd_cycle_seconds{fleet=%q,stage=%q,service=\"fleetd\",environment=\"operations\"} %.1f\n"+
 			"fleetd_spend_day{fleet=%q,service=\"fleetd\",environment=\"operations\"} %.4f\n",
-		f.Name, outcome, f.Stage, f.Name, f.Stage, durSec, f.Name, s.daySpend(f.Name))
+		f.Name, outcome, f.Stage, version, f.Name, f.Stage, durSec, f.Name, s.daySpend(f.Name))
 	req, _ := http.NewRequest("POST", s.cfg.VMURL+"/api/v1/import/prometheus", bytes.NewBufferString(body))
 	c := &http.Client{Timeout: 8 * time.Second}
 	if resp, err := c.Do(req); err != nil {
@@ -261,6 +275,64 @@ func (s *supervisor) addSpend(fleet string, usd float64) {
 	s.rolloverLocked()
 	s.state.Spend[fleet] += usd
 	s.saveState()
+}
+
+// ---- VictoriaLogs shipping: best-effort, batched, never blocks logging ----
+
+type vlWriter struct {
+	url string
+	ch  chan string
+}
+
+func newVLWriter(base string) *vlWriter {
+	w := &vlWriter{url: base + "/insert/jsonline?_stream_fields=service,environment", ch: make(chan string, 512)}
+	go w.pump()
+	return w
+}
+
+func (w *vlWriter) Write(p []byte) (int, error) {
+	select {
+	case w.ch <- string(p): // copied — log may reuse the buffer
+	default: // channel full: drop rather than block the daemon
+	}
+	return len(p), nil
+}
+
+func (w *vlWriter) pump() {
+	var buf bytes.Buffer
+	flush := func() {
+		if buf.Len() == 0 {
+			return
+		}
+		req, _ := http.NewRequest("POST", w.url, bytes.NewReader(buf.Bytes()))
+		req.Header.Set("Content-Type", "application/stream+json")
+		c := &http.Client{Timeout: 5 * time.Second}
+		if resp, err := c.Do(req); err == nil {
+			resp.Body.Close()
+		} // shipping failures are silent by design: stderr still has everything
+		buf.Reset()
+	}
+	t := time.NewTicker(2 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case line := <-w.ch:
+			rec, _ := json.Marshal(map[string]string{
+				"_msg":        strings.TrimSpace(line),
+				"_time":       time.Now().UTC().Format(time.RFC3339Nano),
+				"service":     "fleetd",
+				"environment": "operations",
+				"version":     version,
+			})
+			buf.Write(rec)
+			buf.WriteByte('\n')
+			if buf.Len() > 64*1024 {
+				flush()
+			}
+		case <-t.C:
+			flush()
+		}
+	}
 }
 
 func readEnvFile(path string) []string {
