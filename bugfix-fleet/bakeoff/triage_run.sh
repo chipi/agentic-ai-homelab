@@ -105,6 +105,17 @@ $PRIOR_PROBLEM
 ${REFUTED:+
 $REFUTED}
 EOF
+  # advisor findings (BAKEOFF §4.2): a senior read-only consultation ran after
+  # the failure — its pin is EVIDENCE the triager should normally adopt
+  if [ -f "$KB_EVIDENCE/advisor.json" ]; then
+    read -r -d '' ADV <<EOF || true
+
+## Advisor findings (senior read-only consultation — treat as strong evidence)
+
+$(jq -r '"True owner: " + .file + " :: " + .function + "\nDecoy to warn off: " + (.decoy // "-") + "\nRationale: " + (.rationale // "")' "$KB_EVIDENCE/advisor.json")
+EOF
+    TASK="$TASK$ADV"
+  fi
 fi
 read -r -d '' PROMPT <<EOF || true
 $AGENT_DEF

@@ -827,6 +827,31 @@ Readings:
   budget exhaustion on chains that shipped cleanly in k1/k3; chain-level
   stochasticity remains real and rates remain the only honest currency.
 
+**Observed (2026-07-25, session 3j): the advisor tier — localization solved
+deterministically; fly-physics-L0 SHIPS for the first time.** New §4.2
+escalation leaf (`advisor_run.sh`, ADVISOR_MODEL default glm-5.2, read-only,
+consulted once per kick-back, ~$0.10–0.30, best-effort): its pin feeds the
+kb triage as senior evidence.
+
+| fly-physics-L0 chains | outcome | failure layer |
+|---|---|---|
+| v1 (3f) | stuck | acceptance poison + anchor cascade |
+| v3 (3h) | 0/3 | localization — owner never found |
+| v3+coverage (3i) | 0/3 | localization — reporter can't know files |
+| v3+coverage+**advisor** (k=3) | 0/3 | localization SOLVED (pin = oracle's exact target, 3/3) — acceptance lottery at the pin; reporter never asked (confident pin → actionable); budget died at the transition |
+| **+ KICKBACK_MAX=3** (n=1) | **SHIPPED r1** | pin + a lucky acceptance draw |
+
+Mechanism fully characterized: **the advisor closes topology
+deterministically (4/4 exact pins incl. warm runs); shipping at the pin is
+then an acceptance lottery (~1/4 invented vs 3/3 stated)** — so the third
+kick-back round exists precisely for the fail-at-pin → acceptance-gap →
+reporter transition when the lottery misses. KICKBACK_MAX default is now 3.
+Every loop component is now earned by a measured failure it specifically
+closes: reporter = acceptance (mission-arc), advisor = topology
+(fly-physics), kick-back = the coupling. Escalation economics validated:
+premium reasoning per stuck-point (~$0.15) beat wholesale premium models
+(sonnet at 20× hit the same walls, §8.2).
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify

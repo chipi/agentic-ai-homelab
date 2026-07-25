@@ -26,7 +26,9 @@ set -euo pipefail
 TICKET="$1"; HARNESS="${2:-pi}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$HOME/.bugfix-fleet/bakeoff"
-KICKBACK_MAX="${KICKBACK_MAX:-2}"
+# 3 rounds: measured (2026-07-25) — the advisor-pin -> fail-at-pin ->
+# acceptance-gap -> reporter transition needs the third round to complete
+KICKBACK_MAX="${KICKBACK_MAX:-3}"
 REPORTER_MAX="${REPORTER_MAX:-2}"
 ID=$(jq -r .id "$TICKET")
 
@@ -114,6 +116,12 @@ while :; do # ── outer: one triage pass over the current (possibly QA-augmen
       exit 1
     fi
     flow "kick-back" "round=$ROUND evidence=$WOUT"
+    # advisor consultation (§4.2): premium reasoning only at the stuck point.
+    # Best-effort — a failed advisor episode never blocks the kick-back.
+    if [ "${ADVISOR:-1}" = "1" ]; then
+      flow "advising" "model=${ADVISOR_MODEL:-z-ai/glm-5.2}"
+      "$HERE/advisor_run.sh" "$TICKET" "$WOUT" || flow "advising" "no usable advisor output"
+    fi
     if [ "$ROUND" -gt 1 ]; then KB_SUFF="-kb$((ROUND-1))"; else KB_SUFF=""; fi
     PRIOR="$ROOT/results/${TID}-triage${KB_SUFF}/$HARNESS/triage.json"
     "$HERE/triage_run.sh" "$TICKET" "$HARNESS" "$WOUT" "$PRIOR" \
