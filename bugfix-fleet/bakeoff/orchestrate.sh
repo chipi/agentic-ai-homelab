@@ -33,7 +33,15 @@ ID=$(jq -r .id "$TICKET")
 FLOW="$ROOT/results/flow.tsv"
 [ -f "$FLOW" ] || printf 'ticket\tstate\tdetail\ttag\n' > "$FLOW"
 # ORC_TAG labels a whole chain run (e.g. v3-k1) so k-run sweeps segment cleanly
-flow(){ echo "FLOW: $1${2:+  ($2)}"; printf '%s\t%s\t%s\t%s\n' "$ID" "$1" "${2:-}" "${ORC_TAG:-}" >> "$FLOW"; }
+flow(){
+  echo "FLOW: $1${2:+  ($2)}"
+  printf '%s\t%s\t%s\t%s\n' "$ID" "$1" "${2:-}" "${ORC_TAG:-}" >> "$FLOW"
+  # chain-state metric (dashboard fuel; terminal states drive the ship-rate panel)
+  local VMU="${BAKEOFF_VM_URL:-http://homelab:8428}"
+  [ -n "$VMU" ] && curl -s -m 5 -X POST "$VMU/api/v1/import/prometheus" --data-binary \
+    "bugfix_fleet_flow{ticket=\"$ID\",state=\"$1\",tag=\"${ORC_TAG:-}\",service=\"bugfix-fleet\",environment=\"operations\"} 1" \
+    >/dev/null 2>&1 || true
+}
 
 # the intent gate is enforced deterministically: an actionable verdict whose
 # acceptance criteria are uncited (shape note from triage_run.sh) is an
@@ -90,6 +98,14 @@ while :; do # ── outer: one triage pass over the current (possibly QA-augmen
       || { flow "stuck" "specialist episode crashed (exit $?)"; exit 1; }
     WOUT="$ROOT/results/$(jq -r .id "$HERE/$MANIFEST")/$HARNESS"
     WV=$(worker_verdict "$WOUT")
+    # dead-call guard: a ~zero-token 1-turn episode is a provider/billing
+    # failure (measured 2026-07-24: credit exhaustion = silent empty
+    # completions), never a model verdict — do not grade or kick back on it
+    WTURNS=$(cut -f6 "$WOUT/result.tsv"); WTOK=$(cut -f7 "$WOUT/result.tsv")
+    if [ "${WTURNS:-0}" -le 1 ] && [ "${WTOK:-0}" -lt 10 ]; then
+      flow "stuck" "provider dead-call (turns=$WTURNS outtok=$WTOK) — check credits/provider"
+      exit 1
+    fi
     if [ "$WV" = "PASS" ]; then flow "shipped" "round=$ROUND"; exit 0; fi
 
     ROUND=$((ROUND + 1))

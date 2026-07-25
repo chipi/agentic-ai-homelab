@@ -73,12 +73,20 @@ def push_disposition_metric(signal, disp):
     src = signal.get("source", "")
     wt = (disp.get("file") or {}).get("work_type", "") if d == "file" else ""
     follow = "1" if (d == "dismiss" and disp.get("immediate_recommendation")) else "0"
-    line = (f'signal_fleet_disposition{{disposition="{d}",source="{src}",'
-            f'work_type="{wt}",followup="{follow}",'
-            f'service="{config.SF_SERVICE}",environment="{config.SF_ENV}"}} 1')
+    meta = disp.get("_meta", {})
+    usage = meta.get("usage") or {}
+    base = (f'source="{src}",service="{config.SF_SERVICE}",environment="{config.SF_ENV}"')
+    lines = [
+        f'signal_fleet_disposition{{disposition="{d}",work_type="{wt}",followup="{follow}",{base}}} 1',
+        # workforce accounting: money + tokens per decision (dashboard fuel)
+        f'signal_fleet_cost_usd{{disposition="{d}",{base}}} {meta.get("cost_usd") or 0}',
+        f'signal_fleet_tokens{{kind="prompt",{base}}} {usage.get("prompt_tokens") or 0}',
+        f'signal_fleet_tokens{{kind="completion",{base}}} {usage.get("completion_tokens") or 0}',
+        f'signal_fleet_probes{{{base}}} {meta.get("n_probes") or 0}',
+    ]
     try:
         req = urllib.request.Request(config.VM_URL + "/api/v1/import/prometheus",
-                                     data=(line + "\n").encode(), method="POST")
+                                     data=("\n".join(lines) + "\n").encode(), method="POST")
         urllib.request.urlopen(req, timeout=8)
     except Exception as ex:  # noqa: BLE001
         print(f"  vm metric push failed: {ex}")

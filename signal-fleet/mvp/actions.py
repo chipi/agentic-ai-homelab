@@ -99,6 +99,8 @@ def record_recurrence(signal, prior):
     print(f"[RECURRENCE] {signal.get('fingerprint')} after {prior['disposition']} "
           f"({prior['count']} -> {signal.get('labels', {}).get('count')})")
     ledger_append(signal, disp)
+    import observ  # local import — avoids a cycle at module load
+    observ.push_disposition_metric(signal, disp)
 
 
 def already_done(occurrence_id):

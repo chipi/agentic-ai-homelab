@@ -162,4 +162,16 @@ LEDGER="$ROOT/results/runs.tsv"
 printf '%s\t%s\t' "${BAKEOFF_RUN_IDX:-1}" "$MODEL" >> "$LEDGER"; cat "$OUT/result.tsv" >> "$LEDGER"
 # push trace + per-call generations + passed score to Langfuse (no-op without creds)
 python3 "$HERE/langfuse_push.py" "$ID" "$HARNESS" "$MODEL" "$VERDICT" "${COST:-0}" "${TURNS:-0}" "${WALL:-0}" "$OUT/harness.json" 2>&1 | sed 's/^/   /' || true
+# workforce metrics → VictoriaMetrics (dashboard fuel; BAKEOFF_VM_URL="" disables).
+# cost is an UPPER-BOUND estimate (cache-blind: max-input × in-rate + out × out-rate);
+# Langfuse holds the precise per-episode picture.
+VMU="${BAKEOFF_VM_URL:-http://homelab:8428}"
+if [ -n "$VMU" ]; then
+  VSHORT=$(echo "$VERDICT" | grep -qi "^PASS" && echo pass || echo fail)
+  ECOST=$(awk -v i="${INTOK:-0}" -v o="${OUTTOK:-0}" 'BEGIN{printf "%.6f", i*4.35e-7 + o*8.7e-7}')
+  curl -s -m 6 -X POST "$VMU/api/v1/import/prometheus" --data-binary "$(printf '%s\n%s\n%s\n' \
+    "bugfix_fleet_episode{verdict=\"$VSHORT\",scope=\"$SCOPE_HIT\",harness=\"$HARNESS\",service=\"bugfix-fleet\",environment=\"operations\"} 1" \
+    "bugfix_fleet_tokens{kind=\"output\",harness=\"$HARNESS\",service=\"bugfix-fleet\",environment=\"operations\"} ${OUTTOK:-0}" \
+    "bugfix_fleet_cost_est_usd{harness=\"$HARNESS\",service=\"bugfix-fleet\",environment=\"operations\"} $ECOST")" >/dev/null 2>&1 || true
+fi
 echo "artifacts → $OUT"

@@ -1,136 +1,149 @@
 {
   "uid": "signal-fleet-disp",
-  "title": "Signal-to-Action Fleet — Dispositions",
-  "tags": ["signal-fleet", "fleet", "operations"],
+  "title": "Fleet Workforce — Triage (Fleet 2)",
+  "tags": ["signal-fleet", "fleet", "operations", "workforce"],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
-  "time": { "from": "now-6h", "to": "now" },
+  "time": { "from": "now-24h", "to": "now" },
   "refresh": "1m",
   "templating": { "list": [] },
   "annotations": { "list": [] },
   "panels": [
     {
-      "id": 1,
-      "title": "Dispositions over time",
-      "type": "timeseries",
+      "id": 10, "title": "Decisions", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(count_over_time(signal_fleet_disposition{disposition!=\"recurrence\"}[$__range]))", "instant": true }]
+    },
+    {
+      "id": 11, "title": "Escalates (bar: ≤5%)", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "background", "graphMode": "none" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(count_over_time(signal_fleet_disposition{disposition=\"escalate\"}[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 12, "title": "Spend (LLM $)", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(sum_over_time(signal_fleet_cost_usd[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 13, "title": "Tokens", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(sum_over_time(signal_fleet_tokens[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 14, "title": "Noise removed (cleanup)", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(count_over_time(signal_fleet_disposition{disposition=\"cleanup\"}[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 15, "title": "Re-triages avoided (dedup)", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(count_over_time(signal_fleet_disposition{disposition=\"recurrence\"}[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 1, "title": "Dispositions over time", "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 5 },
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-          "expr": "sum by (disposition) (count_over_time(signal_fleet_disposition[$__interval]))",
-          "legendFormat": "{{disposition}}"
-        }
-      ]
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum by (disposition) (count_over_time(signal_fleet_disposition[$__interval]))", "legendFormat": "{{disposition}}" }]
     },
     {
-      "id": 2,
-      "title": "Total by disposition",
-      "type": "piechart",
+      "id": 16, "title": "Spend over time ($)", "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "custom": { "drawStyle": "bars" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "hidden" } },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(sum_over_time(signal_fleet_cost_usd[$__interval]))", "legendFormat": "$" }]
+    },
+    {
+      "id": 2, "title": "Total by disposition", "type": "piechart",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 13 },
       "fieldConfig": { "defaults": {}, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "right" }, "reduceOptions": { "calcs": ["sum"] } },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-          "expr": "sum by (disposition) (count_over_time(signal_fleet_disposition[$__range]))",
-          "legendFormat": "{{disposition}}",
-          "instant": true
-        }
-      ]
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum by (disposition) (count_over_time(signal_fleet_disposition[$__range]))", "legendFormat": "{{disposition}}", "instant": true }]
     },
     {
-      "id": 3,
-      "title": "By source",
-      "type": "piechart",
+      "id": 3, "title": "By source", "type": "piechart",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 13 },
       "fieldConfig": { "defaults": {}, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "right" }, "reduceOptions": { "calcs": ["sum"] } },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-          "expr": "sum by (source) (count_over_time(signal_fleet_disposition[$__range]))",
-          "legendFormat": "{{source}}",
-          "instant": true
-        }
-      ]
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum by (source) (count_over_time(signal_fleet_disposition[$__range]))", "legendFormat": "{{source}}", "instant": true }]
     },
     {
-      "id": 4,
-      "title": "Tune follow-ups (config-enhancement)",
-      "type": "stat",
+      "id": 17, "title": "Work filed, by type (→ Fleet 1 / operator)", "type": "piechart",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 13 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "right" }, "reduceOptions": { "calcs": ["sum"] } },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum by (work_type) (count_over_time(signal_fleet_disposition{disposition=\"file\"}[$__range]))", "legendFormat": "{{work_type}}", "instant": true }]
+    },
+    {
+      "id": 4, "title": "Tune follow-ups (config-enhancement)", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 13 },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" } }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "area" },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-          "expr": "sum (count_over_time(signal_fleet_disposition{followup=\"1\"}[$__range]))",
-          "legendFormat": "follow-ups",
-          "instant": true
-        }
-      ]
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum (count_over_time(signal_fleet_disposition{followup=\"1\"}[$__range]))", "legendFormat": "follow-ups", "instant": true }]
     },
     {
-      "id": 5,
-      "title": "fleetd cycles by outcome (RFC-0004 supervisor)",
-      "type": "timeseries",
+      "id": 5, "title": "fleetd cycles by outcome (RFC-0004 supervisor)", "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-          "expr": "sum by (fleet, outcome) (count_over_time(fleetd_cycle[$__interval]))",
-          "legendFormat": "{{fleet}} · {{outcome}}"
-        }
-      ]
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum by (fleet, outcome) (count_over_time(fleetd_cycle[$__interval]))", "legendFormat": "{{fleet}} · {{outcome}}" }]
     },
     {
-      "id": 6,
-      "title": "fleetd day spend (USD, per fleet)",
-      "type": "timeseries",
+      "id": 6, "title": "fleetd day spend vs $2 cap", "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 16 },
-      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 21 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "max": 2 }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-          "expr": "max by (fleet) (fleetd_spend_day)",
-          "legendFormat": "{{fleet}}"
-        }
-      ]
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "max by (fleet) (fleetd_spend_day)", "legendFormat": "{{fleet}}" }]
     },
     {
-      "id": 7,
-      "title": "fleetd cycle duration (s)",
-      "type": "timeseries",
+      "id": 7, "title": "fleetd cycle duration (s)", "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 16 },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 21 },
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-          "expr": "max by (fleet) (fleetd_cycle_seconds)",
-          "legendFormat": "{{fleet}}"
-        }
-      ]
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "max by (fleet) (fleetd_cycle_seconds)", "legendFormat": "{{fleet}}" }]
     }
   ]
 }

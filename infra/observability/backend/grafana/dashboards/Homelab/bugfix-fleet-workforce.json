@@ -1,0 +1,108 @@
+{
+  "uid": "bugfix-fleet-work",
+  "title": "Fleet Workforce — Bug-fix (Fleet 1)",
+  "tags": ["bugfix-fleet", "fleet", "operations", "workforce"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": { "from": "now-7d", "to": "now" },
+  "refresh": "5m",
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "title": "Chains shipped", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(count_over_time(bugfix_fleet_flow{state=\"shipped\"}[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 2, "title": "Chains stuck (operator)", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "background", "graphMode": "none" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(count_over_time(bugfix_fleet_flow{state=\"stuck\"}[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 3, "title": "Fix episodes (pass/fail)", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(count_over_time(bugfix_fleet_episode{verdict=\"pass\"}[$__range])) or vector(0)", "legendFormat": "pass", "instant": true },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(count_over_time(bugfix_fleet_episode{verdict=\"fail\"}[$__range])) or vector(0)", "legendFormat": "fail", "instant": true }
+      ]
+    },
+    {
+      "id": 4, "title": "Spend (est, upper-bound $)", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(sum_over_time(bugfix_fleet_cost_est_usd[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 5, "title": "Output tokens", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(sum_over_time(bugfix_fleet_tokens[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 6, "title": "Reporter asks answered", "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(count_over_time(bugfix_fleet_flow{state=\"asking-reporter\"}[$__range])) or vector(0)", "instant": true }]
+    },
+    {
+      "id": 7, "title": "Chain terminal states over time", "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 5 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum by (state) (count_over_time(bugfix_fleet_flow{state=~\"shipped|stuck|needs-info|rejected\"}[$__interval]))", "legendFormat": "{{state}}" }]
+    },
+    {
+      "id": 8, "title": "Spend over time (est $)", "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "custom": { "drawStyle": "bars" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "hidden" } },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum(sum_over_time(bugfix_fleet_cost_est_usd[$__interval]))", "legendFormat": "$" }]
+    },
+    {
+      "id": 9, "title": "Episodes: scope-hit vs miss (localization health)", "type": "piechart",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 13 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "right" }, "reduceOptions": { "calcs": ["sum"] } },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum by (scope) (count_over_time(bugfix_fleet_episode[$__range]))", "legendFormat": "scope={{scope}}", "instant": true }]
+    },
+    {
+      "id": 10, "title": "Tickets worked (flow activity)", "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 13 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+        "expr": "sum by (ticket) (count_over_time(bugfix_fleet_flow{state=\"fixing\"}[$__interval]))", "legendFormat": "{{ticket}}" }]
+    }
+  ]
+}
