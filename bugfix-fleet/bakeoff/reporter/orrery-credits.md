@@ -21,3 +21,9 @@ file or function is responsible):
   substrings.
 - The primary-credit rule: the first agency token (split on " / ") decides
   the section.
+- **Catch-all (definition of done):** ONLY the four agencies above move
+  (CMSA, SpaceIL, USAF, CSA-when-primary). Everything else I did not name —
+  CFHT, EHT, "Multi-agency", "publisher", "public-domain", and any other
+  generic or unnamed credit — **stays under Wikimedia Commons**; do not
+  invent new sections for them. Done means: those four route correctly,
+  CNSA and NASA-first behavior unchanged, everything else untouched.

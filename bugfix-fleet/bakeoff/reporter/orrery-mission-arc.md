@@ -15,3 +15,10 @@ file or function is responsible):
   because the arrival V-infinity is not being applied.
 - It affects missions that have a meaningful arrival V-infinity in their
   data; endpoints were never the problem.
+- **If asked "what should the middle of the arc look like" (definition of
+  done), my answer is:** the mid-arc shape must respond to the mission's
+  arrival V-infinity — zero/low V∞ leaves the arc essentially the baseline
+  ellipse; high V∞ visibly bends the middle away from that baseline while
+  both endpoints stay pinned. Done means: same mission data, arcs with high
+  arrival V∞ render with a bent mid-arc, and missions without it are
+  unchanged.

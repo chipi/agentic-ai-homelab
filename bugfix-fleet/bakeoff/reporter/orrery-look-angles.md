@@ -21,3 +21,10 @@ file or function is responsible):
     altitude increases the position magnitude accordingly.
 - The spherical-trig alt/az math itself was never my complaint — the
   observer position model is.
+- **If asked for observed-vs-expected values (definition of done):** I did
+  not record specific wrong RA/Dec readings; the check I care about is the
+  observer position itself — its magnitude must be ~6378.137 km at the
+  equator and ~6356.752 km at the pole (today the pole is ~21 km too far
+  out), and a positive altitude must increase it along the geodetic
+  normal. Any consumer of the look-angle pipeline is affected; I did not
+  isolate one.
