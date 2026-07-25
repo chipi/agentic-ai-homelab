@@ -80,6 +80,57 @@
           "instant": true
         }
       ]
+    },
+    {
+      "id": 5,
+      "title": "fleetd cycles by outcome (RFC-0004 supervisor)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum by (fleet, outcome) (count_over_time(fleetd_cycle[$__interval]))",
+          "legendFormat": "{{fleet}} · {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "fleetd day spend (USD, per fleet)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "max by (fleet) (fleetd_spend_day)",
+          "legendFormat": "{{fleet}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "fleetd cycle duration (s)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "max by (fleet) (fleetd_cycle_seconds)",
+          "legendFormat": "{{fleet}}"
+        }
+      ]
     }
   ]
 }
