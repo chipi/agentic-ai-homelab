@@ -298,6 +298,34 @@ taxonomy is an **explicit part of this fleet's design** — each new type is add
 here and names its consumer. **OPEN:** final label names (`config-enhancement`
 vs `config-improvement` vs a `config:*` namespace) + the full starter set.
 
+**Namespaced verdict labels — GitHub as the review surface (operator,
+2026-07-25).** All fleet-authored labels carry the `triage-fleet/` prefix so
+provenance is filterable in GitHub itself:
+
+| Label | Meaning | Consumer |
+|---|---|---|
+| `triage-fleet/actionable` | fleet verdict: fix-ready; L1-candidate in the comment | Fleet 1 intake: `label:bug label:triage-fleet/actionable` |
+| `triage-fleet/needs-info` | fleet asked; the specific question is in the comment | operator |
+| `triage-fleet/rejected` | no oracle can exist; reasoning in the comment | operator (audit) |
+| `triage-fleet/filed` | provenance: issue *created* by the fleet from a signal | operator + audit |
+
+Three properties this buys:
+- **The label IS the propose-first surface** — cheap, reversible, visible;
+  it largely retires the separate digest build.
+- **Overturns become machine-readable for free**: the operator re-labeling
+  or removing a fleet label is a label-timeline event → the trust metric
+  that gates autonomy is fed by normal GitHub usage.
+- **The chain is one query**: Fleet 2 verdicts/files → Fleet 1 subscribes
+  to `bug` + `triage-fleet/actionable` → applies its own `flow:*` states.
+  Operator-labeled bugs converge on the same path (just without the
+  provenance tag).
+
+Scope note: this applies where a GitHub object exists (real-issue triage)
+or is created (File). Signal-side dismiss/cleanup have no GH object — their
+review surface stays the ledger + dashboard. Label-writing is an ACTION:
+off in `shadow`, and the designated **first promoted action class** in
+`propose` (near-zero blast radius, bootstraps the overturn dataset).
+
 ### 7.3 PROPOSED EVOLUTION — investigation-driven triage (minimal, round-6 scoped)
 
 **The gap (operator, 2026-07-24).** The MVP triager (§7) is a single-shot

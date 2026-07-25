@@ -64,10 +64,13 @@ measured run), dead-call guard (billing failure ≠ model verdict).
       into `orchestrator.py --cycle` (validated live on the mini, incl.
       through the LiteLLM gateway). Remaining: `make deploy` = the
       operator-gated act that starts the shadow clock.
-- [ ] **Propose-first surface** — daily digest (ntfy push or one GH issue
-      per day): "dismiss these N, cleanup these M, file this K — object
-      within 24h or I act." Timeout-approval converges to autonomy without
-      building UI.
+- [x] **Propose-first surface — GitHub verdict labels** (operator design,
+      2026-07-25; SIGNALS §7.2): namespaced `triage-fleet/*` labels are the
+      proposals; operator re-labeling = machine-readable overturn. Labels
+      created in orrery; `triage_real.sh` applies them at stage=propose
+      (off in shadow). Retires most of the digest build — residual: an
+      escalate push (ntfy) when propose goes live, and a signal-side
+      review view for dismiss/cleanup (no GH object).
 
 ### Stage A1 — Shadow (1–2 weeks)
 - [ ] Daemon live, decisions recorded + observable, ZERO actions taken.
