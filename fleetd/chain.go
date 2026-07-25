@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -26,6 +27,10 @@ import (
 	"strings"
 	"time"
 )
+
+func contextWithTimeout(d time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), d)
+}
 
 type ChainConfig struct {
 	Repo        string `json:"repo"`         // chipi/orrery
@@ -38,7 +43,12 @@ type ChainConfig struct {
 	// (the bake-off protocol, production edition): real repos may carry
 	// pre-existing red — the gate is "no NEW failures + the new test passes",
 	// never naive "suite green". (Learned live: orrery main has 39 red.)
-	SuiteCmd string `json:"suite_cmd"`
+	SuiteCmd       string  `json:"suite_cmd"`
+	KickbackMax    int     `json:"kickback_max"`     // default 3 (measured)
+	ChainBudgetUSD float64 `json:"chain_budget_usd"` // est-$ cap per chain, default 3
+	EpisodeTimeout string  `json:"episode_timeout"`  // per fix episode, default 20m
+	Advisor        string  `json:"advisor"`          // "off" disables §4.2 consultations
+	ReviewerModel  string  `json:"reviewer_model"`   // e.g. claude-sonnet-4-6; ""/off disables
 	LedgerDir   string `json:"ledger_dir"`
 	VMURL       string `json:"vm_url"`
 }
@@ -213,7 +223,7 @@ func processIssue(cc ChainConfig, is ghIssue) {
 		return
 	}
 
-	// ── 2 · fix episode on a fresh branch from origin/main ──
+	// ── 2 · fix attempts with the measured kick-back loop (advisor + kb triage) ──
 	branch := fmt.Sprintf("fleet/fix-%d-%s", is.Number, time.Now().Format("0102T1504"))
 	if out, err := run(cc.SrcClone, "git", "fetch", "origin", "main"); err != nil {
 		led.add(is.Number, "stuck", "fetch: "+tail(out, 120))
@@ -227,7 +237,7 @@ func processIssue(cc ChainConfig, is ghIssue) {
 	}
 	run(cc.Worktree, "git", "clean", "-fdq")
 
-	// baseline the suite BEFORE the fix — delta-grading needs the base red-set
+	// baseline the suite BEFORE any fix — delta-grading needs the base red-set
 	led.add(is.Number, "baselining", "")
 	baseFails, err := suiteFailures(cc)
 	if err != nil {
@@ -235,57 +245,144 @@ func processIssue(cc ChainConfig, is ghIssue) {
 		return
 	}
 
-	// the manifest the worker sees = the triaged L1 candidate (rendered by triage_run.sh)
-	manifest := filepath.Join(cc.BakeoffDir, "bugs", "triaged", fmt.Sprintf("real-orrery-%d-triaged.json", is.Number))
-	mraw, err := os.ReadFile(manifest)
-	if err != nil {
-		led.add(is.Number, "stuck", "no triaged manifest")
-		return
+	tid := fmt.Sprintf("real-orrery-%d", is.Number)
+	manifest := filepath.Join(cc.BakeoffDir, "bugs", "triaged", tid+"-triaged.json")
+	priorTriage := tjPath
+	kbMax := cc.KickbackMax
+	if kbMax <= 0 {
+		kbMax = 3 // measured: pin → fail-at-pin → acceptance needs round 3
 	}
-	var m struct {
-		Description string `json:"description"`
+	budget := cc.ChainBudgetUSD
+	if budget <= 0 {
+		budget = 3.0
 	}
-	_ = json.Unmarshal(mraw, &m)
-	desc := m.Description + "\n\nIMPORTANT: write a failing regression test FIRST (repro-first), then fix. Both must be in your final diff."
+	spent := 0.0
 
-	led.add(is.Number, "fixing", "branch="+branch)
-	fx := exec.Command(filepath.Join(cc.BakeoffDir, "harnesses", "pi.sh"), cc.Worktree, desc)
-	fx.Dir = cc.BakeoffDir
-	fxout, fxerr := fx.CombinedOutput()
-	if fxerr != nil {
-		led.add(is.Number, "stuck", "fix episode: "+tail(string(fxout), 160))
-		return
-	}
+	for round := 0; ; round++ {
+		mraw, err := os.ReadFile(manifest)
+		if err != nil {
+			led.add(is.Number, "stuck", "no triaged manifest ("+manifest+")")
+			return
+		}
+		var m struct {
+			Description string `json:"description"`
+		}
+		_ = json.Unmarshal(mraw, &m)
+		desc := m.Description + "\n\nIMPORTANT: write a failing regression test FIRST (repro-first), then fix. Both must be in your final diff."
 
-	// ── 3 · mechanical gates: repro-first, then the suite ──
-	diffOut, _ := run(cc.Worktree, "git", "diff", "--name-only")
-	if !regexp.MustCompile(`(?m)\.(test|spec)\.[tj]s$`).MatchString(diffOut) {
-		led.add(is.Number, "kick-back", "no test in diff — repro-first violated; not proceeding")
-		return
-	}
-	led.add(is.Number, "testing", "delta vs base red-set")
-	afterFails, err := suiteFailures(cc)
-	if err != nil {
-		led.add(is.Number, "kick-back", "suite run failed post-fix: "+err.Error())
-		return
-	}
-	var newFails []string
-	for f := range afterFails {
-		if !baseFails[f] {
-			newFails = append(newFails, f)
+		// discard any prior failed attempt; every attempt starts from base
+		run(cc.Worktree, "git", "reset", "--hard", "origin/main")
+		run(cc.Worktree, "git", "clean", "-fdq")
+
+		led.add(is.Number, "fixing", fmt.Sprintf("round=%d branch=%s", round, branch))
+		fxout, fxerr := runEpisode(cc, filepath.Join(cc.BakeoffDir, "harnesses", "pi.sh"), cc.Worktree, desc)
+		turns, outTok, cost := parseUsage(fxout)
+		spent += cost
+		if fxerr != nil && len(fxout) == 0 {
+			led.add(is.Number, "stuck", "fix episode crashed with no output")
+			return
+		}
+
+		// mechanical gates → a failure reason (empty = clean)
+		reason := ""
+		diffOut, _ := run(cc.Worktree, "git", "diff", "--name-only")
+		if !regexp.MustCompile(`(?m)\.(test|spec)\.[tj]s$`).MatchString(diffOut) {
+			reason = "repro-first violated: no test in the diff"
+		} else {
+			led.add(is.Number, "testing", "delta vs base red-set")
+			afterFails, err := suiteFailures(cc)
+			if err != nil {
+				reason = "suite run failed post-fix: " + err.Error()
+			} else {
+				var newFails []string
+				for f := range afterFails {
+					if !baseFails[f] {
+						newFails = append(newFails, f)
+					}
+				}
+				if len(newFails) > 0 {
+					reason = fmt.Sprintf("%d NEW failures (delta gate): %s", len(newFails), tail(strings.Join(newFails, "; "), 150))
+				}
+			}
+		}
+		if reason == "" {
+			led.add(is.Number, "delta-clean", fmt.Sprintf("round=%d base-red=%d", round, len(baseFails)))
+			deliver(cc, is, branch, led)
+			return
+		}
+
+		// ── kick-back: synthesize the evidence contract the measured leaves expect ──
+		led.add(is.Number, "kick-back", fmt.Sprintf("round=%d: %s", round+1, reason))
+		if round+1 > kbMax {
+			led.add(is.Number, "stuck", fmt.Sprintf("kick-back budget exhausted (%d) — operator", kbMax))
+			return
+		}
+		if spent > budget {
+			led.add(is.Number, "stuck", fmt.Sprintf("chain $ budget exhausted ($%.2f > $%.2f)", spent, budget))
+			return
+		}
+		evDir := filepath.Join(cc.LedgerDir, "results", fmt.Sprintf("%s-r%d", tid, round))
+		_ = os.MkdirAll(evDir, 0o755)
+		touched := ""
+		for _, f := range strings.Split(diffOut, "\n") {
+			if f != "" && !regexp.MustCompile(`\.(test|spec)\.`).MatchString(f) {
+				touched += f + "\n"
+			}
+		}
+		_ = os.WriteFile(filepath.Join(evDir, "touched.txt"), []byte(touched), 0o644)
+		_ = os.WriteFile(filepath.Join(evDir, "harness.json"), fxout, 0o644)
+		_ = os.WriteFile(filepath.Join(evDir, "result.tsv"), []byte(fmt.Sprintf(
+			"%s\tpi\tFAIL (%s)\t0\t%.4f\t%d\t%d\tno\t0\n", tid, reason, cost, turns, outTok)), 0o644)
+
+		if cc.Advisor != "off" {
+			led.add(is.Number, "advising", "model="+advisorModel())
+			ac := exec.Command(filepath.Join(cc.BakeoffDir, "advisor_run.sh"), tpath, evDir)
+			ac.Dir = cc.BakeoffDir
+			if aout, aerr := ac.CombinedOutput(); aerr != nil {
+				led.add(is.Number, "advising", "no usable advisor output: "+tail(string(aout), 80))
+			}
+		}
+
+		kb := exec.Command(filepath.Join(cc.BakeoffDir, "triage_run.sh"), tpath, "pi", evDir, priorTriage)
+		kb.Dir = cc.BakeoffDir
+		kb.Env = append(os.Environ(), "TRIAGE_BASE=origin/main")
+		if out, err := kb.CombinedOutput(); err != nil {
+			led.add(is.Number, "stuck", "kb triage crashed: "+tail(string(out), 160))
+			return
+		}
+		kbID := fmt.Sprintf("%s-triage-kb%d", tid, round+1)
+		kbJSON := filepath.Join(os.Getenv("HOME"), ".bugfix-fleet", "bakeoff", "results", kbID, "pi", "triage.json")
+		kraw, err := os.ReadFile(kbJSON)
+		if err != nil {
+			led.add(is.Number, "stuck", "no kb triage verdict")
+			return
+		}
+		var kv struct {
+			Verdict string `json:"verdict"`
+		}
+		_ = json.Unmarshal(kraw, &kv)
+		switch kv.Verdict {
+		case "actionable":
+			manifest = filepath.Join(cc.BakeoffDir, "bugs", "triaged", fmt.Sprintf("%s-triaged-kb%d.json", tid, round+1))
+			priorTriage = kbJSON
+		case "needs-info":
+			// PRODUCTION reporter = the operator: park the issue on them
+			ghVerdict(cc, is.Number, "triage-fleet/needs-info", triageComment(kraw))
+			led.add(is.Number, "needs-info", "parked on operator (production reporter)")
+			return
+		default:
+			ghVerdict(cc, is.Number, "triage-fleet/rejected", triageComment(kraw))
+			led.add(is.Number, "rejected", "after kick-back")
+			return
 		}
 	}
-	if len(newFails) > 0 {
-		led.add(is.Number, "kick-back", fmt.Sprintf("%d NEW failures (delta gate): %s",
-			len(newFails), tail(strings.Join(newFails, "; "), 180)))
-		return
-	}
-	led.add(is.Number, "delta-clean", fmt.Sprintf("base red=%d, after red=%d, new=0", len(baseFails), len(afterFails)))
+}
 
-	// ── 4 · deliver: commit; propose/live → push + PR (draft at propose) ──
+// deliver: commit; propose/live → push + PR (draft at propose) + reviewer gate.
+func deliver(cc ChainConfig, is ghIssue, branch string, led chainLedger) {
 	run(cc.Worktree, "git", "add", "-A")
 	run(cc.Worktree, "git", "-c", "user.email=fleet@homelab", "-c", "user.name=bugfix-fleet",
-		"commit", "-q", "-m", fmt.Sprintf("fix #%d: %s\n\nAutomated fix by the bug-fix fleet (repro-first + suite green).", is.Number, is.Title))
+		"commit", "-q", "-m", fmt.Sprintf("fix #%d: %s\n\nAutomated fix by the bug-fix fleet (repro-first + delta-clean suite).", is.Number, is.Title))
 	if cc.Stage == "shadow" {
 		led.add(is.Number, "shipped-local", "branch="+branch+" (shadow: not pushed)")
 		return
@@ -296,7 +393,7 @@ func processIssue(cc ChainConfig, is ghIssue) {
 	}
 	prArgs := []string{"pr", "create", "-R", cc.Repo, "--head", branch,
 		"--title", fmt.Sprintf("fix #%d: %s", is.Number, is.Title),
-		"--body", fmt.Sprintf("Automated fix for #%d by the bug-fix fleet.\n\n- repro-first: regression test included\n- full suite green locally\n- chain ledger: `~/.bugfix-fleet/real/chain.tsv`\n\nOperator merges — the fleet never does.", is.Number)}
+		"--body", fmt.Sprintf("Automated fix for #%d by the bug-fix fleet.\n\n- repro-first: regression test included\n- suite delta-clean vs branch base\n- chain ledger: `~/.bugfix-fleet/real/chain.tsv`\n\nOperator merges — the fleet never does.", is.Number)}
 	if cc.Stage == "propose" {
 		prArgs = append(prArgs, "--draft")
 	}
@@ -305,7 +402,87 @@ func processIssue(cc ChainConfig, is ghIssue) {
 		led.add(is.Number, "stuck", "pr: "+tail(string(out), 160))
 		return
 	}
-	led.add(is.Number, "shipped", strings.TrimSpace(tail(string(out), 90)))
+	prURL := strings.TrimSpace(tail(string(out), 90))
+	led.add(is.Number, "shipped", prURL)
+
+	// reviewer gate (RFC-0002): Claude reviews the whole diff, comment-only in
+	// MVP — the operator remains the only merger. Best-effort.
+	if cc.ReviewerModel != "" && cc.ReviewerModel != "off" {
+		led.add(is.Number, "reviewing", cc.ReviewerModel)
+		diff, _ := run(cc.Worktree, "git", "diff", "origin/main...HEAD")
+		rev := exec.Command("claude", "-p",
+			fmt.Sprintf("Review this automated bug-fix PR for issue #%d (%s).\n\nDIFF:\n%s\n\nGive a concise review: correctness risks, edge cases the fix misses, test adequacy. End with VERDICT: approve|request-changes.", is.Number, is.Title, tail(diff, 60000)),
+			"--model", cc.ReviewerModel, "--output-format", "json")
+		rout, rerr := rev.Output()
+		if rerr == nil {
+			var rr struct {
+				Result string `json:"result"`
+			}
+			if json.Unmarshal(rout, &rr) == nil && rr.Result != "" {
+				body := "## Fleet reviewer (" + cc.ReviewerModel + ")\n\n" + rr.Result
+				_ = exec.Command("gh", "pr", "comment", "--repo", cc.Repo, branch, "--body", body).Run()
+				led.add(is.Number, "reviewed", tail(rr.Result, 80))
+			}
+		} else {
+			led.add(is.Number, "reviewing", "reviewer episode failed (non-blocking)")
+		}
+	}
+}
+
+func advisorModel() string {
+	if m := os.Getenv("ADVISOR_MODEL"); m != "" {
+		return m
+	}
+	return "z-ai/glm-5.2"
+}
+
+// runEpisode executes a leaf harness episode with a hard timeout.
+func runEpisode(cc ChainConfig, script, wt, desc string) ([]byte, error) {
+	timeout := 20 * time.Minute
+	if cc.EpisodeTimeout != "" {
+		if d, err := time.ParseDuration(cc.EpisodeTimeout); err == nil {
+			timeout = d
+		}
+	}
+	ctx, cancel := contextWithTimeout(timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, script, wt, desc)
+	cmd.Dir = cc.BakeoffDir
+	return cmd.CombinedOutput()
+}
+
+// parseUsage sums the pi event stream: turns, output tokens, est cost
+// (v4-pro rates, cache-blind upper bound — Langfuse holds precision).
+func parseUsage(stream []byte) (turns, outTok int, cost float64) {
+	var inMax int
+	for _, line := range strings.Split(string(stream), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.HasPrefix(line, "{") {
+			continue
+		}
+		var e struct {
+			Type    string `json:"type"`
+			Message struct {
+				Role  string `json:"role"`
+				Usage struct {
+					Input  int `json:"input"`
+					Output int `json:"output"`
+				} `json:"usage"`
+			} `json:"message"`
+		}
+		if json.Unmarshal([]byte(line), &e) != nil {
+			continue
+		}
+		if e.Type == "message_end" && e.Message.Role == "assistant" {
+			turns++
+			outTok += e.Message.Usage.Output
+			if e.Message.Usage.Input > inMax {
+				inMax = e.Message.Usage.Input
+			}
+		}
+	}
+	cost = float64(inMax)*4.35e-7 + float64(outTok)*8.7e-7
+	return
 }
 
 // suiteFailures runs the suite (JSON reporter) and returns the failed-test set

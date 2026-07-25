@@ -7,5 +7,10 @@
   "stage": "propose",
   "ledger_dir": "/Users/markodragoljevic/.bugfix-fleet/real",
   "vm_url": "http://homelab:8428",
-  "suite_cmd": "npx vitest run --reporter=json --outputFile=%s"
+  "suite_cmd": "npx vitest run --reporter=json --outputFile=%s",
+  "kickback_max": 3,
+  "chain_budget_usd": 3.0,
+  "episode_timeout": "20m",
+  "advisor": "on",
+  "reviewer_model": "claude-sonnet-4-6"
 }
