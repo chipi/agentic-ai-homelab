@@ -40,6 +40,12 @@ def load_env():
                 if not line or line.startswith("#") or "=" not in line:
                     continue
                 k, v = line.split("=", 1)
+                # strip a trailing inline comment (whitespace + '#'); our values
+                # never contain '#', so this is safe and keeps .env self-documenting
+                for i, ch in enumerate(v):
+                    if ch == "#" and (i == 0 or v[i - 1] in " \t"):
+                        v = v[:i]
+                        break
                 cfg[k.strip()] = v.strip().strip('"').strip("'")
     cfg.update({k: v for k, v in os.environ.items()})
     return cfg
