@@ -106,9 +106,10 @@ stays alive as the hiring pipeline (models/harnesses earn seats on frozen
 replay before touching production).
 
 ### Gate to MVP
-- [ ] **Confirmation sweep** (running): v3+coverage chain table at k=3 —
-      accept if ships ≥ the honest baseline meaningfully (target ~4/5
-      family) with zero regressions on shipped chains.
+- [x] **Confirmation sweep** — DONE 2026-07-25 (BAKEOFF §6.3 session 3i):
+      v3+coverage **10/15 shipped** (vs 5/15 baseline); 4/5 ticket
+      families at ≥2/3; every shipped chain regression-clean. GATE MET.
+      fly-physics 0/3 = the characterized L2-pin boundary, parked.
 - [x] Regression-cleanliness: every shipped chain in every measured sweep is
       oracle-passed with PASS_TO_PASS intact.
 - [x] Reporter loop + coverage protocol (production analog: needs-info goes

@@ -800,6 +800,33 @@ orchestrator), 3 per ticket:
   localization — consistent with every prior measurement of the
   two-factor model.
 
+**Observed (2026-07-25, session 3i): the v3+coverage confirmation sweep —
+10/15 shipped; the reporter-coverage fix doubled the honest baseline.**
+Same 15-chain protocol as session 3h, after the coverage protocol +
+substance-matching answerer (session-3h's binding constraint):
+
+| chain | k1 | k2 | k3 | rate (3h baseline) |
+|---|---|---|---|---|
+| 335 (control) | ship r0 | ship r0 | ship r0 | 3/3 (3/3) |
+| mission-arc | ship r1 | ship r0 | ship r0 | **3/3 (0/3)** |
+| credits | ship r2 | stuck | ship r0 | 2/3 (2/3) |
+| look-angles | ship r0 | stuck | ship r0 | **2/3 (0/3)** |
+| fly-physics | needs-info | stuck | stuck | 0/3 (0/3) |
+
+Readings:
+- **The binding constraint was correctly identified**: fixing reporter
+  facts coverage + answerer substance-matching moved 5/15 → 10/15 with
+  zero changes to models, prompts, or gates. Ticket-family ship rate 4/5
+  at ≥2/3 — the Track B confirmation gate (target ~4/5 family) is MET.
+- **fly-physics 0/3 confirms the boundary**: pure owner-localization under
+  the set's strongest decoy does not yield to acceptance, refutation, or
+  reporter answers (the reporter honestly doesn't know files). Crossing it
+  costs an L2 pin — operator knowledge, or a stronger recon seat (the
+  triage-escalation idea, unbuilt). Correctly parked.
+- Residual variance is concentrated in k2 (both stucks) — kick-back
+  budget exhaustion on chains that shipped cleanly in k1/k3; chain-level
+  stochasticity remains real and rates remain the only honest currency.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify
@@ -808,8 +835,8 @@ orchestrator), 3 per ticket:
   v2 closes the invention path; session-3e — v2 + reporter-oracle ships
   the intent-gap bug end-to-end; session-3f — full sweep 4/5, fly-physics
   the characterized residual; session-3g — v3 k1 row valid, k2/k3
-  invalidated by credit exhaustion; session-3h — v3 k=3 table: 5/15,
-  the honest baseline.)*
+  invalidated by credit exhaustion; session-3h — v3 k=3 table: 5/15, the
+  honest baseline; session-3i — v3+coverage: 10/15, gate met.)*
 - **Harness (fix) score** — L1 → correct fix via *its own* recon (§7), plus the
   **min upping-level to pass**.
 
