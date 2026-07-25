@@ -34,10 +34,27 @@ batch = [{"id": str(uuid.uuid4()), "type": "trace-create", "timestamp": now, "bo
                  "latency_s": int(float(latency or 0)), "model": model, "run_idx": RUN_IDX},
     "input": bug, "output": verdict}}]
 
-def gen(name, ti, to, c):
+# per-token rates for client-side costDetails: this Langfuse's models API is
+# flat-price only, so cache-read pricing is computed HERE. Without cache-read,
+# Langfuse undercounted real spend ~4-5x (2026-07-25: 194M cache tokens invisible).
+RATES = {  # (input, output, cache_read) $/token — OpenRouter = provider list
+    "deepseek/deepseek-v4-pro":   (4.35e-7, 8.7e-7, 3.625e-9),
+    "deepseek/deepseek-v4-flash": (1.4e-7, 2.8e-7, 2.8e-9),
+}
+
+def gen(name, ti, to, c, cache_read=0, cache_write=0):
+    ti, to, cr, cw = int(ti or 0), int(to or 0), int(cache_read or 0), int(cache_write or 0)
     b = {"id": str(uuid.uuid4()), "traceId": tid, "name": name, "model": model, "environment": "bakeoff",
-         "usage": {"input": int(ti or 0), "output": int(to or 0), "total": int((ti or 0) + (to or 0)), "unit": "TOKENS"}}
-    if c: b["metadata"] = {"cost_usd": float(c)}
+         "usageDetails": {"input": ti, "output": to,
+                          "cache_read_input_tokens": cr,
+                          "cache_creation_input_tokens": cw}}
+    r = RATES.get(model)
+    if r:
+        b["costDetails"] = {"input": ti * r[0], "output": to * r[1],
+                            "cache_read_input_tokens": cr * r[2],
+                            "total": ti * r[0] + to * r[1] + cr * r[2]}
+    elif c:
+        b["costDetails"] = {"total": float(c)}
     batch.append({"id": str(uuid.uuid4()), "type": "generation-create", "timestamp": now, "body": b})
 
 try:
@@ -56,7 +73,9 @@ else:                                                            # opencode / pi
             step += 1; t = p["tokens"]; gen(f"step{step}", t.get("input"), t.get("output"), p.get("cost"))
         m = e.get("message", {})
         if e.get("type") == "message_end" and m.get("role") == "assistant" and m.get("usage"):
-            step += 1; u = m["usage"]; gen(f"msg{step}", u.get("input"), u.get("output"), (u.get("cost") or {}).get("total"))
+            step += 1; u = m["usage"]
+            gen(f"msg{step}", u.get("input"), u.get("output"), (u.get("cost") or {}).get("total"),
+                cache_read=u.get("cacheRead"), cache_write=u.get("cacheWrite"))
 
 batch.append({"id": str(uuid.uuid4()), "type": "score-create", "timestamp": now, "body": {
     "id": str(uuid.uuid4()), "traceId": tid, "name": "passed", "value": passed, "dataType": "NUMERIC"}})
