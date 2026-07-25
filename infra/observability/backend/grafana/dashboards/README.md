@@ -19,6 +19,7 @@ right subdir and it appears in that folder within ~30s
 | **Production Infra/** | prod-podcast VPS — host / containers / edge security | [Production Infra/README.md](Production%20Infra/README.md) |
 | **Podcast Operator/** | Operator API + viewer observability | [Podcast Operator/README.md](Podcast%20Operator/README.md) |
 | **Podcast Player/** | Consumer player (log-based); source of truth is `podcast_scraper-infra`, synced here | [Podcast Player/README.md](Podcast%20Player/README.md) |
+| **CI Ops/** | GitHub Actions deploy/backup + CI/DORA health (`ops_event/v1` → VictoriaLogs) | [CI Ops/README.md](CI%20Ops/README.md) |
 
 Each per-folder README states that folder's **goal** and a per-board table (what
 each answers, datasource, key panels). Alerts are documented separately in

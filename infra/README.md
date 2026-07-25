@@ -34,6 +34,7 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 | **homelab-home** | Tailnet start page (mini · DGX · prod columns) | mini | `homelab:8888` | reads other stacks' `.env` | [homelab-home/](homelab-home/README.md) |
 | **mini-metrics** | Mac-mini host metrics → VictoriaMetrics | mini | pushes to VM `:8428` | — | [mini-metrics/](mini-metrics/README.md) |
 | **dgx-scrape** | Pulls DGX GPU/app metrics + TCP health over LAN → VM | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
+| **ci-ops-poller** | Pulls GitHub Actions runs (CI / drift / drill) → VictoriaLogs for CI health + DORA | mini | pushes to VLogs `:9428` | `ci-ops-poller/.env` | [ci-ops-poller/](ci-ops-poller/README.md) |
 | **dgx** | DGX-host operator scripts (`gpu-mode-swap`) + service map | DGX | LAN `192.168.1.111` (no SSH yet) | — | [dgx/](dgx/README.md) |
 | **vllm** | Local vLLM inference stacks (coder / autoresearch) | DGX | `:8003` / `:9000` `/v1` (GPU-mode gated) | — | [vllm/](vllm/README.md) |
 
