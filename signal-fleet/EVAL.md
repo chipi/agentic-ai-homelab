@@ -24,6 +24,18 @@ The eval gates (ii) and (iii). It does **not** gate (i) — and (i) is the best 
 collector we have: real traffic + the operator's review clicks = the labeled set,
 at no extra cost.
 
+**Status (2026-07-25): the quality bar for (ii) is PASSED** — v4-pro +
+prompt `c2ece738`, false-dismiss 0/27 (3× k=3, original set) and 0/9
+(expanded 14-fixture set), escalate 0.045/0.048 vs the operator's ≤5% bar,
+now wired into `score.py` as PASS/MARGINAL/FAIL. Transition (i) is gated
+only on build items (occurrence-churn fix, recurrence dedup, daemon,
+propose-first digest); (iii) additionally pends the executable File check
+(seeded thrown-bug fixtures — §3.2 — still the thin spot: 3 file fixtures,
+2 near-duplicates). The staged rollout, per-class autonomy promotion, and
+the full tick list live in
+[`docs/wip/fleet-rollout-plan.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/wip/fleet-rollout-plan.md)
+(Track A).
+
 ## 2. Why an eval at all (the failure the pipeline hides)
 
 The triager passed every *mechanical* check while being *semantically* wrong (same

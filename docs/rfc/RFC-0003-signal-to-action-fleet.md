@@ -159,6 +159,29 @@ The concrete MVP build order + first vertical slice (orrery staleness alert →
 correlate → File/Dismiss) live in [`signal-fleet/SIGNALS.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/signal-fleet/SIGNALS.md)
 §13, along with the reuse map from Fleet 1's orchestrator.
 
+## Go-live (added 2026-07-25 — quality bar passed, rollout gated)
+
+The triager's quality bar — **false-dismiss = 0 AND escalate ≤5%, both at
+once, k≥3** — is **passed** (v4-pro + prompt `c2ece738`: 0/27 + 0/9
+false-dismiss across two fixture sets; escalate 0.045/0.048). The fleet's
+success metric in production is **handled-rate** (signals correctly disposed
+without the operator), with escalations required to be *unique* — a
+recurring escalation class is a missing rule, converted via the weekly
+review into an `operator-rule` intent source + fixture (compounding
+autonomy).
+
+Rollout is three stages, promotion **per disposition-class and reversible**:
+**shadow** (daemon decides, acts on nothing, 1–2 weeks — the shadow ledger
+is the real-world labeled dataset) → **propose-first** (daily digest,
+one-click approval, timeout-approval; operator clicks feed the overturn
+metric) → **autonomy by class** (cleanup-with-marker first, then
+dismiss-with-evidence, then File; escalate stays human forever).
+
+Remaining gate items before shadow (occurrence-churn fix, recurrence dedup,
+daemon, digest) and the full tick list live in the master rollout plan:
+[`docs/wip/fleet-rollout-plan.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/wip/fleet-rollout-plan.md)
+(Track A). Fleet 2 rolls out independently of Fleet 1.
+
 ## Open questions
 1. **Filed-work taxonomy** — final label names + full starter set.
 2. **Trigger wiring** — **first verify the GlitchTip API on-prem** (one `curl` to

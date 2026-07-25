@@ -168,6 +168,35 @@ Unpolished prototype that *connects everything*; it's the bake-off:
 - **Phase 3 — expand:** o11y-reactive agents (alerts → diagnose/propose), more repos,
   marketing/email automation (n8n as the glue) when Orrery/podcast need it.
 
+## Go-live (added 2026-07-25 — the lab→wild transition)
+
+**The structural truth the rollout is built around: production has no hidden
+oracle.** The bake-off grades against a held-out answer key that cannot exist
+for real backlog bugs. In the wild, the answer key is replaced by the full
+pipeline: triage-L1 acceptance (intent-cited) → **repro-first** (the worker
+writes the failing test before the fix) → CI green → Claude reviewer gate →
+**the operator merges, always**. Auto-merge is out of scope permanently, not
+provisionally. The bake-off stays alive as the *hiring pipeline*: models and
+harnesses earn production seats by passing bars on frozen replay (cheap,
+repeatable) before ever touching a real issue.
+
+MVP scope: **orrery only**, real `bug`-labeled issues in, branch + PR out via
+the existing App. Stages: **shadow** (triage-only over the real backlog —
+does L1-or-needs-info come out sane?) → **PR-mode** (full chains, PR +
+chain-ledger as the deliverable, every operator rejection becomes a fixture)
+→ scale decisions (podcast repo, model/harness columns, batch `fixes` flow)
+only after orrery proves the loop.
+
+Measured facts the gate rests on: every shipped chain in every sweep is
+oracle-passed with zero regressions; chain cost ≈ $0.50–1; kick-back +
+reporter loops fail safe (needs-info/stuck, never a silent wrong fix). Gate
+checklist, stage exits, and the shared operational foundations (spend-capped
+keys, kill switches, incident→fixture runbook, weekly ritual) live in the
+master rollout plan:
+[`docs/wip/fleet-rollout-plan.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/wip/fleet-rollout-plan.md)
+(Track B). Fleet 1 rolls out independently of Fleet 2 — whichever passes its
+gate first goes first.
+
 ## Discussion
 - **2026-07-21 (initial):** Design worked out interactively. Locked: bug-only scope,
   cheap workers + self-hosted Claude PR-gate via operator's own GitHub App, whole-PR

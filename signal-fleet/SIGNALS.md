@@ -469,6 +469,12 @@ overturn metric (§11) is unattributable.
 
 ## 10. Autonomy stance
 
+> **Go-live (2026-07-25):** the quality bar is passed and the staged rollout
+> (shadow → propose-first digest → per-class autonomy promotion) is specified
+> in RFC-0003 "Go-live" + the master tick list at
+> [`docs/wip/fleet-rollout-plan.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/wip/fleet-rollout-plan.md)
+> (Track A). The stance below is the philosophy; the plan is the execution.
+
 Carried from RFC-0002: **the fleet proposes; the operator gates.** Mapped to
 dispositions by blast radius:
 
