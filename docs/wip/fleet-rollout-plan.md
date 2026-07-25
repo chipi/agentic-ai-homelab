@@ -20,9 +20,14 @@ measured run), dead-call guard (billing failure ≠ model verdict).
 
 ## Shared foundations (once, serve both fleets)
 
-- [ ] **OpenRouter provisioned keys with spend limits** — one key per fleet,
-      hard monthly cap each (the backstop that would have caught the
-      2026-07-24 exhaustion before it silently emptied completions).
+- [x] **Per-fleet budget keys — SUPERSEDED by the LiteLLM gateway**
+      (2026-07-25, operator decision: production routes beyond OpenRouter).
+      `infra/litellm/` deployed on the mini (`homelab:4001/v1`): virtual
+      keys `fleet-triage` ($10 cap) + `fleet-bugfix` ($20 cap) minted,
+      provider-swappable aliases, GlitchTip project wired, gateway-down
+      alert provisioned. Pending: Langfuse `litellm-gateway` project keys
+      (operator UI minute) → callbacks live. OpenRouter stays the lab
+      route; an OR key limit remains optional extra armor.
 - [ ] **Kill switch convention** — flag file per fleet
       (`~/signal-fleet/STOP`, `~/bugfix-fleet/STOP`) checked at the top of
       every orchestrator cycle; `launchctl unload` as hard stop. Documented
@@ -49,15 +54,16 @@ measured run), dead-call guard (billing failure ≠ model verdict).
       set (0/9, 0.048). Config: v4-pro + prompt `c2ece738`.
 - [x] Fail-loud plumbing: deterministic gates, dead-call guard, append-only
       ledger, producer-separated o11y (environment=operations).
-- [ ] **Occurrence-churn fix (R5-4)** — GlitchTip occurrence_id keys on
-      `lastSeen`, which advances per event → hot errors re-triage every
-      poll. Re-key to firstSeen + resolved→unresolved transition. MANDATORY
-      before any daemon.
-- [ ] **Recurrence dedup** — same fingerprint re-firing after a disposition
-      is (a) an implicit-overturn signal on Dismiss (R2-2), (b) never a
-      fresh full-cost triage more than once per window.
-- [ ] **Daemon mode** — launchd service on the mini, poll interval ~5–15
-      min, kill-switch check per cycle, per-day budget cap.
+- [x] **Occurrence-churn fix (R5-4)** — done 2026-07-25: firstSeen-keyed
+      occurrence ids; validated live (hot issues skip, zero churn).
+- [x] **Recurrence dedup** — done 2026-07-25: fingerprint baseline +
+      `recurrence` ledger rows (the R2-2 implicit-overturn signal);
+      re-triage ≤ once per `SF_RETRIAGE_HOURS`.
+- [x] **Daemon built** (`fleetd/`, RFC-0004): supervisor binary + Makefile
+      surface + launchd plist + smoke-tested guards + cycle contract wired
+      into `orchestrator.py --cycle` (validated live on the mini, incl.
+      through the LiteLLM gateway). Remaining: `make deploy` = the
+      operator-gated act that starts the shadow clock.
 - [ ] **Propose-first surface** — daily digest (ntfy push or one GH issue
       per day): "dismiss these N, cleanup these M, file this K — object
       within 24h or I act." Timeout-approval converges to autonomy without
