@@ -18,7 +18,9 @@ the rollout plan, implemented once.
 
 ## Proposal
 
-One binary, one config file (`fleetd.toml`), N fleet blocks:
+One binary, one config file (`fleetd.json` — JSON, not TOML: the module is
+stdlib-only per ADR-0008, and TOML would need a dep; sketch below in TOML-ish
+for readability), N fleet blocks:
 
 ```toml
 [fleet.triage]

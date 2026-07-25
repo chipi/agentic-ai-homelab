@@ -1,0 +1,30 @@
+{
+  "vm_url": "http://localhost:8428",
+  "state_file": "/Users/operator/fleetd/state.json",
+  "fleets": [
+    {
+      "name": "triage",
+      "enabled": true,
+      "interval": "10m",
+      "cycle_cmd": "python3 orchestrator.py --glitchtip --limit 5 && python3 orchestrator.py",
+      "workdir": "/Users/operator/signal-fleet/mvp",
+      "env_file": "/Users/operator/signal-fleet/fleet.env",
+      "stop_flag": "/Users/operator/signal-fleet/STOP",
+      "budget_day_usd": 2.0,
+      "spend_file": "/Users/operator/signal-fleet/results/.last_cycle_spend",
+      "stage": "shadow",
+      "cycle_timeout": "20m"
+    },
+    {
+      "name": "bugfix",
+      "enabled": false,
+      "interval": "1h",
+      "cycle_cmd": "./orchestrate_real.sh next",
+      "workdir": "/Users/operator/bugfix-fleet",
+      "stop_flag": "/Users/operator/bugfix-fleet/STOP",
+      "budget_day_usd": 5.0,
+      "stage": "shadow",
+      "cycle_timeout": "45m"
+    }
+  ]
+}
