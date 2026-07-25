@@ -160,6 +160,11 @@ echo "$VERDICT" > "$OUT/verdict.txt"
 LEDGER="$ROOT/results/runs.tsv"
 [ -f "$LEDGER" ] || printf 'run_idx\tmodel\tid\tharness\tverdict\twall\tcost\tturns\touttok\tscope\tbudget\n' > "$LEDGER"
 printf '%s\t%s\t' "${BAKEOFF_RUN_IDX:-1}" "$MODEL" >> "$LEDGER"; cat "$OUT/result.tsv" >> "$LEDGER"
+# per-run archives: streams + patch survive re-runs, so post-hoc analysis
+# (tool calls, fix completeness) sees every run, not just the last (§7)
+mkdir -p "$OUT/archive"
+cp "$OUT/harness.json" "$OUT/archive/${BAKEOFF_RUN_IDX:-1}-harness.json" 2>/dev/null || true
+cp "$OUT/harness.patch" "$OUT/archive/${BAKEOFF_RUN_IDX:-1}-harness.patch" 2>/dev/null || true
 # push trace + per-call generations + passed score to Langfuse (no-op without creds)
 python3 "$HERE/langfuse_push.py" "$ID" "$HARNESS" "$MODEL" "$VERDICT" "${COST:-0}" "${TURNS:-0}" "${WALL:-0}" "$OUT/harness.json" 2>&1 | sed 's/^/   /' || true
 # workforce metrics → VictoriaMetrics (dashboard fuel; BAKEOFF_VM_URL="" disables).
