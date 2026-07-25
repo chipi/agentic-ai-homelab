@@ -12,10 +12,10 @@ deploy (with secrets stripped). Take what's useful, leave the rest.
 - **First time here?** Read [Philosophy](philosophy.md) — the underlying
   "how I work" 1-pager.
 - **Looking for a specific operational walkthrough?** Browse the
-  [Recipes](recipes/dgx-terminal-dashboard.md) — five concrete
-  walkthroughs covering daily ops (terminal dashboard, GPU mode-swap,
-  observability boot, token-management tooling, Chrome DevTools MCP
-  agent loop).
+  [Recipes](recipes/dgx-terminal-dashboard.md) — concrete walkthroughs
+  covering daily ops (terminal dashboard, GPU mode-swap, standing up the
+  self-hosted observability host, `homelab` service endpoints,
+  token-management tooling, Chrome DevTools MCP agent loop).
 - **Resuming after a break?** [History](history/README.md) is the
   session-by-session continuity log. The most recent entry is current
   state — `0003-v0.2-arc.md` covers the arc that brought all four
@@ -27,10 +27,13 @@ deploy (with secrets stripped). Take what's useful, leave the rest.
 1. [**Project setup**](project-setup.md) — `templates/new-project/` is
    bootstrap-ready: AGENTS.md layered on global, layered Makefile gates,
    GH Pages docs site workflow, pre-commit baseline, PR template.
-2. [**Local AI infra**](local-ai-infra.md) — hardened vLLM template +
-   operator deploys (`infra/vllm/{template,coder-next,openwebui}/`),
-   Grafana Alloy observability stack (`infra/observability/`), Ollama
-   supporting role, three recipes for daily ops.
+2. [**Local AI infra**](local-ai-infra.md) — a few hosts on one tailnet:
+   the **DGX** runs the GPU/LLM stack (hardened vLLM template + operator
+   deploys `infra/vllm/{template,coder-next,openwebui}/`, Ollama); the
+   always-on **Mac mini** (`homelab`) runs the self-hosted observability
+   backend (VictoriaMetrics + Grafana, `infra/observability/`) and the app
+   services (GlitchTip, Langfuse, Umami). The host map lives in
+   [`infra/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/README.md).
 3. [**Cloud AI workflow**](cloud-ai-workflow.md) — prompt-caching
    discipline, cost gates, three example skeletons
    (`claude-api-with-caching/`, `mcp-tool-template/`, `eval-harness/`).
@@ -57,10 +60,9 @@ make bakeoff               # ~$2-5 for a full sweep
 
 **v0.2 — all four pillars are real.** Templates bootstrap; infra
 composes deploy; cloud examples run; agent harness configs drop in.
-What's still open: ops items that need live access (Grafana Cloud
-creds, image-tag pinning), Claude Code `settings.json` extraction (too
-operator-specific to sanitize cleanly), and project AGENTS.md dedup.
-See [NEXT_STEPS](wip/NEXT_STEPS.md).
+What's still open: ops items that need live access (image-tag pinning),
+Claude Code `settings.json` extraction (too operator-specific to sanitize
+cleanly), and project AGENTS.md dedup. See [NEXT_STEPS](wip/NEXT_STEPS.md).
 
 ## Who this is for
 

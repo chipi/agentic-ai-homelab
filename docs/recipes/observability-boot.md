@@ -1,8 +1,30 @@
 # Observability boot — Grafana Alloy stack live on DGX → Grafana Cloud
 
 **Date:** 2026-06-12
-**Status:** v0.1 — recipe drafted; first live boot pending operator
-**Reach:** runs on DGX; pushes outbound to Grafana Cloud over HTTPS
+**Status:** ⛔ **SUPERSEDED (v0.1 historical record)** — do not follow.
+**Reach:** described the retired Grafana-Cloud-on-the-DGX design.
+
+!!! danger "This recipe is superseded — the architecture changed"
+    Observability is **no longer** DGX + Grafana Cloud. It is now a
+    **self-hosted** backend (VictoriaMetrics + VictoriaLogs + VictoriaTraces
+    + Grafana) running on the **Mac mini** (`homelab`) — verified live. There
+    is no Grafana Cloud account, and the metrics stack does **not** run on
+    the DGX; the DGX only supplies GPU/container exporters, pulled over the
+    LAN by the mini's `dgx-scrape` loop.
+
+    **Use instead:**
+
+    - [`mac-mini-observability.md`](mac-mini-observability.md) — the current
+      bring-up procedure for the self-hosted backend.
+    - [`observability-endpoints.md`](observability-endpoints.md) — the
+      `homelab` service names + ports.
+    - [`infra/observability/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/observability/README.md)
+      and the [host map](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/README.md).
+
+    The rest of this page is kept only as a record of the v0.1 Grafana-Cloud
+    approach and the decisions ([ADR-0005](../adr/ADR-0005-langfuse-glitchtip-self-host.md),
+    [ADR-0006](../adr/ADR-0006-mac-mini-observability-provisioning.md)) that
+    replaced it.
 
 Bring the templated Alloy + DCGM + cAdvisor + Ollama-metrics stack from
 `infra/observability/` up live on the DGX and verify metrics land in

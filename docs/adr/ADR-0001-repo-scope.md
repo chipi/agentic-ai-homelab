@@ -36,6 +36,16 @@ This repo covers FOUR pillars, no more, no less:
 4. **Agent harnesses** — opencode / Claude Code / Cursor configs, MCP
    server wiring, the connective tissue across (1)-(3).
 
+> **Update — observability superseded.** The pillar-2 line above ("Alloy →
+> Grafana Cloud") reflects the v0.1 design. Observability has since moved to
+> a **self-hosted** backend (VictoriaMetrics + Grafana on the always-on Mac
+> mini, `homelab`) — there is no Grafana Cloud anymore, and the metrics/
+> logs/traces stack does **not** run on the DGX. See
+> [ADR-0005](ADR-0005-langfuse-glitchtip-self-host.md) and
+> [ADR-0006](ADR-0006-mac-mini-observability-provisioning.md); the current
+> host map is [`infra/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/README.md).
+> The four-pillar *scope* below stands unchanged.
+
 Framed as **"what I run"**, not "best practices" / "cookbook" / "playbook".
 The framing decision (D-0001 in the decision log) is load-bearing — it
 sets the expectation level for issues, PRs, and the maintenance cost the

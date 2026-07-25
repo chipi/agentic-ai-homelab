@@ -1,10 +1,10 @@
 # Observability endpoints — the `homelab` name convention
 
 All senders reference the **`homelab`** tailnet name, never a host IP. On free
-Tailscale `homelab` is a **MagicDNS device name** — the machine *named* `homelab`
-(the Mac mini once it's up). The DGX → mini move is a one-time sender cutover
-(details below); after that it's stable, and future host swaps are free (rename
-the new box `homelab`).
+Tailscale `homelab` is a **MagicDNS device name** — the machine *named* `homelab`,
+which is the **Mac mini** (verified live 2026-07-25). The one-time DGX → mini
+sender cutover is **done**; it's stable now, and future host swaps are free
+(rename the new box `homelab`).
 
 ## The mapping (infra owns this)
 
@@ -25,16 +25,16 @@ Free Tailscale has **no custom DNS records** — so `homelab` is a **device host
 via MagicDNS: whichever machine is *named* `homelab` resolves as `homelab.<tailnet>.ts.net`
 (and short `homelab`) tailnet-wide.
 
-- **Permanent (Mac mini):** name the mini's device **`homelab`** (admin console →
-  **Machines → the mini → ⋯ → Edit machine name**, or set its OS hostname).
-  Senders then use `homelab` forever; future host swaps = give the new box the `homelab`
-  name (rename the old one off first) → zero sender changes.
-- **Now (DGX stopgap):** the DGX **can't** be renamed `homelab` — it's the GPU box and
-  other config (SSH `dgx-llm-1`, gpu-mode) references it. So during the stopgap,
-  senders target the DGX directly: `dgx-llm-1.<tailnet>.ts.net` or the IP
-  `dgx-llm-1`.
-- **The DGX → mini move is a ONE-TIME sender cutover** (flip the endpoint from the
-  DGX to `homelab`). After that it's stable.
+- **Current (Mac mini):** the mini's device is named **`homelab`** (admin console →
+  **Machines → the mini → ⋯ → Edit machine name**, or its OS hostname), so senders
+  use `homelab` and resolve to the mini. Future host swaps = give the new box the
+  `homelab` name (rename the old one off first) → zero sender changes.
+- **Historical (DGX stopgap, retired):** during setup the backend ran briefly on
+  the DGX, which **couldn't** be renamed `homelab` (it's the GPU box; SSH
+  `dgx-llm-1`, gpu-mode reference it), so senders targeted `dgx-llm-1` directly.
+  That stopgap is over.
+- **The DGX → mini cutover was a ONE-TIME sender flip** (endpoint `dgx-llm-1` →
+  `homelab`), now complete and stable.
 
 To keep that one-time cutover trivial, senders read the endpoint from **env vars**
 (`REMOTE_WRITE_URL`, `LOGS_WRITE_URL`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`,
@@ -47,6 +47,6 @@ To keep that one-time cutover trivial, senders read the endpoint from **env vars
   *senders* resolving where to send.
 - The Tailscale **ACL still gates ports** — `homelab` resolving doesn't bypass it;
   the host's tag still needs `3000/8428/9428/10428/8090/4000` granted.
-- **During the DGX stopgap**, the backend still runs on the DGX, so senders point
-  at `dgx-llm-1` (its tailnet name); they flip to `homelab` once the backend moves
-  to the mini. `homelab` is already named, so no IPs are needed either way.
+- **The backend now runs on the mini**, which is named `homelab`, so senders point
+  at `homelab` and no IPs are needed. (Historically, during the DGX stopgap,
+  senders pointed at `dgx-llm-1`; that flip is done.)

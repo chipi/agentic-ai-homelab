@@ -79,15 +79,16 @@ nav:
     - Local AI infra: local-ai-infra.md
     - Cloud AI workflow: cloud-ai-workflow.md
     - Agent harnesses: agent-harnesses.md
+  - Agentic fleets — architecture: fleet-architecture.md
   - Recipes:
     - DGX terminal dashboard: recipes/dgx-terminal-dashboard.md
     - GPU mode-swap: recipes/gpu-mode-swap.md
-    - Observability boot: recipes/observability-boot.md
     - Mac mini → observability host: recipes/mac-mini-observability.md
     - Observability endpoints (obs name): recipes/observability-endpoints.md
+    - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md
     - Token management (lean-ctx): recipes/token-management-lean-ctx-rtk.md
     - Chrome DevTools MCP agent loop: recipes/chrome-devtools-mcp-agent-loop.md
-    - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md
+    - Observability boot (superseded): recipes/observability-boot.md
   - Reading:
     - Overview: reading/README.md
     - LLM stack — end-to-end: reading/llm-end-to-end.md
@@ -111,11 +112,14 @@ nav:
     - ADR-0004 — Hardening workflow: adr/ADR-0004-hardening-workflow.md
     - ADR-0005 — Self-hosted observability platform: adr/ADR-0005-langfuse-glitchtip-self-host.md
     - ADR-0006 — Mac mini observability provisioning: adr/ADR-0006-mac-mini-observability-provisioning.md
+    - ADR-0007 — Umami self-hosted analytics: adr/ADR-0007-umami-self-host-analytics.md
+    - ADR-0008 — Fleet daemon tech + framework non-adoption: adr/ADR-0008-fleet-daemon-tech-and-framework-non-adoption.md
   - Proposals (RFC):
     - Overview: rfc/README.md
     - RFC-0001 — LiteLLM ↔ Langfuse capture: rfc/RFC-0001-litellm-langfuse-capture.md
     - RFC-0002 — Autonomous bug-fix fleet: rfc/RFC-0002-autonomous-bug-fix-fleet.md
     - RFC-0003 — Signal-to-action fleet: rfc/RFC-0003-signal-to-action-fleet.md
+    - RFC-0004 — fleetd supervisor: rfc/RFC-0004-fleetd-supervisor.md
   - In progress:
     - Overview: wip/README.md
     - Next steps: wip/NEXT_STEPS.md

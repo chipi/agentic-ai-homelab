@@ -49,3 +49,5 @@ Keep it short. ADRs that grow past 200 lines usually need to be split.
 - [ADR-0004 — Hardening: inline-by-default; dynamic workflow only for blind-spots](ADR-0004-hardening-workflow.md)
 - [ADR-0005 — Self-hosted observability platform: metrics/logs, Langfuse, GlitchTip](ADR-0005-langfuse-glitchtip-self-host.md)
 - [ADR-0006 — Mac mini observability host: fresh-start migration + bootstrap/sops provisioning](ADR-0006-mac-mini-observability-provisioning.md)
+- [ADR-0007 — Umami self-hosted analytics](ADR-0007-umami-self-host-analytics.md)
+- [ADR-0008 — Fleet daemon in Go; framework non-adoption (Temporal/LiteLLM tracks open)](ADR-0008-fleet-daemon-tech-and-framework-non-adoption.md)

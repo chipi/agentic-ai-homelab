@@ -4,9 +4,11 @@
 the self-hosted GlitchTip, split **dev** (Mac) vs **prod** (VPS). GlitchTip is
 Sentry-SDK/DSN compatible — you use the normal `sentry-sdk`, just point it here.
 
-> **`homelab`** is the Tailscale name of the observability host (a MagicDNS device name →
-> the DGX now, the Mac mini later). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
-> Backend is on `dgx-llm-1` now (stopgap); flip to `homelab` after migration.
+> **`homelab`** is the Tailscale name of the observability host (a MagicDNS
+> device name → the Mac mini). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
+> Backend is on `homelab` (the Mac mini) — migration complete (verified
+> 2026-07-25). `homelab` is the tailnet name to use; the old `dgx-llm-1` stopgap
+> is retired.
 
 ## Status (2026-07-20) — everything is ready
 

@@ -2,7 +2,7 @@
 
 **For:** the podcast project (where VPS infra lives). **Goal:** own the
 podcast/VPS **app** dashboards in that repo (dashboards-as-code next to the app)
-and deploy them into the **shared** Grafana on the DGX via API push.
+and deploy them into the **shared** Grafana on the Mac mini (`homelab`) via API push.
 
 Split of ownership:
 - **Homelab repo** owns the backend stack + infra dashboards (host, GPU,
@@ -14,9 +14,10 @@ There is ONE Grafana — everything renders there; only the *source* is split.
 
 ## Already set up on the shared Grafana (2026-07-19)
 
-- **Endpoint:** `http://dgx-llm-1:3000` (DGX, over Tailscale; `3000` is
-  ACL-granted). Datasources available by uid: `victoriametrics` (metrics),
-  `victorialogs` (logs).
+- **Endpoint:** `http://homelab:3000` (the Mac mini, over Tailscale; `3000` is
+  ACL-granted). *(This was `dgx-llm-1:3000` during the DGX stopgap — the backend
+  has since migrated to the mini; use `homelab`.)* Datasources available by uid:
+  `victoriametrics` (metrics), `victorialogs` (logs).
 - **Folder:** `VPS — Podcast`, **folderUid = `vps-podcast`**.
 - **Service account:** `podcast-deploy` (Editor role) with a token.
   - The token was handed to the operator out-of-band. Store it as a **secret**
@@ -29,7 +30,7 @@ There is ONE Grafana — everything renders there; only the *source* is split.
 Keep dashboard JSON under `dashboards/` in the podcast repo. On deploy, push each:
 
 ```sh
-GRAFANA="http://dgx-llm-1:3000"
+GRAFANA="http://homelab:3000"
 for f in dashboards/*.json; do
   # wrap the raw dashboard model in the push envelope, force the folder + overwrite
   jq -c '{dashboard: ., folderUid: "vps-podcast", overwrite: true}' "$f" \
@@ -67,6 +68,6 @@ Rules for clean idempotent pushes:
   types `instant` (log lines) / `stats` / `statsRange` (need a `| stats …`
   pipe); variables use `fieldValue` → `field_values`. See the homelab
   `Logs — Overview` dashboard for a worked example.
-- Ports bind to the tailnet IP — reach Grafana at `dgx-llm-1`, not loopback.
+- Ports bind to the tailnet IP — reach Grafana at `homelab`, not loopback.
 - The podcast VPS should also be shipping metrics/logs first — see
   `observability-vps-collector-handover.md`.

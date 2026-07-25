@@ -4,17 +4,20 @@
 host + container metrics into the self-hosted VictoriaMetrics that now runs on
 the DGX, so they show up in the same Grafana.
 
-**Status when this was written (2026-07-19):** backend is LIVE on the DGX and
-the DGX collector already writes to it. This task adds the VPS as a *second*
-collector. Nothing here touches the DGX.
+**Status when this was written (2026-07-19):** backend was LIVE on the DGX
+(stopgap) and the DGX collector already wrote to it. This task adds the VPS as a
+*second* collector. **Update:** the backend has since migrated to the Mac mini
+(`homelab`) — point senders at `homelab`, not the DGX.
 
 ---
 
 ## The target you're pointing at
 
-> **`homelab`** is the Tailscale name of the observability host (a MagicDNS device name →
-> the DGX now, the Mac mini later). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
-> Backend is on `dgx-llm-1` now (stopgap); flip to `homelab` after migration.
+> **`homelab`** is the Tailscale name of the observability host (a MagicDNS
+> device name → the Mac mini). See [`../recipes/observability-endpoints.md`](../recipes/observability-endpoints.md).
+> Backend is on `homelab` (the Mac mini) — migration complete (verified
+> 2026-07-25). `homelab` is the tailnet name to use; the old `dgx-llm-1` stopgap
+> is retired.
 
 - **VictoriaMetrics** (ingest): `http://homelab:8428/api/v1/write`
   - Reachable from any tailnet host. No auth on the tailnet.
