@@ -5,7 +5,7 @@
   "fleets": [
     {
       "name": "triage",
-      "enabled": false,
+      "enabled": true,
       "interval": "10m",
       "cycle_cmd": "python3 orchestrator.py --cycle --limit 10",
       "workdir": "/Users/markodragoljevic/signal-fleet/mvp",
