@@ -18,3 +18,19 @@ datasources:
     access: proxy
     url: http://victoriatraces:10428/select/tempo
     editable: false
+    jsonData:
+      # Correlation click-through (ADR-119, G3a): from a trace span, jump to its
+      # correlated logs in VictoriaLogs — the reverse of the VictoriaLogs
+      # derivedField (log -> trace), completing the round-trip. The trace id is
+      # matched as a bare LogsQL word filter, so it catches BOTH the structured
+      # events' "trace_id":"<hex>" and the plain-log / API access-log "trace=<hex>".
+      # $$ escapes Grafana's provisioning env-interpolation so the datasource
+      # receives the literal ${__trace.traceId} template (resolved at query time).
+      tracesToLogsV2:
+        datasourceUid: victorialogs
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: false
+        filterBySpanID: false
+        customQuery: true
+        query: '$${__trace.traceId}'
