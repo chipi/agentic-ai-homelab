@@ -117,12 +117,17 @@ replay before touching production).
       oracle-passed with PASS_TO_PASS intact.
 - [x] Reporter loop + coverage protocol (production analog: needs-info goes
       to the issue reporter / operator).
-- [ ] **Real-issue intake wiring** — GH `bug`-label → ticket shape →
-      orchestrate loop; PR out (branch + PR via the existing App code in
-      `src/github/`), NEVER merge. Scope: **orrery only**.
-- [ ] **Production acceptance path** — worker must produce a failing-test
-      first (repro-first), CI green after; Claude reviewer gate wired on
-      the PR.
+- [x] **Real-issue intake wiring** — DONE 2026-07-25 in **Go**
+      (`fleetd chain`, per the lab-bash/production-Go split): GH bug-label
+      intake → triage leaf → fix leaf → mechanical gates → branch + PR
+      (draft at propose; shadow pushes nothing). Validated E2E in shadow
+      on real issue #389: shipped-local in ~11 min.
+- [x] **Production acceptance path (core)** — repro-first enforced
+      mechanically (test-in-diff or rejected) + **delta grading** (no NEW
+      failures vs branch base — learned live: orrery main carries 39 red;
+      naive suite-green can never pass). Remaining sub-items: production
+      kick-back loop (single-attempt today), Claude reviewer gate on the
+      PR, per-chain budget caps.
 - [ ] Budget caps per chain + per day; kill switch; ledger as built.
 
 ### Stage B1 — Shadow on real backlog

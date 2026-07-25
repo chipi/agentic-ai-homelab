@@ -65,7 +65,16 @@ type supervisor struct {
 	state dayState
 }
 
+func newFlagSet(name string) *flag.FlagSet {
+	return flag.NewFlagSet(name, flag.ExitOnError)
+}
+
 func main() {
+	// subcommand: `fleetd chain` = Fleet 1's production orchestrator (chain.go)
+	if len(os.Args) > 1 && os.Args[1] == "chain" {
+		chainMain(os.Args[2:])
+		return
+	}
 	cfgPath := flag.String("config", "fleetd.json", "path to config")
 	once := flag.Bool("once", false, "run one cycle per enabled fleet, then exit (smoke/test)")
 	flag.Parse()

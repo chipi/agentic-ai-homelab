@@ -18,9 +18,13 @@ smoke: build
 	@./deploy/smoke.sh && echo "SMOKE PASS" || (echo "SMOKE FAIL"; exit 1)
 
 # deploy: keep previous binary for 30-second rollback; bootstrap launchd.
-deploy: vet build
+# The mini is an INTEL Mac (x86_64) — cross-compile explicitly; the dev
+# laptop is arm64 and a native build is "Bad CPU type" on the target.
+deploy: vet
+	@GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o fleetd-amd64 . && echo "BUILD PASS amd64 ($(SHA))" || (echo "BUILD FAIL"; exit 1)
 	@$(SSH) $(MINI) 'mkdir -p $(DEST) && [ -f $(DEST)/fleetd ] && cp $(DEST)/fleetd $(DEST)/fleetd.prev || true'
-	@scp -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes fleetd deploy/fleetd.json deploy/com.homelab.fleetd.plist $(MINI):$(DEST)/
+	@scp -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes deploy/fleetd.json deploy/com.homelab.fleetd.plist $(MINI):$(DEST)/
+	@scp -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes fleetd-amd64 $(MINI):$(DEST)/fleetd
 	@$(SSH) $(MINI) 'cp $(DEST)/com.homelab.fleetd.plist ~/Library/LaunchAgents/ && launchctl unload ~/Library/LaunchAgents/com.homelab.fleetd.plist 2>/dev/null; launchctl load ~/Library/LaunchAgents/com.homelab.fleetd.plist' \
 		&& echo "DEPLOY PASS ($(SHA) → $(MINI))" || (echo "DEPLOY FAIL"; exit 1)
 
@@ -42,3 +46,6 @@ start:
 
 logs:
 	@$(SSH) $(MINI) 'tail -40 $(DEST)/fleetd.log'
+
+chain: build
+	@./fleetd chain -config deploy/chain.json $(if $(ISSUE),-issue $(ISSUE),) && echo "CHAIN PASS" || (echo "CHAIN FAIL"; exit 1)
