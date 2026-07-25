@@ -176,7 +176,7 @@
   "templating": {
     "list": [
       {
-        "current": { "text": "Prod", "value": "prod" },
+        "current": { "text": "All", "value": ".*" },
         "includeAll": false,
         "label": "Env",
         "multi": false,
