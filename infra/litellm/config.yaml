@@ -20,6 +20,18 @@ model_list:
       model: openrouter/deepseek/deepseek-v4-pro
       api_key: os.environ/OPENROUTER_API_KEY
 
+  # --- direct-provider test aliases (provider bake-off; A/B vs OpenRouter) --
+  # Same underlying models via api.deepseek.com. Names follow DeepSeek's
+  # post-2026-07-24 scheme (deepseek-chat/reasoner deprecated).
+  - model_name: test-deepseek-direct-pro
+    litellm_params:
+      model: deepseek/deepseek-v4-pro
+      api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: test-deepseek-direct-flash
+    litellm_params:
+      model: deepseek/deepseek-v4-flash
+      api_key: os.environ/DEEPSEEK_API_KEY
+
   # --- general-purpose aliases (other homelab projects) -------------------
   - model_name: homelab-flash
     litellm_params:
