@@ -258,6 +258,32 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [0] } }]
 
+      # --- LiteLLM gateway down ----------------------------------------------------
+      # The production LLM gateway (infra/litellm). LiteLLM's own /metrics is
+      # enterprise-gated, so the probe is the stack's postgres-exporter: if it
+      # stops reporting, the stack is down (compose restarts together).
+      - uid: litellm-gateway-down
+        title: "LiteLLM gateway down (stack exporter gone)"
+        condition: threshold
+        for: 5m
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "LiteLLM gateway stack down for 5m — production LLM routing (fleets + consumers on homelab:4001) is dead. cd ~/agentic-ai-homelab/infra/litellm && docker compose up -d."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min(up{job="litellm-postgres"})'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
 # NOT re-homed yet — Caddy edge 5xx (the third T-11 rule). The caddy.service
 # systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
 # (with status codes) is not tailed into VictoriaLogs (status:* = 0 hits). Wire the

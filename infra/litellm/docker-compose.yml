@@ -1,0 +1,62 @@
+# LiteLLM — the homelab's production LLM gateway (RFC-0001, resurrected via
+# ADR-0008's fired trigger). One OpenAI-compatible endpoint; providers are
+# config. First-class homelab service: serves the agent fleets today, any
+# project tomorrow.
+#
+# Port 4001 (4000 is Langfuse). Auth: master key + per-consumer virtual keys
+# with budgets — safe to bind on the tailnet like the other services.
+# v0.1: image tags pinned after first successful boot (repo convention).
+
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm-database:main-stable
+    container_name: litellm
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4001:4000"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://litellm:${LITELLM_PG_PASSWORD}@postgres:5432/litellm"
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm-postgres
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${LITELLM_PG_PASSWORD}
+      POSTGRES_DB: litellm
+    volumes:
+      - litellm-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: litellm-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://litellm:${LITELLM_PG_PASSWORD}@postgres:5432/litellm?sslmode=disable"
+    ports:
+      - "127.0.0.1:9189:9187"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  litellm-pg:

@@ -40,7 +40,7 @@ and where the project's measured value is concentrated.
 |---|---|---|
 | **LangGraph** (1.0, checkpointing) | not adopted | its value = durable state graphs for LLM-driven flows; our sacred rule is the opposite (no LLM in control flow), loops are ~150 deterministic lines, and chains cost ~$0.50 to simply re-run — durability is not our pain |
 | **Temporal** | **track OPEN** | industrial durable execution; the right answer if fleets outgrow "restart the cycle" reliability. **Revisit trigger:** a lost in-flight chain costs more than an hour of operator attention, or fleet count/volume makes launchd babysitting real work |
-| **LiteLLM** | **track OPEN** | per-key budget caps, multi-provider routing/fallback, spend tracking. **Revisit trigger:** going beyond OpenRouter (operator explicitly anticipates this). Prior art in-repo: [RFC-0001](../rfc/RFC-0001-litellm-langfuse-capture.md) already designed LiteLLM↔Langfuse capture — resurrect it then |
+| **LiteLLM** | **TRIGGER FIRED 2026-07-25 → adopted** | the operator declared production must route beyond OpenRouter (direct DeepSeek/Moonshot/Z.ai/US, cheap-first) — same day. Stood up as the homelab gateway (`infra/litellm/`, RFC-0001 → Accepted): provider-swappable aliases, per-consumer budget keys, Langfuse/GlitchTip callbacks. OpenRouter remains the lab route |
 | CrewAI / AutoGen-style | rejected | LLM-driven multi-agent orchestration — the architecture ADR-0004 measured at 10–180× our cost for equal outcomes |
 | promptfoo / DeepEval | not adopted | our eval's value is fixtures + frozen probe tables (domain-specific); the runner is trivial |
 | n8n | deferred as designed | RFC-0002 already earmarks it as glue for non-core integrations |

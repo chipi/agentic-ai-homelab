@@ -1,0 +1,51 @@
+# LiteLLM gateway config — model ALIASES are the contract; routes behind them
+# are swappable per-alias without touching any consumer (the whole point:
+# OpenRouter today, direct DeepSeek/Moonshot/Z.ai/US providers tomorrow).
+#
+# Consumers call aliases (fleet-triage-flash, ...), never provider names —
+# so eval stamps, RATES tables, and fleet configs survive provider swaps.
+
+model_list:
+  # --- fleet aliases (production traffic) ---------------------------------
+  - model_name: fleet-triage-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: fleet-triage-pro
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-pro
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: fleet-bugfix-pro
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-pro
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # --- general-purpose aliases (other homelab projects) -------------------
+  - model_name: homelab-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: homelab-pro
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-pro
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: homelab-glm
+    litellm_params:
+      model: openrouter/z-ai/glm-5.2
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: homelab-kimi
+    litellm_params:
+      model: openrouter/moonshotai/kimi-k2.6
+      api_key: os.environ/OPENROUTER_API_KEY
+
+litellm_settings:
+  # full-package observability from day one (operator requirement):
+  # Langfuse traces on success+failure, GlitchTip (sentry-compatible) on failure
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse", "sentry"]
+  num_retries: 2
+  request_timeout: 120
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # virtual keys + budgets live in postgres (DATABASE_URL from compose)

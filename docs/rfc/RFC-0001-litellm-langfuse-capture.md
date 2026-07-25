@@ -1,6 +1,11 @@
 # RFC-0001 — LiteLLM proxy as the Langfuse capture layer
 
-**Status:** Proposed
+**Status:** Accepted 2026-07-25 (implemented, with updates) — stood up as the
+**production LLM gateway** at `infra/litellm/` (`homelab:4001/v1`), per
+ADR-0008's fired "beyond OpenRouter" trigger. Scope grew beyond capture:
+provider-swappable model aliases + per-consumer budget keys; Langfuse
+callback wired as designed here (project `litellm-gateway`). Ops docs:
+`infra/litellm/README.md` + `docs/wip/litellm-handover.md`.
 **Date:** 2026-07-20
 **Relates to:** ADR-0005 §4 (Langfuse capture path deferred). Langfuse is live at
 `infra/langfuse/` (project `agents`, `http://dgx-llm-1:4000`) but ingests
