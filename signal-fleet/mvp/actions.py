@@ -19,7 +19,8 @@ import config
 
 LEDGER_COLS = ["ts", "occurrence_id", "fingerprint", "source", "alertname",
                "disposition", "work_type", "followup", "model", "prompt_ver",
-               "prompt_sha", "gates", "n_probes", "certainty", "reason"]
+               "prompt_sha", "gates", "n_probes", "certainty", "reason",
+               "signal_count", "cycle_id", "stage"]
 
 
 def _now():
@@ -54,11 +55,50 @@ def ledger_append(signal, disp, followup=""):
            signal.get("source", ""), signal.get("alertname", ""), disp["disposition"],
            wt, followup, meta.get("model", ""), meta.get("prompt_ver", ""),
            meta.get("prompt_sha", ""), meta.get("gates", ""), str(meta.get("n_probes", "")),
-           meta.get("certainty", "") or "", disp.get("reason", "")[:300]]
+           meta.get("certainty", "") or "", disp.get("reason", "")[:300],
+           str(signal.get("labels", {}).get("count", "")),
+           os.environ.get("FLEETD_CYCLE_ID", ""),
+           os.environ.get("FLEETD_STAGE", "")]
     with open(config.LEDGER, "a") as f:
         if new:
             f.write("\t".join(LEDGER_COLS) + "\n")
         f.write("\t".join(_cell(x) for x in row) + "\n")
+
+
+def last_for_fingerprint(fp):
+    """Most recent NON-recurrence ledger row for a fingerprint: the baseline a
+    recurrence check compares against. Returns {ts, disposition, count} or None."""
+    if not os.path.exists(config.LEDGER):
+        return None
+    fi = LEDGER_COLS.index("fingerprint")
+    di = LEDGER_COLS.index("disposition")
+    ti = LEDGER_COLS.index("ts")
+    ci = LEDGER_COLS.index("signal_count")
+    last = None
+    with open(config.LEDGER) as f:
+        for n, line in enumerate(f):
+            if n == 0:
+                continue
+            p = line.rstrip("\n").split("\t")
+            if len(p) > fi and p[fi] == fp and (len(p) <= di or p[di] != "recurrence"):
+                cnt = 0
+                if len(p) > ci and p[ci].isdigit():
+                    cnt = int(p[ci])
+                last = {"ts": p[ti], "disposition": p[di] if len(p) > di else "",
+                        "count": cnt}
+    return last
+
+
+def record_recurrence(signal, prior):
+    """A fingerprint re-fired after a disposition: log it (the implicit-overturn
+    signal for Dismiss, review R2-2) without paying for a fresh triage."""
+    disp = {"disposition": "recurrence",
+            "reason": f"recurred after {prior['disposition']} @ {prior['ts']} "
+                      f"(count {prior['count']} -> {signal.get('labels', {}).get('count')})",
+            "_meta": {}}
+    print(f"[RECURRENCE] {signal.get('fingerprint')} after {prior['disposition']} "
+          f"({prior['count']} -> {signal.get('labels', {}).get('count')})")
+    ledger_append(signal, disp)
 
 
 def already_done(occurrence_id):

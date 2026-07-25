@@ -79,7 +79,8 @@ def glitchtip_unresolved(limit=10):
 
 def to_error_signal(issue):
     """Normalize a GlitchTip issue into an error signal. occurrence_id keys on
-    lastSeen so a re-firing after resolve is a fresh occurrence (review R3-1)."""
+    firstSeen (stable per issue episode — R5-4); new-event recurrence is handled
+    by the orchestrator's recurrence check, not by a fresh occurrence id."""
     proj = (issue.get("project") or {}).get("slug", "")
     sid = issue.get("shortId") or str(issue.get("id"))
     fp = f"glitchtip:{sid}"

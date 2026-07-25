@@ -224,10 +224,14 @@ def _gate(d, signal, trace):
 def _finish(signal, disp, trace, gates, usage, t0):
     table_miss = sum(1 for t in trace
                      if isinstance(t["result"], str) and t["result"].startswith("<TABLE-MISS"))
+    r = config.RATES.get(config.TRIAGE_MODEL)
+    cost = 0.0
+    if r and isinstance(usage, dict):
+        cost = (usage.get("prompt_tokens") or 0) * r[0] + (usage.get("completion_tokens") or 0) * r[1]
     disp["_meta"] = {"model": config.TRIAGE_MODEL, "prompt_ver": config.TRIAGE_PROMPT_VER,
                      "prompt_sha": PROMPT_SHA, "gates": gates,
                      "probes": [t["probe"] for t in trace], "n_probes": len(trace),
-                     "table_miss": table_miss,
+                     "table_miss": table_miss, "cost_usd": round(cost, 6),
                      "certainty": disp.get("certainty"), "usage": usage}
     observ.finalize(signal, disp, usage=usage, latency_s=time.time() - t0)
     return disp

@@ -46,6 +46,19 @@ TRIAGE_PROMPT_VER = "mvp-1"
 # fleet's own observability so calibration runs never pollute live traces/metrics.
 OBSERV_DISABLED = bool(env("SF_OBSERV_DISABLED"))
 
+# per-token $ rates for cycle spend accounting (OpenRouter = provider list;
+# conservative: cache-read counted at full input rate would only overcount,
+# but OpenRouter usage reports prompt/completion, so this is close enough for
+# the fleetd budget guard — Langfuse holds the precise picture)
+RATES = {
+    "deepseek/deepseek-v4-pro":   (4.35e-7, 8.7e-7),
+    "deepseek/deepseek-v4-flash": (1.4e-7, 2.8e-7),
+}
+
+# fleetd cycle contract (RFC-0004): stage + spend report + recurrence window
+SPEND_FILE = env("SF_SPEND_FILE", os.path.expanduser("~/signal-fleet/results/.last_cycle_spend"))
+RETRIAGE_HOURS = float(env("SF_RETRIAGE_HOURS", "24"))
+
 # state
 LEDGER = env("SF_LEDGER", os.path.expanduser("~/signal-fleet/results/dispositions.tsv"))
 # propose-first: File/Tune proposals are queued here as drafts for operator review

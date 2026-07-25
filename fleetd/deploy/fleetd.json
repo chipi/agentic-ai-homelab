@@ -7,7 +7,7 @@
       "name": "triage",
       "enabled": false,
       "interval": "10m",
-      "cycle_cmd": "python3 orchestrator.py --glitchtip --limit 5 && python3 orchestrator.py",
+      "cycle_cmd": "python3 orchestrator.py --cycle --limit 10",
       "workdir": "/Users/markodragoljevic/signal-fleet/mvp",
       "env_file": "/Users/markodragoljevic/signal-fleet/fleet.env",
       "stop_flag": "/Users/markodragoljevic/signal-fleet/STOP",
