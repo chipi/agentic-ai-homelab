@@ -48,7 +48,7 @@ echo "══ advisor episode ($MODEL) ══"
 # kimi-k2.6 ran 27-31 min uncapped; 72k output tokens for a read-only pin)
 MAX_WALL="${ADVISOR_MAX_WALL:-600}"
 SECONDS=0
-( cd "$WT" && pi -p --mode json --model "$MODEL" "$PROMPT" < /dev/null ) \
+( cd "$WT" && pi -p --mode json --provider openrouter --model "$MODEL" "$PROMPT" < /dev/null ) \
   > "$WOUT/advisor-raw.json" 2> "$WOUT/advisor.err" &
 HPID=$!
 while kill -0 "$HPID" 2>/dev/null; do

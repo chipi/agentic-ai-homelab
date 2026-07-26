@@ -144,7 +144,7 @@ EOF
 echo "══ run triager ══"
 SECONDS=0
 MAX_WALL="${TRIAGE_MAX_WALL:-900}"
-( cd "$WT" && pi -p --mode json --model "$MODEL" "$PROMPT" < /dev/null ) \
+( cd "$WT" && pi -p --mode json --provider openrouter --model "$MODEL" "$PROMPT" < /dev/null ) \
   > "$OUT/harness.json" 2> "$OUT/harness.err" &
 HPID=$!
 while kill -0 "$HPID" 2>/dev/null; do
