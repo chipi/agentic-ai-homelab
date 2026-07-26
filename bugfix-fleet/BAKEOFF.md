@@ -964,6 +964,58 @@ archives raw episodes; (2) provider allowlist changes reroute serving
 Novita was allowed) — provider noted alongside round-2 numbers since
 wall times aren't comparable across serving stacks.
 
+**Observed (2026-07-26, session 3m): seat-auction round 2 — both seats
+decided on evidence; the advisor seat's two skills are ANTI-CORRELATED
+across 8 models.**
+
+*Worker floor (gate rows, 5 fix-ready bugs, k=1 sieve):* flash is the
+floor, definitively. Every sub-flash candidate died on the SAME cell
+(mission-arc) with the same signature — right file (scope=yes), long
+grind, one acceptance test still red: qwen3.5-flash 4/5 (its 335 fail
+was a flake — retry PASSed), glm-4.7-flash 4/5, qwen3-coder-30b 4/5,
+seed-2.0-mini 3/5 (incl. the floor hunt's only REGRESSION). The
+$0.06–0.11 tier reaches the right code and cannot close precision;
+flash at $0.14 remains the cheapest model that passes. Worker seat:
+**flash, promoted into fleetd** (worker_model, default v4-flash) after
+3/3 closed-loop ships incl. pin-following and reporter integration; lab
+pi.sh base stays v4-pro as the frozen reference.
+
+*Advisor round 2 (4 challengers × 3 fixtures × k=3, ADVISOR_MAX_WALL=600):*
+
+| challenger | $/M in | decoy | wrong-layer | confirm |
+|---|---|---|---|---|
+| qwen3.7-plus | 0.32 | 2/3 | 2/2 +cut | 0/3 (2 cuts + invention) |
+| minimax-m3 | 0.30 | 0/3 | 3/3 | 0/3 (fly call-site ×3) |
+| stepfun-3.7-flash | 0.20 | 2/2 +cut | 3/3 | 0/3 (2 cuts + invention) |
+| qwen3-max-thinking | 0.78 | 0/3 | 0/3 | **3/3** (55–101s) |
+
+**No challenger clears the two-skill bar (≥3/3 decoy AND ≥2/3 confirm);
+glm-5.2 RETAINS the seat.** Across both rounds (8 models) the skills
+anti-correlate almost perfectly: suspicion-tuned models (glm, stepfun,
+minimax) redirect well and cannot accept "the location is right";
+trust-tuned models (flash, v4-pro, kimi, max-thinking) confirm cleanly
+and follow name-traps. Price does not correlate ($0.78 max-thinking:
+0/6 redirects; $0.20 stepfun: never wrong on a finished redirect).
+Rationale archaeology softens "invention": on the confirm fixture the
+redirect-tuned models found a REAL bypass path (Moon missions skip
+buildArcs/transferEllipse via a route-local arc) and over-weighted it —
+real structure, off-oracle. **Structural consequence — split the
+consultation by evidence shape, staffed from models already in the
+stack:** redirect-mode (patch touched off-target) → glm; confirm-mode
+(patch touched where ticket/pin points) → flash (3/3 confirm, already
+the worker). Mechanical branch, no new vendors. Deferred until real
+bugs show confirm-mode consultations matter (the acceptance transition
+already covers the pinned case).
+
+Ops learnings 3m: (2nd budget wall in one day) prepaid credits ran out
+mid-round — 75.26/75 — distinct knob from the org monthly cap; auto
+top-up recommended for unattended fleets. pi resolves bare model ids
+against its BUILTIN catalog first (qwen3-coder-30b → huggingface, 0-turn
+deaths burned a gate row) → all leaves now pin `--provider openrouter`,
+candidates registered in ~/.pi/agent/models.json. Dead-call guard
+threshold was too tight (real dead-calls take 5–6s through pi startup,
+guard said ≤2s) → now ≤10s.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify

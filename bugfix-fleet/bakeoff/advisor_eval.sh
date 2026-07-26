@@ -48,7 +48,7 @@ score_one() { # fixture model runidx
   rm -rf "$TMPEV"
   # dead-call guard (measured 2026-07-26: OpenRouter org monthly cap → 403 =
   # instant empty completions across ALL models; 12 garbage rows before stop)
-  if [ -z "$PIN" ] && [ "$WALL" -le 2 ]; then
+  if [ -z "$PIN" ] && [ "$WALL" -le 10 ]; then
     DEAD=$((DEAD + 1))
     if [ "$DEAD" -ge 3 ]; then
       echo "ABORT: $DEAD consecutive instant-empty episodes — provider dead-calls (check credits/caps), not model verdicts"
