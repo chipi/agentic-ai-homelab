@@ -43,9 +43,24 @@ in a \`\`\`json fenced block:
 EOF
 
 echo "══ advisor episode ($MODEL) ══"
+# wall cap: the seat's contract is bounded latency — a consultation that
+# doesn't fit the kick-back loop is no consultation (measured 2026-07-26:
+# kimi-k2.6 ran 27-31 min uncapped; 72k output tokens for a read-only pin)
+MAX_WALL="${ADVISOR_MAX_WALL:-600}"
 SECONDS=0
 ( cd "$WT" && pi -p --mode json --model "$MODEL" "$PROMPT" < /dev/null ) \
-  > "$WOUT/advisor-raw.json" 2> "$WOUT/advisor.err" || true
+  > "$WOUT/advisor-raw.json" 2> "$WOUT/advisor.err" &
+HPID=$!
+while kill -0 "$HPID" 2>/dev/null; do
+  if [ "$SECONDS" -ge "$MAX_WALL" ]; then
+    echo "   budget: wall ${MAX_WALL}s exceeded — cutting"
+    pkill -P "$HPID" 2>/dev/null || true; kill "$HPID" 2>/dev/null || true
+    sleep 2; pkill -9 -P "$HPID" 2>/dev/null || true; kill -9 "$HPID" 2>/dev/null || true
+    break
+  fi
+  sleep 5
+done
+wait "$HPID" 2>/dev/null || true
 WALL=$SECONDS
 python3 - "$WOUT/advisor-raw.json" "$WOUT/advisor.json" <<'PY' || true
 import json, re, sys
