@@ -59,6 +59,9 @@ worker_verdict(){ cut -f3 "$1/result.tsv"; }
 # ticket (current description + Q&A transcript) into $TICKET and returns 0.
 # Returns 1 (after logging why) when the loop must end as needs-info instead.
 QA=0
+PINS=""  # every advisor pin issued this run — survives reporter-QA restarts
+         # (measured 2026-07-26 accfix-k1: resetting per inner loop lost the
+         # pin across the QA round and the advisor re-invented a location)
 ask_reporter(){ # $1 = the triage.json carrying .missing
   QA=$((QA + 1))
   if [ "$QA" -gt "$REPORTER_MAX" ]; then flow "needs-info" "reporter rounds exhausted"; return 1; fi
@@ -93,7 +96,6 @@ while :; do # ── outer: one triage pass over the current (possibly QA-augmen
   # ── inner: specialist attempts + kick-back loop on this triaged problem ──
   TID=$(jq -r .id "$TICKET")        # differs from $ID after reporter QA rounds
   ROUND=0
-  LASTPIN=""                        # advisor pin from the previous kick-back
   MANIFEST="bugs/triaged/${TID}-triaged.json"
   while :; do
     flow "fixing" "round=$ROUND manifest=$MANIFEST"
@@ -121,17 +123,26 @@ while :; do # ── outer: one triage pass over the current (possibly QA-augmen
     # AT the advisor's pin that still fails is an acceptance gap by definition.
     # Re-consulting the advisor only makes it invent a new location (all 3
     # chains pivoted to the call site). Route to the reporter deterministically.
-    ACC_GAP=0
-    if [ -n "$LASTPIN" ] && grep -qxF "$LASTPIN" "$WOUT/touched.txt" 2>/dev/null; then
-      ACC_GAP=1
-      flow "acceptance-gap" "fixed at pin $LASTPIN, still failing — reporter"
+    ACC_GAP=0; ACC_PIN=""
+    while IFS= read -r P; do
+      [ -n "$P" ] || continue
+      if grep -qxF "$P" "$WOUT/touched.txt" 2>/dev/null; then
+        ACC_GAP=1; ACC_PIN="$P"; break
+      fi
+    done <<PINSEOF
+$PINS
+PINSEOF
+    if [ "$ACC_GAP" = "1" ]; then
+      flow "acceptance-gap" "fixed at pin $ACC_PIN, still failing — reporter"
     fi
     # advisor consultation (§4.2): premium reasoning only at the stuck point.
     # Best-effort — a failed advisor episode never blocks the kick-back.
     if [ "${ADVISOR:-1}" = "1" ] && [ "$ACC_GAP" = "0" ]; then
       flow "advising" "model=${ADVISOR_MODEL:-z-ai/glm-5.2}"
       "$HERE/advisor_run.sh" "$TICKET" "$WOUT" || flow "advising" "no usable advisor output"
-      LASTPIN=$(jq -r '.file // ""' "$WOUT/advisor.json" 2>/dev/null || echo "")
+      NEWPIN=$(jq -r '.file // ""' "$WOUT/advisor.json" 2>/dev/null || echo "")
+      [ -z "$NEWPIN" ] || PINS="$PINS
+$NEWPIN"
     fi
     if [ "$ROUND" -gt 1 ]; then KB_SUFF="-kb$((ROUND-1))"; else KB_SUFF=""; fi
     PRIOR="$ROOT/results/${TID}-triage${KB_SUFF}/$HARNESS/triage.json"
@@ -143,6 +154,15 @@ while :; do # ── outer: one triage pass over the current (possibly QA-augmen
     if [ "$ACC_GAP" = "1" ] && [ "$KV" = "actionable" ]; then
       flow "downgrade" "acceptance-gap triage returned actionable — forcing needs-info"
       KV=needs-info
+    fi
+    # a downgraded/question-less needs-info gives the reporter nothing to
+    # answer (measured accfix-k1: chain died as bare needs-info) — synthesize
+    # the acceptance question from the pin + failure so ask_reporter can relay
+    if [ "$ACC_GAP" = "1" ] && [ "$KV" = "needs-info" ] \
+       && ! jq -e '.missing | length > 0' "$KOUT/triage.json" >/dev/null 2>&1; then
+      PINQ="The fix modified $ACC_PIN (the advisor-confirmed owner) and the hidden acceptance still fails ($WV). Localization is settled — what is the exact expected behavior at that location: formulas, units, reference values, and edge-case handling?"
+      jq --arg q "$PINQ" '.missing = [$q]' "$KOUT/triage.json" > "$KOUT/triage.acc.json" \
+        && mv "$KOUT/triage.acc.json" "$KOUT/triage.json"
     fi
     case "$KV" in
       needs-info) ask_reporter "$KOUT/triage.json" && continue 2 || exit 0;;

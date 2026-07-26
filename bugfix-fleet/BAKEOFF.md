@@ -892,6 +892,21 @@ front-runner on price; NOT yet covered: flash under kick-back/advisor
 pins (does it follow a pin as reliably?), flash on real un-oracled
 tickets, judged patch quality vs v4-pro on the passing cells.
 
+*Verification (same night, accfix k=3 — three script vintages, each run
+hardening the next):* k1 exposed two residuals (pin memory reset across a
+reporter-QA restart → advisor re-invented the call-site pin one round
+later; a downgraded verdict carried no questions → chain died as bare
+needs-info). Fixed: pins are an accumulated per-run set surviving QA
+restarts, and a question-less downgrade synthesizes the acceptance
+question from pin+failure. k2 (gap rule only): acceptance-gap fired at
+exactly the intended round — no advisor re-invention, no round-3 burn.
+k3 (complete script): **SHIPPED** —
+fix@owner FAIL → advisor pin → reporter QA → fix@pin FAIL →
+acceptance-gap → synthesized question → reporter → **PASS r0, 10 turns,
+96s**. Every transition mechanical. Advisor pin now **9/9** lifetime.
+NOT a rate yet: final script is n=1 shipped (k1/k2 verified
+sub-components on earlier vintages); accfin k=2 confirmation queued.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify

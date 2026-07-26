@@ -257,7 +257,7 @@ func processIssue(cc ChainConfig, is ghIssue) {
 		budget = 3.0
 	}
 	spent := 0.0
-	pinned := "" // advisor pin from the previous kick-back round
+	var pins []string // every advisor pin issued this chain (a pivot must not erase the first pin)
 
 	for round := 0; ; round++ {
 		mraw, err := os.ReadFile(manifest)
@@ -340,16 +340,17 @@ func processIssue(cc ChainConfig, is ghIssue) {
 		// definition — re-consulting the advisor only invents a new location.
 		// Route to the reporter (= the operator) deterministically.
 		accGap := false
-		if pinned != "" {
+		accPin := ""
+		for _, p := range pins {
 			for _, f := range strings.Split(touched, "\n") {
-				if f == pinned {
-					accGap = true
+				if f == p {
+					accGap, accPin = true, p
 					break
 				}
 			}
 		}
 		if accGap {
-			led.add(is.Number, "acceptance-gap", "fixed at pin "+pinned+", still failing — reporter")
+			led.add(is.Number, "acceptance-gap", "fixed at pin "+accPin+", still failing — reporter")
 		}
 		if cc.Advisor != "off" && !accGap {
 			led.add(is.Number, "advising", "model="+advisorModel())
@@ -363,7 +364,9 @@ func processIssue(cc ChainConfig, is ghIssue) {
 					File string `json:"file"`
 				}
 				_ = json.Unmarshal(araw, &av)
-				pinned = av.File
+				if av.File != "" {
+					pins = append(pins, av.File)
+				}
 			}
 		}
 
