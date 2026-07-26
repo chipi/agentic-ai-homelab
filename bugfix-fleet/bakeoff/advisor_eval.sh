@@ -62,6 +62,10 @@ DEAD=0
 
 for FX in "$FIXDIR"/*/; do
   FX=$(basename "$FX")
+  # FIXTURES="mission-arc look-angles" limits the sweep (grid-completion runs)
+  if [ -n "${FIXTURES:-}" ]; then
+    case " $FIXTURES " in *" $FX "*) ;; *) continue;; esac
+  fi
   echo "════ fixture $FX ════"
   for M in "${MODELS[@]}"; do
     for R in $(seq 1 "$K"); do score_one "$FX" "$M" "$R"; done
