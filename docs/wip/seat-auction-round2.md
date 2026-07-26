@@ -1,5 +1,16 @@
 # Seat auction — round 2 plan (worker floor + advisor challengers)
 
+> **OUTCOME (2026-07-26, BAKEOFF §6.3 3m): round 2 executed and closed
+> same day.** Worker floor = **flash** (all sub-flash candidates died on
+> the mission-arc gate cell: qwen3.5-flash 4/5, glm-4.7-flash 4/5,
+> qwen3-coder-30b 4/5, seed-2.0-mini 3/5+regression); flash promoted
+> into fleetd (worker_model). Advisor: **no challenger cleared the
+> two-skill bar — glm-5.2 retains**; skills anti-correlate across 8
+> models (max-thinking 3/3 confirm / 0/6 redirect; stepfun never wrong
+> on finished redirects / 0/3 confirm). Split-consultation design
+> (redirect→glm, confirm→flash) noted, deferred to real-bug evidence.
+> Key-split rewire (below) remains the open item.
+
 2026-07-26. The workforce principle: every seat goes to the **cheapest
 model that passes that seat's bar**, measured on the frozen instruments —
 never assumed from benchmarks. Round 1 results (BAKEOFF §6.3 3k/3l):
