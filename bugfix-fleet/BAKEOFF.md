@@ -852,6 +852,46 @@ closes: reporter = acceptance (mission-arc), advisor = topology
 premium reasoning per stuck-point (~$0.15) beat wholesale premium models
 (sonnet at 20× hit the same walls, §8.2).
 
+**Observed (2026-07-26, session 3k): night confirmations — the n=1 ship
+RETRACTED as a rate; the missing piece was a deterministic acceptance
+transition, now built. Plus: flash ties v4-pro on every decisive cell.**
+
+*Part A — advisor+KICKBACK_MAX=3, fly-physics-L0, k=3: 0/3, all stuck at
+budget exhaustion.* The 3j "SHIPPED r1 (n=1)" did not replicate — pooled
+rate is 1/4. Round-by-round is IDENTICAL across all three chains and names
+the defect precisely:
+
+| round | what happened (all 3 chains) |
+|---|---|
+| 0 | fix off-pin (scope=no), FAIL |
+| 1 | advisor pins `heliocentricSpeed` (now **7/7** exact), fix AT pin, FAIL — acceptance |
+| 2 | advisor RE-consulted; seeing "failed at my pin" it **invents a new location** (pivots to the `+page.svelte` call site, all 3 chains) — fix there, FAIL |
+| 3 | advisor returns to the correct pin, fix at pin, FAIL — budget dead |
+
+The reporter was **unreachable by construction**: the advisor's pin gives
+the kb triager a citable repo-data source every round, so the
+uncited-actionable→needs-info downgrade can never fire, and the 2×2 routing
+(FAIL+right-place → acceptance gap → reporter) existed only as analysis,
+never as code. The 3j ship was a lucky triage draw. Fix (same commit):
+**acceptance-transition rule**, mechanical, in both instruments —
+orchestrate.sh and fleetd chain.go: if the failed patch touched the
+advisor's pinned file, skip the advisor (its only move is re-invention),
+run kb triage in ACCEPTANCE_GAP mode (localization declared settled,
+questions only), and force `actionable→needs-info` post-LLM. Verification
+chains (accfix k=3) run after this entry.
+
+*Part B — flash-as-worker row (gate ×5 + decisive ×3): flash ties v4-pro
+on EVERY cell.* Gates 5/5 PASS. Decisive at k=3: credits-L1 **3/3**,
+look-angles-L1 **3/3**, mission-arc-L0 **0/3** (scope=yes all runs —
+same acceptance gap), fly-physics-L1 **0/3** + L1-noctx **0/3** (same
+name-trap decoy). Identical rates, identical failure shapes, and flash
+FAILS CHEAPER — 8-turn/50s bails where v4-pro grinds 2–4.5×. §8.2
+spec-bounded now holds in BOTH directions: neither 20× up (sonnet) nor
+~4× down (flash) moves any verdict. The worker seat auction has a new
+front-runner on price; NOT yet covered: flash under kick-back/advisor
+pins (does it follow a pin as reliably?), flash on real un-oracled
+tickets, judged patch quality vs v4-pro on the passing cells.
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify

@@ -116,6 +116,22 @@ $(jq -r '"True owner: " + .file + " :: " + .function + "\nDecoy to warn off: " +
 EOF
     TASK="$TASK$ADV"
   fi
+  # acceptance-transition (measured 2026-07-26, advfull k=3 0/3 stuck): a fix
+  # AT the advisor-confirmed pin that still fails means localization is
+  # settled — re-pinning is invention. Lock the triager into acceptance mode.
+  if [ "${ACCEPTANCE_GAP:-0}" = "1" ]; then
+    read -r -d '' AGAP <<'EOF' || true
+
+## ACCEPTANCE GAP — localization is SETTLED
+
+The failed patch modified the exact file/function the advisor pinned, and the
+hidden acceptance still fails. Do NOT propose a new location; do NOT re-pin.
+The gap is in expected behavior, not topology. Verdict must be needs-info:
+ask the reporter precise questions about expected values/behavior at the
+pinned location (exact formulas, units, reference values, edge cases).
+EOF
+    TASK="$TASK$AGAP"
+  fi
 fi
 read -r -d '' PROMPT <<EOF || true
 $AGENT_DEF

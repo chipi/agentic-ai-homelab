@@ -93,6 +93,7 @@ while :; do # ── outer: one triage pass over the current (possibly QA-augmen
   # ── inner: specialist attempts + kick-back loop on this triaged problem ──
   TID=$(jq -r .id "$TICKET")        # differs from $ID after reporter QA rounds
   ROUND=0
+  LASTPIN=""                        # advisor pin from the previous kick-back
   MANIFEST="bugs/triaged/${TID}-triaged.json"
   while :; do
     flow "fixing" "round=$ROUND manifest=$MANIFEST"
@@ -116,18 +117,33 @@ while :; do # ── outer: one triage pass over the current (possibly QA-augmen
       exit 1
     fi
     flow "kick-back" "round=$ROUND evidence=$WOUT"
+    # acceptance-transition (measured 2026-07-26, advfull k=3 all stuck): a fix
+    # AT the advisor's pin that still fails is an acceptance gap by definition.
+    # Re-consulting the advisor only makes it invent a new location (all 3
+    # chains pivoted to the call site). Route to the reporter deterministically.
+    ACC_GAP=0
+    if [ -n "$LASTPIN" ] && grep -qxF "$LASTPIN" "$WOUT/touched.txt" 2>/dev/null; then
+      ACC_GAP=1
+      flow "acceptance-gap" "fixed at pin $LASTPIN, still failing — reporter"
+    fi
     # advisor consultation (§4.2): premium reasoning only at the stuck point.
     # Best-effort — a failed advisor episode never blocks the kick-back.
-    if [ "${ADVISOR:-1}" = "1" ]; then
+    if [ "${ADVISOR:-1}" = "1" ] && [ "$ACC_GAP" = "0" ]; then
       flow "advising" "model=${ADVISOR_MODEL:-z-ai/glm-5.2}"
       "$HERE/advisor_run.sh" "$TICKET" "$WOUT" || flow "advising" "no usable advisor output"
+      LASTPIN=$(jq -r '.file // ""' "$WOUT/advisor.json" 2>/dev/null || echo "")
     fi
     if [ "$ROUND" -gt 1 ]; then KB_SUFF="-kb$((ROUND-1))"; else KB_SUFF=""; fi
     PRIOR="$ROOT/results/${TID}-triage${KB_SUFF}/$HARNESS/triage.json"
-    "$HERE/triage_run.sh" "$TICKET" "$HARNESS" "$WOUT" "$PRIOR" \
+    ACCEPTANCE_GAP=$ACC_GAP "$HERE/triage_run.sh" "$TICKET" "$HARNESS" "$WOUT" "$PRIOR" \
       || { flow "stuck" "kick-back triage episode crashed (exit $?)"; exit 1; }
     KOUT="$ROOT/results/${TID}-triage-kb$ROUND/$HARNESS"
     KV=$(triage_verdict "$KOUT")
+    # mechanical enforcement — acceptance mode may not re-pin (prompt is a hope)
+    if [ "$ACC_GAP" = "1" ] && [ "$KV" = "actionable" ]; then
+      flow "downgrade" "acceptance-gap triage returned actionable — forcing needs-info"
+      KV=needs-info
+    fi
     case "$KV" in
       needs-info) ask_reporter "$KOUT/triage.json" && continue 2 || exit 0;;
       reject)     flow "rejected" "after round $ROUND"; exit 0;;

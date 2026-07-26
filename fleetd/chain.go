@@ -257,6 +257,7 @@ func processIssue(cc ChainConfig, is ghIssue) {
 		budget = 3.0
 	}
 	spent := 0.0
+	pinned := "" // advisor pin from the previous kick-back round
 
 	for round := 0; ; round++ {
 		mraw, err := os.ReadFile(manifest)
@@ -334,18 +335,42 @@ func processIssue(cc ChainConfig, is ghIssue) {
 		_ = os.WriteFile(filepath.Join(evDir, "result.tsv"), []byte(fmt.Sprintf(
 			"%s\tpi\tFAIL (%s)\t0\t%.4f\t%d\t%d\tno\t0\n", tid, reason, cost, turns, outTok)), 0o644)
 
-		if cc.Advisor != "off" {
+		// acceptance-transition (measured 2026-07-26, advfull k=3 all stuck): a
+		// fix AT the advisor's pin that still fails is an acceptance gap by
+		// definition — re-consulting the advisor only invents a new location.
+		// Route to the reporter (= the operator) deterministically.
+		accGap := false
+		if pinned != "" {
+			for _, f := range strings.Split(touched, "\n") {
+				if f == pinned {
+					accGap = true
+					break
+				}
+			}
+		}
+		if accGap {
+			led.add(is.Number, "acceptance-gap", "fixed at pin "+pinned+", still failing — reporter")
+		}
+		if cc.Advisor != "off" && !accGap {
 			led.add(is.Number, "advising", "model="+advisorModel())
 			ac := exec.Command(filepath.Join(cc.BakeoffDir, "advisor_run.sh"), tpath, evDir)
 			ac.Dir = cc.BakeoffDir
 			if aout, aerr := ac.CombinedOutput(); aerr != nil {
 				led.add(is.Number, "advising", "no usable advisor output: "+tail(string(aout), 80))
 			}
+			if araw, err := os.ReadFile(filepath.Join(evDir, "advisor.json")); err == nil {
+				var av struct {
+					File string `json:"file"`
+				}
+				_ = json.Unmarshal(araw, &av)
+				pinned = av.File
+			}
 		}
 
 		kb := exec.Command(filepath.Join(cc.BakeoffDir, "triage_run.sh"), tpath, "pi", evDir, priorTriage)
 		kb.Dir = cc.BakeoffDir
-		kb.Env = append(os.Environ(), "TRIAGE_BASE=origin/main")
+		kb.Env = append(os.Environ(), "TRIAGE_BASE=origin/main",
+			fmt.Sprintf("ACCEPTANCE_GAP=%d", boolToInt(accGap)))
 		if out, err := kb.CombinedOutput(); err != nil {
 			led.add(is.Number, "stuck", "kb triage crashed: "+tail(string(out), 160))
 			return
@@ -361,6 +386,11 @@ func processIssue(cc ChainConfig, is ghIssue) {
 			Verdict string `json:"verdict"`
 		}
 		_ = json.Unmarshal(kraw, &kv)
+		// mechanical enforcement — acceptance mode may not re-pin (prompt is a hope)
+		if accGap && kv.Verdict == "actionable" {
+			led.add(is.Number, "downgrade", "acceptance-gap triage returned actionable — forcing needs-info")
+			kv.Verdict = "needs-info"
+		}
 		switch kv.Verdict {
 		case "actionable":
 			manifest = filepath.Join(cc.BakeoffDir, "bugs", "triaged", fmt.Sprintf("%s-triaged-kb%d.json", tid, round+1))
@@ -427,6 +457,13 @@ func deliver(cc ChainConfig, is ghIssue, branch string, led chainLedger) {
 			led.add(is.Number, "reviewing", "reviewer episode failed (non-blocking)")
 		}
 	}
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func advisorModel() string {
