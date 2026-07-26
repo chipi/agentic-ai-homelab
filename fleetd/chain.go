@@ -48,6 +48,7 @@ type ChainConfig struct {
 	ChainBudgetUSD float64 `json:"chain_budget_usd"` // est-$ cap per chain, default 3
 	EpisodeTimeout string  `json:"episode_timeout"`  // per fix episode, default 20m
 	Advisor        string  `json:"advisor"`          // "off" disables §4.2 consultations
+	WorkerModel    string  `json:"worker_model"`     // default deepseek-v4-flash (promoted 2026-07-26)
 	ReviewerModel  string  `json:"reviewer_model"`   // e.g. claude-sonnet-4-6; ""/off disables
 	LedgerDir   string `json:"ledger_dir"`
 	VMURL       string `json:"vm_url"`
@@ -488,6 +489,14 @@ func runEpisode(cc ChainConfig, script, wt, desc string) ([]byte, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, script, wt, desc)
 	cmd.Dir = cc.BakeoffDir
+	// worker seat: flash promoted 2026-07-26 (3/3 closed-loop, ties v4-pro on
+	// every replay cell at ~1/4 price). Lab pi.sh default stays v4-pro — that
+	// is the measured base config; production pins its own worker here.
+	worker := cc.WorkerModel
+	if worker == "" {
+		worker = "deepseek/deepseek-v4-flash"
+	}
+	cmd.Env = append(os.Environ(), "PI_MODEL="+worker)
 	return cmd.CombinedOutput()
 }
 
