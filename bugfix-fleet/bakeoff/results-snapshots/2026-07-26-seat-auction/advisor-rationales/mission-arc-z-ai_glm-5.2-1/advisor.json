@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "moonHelioArc",
+  "decoy": "src/lib/mission-arc.ts (transferEllipse / outboundArc \u2014 the 'Mission Arc' Keplerian transfer-arc math module)",
+  "rationale": "The affected 'some missions' are the Moon (cislunar) missions; on /fly, applyMissionAsLoaded's isMoonMission branch builds the outbound AND return arc directly via moonHelioArc defined inline in src/routes/fly/+page.svelte, never calling mission-arc.ts. moonHelioArc pins both endpoints exactly (start at live Earth on depDay, end at live Moon/Earth on arrDay) but linearly blends the Earth-relative offset for the interior points, yielding a straight-chord middle instead of a curved transfer \u2014 exactly 'endpoints right, middle shape wrong'. The failed patch edited mission-arc.ts (the look-alike 'transfer arc' module whose header advertises Keplerian half-ellipses), but those functions only feed the heliocentric Mars/outer missions, so the Moon arc was never touched."
+}

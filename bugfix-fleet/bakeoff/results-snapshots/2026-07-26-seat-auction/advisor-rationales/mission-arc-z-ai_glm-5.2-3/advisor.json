@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "moonHelioArc",
+  "decoy": "src/lib/mission-arc.ts (transferEllipse)",
+  "rationale": "The /fly renderer's applyMissionAsLoaded branches: heliocentric (Mars/outer) missions call buildArcs\u2192transferEllipse in mission-arc.ts, but Moon missions (isMoonMission) instead call the inline moonHelioArc in +page.svelte. moonHelioArc pins both endpoints exactly (start=earthPos(depDay), end=moonHelioPos(flybyDay)) but constructs the middle as a linear blend of Earth-relative offsets riding Earth's orbital drift \u2014 a straight, shallow path rather than a curved cislunar transfer. The trajectory-soundness test actually validates the curved Bezier moonOutboundArc/moonReturnArc in fly-physics.ts, so the renderer diverges from the validated shape. The failed patch touched mission-arc.ts (transferEllipse), which only governs heliocentric bodies and never executes for Moon missions, so the 'middle has wrong shape' symptom for those missions persisted."
+}

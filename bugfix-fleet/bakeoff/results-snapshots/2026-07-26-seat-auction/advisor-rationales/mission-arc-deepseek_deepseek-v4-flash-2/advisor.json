@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "outboundArc",
+  "rationale": "The /fly visualization calls transferEllipse (via buildArcs at fly/+page.svelte:206) for all non-Moon missions. transferEllipse hardcodes a = (r1 + r2) / 2 \u2014 a Hohmann-only semi-major axis \u2014 regardless of the actual angular separation between Earth and destination, and explicitly discards the mission's real arrival V\u221e (the _arrivalVInfKms parameter is marked as unused at fly/+page.svelte:187\u2013190). outboundArc is the decoy: same file, similar signature, includes V\u221e shaping, and sweeps a fixed 180\u00b0 half-ellipse, but it is NOT consumed by /fly \u2014 only by test/validation harnesses and the thumbnail script."
+}

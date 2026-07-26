@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "heliocentricKms",
+  "decoy": "src/routes/fly/+page.svelte",
+  "rationale": "The bug is in the derived heliocentricKms calculation which hardcodes (R_EARTH_AU + R_MARS_AU) / 2 as the semi-major axis for all non-Moon missions. This is only correct for Mars missions. For outer planets like Jupiter/Saturn, the semi-major axis should be (R_EARTH_AU + destination_orbital_radius) / 2. The failed patch likely touched other parts of the fly page, but the actual issue is this specific derived value calculation that uses an incorrect transfer ellipse parameter."
+}

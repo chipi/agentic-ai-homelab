@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "src/lib/mission-arc.ts outboundArc (V\u221e-shaping block) \u2014 the /explore arc generator, not the /fly transfer arc",
+  "rationale": "Traced the symptom's runtime path: /fly/+page.svelte buildArcs() calls transferEllipse(earthDep, destArr, ARC_STEPS) to produce the outbound arc points, and rendering uses PolylineCurve3 (piecewise-linear, explicitly chosen to faithfully mirror waypoints) via TubeGeometry \u2014 so the drawn arc shape is exactly transferEllipse's output. Its contract pins both endpoints exactly (matching 'endpoints right') while its focus-selection/periAngle math controls the middle curve (matching 'middle wrong'), making it the true owner. outboundArc is the decoy: it lives in the same file with a tempting V\u221e-bend block that looks like an arc-shape knob, but /fly never calls it \u2014 only /explore does."
+}

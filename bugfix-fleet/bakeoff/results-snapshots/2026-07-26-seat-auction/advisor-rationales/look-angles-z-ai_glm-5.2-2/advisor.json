@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "The symptom names 'observer look-angles' + 'wrong geodetic model' + 'WGS84' \u2014 observerEci builds the observer's ECI position with a spherical Earth (RE=6378.137, comment 'spherical Earth; ellipsoid/altitude refinement later') instead of the WGS84 ellipsoid, so every topocentric alt/az/range from lookAngle() is wrong. horizontal.ts is the look-alike: it owns the celestial ecliptic\u2192equatorial\u2192horizontal pipeline whose invariants the report cites, but its math is already correct (verified: vernal equinox\u2192RA0/Dec0, ecliptic NP\u2192Dec 90\u2212\u03b5, meridian-at-dec=lat\u2192zenith), so patching it left the 2 failing tests failing."
+}

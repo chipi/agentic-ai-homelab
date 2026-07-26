@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "src/lib/orbital.ts",
+  "rationale": "The transferEllipse function computes the actual transfer arc geometry rendered in /fly, correctly placing endpoints but potentially using incorrect intermediate points. The bug report confirms endpoints are right but middle shape is wrong, which matches transferEllipse's geometric approach. Orbital.ts contains fundamental Keplerian functions but isn't used by transferEllipse, making it a tempting but incorrect target."
+}

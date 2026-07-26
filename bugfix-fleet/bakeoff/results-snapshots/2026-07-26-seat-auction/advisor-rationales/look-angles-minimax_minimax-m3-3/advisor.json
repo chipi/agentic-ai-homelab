@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts (the failed patch went there because the bug report's named invariants live in that file's tests, but those invariants were already correct \u2014 the actual WGS84 symptom is in the satellite pipeline, not the celestial-body pipeline)",
+  "rationale": "The WGS84 model only matters where the observer's position on Earth is dominant \u2014 that's the satellite look-angle path (look-angles.ts), where a 400 km LEO target amplifies any observer mislocation. The current observerEci treats the Earth as a sphere with RE=6378.137 km at every latitude, so geodetic inputs are interpreted as geocentric; at the poles this misplaces the observer by ~21 km (WGS84 polar radius is 6356.752 km), tilting close-satellite alt/az. horizontal.ts handles distant Solar-System bodies where the geodetic-to-geocentric offset is negligible (~0.95\u00b0 topocentric parallax at the Moon) and the existing spherical treatment + parallax term is correct \u2014 its named invariants (vernal equinox \u2192 RA 0, ecliptic pole \u2192 Dec = 90-\u03b5, meridian-at-lat zenith) all already hold. The prior fix commit a5cf0981f replaced RE with WGS84_A/WGS84_F/WGS84_E2 and the prime-vertical radius of curvature n in observerEci, confirming the true owner."
+}

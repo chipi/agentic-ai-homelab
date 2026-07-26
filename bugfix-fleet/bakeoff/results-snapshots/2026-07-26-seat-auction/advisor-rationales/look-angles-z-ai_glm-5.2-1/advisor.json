@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "The bakeoff branch reverted the WGS84 ellipsoid in observerEci back to a spherical-Earth model (RE=6378.137, geodetic lat treated as geocentric, altKm param dropped) and deleted the satellite.test.ts 'observerEci (WGS84 geodetic model)' block \u2014 exactly the 2 still-failing tests (polar radius \u22486356.752 km fails because the sphere returns 6378.137; 'adds altitude' fails because the 4th arg is now ignored). horizontal.ts is the decoy: its eclipticToEquatorial/equatorialToHorizontal already satisfy every invariant the report names (vernal equinox\u2192RA0/Dec0, ecliptic pole\u2192Dec=90\u2212obliquity, meridian body at dec=lat\u2192zenith), so patching it cannot move those tests \u2014 the wrong-geodetic-model symptom lives in the satellite observer-ECI path that lookAngle calls."
+}

@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/explore/+page.svelte",
+  "function": "$effect callback (lines 327-357) \u2014 overlayArcPx mapping",
+  "decoy": "src/lib/mission-arc.ts \u2014 outboundArc/transferEllipse geometry (the failed patch touched these, but they produce correct heliocentric AU ellipses)",
+  "rationale": "The explore page applies auToPx independently to each Cartesian component of the arc (auToPx(p.x), auToPx(p.z)), but auToPx is a non-linear radial-distance-to-pixel mapper with a 15 px floor at distance 0. This warps the arc interior because AU Cartesian axes are not radial distances. Endpoints look roughly right near planetary orbits where auToPx is approximate, but the arc middle shifts as components near 0 hit the 15 px floor. Every other auToPx consumer in the same file (sampleOrbitPoints, smallBodyPosition) applies it to the radial distance then projects cos/sin \u2014 the arc mapping is the sole outlier. mission-arc.ts generates mathematically correct AU ellipses and is untouched; the true owner is the explore page coordinate-mapping effect that builds overlayArcPx."
+}

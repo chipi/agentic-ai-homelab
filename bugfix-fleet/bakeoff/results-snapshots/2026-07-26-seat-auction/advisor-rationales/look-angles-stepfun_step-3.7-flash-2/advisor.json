@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "The bug is in observerEci, which places the observer on a hard-coded sphere (RE = 6378.137 km) and feeds WGS84 geodetic lat/lon straight into geocentric ECI math, mislocating the observer by up to ~21 km at the poles and tilting close-satellite look angles. horizontal.ts only rotates coordinate frames (ecliptic \u2192 equatorial \u2192 horizontal) and is mathematically correct; the cheaper agent mistook the downstream horizontal-transform file for the owner because it handles alt-az, but the actual geodetic-model error lives in the upstream observer ECI builder."
+}

@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "moonHelioArc",
+  "decoy": "src/lib/mission-arc.ts",
+  "rationale": "Moon missions take a separate branch in applyMissionAsLoaded, which constructs outPts and retPts with the route-local moonHelioArc rather than mission-arc.transferEllipse. moonHelioArc pins the supplied endpoints exactly but owns the intermediate-point interpolation, matching the symptom that only some missions have correct endpoints and an incorrect middle shape."
+}

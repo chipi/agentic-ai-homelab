@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/orbital/fly-physics.ts",
+  "function": "heliocentricSpeed",
+  "decoy": "src/routes/fly/+page.svelte",
+  "rationale": "The function computes `Math.sqrt(MU * (2/r - 1/a))` with no clamp on the discriminant. Called from +page.svelte:952 with a hardcoded Mars Hohmann semi-major axis (~1.26 AU) for every non-Moon mission, so any spacecraft whose heliocentric distance exceeds 2*a \u2248 2.52 AU (i.e. every outer-planet mission past inner Mars orbit) gets `sqrt(negative)` \u2192 NaN. The fix belongs in this pure math function \u2014 clamp the vis-viva discriminant to \u22650, same pattern the file already uses in `dvRemaining` (line 97). Patching the caller's `aTransferAu` argument can't fully solve it because outer-planet arcs (gravity-assist splines) have no single correct Hohmann semi-major axis."
+}

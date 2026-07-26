@@ -1,0 +1,1 @@
+[pi-lean-ctx] ctx_read bridge call failed, falling back to CLI: McpError: MCP error -32602: ERROR: Is a directory (os error 21)

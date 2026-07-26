@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "heliocentricKms",
+  "decoy": "src/routes/fly/+page.svelte",
+  "rationale": "The bug is in the speed calculation logic where it hardcodes (R_EARTH_AU + R_MARS_AU) / 2 as the transfer semi-major axis for all non-Moon missions. For outer planets, this causes the vis-viva equation to compute a negative value inside the square root, resulting in NaN. The failed patch touched the right file but likely didn't fix the core issue in the heliocentricKms calculation."
+}

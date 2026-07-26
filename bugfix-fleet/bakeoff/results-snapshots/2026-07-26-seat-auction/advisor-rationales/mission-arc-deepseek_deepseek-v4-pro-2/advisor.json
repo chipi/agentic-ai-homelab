@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "src/lib/mission-arc.ts \u2192 outboundArc (same file, older function used only by /explore overlay, not the primary /fly arc path)",
+  "rationale": "transferEllipse computes the arc shape with a = (r1+r2)/2 \u2014 the Hohmann semi-major axis which assumes departure and arrival at opposite apsides. For missions where Earth at dep_day and the destination at flyby_day sit at angular separations far from 180\u00b0, the resulting ellipse has incorrect eccentricity (approaching e\u22481 in near-conjunction configurations), distending the middle of the arc while still correctly pinning both endpoints. The failed patch likely mistook outboundArc \u2014 a look-alike function in the same file that only serves the /explore overlay \u2014 for the true owner of the fly-page rendering path."
+}

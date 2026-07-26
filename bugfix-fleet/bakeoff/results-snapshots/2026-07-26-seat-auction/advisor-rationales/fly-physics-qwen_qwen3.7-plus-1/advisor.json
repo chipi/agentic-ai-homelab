@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "heliocentricKms ($derived at lines 951-953, calling flyHeliocentricSpeed)",
+  "decoy": "src/lib/orbital/fly-physics.ts \u2192 heliocentricSpeed (defensive sqrt clamping)",
+  "rationale": "Line 952 hardcodes the transfer semi-major axis to (R_EARTH_AU + R_MARS_AU)/2 \u2248 1.262 AU \u2014 the Earth-Mars Hohmann value \u2014 for every non-Moon mission. Once the spacecraft's heliocentric distance scR exceeds 2\u00b7a \u2248 2.52 AU, vis-viva's (2/r \u2212 1/a) goes negative, Math.sqrt returns NaN, and the HUD reads 'NaN km/s' all the way out. Every outer-planet destination (Jupiter 5.2 AU, Saturn, Uranus, Neptune, Pluto, Ceres, comets) cruises well past that threshold. The fix is to replace the hardcoded Mars average with (R_EARTH_AU + DESTINATIONS[activeDestination].a)/2 so the transfer ellipse matches the actual destination; defensively clamping sqrt in fly-physics.ts would only mask the wrong input and still render a bogus zero instead of the true cruise speed."
+}

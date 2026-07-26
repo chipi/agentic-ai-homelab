@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "outboundArc",
+  "decoy": "src/lib/mission-arc.ts \u2192 transferEllipse (which pins endpoints correctly and is geometrically sound)",
+  "rationale": "The /explore route passes mission flight V\u221e into outboundArc() (line 348 of +page.svelte), which triggers the V\u221e-shaping block that modifies eSigned. This changes the eccentricity, which distorts the arc's middle curvature (semi-latus rectum shifts from 1.208 AU to 1.163 AU for energetic missions). Demonstrated via vitest: baseline outboundArc pins Earth at r=1.000000, but with V\u221e=5.0 the first point drifts to r=0.909148 \u2014 the endpoint-pinning invariant is broken, and the middle shape shifts concurrently. The failed patch likely targeted transferEllipse in the same file, which correctly pins both endpoints (verified: 0.000000 error) and produces proper geometry, but doesn't address the actual V\u221e-shaping defect in outboundArc."
+}

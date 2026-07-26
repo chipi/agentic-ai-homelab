@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "The bug's terminology ('Observer look-angles', 'wrong geodetic model', 'WGS84') maps directly to satellite/look-angles.ts, whose observerEci uses a spherical Earth (RE = 6378.137 km constant) \u2014 a limitation the in-source comment itself flags as 'spherical Earth; ellipsoid/altitude refinement later'. The three listed invariants (vernal equinox \u2192 RA 0/Dec 0, ecliptic north pole \u2192 Dec=90\u2212obliquity, meridian body \u2192 zenith) sounded like they belong in the coordinate-transform pipeline and pulled the failed patch into astronomy/horizontal.ts, but the math in eclipticToEquatorial/equatorialToHorizontal already satisfies all three; the actual error lives one layer down in the geodetic-to-ECI step that feeds the SEZ rotation used by lookAngle."
+}

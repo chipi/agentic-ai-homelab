@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "src/lib/mission-arc.ts \u2192 outboundArc",
+  "rationale": "The `/fly` page's `buildArcs()` calls `transferEllipse()` to compute every mission's outbound arc. `transferEllipse()` uses a = (r1+r2)/2 and computes two F2 (second focus) candidates, but its selection logic compares sweeps that always equal `ang2-ang1 = desiredSweep` regardless of which F2 is chosen \u2014 the argument of perihelion cancels out of `nu2-nu1`. This means it always picks the arbitrary +h candidate, producing the correct mirror-image ellipse for some geometries and a wrong-looking middle for others. The decoy is `outboundArc()` (same file): it says 'outbound' and 'arc', both validation suites and `/explore` import it, and a fast-patching agent would assume it's the mission-arc function \u2014 but `/fly` code never calls it."
+}

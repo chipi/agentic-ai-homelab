@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "The runtime path for observer look-angles flows through satellite/look-angles.ts \u2192 observerEci, which takes WGS84 geodetic lat/lon from navigator.geolocation and computes the observer\u2019s ECI position with a hardcoded spherical constant (RE = 6378.137 km), treating geodetic latitude as a geocentric spherical colatitude. This wrong observer offset propagates into the topocentric SEZ \u2192 alt/az (and the implied ECI direction) for satellites, so the AR markers come out mispointed. src/lib/astronomy/horizontal.ts is the decoy because it also produces alt/az and frames the symptom as a coordinate problem, but its ecliptic\u2192equatorial and equatorial\u2192horizontal transforms are algebraically correct; the failed patch touched the wrong path and left the spherical-Earth observer model untouched."
+}

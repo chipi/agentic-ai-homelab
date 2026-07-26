@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "src/lib/mission-arc.ts",
+  "rationale": "The transferEllipse function is the actual runtime owner that computes the Keplerian transfer arc geometry between two endpoints. The bug report indicates endpoints are correct but the middle arc shape is wrong, which points directly to the ellipse computation logic within transferEllipse. The failed patch touched the right file but likely modified the wrong function or approach within it, such as the legacy outboundArc function which is no longer used for main arc rendering."
+}

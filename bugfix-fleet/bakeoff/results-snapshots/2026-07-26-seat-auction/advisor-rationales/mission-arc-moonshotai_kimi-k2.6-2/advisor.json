@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "src/lib/mission-arc.ts::outboundArc",
+  "rationale": "I traced the runtime path from /fly/+page.svelte buildArcs \u2192 transferEllipse. With actual mission dates, transferEllipse produces absurd midpoints: Voyager-2 arc midpoint dips to 0.179 AU, New Horizons to 2.49 AU (should be ~10+ AU), and inspiration-mars to 0.163 AU. This happens because transferEllipse hardcodes a = (r1+r2)/2 (the Hohmann assumption) and always picks the first focus candidate from its two-circle intersection, which for non-180\u00b0 transfers creates an extremely eccentric ellipse that passes far too close to the Sun. The decoy outboundArc is the older function that /fly no longer calls; the cheap agent likely modified it without realizing the rendering pipeline now exclusively uses transferEllipse."
+}

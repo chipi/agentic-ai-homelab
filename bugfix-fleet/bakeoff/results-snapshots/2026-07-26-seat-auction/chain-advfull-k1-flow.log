@@ -1,0 +1,23 @@
+FLOW: triaging  (qa-rounds=0)
+TRIAGE: verdict=actionable  shape=PASS  | 115s $0
+FLOW: fixing  (round=0 manifest=bugs/triaged/orrery-fly-physics-L0-triaged.json)
+VERDICT: FAIL (ftp_still_failing=2, regressions=0)   | 185s  $0  17 turns  scope=no
+FLOW: kick-back  (round=1 evidence=/Users/markodragoljevic/.bugfix-fleet/bakeoff/results/orrery-fly-physics-L0-triaged/pi)
+FLOW: advising  (model=z-ai/glm-5.2)
+ADVISOR PIN: src/lib/orbital/fly-physics.ts :: heliocentricSpeed  (58s)
+TRIAGE: verdict=actionable  shape=PASS  | 65s $0
+FLOW: fixing  (round=1 manifest=bugs/triaged/orrery-fly-physics-L0-triaged-kb1.json)
+VERDICT: FAIL (ftp_still_failing=1, regressions=0)   | 196s  $0  10 turns  scope=yes
+FLOW: kick-back  (round=2 evidence=/Users/markodragoljevic/.bugfix-fleet/bakeoff/results/orrery-fly-physics-L0-triaged-kb1/pi)
+FLOW: advising  (model=z-ai/glm-5.2)
+ADVISOR PIN: src/routes/fly/+page.svelte :: heliocentricKms (the $derived at ~line 951 that calls flyHeliocentricSpeed(scR, (R_EARTH_AU + R_MARS_AU) / 2))  (165s)
+TRIAGE: verdict=actionable  shape=PASS  | 75s $0
+FLOW: fixing  (round=2 manifest=bugs/triaged/orrery-fly-physics-L0-triaged-kb2.json)
+VERDICT: FAIL (ftp_still_failing=2, regressions=0)   | 170s  $0  19 turns  scope=no
+FLOW: kick-back  (round=3 evidence=/Users/markodragoljevic/.bugfix-fleet/bakeoff/results/orrery-fly-physics-L0-triaged-kb2/pi)
+FLOW: advising  (model=z-ai/glm-5.2)
+ADVISOR PIN: src/lib/orbital/fly-physics.ts :: heliocentricSpeed  (361s)
+TRIAGE: verdict=actionable  shape=PASS  | 70s $0
+FLOW: fixing  (round=3 manifest=bugs/triaged/orrery-fly-physics-L0-triaged-kb3.json)
+VERDICT: FAIL (ftp_still_failing=2, regressions=0)   | 160s  $0  11 turns  scope=yes
+FLOW: stuck  (kick-back budget exhausted (3) — operator)

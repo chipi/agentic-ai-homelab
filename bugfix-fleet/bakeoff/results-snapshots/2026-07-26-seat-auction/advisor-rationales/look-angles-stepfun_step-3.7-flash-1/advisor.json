@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "observerEci constructs the observer's ECI position from browser WGS84 geodetic lat/lon using a spherical Earth (RE = 6378.137), explicitly annotated as a stub ('spherical Earth; ellipsoid/altitude refinement later'). The coordinate transforms in horizontal.ts are standard astronomical formulas that are geodetic-model-agnostic. The failed patch saw wrong alt/az symptoms and chased them in horizontal.ts, but the incorrect model is upstream in how the observer vector is built for the topocentric look-angle transform."
+}

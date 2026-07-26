@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "src/lib/mission-arc.ts:outboundArc (or the file generally \u2014 the patch touched the same file but went after the wrong function)",
+  "rationale": "transferEllipse hardcodes a = (r1 + r2) / 2, which is only correct for 180\u00b0 Hohmann transfers. For missions with large transfer angles (Dawn to Ceres ~276\u00b0, Voyager 2 ~269\u00b0, New Horizons ~233\u00b0), the resulting ellipse plunges far inside Earth\u2019s orbit (periapsis as low as 0.36 AU) while the endpoints stay exact, so the middle of the arc dips dramatically toward the Sun. The failed patch touched mission-arc.ts but almost certainly targeted outboundArc or another helper instead of transferEllipse, which is the actual function used by /fly\u2019s buildArcs."
+}

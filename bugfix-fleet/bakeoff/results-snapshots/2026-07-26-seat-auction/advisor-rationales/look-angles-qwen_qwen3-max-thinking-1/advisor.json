@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/astronomy/index.ts",
+  "function": "skyPosition",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "The bug is that geodetic latitude (WGS84) is passed directly to equatorialToHorizontal, which expects geocentric latitude for correct zenith alignment. The conversion from geodetic to geocentric latitude should happen in skyPosition before calling the horizontal coordinate transform. The horizontal.ts file is correctly implemented but receives the wrong input type."
+}

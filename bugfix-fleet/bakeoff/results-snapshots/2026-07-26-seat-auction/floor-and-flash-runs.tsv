@@ -1,0 +1,46 @@
+flash-gate	deepseek/deepseek-v4-flash	orrery-335-mission-event-merge	pi	PASS	110	0	20	34641	yes	0
+flash-gate	deepseek/deepseek-v4-flash	orrery-credits	pi	PASS	140	0	13	46233	yes	0
+flash-gate	deepseek/deepseek-v4-flash	orrery-look-angles	pi	PASS	60	0	12	18569	yes	0
+flash-gate	deepseek/deepseek-v4-flash	orrery-mission-arc	pi	PASS	291	0	28	103136	yes	0
+flash-gate	deepseek/deepseek-v4-flash	orrery-fly-physics	pi	PASS	55	0	8	19921	yes	0
+flash-k1	deepseek/deepseek-v4-flash	orrery-credits-L1	pi	PASS	155	0	22	68917	yes	0
+flash-k1	deepseek/deepseek-v4-flash	orrery-look-angles-L1	pi	PASS	161	0	22	54812	yes	0
+flash-k1	deepseek/deepseek-v4-flash	orrery-mission-arc-L0	pi	FAIL (ftp_still_failing=1, regressions=0)	336	0	17	205389	yes	0
+flash-k1	deepseek/deepseek-v4-flash	orrery-fly-physics-L1-noctx	pi	FAIL (ftp_still_failing=2, regressions=0)	50	0	8	19359	no	0
+flash-k1	deepseek/deepseek-v4-flash	orrery-fly-physics-L1	pi	FAIL (ftp_still_failing=2, regressions=0)	60	0	8	30898	no	0
+flash-k2	deepseek/deepseek-v4-flash	orrery-credits-L1	pi	PASS	160	0	25	62104	yes	0
+flash-k2	deepseek/deepseek-v4-flash	orrery-look-angles-L1	pi	PASS	95	0	15	34482	yes	0
+flash-k2	deepseek/deepseek-v4-flash	orrery-mission-arc-L0	pi	FAIL (ftp_still_failing=1, regressions=0)	351	0	31	189776	yes	0
+flash-k2	deepseek/deepseek-v4-flash	orrery-fly-physics-L1-noctx	pi	FAIL (ftp_still_failing=2, regressions=0)	65	0	12	23719	no	0
+flash-k2	deepseek/deepseek-v4-flash	orrery-fly-physics-L1	pi	FAIL (ftp_still_failing=2, regressions=0)	60	0	11	26173	no	0
+flash-k3	deepseek/deepseek-v4-flash	orrery-credits-L1	pi	PASS	336	0	42	73708	yes	0
+flash-k3	deepseek/deepseek-v4-flash	orrery-look-angles-L1	pi	PASS	86	0	16	32539	yes	0
+flash-k3	deepseek/deepseek-v4-flash	orrery-mission-arc-L0	pi	FAIL (ftp_still_failing=1, regressions=0)	426	0	36	195659	yes	0
+flash-k3	deepseek/deepseek-v4-flash	orrery-fly-physics-L1-noctx	pi	FAIL (ftp_still_failing=2, regressions=0)	45	0	8	16513	no	0
+flash-k3	deepseek/deepseek-v4-flash	orrery-fly-physics-L1	pi	FAIL (ftp_still_failing=2, regressions=0)	50	0	7	24439	no	0
+qwen30b-gate	qwen/qwen3-coder-30b-a3b-instruct	orrery-335-mission-event-merge	pi	FAIL (ftp_still_failing=2, regressions=0)	5	0	0	0	no	0
+qwen30b-gate	qwen/qwen3-coder-30b-a3b-instruct	orrery-credits	pi	FAIL (ftp_still_failing=1, regressions=0)	5	0	0	0	no	0
+qwen30b-gate	qwen/qwen3-coder-30b-a3b-instruct	orrery-look-angles	pi	FAIL (ftp_still_failing=2, regressions=0)	5	0	0	0	no	0
+qwen30b-gate	qwen/qwen3-coder-30b-a3b-instruct	orrery-mission-arc	pi	FAIL (ftp_still_failing=1, regressions=0)	5	0	0	0	no	0
+qwen30b-gate	qwen/qwen3-coder-30b-a3b-instruct	orrery-fly-physics	pi	FAIL (ftp_still_failing=2, regressions=0)	5	0	0	0	no	0
+qwen35f-gate	qwen/qwen3.5-flash-02-23	orrery-335-mission-event-merge	pi	FAIL (ftp_still_failing=2, regressions=0)	10	0.017257045	2	825	no	0
+qwen35f-gate	qwen/qwen3.5-flash-02-23	orrery-credits	pi	PASS	91	0.23067278	16	20096	yes	0
+qwen35f-gate	qwen/qwen3.5-flash-02-23	orrery-look-angles	pi	PASS	45	0	10	24153	yes	0
+qwen35f-gate	qwen/qwen3.5-flash-02-23	orrery-mission-arc	pi	FAIL (ftp_still_failing=1, regressions=0)	145	0	31	67673	yes	0
+qwen35f-gate	qwen/qwen3.5-flash-02-23	orrery-fly-physics	pi	PASS	75	0	20	24546	yes	0
+seedmini-gate	bytedance-seed/seed-2.0-mini	orrery-335-mission-event-merge	pi	PASS	55	0	12	16004	yes	0
+seedmini-gate	bytedance-seed/seed-2.0-mini	orrery-credits	pi	FAIL (ftp_still_failing=1, regressions=0)	175	0	14	50484	yes	0
+seedmini-gate	bytedance-seed/seed-2.0-mini	orrery-look-angles	pi	PASS	101	0	13	39100	yes	0
+seedmini-gate	bytedance-seed/seed-2.0-mini	orrery-mission-arc	pi	FAIL (ftp_still_failing=1, regressions=1)	226	0	29	105364	yes	0
+seedmini-gate	bytedance-seed/seed-2.0-mini	orrery-fly-physics	pi	PASS	71	0	10	23700	yes	0
+glm47f-gate	z-ai/glm-4.7-flash	orrery-335-mission-event-merge	pi	PASS	210	0	50	28400	yes	0
+glm47f-gate	z-ai/glm-4.7-flash	orrery-credits	pi	PASS	100	0	9	16499	yes	0
+glm47f-gate	z-ai/glm-4.7-flash	orrery-look-angles	pi	PASS	196	0	31	35466	yes	0
+glm47f-gate	z-ai/glm-4.7-flash	orrery-mission-arc	pi	FAIL (ftp_still_failing=1, regressions=0)	335	0	37	85341	yes	0
+glm47f-gate	z-ai/glm-4.7-flash	orrery-fly-physics	pi	PASS	95	0	14	19035	yes	0
+qwen30b-gate2	qwen/qwen3-coder-30b-a3b-instruct	orrery-335-mission-event-merge	pi	PASS	586	0	40	46772	yes	0
+qwen30b-gate2	qwen/qwen3-coder-30b-a3b-instruct	orrery-credits	pi	PASS	181	0	13	33206	yes	0
+qwen30b-gate2	qwen/qwen3-coder-30b-a3b-instruct	orrery-look-angles	pi	PASS	150	0	20	22524	yes	0
+qwen30b-gate2	qwen/qwen3-coder-30b-a3b-instruct	orrery-mission-arc	pi	FAIL (ftp_still_failing=1, regressions=0)	556	0	28	73799	yes	0
+qwen30b-gate2	qwen/qwen3-coder-30b-a3b-instruct	orrery-fly-physics	pi	PASS	136	0	20	22403	yes	0
+qwen35f-retry	qwen/qwen3.5-flash-02-23	orrery-335-mission-event-merge	pi	PASS	90	0	31	16572	yes	0

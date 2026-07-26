@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "heliocentricSpeed",
+  "decoy": "src/lib/orbital/fly-physics.ts",
+  "rationale": "The bug occurs in the /fly route's speed calculation where it hardcodes the transfer semi-major axis as (R_EARTH_AU + R_MARS_AU)/2 for all non-Moon missions. This is incorrect for outer planets like Jupiter or Saturn, causing invalid vis-viva calculations that produce NaN. The actual heliocentricSpeed function in fly-physics.ts is correct, but the caller in +page.svelte passes wrong parameters."
+}

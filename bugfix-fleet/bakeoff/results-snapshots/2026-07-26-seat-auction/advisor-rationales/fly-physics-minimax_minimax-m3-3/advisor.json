@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "heliocentricKms (the $derived block at lines 951-953 that calls flyHeliocentricSpeed with the hardcoded (R_EARTH_AU + R_MARS_AU) / 2 transfer semi-major axis for all non-Moon missions)",
+  "decoy": "heliocentricSpeed() in src/lib/orbital/fly-physics.ts \u2014 looks like the bug because it is the function that returns NaN, but the formula is correct vis-viva; the failure is the bogus aTransferAu argument the page passes, not the math.",
+  "rationale": "The HUD at line 6783 renders heliocentricKms.toFixed(2). heliocentricKms is the $derived at line 951 whose only call is flyHeliocentricSpeed(scR, isMoonMission ? R_EARTH_AU : (R_EARTH_AU + R_MARS_AU) / 2). For outer-planet missions scR reaches 5\u201330 AU while a is frozen at ~1.262 AU, so 2/r \u2212 1/a < 0 and sqrt returns NaN. heliocentricSpeed() in fly-physics.ts is the textbook vis-viva and is correct; the bug is the hardcoded Earth-Mars transfer axis at the call site in the page, which must instead be derived from the actual mission's destination orbit."
+}

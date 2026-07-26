@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "observerEci builds the observer's ECI position from WGS84 geodetic lat/lon using a spherical Earth (RE\u00b7cos/sin), misplacing the observer up to ~22 km in z vs the WGS84 ellipsoidal model (N\u00b7cos, N(1\u2212e\u00b2)\u00b7sin). This corrupts the satEci\u2212obsEci range vector that lookAngle feeds into the SEZ rotation, so a body at the observer's geodetic zenith no longer projects to alt=90\u00b0. horizontal.ts is a tempting look-alike \u2014 it also transforms observer latitude into trig components \u2014 but it only performs ecliptic\u2194equatorial\u2194alt-az celestial-frame rotations (verified correct by hand); it never positions the observer on the ellipsoid."
+}

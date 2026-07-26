@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "observerEci computes the observer's ECI position with a single constant RE=6378.137 km (spherical Earth), mislocating a WGS84 observer by up to ~21 km at the poles; its SEZ frame then tilts satellite alt/az by that offset. I confirmed this by running both pipelines: the eclipticToEquatorial / equatorialToHorizontal transforms in horizontal.ts already satisfy the vernal-equinox, ecliptic-north-pole, and zenith invariants exactly, whereas observerEci returns |r|=6378.137 km at every latitude instead of the WGS84 geocentric radius (~6356.752 km at the pole). A commit on the fleet fix branch already shows the correct repair (prime-vertical N, e\u00b2, (N+h)\u00b7cos lat / (N(1\u2212e\u00b2)+h)\u00b7sin lat), confirming look-angles.ts is the true owner and horizontal.ts is the tempting-but-correct decoy."
+}

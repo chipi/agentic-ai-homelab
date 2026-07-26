@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "src/routes/fly/+page.svelte",
+  "rationale": "The bug describes arcs with correct endpoints but wrong middle shape, which matches the transferEllipse function's purpose of pinning both endpoints exactly while computing the intermediate geometry. The fly page only consumes the arc points from mission-arc.ts and renders them; it doesn't compute the arc shape itself. The failed patch correctly identified mission-arc.ts as relevant but may have modified the wrong part of the file."
+}

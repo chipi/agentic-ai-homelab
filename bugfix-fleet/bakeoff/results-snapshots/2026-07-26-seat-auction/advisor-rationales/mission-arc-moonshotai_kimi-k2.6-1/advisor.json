@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "src/lib/mission-arc.ts:outboundArc",
+  "rationale": "The /fly page \u2014 where missions are rendered \u2014 calls transferEllipse via buildArcs() to draw outbound arcs. transferEllipse hardcodes a = (r1 + r2) / 2, which yields the correct Keplerian shape only when departure and arrival are ~180\u00b0 apart (Hohmann). For real missions with non-opposition launch windows the arc endpoints are pinned but the middle bulges incorrectly. The failed patch likely touched outboundArc, which is tested and arc-shaped but is a decoy: /fly replaced it with transferEllipse in v0.1.9+ and no longer imports outboundArc at all."
+}

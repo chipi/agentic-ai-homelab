@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "heliocentricKms $derived (lines 951-953)",
+  "decoy": "src/lib/orbital/fly-physics.ts \u2014 heliocentricSpeed(rAu, aTransferAu) (line 39)",
+  "rationale": "The HUD reads heliocentricKms.toFixed(2), which the page-level $derived at line 952 wires to flyHeliocentricSpeed(scR, (R_EARTH_AU + R_MARS_AU)/2). For outer planets, scR (e.g. Jupiter \u22485.2 AU) makes the vis-viva radicand (2/r \u2212 1/a) negative, so Math.sqrt returns NaN; the failure-mode patch likely defended against NaN inside the pure fly-physics helper rather than fixing the hardcoded Mars-Earth transfer semi-major that is the actual cause. The fix belongs at the $derived: replace R_MARS_AU with DESTINATIONS[activeDestination].a so each destination uses its own perihelion-aphelion a."
+}

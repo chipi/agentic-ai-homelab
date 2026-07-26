@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/mission-arc.ts",
+  "function": "transferEllipse",
+  "decoy": "outboundArc",
+  "rationale": "The bug is that transferEllipse at line 150 hardcodes a = (r1 + r2) / 2 \u2014 the Hohmann-style semi-major axis \u2014 which only produces the correct ellipse when departure and arrival are colinear with the Sun. For arbitrary angular separations (which real missions have), this assumes the wrong ellipse even though both endpoints land at the right positions, producing the 'middle wrong' curvature. The failed patch likely chased outboundArc (the older one-endpoint-pinning function in the same file) because both functions sit in mission-arc.ts and look superficially similar, but outboundArc isn't used in /fly's render path \u2014 transferEllipse is."
+}

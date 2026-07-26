@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/explore/+page.svelte",
+  "function": "$effect at line 348-352 (overlayArcPx computation)",
+  "decoy": "src/lib/mission-arc.ts",
+  "rationale": "The /explore page maps arc AU coordinates through auToPx() per-coordinate (line 350) instead of radially. auToPx is a non-linear compressed-distance scale returning 512 for negative inputs, so intermediate arc points whose x or z goes negative get flung to the canvas edge, warping the arc's middle while the endpoints (often in the first quadrant) land approximately on their orbit rings. Planet positions use cos/sin \u00d7 orbitR correctly; only the arc mapping applies auToPx to raw Cartesian components."
+}

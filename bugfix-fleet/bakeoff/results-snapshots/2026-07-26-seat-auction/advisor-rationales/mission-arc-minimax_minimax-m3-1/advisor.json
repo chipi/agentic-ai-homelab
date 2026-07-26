@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "moonHelioArc",
+  "decoy": "src/lib/mission-arc.ts",
+  "rationale": "Mission loading branches on `m.dest === 'MOON'`; those missions bypass `buildArcs`/`transferEllipse` and assign `outPts` and `retPts` from the route-local `moonHelioArc`. The renderer then builds both the Three.js tube and 2D path directly from those points, so this function owns the incorrect middle shape while explicitly pinning the correct endpoints."
+}

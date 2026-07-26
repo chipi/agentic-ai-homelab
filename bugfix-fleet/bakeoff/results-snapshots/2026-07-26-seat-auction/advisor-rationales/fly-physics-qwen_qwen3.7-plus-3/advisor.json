@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/orbital/fly-physics.ts",
+  "function": "heliocentricSpeed",
+  "decoy": "src/routes/fly/+page.svelte",
+  "rationale": "heliocentricSpeed computes vis-viva sqrt(\u03bc\u00b7(2/r \u2212 1/a)). The caller in +page.svelte passes aTransferAu hardcoded to the Mars-transfer value (~1.262 AU) for every non-Moon mission. For outer planets (Jupiter at 5.2 AU, Saturn at 9.5 AU, etc.), when r exceeds 2\u00b7a (\u22482.52 AU) the radicand 2/r \u2212 1/a goes negative, so Math.sqrt returns NaN which propagates straight to the HUD. The pure function must clamp its sqrt argument (Math.max(0, \u2026)) so it never emits NaN regardless of caller inputs \u2014 +page.svelte is the tempting decoy because that's where the wrong a lives and the HUD renders, but the NaN originates inside fly-physics.ts."
+}

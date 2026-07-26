@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/orbital/fly-physics.ts",
+  "function": "heliocentricSpeed",
+  "decoy": "src/routes/fly/+page.svelte (the HUD derived variable / display template the cheaper agent patched)",
+  "rationale": "heliocentricSpeed computes vis-viva as sqrt(MU*(2/r - 1/a)); when called with the Mars-hardcoded transfer semi-major axis (~1.262 AU) while the spacecraft is at Jupiter/Saturn distances (~5\u201330 AU), the inner expression goes negative and the function returns NaN. The cheaper agent patched the +page.svelte consumer (masking or guarding the display), but the true owner of the symptom is the pure vis-viva function in fly-physics.ts. Beware the look-alike inline vis-viva inside mission-arc.ts line 111 (correctly uses destination-dependent a) and visViva in orbital.ts (same formula, different argument order)."
+}

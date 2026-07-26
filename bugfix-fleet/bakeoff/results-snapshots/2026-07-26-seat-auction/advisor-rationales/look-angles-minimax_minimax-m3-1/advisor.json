@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/satellite/look-angles.ts",
+  "function": "observerEci",
+  "decoy": "src/lib/astronomy/horizontal.ts",
+  "rationale": "The three invariants in the report are properties of the ecliptic\u2192equatorial\u2192horizontal transforms in horizontal.ts, and I verified analytically that the existing code satisfies all of them (vernal equinox \u2192 RA 0/Dec 0, ecliptic north pole \u2192 Dec = 90\u2212\u03b5, meridian body at observer's declination \u2192 zenith). The actual bug is the wrong geodetic model: observerEci in look-angles.ts uses a spherical Earth (RE = 6378.137 km constant), which mislocates the observer by up to ~21 km at the poles and tilts close-satellite look-angles. The matching fix commit (a5cf0981f) replaces this with the WGS84 ellipsoid + optional altitude and adds exactly the two failing observerEci anchors (polar radius 6356.752 km, altitude add) \u2014 i.e. ftp_still_failing=2 lines up with the satellite tests, not anything in horizontal.ts. The failed patch edited the look-alike horizontal math instead of the observerEci ellipsoid model that owns the symptom."
+}

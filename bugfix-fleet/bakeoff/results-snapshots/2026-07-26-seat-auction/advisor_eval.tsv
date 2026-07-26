@@ -1,0 +1,101 @@
+ts	fixture	model	run	pin_file	file_ok	fn_ok	wall
+2026-07-26T03:39:16Z	fly-physics	deepseek/deepseek-v4-flash	1	src/routes/fly/+page.svelte	0	1	75
+2026-07-26T03:40:34Z	fly-physics	deepseek/deepseek-v4-flash	2	src/lib/orbital/fly-physics.ts	1	1	78
+2026-07-26T03:41:32Z	fly-physics	deepseek/deepseek-v4-flash	3	src/lib/orbital/fly-physics.ts	1	1	57
+2026-07-26T03:44:39Z	fly-physics	deepseek/deepseek-v4-pro	1	src/lib/orbital/fly-physics.ts	1	1	187
+2026-07-26T03:50:26Z	fly-physics	deepseek/deepseek-v4-pro	2		0	0	347
+2026-07-26T03:52:56Z	fly-physics	deepseek/deepseek-v4-pro	3	src/routes/fly/+page.svelte	0	1	150
+2026-07-26T03:54:56Z	fly-physics	z-ai/glm-5.2	1	src/lib/orbital/fly-physics.ts	1	1	120
+2026-07-26T03:56:38Z	fly-physics	z-ai/glm-5.2	2	src/lib/orbital/fly-physics.ts	1	1	102
+2026-07-26T03:58:22Z	fly-physics	z-ai/glm-5.2	3	src/lib/orbital/fly-physics.ts	1	1	104
+2026-07-26T04:05:38Z	fly-physics	moonshotai/kimi-k2.6	1	src/routes/fly/+page.svelte	0	0	436
+2026-07-26T04:24:03Z	fly-physics	moonshotai/kimi-k2.6	2	src/lib/orbital/fly-physics.ts	1	1	1105
+2026-07-26T04:29:48Z	fly-physics	moonshotai/kimi-k2.6	3	src/routes/fly/+page.svelte	0	0	345
+2026-07-26T04:32:57Z	look-angles	deepseek/deepseek-v4-flash	1	src/lib/satellite/look-angles.ts	1	1	189
+2026-07-26T04:34:59Z	look-angles	deepseek/deepseek-v4-flash	2	src/lib/astronomy/horizontal.ts	0	0	122
+2026-07-26T04:37:08Z	look-angles	deepseek/deepseek-v4-flash	3	src/lib/satellite/look-angles.ts	1	1	129
+2026-07-26T04:43:56Z	look-angles	deepseek/deepseek-v4-pro	1	src/lib/satellite/look-angles.ts	1	1	408
+2026-07-26T04:54:14Z	look-angles	deepseek/deepseek-v4-pro	2	src/lib/satellite/look-angles.ts	1	1	618
+2026-07-26T05:08:00Z	look-angles	deepseek/deepseek-v4-pro	3	src/lib/satellite/look-angles.ts	1	1	826
+2026-07-26T05:14:42Z	look-angles	z-ai/glm-5.2	1	src/lib/satellite/look-angles.ts	1	0	402
+2026-07-26T05:15:59Z	look-angles	z-ai/glm-5.2	2		0	0	77
+2026-07-26T05:16:00Z	look-angles	z-ai/glm-5.2	3		0	0	1
+2026-07-26T05:16:01Z	look-angles	moonshotai/kimi-k2.6	1		0	0	1
+2026-07-26T05:16:02Z	look-angles	moonshotai/kimi-k2.6	2		0	0	1
+2026-07-26T05:16:03Z	look-angles	moonshotai/kimi-k2.6	3		0	0	1
+2026-07-26T05:16:04Z	mission-arc	deepseek/deepseek-v4-flash	1		0	0	1
+2026-07-26T05:16:05Z	mission-arc	deepseek/deepseek-v4-flash	2		0	0	1
+2026-07-26T05:16:06Z	mission-arc	deepseek/deepseek-v4-flash	3		0	0	1
+2026-07-26T05:16:07Z	mission-arc	deepseek/deepseek-v4-pro	1		0	0	1
+2026-07-26T05:16:08Z	mission-arc	deepseek/deepseek-v4-pro	2		0	0	1
+2026-07-26T05:16:09Z	mission-arc	deepseek/deepseek-v4-pro	3		0	0	1
+2026-07-26T05:16:10Z	mission-arc	z-ai/glm-5.2	1		0	0	1
+2026-07-26T05:16:11Z	mission-arc	z-ai/glm-5.2	2		0	0	1
+2026-07-26T05:16:12Z	mission-arc	z-ai/glm-5.2	3		0	0	1
+2026-07-26T05:16:13Z	mission-arc	moonshotai/kimi-k2.6	1		0	0	1
+2026-07-26T05:16:14Z	mission-arc	moonshotai/kimi-k2.6	2		0	0	1
+2026-07-26T05:16:15Z	mission-arc	moonshotai/kimi-k2.6	3		0	0	1
+2026-07-26T07:30:18Z	mission-arc	deepseek/deepseek-v4-flash	1	src/lib/mission-arc.ts	1	1	183
+2026-07-26T07:34:32Z	mission-arc	deepseek/deepseek-v4-flash	2	src/lib/mission-arc.ts	1	1	253
+2026-07-26T07:35:46Z	mission-arc	deepseek/deepseek-v4-flash	3	src/lib/mission-arc.ts	1	1	74
+2026-07-26T07:47:25Z	mission-arc	deepseek/deepseek-v4-pro	1	src/lib/mission-arc.ts	1	0	699
+2026-07-26T07:53:36Z	mission-arc	deepseek/deepseek-v4-pro	2	src/lib/mission-arc.ts	1	1	371
+2026-07-26T08:01:26Z	mission-arc	deepseek/deepseek-v4-pro	3	src/lib/mission-arc.ts	1	0	470
+2026-07-26T08:05:07Z	mission-arc	z-ai/glm-5.2	1	src/routes/fly/+page.svelte	0	0	221
+2026-07-26T08:05:50Z	mission-arc	z-ai/glm-5.2	2	src/lib/mission-arc.ts	1	1	43
+2026-07-26T08:07:12Z	mission-arc	z-ai/glm-5.2	3	src/routes/fly/+page.svelte	0	0	82
+2026-07-26T08:34:35Z	mission-arc	moonshotai/kimi-k2.6	1	src/lib/mission-arc.ts	1	1	1643
+2026-07-26T09:06:11Z	mission-arc	moonshotai/kimi-k2.6	2	src/lib/mission-arc.ts	1	1	1894
+2026-07-26T09:43:52Z	mission-arc	moonshotai/kimi-k2.6	3	src/lib/mission-arc.ts	1	1	2260
+2026-07-26T09:53:57Z	look-angles	moonshotai/kimi-k2.6	1		0	0	604
+2026-07-26T10:04:01Z	look-angles	moonshotai/kimi-k2.6	2		0	0	604
+2026-07-26T10:14:05Z	look-angles	moonshotai/kimi-k2.6	3		0	0	604
+2026-07-26T10:18:06Z	look-angles	z-ai/glm-5.2	1	src/lib/satellite/look-angles.ts	1	1	241
+2026-07-26T10:23:01Z	look-angles	z-ai/glm-5.2	2	src/lib/satellite/look-angles.ts	1	1	295
+2026-07-26T11:53:54Z	fly-physics	qwen/qwen3.7-plus	1	src/routes/fly/+page.svelte	0	1	190
+2026-07-26T11:57:30Z	fly-physics	qwen/qwen3.7-plus	2	src/lib/orbital/fly-physics.ts	1	1	216
+2026-07-26T11:59:31Z	fly-physics	qwen/qwen3.7-plus	3	src/lib/orbital/fly-physics.ts	1	1	120
+2026-07-26T12:01:41Z	fly-physics	minimax/minimax-m3	1	src/routes/fly/+page.svelte	0	0	130
+2026-07-26T12:02:46Z	fly-physics	minimax/minimax-m3	2	src/routes/fly/+page.svelte	0	1	65
+2026-07-26T12:03:47Z	fly-physics	minimax/minimax-m3	3	src/routes/fly/+page.svelte	0	1	61
+2026-07-26T12:10:58Z	fly-physics	stepfun/step-3.7-flash	1	src/lib/orbital/fly-physics.ts	1	1	431
+2026-07-26T12:21:02Z	fly-physics	stepfun/step-3.7-flash	2		0	0	604
+2026-07-26T12:25:18Z	fly-physics	stepfun/step-3.7-flash	3	src/lib/orbital/fly-physics.ts	1	1	256
+2026-07-26T12:26:39Z	fly-physics	qwen/qwen3-max-thinking	1	src/routes/fly/+page.svelte	0	1	81
+2026-07-26T12:28:09Z	fly-physics	qwen/qwen3-max-thinking	2	src/routes/fly/+page.svelte	0	0	90
+2026-07-26T12:29:55Z	fly-physics	qwen/qwen3-max-thinking	3	src/routes/fly/+page.svelte	0	0	106
+2026-07-26T12:38:57Z	look-angles	qwen/qwen3.7-plus	1	src/lib/satellite/look-angles.ts	1	1	542
+2026-07-26T12:48:19Z	look-angles	qwen/qwen3.7-plus	2	src/lib/satellite/look-angles.ts	1	1	562
+2026-07-26T12:58:23Z	look-angles	qwen/qwen3.7-plus	3		0	0	604
+2026-07-26T13:07:04Z	look-angles	minimax/minimax-m3	1	src/lib/satellite/look-angles.ts	1	1	521
+2026-07-26T13:09:05Z	look-angles	minimax/minimax-m3	2	src/lib/satellite/look-angles.ts	1	1	121
+2026-07-26T13:10:50Z	look-angles	minimax/minimax-m3	3	src/lib/satellite/look-angles.ts	1	1	105
+2026-07-26T13:13:56Z	look-angles	stepfun/step-3.7-flash	1	src/lib/satellite/look-angles.ts	1	1	186
+2026-07-26T13:23:18Z	look-angles	stepfun/step-3.7-flash	2	src/lib/satellite/look-angles.ts	1	1	562
+2026-07-26T13:28:44Z	look-angles	stepfun/step-3.7-flash	3	src/lib/satellite/look-angles.ts	1	1	326
+2026-07-26T13:31:10Z	look-angles	qwen/qwen3-max-thinking	1	src/lib/astronomy/index.ts	0	0	145
+2026-07-26T13:33:11Z	look-angles	qwen/qwen3-max-thinking	2		0	0	121
+2026-07-26T13:33:16Z	look-angles	qwen/qwen3-max-thinking	3		0	0	5
+2026-07-26T13:33:22Z	mission-arc	qwen/qwen3.7-plus	1		0	0	6
+2026-07-26T13:33:27Z	mission-arc	qwen/qwen3.7-plus	2		0	0	5
+2026-07-26T13:33:32Z	mission-arc	qwen/qwen3.7-plus	3		0	0	5
+2026-07-26T13:33:37Z	mission-arc	minimax/minimax-m3	1		0	0	5
+2026-07-26T13:33:42Z	mission-arc	minimax/minimax-m3	2		0	0	5
+2026-07-26T13:33:47Z	mission-arc	minimax/minimax-m3	3		0	0	5
+2026-07-26T13:33:52Z	mission-arc	stepfun/step-3.7-flash	1		0	0	5
+2026-07-26T13:33:58Z	mission-arc	stepfun/step-3.7-flash	2		0	0	6
+2026-07-26T13:34:03Z	mission-arc	stepfun/step-3.7-flash	3		0	0	5
+2026-07-26T13:34:08Z	mission-arc	qwen/qwen3-max-thinking	1		0	0	5
+2026-07-26T13:34:13Z	mission-arc	qwen/qwen3-max-thinking	2		0	0	5
+2026-07-26T13:48:34Z	mission-arc	qwen/qwen3.7-plus	1		0	0	604
+2026-07-26T13:58:38Z	mission-arc	qwen/qwen3.7-plus	2		0	0	604
+2026-07-26T14:07:44Z	mission-arc	qwen/qwen3.7-plus	3	src/routes/explore/+page.svelte	0	0	546
+2026-07-26T14:08:45Z	mission-arc	minimax/minimax-m3	1	src/routes/fly/+page.svelte	0	0	60
+2026-07-26T14:09:25Z	mission-arc	minimax/minimax-m3	2	src/routes/fly/+page.svelte	0	0	40
+2026-07-26T14:10:15Z	mission-arc	minimax/minimax-m3	3	src/routes/fly/+page.svelte	0	0	50
+2026-07-26T14:20:19Z	mission-arc	stepfun/step-3.7-flash	1		0	0	604
+2026-07-26T14:24:25Z	mission-arc	stepfun/step-3.7-flash	2	src/routes/explore/+page.svelte	0	0	245
+2026-07-26T14:34:30Z	mission-arc	stepfun/step-3.7-flash	3		0	0	604
+2026-07-26T14:35:25Z	mission-arc	qwen/qwen3-max-thinking	1	src/lib/mission-arc.ts	1	1	55
+2026-07-26T14:37:06Z	mission-arc	qwen/qwen3-max-thinking	2	src/lib/mission-arc.ts	1	1	101
+2026-07-26T14:38:42Z	mission-arc	qwen/qwen3-max-thinking	3	src/lib/mission-arc.ts	1	1	96

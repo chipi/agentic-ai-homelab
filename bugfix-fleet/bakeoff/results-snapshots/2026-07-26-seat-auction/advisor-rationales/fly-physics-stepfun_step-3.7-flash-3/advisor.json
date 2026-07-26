@@ -1,0 +1,6 @@
+{
+  "file": "src/lib/orbital/fly-physics.ts",
+  "function": "heliocentricSpeed",
+  "decoy": "src/routes/fly/+page.svelte",
+  "rationale": "The HUD speed readout is `heliocentricKms.toFixed(2)`, derived in the page from `flyHeliocentricSpeed` (alias for `heliocentricSpeed`). The page hardcodes the Earth\u2013Mars Hohmann semi-major axis for all non-moon missions, so for outer planets the vis-viva radicand becomes negative and this function returns NaN. The look-alike `visViva` in `src/lib/orbital.ts` shares the same formula but is not on the runtime path, and the failed patch incorrectly targeted the page instead of the pure-function owner."
+}

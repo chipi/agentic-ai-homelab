@@ -1,0 +1,6 @@
+{
+  "file": "src/routes/fly/+page.svelte",
+  "function": "moonHelioArc",
+  "decoy": "src/lib/mission-arc.ts",
+  "rationale": "When a loaded mission has `dest === 'MOON'`, `applyMissionAsLoaded` bypasses `buildArcs` and every function in `src/lib/mission-arc.ts`; it calls the route-local `moonHelioArc` to populate `outPts` and, for return trips, `retPts`. Those sampled points are passed directly into the Three.js tube geometry and 2D renderer, so this function owns the incorrect middle shape despite correctly pinned endpoints."
+}
