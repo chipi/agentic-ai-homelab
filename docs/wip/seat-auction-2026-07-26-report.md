@@ -9,6 +9,28 @@ raw per-run data lives in
 (ledgers, per-chain flow logs, per-consultation rationale JSONs).
 Narrative session log: BAKEOFF §6.3 sessions 3k–3m.
 
+## 0. Scope — what this record does and does NOT cover
+
+Everything in this document ran on **pi as the harness substrate**. That
+is deliberate, not an omission: the harness question was settled the
+previous day (BAKEOFF §8.1/§8.2, commit 4b13673) — opencode+v4-pro
+produced identical success rates to pi on every grid cell, and the
+Claude sonnet reference row was modal-identical *including failure
+shapes* at ~20× price. Verdicts are harness- and price-invariant
+(spec-bounded); harness choice is operational (pi: cheaper,
+self-terminates grinds; opencode: runaway-prone-but-capped, better
+ergonomics; Claude's leverage: the PR reviewer gate, where it is wired
+as `reviewer_model`).
+
+NOT covered on any other harness, then or now:
+- the **closed loop** (kick-back, advisor, acceptance transition,
+  reporter) has only ever run on pi (lab) / fleetd (production) — the
+  §8 harness columns were single fix episodes, not chains;
+- the **advisor eval** and **floor hunt** are pi-leaf measurements.
+
+This matters only if the production harness ever changes; the loop's
+orchestration lives in fleetd with the harness as a swappable leaf.
+
 ## 1. Instruments and bars
 
 - **Closed-loop chain** (`orchestrate.sh`, lab twin of `fleetd chain`):
