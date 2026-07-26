@@ -42,8 +42,23 @@ score_one() { # fixture model runidx
   NOK=$([ -n "$EXPECT_FN" ] && echo "$FN" | grep -qi "$EXPECT_FN" && echo 1 || echo 0)
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$FX" "$M" "$R" "$PIN" "$FOK" "$NOK" "$WALL" >> "$LEDGER"
   echo "  $FX × $M #$R → pin=$PIN file_ok=$FOK fn_ok=$NOK (${WALL}s)"
+  # keep raw episode output for post-hoc diagnosis (misses AND dead-calls)
+  ARC="$HERE/advisor-eval/archive/$FX-$(echo "$M" | tr / _)-$R"
+  mkdir -p "$ARC"; cp "$TMPEV"/advisor*.* "$ARC/" 2>/dev/null || true
   rm -rf "$TMPEV"
+  # dead-call guard (measured 2026-07-26: OpenRouter org monthly cap → 403 =
+  # instant empty completions across ALL models; 12 garbage rows before stop)
+  if [ -z "$PIN" ] && [ "$WALL" -le 2 ]; then
+    DEAD=$((DEAD + 1))
+    if [ "$DEAD" -ge 3 ]; then
+      echo "ABORT: $DEAD consecutive instant-empty episodes — provider dead-calls (check credits/caps), not model verdicts"
+      exit 2
+    fi
+  else
+    DEAD=0
+  fi
 }
+DEAD=0
 
 for FX in "$FIXDIR"/*/; do
   FX=$(basename "$FX")
@@ -53,5 +68,5 @@ for FX in "$FIXDIR"/*/; do
   done
 done
 
-echo "════ SUMMARY (file_ok rate per fixture × model) ════"
-awk -F'\t' 'NR>1 {k=$2" × "$3; n[k]++; ok[k]+=$6} END {for (x in n) printf "%-55s %d/%d\n", x, ok[x], n[x]}' "$LEDGER" | sort
+echo "════ SUMMARY (file_ok rate per fixture × model; dead-calls excluded) ════"
+awk -F'\t' 'NR>1 && !($5=="" && $8<=2) {k=$2" × "$3; n[k]++; ok[k]+=$6} END {for (x in n) printf "%-55s %d/%d\n", x, ok[x], n[x]}' "$LEDGER" | sort

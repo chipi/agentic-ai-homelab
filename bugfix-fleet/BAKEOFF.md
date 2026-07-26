@@ -919,6 +919,32 @@ call-site pivot every time) — that consultation mode is now eliminated by
 the acceptance transition, which is the correct fix: the advisor is a
 topology instrument and fail-at-pin is not a topology signal.
 
+**Observed (2026-07-26, session 3l): advisor-SEAT sweep — the per-seat
+auction instrument (`advisor_eval.sh`, frozen kick-back evidence replayed
+per model, no chains). glm-5.2 keeps the seat.** Valid runs only
+(ledger `results/advisor_eval.tsv`; dead-calls excluded):
+
+| fixture (failure class) | flash | v4-pro | glm-5.2 | kimi-k2.6 |
+|---|---|---|---|---|
+| fly-physics (name-trap decoy) | 2/3 | 1/3 +1 empty | **3/3** | 1/3 |
+| look-angles (wrong-layer) | 2/3 | **3/3** (408–826s) | 1/2 +1 empty | no valid data |
+| mission-arc (must-not-invent) | — no data (cap) — | | | |
+
+Reading: the decoy case is THE advisor case (it's what triggers a
+consultation) and only glm is deterministic there — flash and kimi take
+the call-site pivot, v4-pro grinds long and still misses 2/3. flash's
+look-angles miss is the worst failure class for the seat: it ENDORSED the
+failed patch's layer. kimi: slowest (up to 1105s), no wins. Seat verdict:
+**glm-5.2 stays; no cheaper model passes the seat's bar.**
+NOT covered: mission-arc column (0 rows), kimi look-angles, k=3
+completion for glm look-angles — the sweep died at the **OpenRouter ORG
+monthly spend cap ($50, usage_monthly=50.07, key limit=null)**: 403
+"Budget limit exceeded (monthly)" = instant empty completions across all
+models, the same dead-call face as credit exhaustion. 16 garbage rows
+identified by wall≤2s + empty pin; eval now aborts after 3 consecutive
+and archives raw episodes. Finishing the grid ≈ 24 episodes ≈ $2–4 once
+the cap is raised (operator dashboard action).
+
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
   produce a solvable problem, correctly reject the unsolvable, classify
