@@ -924,26 +924,45 @@ auction instrument (`advisor_eval.sh`, frozen kick-back evidence replayed
 per model, no chains). glm-5.2 keeps the seat.** Valid runs only
 (ledger `results/advisor_eval.tsv`; dead-calls excluded):
 
-| fixture (failure class) | flash | v4-pro | glm-5.2 | kimi-k2.6 |
-|---|---|---|---|---|
-| fly-physics (name-trap decoy) | 2/3 | 1/3 +1 empty | **3/3** | 1/3 |
-| look-angles (wrong-layer) | 2/3 | **3/3** (408–826s) | 1/2 +1 empty | no valid data |
-| mission-arc (must-not-invent) | — no data (cap) — | | | |
+Final table (grid completed same day after the org-cap raise; valid
+consultations only — dead-calls and 600s-cap overtime cuts excluded,
+avg wall of valid runs shown):
 
-Reading: the decoy case is THE advisor case (it's what triggers a
-consultation) and only glm is deterministic there — flash and kimi take
-the call-site pivot, v4-pro grinds long and still misses 2/3. flash's
-look-angles miss is the worst failure class for the seat: it ENDORSED the
-failed patch's layer. kimi: slowest (up to 1105s), no wins. Seat verdict:
-**glm-5.2 stays; no cheaper model passes the seat's bar.**
-NOT covered: mission-arc column (0 rows), kimi look-angles, k=3
-completion for glm look-angles — the sweep died at the **OpenRouter ORG
-monthly spend cap ($50, usage_monthly=50.07, key limit=null)**: 403
-"Budget limit exceeded (monthly)" = instant empty completions across all
-models, the same dead-call face as credit exhaustion. 16 garbage rows
-identified by wall≤2s + empty pin; eval now aborts after 3 consecutive
-and archives raw episodes. Finishing the grid ≈ 24 episodes ≈ $2–4 once
-the cap is raised (operator dashboard action).
+| fixture (skill) | flash | v4-pro | glm-5.2 | kimi-k2.6 |
+|---|---|---|---|---|
+| fly-physics (REDIRECT, hard decoy) | 2/3 · 70s | 1/3 · 228s | **3/3 · 108s** | 1/3 · 628s |
+| look-angles (REDIRECT, wrong layer) | 2/3 · 146s | **3/3** · 617s | 3/4 · 253s | 0 valid (all cut) |
+| mission-arc (CONFIRM, don't invent) | **3/3 · 170s** | 3/3 · 513s | 1/3 · 115s | 3/3 · ~32 min |
+
+Reading: totals are flat (7/9, 7/9, 7/10) but the profiles are
+complementary — **the seat is TWO skills and no model holds both.**
+glm = redirect specialist (6/7) that INVENTS under confirm evidence
+(pinned the fly call-site on a mission-arc ticket 2/3); flash = confirm
+specialist (3/3) that falls for decoys; v4-pro = accurate-but-slow
+(avg at/past the 600s cap on two fixtures). kimi: solves confirm 3/3
+given 27–38 min — capable brain, 10–20× the output volume (72k tokens
+per read-only consult at ~45 tok/s) — **formally disqualified by the
+latency contract** (0 usable consultations under ADVISOR_MAX_WALL=600,
+added this session; the leaf previously had NO wall cap — kimi found
+that gap).
+
+Production consequence of glm's confirm-invention: a wrong redirect pin
+sends the worker to the wrong file; when that fails, the acceptance
+transition fires on a FALSE premise ("localization settled" at a place
+that was never right) and parks a wrong question on the reporter. The
+loop survives — the operator-reporter catches it — but it burns a round
+and operator attention. Round-2 challenger bar therefore: **≥3/3 decoy
+AND ≥2/3 confirm** (beat glm's profile, not one column). If nobody
+clears both: split the consultation into confirm-mode vs redirect-mode
+prompts (evidence shape decides), possibly two models in one seat.
+
+Ops learnings bought by this sweep: (1) OpenRouter ORG monthly cap
+($50) → 403 = instant empty completions across all models, same
+dead-call face as credit exhaustion — eval aborts after 3 consecutive,
+archives raw episodes; (2) provider allowlist changes reroute serving
+(whole roster now serves via Baidu; glm-4.7-flash was unreachable until
+Novita was allowed) — provider noted alongside round-2 numbers since
+wall times aren't comparable across serving stacks.
 
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
