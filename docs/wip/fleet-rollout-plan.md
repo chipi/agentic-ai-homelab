@@ -125,10 +125,20 @@ replay before touching production).
 - [x] **Production acceptance path (core)** — repro-first enforced
       mechanically (test-in-diff or rejected) + **delta grading** (no NEW
       failures vs branch base — learned live: orrery main carries 39 red;
-      naive suite-green can never pass). Remaining sub-items: production
-      kick-back loop (single-attempt today), Claude reviewer gate on the
-      PR, per-chain budget caps.
-- [ ] Budget caps per chain + per day; kill switch; ledger as built.
+      naive suite-green can never pass).
+- [x] **Full production loop in `fleetd chain`** — DONE 2026-07-26:
+      bounded kick-back (KICKBACK_MAX=3), advisor consultation (pins
+      12/12 on first consult), **acceptance transition** (fixed-at-pin +
+      still-FAIL → reporter, mechanical — measured: without it the
+      advisor re-invents locations 4/4 and the reporter is unreachable),
+      needs-info parks on operator via label+comment, Claude reviewer
+      comment on the PR, per-chain $ cap + episode timeout. Verified in
+      the lab twin (orchestrate.sh): fly-physics-L0 — never shipped
+      before — ships **3/3** on the closed loop (BAKEOFF §6.3 3k).
+- [x] Budget caps per chain (chain_budget_usd) + per day (fleetd
+      day-spend guard); STOP-flag kill switch; runs.tsv/flow.tsv ledgers.
+      NOT yet: fixed binary deployed to the mini (one `make deploy`,
+      operator-gated).
 
 ### Stage B1 — Shadow on real backlog
 - [ ] Feed real orrery `bug` issues through triage→plan only (no worker
