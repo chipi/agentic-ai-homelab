@@ -903,9 +903,21 @@ exactly the intended round — no advisor re-invention, no round-3 burn.
 k3 (complete script): **SHIPPED** —
 fix@owner FAIL → advisor pin → reporter QA → fix@pin FAIL →
 acceptance-gap → synthesized question → reporter → **PASS r0, 10 turns,
-96s**. Every transition mechanical. Advisor pin now **9/9** lifetime.
-NOT a rate yet: final script is n=1 shipped (k1/k2 verified
-sub-components on earlier vintages); accfin k=2 confirmation queued.
+96s**. Every transition mechanical.
+
+*Rate (final script, k=3): fly-physics-L0 ships **3/3*** — accfix-k3,
+accfin-k2 (both fixes exercised: acceptance-gap fired twice, pin memory
+survived the QA restart, both the prompt path and the
+downgrade+synthesized-question path reached the reporter), accfin-k3
+(shortest: one reporter round, PASS 75s). The never-shipped bug is
+deterministic under the closed loop.
+
+*Advisor pin accuracy, honestly split:* **first consultations
+(off-pin-failure evidence): 12/12 exact oracle target.** Re-consultations
+under fixed-at-my-pin-still-failing evidence: **4/4 WRONG** (invented the
+call-site pivot every time) — that consultation mode is now eliminated by
+the acceptance transition, which is the correct fix: the advisor is a
+topology instrument and fail-at-pin is not a topology signal.
 
 **Two scores, kept separate:**
 - **Active-triage (intake) score** — L0 garbage → L1-or-correctly-rejected: did it
