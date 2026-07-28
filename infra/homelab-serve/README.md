@@ -19,8 +19,7 @@ Base FQDN: `https://homelab.tail6d0ed4.ts.net` (the mini, tag `homelab-host`).
 | `…/vm` | `:8428` VictoriaMetrics | API |
 | `…/vlogs` | `:9428` VictoriaLogs | API |
 | `…/vtraces` | `:10428` VictoriaTraces | API |
-| `…/langfuse` | `:4000` Langfuse | **API only** (UI is on :8443) |
-| `…:8443/` | `:4000` Langfuse | web UI (dedicated TLS port) |
+| `…:8443/` | `:4000` Langfuse | web UI + API (dedicated TLS port) |
 
 ## Re-apply (the point of this dir)
 

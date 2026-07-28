@@ -25,8 +25,8 @@ TS="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 # :443 path mounts. tailscale serve --set-path STRIPS the /path prefix before
 # proxying, so the backend receives requests at root — fine for APIs and for
 # GlitchTip ingest. Web UIs that emit root-absolute assets need extra app config
-# (see README): Grafana uses GRAFANA_ROOT_URL; Langfuse can't do a subpath at
-# all, so it lives on :8443 below (this /langfuse mount is its API only).
+# (see README): Grafana uses GRAFANA_ROOT_URL. Langfuse can't do a subpath at
+# all, so it lives ONLY on :8443 below (no /langfuse path mount).
 #   path       backend (loopback:port)
 MOUNTS_443="
 /grafana    3000
@@ -35,7 +35,6 @@ MOUNTS_443="
 /vm         8428
 /vlogs      9428
 /vtraces    10428
-/langfuse   4000
 "
 
 apply() {
