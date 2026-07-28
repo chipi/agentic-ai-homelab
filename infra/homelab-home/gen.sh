@@ -53,10 +53,13 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
   <div class=charts>
     <a class=card href="$DASH_MINI"><h3>CPU</h3><div id=c_cpu>&hellip;</div></a>
     <a class=card href="$DASH_MINI"><h3>Memory</h3><div id=c_mem>&hellip;</div></a>
-    <a class=card href="$DASH_MINI"><h3>Disk free</h3><div id=c_disk>&hellip;</div></a>
+    <a class=card href="$DASH_MINI"><h3>Disk</h3><div id=c_disk>&hellip;</div></a>
+    <a class=card href="$DASH_MINI"><h3>Disk IO</h3><div id=c_io>&hellip;</div></a>
+    <a class=card href="$DASH_MINI"><h3>Network</h3><div id=c_net>&hellip;</div></a>
   </div>
   <div id=health class=health></div>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
+  <div class=sec id=mapps></div>
   <div class=sec id=mtop></div>
   <table><thead><tr><th>Service</th><th>Port</th><th>User</th><th>Password</th></tr></thead><tbody>
 HDR
@@ -78,6 +81,7 @@ cat <<MID
     <a class=card href="$DASH_GPU"><h3>GPU temp</h3><div id=g_temp>&hellip;</div></a>
     <a class=card href="$DASH_GPU"><h3>GPU util</h3><div id=g_util>&hellip;</div></a>
     <a class=card href="$DASH_GPU"><h3>GPU power</h3><div id=g_pow>&hellip;</div></a>
+    <a class=card href="$DASH_GPU"><h3>VRAM used</h3><div id=g_vram>&hellip;</div></a>
   </div>
   <div id=dgxhealth class=health></div>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
@@ -100,7 +104,9 @@ cat <<MID2
   <div class=charts>
     <a class=card href="$DASH_PROD"><h3>CPU</h3><div id=p_cpu>&hellip;</div></a>
     <a class=card href="$DASH_PROD"><h3>Memory</h3><div id=p_mem>&hellip;</div></a>
-    <a class=card href="$DASH_PROD"><h3>Disk free</h3><div id=p_disk>&hellip;</div></a>
+    <a class=card href="$DASH_PROD"><h3>Disk</h3><div id=p_disk>&hellip;</div></a>
+    <a class=card href="$DASH_PROD"><h3>Disk IO</h3><div id=p_io>&hellip;</div></a>
+    <a class=card href="$DASH_PROD"><h3>Network</h3><div id=p_net>&hellip;</div></a>
   </div>
   <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a></div>
   <table><thead><tr><th>Service</th><th>Board</th><th>Role</th></tr></thead><tbody>
@@ -141,12 +147,19 @@ async function mini(){
   draw('c_cpu','mini_cpu_used_percent',x=>x.toFixed(0)+'%',100);
   draw('c_mem','mini_mem_used_percent',x=>x.toFixed(0)+'%',100);
   draw('c_disk','mini_disk_free_bytes',x=>(x/1073741824).toFixed(0)+' GB');
+  draw('c_io','mini_disk_io_bytes_per_sec',x=>(x/1048576).toFixed(1)+' MB/s');
+  draw('c_net','sum(rate(node_network_receive_bytes_total{instance=\"homelab\"}[2m]))+sum(rate(node_network_transmit_bytes_total{instance=\"homelab\"}[2m]))',x=>(x/1048576).toFixed(1)+' MB/s');
   const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
   const l1=await g1('mini_load1'),l5=await g1('mini_load5'),l15=await g1('mini_load15'),sw=await g1('mini_swap_used_bytes'),up=await g1('mini_uptime_seconds');
   const sr=document.getElementById('sysrow');if(sr)sr.innerHTML='Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Swap <b>'+(sw?((+sw[1])/1048576).toFixed(0)+' MB':'&mdash;')+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
   badges('health','service_up',['grafana','glitchtip','langfuse','umami','litellm','victoriametrics','victorialogs','victoriatraces'],n=>MINILINK[n]||G);
   const run=await g1('mini_docker_running'),tot=await g1('mini_docker_total'),rst=await g1('mini_docker_restarting'),unh=await g1('mini_docker_unhealthy');
   const md=document.getElementById('mdocker');if(md&&run)md.innerHTML='<b>'+run[1]+'/'+tot[1]+'</b> running'+(rst&&+rst[1]?' &middot; <span style=color:#f85149>'+rst[1]+' restarting</span>':'')+(unh&&+unh[1]?' &middot; <span style=color:#f85149>'+unh[1]+' unhealthy</span>':'');
+  const apps=await q('compose_app_up{box=\"mini\"}'),arun={},atot={};
+  (await q('compose_app_running{box=\"mini\"}')).forEach(s=>arun[s.metric.app]=s.value[1]);
+  (await q('compose_app_total{box=\"mini\"}')).forEach(s=>atot[s.metric.app]=s.value[1]);
+  const ma=document.getElementById('mapps');
+  if(ma)ma.innerHTML='apps: '+apps.sort((a,b)=>a.metric.app<b.metric.app?-1:1).map(s=>{const n=s.metric.app,up=+s.value[1];return '<span style=\"color:'+(up?'#3fb950':'#f85149')+'\">'+n+'</span> <span class=muted>'+(arun[n]||'?')+'/'+(atot[n]||'?')+'</span>';}).join(' &middot; ');
   const top=await q('topk(3,mini_container_mem_bytes)');const mt=document.getElementById('mtop');
   if(mt)mt.innerHTML='top: '+top.sort((a,b)=>b.value[1]-a.value[1]).map(s=>s.metric.name+' <span class=muted>'+(s.value[1]/1048576).toFixed(0)+'MB</span>').join(' &middot; ');
 }
@@ -154,6 +167,7 @@ async function dgx(){
   draw('g_temp','DCGM_FI_DEV_GPU_TEMP',x=>x.toFixed(0)+'&deg;C');
   draw('g_util','DCGM_FI_DEV_GPU_UTIL',x=>x.toFixed(0)+'%',100);
   draw('g_pow','DCGM_FI_DEV_POWER_USAGE',x=>x.toFixed(0)+' W');
+  draw('g_vram','DCGM_FI_DEV_FB_USED',x=>(x/1024).toFixed(1)+' GB');
   const clk=await g1('DCGM_FI_DEV_SM_CLOCK'),mbw=await g1('DCGM_FI_DEV_MEM_COPY_UTIL');
   const dr=document.getElementById('dgxrow');if(dr)dr.innerHTML='Clock <b>'+(clk?(+clk[1]).toFixed(0)+' MHz':'&mdash;')+'</b> &middot; Mem-BW <b>'+(mbw?(+mbw[1]).toFixed(0)+'%':'&mdash;')+'</b>';
   badges('dgxhealth','dgx_service_up',['ollama','whisper','diarization','openai-whisper','moss','cadvisor','dcgm'],n=>DGXDASH);
@@ -165,6 +179,8 @@ async function prod(){
   draw('p_cpu','100-avg(rate(node_cpu_seconds_total{instance="prod-podcast",mode="idle"}[5m]))*100',x=>x.toFixed(0)+'%',100);
   draw('p_mem','100-node_memory_MemAvailable_bytes'+P+'/node_memory_MemTotal_bytes'+P+'*100',x=>x.toFixed(0)+'%',100);
   draw('p_disk','node_filesystem_avail_bytes{instance="prod-podcast",mountpoint="/"}',x=>(x/1073741824).toFixed(0)+' GB');
+  draw('p_io','sum(rate(node_disk_read_bytes_total'+P+'[2m]))+sum(rate(node_disk_written_bytes_total'+P+'[2m]))',x=>(x/1048576).toFixed(2)+' MB/s');
+  draw('p_net','sum(rate(node_network_receive_bytes_total'+P+'[2m]))+sum(rate(node_network_transmit_bytes_total'+P+'[2m]))',x=>(x/1048576).toFixed(2)+' MB/s');
   const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
   const l1=await g1('node_load1'+P),l5=await g1('node_load5'+P),l15=await g1('node_load15'+P);
   const up=await g1('node_time_seconds'+P+'-node_boot_time_seconds'+P);
