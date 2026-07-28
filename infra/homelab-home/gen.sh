@@ -52,6 +52,7 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
   <div id=sysrow class=sysrow>&hellip;</div>
   <div class=charts>
     <a class=card href="$DASH_MINI"><h3>CPU</h3><div id=c_cpu>&hellip;</div></a>
+    <a class=card href="$DASH_MINI"><h3>CPU temp</h3><div id=c_temp>&hellip;</div></a>
     <a class=card href="$DASH_MINI"><h3>Memory</h3><div id=c_mem>&hellip;</div></a>
     <a class=card href="$DASH_MINI"><h3>Disk</h3><div id=c_disk>&hellip;</div></a>
     <a class=card href="$DASH_MINI"><h3>Disk IO</h3><div id=c_io>&hellip;</div></a>
@@ -145,6 +146,7 @@ async function badges(elId,metric,order,linkFor){
 }
 async function mini(){
   draw('c_cpu','mini_cpu_used_percent',x=>x.toFixed(0)+'%',100);
+  draw('c_temp','mini_cpu_temp_celsius',x=>x.toFixed(0)+'&deg;C',100);
   draw('c_mem','mini_mem_used_percent',x=>x.toFixed(0)+'%',100);
   draw('c_disk','mini_disk_free_bytes',x=>(x/1073741824).toFixed(0)+' GB');
   draw('c_io','mini_disk_io_bytes_per_sec',x=>(x/1048576).toFixed(1)+' MB/s');

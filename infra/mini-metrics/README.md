@@ -13,7 +13,24 @@ get from a containerized exporter. Every 20s it:
    umami/victoriametrics (HTTP health checks).
 4. **Docker stats** via the docker CLI — `mini_docker_running/total/restarting/
    unhealthy` + per-container `mini_container_cpu_percent{name}` /
-   `mini_container_mem_bytes{name}`.
+   `mini_container_mem_bytes{name}` + `compose_app_up/running/total{app,box}`
+   (which compose stacks are up).
+5. **CPU temperature** (`mini_cpu_temp_celsius`) — the mini runs 24/7, so thermals
+   matter. macOS has no `node_hwmon`; read via the SMC (no sudo). See below.
+6. **Disk IO** (`mini_disk_io_bytes_per_sec`, `mini_disk_tps`) via `iostat`
+   (darwin node_exporter omits `node_disk_*`).
+
+## CPU temperature — one-time build (`osx-cpu-temp`, GPL, not vendored)
+macOS exposes CPU die temp only via the SMC. `osx-cpu-temp` reads it **without
+sudo** on Intel Macs. It's GPL, so we don't vendor it into this MIT repo — build
+the binary once on the box (gitignored); `push.sh` calls it if present and is
+silent otherwise.
+```sh
+git clone --depth 1 https://github.com/lavoiesl/osx-cpu-temp /tmp/osx-cpu-temp
+make -C /tmp/osx-cpu-temp
+cp /tmp/osx-cpu-temp/osx-cpu-temp infra/mini-metrics/osx-cpu-temp   # next to push.sh
+```
+(Apple-Silicon Macs need a different reader; this box is Intel i7-8700B.)
 
 ## Install (run-in-place from the repo — no copy-out)
 The plist points at `push.sh` **in this repo checkout**

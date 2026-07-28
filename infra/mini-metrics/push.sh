@@ -21,6 +21,9 @@ while true; do
   # Disk IO (macOS has no node_disk_* — darwin node_exporter omits it). iostat's
   # 1s sample: $2=transfers/s, $3=MB/s total (read+write; macOS doesn't split).
   read IOTPS IOMBPS < <(iostat -d -w1 -c2 disk0 2>/dev/null | tail -1 | awk '{print $2,$3}'); IOBPS=$(echo "${IOMBPS:-0}*1048576/1"|bc 2>/dev/null)
+  # CPU temp — vendored osx-cpu-temp SMC reader (no sudo; Intel Mac). Built once
+  # on the box (README); silent when the binary is absent.
+  TBIN="$(cd "$(dirname "$0")" && pwd)/osx-cpu-temp"; TEMP=$([ -x "$TBIN" ] && "$TBIN" 2>/dev/null | awk '{print $1}')
   RUN=$($D ps -q 2>/dev/null | wc -l | tr -d " "); TOT=$($D ps -aq 2>/dev/null | wc -l | tr -d " ")
   RST=$($D ps --filter status=restarting -q 2>/dev/null | wc -l | tr -d " ")
   UNH=$($D ps --filter health=unhealthy -q 2>/dev/null | wc -l | tr -d " ")
@@ -31,6 +34,7 @@ while true; do
   {
     printf 'mini_cpu_used_percent %s\nmini_mem_used_percent %s\nmini_mem_used_bytes %s\nmini_mem_total_bytes %s\nmini_disk_free_bytes %s\nmini_disk_used_percent %s\nmini_disk_io_bytes_per_sec %s\nmini_disk_tps %s\nmini_load1 %s\nmini_load5 %s\nmini_load15 %s\nmini_swap_used_bytes %s\nmini_uptime_seconds %s\n' \
       "$CPU" "$MEMPCT" "$USED_B" "$TOTAL" "$FREE_B" "$DPCT" "${IOBPS:-0}" "${IOTPS:-0}" "$L1" "$L5" "$L15" "$SWAP_B" "$UP"
+    [ -n "$TEMP" ] && printf 'mini_cpu_temp_celsius %s\n' "$TEMP"
     printf 'mini_docker_running %s\nmini_docker_total %s\nmini_docker_restarting %s\nmini_docker_unhealthy %s\n' "$RUN" "$TOT" "$RST" "$UNH"
     echo "$COMPOSE" | while read -r app run tot; do
       [ -z "$app" ] && continue
