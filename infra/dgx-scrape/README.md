@@ -1,11 +1,14 @@
 # dgx-scrape — DGX telemetry bridge (interim) to VictoriaMetrics
 
-A launchd loop **on the mini** that pulls DGX telemetry into VictoriaMetrics,
-because OrbStack containers on the mini can't reach the DGX LAN IP but the mini
-host shell can. Every 20s it:
+A launchd loop **on the mini** that pulls DGX telemetry into VictoriaMetrics.
+Every 20s it:
 
-1. **Scrapes the DGX exporters over LAN** — dcgm (`:9400`, GPU) + cadvisor
-   (`:8080`, containers) → VM with `host=dgx`, `instance=dgx-llm-1`.
+1. **Scrapes the DGX exporters over the TAILNET** (`dgx-llm-1`) — dcgm (`:9400`,
+   GPU) + cadvisor (`:8080`, containers) → VM with `host=dgx`, `instance=dgx-llm-1`.
+   Was the LAN IP `192.168.1.111`, repointed to the tailnet name after the DGX
+   dropped off the home LAN (DHCP IP changed) while staying up on the tailnet.
+   **Requires** the ACL to grant `tag:homelab-host → tag:dgx-llm-host`
+   (`podcast_scraper-infra` `tailscale/policy.hujson`) — until applied, denied.
 2. **TCP health-check** each DGX service → `dgx_service_up{service=…}` for
    ollama/whisper/diarization/openai-whisper/moss/cadvisor/dcgm. **TCP-open, not
    HTTP**: the inference servers saturate under load and stop answering HTTP

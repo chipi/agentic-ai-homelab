@@ -1,12 +1,19 @@
 #!/bin/bash
 # DGX telemetry -> local VictoriaMetrics: scrape GPU (dcgm) + container (cadvisor)
-# + FastAPI app metrics (moss, diarization) over LAN + TCP health-check each DGX
-# service. host=dgx. (No DGX SSH — everything is pulled over the LAN from the mini.)
+# + FastAPI app metrics (moss, diarization) + TCP health-check each DGX service.
+# host=dgx, instance=dgx-llm-1. (No DGX SSH — pulled from the mini.)
+#
+# Reached over the TAILNET (dgx-llm-1) — was the LAN IP 192.168.1.111, but that's
+# fragile (DHCP-assigned, changed when the DGX dropped off the home LAN while
+# staying up on the tailnet). The tailnet name is stable. Requires the tailnet
+# ACL to grant tag:homelab-host -> tag:dgx-llm-host (podcast_scraper-infra
+# tailscale/policy.hujson) — until that's applied, these scrapes are ACL-denied.
+#
 # TCP-open (not HTTP) is the health signal: the inference servers saturate under
 # load and stop answering HTTP /health promptly while still serving (MOSS during
 # load tests) — TCP-listening is the honest "is it up" check. A crashed service
 # closes its port (e.g. openai-whisper :8002).
-DGX=192.168.1.111
+DGX=dgx-llm-1
 VM="http://localhost:8428/api/v1/import/prometheus?extra_label=host=dgx&extra_label=instance=dgx-llm-1"
 SVCS="ollama:11434 whisper:8000 diarization:8001 openai-whisper:8002 moss:8004 cadvisor:8080 dcgm:9400"
 while true; do
