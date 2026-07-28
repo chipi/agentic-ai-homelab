@@ -32,6 +32,7 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 | **langfuse** | LLM tracing / cost observability | mini | `homelab:4000` | `langfuse/.env` | [langfuse/](langfuse/README.md) |
 | **litellm** | Production LLM gateway — provider-swappable aliases + per-consumer budget keys | mini | `homelab:4001/v1` (master + virtual keys) | `litellm/.env` | [litellm/](litellm/README.md) |
 | **homelab-home** | Tailnet start page (mini · DGX · prod columns) | mini | `homelab:8888` | reads other stacks' `.env` | [homelab-home/](homelab-home/README.md) |
+| **homelab-serve** | Tailnet HTTPS entry points (`tailscale serve`) for the mini's services — re-appliable map | mini | `homelab/<svc>` · `:8443` (Langfuse) | — | [homelab-serve/](homelab-serve/README.md) |
 | **mini-metrics** | Mac-mini host metrics → VictoriaMetrics | mini | pushes to VM `:8428` | — | [mini-metrics/](mini-metrics/README.md) |
 | **dgx-scrape** | Pulls DGX GPU/app metrics + TCP health over LAN → VM | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
 | **ci-ops-poller** | Pulls GitHub Actions runs (CI / drift / drill) → VictoriaLogs for CI health + DORA | mini | pushes to VLogs `:9428` | `ci-ops-poller/.env` | [ci-ops-poller/](ci-ops-poller/README.md) |
