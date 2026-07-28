@@ -22,9 +22,12 @@ wedged (no shell). Until then this LAN pull gives GPU + container metrics +
 service health, but **not** DGX host CPU/mem/disk (node-exporter :9100 is down
 on the box) or per-container names (cadvisor there exposes only cgroup ids).
 
-## Install
+## Install (run-in-place from the repo)
+Handled by [`infra/mini-setup.sh`](../mini-setup.sh) (installs all the launchd
+collectors). Or directly — the plist points at `push.sh` **in this checkout**, so
+`git pull` ships updates:
 ```sh
-cp push.sh ~/obs-dgx-scrape/push.sh && chmod +x ~/obs-dgx-scrape/push.sh
+chmod +x push.sh
 cp com.homelab.dgx-scrape.plist ~/Library/LaunchAgents/
 launchctl load -w ~/Library/LaunchAgents/com.homelab.dgx-scrape.plist
 ```

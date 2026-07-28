@@ -45,24 +45,22 @@ Two dashboards render this data, provisioned in the **CI Ops** Grafana folder:
 - `CI Ops/dora-metrics.json` (`podcast-ci-ops-dora`) — the four DORA metrics +
   CI health (deploy frequency, change-failure, CI pass/flaky, queue/duration).
 
-## Install (on the mini)
+## Install (run-in-place from the repo)
 
+The plist runs `poll.py` **from this checkout** (no copy-out); `.env` +
+`state.json` live here, gitignored. [`infra/mini-setup.sh`](../mini-setup.sh)
+installs the launchd loop; you only stage the token:
 ```sh
-# 1. mint the fine-grained PAT (see .env.example) and drop it in .env
+# 1. mint the fine-grained PAT (see .env.example) + stage it IN-PLACE
 cp .env.example .env && $EDITOR .env        # set GITHUB_TOKEN
-# 2. stage the script + config where the plist expects them
-mkdir -p ~/ci-ops-poller
-cp poll.py .env ~/ci-ops-poller/
-# 3. smoke-test one cycle (prints scanned/emitted, writes to VictoriaLogs)
-python3 ~/ci-ops-poller/poll.py --once
-# 4. install the launchd loop
+# 2. smoke-test one cycle (writes to VictoriaLogs)
+python3 poll.py --once
+# 3. install/load the launchd loop (or run ../mini-setup.sh)
 cp com.homelab.ci-ops-poller.plist ~/Library/LaunchAgents/
 launchctl load -w ~/Library/LaunchAgents/com.homelab.ci-ops-poller.plist
-tail -f /tmp/ci-ops-poller.log
 ```
 
-Uses `/usr/bin/python3` (stdlib only — no pip deps). `.env` + `state.json` are
-gitignored.
+Uses `/usr/bin/python3` (stdlib only — no pip deps).
 
 ## Verify
 

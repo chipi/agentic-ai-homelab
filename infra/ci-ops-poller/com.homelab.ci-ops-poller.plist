@@ -4,9 +4,9 @@
   <key>Label</key><string>com.homelab.ci-ops-poller</string>
   <key>ProgramArguments</key><array>
     <string>/usr/bin/python3</string>
-    <string>/Users/markodragoljevic/ci-ops-poller/poll.py</string>
+    <string>/Users/markodragoljevic/agentic-ai-homelab/infra/ci-ops-poller/poll.py</string>
   </array>
-  <key>WorkingDirectory</key><string>/Users/markodragoljevic/ci-ops-poller</string>
+  <key>WorkingDirectory</key><string>/Users/markodragoljevic/agentic-ai-homelab/infra/ci-ops-poller</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>/tmp/ci-ops-poller.log</string>

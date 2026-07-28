@@ -67,6 +67,26 @@ Per-folder rules layer on top of the repo-root [`AGENTS.md`](../AGENTS.md); see
   the local `.env`). Secrets live in each stack's `.env` — **gitignored, never
   committed** (see the repo-root and `infra/` `AGENTS.md`).
 
+## Rebuilding the mini from scratch
+
+Two idempotent scripts bring the always-on hub back, in order — everything runs
+**in-place from this checkout** (no copy-outs), so `git pull` ships updates:
+
+```sh
+git clone <repo> ~/agentic-ai-homelab && cd ~/agentic-ai-homelab
+./infra/observability/bootstrap.sh   # CONTAINERS — Grafana + Victoria* + GlitchTip + Langfuse + Umami
+./infra/mini-setup.sh                # HOST bits — node_exporter, the launchd collectors
+                                     #   (mini-metrics / dgx-scrape / ci-ops-poller), the CPU-temp
+                                     #   reader, and the Grafana alert-provisioning reload
+```
+
+Then stage the gitignored secrets each stack/collector needs (their `.env` /
+`.env` — see each dir's `.env.example`) and re-run the relevant step. The
+`homelab-home` landing page comes up with `cd infra/homelab-home && ./gen.sh &&
+docker compose up -d`. What's **not** covered by these: the host OS/Tailscale/
+OrbStack install, and the `bugfix-metrics` / `fleetd` launchd jobs (managed by
+their own subprojects).
+
 ## Self-service — what you can do yourself, no ask needed
 
 Don't wait for someone to run a command you can run. These are **read-only or
