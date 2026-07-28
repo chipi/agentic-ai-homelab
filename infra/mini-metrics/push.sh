@@ -1,6 +1,9 @@
 #!/bin/bash
-# Mini host metrics -> VictoriaMetrics: node_exporter scrape (node_*, instance=homelab)
-# + custom mini_* summaries + service health + docker stats (host=mini).
+# Mini host metrics -> VictoriaMetrics. Everything carries instance=homelab so the
+# box is queryable by one label (matching node_exporter + prod/dgx). Sources:
+# node_exporter scrape (node_*) + custom mini_* summaries (CPU/mem/disk/IO/load,
+# macOS-specific — darwin node_exporter omits mem + disk IO) + service_up health
+# + docker stats. Custom metrics also keep host=mini for back-compat.
 VM=http://localhost:8428/api/v1/import/prometheus
 D=/usr/local/bin/docker
 PAGE=$(sysctl -n hw.pagesize); TOTAL=$(sysctl -n hw.memsize)
@@ -15,12 +18,15 @@ while true; do
   read L1 L5 L15 < <(sysctl -n vm.loadavg | awk '{print $2,$3,$4}')
   SWAP_MB=$(sysctl -n vm.swapusage | sed 's/.*used = \([0-9.]*\)M.*/\1/'); SWAP_B=$(echo "${SWAP_MB:-0}*1048576/1"|bc)
   BOOT=$(sysctl -n kern.boottime | sed 's/.*{ sec = \([0-9]*\).*/\1/'); UP=$(( $(date +%s) - ${BOOT:-0} ))
+  # Disk IO (macOS has no node_disk_* — darwin node_exporter omits it). iostat's
+  # 1s sample: $2=transfers/s, $3=MB/s total (read+write; macOS doesn't split).
+  read IOTPS IOMBPS < <(iostat -d -w1 -c2 disk0 2>/dev/null | tail -1 | awk '{print $2,$3}'); IOBPS=$(echo "${IOMBPS:-0}*1048576/1"|bc 2>/dev/null)
   RUN=$($D ps -q 2>/dev/null | wc -l | tr -d " "); TOT=$($D ps -aq 2>/dev/null | wc -l | tr -d " ")
   RST=$($D ps --filter status=restarting -q 2>/dev/null | wc -l | tr -d " ")
   UNH=$($D ps --filter health=unhealthy -q 2>/dev/null | wc -l | tr -d " ")
   {
-    printf 'mini_cpu_used_percent %s\nmini_mem_used_percent %s\nmini_mem_used_bytes %s\nmini_mem_total_bytes %s\nmini_disk_free_bytes %s\nmini_disk_used_percent %s\nmini_load1 %s\nmini_load5 %s\nmini_load15 %s\nmini_swap_used_bytes %s\nmini_uptime_seconds %s\n' \
-      "$CPU" "$MEMPCT" "$USED_B" "$TOTAL" "$FREE_B" "$DPCT" "$L1" "$L5" "$L15" "$SWAP_B" "$UP"
+    printf 'mini_cpu_used_percent %s\nmini_mem_used_percent %s\nmini_mem_used_bytes %s\nmini_mem_total_bytes %s\nmini_disk_free_bytes %s\nmini_disk_used_percent %s\nmini_disk_io_bytes_per_sec %s\nmini_disk_tps %s\nmini_load1 %s\nmini_load5 %s\nmini_load15 %s\nmini_swap_used_bytes %s\nmini_uptime_seconds %s\n' \
+      "$CPU" "$MEMPCT" "$USED_B" "$TOTAL" "$FREE_B" "$DPCT" "${IOBPS:-0}" "${IOTPS:-0}" "$L1" "$L5" "$L15" "$SWAP_B" "$UP"
     printf 'mini_docker_running %s\nmini_docker_total %s\nmini_docker_restarting %s\nmini_docker_unhealthy %s\n' "$RUN" "$TOT" "$RST" "$UNH"
     for s in $SVCS; do
       n=${s%%:*}; r=${s#*:}; port=${r%%:*}; path=${r#*:}
@@ -32,6 +38,6 @@ while true; do
       memb=$(echo "$memu" | awk '{v=$0;gsub(/[A-Za-z]/,"",v);u=$0;gsub(/[0-9.]/,"",u);m=(u=="GiB"?1073741824:(u=="MiB"?1048576:(u=="KiB"?1024:1)));printf "%d",v*m}')
       printf 'mini_container_cpu_percent{name="%s"} %s\nmini_container_mem_bytes{name="%s"} %s\n' "$name" "${cpuv:-0}" "$name" "${memb:-0}"
     done
-  } | curl -s -o /dev/null --data-binary @- "$VM?extra_label=host=mini"
+  } | curl -s -o /dev/null --data-binary @- "$VM?extra_label=instance=homelab&extra_label=host=mini"
   sleep 20
 done
