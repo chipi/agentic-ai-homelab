@@ -4,7 +4,7 @@
 VM=http://localhost:8428/api/v1/import/prometheus
 D=/usr/local/bin/docker
 PAGE=$(sysctl -n hw.pagesize); TOTAL=$(sysctl -n hw.memsize)
-SVCS="grafana:3000:/api/health glitchtip:8090:/_health/ langfuse:4000:/api/public/health umami:3001:/api/heartbeat victoriametrics:8428:/health"
+SVCS="grafana:3000:/api/health glitchtip:8090:/_health/ langfuse:4000:/api/public/health umami:3001:/api/heartbeat litellm:4001:/health/liveliness victoriametrics:8428:/health victorialogs:9428:/health victoriatraces:10428:/health"
 while true; do
   curl -s -m5 http://localhost:9100/metrics | curl -s -o /dev/null --data-binary @- "$VM?extra_label=instance=homelab"
   IDLE=$(top -l2 -n0 | grep "CPU usage" | tail -1 | sed "s/.*, \([0-9.]*\)% idle.*/\1/")

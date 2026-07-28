@@ -32,9 +32,11 @@ MOUNTS_443="
 /grafana    3000
 /glitchtip  8090
 /umami      3001
+/litellm    4001
 /vm         8428
 /vlogs      9428
 /vtraces    10428
+/home       8888
 "
 
 apply() {

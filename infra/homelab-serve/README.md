@@ -16,9 +16,11 @@ Base FQDN: `https://homelab.tail6d0ed4.ts.net` (the mini, tag `homelab-host`).
 | `…/grafana` | `:3000` Grafana | web UI (needs `GRAFANA_ROOT_URL`) |
 | `…/glitchtip` | `:8090` GlitchTip | ingest + API |
 | `…/umami` | `:3001` Umami | web UI |
-| `…/vm` | `:8428` VictoriaMetrics | API |
-| `…/vlogs` | `:9428` VictoriaLogs | API |
+| `…/litellm` | `:4001` LiteLLM | gateway API + `/ui` |
+| `…/vm` | `:8428` VictoriaMetrics | API + `/vmui` |
+| `…/vlogs` | `:9428` VictoriaLogs | API + UI |
 | `…/vtraces` | `:10428` VictoriaTraces | API |
+| `…/home` | `:8888` homelab-home | landing page (basic-auth) |
 | `…:8443/` | `:4000` Langfuse | web UI + API (dedicated TLS port) |
 
 ## Re-apply (the point of this dir)

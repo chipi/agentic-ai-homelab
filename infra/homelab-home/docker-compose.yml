@@ -3,7 +3,12 @@ services:
     image: nginx:alpine
     container_name: homelab-home
     restart: unless-stopped
-    ports: ["100.87.33.61:8888:80"]
+    # tailnet IP for direct access, plus loopback so `tailscale serve` can front
+    # it over HTTPS at homelab.<tailnet>/home (serve can't proxy to the mini's own
+    # tailnet IP — it self-loops — so it needs the 127.0.0.1 bind).
+    ports:
+      - "100.87.33.61:8888:80"
+      - "127.0.0.1:8888:80"
     networks: [backend_default]
     volumes:
       - ./www:/usr/share/nginx/html:ro

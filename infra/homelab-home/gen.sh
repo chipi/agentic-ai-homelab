@@ -6,7 +6,7 @@ GF_U=$(get "$REPO/observability/backend/.env" GRAFANA_ADMIN_USER); GF_P=$(get "$
 GT_U=$(get "$REPO/glitchtip/.env" DJANGO_SUPERUSER_EMAIL); GT_P=$(get "$REPO/glitchtip/.env" DJANGO_SUPERUSER_PASSWORD)
 LF_U=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_EMAIL); LF_P=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_PASSWORD)
 UM_U=admin; UM_P=$(get ~/umami/.env UMAMI_ADMIN_PASSWORD)
-G=http://homelab:3000
+H=https://homelab.tail6d0ed4.ts.net; G=$H/grafana
 DASH_MINI=$G/d/homelab-mini/homelab-e28094-mac-mini
 DASH_GPU=$G/d/gpu-dcgm/gpu-e28094-dcgm
 DASH_DGX=$G/d/dgx-services/dgx-e28094-services
@@ -58,10 +58,14 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
   <div class=sec id=mtop></div>
   <table><thead><tr><th>Service</th><th>Port</th><th>User</th><th>Password</th></tr></thead><tbody>
 HDR
-row "Grafana"   "$G"                  "$GF_U" "$GF_P" "3000"
-row "GlitchTip" "http://homelab:8090" "$GT_U" "$GT_P" "8090"
-row "Langfuse"  "http://homelab:4000" "$LF_U" "$LF_P" "4000"
-row "Umami"     "http://homelab:3001" "$UM_U" "$UM_P" "3001"
+row "Grafana"         "$G"            "$GF_U" "$GF_P" "3000"
+row "GlitchTip"       "$H/glitchtip"  "$GT_U" "$GT_P" "8090"
+row "Langfuse"        "$H:8443"       "$LF_U" "$LF_P" "4000"
+row "Umami"           "$H/umami"      "$UM_U" "$UM_P" "3001"
+row "LiteLLM"         "$H/litellm/ui" "master key" "in litellm/.env" "4001"
+row "VictoriaMetrics" "$H/vm/vmui"    "&mdash;" "tailnet" "8428"
+row "VictoriaLogs"    "$H/vlogs"      "&mdash;" "tailnet" "9428"
+row "VictoriaTraces"  "$H/vtraces"    "&mdash;" "tailnet" "10428"
 cat <<MID
   </tbody></table>
 </div>
@@ -111,8 +115,8 @@ cat <<MID3
 MID3
 cat <<'SCRIPT'
 <script>
-const W=260,H=40,G='http://homelab:3000';
-const MINILINK={grafana:G,glitchtip:'http://homelab:8090',langfuse:'http://homelab:4000',umami:'http://homelab:3001',victoriametrics:'http://homelab:8428/vmui'};
+const W=260,H=40,B='https://homelab.tail6d0ed4.ts.net',G=B+'/grafana';
+const MINILINK={grafana:G,glitchtip:B+'/glitchtip',langfuse:B+':8443',umami:B+'/umami',litellm:B+'/litellm/ui',victoriametrics:B+'/vm/vmui',victorialogs:B+'/vlogs',victoriatraces:B+'/vtraces'};
 const DGXDASH=G+'/d/dgx-services/dgx-e28094-services';
 async function q(query){try{const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(query))).json();return j.data.result;}catch(e){return[];}}
 const g1=async m=>{const r=await q(m);return r.length?r[0].value:null;};
@@ -138,7 +142,7 @@ async function mini(){
   const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
   const l1=await g1('mini_load1'),l5=await g1('mini_load5'),l15=await g1('mini_load15'),sw=await g1('mini_swap_used_bytes'),up=await g1('mini_uptime_seconds');
   const sr=document.getElementById('sysrow');if(sr)sr.innerHTML='Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Swap <b>'+(sw?((+sw[1])/1048576).toFixed(0)+' MB':'&mdash;')+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
-  badges('health','service_up',['grafana','glitchtip','langfuse','umami','victoriametrics'],n=>MINILINK[n]||G);
+  badges('health','service_up',['grafana','glitchtip','langfuse','umami','litellm','victoriametrics','victorialogs','victoriatraces'],n=>MINILINK[n]||G);
   const run=await g1('mini_docker_running'),tot=await g1('mini_docker_total'),rst=await g1('mini_docker_restarting'),unh=await g1('mini_docker_unhealthy');
   const md=document.getElementById('mdocker');if(md&&run)md.innerHTML='<b>'+run[1]+'/'+tot[1]+'</b> running'+(rst&&+rst[1]?' &middot; <span style=color:#f85149>'+rst[1]+' restarting</span>':'')+(unh&&+unh[1]?' &middot; <span style=color:#f85149>'+unh[1]+' unhealthy</span>':'');
   const top=await q('topk(3,mini_container_mem_bytes)');const mt=document.getElementById('mtop');
