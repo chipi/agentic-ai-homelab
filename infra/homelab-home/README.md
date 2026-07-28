@@ -20,13 +20,18 @@ chart/badge deep-links to the matching Grafana dashboard or service.
 ## Not in git (mini-local, gitignored)
 `www/index.html` (generated), `.htpasswd`, `.basic-auth-cred`, `.env`.
 
-## Deploy / refresh
+## Deploy / refresh (run-in-place from the repo — no copy-out)
+Runs from this repo checkout; `gen.sh` writes `www/index.html` next to itself
+and the compose mounts it. `www/`, `.htpasswd`, `.basic-auth-cred` are gitignored
+(generated / secret, staged here on the mini).
 ```sh
-# on the mini, in ~/homelab-home
-./gen.sh                       # rebuild index.html
+# on the mini, in this dir (…/agentic-ai-homelab/infra/homelab-home)
+./gen.sh                       # rebuild www/index.html
 docker compose up -d           # (re)start nginx
 ```
-Reachable over the tailnet once `tag:homelab-host:8888` is granted in the ACL.
+Reachable at `homelab:8888` (direct) and `homelab.<tailnet>/home` (HTTPS via
+`tailscale serve`, see [`../homelab-serve/`](../homelab-serve/README.md)) — the
+tailnet ACL grants `tag:homelab-host:8888` + `:443`.
 
 ## Related
 

@@ -1,0 +1,5 @@
+# Runtime + secrets — generated/staged in place, never committed.
+www/
+.htpasswd
+.basic-auth-cred
+.env

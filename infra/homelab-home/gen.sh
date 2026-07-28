@@ -1,5 +1,7 @@
 #!/bin/bash
-OUT=~/homelab-home/www/index.html
+# Write the generated page next to this script (run-in-place from the repo).
+OUT="$(cd "$(dirname "$0")" && pwd)/www/index.html"
+mkdir -p "$(dirname "$OUT")"
 get(){ [ -f "$1" ] && grep -E "^$2=" "$1" | head -1 | cut -d= -f2- || echo "?"; }
 REPO=~/agentic-ai-homelab/infra
 GF_U=$(get "$REPO/observability/backend/.env" GRAFANA_ADMIN_USER); GF_P=$(get "$REPO/observability/backend/.env" GRAFANA_ADMIN_PASSWORD)

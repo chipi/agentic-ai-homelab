@@ -15,15 +15,18 @@ get from a containerized exporter. Every 20s it:
    unhealthy` + per-container `mini_container_cpu_percent{name}` /
    `mini_container_mem_bytes{name}`.
 
-## Install
+## Install (run-in-place from the repo — no copy-out)
+The plist points at `push.sh` **in this repo checkout**
+(`…/agentic-ai-homelab/infra/mini-metrics/push.sh`), so a `git pull` ships
+script updates with no re-copy.
 ```sh
-cp push.sh ~/mini-metrics/push.sh && chmod +x ~/mini-metrics/push.sh
+chmod +x push.sh
 cp com.homelab.mini-metrics.plist ~/Library/LaunchAgents/
 launchctl load -w ~/Library/LaunchAgents/com.homelab.mini-metrics.plist
 ```
-The plist hardcodes `/Users/markodragoljevic/...` paths (operator restore).
-Editing `push.sh` requires `pkill -f mini-metrics/push.sh` (launchd respawns
-with the new script — bash caches the running copy).
+The plist hardcodes `/Users/markodragoljevic/...` (operator restore). After
+editing `push.sh`, `pkill -f mini-metrics/push.sh` — launchd respawns with the
+new script (bash caches the running copy).
 
 ## Related
 
