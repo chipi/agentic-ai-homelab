@@ -24,10 +24,20 @@ while true; do
   RUN=$($D ps -q 2>/dev/null | wc -l | tr -d " "); TOT=$($D ps -aq 2>/dev/null | wc -l | tr -d " ")
   RST=$($D ps --filter status=restarting -q 2>/dev/null | wc -l | tr -d " ")
   UNH=$($D ps --filter health=unhealthy -q 2>/dev/null | wc -l | tr -d " ")
+  # Compose apps: running/total containers per compose project (the production
+  # load) — so the page can show "which apps are up", not just a count.
+  COMPOSE=$($D ps -a --format '{{.Label "com.docker.compose.project"}}|{{.State}}' 2>/dev/null \
+    | awk -F'|' '$1!=""{t[$1]++; if($2=="running")r[$1]++} END{for(p in t)printf "%s %d %d\n",p,r[p]+0,t[p]}')
   {
     printf 'mini_cpu_used_percent %s\nmini_mem_used_percent %s\nmini_mem_used_bytes %s\nmini_mem_total_bytes %s\nmini_disk_free_bytes %s\nmini_disk_used_percent %s\nmini_disk_io_bytes_per_sec %s\nmini_disk_tps %s\nmini_load1 %s\nmini_load5 %s\nmini_load15 %s\nmini_swap_used_bytes %s\nmini_uptime_seconds %s\n' \
       "$CPU" "$MEMPCT" "$USED_B" "$TOTAL" "$FREE_B" "$DPCT" "${IOBPS:-0}" "${IOTPS:-0}" "$L1" "$L5" "$L15" "$SWAP_B" "$UP"
     printf 'mini_docker_running %s\nmini_docker_total %s\nmini_docker_restarting %s\nmini_docker_unhealthy %s\n' "$RUN" "$TOT" "$RST" "$UNH"
+    echo "$COMPOSE" | while read -r app run tot; do
+      [ -z "$app" ] && continue
+      up=0; [ "${run:-0}" = "${tot:-0}" ] && [ "${tot:-0}" -gt 0 ] && up=1
+      printf 'compose_app_up{app="%s",box="mini"} %s\ncompose_app_running{app="%s",box="mini"} %s\ncompose_app_total{app="%s",box="mini"} %s\n' \
+        "$app" "$up" "$app" "${run:-0}" "$app" "${tot:-0}"
+    done
     for s in $SVCS; do
       n=${s%%:*}; r=${s#*:}; port=${r%%:*}; path=${r#*:}
       code=$(curl -s -o /dev/null -m3 -w "%{http_code}" "http://localhost:$port$path")
