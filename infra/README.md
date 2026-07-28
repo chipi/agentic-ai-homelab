@@ -69,23 +69,42 @@ Per-folder rules layer on top of the repo-root [`AGENTS.md`](../AGENTS.md); see
 
 ## Rebuilding the mini from scratch
 
-Two idempotent scripts bring the always-on hub back, in order — everything runs
-**in-place from this checkout** (no copy-outs), so `git pull` ships updates:
+The mini is an **Intel** Mac (`x86_64`, Homebrew at `/usr/local`) — the CPU-temp
+reader (`osx-cpu-temp`) reads the Intel SMC, so this rebuild is Intel-specific.
+
+### Prerequisites (the from-bare-macOS layer the scripts assume)
+
+These come **before** the two scripts. Everything else is captured as code; these
+are the OS-level pieces a fresh install needs first. Do them top to bottom:
+
+| # | Prereq | Install | Why |
+|---|---|---|---|
+| 1 | **Xcode Command Line Tools** | `xcode-select --install` | gives `git` + `make` — needed to clone the repo and build `osx-cpu-temp` |
+| 2 | **Homebrew** | the [brew.sh](https://brew.sh) install one-liner | the package manager everything below rides on |
+| 3 | **Brew packages** | `brew bundle --file infra/Brewfile` | OrbStack (container engine), node_exporter, sops, age — see [`Brewfile`](Brewfile). `mini-setup.sh` runs this for you. |
+| 4 | **Tailscale** | Mac **App Store** → sign in, `tailscale up` | the tailnet everything binds to. It's the App Store GUI build (root-owned), **not** a brew cask — that's why it's not in the Brewfile. |
+| 5 | **age key** | drop the private key at `~/.config/sops/age/keys.txt` | `bootstrap.sh` decrypts `secrets.sops.env` with it — the one secret no script can regenerate; restore it from your password manager / backup. |
+
+### Then the two idempotent scripts
+
+Both run **in-place from this checkout** (no copy-outs), so `git pull` ships updates:
 
 ```sh
 git clone <repo> ~/agentic-ai-homelab && cd ~/agentic-ai-homelab
 ./infra/observability/bootstrap.sh   # CONTAINERS — Grafana + Victoria* + GlitchTip + Langfuse + Umami
-./infra/mini-setup.sh                # HOST bits — node_exporter, the launchd collectors
-                                     #   (mini-metrics / dgx-scrape / ci-ops-poller), the CPU-temp
-                                     #   reader, and the Grafana alert-provisioning reload
+                                     #   (needs OrbStack running, tailscale up, sops+age+age-key from above)
+./infra/mini-setup.sh                # HOST bits — runs `brew bundle`, then installs node_exporter,
+                                     #   the launchd collectors (mini-metrics / dgx-scrape / ci-ops-poller),
+                                     #   the CPU-temp reader, and the Grafana alert-provisioning reload
 ```
 
-Then stage the gitignored secrets each stack/collector needs (their `.env` /
-`.env` — see each dir's `.env.example`) and re-run the relevant step. The
-`homelab-home` landing page comes up with `cd infra/homelab-home && ./gen.sh &&
-docker compose up -d`. What's **not** covered by these: the host OS/Tailscale/
-OrbStack install, and the `bugfix-metrics` / `fleetd` launchd jobs (managed by
-their own subprojects).
+Then stage the gitignored per-stack secrets (each dir's `.env` — see its
+`.env.example`; the collectors' too, e.g. `ci-ops-poller/.env` `GITHUB_TOKEN`)
+and re-run the relevant step. The `homelab-home` landing page comes up with `cd
+infra/homelab-home && ./gen.sh && docker compose up -d`.
+
+**Still not covered** (managed by their own subprojects, not this rebuild): the
+`bugfix-metrics` / `fleetd` launchd jobs.
 
 ## Self-service — what you can do yourself, no ask needed
 

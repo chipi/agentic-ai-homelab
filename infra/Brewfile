@@ -1,0 +1,26 @@
+# Brewfile — Homebrew prerequisites for the Mac mini homelab hub.
+#
+# Captures the OS-level packages the homelab infra depends on, so a
+# from-bare-macOS rebuild is `brew bundle` instead of "remember what to install".
+# Run: `brew bundle --file infra/Brewfile` (mini-setup.sh does this for you).
+#
+# This is the ONE gap mini-setup.sh / bootstrap.sh don't cover on their own:
+# they assume brew + these packages already exist. This file closes it.
+#
+# NOT captured here (can't be — see infra/README.md "Prerequisites"):
+#   - Homebrew itself       (bootstrap: the install-from-curl one-liner)
+#   - Tailscale.app         (Mac App Store GUI build, root-owned — not a brew cask)
+#   - Xcode Command Line Tools (`xcode-select --install` — gives git + make for
+#                               the osx-cpu-temp build)
+# Only homelab-infra deps live here; the operator's own tooling (opencode, node,
+# p7zip) is intentionally left out so this file stays a truthful infra manifest.
+
+# --- container runtime -------------------------------------------------------
+cask "orbstack"        # Docker/Compose engine — every infra/ stack runs on this
+
+# --- host metrics ------------------------------------------------------------
+brew "node_exporter"   # darwin host metrics → VictoriaMetrics (mini-metrics scrapes it)
+
+# --- secrets (observability backend) ----------------------------------------
+brew "sops"            # decrypts the sops-encrypted backend secrets
+brew "age"             # sops backend key for that decryption

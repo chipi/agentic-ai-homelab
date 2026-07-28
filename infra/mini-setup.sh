@@ -18,13 +18,15 @@ INFRA="$(cd "$(dirname "$0")" && pwd)"
 LA="$HOME/Library/LaunchAgents"
 mkdir -p "$LA"
 
-echo "== 1. node_exporter (native — darwin host metrics a container can't read) =="
-if command -v node_exporter >/dev/null 2>&1 || [ -x /usr/local/bin/node_exporter ]; then
-  echo "   present"
-elif command -v brew >/dev/null 2>&1; then
-  brew install node_exporter && brew services start node_exporter && echo "   installed via brew"
+echo "== 1. Homebrew packages (Brewfile: orbstack, node_exporter, sops, age) =="
+if command -v brew >/dev/null 2>&1; then
+  # --no-upgrade: install only what's MISSING; never upgrade an installed formula/
+  # cask on a routine re-run (an OrbStack upgrade would bounce every container).
+  brew bundle install --no-upgrade --file "$INFRA/Brewfile" && echo "   brew bundle satisfied"
+  brew services list 2>/dev/null | grep -q '^node_exporter.*started' || brew services start node_exporter
 else
-  echo "   !! MISSING and no brew — install Homebrew, then: brew install node_exporter && brew services start node_exporter"
+  echo "   !! Homebrew missing — install it first (see infra/README.md Prerequisites),"
+  echo "      then re-run this script: it runs 'brew bundle --file infra/Brewfile'."
 fi
 
 echo "== 2. CPU-temp reader (osx-cpu-temp, GPL — also self-builds in mini-metrics) =="
