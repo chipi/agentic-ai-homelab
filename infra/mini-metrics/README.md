@@ -20,15 +20,19 @@ get from a containerized exporter. Every 20s it:
 6. **Disk IO** (`mini_disk_io_bytes_per_sec`, `mini_disk_tps`) via `iostat`
    (darwin node_exporter omits `node_disk_*`).
 
-## CPU temperature — one-time build (`osx-cpu-temp`, GPL, not vendored)
+## CPU temperature — `osx-cpu-temp` (GPL, self-provisioning, not vendored)
 macOS exposes CPU die temp only via the SMC. `osx-cpu-temp` reads it **without
-sudo** on Intel Macs. It's GPL, so we don't vendor it into this MIT repo — build
-the binary once on the box (gitignored); `push.sh` calls it if present and is
-silent otherwise.
+sudo** on Intel Macs. It's GPL, so it's **not vendored** into this MIT repo.
+
+**Reproducibility (config management):** `push.sh` **builds it itself on first
+run** if the binary is missing (`git clone` + `make`, next to the script,
+gitignored) — so a fresh machine reinstall gets CPU temp with **no manual step**.
+It needs Xcode Command-Line Tools (`git`+`make`) present and one network fetch;
+if either is missing it silently skips and the temp metric is just absent. To
+force/verify the build manually:
 ```sh
 git clone --depth 1 https://github.com/lavoiesl/osx-cpu-temp /tmp/osx-cpu-temp
-make -C /tmp/osx-cpu-temp
-cp /tmp/osx-cpu-temp/osx-cpu-temp infra/mini-metrics/osx-cpu-temp   # next to push.sh
+make -C /tmp/osx-cpu-temp && cp /tmp/osx-cpu-temp/osx-cpu-temp ./osx-cpu-temp
 ```
 (Apple-Silicon Macs need a different reader; this box is Intel i7-8700B.)
 

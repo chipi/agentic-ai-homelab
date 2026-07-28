@@ -8,6 +8,16 @@ VM=http://localhost:8428/api/v1/import/prometheus
 D=/usr/local/bin/docker
 PAGE=$(sysctl -n hw.pagesize); TOTAL=$(sysctl -n hw.memsize)
 SVCS="grafana:3000:/api/health glitchtip:8090:/_health/ langfuse:4000:/api/public/health umami:3001:/api/heartbeat litellm:4001:/health/liveliness victoriametrics:8428:/health victorialogs:9428:/health victoriatraces:10428:/health"
+# CPU-temp reader (osx-cpu-temp, GPL — GPL so not vendored into this MIT repo).
+# SELF-PROVISIONING: build it once, next to this script, if missing — so a fresh
+# machine reinstall gets CPU temp with no manual step (needs Xcode CLT git+make +
+# one network fetch; silently skips if unavailable). This is the reproducibility
+# story for the tool — the collector installs its own dependency on first run.
+TBIN="$(cd "$(dirname "$0")" && pwd)/osx-cpu-temp"
+if [ ! -x "$TBIN" ] && command -v git >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+  _t=$(mktemp -d) && git clone --depth 1 -q https://github.com/lavoiesl/osx-cpu-temp "$_t" 2>/dev/null \
+    && make -C "$_t" >/dev/null 2>&1 && cp "$_t/osx-cpu-temp" "$TBIN" && chmod +x "$TBIN"; rm -rf "$_t"
+fi
 while true; do
   curl -s -m5 http://localhost:9100/metrics | curl -s -o /dev/null --data-binary @- "$VM?extra_label=instance=homelab"
   IDLE=$(top -l2 -n0 | grep "CPU usage" | tail -1 | sed "s/.*, \([0-9.]*\)% idle.*/\1/")
@@ -21,9 +31,9 @@ while true; do
   # Disk IO (macOS has no node_disk_* — darwin node_exporter omits it). iostat's
   # 1s sample: $2=transfers/s, $3=MB/s total (read+write; macOS doesn't split).
   read IOTPS IOMBPS < <(iostat -d -w1 -c2 disk0 2>/dev/null | tail -1 | awk '{print $2,$3}'); IOBPS=$(echo "${IOMBPS:-0}*1048576/1"|bc 2>/dev/null)
-  # CPU temp — vendored osx-cpu-temp SMC reader (no sudo; Intel Mac). Built once
-  # on the box (README); silent when the binary is absent.
-  TBIN="$(cd "$(dirname "$0")" && pwd)/osx-cpu-temp"; TEMP=$([ -x "$TBIN" ] && "$TBIN" 2>/dev/null | awk '{print $1}')
+  # CPU temp via the self-provisioned osx-cpu-temp (TBIN set + built above);
+  # silent if the build wasn't possible.
+  TEMP=$([ -x "$TBIN" ] && "$TBIN" 2>/dev/null | awk '{print $1}')
   RUN=$($D ps -q 2>/dev/null | wc -l | tr -d " "); TOT=$($D ps -aq 2>/dev/null | wc -l | tr -d " ")
   RST=$($D ps --filter status=restarting -q 2>/dev/null | wc -l | tr -d " ")
   UNH=$($D ps --filter health=unhealthy -q 2>/dev/null | wc -l | tr -d " ")

@@ -87,6 +87,53 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [0.05] } }]
 
+      # --- Mac mini CPU temperature (warning >85°C, critical >95°C) ---------------
+      # The mini runs 24/7; healthy idle ~60°C, thermal-throttles ~100°C. 85 = warn
+      # headroom; 95 = imminent throttle. Source: mini_cpu_temp_celsius (osx-cpu-temp
+      # SMC reader in mini-metrics).
+      - uid: mini-cpu-temp-high
+        title: "Mac mini CPU temp high (>85°C)"
+        condition: threshold
+        for: 5m
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "Mac mini CPU die temp above 85°C for 5m — running hot."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'mini_cpu_temp_celsius'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [85] } }]
+      - uid: mini-cpu-temp-crit
+        title: "Mac mini CPU temp critical (>95°C)"
+        condition: threshold
+        for: 2m
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "Mac mini CPU die temp above 95°C — near thermal throttle."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'mini_cpu_temp_celsius'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [95] } }]
+
   - orgId: 1
     name: app-health
     folder: "Alerts"
