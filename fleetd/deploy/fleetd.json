@@ -13,7 +13,7 @@
       "stop_flag": "/Users/markodragoljevic/signal-fleet/STOP",
       "budget_day_usd": 2.0,
       "spend_file": "/Users/markodragoljevic/signal-fleet/results/.last_cycle_spend",
-      "stage": "shadow",
+      "stage": "propose",
       "cycle_timeout": "20m"
     },
     {
