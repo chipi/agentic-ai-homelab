@@ -19,7 +19,8 @@ Canonical URL:
 | `instance` | stream label | low | the **host/box** (`homelab`, `dgx-llm-1`, `prod-podcast`) | Alloy `external_labels` (env `HOMELAB_INSTANCE`) |
 | `cluster` | stream label | low | coarse group (`homelab`, `dgx`, `vps`) | Alloy `external_labels` (env `HOMELAB_CLUSTER`) |
 | `env` | stream label | low | deploy env (`prod`, `staging`, `dev`, `ci`) | Alloy `external_labels` (env `HOMELAB_ENV`) |
-| `app` | stream label | low | application (`orrery`, `podcast`, `player`, …) | per-target label, or app's own structured logging |
+| `app` | stream label | low | application (`operator`, `player`, `orrery`, …) | from the **compose project** (see below) |
+| `component` | stream label | low | sub-part of an app: `api`, `ui`, `pipeline`, `worker` | from the **compose service** (see below) |
 | `container` | stream label | low-med | container name | `loki.source.docker` sets it |
 | `trace_id` | **structured_metadata** | **high** | 32-hex W3C/Sentry trace id, for correlation | `loki.process` regex stage (below) |
 
@@ -28,6 +29,49 @@ per request (very high cardinality). As a *stream label* they would explode
 VictoriaLogs' stream count. As *structured_metadata* they are a normal queryable
 field (`trace_id:<id>`) with **no** stream-cardinality cost. This distinction is
 mandatory — never promote `trace_id` (or any per-request id) to a stream label.
+
+### Deriving `app` + `component` from compose (the "double API" case)
+
+Several apps ship the **same service name** — e.g. both the operator and player
+stacks run a container literally named `api` from the same image. The service
+name alone can't tell them apart; the **compose project** can. So:
+
+- `app` ← `com.docker.compose.project` (mapped to a clean name)
+- `component` ← `com.docker.compose.service` (mapped to `api` / `ui` / …)
+
+Example relabel rules in the Alloy `loki.source.docker` (or a `discovery.relabel`):
+
+```alloy
+// app  <- compose project   (operator vs player: distinguishes the two `api`s)
+rule {
+  source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+  regex         = "compose|operator.*"   // operator stack's project dir
+  target_label  = "app"
+  replacement   = "operator"
+}
+rule {
+  source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+  regex         = "player.*"
+  target_label  = "app"
+  replacement   = "player"
+}
+// component <- compose service  (api stays api; viewer/learning-app -> ui)
+rule {
+  source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+  regex         = "api"
+  target_label  = "component"
+  replacement   = "api"
+}
+rule {
+  source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+  regex         = "viewer|learning-app|.*-ui"
+  target_label  = "component"
+  replacement   = "ui"
+}
+```
+
+Result: `app=operator,component=api` vs `app=player,component=api` are separable,
+so the two APIs' logs never merge. Filter by `app` and/or `component` in Grafana.
 
 ### Severity
 
