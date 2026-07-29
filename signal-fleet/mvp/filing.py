@@ -31,10 +31,14 @@ MUTE_LABEL = "triage-fleet/muted"
 ESCALATE_LABEL = "triage-fleet/escalated"
 FILED_LABEL = "triage-fleet/filed"
 
-# glitchtip project prefix → GitHub repo. Unmapped projects fall back to
-# SF_OPS_REPO; with neither, filing refuses (visible, not silent).
+# glitchtip project prefix → GitHub repo (operator mapping 2026-07-29).
+# Unmapped projects fall back to SF_OPS_REPO; with neither, filing refuses
+# (visible, not silent).
 REPO_MAP = {
     "ORRERY": "chipi/orrery",
+    "LITELLM": "chipi/agentic-ai-homelab",
+    "PODCAST": "chipi/podcast_scraper",
+    "PLAYER": "chipi/podcast_scraper",
 }
 OPS_REPO = os.environ.get("SF_OPS_REPO", "")
 
