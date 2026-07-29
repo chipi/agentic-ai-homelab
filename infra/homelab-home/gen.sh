@@ -109,13 +109,14 @@ cat <<MID
   </div>
   <div class=charts>
     <a class=card href="$DASH_GPU"><h3>Host CPU</h3><div id=d_cpu>&hellip;</div></a>
-    <a class=card href="$DASH_GPU"><h3>Host mem</h3><div id=d_mem>&hellip;</div></a>
+    <a class=card href="$DASH_GPU"><h3>Unified mem</h3><div id=d_mem>&hellip;</div></a>
     <a class=card href="$DASH_GPU"><h3>Host disk</h3><div id=d_disk>&hellip;</div></a>
     <a class=card href="$DASH_GPU"><h3>Disk IO</h3><div id=d_io>&hellip;</div></a>
     <a class=card href="$DASH_GPU"><h3>Network</h3><div id=d_net>&hellip;</div></a>
   </div>
   <div id=dgxhealth class=health></div>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
+  <div class=sec id=dgxapps></div>
   <table><thead><tr><th>Service</th><th>Port</th><th>Role</th></tr></thead><tbody>
 MID
 dsvc "ollama"         "11434" "LLM inference" "$DASH_DGX"
@@ -211,6 +212,11 @@ async function dgx(){
   badges('dgxhealth','dgx_service_up',['ollama','whisper','diarization','moss','cadvisor','dcgm'],n=>DGXDASH);
   const cc=await g1('count(container_last_seen{instance=\"dgx-llm-1\"})'),mem=await g1('sum(container_memory_usage_bytes{instance=\"dgx-llm-1\",id=\"/\"})');
   const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b>';
+  const apps=await q('compose_app_up{box=\"dgx\"}'),arun={},atot={};
+  (await q('compose_app_running{box=\"dgx\"}')).forEach(s=>arun[s.metric.app]=s.value[1]);
+  (await q('compose_app_total{box=\"dgx\"}')).forEach(s=>atot[s.metric.app]=s.value[1]);
+  const da=document.getElementById('dgxapps');
+  if(da)da.innerHTML='apps: '+apps.sort((a,b)=>a.metric.app<b.metric.app?-1:1).map(s=>{const n=s.metric.app,up=+s.value[1];return '<span style=\"color:'+(up?'#3fb950':'#f85149')+'\">'+n+'</span> <span class=muted>'+(arun[n]||'?')+'/'+(atot[n]||'?')+'</span>';}).join(' &middot; ');
 }
 async function prod(){
   const P='{instance="prod-podcast"}';

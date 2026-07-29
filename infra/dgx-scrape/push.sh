@@ -13,6 +13,7 @@
 # "is it up". A crashed service closes its port (e.g. openai-whisper :8002).
 DGX=dgx-llm-1
 VM="http://localhost:8428/api/v1/import/prometheus?extra_label=host=dgx&extra_label=instance=dgx-llm-1"
+VMPLAIN="http://localhost:8428/api/v1/import/prometheus"
 # openai-whisper (:8002) retired — speaches (:8000) won the #952 transcription
 # bake-off; its files stay on the DGX but it's no longer a monitored service.
 SVCS="ollama:11434 whisper:8000 diarization:8001 moss:8004 cadvisor:8080 dcgm:9400"
@@ -24,5 +25,17 @@ while true; do
       printf 'dgx_service_up{service="%s"} %s\n' "$n" "$up"
     done
   } | curl -s -m8 -o /dev/null --data-binary @- "$VM"
+  # Compose-app inventory, mirroring the mini's compose_app_* metrics. The DGX's
+  # cadvisor only exposes cgroup ids (no container names), so read `docker ps`
+  # over keyless Tailscale SSH (mini -> dgx, ACL tag:homelab-host -> :22). Emits
+  # compose_app_up/running/total{app,box="dgx"} to the PLAIN endpoint (no host/
+  # instance labels — a per-box inventory metric, queried by box like the mini).
+  # Non-fatal: an SSH/DGX hiccup skips this cycle, health checks above still ship.
+  ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new ops@"$DGX" \
+      'docker ps -a --format "{{.Label \"com.docker.compose.project\"}}|{{.State}}"' 2>/dev/null \
+    | awk -F'|' '$1!=""{t[$1]++; if($2=="running")r[$1]++}
+        END{for(p in t){u=(r[p]+0==t[p] && t[p]>0)?1:0;
+          printf "compose_app_up{app=\"%s\",box=\"dgx\"} %d\ncompose_app_running{app=\"%s\",box=\"dgx\"} %d\ncompose_app_total{app=\"%s\",box=\"dgx\"} %d\n",p,u,p,r[p]+0,p,t[p]}}' \
+    | curl -s -m8 -o /dev/null --data-binary @- "$VMPLAIN" || true
   sleep 20
 done
