@@ -3,9 +3,9 @@
 The self-hosted stack, reached over Tailscale. It spans **three hosts** —
 don't assume "one box":
 
-- **DGX** (`dgx-llm-1`, LAN `192.168.1.111`) — the GPU/LLM inference box:
-  vLLM, Ollama, and the podcast ML services. **No SSH yet** — reached only
-  over the LAN.
+- **DGX** (`dgx-llm-1`, tailnet `100.69.49.126`) — the GPU/LLM inference box:
+  vLLM, Ollama, and the podcast ML services. SSH via Tailscale:
+  `ssh markodragoljevic@dgx-llm-1` (personal) / `ssh ops@dgx-llm-1` (agents).
 - **Mac mini** (`homelab`, tailnet `100.87.33.61`) — the **always-on hub**.
   Runs the entire observability backend (Grafana + VictoriaMetrics/Logs/
   Traces), plus GlitchTip, Langfuse, Umami, and the landing page. This is
@@ -66,7 +66,7 @@ them. Nothing on the DGX renders a dashboard — go to the mini for that.
 
 +----------------------------------+     +-----------------------------------+
 |  DGX  (dgx-llm-1, GPU box)        |     |  Mac mini  (homelab — the hub)    |
-|  LAN 192.168.1.111 · no SSH yet   |     |  tailnet 100.87.33.61 · always-on |
+|  tailnet 100.69.49.126 · SSH OK   |     |  tailnet 100.87.33.61 · always-on |
 |                                   |     |                                   |
 |  Inference (this repo):           |     |  Observability backend:           |
 |    vllm coder-next   :9000        |     |    VictoriaMetrics :8428  (metrics)|
@@ -76,7 +76,7 @@ them. Nothing on the DGX renders a dashboard — go to the mini for that.
 |    ollama            :11434       |     |                                   |
 |    pyannote/whisper/moss  8001-4  |     |  Apps on the hub:                 |
 |                                   |     |    GlitchTip :8090  (errors)      |
-|  Exporters (scraped over LAN):    |     |    Langfuse  :4000  (LLM traces)  |
+|  Exporters (scraped over tailnet):|     |    Langfuse  :4000  (LLM traces)  |
 |    DCGM   :9400   (GPU)   ────────┼──┐  |    Umami     :3001  (web analytics)|
 |    cAdvisor :8080 (containers) ───┼─┐│  |    homelab-home :8888 (start page)|
 +----------------------------------+ ││  |                                   |
@@ -153,11 +153,12 @@ Cloud. Two layers:
   - The **mini** runs a containerized Alloy (`hosts/homelab/`) for its own
     host metrics, plus two launchd loops: `mini-metrics/` (native macOS
     signals) and `dgx-scrape/`.
-  - The **DGX** has no working collector on it yet (no SSH). So
-    `dgx-scrape/` on the mini **pulls** the DGX's DCGM (:9400) and cAdvisor
-    (:8080) exporters over the LAN every 20s and pushes them into
-    VictoriaMetrics, labelled `instance=dgx-llm-1`. This is the interim
-    model until the DGX login is unwedged and can run its own Alloy.
+  - The **DGX** has no working collector on it yet (SSH now available, but
+    push-collector not deployed). So `dgx-scrape/` on the mini **pulls**
+    the DGX's DCGM (:9400) and cAdvisor (:8080) exporters over the LAN every
+    20s and pushes them into VictoriaMetrics, labelled `instance=dgx-llm-1`.
+    This is the interim model; a DGX push-collector (node-exporter + Alloy)
+    is now possible but not yet deployed. The DGX ships no logs yet.
   - The **prod-podcast VPS** runs its own Alloy that ships metrics/logs to
     the mini over the tailnet.
 

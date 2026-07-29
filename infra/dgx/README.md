@@ -1,16 +1,15 @@
 # DGX — host scripts + service map
 
 **What it is:** operator scripts and the service inventory for the DGX-class GPU
-box (`192.168.1.111`, label `dgx-llm-1`) that hosts the local LLM/inference
+box (tailnet `dgx-llm-1`, IP `100.69.49.126`) that hosts the local LLM/inference
 stack. This directory is **host tooling**, not a compose stack — the services
-themselves are managed on the DGX; the telemetry that watches them is pushed from
-the Mac mini (see [dgx-scrape](../dgx-scrape/README.md)).
+themselves are managed on the DGX; the telemetry that watches them is pulled from
+the Mac mini over the LAN (see [dgx-scrape](../dgx-scrape/README.md)).
 
 ## Where it runs
 
-- **Host:** DGX, LAN `192.168.1.111`. **No SSH access yet** — the box is reached
-  only over the LAN (exporter + app ports) by the mini's collectors. Anything
-  needing a DGX shell is currently blocked.
+- **Host:** DGX, tailnet `dgx-llm-1` (100.69.49.126). SSH via Tailscale (keyless):
+  `ssh markodragoljevic@dgx-llm-1` (personal) / `ssh ops@dgx-llm-1` (agents).
 - **Scripts** in [`bin/`](bin) run *on the DGX* (operator-invoked). The DGX also
   holds a **deploy-only** checkout of this repo — never author or commit there
   (see [`AGENTS.md`](AGENTS.md); the 2026-07-20 drift incident).
@@ -50,8 +49,9 @@ sudo, failure modes): [`bin/README.md`](bin/README.md).
 
 ## Gotchas
 
-- **No SSH yet** — LAN-only. Telemetry works (pull from the mini); anything
-  interactive on the DGX is blocked until access is restored.
+- **Tailscale SSH only** — the DGX is not reachable over the home LAN anymore
+  (DHCP dropped it while it stayed up on the tailnet). Reach it by tailnet name
+  (`dgx-llm-1`). Telemetry is pulled by the mini over the LAN.
 - **Deploy-only checkout** — commit on your workstation, push, then `git pull` on
   the DGX. Never leave an unpushed commit on the DGX ([`AGENTS.md`](AGENTS.md)).
 - **Health = TCP-open, not HTTP** — inference servers stop answering HTTP

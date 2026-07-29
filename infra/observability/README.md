@@ -10,13 +10,13 @@ The storage + viz half (VictoriaMetrics + VictoriaLogs + VictoriaTraces +
 Grafana) lives in [`backend/`](backend/) and runs on the **Mac mini**
 (`homelab`) — not the DGX.
 
-> **Current reality (2026-07-25):** the DGX has no working collector on it yet
-> (no SSH). So instead of this compose running *on* the DGX, the mini's
-> [`../dgx-scrape/`](../dgx-scrape/README.md) launchd loop **pulls** the DGX's
-> DCGM (:9400) and cAdvisor (:8080) exporters over the LAN and pushes them into
-> VictoriaMetrics. The mini runs the [`hosts/homelab/`](hosts/homelab/) variant
-> of this collector for its own host metrics. See the
-> [host map](../README.md) for who runs what.
+> **Current reality (2026-07-29):** the DGX has no working collector on it yet
+> (SSH now unblocked, but push-collector not deployed). So instead of this
+> compose running *on* the DGX, the mini's [`../dgx-scrape/`](../dgx-scrape/README.md)
+> launchd loop **pulls** the DGX's DCGM (:9400) and cAdvisor (:8080) exporters
+> over the LAN and pushes them into VictoriaMetrics. The mini runs the
+> [`hosts/homelab/`](hosts/homelab/) variant of this collector for its own host
+> metrics. See the [host map](../README.md) for who runs what.
 
 Besides metrics, Alloy also ships **Docker container logs** (`loki.source.docker`
 via the mounted Docker socket) to VictoriaLogs — set `LOGS_WRITE_URL` to the

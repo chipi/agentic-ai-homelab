@@ -10,8 +10,8 @@
 
 Historical framing (pre-cutover): the o11y backend ran on the DGX as a
 **stopgap** and moved to the always-on Mac mini (`homelab`); the DGX kept only
-its **collector** (and, since it has no SSH, the mini's `dgx-scrape` now pulls
-its exporters over the LAN).
+its **collector** (and the mini's `dgx-scrape` pulls its exporters over the
+LAN — SSH is now available but a push-collector is not yet deployed).
 
 **The design that makes this cheap:** every sender→backend reference comes from an
 **env var**, so the cutover is a per-host `.env` flip — **no config or code edits**.

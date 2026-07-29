@@ -1,6 +1,6 @@
 # Homelab — Grafana folder
 
-Core infrastructure dashboards for the Mac mini observability platform (VictoriaMetrics/VictoriaLogs) and the DGX LLM host over LAN. Auto-provisioned into Grafana within 30s via `dashboards.yml`; see parent `../README.md` for provisioning model.
+Core infrastructure dashboards for the Mac mini observability platform (VictoriaMetrics/VictoriaLogs) and the DGX LLM host, scraped over the tailnet. Auto-provisioned into Grafana within 30s via `dashboards.yml`; see parent `../README.md` for provisioning model.
 
 ## Boards
 
@@ -19,5 +19,5 @@ Core infrastructure dashboards for the Mac mini observability platform (Victoria
 
 - **cAdvisor container names (GH #1272):** Docker container identifiers show as short SHA substrings (e.g. `abc123def456`) because cAdvisor is not exporting the `name` label. Workaround: use the **Logs — Overview** dashboard for container-aware views (VictoriaLogs resolves the `container` field from log metadata).
 - **Provisioning:** All boards are reloaded every 30s from disk via `foldersFromFilesStructure` in the Grafana provisioning config. UI edits persist if `allowUiUpdates: true`; export changes back to JSON to version them.
-- **Datasources:** VictoriaMetrics (Prometheus-compatible metrics) and VictoriaLogs (LogsQL) run on the Mac mini at `:8428` and `:9428` respectively. DGX scrape targets (`dgx-llm-1:192.168.1.111`) ship metrics over LAN.
+- **Datasources:** VictoriaMetrics (Prometheus-compatible metrics) and VictoriaLogs (LogsQL) run on the Mac mini at `:8428` and `:9428` respectively. DGX scrape targets (instance=`dgx-llm-1`) ship metrics over the tailnet/LAN.
 - **Cross-reference:** See `../README.md` for vendoring rules, datasource config, and links to upstream sources (grafana.com, etc.).

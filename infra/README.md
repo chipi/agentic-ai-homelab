@@ -14,7 +14,7 @@ Ties into the global docs at
 | Host | Name / address | Runs |
 |---|---|---|
 | **Mac mini** | `homelab` · tailnet `100.87.33.61` | The observability backend (Grafana + VictoriaMetrics/Logs/Traces), GlitchTip, Umami, Langfuse, the landing page, and the host/DGX collectors. The always-on hub. |
-| **DGX** | LAN `192.168.1.111` · label `dgx-llm-1` | GPU/LLM inference services (Ollama, MOSS, Whisper, diarization, vLLM) + DCGM/cAdvisor exporters + `gpu-mode-swap`. **No SSH yet** — reached only over the LAN by the mini's collectors. |
+| **DGX** | tailnet `dgx-llm-1` (100.69.49.126) | GPU/LLM inference services (Ollama, MOSS, Whisper, diarization, vLLM) + DCGM/cAdvisor exporters + `gpu-mode-swap`. SSH via Tailscale: `ssh markodragoljevic@dgx-llm-1` (personal) / `ssh ops@dgx-llm-1` (agents). |
 | **prod-podcast** | public VPS | The podcast apps (operator API + player) + a node Alloy shipping metrics/logs to the mini + a Caddy edge that tunnels the public endpoints (GlitchTip, Umami, orrery beacon). |
 
 **Network:** everything internal is **tailnet-only** — services bind to the mini's
@@ -34,9 +34,9 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 | **homelab-home** | Tailnet start page (mini · DGX · prod columns) | mini | `homelab:8888` | reads other stacks' `.env` | [homelab-home/](homelab-home/README.md) |
 | **homelab-serve** | Tailnet HTTPS entry points (`tailscale serve`) for the mini's services — re-appliable map | mini | `homelab/<svc>` · `:8443` (Langfuse) | — | [homelab-serve/](homelab-serve/README.md) |
 | **mini-metrics** | Mac-mini host metrics → VictoriaMetrics | mini | pushes to VM `:8428` | — | [mini-metrics/](mini-metrics/README.md) |
-| **dgx-scrape** | Pulls DGX GPU/app metrics + TCP health over LAN → VM | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
+| **dgx-scrape** | Pulls DGX GPU/app metrics + TCP health over tailnet → VM | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
 | **ci-ops-poller** | Pulls GitHub Actions runs (CI / drift / drill) → VictoriaLogs for CI health + DORA | mini | pushes to VLogs `:9428` | `ci-ops-poller/.env` | [ci-ops-poller/](ci-ops-poller/README.md) |
-| **dgx** | DGX-host operator scripts (`gpu-mode-swap`) + service map | DGX | LAN `192.168.1.111` (no SSH yet) | — | [dgx/](dgx/README.md) |
+| **dgx** | DGX-host operator scripts (`gpu-mode-swap`) + service map | DGX | Tailscale SSH (see above) | — | [dgx/](dgx/README.md) |
 | **vllm** | Local vLLM inference stacks (coder / autoresearch) | DGX | `:8003` / `:9000` `/v1` (GPU-mode gated) | — | [vllm/](vllm/README.md) |
 
 Per-folder rules layer on top of the repo-root [`AGENTS.md`](../AGENTS.md); see
@@ -46,9 +46,9 @@ Per-folder rules layer on top of the repo-root [`AGENTS.md`](../AGENTS.md); see
 ## How they connect
 
 ```
-  DGX (192.168.1.111)                Mac mini (homelab / 100.87.33.61)
-  ├─ Ollama/MOSS/Whisper/…    ─LAN→   ├─ dgx-scrape ─┐
-  ├─ DCGM :9400, cAdvisor :8080 ─LAN→ ├─ mini-metrics ┤→ VictoriaMetrics :8428
+  DGX (dgx-llm-1, 100.69.49.126)      Mac mini (homelab / 100.87.33.61)
+  ├─ Ollama/MOSS/Whisper/…    ─TS─→   ├─ dgx-scrape ─┐
+  ├─ DCGM :9400, cAdvisor :8080 ─TS─→ ├─ mini-metrics ┤→ VictoriaMetrics :8428
   └─ gpu-mode-swap                    │                ├→ VictoriaLogs   :9428  ← Alloy
                                       │                └→ VictoriaTraces :10428 ← OTel
   prod-podcast (VPS)                  ├─ Grafana :3000  (reads all three)
@@ -60,6 +60,8 @@ Per-folder rules layer on top of the repo-root [`AGENTS.md`](../AGENTS.md); see
 
 - **SSH to the mini:** `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes homelab`
   (Docker CLI is at `/usr/local/bin/docker`).
+- **SSH to the DGX:** `ssh markodragoljevic@dgx-llm-1` (personal) or
+  `ssh ops@dgx-llm-1` (agents / automation). Keyless Tailscale SSH over the tailnet.
 - **Reach a service:** use the tailnet name/IP + port from the table (e.g.
   `http://homelab:3000` for Grafana). Loopback won't work — services bind the
   tailnet IP.

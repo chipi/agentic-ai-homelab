@@ -17,10 +17,12 @@ Every 20s it:
 
 ## Interim
 This is a stopgap. The designed model is a push-collector **on the DGX** itself
-(node-exporter + Alloy) shipping to the mini — blocked on the DGX's login being
-wedged (no shell). Until then this LAN pull gives GPU + container metrics +
-service health, but **not** DGX host CPU/mem/disk (node-exporter :9100 is down
-on the box) or per-container names (cadvisor there exposes only cgroup ids).
+(node-exporter + Alloy) shipping to the mini. SSH access is now unblocked — the
+DGX push-collector is now **possible** (a pending next step), but currently not
+deployed. Until then this LAN pull gives GPU + container metrics + service health,
+but **not** DGX host CPU/mem/disk (node-exporter :9100 is down on the box) or
+per-container names (cadvisor there exposes only cgroup ids). The DGX also ships
+no logs yet.
 
 ## Install (run-in-place from the repo)
 Handled by [`infra/mini-setup.sh`](../mini-setup.sh) (installs all the launchd

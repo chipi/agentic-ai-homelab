@@ -1,7 +1,7 @@
 #!/bin/bash
 # DGX telemetry -> local VictoriaMetrics: scrape GPU (dcgm) + container (cadvisor)
 # + FastAPI app metrics (moss, diarization) + TCP health-check each DGX service.
-# host=dgx, instance=dgx-llm-1. (No DGX SSH — pulled from the mini.)
+# host=dgx, instance=dgx-llm-1. Scraped from the mini (not pushed from the DGX).
 #
 # Reached over the TAILNET (dgx-llm-1) — was the LAN IP 192.168.1.111, but that's
 # fragile (DHCP-assigned, changed when the DGX dropped off the home LAN while
