@@ -26,10 +26,11 @@ dsvc(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td cla
 {
 cat <<HDR
 <!doctype html><html><head><meta charset=utf-8><title>homelab</title>
+<meta name=viewport content="width=device-width, initial-scale=1">
 <style>body{font:15px/1.55 system-ui,sans-serif;margin:32px;background:#0d0d16;color:#e6e6ef}
 h1{font-weight:600;margin:0 0 18px}h2{font-size:16px;font-weight:600;margin:0 0 8px}
 h2 a{color:#dcdcf0;text-decoration:none}h2 a:hover{color:#7aa2ff}
-.cols{display:flex;gap:34px;flex-wrap:wrap}.col{flex:1;min-width:400px}
+.cols{display:flex;gap:34px;flex-wrap:wrap}.col{flex:1;min-width:340px}
 table{border-collapse:collapse;width:100%}
 th{text-align:left;color:#9a9ac2;font-size:12px;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #34344e;padding:7px 12px}
 td{padding:8px 12px;border-bottom:1px solid #22223a}.muted{color:#8888aa}
@@ -47,7 +48,17 @@ a.card:hover{border-color:#3d3d63}
 a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
 .up{background:#3fb950}.down{background:#f85149}.stale{background:#7a7a8c}
-.dock{color:#c8c8e0;font-size:13.5px;margin:2px 0 4px}.dock b{color:#e6e6ef}</style></head><body>
+.dock{color:#c8c8e0;font-size:13.5px;margin:2px 0 4px}.dock b{color:#e6e6ef}
+@media(max-width:640px){
+  body{margin:14px}
+  h1{font-size:20px;margin-bottom:14px}
+  .cols{gap:18px}.col{min-width:0;flex-basis:100%}
+  .charts{gap:8px}a.card{min-width:calc(50% - 4px);padding:9px 10px}
+  .cv{font-size:17px}.spark{height:34px}
+  table{font-size:13px}th,td{padding:6px 8px}
+  code{word-break:break-all}
+  .sysrow,.dock,.sec,.health{font-size:12.5px}
+}</style></head><body>
 <h1>homelab</h1>
 <div style="margin:0 0 22px">
   <h2><a href="$DASH_FLEET">Fleets &rarr;</a></h2>
@@ -100,6 +111,8 @@ cat <<MID
     <a class=card href="$DASH_GPU"><h3>Host CPU</h3><div id=d_cpu>&hellip;</div></a>
     <a class=card href="$DASH_GPU"><h3>Host mem</h3><div id=d_mem>&hellip;</div></a>
     <a class=card href="$DASH_GPU"><h3>Host disk</h3><div id=d_disk>&hellip;</div></a>
+    <a class=card href="$DASH_GPU"><h3>Disk IO</h3><div id=d_io>&hellip;</div></a>
+    <a class=card href="$DASH_GPU"><h3>Network</h3><div id=d_net>&hellip;</div></a>
   </div>
   <div id=dgxhealth class=health></div>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
@@ -186,15 +199,19 @@ async function dgx(){
   draw('g_util','DCGM_FI_DEV_GPU_UTIL',x=>x.toFixed(0)+'%',100);
   draw('g_pow','DCGM_FI_DEV_POWER_USAGE',x=>x.toFixed(0)+' W');
   draw('g_vram','DCGM_FI_DEV_MEMORY_TEMP',x=>x.toFixed(0)+'&deg;C');
-  const clk=await g1('DCGM_FI_DEV_SM_CLOCK'),mbw=await g1('DCGM_FI_DEV_MEM_COPY_UTIL');
-  const dr=document.getElementById('dgxrow');if(dr)dr.innerHTML='Clock <b>'+(clk?(+clk[1]).toFixed(0)+' MHz':'&mdash;')+'</b> &middot; Mem-BW <b>'+(mbw?(+mbw[1]).toFixed(0)+'%':'&mdash;')+'</b>';
-  badges('dgxhealth','dgx_service_up',['ollama','whisper','diarization','openai-whisper','moss','cadvisor','dcgm'],n=>DGXDASH);
-  const cc=await g1('count(container_last_seen{host=\"dgx\"})'),mem=await g1('sum(container_memory_usage_bytes{host=\"dgx\",id=\"/\"})');
-  const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b>';
   const D='{instance="dgx-llm-1"}';
   draw('d_cpu','100-avg(rate(node_cpu_seconds_total{instance="dgx-llm-1",mode="idle"}[5m]))*100',x=>x.toFixed(0)+'%',100);
   draw('d_mem','100-node_memory_MemAvailable_bytes'+D+'/node_memory_MemTotal_bytes'+D+'*100',x=>x.toFixed(0)+'%',100);
   draw('d_disk','node_filesystem_avail_bytes{instance="dgx-llm-1",mountpoint="/"}',x=>(x/1073741824).toFixed(0)+' GB');
+  draw('d_io','sum(rate(node_disk_read_bytes_total'+D+'[2m]))+sum(rate(node_disk_written_bytes_total'+D+'[2m]))',x=>(x/1048576).toFixed(2)+' MB/s');
+  draw('d_net','sum(rate(node_network_receive_bytes_total'+D+'[2m]))+sum(rate(node_network_transmit_bytes_total'+D+'[2m]))',x=>(x/1048576).toFixed(2)+' MB/s');
+  const clk=await g1('DCGM_FI_DEV_SM_CLOCK'),mbw=await g1('DCGM_FI_DEV_MEM_COPY_UTIL');
+  const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
+  const l1=await g1('node_load1'+D),l5=await g1('node_load5'+D),l15=await g1('node_load15'+D),up=await g1('node_time_seconds'+D+'-node_boot_time_seconds'+D);
+  const dr=document.getElementById('dgxrow');if(dr)dr.innerHTML='Clock <b>'+(clk?(+clk[1]).toFixed(0)+' MHz':'&mdash;')+'</b> &middot; Mem-BW <b>'+(mbw?(+mbw[1]).toFixed(0)+'%':'&mdash;')+'</b> &middot; Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
+  badges('dgxhealth','dgx_service_up',['ollama','whisper','diarization','openai-whisper','moss','cadvisor','dcgm'],n=>DGXDASH);
+  const cc=await g1('count(container_last_seen{host=\"dgx\"})'),mem=await g1('sum(container_memory_usage_bytes{host=\"dgx\",id=\"/\"})');
+  const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b>';
 }
 async function prod(){
   const P='{instance="prod-podcast"}';
