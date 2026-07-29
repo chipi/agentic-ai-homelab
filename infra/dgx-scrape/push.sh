@@ -13,7 +13,9 @@
 # "is it up". A crashed service closes its port (e.g. openai-whisper :8002).
 DGX=dgx-llm-1
 VM="http://localhost:8428/api/v1/import/prometheus?extra_label=host=dgx&extra_label=instance=dgx-llm-1"
-SVCS="ollama:11434 whisper:8000 diarization:8001 openai-whisper:8002 moss:8004 cadvisor:8080 dcgm:9400"
+# openai-whisper (:8002) retired — speaches (:8000) won the #952 transcription
+# bake-off; its files stay on the DGX but it's no longer a monitored service.
+SVCS="ollama:11434 whisper:8000 diarization:8001 moss:8004 cadvisor:8080 dcgm:9400"
 while true; do
   {
     for s in $SVCS; do

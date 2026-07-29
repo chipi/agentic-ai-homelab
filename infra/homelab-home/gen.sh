@@ -121,7 +121,6 @@ MID
 dsvc "ollama"         "11434" "LLM inference" "$DASH_DGX"
 dsvc "speaches"       "8000"  "transcription" "$DASH_DGX"
 dsvc "diarization"    "8001"  "speaker split" "$DASH_DGX"
-dsvc "openai-whisper" "8002"  "transcription" "$DASH_DGX"
 dsvc "moss"           "8004"  "transcription" "$DASH_DGX"
 dsvc "cadvisor"       "8080"  "containers"    "$DASH_CAD"
 dsvc "dcgm"           "9400"  "GPU exporter"  "$DASH_GPU"
@@ -209,7 +208,7 @@ async function dgx(){
   const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
   const l1=await g1('node_load1'+D),l5=await g1('node_load5'+D),l15=await g1('node_load15'+D),up=await g1('node_time_seconds'+D+'-node_boot_time_seconds'+D);
   const dr=document.getElementById('dgxrow');if(dr)dr.innerHTML='Clock <b>'+(clk?(+clk[1]).toFixed(0)+' MHz':'&mdash;')+'</b> &middot; Mem-BW <b>'+(mbw?(+mbw[1]).toFixed(0)+'%':'&mdash;')+'</b> &middot; Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
-  badges('dgxhealth','dgx_service_up',['ollama','whisper','diarization','openai-whisper','moss','cadvisor','dcgm'],n=>DGXDASH);
+  badges('dgxhealth','dgx_service_up',['ollama','whisper','diarization','moss','cadvisor','dcgm'],n=>DGXDASH);
   const cc=await g1('count(container_last_seen{instance=\"dgx-llm-1\"})'),mem=await g1('sum(container_memory_usage_bytes{instance=\"dgx-llm-1\",id=\"/\"})');
   const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b>';
 }
