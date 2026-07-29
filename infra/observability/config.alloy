@@ -164,6 +164,23 @@ discovery.relabel "containers" {
 loki.source.docker "containers" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.homelab_std.receiver]
+}
+
+// ---------- homelab log standard: trace_id -> structured_metadata ----------
+// See infra/observability/LOG-STANDARD.md. Captures the 32-hex trace id from a
+// W3C traceparent (00-<trace>-<span>-flags) or Sentry sentry-trace
+// (<trace>-<span>-sampled); the trailing -<16hex span> makes it unambiguous, so
+// it does NOT match bare hashes, git shas, or Alloy's own `trace_id=<hex>` logs.
+// Stored as structured_metadata (a queryable field), NOT a stream label — trace
+// ids are per-request (high cardinality) and would otherwise explode streams.
+loki.process "homelab_std" {
+  stage.regex {
+    expression = "(?:00-)?(?P<trace_id>[a-f0-9]{32})-[a-f0-9]{16}"
+  }
+  stage.structured_metadata {
+    values = { trace_id = "" }
+  }
   forward_to = [loki.write.logs_sink.receiver]
 }
 
@@ -187,6 +204,7 @@ loki.write "logs_sink" {
   external_labels = {
     instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"),
     cluster  = coalesce(sys.env("HOMELAB_CLUSTER"), "default"),
+    env      = coalesce(sys.env("HOMELAB_ENV"), "prod"),
   }
 }
 
