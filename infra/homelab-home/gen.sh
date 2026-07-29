@@ -49,6 +49,15 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 .up{background:#3fb950}.down{background:#f85149}.stale{background:#7a7a8c}
 .dock{color:#c8c8e0;font-size:13.5px;margin:2px 0 4px}.dock b{color:#e6e6ef}</style></head><body>
 <h1>homelab</h1>
+<div style="margin:0 0 22px">
+  <h2><a href="$DASH_FLEET">Fleets &rarr;</a></h2>
+  <div class=charts style="max-width:760px">
+    <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div></a>
+    <a class=card href="$DASH_INBOX"><h3>Escalations 7d</h3><div id=f_esc>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=f_dec>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Fleet spend today</h3><div id=f_spend>&hellip;</div></a>
+  </div>
+</div>
 <div class=cols>
 <div class=col>
   <h2><a href="$DASH_MINI">Mac mini &rarr;</a></h2>
@@ -62,13 +71,6 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
     <a class=card href="$DASH_MINI"><h3>Network</h3><div id=c_net>&hellip;</div></a>
   </div>
   <div id=health class=health></div>
-  <h2 style="margin-top:14px"><a href="$DASH_FLEET">Fleets &rarr;</a></h2>
-  <div class=charts>
-    <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div></a>
-    <a class=card href="$DASH_INBOX"><h3>Escalations 7d</h3><div id=f_esc>&hellip;</div></a>
-    <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=f_dec>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Fleet spend today</h3><div id=f_spend>&hellip;</div></a>
-  </div>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
   <div class=sec id=mapps></div>
   <div class=sec id=mtop></div>
