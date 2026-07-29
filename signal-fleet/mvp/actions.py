@@ -203,10 +203,19 @@ def act(signal, disp, dry_run=True):
                                disp["file"].get("work_type", "bug"))
             print(f"[FILE queued proposal] {os.path.basename(p)}")
         else:
-            raise NotImplementedError(
-                "real issue creation is gated on the File-quality eval (EVAL.md transition iii)")
+            # propose stage: real GH issue via the filing tree (fingerprint
+            # ledger dedup, storm grouping, reopen-vs-regression, mute honor)
+            import filing
+            out = filing.file_or_update(signal, build_issue(signal, disp["file"]),
+                                        disp["file"].get("work_type", "bug"))
+            print(f"[FILE] {out}")
     elif d == "escalate":
         q = disp.get("question", "")
         print(f"[ESCALATE -> operator] {disp.get('reason', '')[:130]}"
               + (f"  Q: {q[:110]}" if q else ""))
+        if not dry_run:
+            # propose stage: escalation lands as a GH issue whose GitHub-native
+            # actions (close / route-label / comment / mute) ARE the operator UI
+            import filing
+            print(f"  [ESCALATE] {filing.file_escalation(signal, disp)}")
     ledger_append(signal, disp, followup=followup)

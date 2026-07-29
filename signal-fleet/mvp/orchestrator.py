@@ -104,8 +104,12 @@ def run_poll(limit=10, dry_run=True):
     number of source passes that crashed (cycle exit code)."""
     import os
     stage = os.environ.get("FLEETD_STAGE", "shadow")
-    if stage != "live":
-        dry_run = True   # hard guarantee: only stage=live may ever act
+    # Stage semantics (RFC-0004, propose-readiness 2026-07-29): shadow = no
+    # external writes (queue drafts only). propose = GH issues/comments ARE the
+    # proposal surface (file + escalate act; cleanup stays queued — GlitchTip
+    # mutation is live-only). live = everything.
+    if stage == "shadow":
+        dry_run = True   # hard guarantee: shadow never writes externally
     cid = os.environ.get("FLEETD_CYCLE_ID", "")
     print(f"== signal-fleet cycle {cid or '(manual)'} stage={stage} "
           f"{datetime.datetime.now(datetime.timezone.utc).isoformat()} ==")
