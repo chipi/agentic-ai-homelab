@@ -40,6 +40,30 @@
         }
       },
       {
+        "name": "env",
+        "type": "query",
+        "label": "Env",
+        "description": "Deployment environment (prod / staging / dev / ci) — the standard stream label that separates e.g. podcast staging from prod. See LOG-STANDARD.md.",
+        "datasource": {
+          "type": "victoriametrics-logs-datasource",
+          "uid": "victorialogs"
+        },
+        "query": {
+          "type": "fieldValue",
+          "field": "env",
+          "limit": 20,
+          "refId": "VariableQuery"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
         "name": "app",
         "type": "query",
         "label": "Application",
@@ -152,7 +176,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} | stats count() logs",
+          "expr": "instance:~\"${host:regex}\" env:~\"${env:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} | stats count() logs",
           "queryType": "stats"
         }
       ],
@@ -206,7 +230,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} _msg:~\"(?i)(error|err|warn|fatal|panic|exception|traceback|fail)\" | stats count() logs",
+          "expr": "instance:~\"${host:regex}\" env:~\"${env:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} _msg:~\"(?i)(error|err|warn|fatal|panic|exception|traceback|fail)\" | stats count() logs",
           "queryType": "stats"
         }
       ],
@@ -268,7 +292,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} | stats by (container) count() logs | sort by (logs desc) | limit 20",
+          "expr": "instance:~\"${host:regex}\" env:~\"${env:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} | stats by (container) count() logs | sort by (logs desc) | limit 20",
           "queryType": "stats"
         }
       ],
@@ -302,7 +326,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} | stats by (container) count() logs",
+          "expr": "instance:~\"${host:regex}\" env:~\"${env:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} | stats by (container) count() logs",
           "queryType": "statsRange",
           "legendFormat": "{{container}}",
           "step": ""
@@ -357,7 +381,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} _msg:~\"(?i)(error|err|warn|fatal|panic|exception|traceback|fail)\" | stats count() logs",
+          "expr": "instance:~\"${host:regex}\" env:~\"${env:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} _msg:~\"(?i)(error|err|warn|fatal|panic|exception|traceback|fail)\" | stats count() logs",
           "queryType": "statsRange",
           "legendFormat": "errors+warns",
           "step": ""
@@ -409,7 +433,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search}",
+          "expr": "instance:~\"${host:regex}\" env:~\"${env:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search}",
           "queryType": "instant"
         }
       ],

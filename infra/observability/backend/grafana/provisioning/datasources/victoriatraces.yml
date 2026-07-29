@@ -38,4 +38,11 @@ datasources:
         filterByTraceID: false
         filterBySpanID: false
         customQuery: true
-        query: '(request.headers.Traceparent:~"$${__trace.traceId}" OR request.headers.Sentry-Trace:~"$${__trace.traceId}")'
+        # Matches the clean `trace_id` structured-metadata field (populated by the
+        # homelab log standard's Alloy stage — LOG-STANDARD.md) AND the raw
+        # traceparent/sentry-trace request headers. The OR keeps this working
+        # during the per-source rollout: sources with the standard applied resolve
+        # via the exact trace_id field; sources not yet migrated still match on the
+        # header substring. Once every source ships the standard, the header arms
+        # become redundant (harmless).
+        query: '(trace_id:"$${__trace.traceId}" OR request.headers.Traceparent:~"$${__trace.traceId}" OR request.headers.Sentry-Trace:~"$${__trace.traceId}")'
