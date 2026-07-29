@@ -18,6 +18,9 @@ DASH_PCON=$G/d/prod-infra-containers/containers
 DASH_PEDGE=$G/d/prod-infra-edge-security/edge-security
 DASH_OPER=$G/d/podcast-operator-overview/overview
 DASH_PLAYER=$G/d/podcast-player-overview/overview
+DASH_FLEET=$G/d/signal-fleet-disp
+DASH_INBOX=$G/d/sf-inbox
+DASH_BUGFIX=$G/d/bugfix-fleet-work
 row(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td><code>%s</code></td><td><code>%s</code></td></tr>\n' "$2" "$1" "$5" "$3" "$4"; }
 dsvc(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td class=muted>%s</td></tr>\n' "$4" "$1" "$2" "$3"; }
 {
@@ -59,6 +62,13 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
     <a class=card href="$DASH_MINI"><h3>Network</h3><div id=c_net>&hellip;</div></a>
   </div>
   <div id=health class=health></div>
+  <h2 style="margin-top:14px"><a href="$DASH_FLEET">Fleets &rarr;</a></h2>
+  <div class=charts>
+    <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div></a>
+    <a class=card href="$DASH_INBOX"><h3>Escalations 7d</h3><div id=f_esc>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=f_dec>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Fleet spend today</h3><div id=f_spend>&hellip;</div></a>
+  </div>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
   <div class=sec id=mapps></div>
   <div class=sec id=mtop></div>
@@ -198,8 +208,20 @@ async function prod(){
   const cc=await g1('count(container_last_seen'+P+')');
   const pd=document.getElementById('pdocker');if(pd)pd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers';
 }
+async function fleet(){
+  const N=x=>x?(+x[1]).toFixed(0):'&mdash;';
+  const qd=await g1('sum(last_over_time(signal_fleet_queue_depth[2h]))');
+  const esc=await g1('sum(last_over_time(signal_fleet_escalations_7d[2h]))');
+  const dec=await g1('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[24h]))');
+  const sp=await g1('sum(last_over_time(fleetd_spend_day[2h]))');
+  const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML='<div class=cv>'+html+'</div>';};
+  const tot=(qd?+qd[1]:0)+(esc?+esc[1]:0);
+  set('f_inbox',(qd||esc)?String(tot):'&mdash;');
+  set('f_esc',N(esc));set('f_dec',N(dec));
+  set('f_spend',sp?'$'+(+sp[1]).toFixed(2):'$0.00');
+}
 async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);}
-function refresh(){mini();dgx();prod();fresh();}
+function refresh(){mini();dgx();prod();fleet();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
