@@ -1,0 +1,104 @@
+{
+  "uid": "sf-inbox",
+  "title": "Triage — Operator Inbox",
+  "description": "Drill-down from Fleet Workforce — Triage: the actual items waiting on the operator. Escalations with their cited reasons; routed work queued for downstream fleets.",
+  "tags": ["fleet", "triage", "inbox"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-7d", "to": "now" },
+  "links": [
+    {
+      "title": "← Fleet Workforce — Triage",
+      "type": "link",
+      "url": "/d/signal-fleet-disp"
+    }
+  ],
+  "panels": [
+    {
+      "type": "logs",
+      "title": "Escalations — what the fleet could not close (reasons inline)",
+      "description": "Each line: the signal + the gate/reason it escalated. These are the items that consumed a decision slot on you.",
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "expr": "{fleet=\"triage\", event=\"escalate\"}",
+          "refId": "A",
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }
+        }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "Queued routed work — waiting for downstream fleets / your go",
+      "description": "One line per queue item: [kind] title. bug → Fleet 1 intake candidates; config-enhancement & cleanup → Fleet 3 (future).",
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 10 },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "expr": "{fleet=\"triage\", event=\"queued\"}",
+          "refId": "A",
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Queue depth by kind (live gauge)",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 22 },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "displayMode": "gradient"
+      },
+      "targets": [
+        {
+          "expr": "sum by (kind) (last_over_time(signal_fleet_queue_depth[2h]))",
+          "legendFormat": "{{kind}}",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Escalations over time (7d window gauge)",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 22 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 12, "spanNulls": true }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "max(last_over_time(signal_fleet_escalations_7d[2h]))",
+          "legendFormat": "escalations in trailing 7d",
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" }
+        }
+      ]
+    }
+  ]
+}

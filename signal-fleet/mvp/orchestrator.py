@@ -120,6 +120,13 @@ def run_poll(limit=10, dry_run=True):
     except Exception as e:  # noqa: BLE001
         failures += 1
         print("  glitchtip pass error:", e)
+    # operator-inbox surfacing (queue depth, escalations, VL content) —
+    # best-effort: the dashboard lagging a cycle must never fail the cycle
+    try:
+        import inbox
+        inbox.push_inbox()
+    except Exception as e:  # noqa: BLE001
+        print("  inbox push error:", e)
     spend = _spent(disps)
     try:
         with open(config.SPEND_FILE, "w") as f:
