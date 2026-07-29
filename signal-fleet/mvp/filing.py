@@ -30,6 +30,10 @@ REOPEN_WINDOW_DAYS = 7
 MUTE_LABEL = "triage-fleet/muted"
 ESCALATE_LABEL = "triage-fleet/escalated"
 FILED_LABEL = "triage-fleet/filed"
+ACTIONABLE_LABEL = "triage-fleet/actionable"
+ROUTE_LABEL = "triage-fleet/routed:bugfix"
+# repos Fleet 1's chain can actually build+test today (B3 extends this)
+CHAIN_REPOS = {"chipi/orrery"}
 
 # glitchtip project prefix → GitHub repo (operator mapping 2026-07-29).
 # Unmapped projects fall back to SF_OPS_REPO; with neither, filing refuses
@@ -236,9 +240,17 @@ def file_or_update(signal, issue, kind):
         issue["body"] = (f"Regression of {prior['repo']}#{prior['issue']} "
                          f"(closed {age}d ago).\n\n" + issue.get("body", ""))
 
+    labels = set((issue.get("labels") or []) + [FILED_LABEL])
+    body = issue.get("body", "")
+    # routability proposal: the fleet assesses, the operator dispatches —
+    # `bug` in a chain-capable repo gets the actionable marker so the operator's
+    # GH filter (label:triage-fleet/actionable) IS the routing inbox
+    if kind == "bug" and repo in CHAIN_REPOS:
+        labels.add(ACTIONABLE_LABEL)
+        body += (f"\n\n**Fleet 1 assessment: routable** — repo is chain-capable and "
+                 f"acceptance is testable. Add `{ROUTE_LABEL}` to dispatch the bug-fix fleet.")
     d = _gh("POST", f"/repos/{repo}/issues",
-            {"title": issue["title"], "body": issue.get("body", ""),
-             "labels": sorted(set((issue.get("labels") or []) + [FILED_LABEL]))})
+            {"title": issue["title"], "body": body, "labels": sorted(labels)})
     ledger_upsert({"fingerprint": fp, "repo": repo, "issue": d["number"],
                    "group_key": gk, "filed_at": _now().isoformat(),
                    "last_comment_day": _today()})
