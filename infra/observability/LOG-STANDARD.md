@@ -19,9 +19,15 @@ Canonical URL:
 | `instance` | stream label | low | the **host/box** (`homelab`, `dgx-llm-1`, `prod-podcast`) | Alloy `external_labels` (env `HOMELAB_INSTANCE`) |
 | `cluster` | stream label | low | coarse group (`homelab`, `dgx`, `vps`) | Alloy `external_labels` (env `HOMELAB_CLUSTER`) |
 | `env` | stream label | low | deploy env (`prod`, `staging`, `dev`, `ci`) | Alloy `external_labels` (env `HOMELAB_ENV`) |
-| `app` | stream label | low | application (`operator`, `player`, `orrery`, …) | from the **compose project** (see below) |
-| `component` | stream label | low | sub-part of an app: `api`, `ui`, `pipeline`, `worker` | from the **compose service** (see below) |
+| `app` | stream label | low | application (`podcast`, `player`, `orrery`, …) | set per drop-in (`loki.source.docker` labels), from the compose stack |
+| `surface` | stream label | low | sub-part of an app: `api`, `web`, `app` | relabel from the container name / compose service (see below) |
 | `container` | stream label | low-med | container name | `loki.source.docker` sets it |
+
+> **Naming is the EXISTING convention, not invented here.** ADR-121's per-app
+> drop-ins already use `app` (`podcast` = the operator stack, `player`, `orrery`)
+> and `surface` (`api` / `web` / `app`). The standard adopts those names verbatim —
+> do not rename to `operator`/`component`. `app=podcast,surface=api` is the
+> operator API; `app=player,surface=api` is the player API — already separable.
 | `trace_id` | **structured_metadata** | **high** | 32-hex W3C/Sentry trace id, for correlation | `loki.process` regex stage (below) |
 
 **Why `trace_id` is structured_metadata, not a stream label:** trace ids are unique
@@ -30,48 +36,46 @@ VictoriaLogs' stream count. As *structured_metadata* they are a normal queryable
 field (`trace_id:<id>`) with **no** stream-cardinality cost. This distinction is
 mandatory — never promote `trace_id` (or any per-request id) to a stream label.
 
-### Deriving `app` + `component` from compose (the "double API" case)
+### Deriving `app` + `surface` (the "double API" case)
 
-Several apps ship the **same service name** — e.g. both the operator and player
-stacks run a container literally named `api` from the same image. The service
-name alone can't tell them apart; the **compose project** can. So:
-
-- `app` ← `com.docker.compose.project` (mapped to a clean name)
-- `component` ← `com.docker.compose.service` (mapped to `api` / `ui` / …)
-
-Example relabel rules in the Alloy `loki.source.docker` (or a `discovery.relabel`):
+Both the operator and player stacks run a container named `api` from the same
+image — the service name alone can't tell them apart. The **per-app drop-in**
+(ADR-121) owns this: each drop-in has a scoped `loki.source.docker` that keeps
+ONLY its own containers (a precise keep-filter, not a broad glob — that's what
+prevents cross-app mislabel) and stamps `app` + `surface`. Pattern, as already
+deployed in `podcast.alloy` / `player.alloy`:
 
 ```alloy
-// app  <- compose project   (operator vs player: distinguishes the two `api`s)
-rule {
-  source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
-  regex         = "compose|operator.*"   // operator stack's project dir
-  target_label  = "app"
-  replacement   = "operator"
+discovery.relabel "player" {
+  targets = discovery.docker.app.targets
+  rule {   // keep ONLY this app's containers
+    source_labels = ["__meta_docker_container_name"]
+    regex = "/(player-api-.*|player-learning-app-.*)"
+    action = "keep"
+  }
+  rule {   // surface=api  for the API container
+    source_labels = ["__meta_docker_container_name"]
+    regex = "/player-api-.*"
+    target_label = "surface"
+    replacement = "api"
+  }
+  rule {   // surface=app  for the PWA
+    source_labels = ["__meta_docker_container_name"]
+    regex = "/player-learning-app-.*"
+    target_label = "surface"
+    replacement = "app"
+  }
 }
-rule {
-  source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
-  regex         = "player.*"
-  target_label  = "app"
-  replacement   = "player"
-}
-// component <- compose service  (api stays api; viewer/learning-app -> ui)
-rule {
-  source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
-  regex         = "api"
-  target_label  = "component"
-  replacement   = "api"
-}
-rule {
-  source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
-  regex         = "viewer|learning-app|.*-ui"
-  target_label  = "component"
-  replacement   = "ui"
+loki.source.docker "player" {
+  targets = discovery.relabel.player.output
+  forward_to = [loki.process.player_denoise.receiver]  // denoise -> homelab_std -> sink
+  labels = { app = "player" }
 }
 ```
 
-Result: `app=operator,component=api` vs `app=player,component=api` are separable,
-so the two APIs' logs never merge. Filter by `app` and/or `component` in Grafana.
+Result: `app=podcast,surface=api` (operator API) vs `app=player,surface=api`
+(player API) never merge. To carry `trace_id`, the drop-in's `loki.process`
+(the denoise stage) runs the standard regex stage before forwarding to the sink.
 
 ### Severity
 
@@ -166,11 +170,57 @@ them by `env`).
 5. The Grafana correlation + `Logs — Overview` filters then work with no per-source
    config — they key off these standard fields.
 
-## Applied where
+## Ownership & integration — who changes what, where
 
-| Source | Alloy | Repo | Status |
+The single most confusing thing about this setup is that **one running Alloy on a
+box is assembled from files owned by different repos**. Read this before changing
+any prod log config — it's the map.
+
+### The model: one node Alloy per box, config.d/ drop-ins (ADR-121)
+
+Each box runs **one** Alloy. Its config is a **directory** (`/etc/alloy/config.d/`
+on the mini/DGX, `/opt/vps-observability/config.d/` on the VPS) that Alloy loads
+as a union of files:
+
+```
+config.d/
+  base.alloy      <- INFRA owns. Shared router: discovery.docker "app",
+                     loki.write "logs_sink" (sets instance/cluster/env +
+                     the homelab_std trace_id stage), host journal + Caddy sources.
+  podcast.alloy   <- the OPERATOR app owns. Its scoped loki.source.docker + app/surface labels.
+  player.alloy    <- the PLAYER app owns. Same shape, its own containers.
+  orrery.alloy    <- ORRERY owns.
+```
+
+A **drop-in** (`<app>.alloy`) is a small file an app owns that *references* base's
+shared components (`discovery.docker "app"`, `loki.write "logs_sink"`, and the
+shared `loki.process "homelab_std"`) and adds ONLY its own `loki.source.docker`
+with a precise keep-filter + `app`/`surface` labels. It never redefines the sink
+or touches another app's sources. Alloy hot-reloads on `docker kill -s HUP alloy`.
+
+### Who owns / deploys each piece
+
+| Piece | Owning repo · path | How it reaches the box | Change it when… |
 |---|---|---|---|
-| Mac mini (`homelab`) | `alloy-homelab` | this repo (`infra/observability/`) | reference impl |
-| DGX (`dgx-llm-1`) | `alloy` | this repo (`infra/observability/`) | reference impl |
-| prod VPS (`prod-podcast`) | node Alloy | `podcast_scraper-infra` | rollout |
-| apps (orrery / podcast / player) | app logging | app repos | rollout |
+| **base.alloy** (VPS) | `agentic-ai-homelab` · `infra/observability/hosts/prod-podcast/config.d/base.alloy` | infra deploy (repo-tracked; **not** the app `deploy.sh`) | changing the sink, shared labels (`env`), Caddy/journal sources, the `homelab_std` trace_id stage |
+| **podcast.alloy** (operator) | `podcast_scraper-infra` · `infra/observability/podcast.alloy` | operator `deploy.sh` → `cp` into `config.d/` + HUP | changing what operator container logs ship / their `app`/`surface`/denoise |
+| **player.alloy** | `podcast_scraper-infra` · `infra/observability/player.alloy` | player deploy → `cp` + HUP | same, for the player stack |
+| **orrery.alloy / orrery agent** | `orrery` repo · `ops/observability/` | orrery's own deploy | orrery uses **grafana-agent**, not Alloy — different syntax; match the intent, not the snippet |
+| **mini `alloy-homelab`** | `agentic-ai-homelab` · `infra/observability/hosts/homelab/config.alloy` | `git pull` + restart on the mini | mini host/container logs |
+| **DGX `alloy`** | `agentic-ai-homelab` · `infra/observability/config.alloy` | `git pull` + restart on the DGX | DGX host/container logs |
+| **Grafana correlation + dashboards** | `agentic-ai-homelab` · `infra/observability/backend/grafana/` | `git pull` + Grafana restart/hot-reload on the mini | derivedFields, tracesToLogs, `Logs — Overview` filters |
+
+**Rule of thumb:** shared/edge/sink concerns (env, trace_id stage, Caddy) → infra's
+`base.alloy` (agentic). Per-app container logs + their labels → that app's drop-in
+(its own repo). The dashboards + correlation that *consume* these fields → agentic.
+
+### Rollout status
+
+| Source | Standard applied? |
+|---|---|
+| Mac mini (`homelab`) | ✅ deployed + verified (env, trace_id stage) |
+| DGX (`dgx-llm-1`) | ✅ deployed + verified (env, trace_id stage) |
+| Grafana correlation + filters | ✅ deployed (log↔trace on clean field + header fallback; host/env/app/severity vars) |
+| prod `base.alloy` | ⏳ changed in-repo (env + homelab_std), awaiting infra deploy |
+| prod `podcast.alloy` / `player.alloy` | ⏳ changed in `podcast_scraper-infra`, deploy with next app deploy |
+| orrery | ⏳ grafana-agent — assess separately |

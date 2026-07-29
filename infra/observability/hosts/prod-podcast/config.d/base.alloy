@@ -99,7 +99,7 @@ discovery.relabel "pipeline" {
 loki.source.docker "pipeline" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.pipeline.output
-  forward_to = [loki.write.logs_sink.receiver]
+  forward_to = [loki.process.homelab_std.receiver]
   labels     = { job = "podcast-pipeline" }
 }
 
@@ -116,7 +116,7 @@ local.file_match "app_events" {
 
 loki.source.file "app_events" {
   targets    = local.file_match.app_events.targets
-  forward_to = [loki.write.logs_sink.receiver]
+  forward_to = [loki.process.homelab_std.receiver]
 }
 
 // ---------- LOGS: host journal (sshd / fail2ban — edge security) -> VictoriaLogs ----------
@@ -139,6 +139,22 @@ loki.source.journal "security" {
 // ---------- LOGS: Caddy edge access log (T-11 security signal) -> VictoriaLogs ----------
 loki.source.file "caddy" {
   targets    = [{ __path__ = "/rootfs/var/log/caddy/access.log", job = "caddy" }]
+  forward_to = [loki.process.homelab_std.receiver]
+}
+
+// ---------- homelab log standard: trace_id -> structured_metadata ----------
+// See agentic-ai-homelab/infra/observability/LOG-STANDARD.md. Extracts the 32-hex
+// trace id from a W3C traceparent / Sentry sentry-trace pattern (the Caddy edge
+// access log carries these in the request headers) into structured_metadata — a
+// queryable field, NOT a high-cardinality stream label. Shared: base + the app
+// drop-ins (podcast/player/orrery) route their logs through this.
+loki.process "homelab_std" {
+  stage.regex {
+    expression = "(?:00-)?(?P<trace_id>[a-f0-9]{32})-[a-f0-9]{16}"
+  }
+  stage.structured_metadata {
+    values = { trace_id = "" }
+  }
   forward_to = [loki.write.logs_sink.receiver]
 }
 
@@ -150,6 +166,7 @@ loki.write "logs_sink" {
   external_labels = {
     instance = coalesce(sys.env("HOMELAB_INSTANCE"), "prod-podcast"),
     cluster  = coalesce(sys.env("HOMELAB_CLUSTER"), "vps"),
+    env      = coalesce(sys.env("HOMELAB_ENV"), "prod"),
   }
 }
 
