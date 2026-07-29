@@ -84,6 +84,11 @@ cat <<MID
     <a class=card href="$DASH_GPU"><h3>GPU power</h3><div id=g_pow>&hellip;</div></a>
     <a class=card href="$DASH_GPU"><h3>Mem temp</h3><div id=g_vram>&hellip;</div></a>
   </div>
+  <div class=charts>
+    <a class=card href="$DASH_GPU"><h3>Host CPU</h3><div id=d_cpu>&hellip;</div></a>
+    <a class=card href="$DASH_GPU"><h3>Host mem</h3><div id=d_mem>&hellip;</div></a>
+    <a class=card href="$DASH_GPU"><h3>Host disk</h3><div id=d_disk>&hellip;</div></a>
+  </div>
   <div id=dgxhealth class=health></div>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
   <table><thead><tr><th>Service</th><th>Port</th><th>Role</th></tr></thead><tbody>
@@ -97,7 +102,6 @@ dsvc "cadvisor"       "8080"  "containers"    "$DASH_CAD"
 dsvc "dcgm"           "9400"  "GPU exporter"  "$DASH_GPU"
 cat <<MID2
   </tbody></table>
-  <p class=sec>Host CPU/mem/disk unavailable (node-exporter :9100 down on DGX).</p>
 </div>
 <div class=col>
   <h2><a href="$DASH_PROD">Production &middot; prod-podcast &rarr;</a></h2>
@@ -175,6 +179,10 @@ async function dgx(){
   badges('dgxhealth','dgx_service_up',['ollama','whisper','diarization','openai-whisper','moss','cadvisor','dcgm'],n=>DGXDASH);
   const cc=await g1('count(container_last_seen{host=\"dgx\"})'),mem=await g1('sum(container_memory_usage_bytes{host=\"dgx\",id=\"/\"})');
   const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b>';
+  const D='{instance="dgx-llm-1"}';
+  draw('d_cpu','100-avg(rate(node_cpu_seconds_total{instance="dgx-llm-1",mode="idle"}[5m]))*100',x=>x.toFixed(0)+'%',100);
+  draw('d_mem','100-node_memory_MemAvailable_bytes'+D+'/node_memory_MemTotal_bytes'+D+'*100',x=>x.toFixed(0)+'%',100);
+  draw('d_disk','node_filesystem_avail_bytes{instance="dgx-llm-1",mountpoint="/"}',x=>(x/1073741824).toFixed(0)+' GB');
 }
 async function prod(){
   const P='{instance="prod-podcast"}';
