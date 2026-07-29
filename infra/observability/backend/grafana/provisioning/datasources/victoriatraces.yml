@@ -21,11 +21,16 @@ datasources:
     jsonData:
       # Correlation click-through (ADR-119, G3a): from a trace span, jump to its
       # correlated logs in VictoriaLogs — the reverse of the VictoriaLogs
-      # derivedField (log -> trace), completing the round-trip. The trace id is
-      # matched as a bare LogsQL word filter, so it catches BOTH the structured
-      # events' "trace_id":"<hex>" and the plain-log / API access-log "trace=<hex>".
-      # $$ escapes Grafana's provisioning env-interpolation so the datasource
-      # receives the literal ${__trace.traceId} template (resolved at query time).
+      # derivedField (log -> trace), completing the round-trip.
+      #
+      # The trace id lives INSIDE the request-header trace context the edge/app
+      # logs capture — traceparent (00-<id>-<span>-<flags>) or sentry-trace
+      # (<id>-<span>-<sampled>) — so a bare-word LogsQL query for the id returns
+      # nothing (the id isn't a standalone token; it's embedded after `00-` / a
+      # dash). A SUBSTRING match on those two fields is what actually hits.
+      # Verified: bare word -> 0 logs; substring-on-fields -> matches. $$ escapes
+      # Grafana's provisioning env-interpolation so the datasource receives the
+      # literal ${__trace.traceId} template (resolved at query time).
       tracesToLogsV2:
         datasourceUid: victorialogs
         spanStartTimeShift: '-1h'
@@ -33,4 +38,4 @@ datasources:
         filterByTraceID: false
         filterBySpanID: false
         customQuery: true
-        query: '$${__trace.traceId}'
+        query: '(request.headers.Traceparent:~"$${__trace.traceId}" OR request.headers.Sentry-Trace:~"$${__trace.traceId}")'

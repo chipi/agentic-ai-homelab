@@ -11,15 +11,23 @@ datasources:
     url: http://victorialogs:9428
     editable: false
     jsonData:
-      # Correlation click-through (ADR-119): extract trace_id from a log line —
-      # the structured events' "trace_id":"<hex>" OR the plain-log "trace=<hex>" —
-      # and render it as a link to the trace in VictoriaTraces. So an operator
+      # Correlation click-through (ADR-119): extract the 32-hex W3C trace id from
+      # a request log and link it to the trace in VictoriaTraces, so an operator
       # pivots log -> trace in one click. (VictoriaLogs plugin is Loki-based, so
       # it honours derivedFields.)
+      #
+      # The apps propagate trace context in the request headers the Caddy/app logs
+      # capture, in two shapes that share a <32hex trace>-<16hex span> tail:
+      #   traceparent:  00-<32hex trace>-<16hex span>-<flags>   (W3C)
+      #   sentry-trace:    <32hex trace>-<16hex span>-<sampled> (Sentry SDK)
+      # The regex captures the 32-hex trace from either (optional 00- prefix), and
+      # the <32>-<16> tail requirement deliberately EXCLUDES Grafana Alloy's own
+      # internal `trace_id=<32hex>` graph-eval logs (bare, no -span suffix) — those
+      # aren't exported to VictoriaTraces, so matching them gave dead links.
       derivedFields:
         - name: trace_id
           matcherType: regex
-          matcherRegex: 'trace(?:_id)?["=: ]+([a-f0-9]{32})'
+          matcherRegex: '(?:00-)?([a-f0-9]{32})-[a-f0-9]{16}'
           datasourceUid: victoriatraces-tempo
           url: "$${__value.raw}"
           urlDisplayLabel: "View trace"
