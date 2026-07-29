@@ -63,27 +63,34 @@
         }
       },
       {
-        "name": "level",
-        "type": "query",
-        "label": "Level",
-        "datasource": {
-          "type": "victoriametrics-logs-datasource",
-          "uid": "victorialogs"
-        },
-        "query": {
-          "type": "fieldValue",
-          "field": "level",
-          "limit": 20,
-          "refId": "VariableQuery"
-        },
-        "refresh": 2,
-        "includeAll": true,
-        "multi": true,
-        "allValue": ".*",
+        "name": "severity",
+        "type": "custom",
+        "label": "Severity",
+        "description": "Pattern-matched over the message — works across every log format (redis/caddy/go/json), unlike the thin structured 'level' field.",
+        "query": "All : .*,Warnings & errors : (?i)(error|err|warn|fatal|panic|exception|traceback|fail|critical),Errors only : (?i)(error|fatal|panic|exception|traceback|critical)",
+        "includeAll": false,
+        "multi": false,
         "current": {
           "text": "All",
-          "value": "$__all"
-        }
+          "value": ".*"
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": ".*",
+            "selected": true
+          },
+          {
+            "text": "Warnings & errors",
+            "value": "(?i)(error|err|warn|fatal|panic|exception|traceback|fail|critical)",
+            "selected": false
+          },
+          {
+            "text": "Errors only",
+            "value": "(?i)(error|fatal|panic|exception|traceback|critical)",
+            "selected": false
+          }
+        ]
       },
       {
         "name": "container",
@@ -145,7 +152,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" level:~\"${level:regex}\" ${search} | stats count() logs",
+          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} | stats count() logs",
           "queryType": "stats"
         }
       ],
@@ -199,7 +206,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" level:~\"${level:regex}\" ${search} _msg:~\"(?i)(error|err|warn|fatal|panic|exception|traceback|fail)\" | stats count() logs",
+          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} _msg:~\"(?i)(error|err|warn|fatal|panic|exception|traceback|fail)\" | stats count() logs",
           "queryType": "stats"
         }
       ],
@@ -261,7 +268,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" level:~\"${level:regex}\" ${search} | stats by (container) count() logs | sort by (logs desc) | limit 20",
+          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} | stats by (container) count() logs | sort by (logs desc) | limit 20",
           "queryType": "stats"
         }
       ],
@@ -295,7 +302,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" level:~\"${level:regex}\" ${search} | stats by (container) count() logs",
+          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} | stats by (container) count() logs",
           "queryType": "statsRange",
           "legendFormat": "{{container}}",
           "step": ""
@@ -350,7 +357,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" level:~\"${level:regex}\" ${search} _msg:~\"(?i)(error|err|warn|fatal|panic|exception|traceback|fail)\" | stats count() logs",
+          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search} _msg:~\"(?i)(error|err|warn|fatal|panic|exception|traceback|fail)\" | stats count() logs",
           "queryType": "statsRange",
           "legendFormat": "errors+warns",
           "step": ""
@@ -402,7 +409,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" level:~\"${level:regex}\" ${search}",
+          "expr": "instance:~\"${host:regex}\" app:~\"${app:regex}\" container:~\"${container:regex}\" _msg:~\"${severity}\" ${search}",
           "queryType": "instant"
         }
       ],
