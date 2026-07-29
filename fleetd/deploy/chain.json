@@ -1,6 +1,6 @@
 {
   "repo": "chipi/orrery",
-  "intake_query": "bug",
+  "intake_query": "triage-fleet/routed:bugfix",
   "bakeoff_dir": "/Users/markodragoljevic/Projects/agentic-ai-homelab/bugfix-fleet/bakeoff",
   "worktree": "/Users/markodragoljevic/.bugfix-fleet/real/orrery",
   "src_clone": "/Users/markodragoljevic/.bugfix-fleet/bakeoff/orrery-src",
