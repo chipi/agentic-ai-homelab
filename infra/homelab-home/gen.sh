@@ -49,6 +49,9 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
 .up{background:#3fb950}.down{background:#f85149}.stale{background:#7a7a8c}
 .dock{color:#c8c8e0;font-size:13.5px;margin:2px 0 4px}.dock b{color:#e6e6ef}
+h3.sectitle{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:16px 0 6px;border-bottom:1px solid #22223a;padding-bottom:4px}
+table.ctbl td{padding:4px 10px;border-bottom:1px solid #1a1a2b;font-size:13px;vertical-align:middle}
+table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
 @media(max-width:640px){
   body{margin:14px}
   h1{font-size:20px;margin-bottom:14px}
@@ -95,9 +98,10 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
     <a class=card href="$DASH_MINI"><h3>Network</h3><div id=c_net>&hellip;</div></a>
   </div>
   <div id=health class=health></div>
+  <h3 class=sectitle>Containers</h3>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
-  <div class=sec id=mapps></div>
-  <div class=sec id=mtop></div>
+  <table class=ctbl><tbody id=mctr></tbody></table>
+  <h3 class=sectitle>Services &amp; credentials</h3>
   <table><thead><tr><th>Service</th><th>Port</th><th>User</th><th>Password</th></tr></thead><tbody>
 HDR
 row "Grafana"         "$G"            "$GF_U" "$GF_P" "3000"
@@ -128,8 +132,10 @@ cat <<MID
     <a class=card href="$DASH_GPU"><h3>Network</h3><div id=d_net>&hellip;</div></a>
   </div>
   <div id=dgxhealth class=health></div>
+  <h3 class=sectitle>Containers</h3>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
-  <div class=sec id=dgxapps></div>
+  <table class=ctbl><tbody id=dgxctr></tbody></table>
+  <h3 class=sectitle>Services</h3>
   <table><thead><tr><th>Service</th><th>Port</th><th>Role</th></tr></thead><tbody>
 MID
 dsvc "ollama"         "11434" "LLM inference" "$DASH_DGX"
@@ -151,7 +157,9 @@ cat <<MID2
     <a class=card href="$DASH_PROD"><h3>Disk IO</h3><div id=p_io>&hellip;</div></a>
     <a class=card href="$DASH_PROD"><h3>Network</h3><div id=p_net>&hellip;</div></a>
   </div>
-  <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a></div>
+  <h3 class=sectitle>Containers</h3>
+  <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a> <span class=muted>&middot; per-container detail needs a prod-side collector</span></div>
+  <h3 class=sectitle>Services</h3>
   <table><thead><tr><th>Service</th><th>Board</th><th>Role</th></tr></thead><tbody>
 MID2
 dsvc "podcast operator" "ops" "operator API + viewer"  "$DASH_OPER"
@@ -186,6 +194,13 @@ async function badges(elId,metric,order,linkFor){
   const el=document.getElementById(elId);if(!el)return;
   el.innerHTML=order.map(n=>{let c='stale';const v=map[n];if(v){const a=now-+v[0];c=a>120?'stale':(+v[1]?'up':'down');}return '<a class=svc href="'+linkFor(n)+'"><span class="dot '+c+'"></span>'+n+'</a>';}).join('');
 }
+async function ctable(elId,box){
+  const rows=await q('container_uptime_seconds{box=\"'+box+'\"}');
+  const el=document.getElementById(elId);if(!el)return;
+  const col={running:'#3fb950',restarting:'#d29922',created:'#d29922',paused:'#d29922',exited:'#f85149',dead:'#f85149'};
+  if(!rows.length){el.innerHTML='<tr><td class=muted colspan=4>no data</td></tr>';return;}
+  el.innerHTML=rows.sort((a,b)=>{const A=(a.metric.app||'')+'/'+a.metric.name,B=(b.metric.app||'')+'/'+b.metric.name;return A<B?-1:1;}).map(s=>{const m=s.metric,c=col[m.state]||'#7a7a8c',up=m.state=='running'?fmtUp(s.value[1]):m.state;return '<tr><td>'+m.name+'</td><td><span class=dot style=\"background:'+c+'\"></span></td><td class=u>'+up+'</td><td>'+(m.port?'<code>'+m.port+'</code>':'&mdash;')+'</td></tr>';}).join('');
+}
 async function mini(){
   draw('c_cpu','mini_cpu_used_percent',x=>x.toFixed(0)+'%',100);
   draw('c_temp','mini_cpu_temp_celsius',x=>x.toFixed(0)+'&deg;C',100);
@@ -200,13 +215,7 @@ async function mini(){
   badges('health','service_up',['grafana','glitchtip','langfuse','umami','litellm','victoriametrics','victorialogs','victoriatraces'],n=>MINILINK[n]||G);
   const run=await g1('mini_docker_running'),tot=await g1('mini_docker_total'),rst=await g1('mini_docker_restarting'),unh=await g1('mini_docker_unhealthy');
   const md=document.getElementById('mdocker');if(md&&run)md.innerHTML='<b>'+run[1]+'/'+tot[1]+'</b> running'+(rst&&+rst[1]?' &middot; <span style=color:#f85149>'+rst[1]+' restarting</span>':'')+(unh&&+unh[1]?' &middot; <span style=color:#f85149>'+unh[1]+' unhealthy</span>':'');
-  const apps=await q('compose_app_up{box=\"mini\"}'),arun={},atot={};
-  (await q('compose_app_running{box=\"mini\"}')).forEach(s=>arun[s.metric.app]=s.value[1]);
-  (await q('compose_app_total{box=\"mini\"}')).forEach(s=>atot[s.metric.app]=s.value[1]);
-  const ma=document.getElementById('mapps');
-  if(ma)ma.innerHTML='apps: '+apps.sort((a,b)=>a.metric.app<b.metric.app?-1:1).map(s=>{const n=s.metric.app,rn=+(arun[n]||0),tn=+(atot[n]||0),col=rn==0?'#f85149':(rn<tn?'#d29922':'#3fb950');return '<span style=\"color:'+col+'\">'+n+'</span> <span class=muted>'+(arun[n]||'?')+'/'+(atot[n]||'?')+'</span>';}).join(' &middot; ');
-  const top=await q('topk(3,mini_container_mem_bytes)');const mt=document.getElementById('mtop');
-  if(mt)mt.innerHTML='top: '+top.sort((a,b)=>b.value[1]-a.value[1]).map(s=>s.metric.name+' <span class=muted>'+(s.value[1]/1048576).toFixed(0)+'MB</span>').join(' &middot; ');
+  ctable('mctr','mini');
 }
 async function dgx(){
   draw('g_temp','DCGM_FI_DEV_GPU_TEMP',x=>x.toFixed(0)+'&deg;C');
@@ -227,11 +236,7 @@ async function dgx(){
   badges('dgxhealth','dgx_service_up',['ollama','whisper','diarization','moss','cadvisor','dcgm'],n=>DGXDASH);
   const cc=await g1('count(container_last_seen{instance=\"dgx-llm-1\"})'),mem=await g1('sum(container_memory_usage_bytes{instance=\"dgx-llm-1\",id=\"/\"})');
   const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b>';
-  const apps=await q('compose_app_up{box=\"dgx\"}'),arun={},atot={};
-  (await q('compose_app_running{box=\"dgx\"}')).forEach(s=>arun[s.metric.app]=s.value[1]);
-  (await q('compose_app_total{box=\"dgx\"}')).forEach(s=>atot[s.metric.app]=s.value[1]);
-  const da=document.getElementById('dgxapps');
-  if(da)da.innerHTML='apps: '+apps.sort((a,b)=>a.metric.app<b.metric.app?-1:1).map(s=>{const n=s.metric.app,rn=+(arun[n]||0),tn=+(atot[n]||0),col=rn==0?'#f85149':(rn<tn?'#d29922':'#3fb950');return '<span style=\"color:'+col+'\">'+n+'</span> <span class=muted>'+(arun[n]||'?')+'/'+(atot[n]||'?')+'</span>';}).join(' &middot; ');
+  ctable('dgxctr','dgx');
 }
 async function prod(){
   const P='{instance="prod-podcast"}';

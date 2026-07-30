@@ -39,5 +39,11 @@ while true; do
         END{for(p in a){run=r[p]+0; tot=a[p]-(e0[p]+0); if(run==0)tot=a[p]; u=(run==tot && tot>0)?1:0;
           printf "compose_app_up{app=\"%s\",box=\"dgx\"} %d\ncompose_app_running{app=\"%s\",box=\"dgx\"} %d\ncompose_app_total{app=\"%s\",box=\"dgx\"} %d\n",p,u,p,run,p,tot}}' \
     | curl -s -m8 -o /dev/null --data-binary @- "$VMPLAIN" || true
+  # per-container detail (name/state/uptime/port) for the DGX Containers table,
+  # via the shared ctr.py (runs here on the mini over the SSH'd inspect output).
+  CFMT=$(printf '{{.Name}}\t{{.State.Status}}\t{{.State.StartedAt}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{json .NetworkSettings.Ports}}')
+  ssh -o BatchMode=yes -o ConnectTimeout=8 ops@"$DGX" "docker inspect \$(docker ps -aq) --format '$CFMT'" 2>/dev/null \
+    | python3 "$(cd "$(dirname "$0")" && pwd)/../mini-metrics/ctr.py" dgx \
+    | curl -s -m8 -o /dev/null --data-binary @- "$VMPLAIN" || true
   sleep 20
 done
