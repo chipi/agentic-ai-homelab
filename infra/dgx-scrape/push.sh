@@ -31,11 +31,13 @@ while true; do
   # compose_app_up/running/total{app,box="dgx"} to the PLAIN endpoint (no host/
   # instance labels — a per-box inventory metric, queried by box like the mini).
   # Non-fatal: an SSH/DGX hiccup skips this cycle, health checks above still ship.
+  # total EXCLUDES cleanly-exited one-shots (Exited (0)); fall back to the raw count
+  # when nothing runs, so a fully-stopped project still reads red (see mini-metrics).
   ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new ops@"$DGX" \
-      'docker ps -a --format "{{.Label \"com.docker.compose.project\"}}|{{.State}}"' 2>/dev/null \
-    | awk -F'|' '$1!=""{t[$1]++; if($2=="running")r[$1]++}
-        END{for(p in t){u=(r[p]+0==t[p] && t[p]>0)?1:0;
-          printf "compose_app_up{app=\"%s\",box=\"dgx\"} %d\ncompose_app_running{app=\"%s\",box=\"dgx\"} %d\ncompose_app_total{app=\"%s\",box=\"dgx\"} %d\n",p,u,p,r[p]+0,p,t[p]}}' \
+      'docker ps -a --format "{{.Label \"com.docker.compose.project\"}}|{{.State}}|{{.Status}}"' 2>/dev/null \
+    | awk -F'|' '$1!=""{a[$1]++; if($2=="running")r[$1]++; else if($3 ~ /^Exited \(0\)/)e0[$1]++}
+        END{for(p in a){run=r[p]+0; tot=a[p]-(e0[p]+0); if(run==0)tot=a[p]; u=(run==tot && tot>0)?1:0;
+          printf "compose_app_up{app=\"%s\",box=\"dgx\"} %d\ncompose_app_running{app=\"%s\",box=\"dgx\"} %d\ncompose_app_total{app=\"%s\",box=\"dgx\"} %d\n",p,u,p,run,p,tot}}' \
     | curl -s -m8 -o /dev/null --data-binary @- "$VMPLAIN" || true
   sleep 20
 done
