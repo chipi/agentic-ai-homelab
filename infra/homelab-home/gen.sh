@@ -8,6 +8,7 @@ GF_U=$(get "$REPO/observability/backend/.env" GRAFANA_ADMIN_USER); GF_P=$(get "$
 GT_U=$(get "$REPO/glitchtip/.env" DJANGO_SUPERUSER_EMAIL); GT_P=$(get "$REPO/glitchtip/.env" DJANGO_SUPERUSER_PASSWORD)
 LF_U=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_EMAIL); LF_P=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_PASSWORD)
 UM_U=admin; UM_P=$(get ~/umami/.env UMAMI_ADMIN_PASSWORD)
+LL_K=$(get "$REPO/litellm/.env" LITELLM_MASTER_KEY)
 H=https://homelab.tail6d0ed4.ts.net; G=$H/grafana
 DASH_MINI=$G/d/homelab-mini/homelab-e28094-mac-mini
 DASH_GPU=$G/d/gpu-dcgm/gpu-e28094-dcgm
@@ -108,7 +109,7 @@ row "Grafana"         "$G"            "$GF_U" "$GF_P" "3000"
 row "GlitchTip"       "$H/glitchtip"  "$GT_U" "$GT_P" "8090"
 row "Langfuse"        "$H:8443"       "$LF_U" "$LF_P" "4000"
 row "Umami"           "$H/umami"      "$UM_U" "$UM_P" "3001"
-row "LiteLLM"         "$H:10000/ui/" "admin + master key" "in litellm/.env" "4001"
+row "LiteLLM"         "$H:10000/ui/" "admin" "$LL_K" "4001"
 row "VictoriaMetrics" "$H/vm/vmui"    "&mdash;" "tailnet" "8428"
 row "VictoriaLogs"    "$H/vlogs"      "&mdash;" "tailnet" "9428"
 row "VictoriaTraces"  "$H/vtraces"    "&mdash;" "tailnet" "10428"
