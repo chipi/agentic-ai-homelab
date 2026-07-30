@@ -85,6 +85,10 @@
           {
             "type": "command",
             "command": "/opt/homebrew/bin/lean-ctx hook observe"
+          },
+          {
+            "type": "command",
+            "command": "/Users/markodragoljevic/.claude/hooks/session-reap.sh"
           }
         ]
       }
