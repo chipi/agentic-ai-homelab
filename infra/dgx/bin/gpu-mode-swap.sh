@@ -5,7 +5,7 @@
 # the same time (both want ~90% of VRAM). This script is the explicit,
 # scriptable contract for who owns the GPU right now.
 #
-# Modes: code | research | idle | prod | status (default)
+# Modes: code | research | free | prod | status (default)
 #
 #   prod — podcast_scraper pipeline: no vLLM, Ollama warm with the pinned
 #          summary/GI/KG model (see PROD_LLM_MODEL), whisper + pyannote checked.
@@ -121,7 +121,7 @@ while (( $# )); do
             sed -n '2,30p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
-        code|research|idle|prod|status) MODE="$1" ;;
+        code|research|free|prod|status) MODE="$1" ;;
         judging)
             MODE="judging"
             # judging requires a sub-arg: a, b, n (qwen-next), or x (nemotron)
@@ -133,7 +133,7 @@ while (( $# )); do
             JUDGING_SUB="$1"
             ;;
         *)
-            echo "usage: $0 [code|research|idle|prod|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color]" >&2
+            echo "usage: $0 [code|research|free|prod|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color]" >&2
             exit 2
             ;;
     esac
@@ -280,7 +280,7 @@ current_mode() {
     elif (( judge_b_up ));          then echo "judging-b"
     elif (( judge_qwen_next_up ));  then echo "judging-qwen-next"
     elif (( judge_nemotron_up ));   then echo "judging-nemotron"
-    else                                 echo "idle"
+    else                                 echo "free"
     fi
 }
 
@@ -333,7 +333,7 @@ require_dir() {
 
 # Bring every known vLLM compose down. Called before starting a target when
 # the current mode isn't a clean single-owner state (e.g. BROKEN-BOTH), or
-# by ``action_idle``. Passing ``$1 = <target-dir>`` skips only that one so
+# by ``action_free``. Passing ``$1 = <target-dir>`` skips only that one so
 # the caller can then bring it up cleanly.
 stop_all_composes() {
     local except="${1:-}"
@@ -398,7 +398,7 @@ action_status() {
         judging-b)    ok "judge-b vLLM up on :$JUDGE_B_PORT" ;;
         judging-qwen-next) ok "judge-qwen-next vLLM up on :$JUDGE_QWEN_NEXT_PORT" ;;
         judging-nemotron)  ok "judge-nemotron vLLM up on :$JUDGE_NEMOTRON_PORT" ;;
-        idle)         dim "all vLLM composes are down" ;;
+        free)         dim "all vLLM composes are down" ;;
         BROKEN-BOTH)  warn "MULTIPLE listening — GPU-contention failure mode" ;;
     esac
     dim "GPU: $(gpu_state_line)"
@@ -412,14 +412,14 @@ action_judging_b() { do_swap "judging-b" "$JUDGE_B_DIR" "$JUDGE_B_PORT"; }
 action_judging_n() { do_swap "judging-qwen-next" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_QWEN_NEXT_PORT"; }
 action_judging_x() { do_swap "judging-nemotron"  "$JUDGE_NEMOTRON_DIR"  "$JUDGE_NEMOTRON_PORT"; }
 
-action_idle() {
-    log "→ idle (bringing all vLLM composes down)"
+action_free() {
+    log "→ free (bringing all vLLM composes down)"
     local apps_before; apps_before=$(gpu_compute_app_count)
     stop_all_composes
     sleep 2
     local apps_after; apps_after=$(gpu_compute_app_count)
     ok "compute apps ${apps_before}→${apps_after}; now: $(gpu_state_line)"
-    ((JSON)) && emit_json "idle" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
+    ((JSON)) && emit_json "free" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
 }
 
 # ── prod (podcast_scraper pipeline) ──────────────────────────────────────
@@ -437,7 +437,7 @@ action_idle() {
 #
 # Unlike the vLLM modes this does NOT flush Ollama — in prod, Ollama *is* the point.
 #
-# Note: `status` will report `idle`, because mode is derived from which vLLM owns
+# Note: `status` will report `free`, because mode is derived from which vLLM owns
 # the GPU and prod deliberately runs none. That is accurate: no vLLM owns it.
 PROD_LLM_MODEL="${GPU_MODE_PROD_LLM_MODEL:-qwen3.5:35b}"
 PROD_WHISPER_PORT="${GPU_MODE_PROD_WHISPER_PORT:-8000}"
@@ -553,7 +553,7 @@ case "$MODE" in
     status)    action_status ;;
     code)      action_code ;;
     research)  action_research ;;
-    idle)      action_idle ;;
+    free)      action_free ;;
     prod)      action_prod ;;
     judging)
         case "$JUDGING_SUB" in
@@ -565,7 +565,7 @@ case "$MODE" in
         esac
         ;;
     *)
-        echo "usage: $0 [code|research|idle|prod|status|judging {a|b}] [--json] [--mode-only] [--no-color]" >&2
+        echo "usage: $0 [code|research|free|prod|status|judging {a|b}] [--json] [--mode-only] [--no-color]" >&2
         exit 2
         ;;
 esac

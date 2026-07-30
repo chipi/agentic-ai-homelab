@@ -8,7 +8,7 @@ config is layered on top via env vars.
 
 | Script | What it does | Recipe |
 |---|---|---|
-| `gpu-mode-swap.sh` | Toggle which vLLM owns the single GPU (`code` / `research` / `idle`) | [`docs/recipes/gpu-mode-swap.md`](../../../docs/recipes/gpu-mode-swap.md) |
+| `gpu-mode-swap.sh` | Toggle which vLLM owns the single GPU (`code` / `research` / `free` / `prod`) | [`docs/recipes/gpu-mode-swap.md`](../../../docs/recipes/gpu-mode-swap.md) |
 
 ---
 
@@ -35,13 +35,38 @@ gpu-mode-swap.sh status
 
 The symlink lets `git pull` ship script updates without re-installing.
 
-### Human usage
+### The modes — what each one is about
+
+The single GPU has **one vLLM slot**. Every mode is really "**what occupies the
+vLLM slot**" (plus, for `prod`, whether the pinned Ollama model is warmed).
+
+**The always-on ML services — `pyannote` (:8001), `faster-whisper`/speaches
+(:8000), `moss` (:8004) — are NEVER touched by any mode.** They are the podcast
+pipeline's production inference services and stay running in every mode; the
+script only *checks* they're up. Only the vLLM composes (and the pinned Ollama
+model) are swapped.
+
+| Mode | vLLM slot | Pinned Ollama model | Frees the ~78 GB vLLM? | Use it for |
+|---|---|---|---|---|
+| `code` | coder-next vLLM (:9000, `Qwen3-Coder-Next-FP8`) | — | no (coder occupies it) | coding assistants |
+| `research` | autoresearch vLLM (:8003, `Qwen3-30B-A3B FP4`) | — | no (research occupies it) | the autoresearch pipeline |
+| `judging {a\|b\|n\|x}` | one judge vLLM (a=Qwen3-30B, b=Llama-3.3-70B, n=Qwen3-Next-80B, x=Nemotron-120B) | — | no | the multi-judge sweep |
+| `prod` | **empty** | **warm** (`qwen3.5:35b`, keep_alive 24h) | yes | the podcast pipeline (LLM served by Ollama, not vLLM) |
+| `free` | **empty** | cold | yes (**max free memory**) | reclaim the whole GPU — before a fresh vLLM start, or to park the box |
+| `status` *(default)* | — (read-only) | — | — | print the current mode |
+
+**`prod` vs `free`:** identical at the vLLM level (both empty the slot, both leave
+the ML services up). The *only* difference is `prod` warms the pinned Ollama model
+(~30 GB) for the pipeline; `free` leaves Ollama cold for **maximum free memory**.
+Because the mode is detected from *which vLLM owns the GPU*, `status`/`--mode-only`
+reports **`free`** for both (it can't see the Ollama warm) — expected, not a bug.
 
 ```bash
 gpu-mode-swap.sh                # show current state (default = status)
-gpu-mode-swap.sh code           # bring coder-next vLLM up, autoresearch down
-gpu-mode-swap.sh research       # bring autoresearch up, coder-next down
-gpu-mode-swap.sh idle           # both down — frees GPU for ML training / Ollama
+gpu-mode-swap.sh code           # coder-next vLLM up, others down
+gpu-mode-swap.sh research       # autoresearch vLLM up, others down
+gpu-mode-swap.sh prod           # no vLLM; Ollama warm (podcast pipeline); ML services checked
+gpu-mode-swap.sh free           # no vLLM, Ollama cold — maximum free memory
 ```
 
 ### Agent usage (the contract)
@@ -54,7 +79,7 @@ Before invoking a local vLLM (e.g. before pointing a tool at
 in the non-interactive shells agents typically run in:
 
 ```bash
-~/bin/gpu-mode-swap.sh --mode-only            # → "code" | "research" | "idle" | "BROKEN-BOTH"
+~/bin/gpu-mode-swap.sh --mode-only            # → "code" | "research" | "free" | "BROKEN-BOTH"
 ~/bin/gpu-mode-swap.sh code --json            # switch + machine-readable result
 ~/bin/gpu-mode-swap.sh status --json          # current state, machine-readable
 ```
@@ -150,8 +175,8 @@ Available variables (all optional):
   bringing both down first.
 - **`compose dir missing` (exit 3).** The autoresearch dir lives in the
   `podcast_scraper` repo by default — if you don't have that repo cloned,
-  set `GPU_MODE_RESEARCH_DIR` or just use `code` / `idle`.
-- **GPU memory stays high after `idle`.** Zombie vLLM worker. See the
+  set `GPU_MODE_RESEARCH_DIR` or just use `code` / `free`.
+- **GPU memory stays high after `free`.** Zombie vLLM worker. See the
   recipe's troubleshooting section — usually `pkill -9 -f vllm`.
 - **Port doesn't come up within 120s.** First-run model download or CUDA
   graph compile. Bump `GPU_MODE_START_TIMEOUT=300`, or pre-warm the
