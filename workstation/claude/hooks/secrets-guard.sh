@@ -55,7 +55,6 @@ if [ "$is_commit" = 1 ]; then
     else
         diff="$(git diff --cached 2>/dev/null)"; names="$(git diff --cached --name-only 2>/dev/null)"
     fi
-    verb='commit'
 else
     # push: scan the outgoing commit range, best-effort; fail-open if unknown.
     rng=""
@@ -65,13 +64,12 @@ else
     fi
     [ -n "$rng" ] || allow
     diff="$(git diff "$rng" 2>/dev/null)"; names="$(git diff "$rng" --name-only 2>/dev/null)"
-    verb='push'
 fi
 [ -n "$diff" ] || allow
 
 # --- scan only ADDED lines; drop obvious placeholders ---
 added="$(printf '%s\n' "$diff" | grep -E '^\+' | grep -Ev '^\+\+\+')"
-placeholder='buddy-is-the-king|hf_xxx|<your|\$\{|changeme|change_?me|placeholder|dummy|xxxx+|redacted|example|\.\.\.'
+placeholder='buddy-is-the-king|hf_xxx|<your|\$\{|changeme|change_?me|placeholder|dummy|xxxx+|redacted|example|\.\.\.|test-api-key|test[_-]key|sk-test|test-token|test_token|fake-?key|not-?a-?real'
 scan="$(printf '%s\n' "$added" | grep -Eiv "$placeholder")"
 
 hits=""
@@ -84,7 +82,11 @@ hit 'AKIA[0-9A-Z]{16}'                                     'AWS access key id (A
 hit 'AIza[0-9A-Za-z_-]{20,}'                               'Google API key (AIza…)'
 hit 'xox[baprs]-[A-Za-z0-9-]{10,}'                         'Slack token (xox…)'
 hit '-----BEGIN [A-Z ]*PRIVATE KEY-----'                  'private key block'
-hit '(api[_-]?key|secret|token|password|passwd|bearer|auth)["'"'"' ]*[:=][ "'"'"']*[A-Za-z0-9/+._-]{16,}' 'generic secret assignment'
+# The VALUE must look like a secret, not code: a quoted literal (>=16 chars, dots allowed inside
+# quotes) OR a long unquoted run (>=24 chars, NO dot — so a dotted/underscored code expression like
+# `token = _episode_fuse.set(fuse)` or `auth = terminal_message(...)` can't reach the length and is
+# not mistaken for a secret). Real keys are quoted in code or long+unquoted in .env-style lines.
+hit '(api[_-]?key|secret|token|password|passwd|bearer|auth)["'"'"' ]*[:=][ ]*(["'"'"'][A-Za-z0-9/+._=-]{16,}|[A-Za-z0-9/+_=-]{24,})' 'generic secret assignment'
 
 # a real .env (not .env.example / .env.sample) entering git
 if printf '%s\n' "$names" | grep -Eq '(^|/)\.env(\.local|\.production|\.prod)?$'; then
@@ -93,5 +95,6 @@ fi
 
 [ -n "$hits" ] || allow
 
+verb="commit"; [ "$is_push" = 1 ] && verb="push"
 deny "secrets-guard blocked this git ${verb} — the change matches secret patterns:
 ${hits}Remove the secret and rotate it (a secret in git is compromised even if later deleted). Run /secrets-scan for file:line detail, or run the git command in a terminal outside Claude to override."
