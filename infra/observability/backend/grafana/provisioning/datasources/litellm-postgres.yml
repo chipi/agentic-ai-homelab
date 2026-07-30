@@ -1,0 +1,25 @@
+# LiteLLM gateway spend — read-only Postgres datasource.
+# The gateway's /metrics endpoint is enterprise-gated, so Grafana reads the
+# spend tables directly (LiteLLM_DailyUserSpend / _SpendLogs / _VerificationToken).
+# grafana_ro role: SELECT-only. Password lands via LITELLM_PG_RO_PASSWORD in
+# backend .env (compose passes it through; same $__env pattern as alerting).
+# host.docker.internal:5433 — litellm-postgres publishes on host loopback;
+# Docker Desktop routes container→host loopback (same as Langfuse callbacks).
+apiVersion: 1
+
+datasources:
+  - name: LiteLLM Spend (Postgres)
+    uid: litellm-pg
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: host.docker.internal:5433
+    user: grafana_ro
+    jsonData:
+      database: litellm
+      sslmode: disable
+      maxOpenConns: 4
+      maxIdleConns: 2
+      postgresVersion: 1600
+    secureJsonData:
+      password: $__env{LITELLM_PG_RO_PASSWORD}
+    editable: false

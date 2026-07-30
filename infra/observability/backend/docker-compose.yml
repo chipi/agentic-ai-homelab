@@ -102,6 +102,8 @@ services:
       # root. Empty default = direct :3000 access, unchanged.
       - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-}
       - GF_SERVER_SERVE_FROM_SUB_PATH=false
+      # read-only LiteLLM spend datasource (provisioning/datasources/litellm-postgres.yml)
+      - LITELLM_PG_RO_PASSWORD=${LITELLM_PG_RO_PASSWORD:-}
       # --- Alerting notification channels (generic / add-later) -----------------
       # The alert rules + routing are provisioned as code; the CHANNELS are
       # pluggable — each activates the moment you set its env in .env and restart

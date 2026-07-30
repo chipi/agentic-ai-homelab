@@ -31,6 +31,10 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: litellm-postgres
+    # localhost-published for Grafana's read-only spend datasource
+    # (grafana lives in another compose project; host.docker.internal:5433)
+    ports:
+      - "127.0.0.1:5433:5432"
     environment:
       POSTGRES_USER: litellm
       POSTGRES_PASSWORD: ${LITELLM_PG_PASSWORD}

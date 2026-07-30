@@ -1,0 +1,110 @@
+{
+  "uid": "llm-gateway",
+  "title": "LLM Gateway — LiteLLM",
+  "description": "Metered truth from the gateway's own spend tables (read-only Postgres). Every consumer = one virtual key; per-key spend/tokens/requests. Complements the fleets' self-reported workforce dashboards — weekly ritual: these numbers vs self-report, drift >10% = accounting bug.",
+  "tags": ["llm", "gateway", "litellm"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "5m",
+  "time": { "from": "now-30d", "to": "now" },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Spend this month",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2,
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none", "colorMode": "value" },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT COALESCE(SUM(spend),0) AS value FROM \"LiteLLM_DailyUserSpend\" WHERE date >= to_char(date_trunc('month', now()), 'YYYY-MM-DD');" }]
+    },
+    {
+      "type": "stat",
+      "title": "Tokens this month",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short",
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none", "colorMode": "value" },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT COALESCE(SUM(prompt_tokens+completion_tokens),0) AS value FROM \"LiteLLM_DailyUserSpend\" WHERE date >= to_char(date_trunc('month', now()), 'YYYY-MM-DD');" }]
+    },
+    {
+      "type": "stat",
+      "title": "Requests 7d (ok / failed)",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
+      "gridPos": { "h": 5, "w": 5, "x": 8, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short",
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } },
+        "overrides": [{ "matcher": { "id": "byName", "options": "ok" }, "properties": [{ "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }] }] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none", "colorMode": "value" },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT COALESCE(SUM(successful_requests),0) AS ok, COALESCE(SUM(failed_requests),0) AS failed FROM \"LiteLLM_DailyUserSpend\" WHERE date >= to_char(now() - interval '7 days', 'YYYY-MM-DD');" }]
+    },
+    {
+      "type": "stat",
+      "title": "Cache-read tokens 30d (the Langfuse-incident blind spot)",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
+      "gridPos": { "h": 5, "w": 5, "x": 13, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short",
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "graphMode": "none", "colorMode": "value" },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT COALESCE(SUM(cache_read_input_tokens),0) AS value FROM \"LiteLLM_DailyUserSpend\" WHERE date >= to_char(now() - interval '30 days', 'YYYY-MM-DD');" }]
+    },
+    {
+      "type": "bargauge",
+      "title": "Budget burn per key (lifetime spend vs max budget)",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1,
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.6 }, { "color": "red", "value": 0.85 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "horizontal", "displayMode": "gradient" },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT COALESCE(key_alias, LEFT(token,8)) AS metric, CASE WHEN max_budget IS NULL OR max_budget = 0 THEN 0 ELSE spend/max_budget END AS value FROM \"LiteLLM_VerificationToken\" ORDER BY value DESC;" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Spend per key per day ($)",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD",
+        "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 70 } }, "overrides": [] },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT to_timestamp(d.date, 'YYYY-MM-DD') AS time, COALESCE(v.key_alias, LEFT(d.api_key,8)) AS metric, SUM(d.spend) AS value FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE $__timeFilter(to_timestamp(d.date,'YYYY-MM-DD')) GROUP BY 1,2 ORDER BY 1;" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens per key per day",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "short",
+        "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 70 } }, "overrides": [] },
+      "targets": [{ "refId": "A", "format": "time_series",
+        "rawSql": "SELECT to_timestamp(d.date, 'YYYY-MM-DD') AS time, COALESCE(v.key_alias, LEFT(d.api_key,8)) AS metric, SUM(d.prompt_tokens + d.completion_tokens) AS value FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE $__timeFilter(to_timestamp(d.date,'YYYY-MM-DD')) GROUP BY 1,2 ORDER BY 1;" }]
+    },
+    {
+      "type": "table",
+      "title": "Per key — spend, tokens, requests (dashboard window)",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "fieldConfig": { "defaults": {}, "overrides": [
+        { "matcher": { "id": "byName", "options": "spend_usd" }, "properties": [{ "id": "unit", "value": "currencyUSD" }, { "id": "decimals", "value": 4 }] } ] },
+      "options": { "sortBy": [{ "displayName": "spend_usd", "desc": true }] },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT COALESCE(v.key_alias, LEFT(d.api_key,8)) AS key, SUM(d.spend) AS spend_usd, SUM(d.prompt_tokens) AS prompt_tok, SUM(d.completion_tokens) AS completion_tok, SUM(d.cache_read_input_tokens) AS cache_read_tok, SUM(d.api_requests) AS requests, SUM(d.failed_requests) AS failed FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE $__timeFilter(to_timestamp(d.date,'YYYY-MM-DD')) GROUP BY 1 ORDER BY 2 DESC;" }]
+    },
+    {
+      "type": "table",
+      "title": "Per model — spend, tokens (dashboard window)",
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "fieldConfig": { "defaults": {}, "overrides": [
+        { "matcher": { "id": "byName", "options": "spend_usd" }, "properties": [{ "id": "unit", "value": "currencyUSD" }, { "id": "decimals", "value": 4 }] } ] },
+      "options": { "sortBy": [{ "displayName": "spend_usd", "desc": true }] },
+      "targets": [{ "refId": "A", "format": "table",
+        "rawSql": "SELECT COALESCE(model,'?') AS model, SUM(spend) AS spend_usd, SUM(prompt_tokens) AS prompt_tok, SUM(completion_tokens) AS completion_tok, SUM(api_requests) AS requests FROM \"LiteLLM_DailyUserSpend\" WHERE $__timeFilter(to_timestamp(date,'YYYY-MM-DD')) GROUP BY 1 ORDER BY 2 DESC;" }]
+    }
+  ]
+}
