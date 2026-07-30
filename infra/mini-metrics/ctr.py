@@ -17,6 +17,7 @@ exited/dead=red). `port` is the first published host port, else the first
 exposed container port, else "" (host-network services publish nothing).
 """
 import json
+import re
 import sys
 from datetime import datetime, timezone
 
@@ -54,7 +55,10 @@ for line in sys.stdin:
     up = 0
     if state == "running" and started and not started.startswith("0001"):
         try:
-            st = datetime.fromisoformat(started.replace("Z", "+00:00"))
+            # docker emits nanosecond precision (9 digits); py<3.11 fromisoformat
+            # only accepts <=6, so truncate the fraction to microseconds.
+            s = re.sub(r"\.(\d{6})\d*", r".\1", started.replace("Z", "+00:00"))
+            st = datetime.fromisoformat(s)
             up = max(0, int((now - st).total_seconds()))
         except Exception:
             up = 0
