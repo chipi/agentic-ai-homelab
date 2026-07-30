@@ -9,10 +9,16 @@ the Mac mini over the LAN (see [dgx-scrape](../dgx-scrape/README.md)).
 ## Where it runs
 
 - **Host:** DGX, tailnet `dgx-llm-1` (100.69.49.126). SSH via Tailscale (keyless):
-  `ssh markodragoljevic@dgx-llm-1` (personal) / `ssh ops@dgx-llm-1` (agents).
-- **Scripts** in [`bin/`](bin) run *on the DGX* (operator-invoked). The DGX also
-  holds a **deploy-only** checkout of this repo — never author or commit there
-  (see [`AGENTS.md`](AGENTS.md); the 2026-07-20 drift incident).
+  `ssh ops@dgx-llm-1` (**the default — everything on the box runs as `ops`**) /
+  `ssh markodragoljevic@dgx-llm-1` (personal, rarely needed).
+- **Checkout location:** the DGX runs from an **ops-owned deploy checkout at
+  `/home/ops/agentic-ai-homelab`** — *not* under any personal home. Everything
+  (the observability stack, `gpu-mode-swap.sh`, the vLLM composes) resolves from
+  there. `gpu-mode-swap.sh` is on the system `PATH` via
+  `/usr/local/bin/gpu-mode-swap.sh` → that checkout, so any user runs it bare.
+- **Deploy-only** — never author or commit in the DGX checkout; commit on your
+  workstation, push, then `git pull` on the box as `ops` (see [`AGENTS.md`](AGENTS.md);
+  the 2026-07-20 drift incident).
 
 ## Services on the DGX (as monitored)
 

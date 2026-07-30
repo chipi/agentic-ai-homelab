@@ -148,8 +148,10 @@ Defaults are sensible for this repo's layout. To override, either export
 the env vars in the calling shell or drop a `~/.config/gpu-mode.env`:
 
 ```bash
-# ~/.config/gpu-mode.env (sourced if present, gitignored — operator-local)
-GPU_MODE_RESEARCH_DIR=/home/operator/Projects/podcast_scraper/infra/dgx/vllm-autoresearch
+# ~/.config/gpu-mode.env (sourced if present, gitignored — operator-local).
+# Usually EMPTY now: the script derives every dir from its own location in the
+# ops checkout, so overrides are only for a non-standard layout.
+# e.g. GPU_MODE_RESEARCH_DIR=/home/ops/agentic-ai-homelab/infra/vllm/autoresearch
 GPU_MODE_CODER_PORT=9000
 GPU_MODE_RESEARCH_PORT=8003
 GPU_MODE_DOCKER="sudo docker"
