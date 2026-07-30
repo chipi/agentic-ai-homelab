@@ -191,7 +191,7 @@ async function mini(){
   (await q('compose_app_running{box=\"mini\"}')).forEach(s=>arun[s.metric.app]=s.value[1]);
   (await q('compose_app_total{box=\"mini\"}')).forEach(s=>atot[s.metric.app]=s.value[1]);
   const ma=document.getElementById('mapps');
-  if(ma)ma.innerHTML='apps: '+apps.sort((a,b)=>a.metric.app<b.metric.app?-1:1).map(s=>{const n=s.metric.app,up=+s.value[1];return '<span style=\"color:'+(up?'#3fb950':'#f85149')+'\">'+n+'</span> <span class=muted>'+(arun[n]||'?')+'/'+(atot[n]||'?')+'</span>';}).join(' &middot; ');
+  if(ma)ma.innerHTML='apps: '+apps.sort((a,b)=>a.metric.app<b.metric.app?-1:1).map(s=>{const n=s.metric.app,rn=+(arun[n]||0),tn=+(atot[n]||0),col=rn==0?'#f85149':(rn<tn?'#d29922':'#3fb950');return '<span style=\"color:'+col+'\">'+n+'</span> <span class=muted>'+(arun[n]||'?')+'/'+(atot[n]||'?')+'</span>';}).join(' &middot; ');
   const top=await q('topk(3,mini_container_mem_bytes)');const mt=document.getElementById('mtop');
   if(mt)mt.innerHTML='top: '+top.sort((a,b)=>b.value[1]-a.value[1]).map(s=>s.metric.name+' <span class=muted>'+(s.value[1]/1048576).toFixed(0)+'MB</span>').join(' &middot; ');
 }
@@ -218,7 +218,7 @@ async function dgx(){
   (await q('compose_app_running{box=\"dgx\"}')).forEach(s=>arun[s.metric.app]=s.value[1]);
   (await q('compose_app_total{box=\"dgx\"}')).forEach(s=>atot[s.metric.app]=s.value[1]);
   const da=document.getElementById('dgxapps');
-  if(da)da.innerHTML='apps: '+apps.sort((a,b)=>a.metric.app<b.metric.app?-1:1).map(s=>{const n=s.metric.app,up=+s.value[1];return '<span style=\"color:'+(up?'#3fb950':'#f85149')+'\">'+n+'</span> <span class=muted>'+(arun[n]||'?')+'/'+(atot[n]||'?')+'</span>';}).join(' &middot; ');
+  if(da)da.innerHTML='apps: '+apps.sort((a,b)=>a.metric.app<b.metric.app?-1:1).map(s=>{const n=s.metric.app,rn=+(arun[n]||0),tn=+(atot[n]||0),col=rn==0?'#f85149':(rn<tn?'#d29922':'#3fb950');return '<span style=\"color:'+col+'\">'+n+'</span> <span class=muted>'+(arun[n]||'?')+'/'+(atot[n]||'?')+'</span>';}).join(' &middot; ');
 }
 async function prod(){
   const P='{instance="prod-podcast"}';
