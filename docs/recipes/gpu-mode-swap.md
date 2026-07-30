@@ -7,7 +7,7 @@
 A single DGX-class GPU can't host the coder-next vLLM and the autoresearch
 vLLM at the same time — both want ~90% of VRAM in their respective profiles.
 This recipe is the toggle: one command swaps which one is up, or brings
-both down for idle / ML training / batch jobs.
+both down for free / ML training / batch jobs.
 
 The script is version-controlled in the repo and reads its config from env
 vars with sensible defaults. The legend below documents the defaults —
@@ -48,7 +48,7 @@ Three modes:
 |---|---|---|
 | `code` | coder-next vLLM | Day-to-day opencode / Claude Code work with local model |
 | `research` | autoresearch vLLM | Running podcast_scraper batch jobs / eval harness |
-| `idle` | neither | ML training, manual `nvidia-smi`-watching, freeing the box |
+| `free` | neither | ML training, manual `nvidia-smi`-watching, freeing the box |
 
 ---
 
@@ -58,9 +58,9 @@ Three modes:
 gpu-mode                       # → show current state
 gpu-mode code                  # → switch to coder-next
 gpu-mode research              # → switch to autoresearch
-gpu-mode idle                  # → bring both down
+gpu-mode free                  # → bring both down
 gpu-mode status                # → same as no-arg
-gpu-mode status --mode-only    # → just "code" / "research" / "idle" (agent-friendly)
+gpu-mode status --mode-only    # → just "code" / "research" / "free" (agent-friendly)
 gpu-mode code --json           # → switch + machine-readable result on stdout
 ```
 
@@ -156,7 +156,7 @@ If it's not first-run: check `cd <compose-dir> && sudo docker compose logs --tai
 Manual mistake — someone brought one up without the script. The script
 handles this by bringing both down then starting the requested one.
 
-### GPU memory still high after `idle`
+### GPU memory still high after `free`
 
 Zombie process holding VRAM. The dashboard's `nvitop` pane will show it.
 Common culprits:
@@ -185,11 +185,11 @@ another container) is bound to that port.
   `curl localhost:<port>/v1/models` to confirm vLLM actually responds.
 - **Pre-warmed swap** — keep the *idle* compose's image layers warm via
   `docker compose pull` on a cron, so `up` doesn't pay download cost.
-- **Auto-idle hook** — systemd timer that runs `gpu-mode idle` if no
+- **Auto-idle hook** — systemd timer that runs `gpu-mode free` if no
   client has hit either vLLM for N minutes (frees GPU for opportunistic
   Ollama use).
 - **Mode = `ollama-only`** — explicit fourth mode that brings both vLLM
-  composes down AND ensures Ollama is up. Currently `idle` leaves Ollama
+  composes down AND ensures Ollama is up. Currently `free` leaves Ollama
   state alone.
 - **observability metric** — push current-mode as a custom Grafana label
   so dashboards can show "what owned the GPU at time T".
@@ -202,7 +202,7 @@ another container) is bound to that port.
 gpu-mode               # show status
 gpu-mode code          # coder-next vLLM up, autoresearch down
 gpu-mode research      # autoresearch up, coder-next down
-gpu-mode idle          # both down
+gpu-mode free          # both down
 
 Verify port:           ss -lnt | grep :<port>
 Verify GPU process:    nvidia-smi --query-compute-apps=pid,used_memory,process_name --format=csv,noheader
