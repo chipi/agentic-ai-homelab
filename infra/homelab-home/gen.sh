@@ -158,7 +158,8 @@ cat <<MID2
     <a class=card href="$DASH_PROD"><h3>Network</h3><div id=p_net>&hellip;</div></a>
   </div>
   <h3 class=sectitle>Containers</h3>
-  <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a> <span class=muted>&middot; per-container detail needs a prod-side collector</span></div>
+  <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a></div>
+  <table class=ctbl><tbody id=pctr></tbody></table>
   <h3 class=sectitle>Services</h3>
   <table><thead><tr><th>Service</th><th>Board</th><th>Role</th></tr></thead><tbody>
 MID2
@@ -252,6 +253,7 @@ async function prod(){
   const pr=document.getElementById('prodrow');if(pr)pr.innerHTML='Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
   const cc=await g1('count(container_last_seen'+P+')');
   const pd=document.getElementById('pdocker');if(pd)pd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers';
+  ctable('pctr','prod');
 }
 async function fleet(){
   const N=x=>x?(+x[1]).toFixed(0):'&mdash;';
