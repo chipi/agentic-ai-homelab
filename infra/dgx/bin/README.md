@@ -20,20 +20,22 @@ explicit, scriptable contract for which one owns the GPU right now.
 
 ### Install on the DGX
 
+The DGX checkout is **ops-owned** (`/home/ops/agentic-ai-homelab`) — everything on
+the box runs as the `ops` user, not a personal account. Put the script on the
+system `PATH` via a symlink into the checkout so any user runs it bare:
+
 ```bash
-# Make ~/bin a symlink target (one-time):
-mkdir -p ~/bin
-ln -sf ~/agentic-ai-homelab/infra/dgx/bin/gpu-mode-swap.sh ~/bin/gpu-mode-swap.sh
+# one-time, as ops (or with sudo):
+sudo ln -sf /home/ops/agentic-ai-homelab/infra/dgx/bin/gpu-mode-swap.sh \
+            /usr/local/bin/gpu-mode-swap.sh
 
-# Optional shell alias for ergonomics:
-echo 'alias gpu-mode="~/bin/gpu-mode-swap.sh"' >> ~/.zshrc
-source ~/.zshrc
-
-# Verify:
+# verify:
 gpu-mode-swap.sh status
 ```
 
-The symlink lets `git pull` ship script updates without re-installing.
+The symlink into the checkout lets `git pull` (as ops) ship script updates without
+re-installing. The script derives its repo root from its own location, so no path
+config is needed after a `git pull`.
 
 ### The modes — what each one is about
 
