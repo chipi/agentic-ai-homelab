@@ -244,14 +244,21 @@ async function fleet(){
   const dec=await g1('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[24h]))');
   const sp=await g1('sum(last_over_time(fleetd_spend_day[2h]))');
   const d=new Date(),mS=Math.max(3600,Math.floor((d-new Date(d.getFullYear(),d.getMonth(),1))/1000));
+  const dayS=Math.max(3600,Math.floor((d-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/1000));
   const mo=await g1('sum(sum_over_time(signal_fleet_cost_usd['+mS+'s]))');
   const al=await g1('sum(sum_over_time(signal_fleet_cost_usd[180d]))'); // VM retention = 6mo
-  const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML='<div class=cv>'+html+'</div>';};
+  const tkD=await g1('sum(sum_over_time(signal_fleet_tokens['+dayS+'s]))');
+  const tkM=await g1('sum(sum_over_time(signal_fleet_tokens['+mS+'s]))');
+  const tkA=await g1('sum(sum_over_time(signal_fleet_tokens[180d]))');
+  const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
   const tot=(qd?+qd[1]:0)+(esc?+esc[1]:0);
-  set('f_inbox',(qd||esc)?String(tot):'&mdash;');
-  set('f_esc',N(esc));set('f_dec',N(dec));
+  const cv=v=>'<div class=cv>'+v+'</div>';
+  set('f_inbox',cv((qd||esc)?String(tot):'&mdash;'));
+  set('f_esc',cv(N(esc)));set('f_dec',cv(N(dec)));
   const $=x=>x?'$'+(+x[1]).toFixed(2):'$0.00';
-  set('f_spend',$(sp));set('f_month',$(mo));set('f_total',$(al));
+  const T=x=>{if(!x)return '0';const v=+x[1];return v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':v.toFixed(0);};
+  const duo=(c,t)=>cv($(c))+'<div class=muted style="font-size:12px">'+T(t)+' tok</div>';
+  set('f_spend',duo(sp,tkD));set('f_month',duo(mo,tkM));set('f_total',duo(al,tkA));
 }
 async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);}
 function refresh(){mini();dgx();prod();fleet();fresh();}
