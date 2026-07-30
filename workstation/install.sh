@@ -7,7 +7,12 @@
 set -euo pipefail
 
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"     # workstation/ dir
-DRY=0
+# USAGE: ./install.sh [--dry-run]
+#   Preview first, ALWAYS:  ./install.sh --dry-run   (or:  DRY=1 ./install.sh)
+#   A bare `./install.sh` RUNS FOR REAL — it backs up each live file to
+#   *.bak.<ts> and replaces it with a symlink into this repo. There is no
+#   confirm prompt, so run --dry-run first and read the BACK/LINK lines.
+DRY="${DRY:-0}"                       # honour `DRY=1 ./install.sh` too
 [ "${1:-}" = "--dry-run" ] && DRY=1
 TS="$(date +%Y%m%d-%H%M%S)"
 
@@ -27,7 +32,15 @@ link() {  # link <workstation-relative-src> <absolute-home-target>
   return 0
 }
 
-echo "workstation: $WS   (dry-run=$DRY)"
+echo "workstation: $WS"
+if [ "$DRY" = 1 ]; then
+  echo "== DRY-RUN — preview only, nothing is changed (BACK/LINK lines are hypothetical) =="
+else
+  echo "**************************************************************************"
+  echo "** REAL RUN — backing up live files to *.bak.$TS and SYMLINKING them.  **"
+  echo "** No undo prompt. Ctrl-C now and re-run with --dry-run to preview.     **"
+  echo "**************************************************************************"
+fi
 echo "== symlinking tracked, non-secret config =="
 link config/AGENTS.md              "$HOME/.config/AGENTS.md"
 link config/lean-ctx/config.toml   "$HOME/.config/lean-ctx/config.toml"

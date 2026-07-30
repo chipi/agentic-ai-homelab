@@ -6,8 +6,18 @@ convention this repo already uses for scripts, where `~/bin/foo` symlinks into
 `infra/dgx/bin/foo.sh`). A fresh machine is restored with:
 
 ```bash
-git clone <this repo> && ./workstation/install.sh
+git clone <this repo>
+./workstation/install.sh --dry-run   # ALWAYS preview first — read the BACK/LINK lines
+./workstation/install.sh             # then run for real
 ```
+
+> ⚠️ **`install.sh` runs for real with no confirm prompt** — it backs up each
+> live file to `*.bak.<ts>` and replaces it with a symlink into this repo.
+> **Always `--dry-run` first** (or `DRY=1 ./workstation/install.sh`) to preview.
+> It is lossless + reversible (the `*.bak.<ts>` copies), but preview so you know
+> exactly which files move. Backups of skill *directories* land next to the live
+> skills — after you've confirmed the symlinks resolve, delete the
+> `~/.claude/skills/*.bak.*` dirs so they don't show up as duplicate skills.
 
 Full step-by-step for a clean Mac: [`setup-new-computer.md`](setup-new-computer.md).
 
