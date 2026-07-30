@@ -70,6 +70,14 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
     <a class=card href="$DASH_BUGFIX"><h3>Spend this month</h3><div id=f_month>&hellip;</div></a>
     <a class=card href="$DASH_BUGFIX"><h3>Spend total</h3><div id=f_total>&hellip;</div></a>
   </div>
+  <div class=charts style="max-width:1140px">
+    <a class=card href="$DASH_BUGFIX"><h3>Chains shipped 7d</h3><div id=b_ship>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Stuck / needs-info 7d</h3><div id=b_stuck>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Fix episodes 7d</h3><div id=b_ep>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Bugfix spend month</h3><div id=b_month>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Bugfix spend total</h3><div id=b_total>&hellip;</div></a>
+    <a class=card href="https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22"><h3>Routable now</h3><div id=b_route>&hellip;</div></a>
+  </div>
 </div>
 <div class=cols>
 <div class=col>
@@ -259,6 +267,19 @@ async function fleet(){
   const T=x=>{if(!x)return '0';const v=+x[1];return v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':v.toFixed(0);};
   const duo=(c,t)=>cv($(c))+'<div class=muted style="font-size:12px">'+T(t)+' tok</div>';
   set('f_spend',duo(sp,tkD));set('f_month',duo(mo,tkM));set('f_total',duo(al,tkA));
+  // bug-fix fleet row — zeros until chains run; same accounting shape
+  const bs=await g1('sum(count_over_time(bugfix_fleet_flow{state="shipped"}[7d]))');
+  const bx=await g1('sum(count_over_time(bugfix_fleet_flow{state=~"stuck|needs-info"}[7d]))');
+  const be=await g1('sum(count_over_time(bugfix_fleet_cost_usd[7d]))');
+  const bmo=await g1('sum(sum_over_time(bugfix_fleet_cost_usd['+mS+'s]))');
+  const bal=await g1('sum(sum_over_time(bugfix_fleet_cost_usd[180d]))');
+  const btM=await g1('sum(sum_over_time(bugfix_fleet_tokens['+mS+'s]))');
+  const btA=await g1('sum(sum_over_time(bugfix_fleet_tokens[180d]))');
+  set('b_ship',cv(N(bs)));set('b_stuck',cv(N(bx)));set('b_ep',cv(N(be)));
+  set('b_month',duo(bmo,btM));set('b_total',duo(bal,btA));
+  try{const r=await(await fetch('https://api.github.com/search/issues?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')).json();
+    set('b_route',cv(typeof r.total_count==='number'?String(r.total_count):'&rarr;'));}
+  catch(e){set('b_route',cv('&rarr;'));}
 }
 async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);}
 function refresh(){mini();dgx();prod();fleet();fresh();}

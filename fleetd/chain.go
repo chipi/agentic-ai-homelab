@@ -159,6 +159,21 @@ func pushChainMetric(issue int, state string) {
 	_ = cmd.Run()
 }
 
+// pushEpisodeUsage: workforce accounting per fix episode — same shape as the
+// triage fleet's signal_fleet_cost_usd/_tokens so dashboards sum symmetrically
+func pushEpisodeUsage(issue, round, inTok, outTok int, cost float64) {
+	if chainVM == "" {
+		return
+	}
+	base := fmt.Sprintf("ticket=\"real-%d\",round=\"%d\",service=\"bugfix-fleet\",environment=\"operations\"", issue, round)
+	body := fmt.Sprintf("bugfix_fleet_cost_usd{%s} %g\n", base, cost) +
+		fmt.Sprintf("bugfix_fleet_tokens{kind=\"prompt\",%s} %d\n", base, inTok) +
+		fmt.Sprintf("bugfix_fleet_tokens{kind=\"completion\",%s} %d\n", base, outTok)
+	cmd := exec.Command("curl", "-s", "-m", "5", "-X", "POST",
+		chainVM+"/api/v1/import/prometheus", "--data-binary", body)
+	_ = cmd.Run()
+}
+
 func run(dir, name string, args ...string) (string, error) {
 	c := exec.Command(name, args...)
 	c.Dir = dir
@@ -278,8 +293,9 @@ func processIssue(cc ChainConfig, is ghIssue) {
 
 		led.add(is.Number, "fixing", fmt.Sprintf("round=%d branch=%s", round, branch))
 		fxout, fxerr := runEpisode(cc, filepath.Join(cc.BakeoffDir, "harnesses", "pi.sh"), cc.Worktree, desc)
-		turns, outTok, cost := parseUsage(fxout)
+		turns, outTok, inTok, cost := parseUsageFull(fxout)
 		spent += cost
+		pushEpisodeUsage(is.Number, round, inTok, outTok, cost)
 		if fxerr != nil && len(fxout) == 0 {
 			led.add(is.Number, "stuck", "fix episode crashed with no output")
 			return
@@ -503,7 +519,12 @@ func runEpisode(cc ChainConfig, script, wt, desc string) ([]byte, error) {
 // parseUsage sums the pi event stream: turns, output tokens, est cost
 // (v4-pro rates, cache-blind upper bound — Langfuse holds precision).
 func parseUsage(stream []byte) (turns, outTok int, cost float64) {
-	var inMax int
+	turns, outTok, inMax, cost := parseUsageFull(stream)
+	_ = inMax
+	return turns, outTok, cost
+}
+
+func parseUsageFull(stream []byte) (turns, outTok, inMax int, cost float64) {
 	for _, line := range strings.Split(string(stream), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || !strings.HasPrefix(line, "{") {
