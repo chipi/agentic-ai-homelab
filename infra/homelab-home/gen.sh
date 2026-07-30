@@ -62,11 +62,13 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 <h1>homelab</h1>
 <div style="margin:0 0 22px">
   <h2><a href="$DASH_FLEET">Fleets &rarr;</a></h2>
-  <div class=charts style="max-width:760px">
+  <div class=charts style="max-width:1140px">
     <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div></a>
     <a class=card href="$DASH_INBOX"><h3>Escalations 7d</h3><div id=f_esc>&hellip;</div></a>
     <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=f_dec>&hellip;</div></a>
     <a class=card href="$DASH_BUGFIX"><h3>Fleet spend today</h3><div id=f_spend>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Spend this month</h3><div id=f_month>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Spend total</h3><div id=f_total>&hellip;</div></a>
   </div>
 </div>
 <div class=cols>
@@ -241,11 +243,15 @@ async function fleet(){
   const esc=await g1('sum(last_over_time(signal_fleet_escalations_7d[2h]))');
   const dec=await g1('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[24h]))');
   const sp=await g1('sum(last_over_time(fleetd_spend_day[2h]))');
+  const d=new Date(),mS=Math.max(3600,Math.floor((d-new Date(d.getFullYear(),d.getMonth(),1))/1000));
+  const mo=await g1('sum(sum_over_time(signal_fleet_cost_usd['+mS+'s]))');
+  const al=await g1('sum(sum_over_time(signal_fleet_cost_usd[180d]))'); // VM retention = 6mo
   const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML='<div class=cv>'+html+'</div>';};
   const tot=(qd?+qd[1]:0)+(esc?+esc[1]:0);
   set('f_inbox',(qd||esc)?String(tot):'&mdash;');
   set('f_esc',N(esc));set('f_dec',N(dec));
-  set('f_spend',sp?'$'+(+sp[1]).toFixed(2):'$0.00');
+  const $=x=>x?'$'+(+x[1]).toFixed(2):'$0.00';
+  set('f_spend',$(sp));set('f_month',$(mo));set('f_total',$(al));
 }
 async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);}
 function refresh(){mini();dgx();prod();fleet();fresh();}
