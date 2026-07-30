@@ -241,10 +241,15 @@ def investigate(signal, max_probes=None, probe_table=None):
     n = MAX_PROBES if max_probes is None else max_probes
     messages = [{"role": "system", "content": _sys()},
                 {"role": "user", "content": _signal_intro(signal)}]
-    trace, usage, t0 = [], {}, time.time()
+    # usage accumulates across ALL turns — reconciliation vs LiteLLM metering
+    # (2026-07-30) showed last-turn-only recording undercounted tokens ~4x
+    trace, usage, t0 = [], {"prompt_tokens": 0, "completion_tokens": 0}, time.time()
     for step in range(n + 1):
         try:
-            raw, usage = _call(messages)
+            raw, turn_usage = _call(messages)
+            if isinstance(turn_usage, dict):
+                for k in ("prompt_tokens", "completion_tokens"):
+                    usage[k] += turn_usage.get(k) or 0
         except SystemExit:
             raise
         except Exception as e:  # transport
