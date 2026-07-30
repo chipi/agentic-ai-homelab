@@ -61,21 +61,24 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 }</style></head><body>
 <h1>homelab</h1>
 <div style="margin:0 0 22px">
-  <h2><a href="$DASH_FLEET">Fleets &rarr;</a></h2>
+  <h2><a href="$DASH_FLEET">Triage fleet &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
     <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div></a>
     <a class=card href="$DASH_INBOX"><h3>Escalations 7d</h3><div id=f_esc>&hellip;</div></a>
     <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=f_dec>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Fleet spend today</h3><div id=f_spend>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Spend this month</h3><div id=f_month>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Spend total</h3><div id=f_total>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Spend today</h3><div id=f_spend>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Spend this month</h3><div id=f_month>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Spend total</h3><div id=f_total>&hellip;</div></a>
   </div>
+</div>
+<div style="margin:0 0 22px">
+  <h2><a href="$DASH_BUGFIX">Bug-fix fleet &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
     <a class=card href="$DASH_BUGFIX"><h3>Chains shipped 7d</h3><div id=b_ship>&hellip;</div></a>
     <a class=card href="$DASH_BUGFIX"><h3>Stuck / needs-info 7d</h3><div id=b_stuck>&hellip;</div></a>
     <a class=card href="$DASH_BUGFIX"><h3>Fix episodes 7d</h3><div id=b_ep>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Bugfix spend month</h3><div id=b_month>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Bugfix spend total</h3><div id=b_total>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Spend this month</h3><div id=b_month>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Spend total</h3><div id=b_total>&hellip;</div></a>
     <a class=card href="https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22"><h3>Routable now</h3><div id=b_route>&hellip;</div></a>
   </div>
 </div>
