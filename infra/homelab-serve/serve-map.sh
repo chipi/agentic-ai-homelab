@@ -15,9 +15,9 @@
 # No sudo needed. Tailnet-only (serve, not funnel).
 #
 # ACL: each published port must be granted to tag:homelab-host in
-# podcast_scraper-infra/tailscale/policy.hujson (currently 443 + 8443, applied
-# via `tofu apply`). A mount here is unreachable from other devices until the
-# ACL grants its port.
+# podcast_scraper/tailscale/policy.hujson (currently 443 + 8443 + 8444, applied
+# by the Tailscale GitOps action on merge to main — ADR-128, NOT tofu). A mount
+# here is unreachable from other devices until the ACL grants its port.
 set -euo pipefail
 
 TS="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
@@ -48,6 +48,11 @@ apply() {
   # stripped subpath). Root path, so its absolute assets resolve. Needs
   # AUTH_TRUST_HOST=true on langfuse-web (set in infra/langfuse/) for login.
   "$TS" serve --bg --https=8443 http://127.0.0.1:4000
+  # :8444 — dedicated TLS port for the Umami UI, same reason as Langfuse: Umami
+  # (Next.js) emits root-absolute /_next assets that 404 under the stripped
+  # /umami subpath. Root-mounted here so they resolve. The /umami :443 mount
+  # above stays as a redirect crumb; this is the working UI entry point.
+  "$TS" serve --bg --https=8444 http://127.0.0.1:3001
   echo "applied. current status:"
   "$TS" serve status
 }

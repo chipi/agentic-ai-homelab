@@ -28,6 +28,7 @@ dsvc(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td cla
 cat <<HDR
 <!doctype html><html><head><meta charset=utf-8><title>homelab</title>
 <meta name=viewport content="width=device-width, initial-scale=1">
+<base target="_blank">
 <style>body{font:15px/1.55 system-ui,sans-serif;margin:32px;background:#0d0d16;color:#e6e6ef}
 h1{font-weight:600;margin:0 0 18px}h2{font-size:16px;font-weight:600;margin:0 0 8px}
 h2 a{color:#dcdcf0;text-decoration:none}h2 a:hover{color:#7aa2ff}
@@ -108,8 +109,8 @@ HDR
 row "Grafana"         "$G"            "$GF_U" "$GF_P" "3000"
 row "GlitchTip"       "$H/glitchtip"  "$GT_U" "$GT_P" "8090"
 row "Langfuse"        "$H:8443"       "$LF_U" "$LF_P" "4000"
-row "Umami"           "$H/umami"      "$UM_U" "$UM_P" "3001"
-row "LiteLLM"         "http://homelab:4001/ui/" "admin" "$LL_K" "4001"
+row "Umami"           "$H:8444"       "$UM_U" "$UM_P" "3001"
+row "LiteLLM"         "$H/litellm/ui/" "admin" "$LL_K" "4001"
 row "VictoriaMetrics" "$H/vm/vmui"    "&mdash;" "tailnet" "8428"
 row "VictoriaLogs"    "$H/vlogs"      "&mdash;" "tailnet" "9428"
 row "VictoriaTraces"  "$H/vtraces"    "&mdash;" "tailnet" "10428"
@@ -177,7 +178,7 @@ MID3
 cat <<'SCRIPT'
 <script>
 const W=260,H=40,B='https://homelab.tail6d0ed4.ts.net',G=B+'/grafana';
-const MINILINK={grafana:G,glitchtip:B+'/glitchtip',langfuse:B+':8443',umami:B+'/umami',litellm:B+'/litellm/ui',victoriametrics:B+'/vm/vmui',victorialogs:B+'/vlogs',victoriatraces:B+'/vtraces'};
+const MINILINK={grafana:G,glitchtip:B+'/glitchtip',langfuse:B+':8443',umami:B+':8444',litellm:B+'/litellm/ui',victoriametrics:B+'/vm/vmui',victorialogs:B+'/vlogs',victoriatraces:B+'/vtraces'};
 const DGXDASH=G+'/d/dgx-services/dgx-e28094-services';
 async function q(query){try{const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(query))).json();return j.data.result;}catch(e){return[];}}
 const g1=async m=>{const r=await q(m);return r.length?r[0].value:null;};
