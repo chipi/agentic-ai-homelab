@@ -25,8 +25,8 @@ to the tailnet IP only; datastores stay on the internal bridge.
 cd infra/glitchtip
 cp .env.example .env
 # edit .env:
-#   GLITCHTIP_LISTEN=100.x.y.z            # this host's tailnet IP
-#   GLITCHTIP_DOMAIN=http://100.x.y.z:8090
+#   GLITCHTIP_LISTEN=100.x.y.z            # this host's tailnet IP (or 127.0.0.1)
+#   GLITCHTIP_DOMAIN=https://homelab.<tailnet>:8445   # canonical admin-UI URL (tailscale serve)
 #   POSTGRES_PASSWORD=...  SECRET_KEY=...  DJANGO_SUPERUSER_PASSWORD=...
 docker compose up -d            # runs migrate → web + worker
 docker compose ps
@@ -36,7 +36,11 @@ docker compose run --rm web ./manage.py createsuperuser --noinput \
   --email "$(grep DJANGO_SUPERUSER_EMAIL .env | cut -d= -f2)" || true
 ```
 
-Open `http://100.x.y.z:8090`, log in with the superuser. Create an
+Open the admin UI at **`https://homelab.<tailnet>:8445`** — HTTPS via `tailscale
+serve` on a dedicated TLS port, because GlitchTip's Angular frontend emits
+`<base href="/">` and can't run under the stripped `/glitchtip` subpath (see
+[`homelab-serve`](../homelab-serve/README.md)). `GLITCHTIP_DOMAIN` must match this
+origin or Django rejects login on CSRF. Log in with the superuser. Create an
 **Organization** → **Project** (platform = python or whatever the app is) → copy
 its **DSN**.
 

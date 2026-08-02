@@ -14,7 +14,7 @@ Base FQDN: `https://homelab.tail6d0ed4.ts.net` (the mini, tag `homelab-host`).
 | URL | Backend | Kind |
 |---|---|---|
 | `…/grafana` | `:3000` Grafana | web UI (needs `GRAFANA_ROOT_URL`) |
-| `…/glitchtip` | `:8090` GlitchTip | ingest + API |
+| `…/glitchtip` | `:8090` GlitchTip | ingest + API (admin UI is on `:8445`) |
 | `…/litellm` | `:4001` LiteLLM | gateway **API** (path-tolerant; UI is on `:10000`) |
 | `…/vm` | `:8428` VictoriaMetrics | API + `/vmui` |
 | `…/vlogs` | `:9428` VictoriaLogs | API + UI |
@@ -22,12 +22,13 @@ Base FQDN: `https://homelab.tail6d0ed4.ts.net` (the mini, tag `homelab-host`).
 | `…/home` | `:8888` homelab-home | landing page (basic-auth) |
 | `…:8443/` | `:4000` Langfuse | web UI (dedicated TLS port — Next.js) |
 | `…:8444/` | `:3001` Umami | web UI (dedicated TLS port — Next.js) |
+| `…:8445/` | `:8090` GlitchTip | admin UI (dedicated TLS port — Angular `base href=/`) |
 | `…:10000/ui/` | `:4001` LiteLLM | admin UI (dedicated TLS port — Next.js) |
 
-> The `/umami` and `/litellm` `:443` path mounts still exist but only serve those
-> apps' **broken shells** (root-absolute assets 404 under a stripped subpath).
-> Their working UIs are on the dedicated ports above; `/litellm` `:443` remains
-> useful only as the path-tolerant gateway **API**.
+> The `/umami` `:443` path mount was **removed** — it only served Umami's broken
+> shell. The `/litellm` and `/glitchtip` `:443` mounts stay as path-tolerant
+> **APIs** (LLM gateway / error ingest); their web UIs are on the dedicated ports
+> above.
 
 ## Re-apply (the point of this dir)
 
@@ -52,7 +53,7 @@ don't need this — reach for it on a **fresh mini**, after a `serve reset`, or 
   **strips** the `/name` prefix before proxying, so the backend sees requests at
   root. Works for APIs and GlitchTip ingest.
 - **Web UI with root-absolute assets → dedicated TLS port** (`:8443`, `:8444`,
-  `:10000`) *or* tell the app its external base URL:
+  `:8445`, `:10000`) *or* tell the app its external base URL:
   - **Grafana:** `GF_SERVER_ROOT_URL=…/grafana` + `serve_from_sub_path=false`
     (set via `GRAFANA_ROOT_URL` in `infra/observability/backend/.env`). Then
     `/grafana` works with a stripping proxy.
@@ -61,6 +62,10 @@ don't need this — reach for it on a **fresh mini**, after a `serve reset`, or 
     stripped mount) → dedicated ports `:8443` / `:8444` / `:10000`. Langfuse also
     needs `AUTH_TRUST_HOST=true` on langfuse-web (in `infra/langfuse/`) so NextAuth
     login works over the `:8443` origin.
+  - **GlitchTip (Angular):** emits `<base href="/">` so `/static` assets resolve
+    to root and 404 under `/glitchtip` → dedicated port `:8445`, plus
+    `GLITCHTIP_DOMAIN=https://homelab.<tailnet>:8445` (in `infra/glitchtip/.env`)
+    so Django `ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS` accept the `:8445` origin.
 
 ## ACL — required for reach
 

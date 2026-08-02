@@ -27,12 +27,12 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 | System | Purpose | Host | Access | Creds | README |
 |---|---|---|---|---|---|
 | **observability** | Metrics/logs/traces backend — Grafana + VictoriaMetrics/Logs/Traces + Alloy | mini | Grafana `homelab:3000` · VM `:8428` · VLogs `:9428` · VTraces `:10428` | `backend/.env` | [observability/](observability/README.md) |
-| **glitchtip** | Self-hosted error tracking (Sentry-compatible) | mini | `homelab:8090` · public `telemetry.closelistening.app` | `glitchtip/.env` | [glitchtip/](glitchtip/README.md) |
+| **glitchtip** | Self-hosted error tracking (Sentry-compatible) | mini | admin UI `homelab:8445` (HTTPS serve) · public ingest `telemetry.closelistening.app` | `glitchtip/.env` | [glitchtip/](glitchtip/README.md) |
 | **umami** | Privacy-friendly web analytics | mini | admin `homelab:8444` (HTTPS serve → loopback `:3001`) | `~/umami/.env` | [umami/](umami/README.md) |
 | **langfuse** | LLM tracing / cost observability | mini | `homelab:4000` | `langfuse/.env` | [langfuse/](langfuse/README.md) |
 | **litellm** | Production LLM gateway — provider-swappable aliases + per-consumer budget keys | mini | `homelab:4001/v1` (master + virtual keys) | `litellm/.env` | [litellm/](litellm/README.md) |
 | **homelab-home** | Tailnet start page (mini · DGX · prod columns) | mini | `homelab:8888` | reads other stacks' `.env` | [homelab-home/](homelab-home/README.md) |
-| **homelab-serve** | Tailnet HTTPS entry points (`tailscale serve`) for the mini's services — re-appliable map | mini | `homelab/<svc>` · `:8443` Langfuse · `:8444` Umami · `:10000` LiteLLM UI | — | [homelab-serve/](homelab-serve/README.md) |
+| **homelab-serve** | Tailnet HTTPS entry points (`tailscale serve`) for the mini's services — re-appliable map | mini | `homelab/<svc>` · `:8443` Langfuse · `:8444` Umami · `:8445` GlitchTip · `:10000` LiteLLM UI | — | [homelab-serve/](homelab-serve/README.md) |
 | **mini-metrics** | Mac-mini host metrics → VictoriaMetrics | mini | pushes to VM `:8428` | — | [mini-metrics/](mini-metrics/README.md) |
 | **dgx-scrape** | Pulls DGX GPU/app metrics + TCP health over tailnet → VM | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
 | **ci-ops-poller** | Pulls GitHub Actions runs (CI / drift / drill) → VictoriaLogs for CI health + DORA | mini | pushes to VLogs `:9428` | `ci-ops-poller/.env` | [ci-ops-poller/](ci-ops-poller/README.md) |

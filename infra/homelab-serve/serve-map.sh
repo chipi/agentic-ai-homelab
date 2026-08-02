@@ -31,13 +31,16 @@ TS="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 MOUNTS_443="
 /grafana    3000
 /glitchtip  8090
-/umami      3001
 /litellm    4001
 /vm         8428
 /vlogs      9428
 /vtraces    10428
 /home       8888
 "
+# NOTE: /umami is intentionally NOT here — Umami (Next.js) can't serve under a
+# stripped subpath (its /_next assets 404), so its ONLY entry point is the
+# dedicated :8444 TLS port below. /litellm stays as the path-tolerant gateway
+# API (its UI is likewise on the dedicated :10000 port).
 
 apply() {
   while read -r path port; do
@@ -59,6 +62,13 @@ apply() {
   # the stripped /litellm subpath. The /litellm :443 mount above still fronts the
   # gateway API (path-tolerant); the UI works ONLY on :10000 (homepage → :10000/ui/).
   "$TS" serve --bg --https=10000 http://127.0.0.1:4001
+  # :8445 — dedicated TLS port for the GlitchTip admin UI. GlitchTip's Angular
+  # frontend emits <base href="/"> so its /static assets resolve to root and 404
+  # under the stripped /glitchtip subpath. Root-mounted here so they resolve —
+  # also requires GLITCHTIP_DOMAIN=https://homelab.<tailnet>:8445 (infra/glitchtip/
+  # .env) so Django ALLOWED_HOSTS/CSRF accept this origin. The /glitchtip :443
+  # mount above stays as the path-tolerant ingest API.
+  "$TS" serve --bg --https=8445 http://127.0.0.1:8090
   echo "applied. current status:"
   "$TS" serve status
 }
