@@ -50,9 +50,15 @@ apply() {
   "$TS" serve --bg --https=8443 http://127.0.0.1:4000
   # :8444 — dedicated TLS port for the Umami UI, same reason as Langfuse: Umami
   # (Next.js) emits root-absolute /_next assets that 404 under the stripped
-  # /umami subpath. Root-mounted here so they resolve. The /umami :443 mount
-  # above stays as a redirect crumb; this is the working UI entry point.
+  # /umami subpath. Root-mounted here so they resolve. NOTE: the /umami :443 path
+  # mount above still serves Umami's (broken) shell — the working UI is ONLY on
+  # :8444, which is where the homepage links.
   "$TS" serve --bg --https=8444 http://127.0.0.1:3001
+  # :10000 — dedicated TLS port for the LiteLLM admin UI, same Next.js reason:
+  # LiteLLM emits root-absolute /litellm-asset-prefix/_next assets that 404 under
+  # the stripped /litellm subpath. The /litellm :443 mount above still fronts the
+  # gateway API (path-tolerant); the UI works ONLY on :10000 (homepage → :10000/ui/).
+  "$TS" serve --bg --https=10000 http://127.0.0.1:4001
   echo "applied. current status:"
   "$TS" serve status
 }

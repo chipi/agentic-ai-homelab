@@ -15,13 +15,19 @@ Base FQDN: `https://homelab.tail6d0ed4.ts.net` (the mini, tag `homelab-host`).
 |---|---|---|
 | `…/grafana` | `:3000` Grafana | web UI (needs `GRAFANA_ROOT_URL`) |
 | `…/glitchtip` | `:8090` GlitchTip | ingest + API |
-| `…/umami` | `:3001` Umami | web UI |
-| `…/litellm` | `:4001` LiteLLM | gateway API + `/ui` |
+| `…/litellm` | `:4001` LiteLLM | gateway **API** (path-tolerant; UI is on `:10000`) |
 | `…/vm` | `:8428` VictoriaMetrics | API + `/vmui` |
 | `…/vlogs` | `:9428` VictoriaLogs | API + UI |
 | `…/vtraces` | `:10428` VictoriaTraces | API |
 | `…/home` | `:8888` homelab-home | landing page (basic-auth) |
-| `…:8443/` | `:4000` Langfuse | web UI + API (dedicated TLS port) |
+| `…:8443/` | `:4000` Langfuse | web UI (dedicated TLS port — Next.js) |
+| `…:8444/` | `:3001` Umami | web UI (dedicated TLS port — Next.js) |
+| `…:10000/ui/` | `:4001` LiteLLM | admin UI (dedicated TLS port — Next.js) |
+
+> The `/umami` and `/litellm` `:443` path mounts still exist but only serve those
+> apps' **broken shells** (root-absolute assets 404 under a stripped subpath).
+> Their working UIs are on the dedicated ports above; `/litellm` `:443` remains
+> useful only as the path-tolerant gateway **API**.
 
 ## Re-apply (the point of this dir)
 
@@ -45,24 +51,28 @@ don't need this — reach for it on a **fresh mini**, after a `serve reset`, or 
 - **API / path-tolerant app → `:443` path mount** (`--set-path=/name`). Tailscale
   **strips** the `/name` prefix before proxying, so the backend sees requests at
   root. Works for APIs and GlitchTip ingest.
-- **Web UI with root-absolute assets → dedicated TLS port** (`:8443`, `:10000`)
-  *or* tell the app its external base URL:
+- **Web UI with root-absolute assets → dedicated TLS port** (`:8443`, `:8444`,
+  `:10000`) *or* tell the app its external base URL:
   - **Grafana:** `GF_SERVER_ROOT_URL=…/grafana` + `serve_from_sub_path=false`
     (set via `GRAFANA_ROOT_URL` in `infra/observability/backend/.env`). Then
     `/grafana` works with a stripping proxy.
-  - **Langfuse (Next.js):** no clean subpath support → dedicated port `:8443`,
-    plus `AUTH_TRUST_HOST=true` on langfuse-web (in `infra/langfuse/`) so NextAuth
+  - **Langfuse / Umami / LiteLLM (Next.js):** no clean subpath support (they emit
+    root-absolute `/_next` or `/…-asset-prefix/_next` assets that 404 under a
+    stripped mount) → dedicated ports `:8443` / `:8444` / `:10000`. Langfuse also
+    needs `AUTH_TRUST_HOST=true` on langfuse-web (in `infra/langfuse/`) so NextAuth
     login works over the `:8443` origin.
 
 ## ACL — required for reach
 
 A mount is reachable from **other** tailnet devices only after its port is
 granted to `tag:homelab-host` in
-[`podcast_scraper-infra` `tailscale/policy.hujson`](https://github.com/chipi/podcast_scraper/blob/main/tailscale/policy.hujson)
-and applied (`tofu apply`, via the `Infra apply (manual)` workflow). Currently
-granted: `443` and `8443` (plus the direct service ports). Adding a new TLS port
-(e.g. `:10000`) needs a new ACL line + apply. From the mini itself, mounts work
-without the ACL (loopback).
+[`podcast_scraper` `tailscale/policy.hujson`](https://github.com/chipi/podcast_scraper/blob/main/tailscale/policy.hujson)
+and applied. **GitOps per ADR-128** (NOT tofu): a **PR** touching `policy.hujson`
+runs the `test` dry-run; **merge to `main`** runs the live `apply` (the Tailscale
+GitOps action, `.github/workflows/tailscale-acl.yml`). Currently granted TLS
+ports: `443`, `8443`, `8444`, `10000` (plus the direct service ports). Adding a
+new port needs a new ACL line + merge. From the mini itself, mounts work without
+the ACL (loopback).
 
 ## Related
 

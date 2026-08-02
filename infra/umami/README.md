@@ -33,8 +33,13 @@ Unlike the rest of the mini (tailnet-only), Umami's **tracking beacon must be
 public** — visitor browsers load `script.js` and POST events from the open
 internet. So:
 
-- **Admin UI (`:3001`)** — keep **tailnet-only** (`UMAMI_LISTEN` = tailnet IP);
-  needs an ACL grant to `tag:homelab-host:3001` for the operator.
+- **Admin UI** — **tailnet-only**. The operator reaches it over HTTPS at
+  **`https://homelab.tail6d0ed4.ts.net:8444`** (a dedicated `tailscale serve` TLS
+  port → loopback `:3001`). It needs its own port ∵ Umami is a Next.js app that
+  emits root-absolute `/_next` assets which 404 under a stripped `/umami` subpath
+  — see [`infra/homelab-serve/`](../homelab-serve/README.md). The container binds
+  loopback `:3001` by default (`UMAMI_LISTEN`); the ACL grant is on
+  `tag:homelab-host:8444` (the serve port), not `:3001`.
 - **Beacon path** — exposed publicly via **Tailscale Funnel** or **Cloudflare
   Tunnel** (operator decision, #8). Only the collection endpoint is public.
 
