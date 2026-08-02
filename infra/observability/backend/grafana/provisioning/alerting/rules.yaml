@@ -280,16 +280,25 @@ groups:
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
       # --- fleetd cycle failing --------------------------------------------------
-      # The fleet supervisor (RFC-0004) reports every cycle. A non-ok outcome
-      # (error/timeout) means the babysitter itself needs attention; skipped_budget
-      # is informational (guard working) and excluded here.
+      # The fleet supervisor (RFC-0004) reports every cycle: fleetd PUSHES
+      # fleetd_cycle{fleet,outcome,stage,version} to VM (import/prometheus — no
+      # /metrics port, by design). Error/timeout SERIES only exist once a failure
+      # has happened, so NoData is GOOD news — noDataState: OK is the
+      # load-bearing line (2026-08-02: the default fired DatasourceNoData for 6
+      # days against a healthy fleetd that had simply never failed a cycle).
+      # Threshold >=2 in 30m: one transient cycle error self-heals next cycle.
+      # meta=true — SUBSTRATE alert: terminates at the operator, never enters
+      # the triage fleet (a broken fleet can't triage its own substrate).
+      # Enforced 3x: policies.yaml (meta route, no GlitchTip issue) +
+      # sources.py firing_alerts (grafana pass skips meta) + this label.
       - uid: fleetd-cycle-failing
-        title: "fleetd cycle failing (error/timeout)"
+        title: "fleetd cycle failing (error/timeout, repeated)"
         condition: threshold
         for: 0s
-        labels: { severity: critical, kind: fleet }
+        noDataState: OK
+        labels: { severity: critical, kind: fleet, meta: "true" }
         annotations:
-          summary: "fleetd cycle outcome={{ $labels.outcome }} for fleet={{ $labels.fleet }} — the fleet supervisor needs attention (see fleetd.log / VictoriaLogs service=fleetd)."
+          summary: "fleetd cycles failing: outcome={{ $labels.outcome }} fleet={{ $labels.fleet }}, >=2 in 30m — supervisor needs the operator. Drill-down: VictoriaLogs {service=\"fleetd\"}."
         data:
           - refId: q
             relativeTimeRange: { from: 1800, to: 0 }
@@ -303,7 +312,37 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [0] } }]
+              conditions: [{ evaluator: { type: gt, params: [1] } }]
+
+      # --- fleetd silent (dead-man) ------------------------------------------------
+      # The inverse rule — what the old rule was accidentally being: total
+      # absence of cycle samples for 3+ cycle periods (10m cadence) = fleetd
+      # crashed/hung, or its VM push path is broken. HERE NoData→Alerting is
+      # deliberate: silence IS the alarm. The operator's STOP flag also pauses
+      # cycles, so a forgotten STOP surfaces here after ~35m (intended).
+      # meta=true: operator-terminated, same 3x enforcement as above.
+      - uid: fleetd-silent
+        title: "fleetd silent (no cycles for 35m)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: critical, kind: fleet, meta: "true" }
+        annotations:
+          summary: "No fleetd_cycle samples for 35m — fleetd crashed/hung, VM push broken, or a STOP flag was left on. Check: fleetd/ make status; VictoriaLogs {service=\"fleetd\"}."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 2100, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(count_over_time(fleetd_cycle[35m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
 
       # --- LiteLLM gateway down ----------------------------------------------------
       # The production LLM gateway (infra/litellm). LiteLLM's own /metrics is

@@ -32,6 +32,13 @@ Storm check: "Dispositions over time" spikes + annotation markers
 recurrence counter absorbing hundreds of rows is the fleet working, not
 failing.
 
+**Substrate alerts are YOURS alone (2026-08-02):** the bottom panel of the
+Operator Inbox shows `meta=true` alerts — fleetd down/failing, VM/Grafana
+health. The fleet deliberately cannot see these (a broken fleet can't
+triage its own substrate), so anything firing there has exactly one
+responder: you. `fleetd-silent` also fires ~35m after a STOP flag you
+forgot to remove — that's a feature.
+
 ## 2. The routing ritual (when you have 10 minutes)
 
 **Go to your routing inbox — issues the fleet assessed as machine-fixable:**

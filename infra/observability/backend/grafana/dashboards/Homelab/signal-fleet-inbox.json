@@ -1,15 +1,22 @@
 {
   "uid": "sf-inbox",
-  "title": "Triage — Operator Inbox",
-  "description": "Drill-down from Fleet Workforce — Triage: the actual items waiting on the operator. Escalations with their cited reasons; routed work queued for downstream fleets.",
-  "tags": ["fleet", "triage", "inbox"],
+  "title": "Triage \u2014 Operator Inbox",
+  "description": "Drill-down from Fleet Workforce \u2014 Triage: the actual items waiting on the operator. Escalations with their cited reasons; routed work queued for downstream fleets.",
+  "tags": [
+    "fleet",
+    "triage",
+    "inbox"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "refresh": "1m",
-  "time": { "from": "now-7d", "to": "now" },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
   "links": [
     {
-      "title": "← Fleet Workforce — Triage",
+      "title": "\u2190 Fleet Workforce \u2014 Triage",
       "type": "link",
       "url": "/d/signal-fleet-disp"
     }
@@ -17,10 +24,18 @@
   "panels": [
     {
       "type": "logs",
-      "title": "Escalations — what the fleet could not close (reasons inline)",
+      "title": "Escalations \u2014 what the fleet could not close (reasons inline)",
       "description": "Each line: the signal + the gate/reason it escalated. These are the items that consumed a decision slot on you.",
-      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "options": {
         "showTime": true,
         "wrapLogMessage": true,
@@ -31,16 +46,27 @@
         {
           "expr": "{fleet=\"triage\", event=\"escalate\"}",
           "refId": "A",
-          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          }
         }
       ]
     },
     {
       "type": "logs",
-      "title": "Queued routed work — waiting for downstream fleets / your go",
-      "description": "One line per queue item: [kind] title. bug → Fleet 1 intake candidates; config-enhancement & cleanup → Fleet 3 (future).",
-      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 10 },
+      "title": "Queued routed work \u2014 waiting for downstream fleets / your go",
+      "description": "One line per queue item: [kind] title. bug \u2192 Fleet 1 intake candidates; config-enhancement & cleanup \u2192 Fleet 3 (future).",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
       "options": {
         "showTime": true,
         "wrapLogMessage": true,
@@ -51,23 +77,46 @@
         {
           "expr": "{fleet=\"triage\", event=\"queued\"}",
           "refId": "A",
-          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          }
         }
       ]
     },
     {
       "type": "bargauge",
       "title": "Queue depth by kind (live gauge)",
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 22 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
       "fieldConfig": {
         "defaults": {
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
         "orientation": "horizontal",
         "displayMode": "gradient"
       },
@@ -76,18 +125,33 @@
           "expr": "sum by (kind) (last_over_time(signal_fleet_queue_depth[2h]))",
           "legendFormat": "{{kind}}",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "victoriametrics" }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
         }
       ]
     },
     {
       "type": "timeseries",
       "title": "Escalations over time (7d window gauge)",
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 22 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
       "fieldConfig": {
         "defaults": {
-          "custom": { "drawStyle": "line", "fillOpacity": 12, "spanNulls": true }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "spanNulls": true
+          }
         },
         "overrides": []
       },
@@ -96,9 +160,37 @@
           "expr": "max(last_over_time(signal_fleet_escalations_7d[2h]))",
           "legendFormat": "escalations in trailing 7d",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "victoriametrics" }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
         }
       ]
+    },
+    {
+      "type": "alertlist",
+      "title": "Substrate alerts \u2014 terminate with YOU, never the fleet (meta=true)",
+      "description": "fleetd/VM/Grafana health. Deliberately invisible to the triage fleet (a broken fleet can't triage its own substrate) and excluded from GlitchTip. Firing here = your action, nobody else's.",
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "options": {
+        "alertInstanceLabelFilter": "{meta=\"true\"}",
+        "groupMode": "default",
+        "maxItems": 20,
+        "sortOrder": 1,
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "noData": true,
+          "normal": false,
+          "error": true
+        },
+        "viewMode": "list"
+      }
     }
   ]
 }

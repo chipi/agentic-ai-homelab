@@ -19,6 +19,15 @@ policies:
     group_interval: 5m
     repeat_interval: 4h
     routes:
+      # SUBSTRATE alerts (meta=true: fleetd/VM/Grafana health) terminate at the
+      # operator surface ONLY. Deliberately NOT routed to GlitchTip: GlitchTip is
+      # a triage-fleet SOURCE, so a critical meta alert would re-enter the fleet
+      # through the side door — and a broken fleet can't triage its own
+      # substrate. Matched FIRST, no continue. (Decision 2026-08-02.)
+      - receiver: default
+        matchers:
+          - meta = "true"
+        continue: false
       # Confirmed / high-severity -> GlitchTip issue, then fall through to default.
       - receiver: glitchtip
         matchers:

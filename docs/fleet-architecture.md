@@ -43,6 +43,24 @@ independently.
    verdict; append-only ledgers stamp model + prompt-sha on every decision.
 6. **The operator gates irreversibles**: merges, deletes, prod state.
    Permanently, not provisionally.
+7. **The fleet never triages its own substrate** (added 2026-08-02).
+   Infra alerts are fleet *signals* — the triage fleet polls Grafana's
+   firing alerts like any source — **except** alerts about the machinery
+   the fleet runs on (fleetd, VictoriaMetrics, Grafana itself): a dead
+   fleet cannot triage "the fleet is dead". Those rules carry
+   `meta: "true"` and the boundary is enforced three times, mechanically:
+   the notification policy routes them away from GlitchTip (which is a
+   fleet source — the side-door), the fleet's Grafana pass skips the
+   label, and they surface on the Operator Inbox dashboard's substrate
+   panel instead. Corollary contract for alert authors: fleet-consumable
+   alerts must be *truthful symptoms* (stable `alertname`, `service` +
+   `environment` labels, a symptom-stating summary, a probe hint);
+   plumbing meta-states (`DatasourceNoData`/`DatasourceError`) are never
+   fleet food. Health rules over *pushed* metrics must set
+   `noDataState: OK` when absence-of-series is the healthy state
+   (measured: 6 days of false DatasourceNoData against a fleetd that had
+   simply never failed a cycle), paired with an explicit dead-man rule
+   where silence genuinely is the alarm.
 
 ## The measurement machinery (why we trust any of this)
 

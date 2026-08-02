@@ -17,7 +17,12 @@ def firing_alerts():
         data = get_json(url, headers={"Authorization": f"Bearer {config.GRAFANA_TOKEN}"})
     else:
         data = get_json(url, config.GRAFANA_USER, config.GRAFANA_PW)
-    return [a for a in data if a.get("status", {}).get("state") == "active"]
+    # meta=true = SUBSTRATE alerts (fleetd/VM/Grafana health): they terminate at
+    # the operator, never at the fleet — a broken fleet can't triage its own
+    # substrate (boundary decision 2026-08-02; enforced in policies.yaml too).
+    return [a for a in data
+            if a.get("status", {}).get("state") == "active"
+            and a.get("labels", {}).get("meta") != "true"]
 
 
 def _fingerprint(alert):
