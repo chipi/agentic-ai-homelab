@@ -104,7 +104,7 @@ The one thing no dashboard can verify: were the dismissals RIGHT?
 
 1. `ssh -i ~/.ssh/homelab_mini homelab`
 2. `awk -F'\t' '$6=="dismiss"' ~/signal-fleet/results/dispositions.tsv | tail -20 | cut -f1,5,15`
-3. For 3–5 of them: open GlitchTip (`http://homelab:8090`) and sanity-check
+3. For 3–5 of them: open GlitchTip (`https://homelab.tail6d0ed4.ts.net:8445`) and sanity-check
    the fleet's cited evidence. A wrong dismissal = say it in session — it
    becomes a frozen fixture and a prompt/gate fix.
 4. Glance "fleetd day spend vs $2 cap" on the dashboard while you're there.

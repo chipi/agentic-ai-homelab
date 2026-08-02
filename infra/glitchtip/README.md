@@ -61,8 +61,10 @@ The DSN host must be the tailnet IP:port the app can reach.
 
 ## Where it runs
 
-On the always-on **Mac mini** (`homelab`) — verified live 2026-07-25; reach it
-at `http://homelab:8090`. The brief DGX-hosted stopgap has been retired. To
+On the always-on **Mac mini** (`homelab`) — verified live 2026-07-25; reach the
+admin UI at `https://homelab.tail6d0ed4.ts.net:8445` (dedicated TLS port via
+`tailscale serve`; `:8090` is the internal port + the DSN ingest host). The
+brief DGX-hosted stopgap has been retired. To
 **re-home** in future: `docker compose down`, migrate the `pg-data` volume (or
 `pg_dump`/restore) or start fresh (errors are append-only — fresh-start loses
 history), `docker compose up -d` on the new host, give it the `homelab` tailnet

@@ -120,7 +120,7 @@ reversible** — do them directly, no approval:
 | Query a metric | `curl -s "http://homelab:8428/api/v1/query?query=up"` |
 | Search logs | VictoriaLogs `http://homelab:9428` (LogsQL) |
 | See traces | VictoriaTraces `http://homelab:10428` (via Grafana) |
-| Check errors / LLM traces | GlitchTip `http://homelab:8090` · Langfuse `http://homelab:4000` |
+| Check errors / LLM traces | GlitchTip `https://homelab.tail6d0ed4.ts.net:8445` · Langfuse `https://homelab.tail6d0ed4.ts.net:8443` |
 | Snapshot the DGX/GPU state | the `dgx-status` skill (read-only) |
 | Know which vLLM owns the GPU | the `gpu-mode` skill, read-only: `~/bin/gpu-mode-swap.sh --mode-only` |
 | Resolve a service's real URL | the `homelab-endpoint` skill, or the tables above |

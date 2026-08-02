@@ -17,7 +17,23 @@ sender cutover is **done**; it's stable now, and future host swaps are free
 | `10428` | VictoriaTraces (OTLP traces) | `http://homelab:10428/insert/opentelemetry/v1/traces` |
 | `3000` | Grafana (UI) | `http://homelab:3000` |
 | `8090` | GlitchTip (errors) | DSN host `homelab:8090` |
-| `4000` | Langfuse (LLM tracing) | `http://homelab:4000` |
+| `4000` | Langfuse (LLM tracing) | ingest `http://homelab:4000/api/public/ingestion` |
+
+The rows above are **sender / ingest** paths (how apps push telemetry). The
+human-facing **web UIs** are served separately over HTTPS via `tailscale serve`
+(tailnet-only), on dedicated TLS ports because several frontends can't run under
+a stripped `/path` subpath. Base FQDN `https://homelab.tail6d0ed4.ts.net`:
+
+| UI | URL |
+|---|---|
+| Grafana | `…/grafana` |
+| Langfuse | `…:8443` |
+| Umami | `…:8444` |
+| GlitchTip | `…:8445` |
+| LiteLLM (admin) | `…:10000/ui/` |
+| VictoriaMetrics / Logs / Traces | `…/vm/vmui` · `…/vlogs` · `…/vtraces` |
+
+See [`infra/homelab-serve/`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/homelab-serve/README.md) for the serve map + ACL.
 
 ## How `homelab` works on FREE Tailscale (device name, not a custom record)
 

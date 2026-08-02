@@ -3,8 +3,10 @@
 Langfuse v3, self-hosted (ADR-0005). Captures how the harnesses (Claude Code,
 opencode, Pi) and apps talk to models: prompts, completions, token/cost,
 latency, session/trace trees. Tailnet-only, on the always-on **Mac mini**
-(`homelab`) — verified live 2026-07-25; reach it at `http://homelab:4000`. (The
-brief DGX-hosted stopgap has been retired.)
+(`homelab`) — verified live 2026-07-25; reach the web UI at
+`https://homelab.tail6d0ed4.ts.net:8443` (dedicated TLS port via `tailscale
+serve` — Next.js can't run under a stripped subpath; `:4000` is the internal
+backend port). (The brief DGX-hosted stopgap has been retired.)
 
 Stack (adapted from upstream): `langfuse-web` + `langfuse-worker` + `postgres` +
 `clickhouse` + `redis` + `minio`. Only **langfuse-web** publishes a host port
