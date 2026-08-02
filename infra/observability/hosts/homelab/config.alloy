@@ -20,6 +20,19 @@ prometheus.scrape "node" {
   scrape_interval = "30s"
 }
 
+// ---------- LiteLLM stack health: postgres-exporter ----------
+// LiteLLM's own /metrics is enterprise-gated (401), so the stack's postgres-
+// exporter sidecar is the health probe. Published on the host at :9189 (reached
+// like node, via host.docker.internal). Feeds up{job="litellm-postgres"}, which
+// the "LiteLLM gateway down" alert (rules.yaml) watches as a dead-man's switch —
+// without this scrape the metric is absent and the alert fires false NoData.
+prometheus.scrape "litellm_postgres" {
+  targets         = [{ __address__ = "host.docker.internal:9189", instance = "homelab" }]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "litellm-postgres"
+  scrape_interval = "30s"
+}
+
 // ---------- LOGS: all docker container stdout/stderr ----------
 discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"
