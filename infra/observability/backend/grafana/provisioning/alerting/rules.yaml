@@ -89,6 +89,166 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [0.05] } }]
 
+      # --- Memory pressure (Linux boxes: DGX + prod) --------------------------------
+      # The 2026-08-05/06 lesson: prod hit out-of-DISK and the DGX hit OOM and
+      # WEDGED before anyone noticed. Disk had rules; memory had none. Baselines
+      # at authoring: prod 87% available. <10% available = genuine pressure on
+      # both boxes (DGX unified memory: a model load can eat it fast — 5m `for`
+      # keeps one transient spike from paging). noDataState OK: these metrics
+      # vanish when a box is DARK — that's the dead-man rules' job, not this one.
+      - uid: infra-mem-low
+        title: "Host memory low (<10% available)"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "Memory on {{ $labels.instance }} below 10% available — OOM territory approaching. Find the eater before the kernel picks one for you."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min by (instance) (node_memory_MemAvailable_bytes{instance=~"dgx-llm-1|prod-podcast"} / node_memory_MemTotal_bytes)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [0.10] } }]
+      - uid: infra-mem-crit
+        title: "Host memory critical (<5% available)"
+        condition: threshold
+        for: 2m
+        noDataState: OK
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "Memory on {{ $labels.instance }} below 5% available — OOM kill imminent."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min by (instance) (node_memory_MemAvailable_bytes{instance=~"dgx-llm-1|prod-podcast"} / node_memory_MemTotal_bytes)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [0.05] } }]
+
+      # --- Kernel OOM killer fired ---------------------------------------------------
+      # The after-the-fact but NAMED signal: even when pressure spikes too fast
+      # for the 5m warning, the oom_kill counter says exactly what happened —
+      # no more mystery wedges. Counter verified live on prod; DGX exposes the
+      # same via node exporter when up.
+      - uid: infra-oom-kill
+        title: "Kernel OOM killer fired"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "OOM kill(s) on {{ $labels.instance }} in the last 15m — the kernel shot a process. Check dmesg / which service died; this is the DGX-wedge signature."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum by (instance) (increase(node_vmstat_oom_kill{instance=~"dgx-llm-1|prod-podcast"}[15m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      # --- Mac mini memory high --------------------------------------------------
+      # macOS memory semantics differ (compressor); baseline ~60% used. >90% for
+      # 10m = sustained pressure, not a Spotlight blip. The mini is also the
+      # observability host — if IT goes fully dark nothing here can say so
+      # (accepted substrate limit; the homepage traffic light is the fallback).
+      - uid: mini-mem-high
+        title: "Mac mini memory high (>90% used)"
+        condition: threshold
+        for: 10m
+        noDataState: OK
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "Mac mini memory above 90% used for 10m — sustained pressure on the observability/fleet host."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'mini_mem_used_percent'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [90] } }]
+
+      # --- Box dead-men (DGX + prod dark) ------------------------------------------
+      # The "wedged and nobody noticed" fix: a box that stops reporting for 10m
+      # is DOWN regardless of why (OOM wedge, power, network). Same pattern as
+      # fleetd-silent: NoData→Alerting is deliberate — silence IS the alarm.
+      # node_load1 chosen because node exporter runs whenever the box is up
+      # (DCGM only runs when the GPU stack does). NOT meta: the fleet may
+      # triage/corroborate; the operator still sees it on the banner.
+      - uid: dgx-silent
+        title: "DGX dark (no samples 10m — wedged, powered off, or network)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "No node samples from dgx-llm-1 for 10m. OOM-wedge signature if infra-oom-kill fired just before; otherwise power/network. ssh ops@dgx-llm-1; worst case power-cycle."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(count_over_time(node_load1{instance="dgx-llm-1"}[10m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+      - uid: prod-silent
+        title: "prod-podcast dark (no samples 10m)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "No node samples from prod-podcast for 10m — the production box is dark (wedge/power/network), not just an app failure."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(count_over_time(node_load1{instance="prod-podcast"}[10m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
       # --- Mac mini CPU temperature (warning >85°C, critical >95°C) ---------------
       # The mini runs 24/7; healthy idle ~60°C, thermal-throttles ~100°C. 85 = warn
       # headroom; 95 = imminent throttle. Source: mini_cpu_temp_celsius (osx-cpu-temp
