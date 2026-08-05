@@ -270,7 +270,9 @@ async function prod(){
 }
 async function fleet(){
   const N=x=>x?(+x[1]).toFixed(0):'&mdash;';
-  const qd=await g1('sum(last_over_time(signal_fleet_queue_depth[2h]))');
+  // needs-you = actionable-now only (bug queue + escalations); config-enhancement
+  // and cleanup drafts are Fleet-3 BACKLOG, not operator debt (2026-08-05)
+  const qd=await g1('sum(last_over_time(signal_fleet_queue_depth{kind="bug"}[2h]))');
   const esc=await g1('sum(last_over_time(signal_fleet_escalations_7d[2h]))');
   const dec=await g1('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[24h]))');
   const sp=await g1('sum(last_over_time(fleetd_spend_day[2h]))');

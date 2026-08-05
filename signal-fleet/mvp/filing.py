@@ -74,8 +74,19 @@ def group_key_for(alertname, title=""):
     return ""
 
 
+# grafana-source signals: route by instance label (which BOX the symptom is
+# on); homelab-operated boxes fall through to the homelab ops repo.
+INSTANCE_REPO_MAP = {
+    "prod-podcast": "chipi/podcast_scraper",
+}
+OPS_REPO_DEFAULT = "chipi/agentic-ai-homelab"
+
+
 def repo_for(signal):
-    fp = signal.get("fingerprint", "")           # glitchtip:PODCAST-8
+    fp = signal.get("fingerprint", "")           # glitchtip:PODCAST-8 | grafana:<hash>
+    if fp.startswith("grafana:"):
+        inst = (signal.get("labels") or {}).get("instance", "")
+        return INSTANCE_REPO_MAP.get(inst, OPS_REPO or OPS_REPO_DEFAULT)
     proj = re.sub(r"^glitchtip:", "", fp).rsplit("-", 1)[0]
     proj = re.sub(r"-(DEV|STAGING|\d+)$", "", proj)
     for prefix, repo in REPO_MAP.items():

@@ -52,6 +52,35 @@ def run_once(use_synthetic=False, dry_run=True):
     return [disp]
 
 
+def run_grafana(limit=5, dry_run=True):
+    """Generalized Grafana-alert pass (2026-08-05, delivery forcing function):
+    EVERY firing non-meta, non-plumbing alert is fleet food — default-in,
+    opt-out via meta="true" (substrate boundary). Same spine as the GlitchTip
+    pass: occurrence idempotency + fingerprint recurrence with a RETRIAGE_HOURS
+    window. kind= stays a probe hint for the triager, never a routing gate."""
+    alerts = sources.firing_alerts()
+    print(f"grafana firing (non-meta): {len(alerts)}")
+    disps = []
+    for a in alerts[:limit]:
+        sig = sources.to_signal(a)
+        prior_occ = actions.already_done(sig["occurrence_id"])
+        if prior_occ:
+            print(f"  idempotent: {sig['occurrence_id']} -> {prior_occ}; skip")
+            continue
+        base = actions.last_for_fingerprint(sig["fingerprint"])
+        if base and _hours_since(base["ts"]) < config.RETRIAGE_HOURS:
+            # same alert, new firing, inside the window: recurrence row, no re-triage
+            actions.record_recurrence(sig, base)
+            continue
+        print(f"--- {sig['alertname'][:60]} (fp {sig['fingerprint']}) ---")
+        disp = triage.triage(sig)   # investigation self-probes (§7.3)
+        actions.act(sig, disp, dry_run=dry_run)
+        disps.append(disp)
+        m = disp.get("_meta", {})
+        print(f"  => {disp['disposition']} (gates {m.get('gates')} · probes {m.get('n_probes')})")
+    return disps
+
+
 def _hours_since(ts_iso):
     try:
         t = datetime.datetime.fromisoformat(ts_iso.replace("Z", "+00:00"))
@@ -115,7 +144,7 @@ def run_poll(limit=10, dry_run=True):
           f"{datetime.datetime.now(datetime.timezone.utc).isoformat()} ==")
     disps, failures = [], 0
     try:
-        disps += run_once(use_synthetic=False, dry_run=dry_run)   # Grafana alerts
+        disps += run_grafana(limit=limit, dry_run=dry_run)   # ALL non-meta Grafana alerts
     except Exception as e:  # noqa: BLE001
         failures += 1
         print("  grafana pass error:", e)

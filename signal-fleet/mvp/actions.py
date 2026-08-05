@@ -170,6 +170,13 @@ def queue_proposal(signal, issue, kind):
     real issue creation is gated on the File-quality eval (transition (iii))."""
     os.makedirs(config.QUEUE_DIR, exist_ok=True)
     fp = (signal.get("fingerprint") or "sig").replace(":", "_").replace("/", "_")
+    # one queued proposal per (kind, fingerprint) — titles drift per day, so
+    # hashing the title alone let duplicates pile up (2026-08-05: 42
+    # config-enhancement drafts, mostly re-proposals of the same tunes)
+    import glob as _glob
+    existing = _glob.glob(os.path.join(config.QUEUE_DIR, f"{kind}-{fp}-*.json"))
+    if existing:
+        return existing[0]
     h = hashlib.sha1((issue.get("title", "")).encode()).hexdigest()[:6]
     path = os.path.join(config.QUEUE_DIR, f"{kind}-{fp}-{h}.json")
     with open(path, "w") as f:

@@ -20,9 +20,15 @@ def firing_alerts():
     # meta=true = SUBSTRATE alerts (fleetd/VM/Grafana health): they terminate at
     # the operator, never at the fleet — a broken fleet can't triage its own
     # substrate (boundary decision 2026-08-02; enforced in policies.yaml too).
+    # Plumbing states (DatasourceNoData/DatasourceError/Watchdog) are Grafana
+    # meta-alerts about observability wiring, not symptoms — mechanically
+    # excluded so "truthful alerts only" doesn't depend on author discipline
+    # (2026-08-05: a delivery-group DatasourceNoData was live-firing).
+    _PLUMBING = {"DatasourceNoData", "DatasourceError", "Watchdog"}
     return [a for a in data
             if a.get("status", {}).get("state") == "active"
-            and a.get("labels", {}).get("meta") != "true"]
+            and a.get("labels", {}).get("meta") != "true"
+            and a.get("labels", {}).get("alertname") not in _PLUMBING]
 
 
 def _fingerprint(alert):
