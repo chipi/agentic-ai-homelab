@@ -253,3 +253,26 @@ topology is the doc's. Encoded in BAKEOFF §6.3, the operator template
 (`templates/module-readme-guide.md`), and orrery's guide.
 **Alternatives:** verdict-flip as the doc bar — rejected; it conflates the
 two factors and fails good docs under bad tickets.
+
+---
+
+## D-0013 — Delivery worker: homelab-hosted pure consumer, no Listmonk, Resend last-mile
+
+**Date:** 2026-08-05
+**Context:** The app epic #1413 delegated the outbound-delivery slice (#1412).
+Issue text specified Listmonk (self-hosted queue) + Amazon SES. An advisor
+review found Listmonk redundant — the app already owns an idempotent outbox
+(the queue) and the consent store (the suppression SSOT); a second queue +
+suppression list would race it. AWS was ruled out by the operator.
+**Decision:** The delivery service lives in **this repo** (`infra/delivery/`) as
+a **pure consumer** of the app-owned seam (vendored schema under
+`schema/<tenant>/`, synced from app PR #1441) — it shares no code with the app.
+Listmonk dropped for a **thin stateless worker → Resend HTTP API** (email) +
+self-hosted Web Push. Multi-tenant by a `tenants.yaml` registry (one Resend
+account, per-tenant identity/VAPID/templates). Bounces are read **per message
+via `GET /emails/{id}`** — Resend has no pollable `/events` list (webhook-only),
+and a webhook would be the only public ingress on an otherwise tailnet-only,
+egress-only service.
+**Alternatives:** Listmonk-in-front (rejected: duplicate queue + racing
+suppression list, extra Postgres/Redis to run); SES (rejected: AWS out); a
+public bounce webhook (rejected: breaks tailnet-only posture for one callback).
