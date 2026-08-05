@@ -3,7 +3,8 @@
     GET  /internal/outbox/pending?channel=&limit=  -> {envelopes:[...]}
     POST /internal/outbox/{id}/status              <- {status, detail?}
 
-Shared bearer token (INTERNAL_OUTBOX_TOKEN). Status POST is safe to retry — the app treats
+Shared token (INTERNAL_OUTBOX_TOKEN) in the ``X-Internal-Token`` header (seam v1.1 amendment
+6). Status POST is safe to retry — the app treats
 a repeated terminal status as a no-op (status precedence)."""
 
 from __future__ import annotations
@@ -28,7 +29,9 @@ class OutboxClient:
         client: Optional[httpx.Client] = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        # The app gates /internal/outbox/* on the X-Internal-Token header (seam v1.1
+        # amendment 6), NOT Authorization: Bearer.
+        headers = {"X-Internal-Token": token} if token else {}
         self._client = client or httpx.Client(
             base_url=self._base_url, headers=headers, timeout=timeout_sec
         )
