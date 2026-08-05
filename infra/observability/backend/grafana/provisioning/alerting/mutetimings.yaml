@@ -1,0 +1,11 @@
+# Mute timings — provisioned. "always" (an empty interval matches all times)
+# exists so routes can silence a class of notifications without deleting the
+# route or blinding the UI: muted alerts still fire, still show in Grafana and
+# on the homepage banner's muted strip — they just never email.
+apiVersion: 1
+
+muteTimes:
+  - orgId: 1
+    name: always
+    time_intervals:
+      - {}

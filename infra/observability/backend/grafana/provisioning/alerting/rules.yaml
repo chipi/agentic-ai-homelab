@@ -217,7 +217,7 @@ groups:
             relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'sum(count_over_time(node_load1{instance="dgx-llm-1"}[10m]))'
+              expr: 'sum(count_over_time(node_load1{instance="dgx-llm-1"}[10m])) or vector(0)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -239,7 +239,7 @@ groups:
             relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'sum(count_over_time(node_load1{instance="prod-podcast"}[10m]))'
+              expr: 'sum(count_over_time(node_load1{instance="prod-podcast"}[10m])) or vector(0)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -515,8 +515,11 @@ groups:
       # --- fleetd silent (dead-man) ------------------------------------------------
       # The inverse rule — what the old rule was accidentally being: total
       # absence of cycle samples for 3+ cycle periods (10m cadence) = fleetd
-      # crashed/hung, or its VM push path is broken. HERE NoData→Alerting is
-      # deliberate: silence IS the alarm. The operator's STOP flag also pauses
+      # crashed/hung, or its VM push path is broken. `or vector(0)` makes the
+      # query ALWAYS return a value, so silence fires as a REAL alert under the
+      # rule's own name — NOT as Grafana's synthetic DatasourceNoData (which is
+      # plumbing-muted everywhere; learned 2026-08-05 when the first dead-man
+      # emails arrived wearing the wrong name). The operator's STOP flag also pauses
       # cycles, so a forgotten STOP surfaces here after ~35m (intended).
       # meta=true: operator-terminated, same 3x enforcement as above.
       - uid: fleetd-silent
@@ -532,7 +535,7 @@ groups:
             relativeTimeRange: { from: 2100, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'sum(count_over_time(fleetd_cycle[35m]))'
+              expr: 'sum(count_over_time(fleetd_cycle[35m])) or vector(0)'
               instant: true
               queryType: instant
           - refId: threshold
