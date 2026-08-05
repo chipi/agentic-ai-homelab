@@ -37,9 +37,11 @@ policies:
         matchers:
           - meta = "true"
         continue: false
-      # Confirmed / high-severity -> GlitchTip issue, then fall through to default.
-      - receiver: glitchtip
-        matchers:
-          - severity = critical
-        continue: true
-        group_wait: 15s
+      # (removed 2026-08-05) severity=critical -> glitchtip route: the receiver
+      # was a placeholder webhook that DNS-failed, and — the real lesson — a
+      # matched child route PREVENTS root-receiver fallback ("continue: true"
+      # only lets LATER SIBLINGS match, it does not fall through to root), so
+      # every critical was swallowed and never emailed. Architecturally dead
+      # anyway: GlitchTip is a triage-fleet SOURCE — bridging alerts into it
+      # double-ingests the same event (handover-delivery-alert-routing).
+      # Criticals now fall to the root receiver: email.
