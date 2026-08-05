@@ -79,6 +79,14 @@ model_list:
       model: openrouter/deepseek/deepseek-v4-flash-0731
       api_key: os.environ/OPENROUTER_API_KEY
 
+  # Podcast bake-off, ISOLATED on its own OpenRouter workspace key so its spend
+  # can't drain the shared weekly budget the fleet routes on (#1412 incident).
+  # Same underlying model as homelab-flash-0731, different api_key/account.
+  - model_name: podcast-flash-0731
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash-0731
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
 litellm_settings:
   # full-package observability from day one (operator requirement):
   # Langfuse traces on success+failure, GlitchTip (sentry-compatible) on failure
