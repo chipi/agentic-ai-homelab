@@ -1,6 +1,10 @@
 # macOS
 .DS_Store
 
+# `script(1)` typescript artifact — the mini's login shell drops this in CWD on
+# non-interactive SSH; it kept colliding with pulls on the shared checkout.
+typescript
+
 # Editor
 .vscode/
 .idea/

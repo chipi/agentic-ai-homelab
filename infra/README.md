@@ -31,6 +31,7 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 | **umami** | Privacy-friendly web analytics | mini | admin `homelab:8444` (HTTPS serve → loopback `:3001`) | `~/umami/.env` | [umami/](umami/README.md) |
 | **langfuse** | LLM tracing / cost observability | mini | `homelab:4000` | `langfuse/.env` | [langfuse/](langfuse/README.md) |
 | **litellm** | Production LLM gateway — provider-swappable aliases + per-consumer budget keys | mini | `homelab:4001/v1` (master + virtual keys) | `litellm/.env` | [litellm/](litellm/README.md) |
+| **delivery** | Outbound comms — multi-tenant digest email (Resend) + self-hosted Web Push | mini | tailnet-only, egress-only; loopback `/metrics` `:9110-9112` | `delivery/.env` | [delivery/](delivery/README.md) |
 | **homelab-home** | Tailnet start page (mini · DGX · prod columns) | mini | `homelab:8888` | reads other stacks' `.env` | [homelab-home/](homelab-home/README.md) |
 | **homelab-serve** | Tailnet HTTPS entry points (`tailscale serve`) for the mini's services — re-appliable map | mini | `homelab/<svc>` · `:8443` Langfuse · `:8444` Umami · `:8445` GlitchTip · `:10000` LiteLLM UI | — | [homelab-serve/](homelab-serve/README.md) |
 | **mini-metrics** | Mac-mini host metrics → VictoriaMetrics | mini | pushes to VM `:8428` | — | [mini-metrics/](mini-metrics/README.md) |

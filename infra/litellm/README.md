@@ -16,6 +16,14 @@ consumer, eval stamp, or rate table. Adding a provider = add its key to
 `.env` + point the alias's `litellm_params.model` at it + `docker compose
 up -d` (recreates litellm only).
 
+**Config drift — the file is not the whole truth.** Two ways aliases land: (a)
+committed in `config.yaml` (the `homelab-*` / `fleet-*` set, reconciled to the
+deployed gateway on 2026-08-05 — `num_retries` is 6), and (b) added at runtime via
+the admin API (`/model/new` → stored in Postgres) which does **not** write back to
+`config.yaml`. So the live gateway can serve models absent from the file. Source of
+truth for what's actually routable = **`GET /model/info`**; treat `config.yaml` as
+the versioned baseline, not the complete live list.
+
 ## Bring-up (mini, in-place from the repo clone)
 
 ```sh

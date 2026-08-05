@@ -48,7 +48,7 @@ never emits HTML. Digest items carry the graph (`graph_refs`) — never a flat c
 ## Run (docker compose, like the other homelab services)
 
 ```bash
-cp .env.example .env         # then fill via the homelab sops-env → bootstrap flow
+cp .env.example .env         # then fill in the secrets (plain gitignored .env — see below)
 docker compose build
 docker compose up -d
 docker compose logs -f       # JSONL events; watch the first drains
@@ -56,6 +56,15 @@ docker compose logs -f       # JSONL events; watch the first drains
 
 Three services: `delivery-email`, `delivery-push`, `delivery-events`. No published ports
 except loopback `/metrics` (9110/9111/9112) for the Alloy scrape.
+
+**Container hardening** (each of the three services):
+- **HEALTHCHECK** — `email`/`push` probe the worker's per-cycle liveness file
+  (`/var/lib/delivery/live-<tenant>-<channel>`, mtime <120s = 4 poll cycles): this catches a
+  **hung loop** that still serves `/metrics`, which `up{job="delivery"}` cannot see. `events`
+  (a single cross-tenant poller that writes no liveness file) probes `/metrics`; a stalled
+  cursor there is caught by the `delivery-events-stalled` alert on cursor age.
+- **Resource limits** — `mem_limit: 256m`, `cpus: 0.5` per service (lightweight pollers).
+- **Log rotation** — json-file, `max-size: 10m` × `max-file: 3`.
 
 ## Observability (fully wired)
 
@@ -71,11 +80,15 @@ except loopback `/metrics` (9110/9111/9112) for the Alloy scrape.
 - **Errors:** dead-letters → GlitchTip via `DELIVERY_SENTRY_DSN`.
 - **Traces:** optional OTEL spans per drain cycle if `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
-## Secrets (homelab sops-env)
+## Secrets
 
-`INTERNAL_OUTBOX_TOKEN` (must match the app), `RESEND_API_KEY`, `VAPID_PRIVATE_KEY`,
-`DELIVERY_SENTRY_DSN`. Never committed; `.env` is gitignored. Generate VAPID once with
-`delivery-gen-vapid` and **back up the private key** (losing it invalidates every push sub).
+A **plain gitignored `.env`** — the live homelab convention (observability, glitchtip and
+langfuse all run the same way; repo sops is an unwired placeholder, so there is no
+`secrets.sops.env`/bootstrap step here). Keys: `PODCAST_INTERNAL_OUTBOX_TOKEN` (must match
+the app), `RESEND_API_KEY`, `PODCAST_VAPID_PRIVATE_KEY`, `DELIVERY_SENTRY_DSN`. Never
+committed; `.env` is gitignored (verified never in history). Generate VAPID once with
+`delivery-gen-vapid` and **back up the private key outside the host** (losing it invalidates
+every push subscription).
 
 ## DNS preflight (email deliverability)
 
@@ -97,6 +110,11 @@ docker compose stop    # SIGTERM → each loop finishes its batch and exits; out
 python -m pip install -e ".[dev,obs]"
 python -m pytest tests/     # contract (vs vendored golden fixtures) + webpush RFC vector + worker branches
 ```
+
+**Deployed-service e2e** (`e2e/`, run against the live workers, not pytest): `e2e_send.py`
+(real send through the multi-tenant code), `e2e_failure.py` (forces a dead-letter and
+confirms the o11y chain), `stub_outbox_host.py` (a tiny host-side stub outbox for the
+deployed worker to drain). These verify the running stack end-to-end after a change.
 
 ## Contract sync
 
