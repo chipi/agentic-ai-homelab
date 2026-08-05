@@ -119,7 +119,7 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
 </div>
 <div class=cols>
 <div class=col>
-  <h2><a href="$DASH_MINI">Mac mini &rarr;</a></h2>
+  <h2><span class="dot stale" id=st_mini></span><a href="$DASH_MINI">Mac mini &rarr;</a></h2>
   <div id=sysrow class=sysrow>&hellip;</div>
   <div class=charts>
     <a class=card href="$DASH_MINI"><h3>CPU</h3><div id=c_cpu>&hellip;</div></a>
@@ -148,7 +148,7 @@ cat <<MID
   </tbody></table>
 </div>
 <div class=col>
-  <h2><a href="$DASH_GPU">DGX &middot; dgx-llm-1 &rarr;</a></h2>
+  <h2><span class="dot stale" id=st_dgx></span><a href="$DASH_GPU">DGX &middot; dgx-llm-1 &rarr;</a></h2>
   <div id=dgxrow class=sysrow>&hellip;</div>
   <div class=charts>
     <a class=card href="$DASH_GPU"><h3>GPU temp</h3><div id=g_temp>&hellip;</div></a>
@@ -180,7 +180,7 @@ cat <<MID2
   </tbody></table>
 </div>
 <div class=col>
-  <h2><a href="$DASH_PROD">Production &middot; prod-podcast &rarr;</a></h2>
+  <h2><span class="dot stale" id=st_prod></span><a href="$DASH_PROD">Production &middot; prod-podcast &rarr;</a></h2>
   <div id=prodrow class=sysrow>&hellip;</div>
   <div class=charts>
     <a class=card href="$DASH_PROD"><h3>CPU</h3><div id=p_cpu>&hellip;</div></a>
@@ -372,7 +372,12 @@ async function alerts(){
   if(plumb.length)html+='<a class="abar plumb" href="'+G+'/alerting/list">'+plumb.length+' plumbing alert(s) (NoData/Error) — observability wiring, not incidents</a>';
   el.innerHTML=html;
 }
-async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);}
+async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);
+  // box traffic lights: green = fresh samples (<3m), gray = lagging (VM's
+  // instant lookback still returns it), red = gone (no sample in ~5m —
+  // exactly how a dark box like the DGX presents)
+  const dot=(id,v)=>{const e=document.getElementById(id);if(!e)return;let c='down';if(v){const a=now-+v[0];c=a<180?'up':'stale';}e.className='dot '+c;e.title=v?Math.round(now-+v[0])+'s since last sample':'no samples >5m — box dark?';};
+  dot('st_mini',mc);dot('st_dgx',dg);dot('st_prod',pc);}
 function refresh(){alerts();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
