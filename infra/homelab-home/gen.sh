@@ -97,6 +97,14 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
     <a class=card href="$DASH_DELIVERY"><h3>Pending</h3><div id=dl_pending>&hellip;</div></a>
     <a class=card href="$DASH_DELIVERY"><h3>Cursor age</h3><div id=dl_cursor>&hellip;</div></a>
   </div>
+
+  <h2><a href="$G/d/llm-gateway">LLM spend by vertical &middot; OpenRouter billing &rarr;</a></h2>
+  <div class=charts style="max-width:1140px">
+    <a class=card href="$G/d/llm-gateway"><h3>Fleet gateway</h3><div id=v_gateway>&hellip;</div></a>
+    <a class=card href="$G/d/llm-gateway"><h3>Podcast</h3><div id=v_podcast>&hellip;</div></a>
+    <a class=card href="$G/d/llm-gateway"><h3>Lab (pi)</h3><div id=v_pi>&hellip;</div></a>
+    <a class=card href="$G/d/llm-gateway"><h3>opencode</h3><div id=v_opencode>&hellip;</div></a>
+  </div>
 </div>
 <div class=cols>
 <div class=col>
@@ -305,6 +313,13 @@ async function fleet(){
   try{const r=await(await fetch('https://api.github.com/search/issues?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')).json();
     set('b_route',cv(typeof r.total_count==='number'?String(r.total_count):'&rarr;'));}
   catch(e){set('b_route',cv('&rarr;'));}
+  // per-vertical OpenRouter billing (openrouter-spend.sh collector, 10m cadence):
+  // big number = month-to-date as OpenRouter bills it; small = lifetime total
+  for (const vt of ['gateway','podcast','pi','opencode']) {
+    const vm=await g1('last_over_time(openrouter_vertical_usd{vertical="'+vt+'",window="month"}[2h])');
+    const vtot=await g1('last_over_time(openrouter_vertical_usd{vertical="'+vt+'",window="total"}[2h])');
+    set('v_'+vt, cv($(vm))+'<div class=muted style="font-size:12px">'+$(vtot)+' total</div>');
+  }
 }
 async function delivery(){
   const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};

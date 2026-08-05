@@ -115,6 +115,13 @@ The one thing no dashboard can verify: were the dismissals RIGHT?
    the fleet's cited evidence. A wrong dismissal = say it in session — it
    becomes a frozen fixture and a prompt/gate fix.
 4. Glance "fleetd day spend vs $2 cap" on the dashboard while you're there.
+5. **Spend reconciliation (added 2026-08-05, keys per vertical now live):**
+   compare three ledgers that must roughly agree — homepage "LLM spend by
+   vertical" cards (OpenRouter billing truth, per key), Grafana "LLM
+   Gateway" per-key table (LiteLLM metering), and the fleet dashboards'
+   self-reported spend. Drift >10% between any pair = an accounting bug
+   (this check caught a 4x self-report undercount and is currently chasing
+   a gateway-key discrepancy). One glance, three numbers.
 
 ## 6. Kill switches & rollback (when something feels wrong)
 

@@ -61,3 +61,4 @@ workstation/config/opencode/opencode.json
 *.bak*
 *-bak
 bugfix-fleet/bakeoff/advisor-eval/archive/
+infra/mini-metrics/openrouter-verticals.env
