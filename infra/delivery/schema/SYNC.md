@@ -13,11 +13,13 @@ cannot drift (mirrors the app-side `test_delivery_envelope_contract.py`).
 
 ## Provenance
 
-- Vendored **2026-08-05** from app-repo commit **`064ff801`** (the state of
-  `podcast_scraper` `main` just before the app-delivery commits were removed for a clean
-  re-PR — the seam content is unchanged by that rework, only its git history).
+- Vendored **2026-08-05** from **PR #1441** (`feat/delivery-curation-arc`, head
+  `064ff801`) — the app-side delivery+curation arc (epic #1413). The schema + both golden
+  fixtures are byte-identical to that branch (verified by diff). Security-review follow-up
+  commits (e.g. `graph_refs` minItems) may still land on the PR before merge; the worker
+  already tolerates them, but re-sync + re-run the contract test when the PR merges.
 
-## Re-sync procedure (do this once the app re-PRs the delivery seam to `main`)
+## Re-sync procedure (when PR #1441 merges to `main`, or to pull its latest)
 
 ```bash
 # from the podcast_scraper checkout, after the app PR lands on main:
