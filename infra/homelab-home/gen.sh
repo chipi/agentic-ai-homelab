@@ -22,6 +22,7 @@ DASH_PLAYER=$G/d/podcast-player-overview/overview
 DASH_FLEET=$G/d/signal-fleet-disp
 DASH_INBOX=$G/d/sf-inbox
 DASH_BUGFIX=$G/d/bugfix-fleet-work
+DASH_DELIVERY=$G/d/delivery-worker/delivery-worker
 row(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td><code>%s</code></td><td><code>%s</code></td></tr>\n' "$2" "$1" "$5" "$3" "$4"; }
 dsvc(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td class=muted>%s</td></tr>\n' "$4" "$1" "$2" "$3"; }
 {
@@ -85,6 +86,16 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
     <a class=card href="$DASH_BUGFIX"><h3>Spend this month</h3><div id=b_month>&hellip;</div></a>
     <a class=card href="$DASH_BUGFIX"><h3>Spend total</h3><div id=b_total>&hellip;</div></a>
     <a class=card href="https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22"><h3>Routable now</h3><div id=b_route>&hellip;</div></a>
+  </div>
+
+  <h2><a href="$DASH_DELIVERY">Delivery &rarr;</a></h2>
+  <div class=charts style="max-width:1140px">
+    <a class=card href="$DASH_DELIVERY"><h3>Workers up</h3><div id=dl_up>&hellip;</div></a>
+    <a class=card href="$DASH_DELIVERY"><h3>Sent 24h</h3><div id=dl_sent>&hellip;</div></a>
+    <a class=card href="$DASH_DELIVERY"><h3>Bounce/complaint 1h</h3><div id=dl_bounce>&hellip;</div></a>
+    <a class=card href="$DASH_DELIVERY"><h3>Dead-letters 24h</h3><div id=dl_dead>&hellip;</div></a>
+    <a class=card href="$DASH_DELIVERY"><h3>Pending</h3><div id=dl_pending>&hellip;</div></a>
+    <a class=card href="$DASH_DELIVERY"><h3>Cursor age</h3><div id=dl_cursor>&hellip;</div></a>
   </div>
 </div>
 <div class=cols>
@@ -293,8 +304,22 @@ async function fleet(){
     set('b_route',cv(typeof r.total_count==='number'?String(r.total_count):'&rarr;'));}
   catch(e){set('b_route',cv('&rarr;'));}
 }
+async function delivery(){
+  const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
+  const cv=v=>'<div class=cv>'+v+'</div>';
+  const N=x=>x?(+x[1]).toFixed(0):'&mdash;';
+  const up=await g1('sum(up{job="delivery"})'),tot=await g1('count(up{job="delivery"})');
+  set('dl_up',cv((up?(+up[1]).toFixed(0):'0')+'/'+(tot?(+tot[1]).toFixed(0):'0')));
+  set('dl_sent',cv(N(await g1('sum(increase(delivery_sent_total{status="delivered"}[24h]))'))));
+  const br=await g1('sum(rate(delivery_sent_total{status=~"bounced|complaint"}[1h]))/clamp_min(sum(rate(delivery_sent_total{status=~"delivered|bounced|complaint"}[1h])),1)*100');
+  set('dl_bounce',cv(br?(+br[1]).toFixed(1)+'%':'0%'));
+  set('dl_dead',cv(N(await g1('sum(increase(delivery_sent_total{status="dead_lettered"}[24h]))'))));
+  set('dl_pending',cv(N(await g1('sum(delivery_batch_pending)'))));
+  const ca=await g1('max(delivery_events_cursor_age_seconds)');
+  set('dl_cursor',cv(ca?fmtUp(ca[1]):'&mdash;'));
+}
 async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);}
-function refresh(){mini();dgx();prod();fleet();fresh();}
+function refresh(){mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT

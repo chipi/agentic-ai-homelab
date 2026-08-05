@@ -370,6 +370,92 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+  # --- Delivery worker (podcast_scraper #1412 / ADR-145) -----------------------------
+  - orgId: 1
+    name: delivery
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      # A delivery loop's /metrics scrape is gone for 5m (worker down / crash-looping).
+      - uid: delivery-worker-down
+        title: "Delivery worker down (up==0)"
+        condition: threshold
+        for: 5m
+        labels: { severity: critical, kind: delivery }
+        annotations:
+          summary: "Delivery worker down 5m — {{ $labels.channel }}. Digests/pushes are not going out. cd ~/agentic-ai-homelab/infra/delivery && docker compose up -d."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model: { expr: 'min by (channel) (up{job="delivery"})', instant: true, queryType: instant }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+      # Deliverability canary: bounce+complaint > 5% of terminal sends over 1h, held 15m.
+      - uid: delivery-high-bounce
+        title: "Delivery bounce/complaint rate high (>5%)"
+        condition: threshold
+        for: 15m
+        labels: { severity: warning, kind: delivery }
+        annotations:
+          summary: "Bounce+complaint >5% for 15m — sending-domain reputation at risk (check Resend + DMARC alignment)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(rate(delivery_sent_total{status=~"bounced|complaint"}[1h])) / clamp_min(sum(rate(delivery_sent_total{status=~"delivered|bounced|complaint"}[1h])), 1)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.05] } }]
+      # Any envelope dead-lettered in the last hour (retries exhausted → not delivered).
+      - uid: delivery-dead-letter
+        title: "Delivery dead-letter in the last hour"
+        condition: threshold
+        for: 5m
+        labels: { severity: warning, kind: delivery }
+        annotations:
+          summary: "{{ $values.q }} envelope(s) dead-lettered in 1h — retries exhausted; inspect delivery-* logs in VictoriaLogs."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model: { expr: 'sum(increase(delivery_sent_total{status="dead_lettered"}[1h]))', instant: true, queryType: instant }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+      # Events poller cursor hasn't advanced in >1h — bounces may not be suppressing.
+      - uid: delivery-events-stalled
+        title: "Delivery events poller stalled (cursor age >1h)"
+        condition: threshold
+        for: 10m
+        labels: { severity: warning, kind: delivery }
+        annotations:
+          summary: "Resend events cursor age >1h — bounce/complaint suppression may be stalled."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model: { expr: 'max(delivery_events_cursor_age_seconds)', instant: true, queryType: instant }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [3600] } }]
+
 # NOT re-homed yet — Caddy edge 5xx (the third T-11 rule). The caddy.service
 # systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
 # (with status codes) is not tailed into VictoriaLogs (status:* = 0 hits). Wire the

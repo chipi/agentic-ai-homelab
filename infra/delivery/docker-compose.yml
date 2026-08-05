@@ -1,0 +1,59 @@
+# Delivery workers — homelab, TAILNET-ONLY. Three long-running loops. No public ingress;
+# every service is an egress-only client (app outbox over the tailnet, Resend/push over 443).
+# Logs → stdout JSONL (Alloy tails them → VictoriaLogs). /metrics on loopback → Alloy scrape
+# (prometheus.scrape "delivery" in hosts/homelab/config.alloy: 9110/9111/9112).
+# Secrets from .env (homelab sops-env → bootstrap → .env). Nothing committed.
+#
+# PAUSE ALL SENDS (<5 min):  docker compose stop
+# (SIGTERM lets each loop finish its current batch and exit; the app outbox keeps the backlog.)
+services:
+  delivery-email:
+    build: { context: ., dockerfile: Dockerfile }
+    image: closelistening-delivery:local
+    container_name: delivery-email
+    command: ["--channel", "email"]
+    env_file: [.env]
+    environment:
+      DELIVERY_STATE_DIR: /var/lib/delivery
+      DELIVERY_TENANTS_FILE: /app/tenants.yaml
+      DELIVERY_METRICS_PORT: "9110"
+      DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
+    ports: ["127.0.0.1:9110:9110"]
+    volumes: ["delivery-state:/var/lib/delivery"]
+    restart: unless-stopped
+    stop_grace_period: 60s
+
+  delivery-push:
+    image: closelistening-delivery:local
+    container_name: delivery-push
+    command: ["--channel", "push"]
+    env_file: [.env]
+    environment:
+      DELIVERY_STATE_DIR: /var/lib/delivery
+      DELIVERY_TENANTS_FILE: /app/tenants.yaml
+      DELIVERY_METRICS_PORT: "9111"
+      DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
+    ports: ["127.0.0.1:9111:9111"]
+    volumes: ["delivery-state:/var/lib/delivery"]
+    restart: unless-stopped
+    stop_grace_period: 60s
+    depends_on: [delivery-email]
+
+  delivery-events:
+    image: closelistening-delivery:local
+    container_name: delivery-events
+    entrypoint: ["delivery-events"]
+    env_file: [.env]
+    environment:
+      DELIVERY_STATE_DIR: /var/lib/delivery
+      DELIVERY_TENANTS_FILE: /app/tenants.yaml
+      DELIVERY_METRICS_PORT: "9112"
+      DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
+    ports: ["127.0.0.1:9112:9112"]
+    volumes: ["delivery-state:/var/lib/delivery"]
+    restart: unless-stopped
+    stop_grace_period: 60s
+    depends_on: [delivery-email]
+
+volumes:
+  delivery-state:

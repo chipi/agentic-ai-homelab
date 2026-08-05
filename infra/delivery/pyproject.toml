@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "closelistening-delivery"
+version = "0.1.0"
+description = "Standalone outbound delivery worker (email via Resend + self-hosted Web Push) for the closelistening player. Pure consumer of the app↔infra delivery seam (#1412 / ADR-145)."
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.28.1,<1.0.0",       # Resend HTTP API + outbox seam + Web Push POST
+  "jinja2>=3.1.6,<4.0.0",       # email/push rendering (extractive, D6 — no LLM)
+  "cryptography>=44.0.0,<52.0.0",  # VAPID (RFC 8292) + aes128gcm (RFC 8291); no pywebpush
+  "prometheus-client>=0.20.0,<1.0.0",  # /metrics for the homelab Alloy scrape
+  "PyYAML>=6.0,<7.0.0",            # tenant registry (tenants.yaml)
+]
+
+[project.optional-dependencies]
+# Observability emit-SDKs — GlitchTip errors + OTEL traces. The worker no-ops without them.
+obs = [
+  "sentry-sdk>=2.0.0,<3.0.0",
+  "opentelemetry-api>=1.25.0,<2.0.0",
+  "opentelemetry-sdk>=1.25.0,<2.0.0",
+  "opentelemetry-exporter-otlp-proto-http>=1.25.0,<2.0.0",
+]
+dev = [
+  "pytest>=8.0.0",
+  "jsonschema>=4.20.0",   # contract test against the vendored seam schema
+  "black>=24.0.0",
+  "flake8>=7.0.0",
+  "mypy>=1.10.0",
+]
+
+[project.scripts]
+delivery-worker = "delivery.cli:run_worker"
+delivery-events = "delivery.cli:poll_events"
+delivery-gen-vapid = "delivery.cli:gen_vapid"
+
+[tool.setuptools]
+packages = ["delivery"]
+
+[tool.setuptools.package-data]
+delivery = ["templates/**/*.j2"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true

@@ -1,0 +1,26 @@
+# Tenant registry — one entry per product using the shared delivery engine.
+# Secrets are referenced by ENV NAME (resolved from the container env / .env), never inline.
+# Onboard a new tenant: add an entry + delivery/templates/<name>/ + schema/<name>/ + its
+# secrets in .env. No code change. One Resend account verifies each tenant's mail_from domain.
+
+tenants:
+  podcast:
+    outbox_base_url: http://127.0.0.1:8092        # the player API over the tailnet
+    internal_token_env: PODCAST_INTERNAL_OUTBOX_TOKEN
+    vapid_private_key_env: PODCAST_VAPID_PRIVATE_KEY
+    mail_from: "Close Listening <digest@mail.closelistening.app>"
+    app_origin: https://closelistening.app
+    unsubscribe_path: /api/app/comms/unsubscribe
+    vapid_subject: mailto:info@closelistening.app
+
+  # Example second tenant — orrery. Enable by verifying mail.orrerylearn.com in Resend,
+  # generating an orrery VAPID keypair, filling its secrets, and adding its templates/schema.
+  # Commented out until its outbox implements the /internal/outbox/* seam.
+  # orrery:
+  #   outbox_base_url: http://127.0.0.1:9200
+  #   internal_token_env: ORRERY_INTERNAL_OUTBOX_TOKEN
+  #   vapid_private_key_env: ORRERY_VAPID_PRIVATE_KEY
+  #   mail_from: "Orrery <updates@mail.orrerylearn.com>"
+  #   app_origin: https://orrerylearn.com
+  #   unsubscribe_path: /api/comms/unsubscribe
+  #   vapid_subject: mailto:hello@orrerylearn.com

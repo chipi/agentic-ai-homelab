@@ -1,0 +1,28 @@
+{# resurface-nudge.v1 — email-client-SAFE (dark bg on a wrapper table, not <body>).
+   payload = { highlight_count, lead: digestItem } #}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#0b0e14;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="background-color:#0b0e14;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="width:600px;max-width:600px;background-color:#0b0e14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <tr><td style="padding:0 8px;">
+        <div style="letter-spacing:.14em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">Close Listening</div>
+        <p style="color:#8aa0bd;font-size:13px;margin:12px 0 4px;">A moment worth a second listen{% if payload.highlight_count %} · {{ payload.highlight_count }} highlights waiting{% endif %}.</p>
+        <a href="{{ payload.lead.deep_link | abslink }}" style="color:#e7ecf3;text-decoration:none;font-size:22px;font-weight:600;display:block;margin:4px 0 8px;">{{ payload.lead.episode_title | default('Open in Close Listening') }}</a>
+        {% if payload.lead.quote is defined %}<p style="color:#c3ccd9;margin:14px 0;font-style:italic;">“{{ payload.lead.quote }}”</p>{% endif %}
+        <div style="margin-top:6px;">
+          {% for ref in payload.lead['graph_refs'] %}
+          <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id.split(':')[1] }}?scope=mine" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #2b3a52;border-radius:999px;font-size:12px;color:#9fb2cc;text-decoration:none;">{{ ref.label }}</a>
+          {% endfor %}
+        </div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;margin-top:24px;"><tr><td style="padding-top:20px;color:#6b7a90;font-size:12px;">
+          <p style="margin:0;color:#6b7a90;"><a href="{{ unsubscribe_url }}" style="color:#8aa0bd;">Unsubscribe</a> from revisit nudges.</p>
+        </td></tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

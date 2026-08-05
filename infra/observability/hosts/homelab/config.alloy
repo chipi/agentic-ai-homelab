@@ -33,6 +33,23 @@ prometheus.scrape "litellm_postgres" {
   scrape_interval = "30s"
 }
 
+// ---------- Delivery workers (podcast_scraper #1412 / ADR-144) ----------
+// Each delivery loop exposes Prometheus /metrics on loopback (compose publishes
+// 127.0.0.1:9110 email / 9111 push / 9112 events); reach them via host.docker.internal.
+// Feeds the delivery_* series the "Delivery worker" Grafana board reads (bounce-rate =
+// the deliverability canary). Logs are already captured by the generic container source
+// below. Source of truth: podcast_scraper-infra/infra/observability/delivery.alloy.
+prometheus.scrape "delivery" {
+  targets = [
+    { __address__ = "host.docker.internal:9110", instance = "homelab", channel = "email" },
+    { __address__ = "host.docker.internal:9111", instance = "homelab", channel = "push" },
+    { __address__ = "host.docker.internal:9112", instance = "homelab", channel = "events" },
+  ]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "delivery"
+  scrape_interval = "30s"
+}
+
 // ---------- LOGS: all docker container stdout/stderr ----------
 discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"

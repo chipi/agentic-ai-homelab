@@ -1,0 +1,8 @@
+{# Push payload for the weekly digest. First section's first item drives the deep link. #}
+{% set first = payload['sections'][0]['items'][0] %}
+{
+  "title": "Your week in close listening",
+  "body": {{ (first.episode_title | default('New highlights from your listening are ready.')) | tojson }},
+  "url": {{ (first.deep_link | default('/revisit')) | tojson }},
+  "tag": "your-week-digest"
+}

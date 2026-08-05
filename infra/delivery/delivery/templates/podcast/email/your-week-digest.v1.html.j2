@@ -1,0 +1,45 @@
+{# your-week-digest.v1 — email-client-SAFE layout. Gmail strips <body> styles, so the
+   dark theme lives on a wrapper <table bgcolor> (kept by Gmail) with per-cell colors —
+   never rely on body-level background, or light text lands on a white bg (invisible).
+   Committed contract payload:
+   payload.sections[] = { kind: revisit|new_in_follows|trending_in_your_corpus, items: [] }
+   item = { quote?, episode_slug, episode_title?, t_ms?, graph_refs[]{id,kind,label},
+            deep_link (relative), source?: user|auto } #}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#0b0e14;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="background-color:#0b0e14;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="width:600px;max-width:600px;background-color:#0b0e14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <tr><td style="padding:0 8px;">
+        <div style="letter-spacing:.14em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">Close Listening</div>
+        <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#e7ecf3;">Your week in close listening</h1>
+        <div style="font-size:14px;color:#8aa0bd;margin:0 0 20px;">{{ period_label }}</div>
+
+        {% for section in payload['sections'] %}
+        <div style="margin-bottom:8px;color:#8aa0bd;font-size:13px;text-transform:uppercase;letter-spacing:.08em;">{{ section.kind | section_label }}</div>
+        {% for item in section['items'] %}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;"><tr><td style="padding:18px 0;">
+          <a href="{{ item.deep_link | abslink }}" style="color:#e7ecf3;text-decoration:none;font-size:17px;font-weight:600;">{{ item.episode_title | default('Open in Close Listening') }}</a>
+          {% if item.source is defined %}<span style="margin-left:8px;font-size:11px;color:#6b7a90;">{{ 'you saved' if item.source == 'user' else 'editor’s pick' }}</span>{% endif %}
+          {% if item.quote is defined %}<p style="color:#c3ccd9;margin:10px 0 12px;font-style:italic;">“{{ item.quote }}”</p>{% endif %}
+          <div>
+            {% for ref in item['graph_refs'] %}
+            <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id.split(':')[1] }}?scope=mine" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #2b3a52;border-radius:999px;font-size:12px;color:#9fb2cc;text-decoration:none;">{{ ref.label }}</a>
+            {% endfor %}
+          </div>
+        </td></tr></table>
+        {% endfor %}
+        {% endfor %}
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;margin-top:8px;"><tr><td style="padding-top:20px;color:#6b7a90;font-size:12px;">
+          <p style="margin:0 0 6px;color:#6b7a90;">You're getting this {{ cadence }} digest because you turned it on in Close Listening.</p>
+          <p style="margin:0;color:#6b7a90;"><a href="{{ unsubscribe_url }}" style="color:#8aa0bd;">Unsubscribe</a> · one click, no sign-in needed.</p>
+        </td></tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

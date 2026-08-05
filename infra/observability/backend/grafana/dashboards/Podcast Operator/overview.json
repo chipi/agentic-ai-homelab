@@ -306,6 +306,163 @@
       ],
       "title": "App events ($surface) \u2014 tail",
       "type": "logs"
+    },
+    {
+      "id": 900,
+      "type": "row",
+      "title": "Communications \u2014 closelistening (email/push)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "collapsed": false
+    },
+    {
+      "id": 901,
+      "title": "Delivered 24h",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 0,
+        "y": 22
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(delivery_sent_total{tenant=\"podcast\",status=\"delivered\"}[24h]))"
+        }
+      ]
+    },
+    {
+      "id": 902,
+      "title": "Bounce+complaint 1h",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 5,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.02
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(delivery_sent_total{tenant=\"podcast\",status=~\"bounced|complaint\"}[1h])) / clamp_min(sum(rate(delivery_sent_total{tenant=\"podcast\",status=~\"delivered|bounced|complaint\"}[1h])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 903,
+      "title": "Dead-letters 24h",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 10,
+        "y": 22
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(delivery_sent_total{tenant=\"podcast\",status=\"dead_lettered\"}[24h]))"
+        }
+      ]
+    },
+    {
+      "id": 904,
+      "title": "Pending",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 14,
+        "y": 22
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(delivery_batch_pending{tenant=\"podcast\"})"
+        }
+      ]
+    },
+    {
+      "id": 905,
+      "title": "Sent by status (rate 5m)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 22
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (rate(delivery_sent_total{tenant=\"podcast\"}[5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ]
     }
   ],
   "refresh": "1m",
