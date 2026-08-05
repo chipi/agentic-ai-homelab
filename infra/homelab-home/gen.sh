@@ -9,6 +9,10 @@ GT_U=$(get "$REPO/glitchtip/.env" DJANGO_SUPERUSER_EMAIL); GT_P=$(get "$REPO/gli
 LF_U=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_EMAIL); LF_P=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_PASSWORD)
 UM_U=admin; UM_P=$(get ~/umami/.env UMAMI_ADMIN_PASSWORD)
 LL_K=$(get "$REPO/litellm/.env" LITELLM_MASTER_KEY)
+# Grafana VIEWER service-account token (read-only) — powers the alert banner.
+# Embedding follows the page's existing trust model (admin creds are already
+# on it; the page itself is basic-auth + tailnet-only).
+GF_VIEW=$(get ~/signal-fleet/fleet-gateway.env GRAFANA_TOKEN)
 H=https://homelab.tail6d0ed4.ts.net; G=$H/grafana
 DASH_MINI=$G/d/homelab-mini/homelab-e28094-mac-mini
 DASH_GPU=$G/d/gpu-dcgm/gpu-e28094-dcgm
@@ -52,6 +56,12 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
 .up{background:#3fb950}.down{background:#f85149}.stale{background:#7a7a8c}
 .dock{color:#c8c8e0;font-size:13.5px;margin:2px 0 4px}.dock b{color:#e6e6ef}
+#alertbar{margin:0 0 18px}
+.abar{display:block;border-radius:8px;padding:10px 14px;margin:0 0 8px;font-size:13.5px;text-decoration:none;color:#e6e6ef}
+.abar b{font-weight:600}
+.abar.crit{background:#3d1114;border:1px solid #f85149}
+.abar.warn{background:#3a2d0e;border:1px solid #d29922}
+.abar.plumb{background:#16161f;border:1px solid #26263a;color:#8888aa}
 h3.sectitle{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:16px 0 6px;border-bottom:1px solid #22223a;padding-bottom:4px}
 table.ctbl td{padding:4px 10px;border-bottom:1px solid #1a1a2b;font-size:13px;vertical-align:middle}
 table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
@@ -66,6 +76,7 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
   .sysrow,.dock,.sec,.health{font-size:12.5px}
 }</style></head><body>
 <h1>homelab</h1>
+<div id=alertbar></div>
 <div style="margin:0 0 22px">
   <h2><a href="$DASH_FLEET">Triage fleet &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
@@ -194,6 +205,9 @@ cat <<MID3
 </div>
 <p class=sec id=fresh></p>
 MID3
+cat <<TOK
+<script>const GTOK="$GF_VIEW";</script>
+TOK
 cat <<'SCRIPT'
 <script>
 const W=260,H=40,B='https://homelab.tail6d0ed4.ts.net',G=B+'/grafana';
@@ -335,8 +349,31 @@ async function delivery(){
   const ca=await g1('max(delivery_events_cursor_age_seconds)');
   set('dl_cursor',cv(ca?fmtUp(ca[1]):'&mdash;'));
 }
+async function alerts(){
+  // One consolidated notification surface: EVERYTHING alert-worthy is (or
+  // becomes) a Grafana rule over VM/VLogs — disk, apps, security, delivery,
+  // fleet substrate, LLM billing — so the banner renders ONE truth, not N
+  // platform integrations. Plumbing states (DatasourceNoData/Error) are
+  // wiring problems: shown muted, never as incidents.
+  const el=document.getElementById('alertbar');if(!el)return;
+  let list=[];
+  try{list=await(await fetch('/grafana/api/alertmanager/grafana/api/v2/alerts',{headers:{Authorization:'Bearer '+GTOK}})).json();}catch(e){el.innerHTML='';return;}
+  const PLUMB=new Set(['DatasourceNoData','DatasourceError','Watchdog']);
+  const act=list.filter(a=>(a.status||{}).state==='active');
+  const seen=new Set(),uniq=[];
+  for(const a of act){const k=(a.labels||{}).alertname+'|'+((a.labels||{}).instance||'');if(!seen.has(k)){seen.add(k);uniq.push(a);}}
+  const plumb=uniq.filter(a=>PLUMB.has((a.labels||{}).alertname));
+  const crit=uniq.filter(a=>!PLUMB.has((a.labels||{}).alertname)&&(a.labels||{}).severity==='critical');
+  const warn=uniq.filter(a=>!PLUMB.has((a.labels||{}).alertname)&&(a.labels||{}).severity!=='critical');
+  const line=a=>{const l=a.labels||{},an=(a.annotations||{});let t=l.alertname;if(l.instance)t+=' · '+l.instance;const s=an.summary?' — '+an.summary.slice(0,110):'';return '<b>'+t+'</b>'+s+(l.meta==='true'?' <span style="opacity:.7">[substrate — yours alone]</span>':'');};
+  let html='';
+  if(crit.length)html+='<a class="abar crit" href="'+G+'/alerting/list">&#128308; '+crit.map(line).join('<br>')+'</a>';
+  if(warn.length)html+='<a class="abar warn" href="'+G+'/alerting/list">&#9888;&#65039; '+warn.map(line).join('<br>')+'</a>';
+  if(plumb.length)html+='<a class="abar plumb" href="'+G+'/alerting/list">'+plumb.length+' plumbing alert(s) (NoData/Error) — observability wiring, not incidents</a>';
+  el.innerHTML=html;
+}
 async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);}
-function refresh(){mini();dgx();prod();fleet();delivery();fresh();}
+function refresh(){alerts();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT

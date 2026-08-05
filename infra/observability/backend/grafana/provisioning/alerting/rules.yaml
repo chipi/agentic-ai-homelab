@@ -137,6 +137,42 @@ groups:
               conditions: [{ evaluator: { type: gt, params: [95] } }]
 
   - orgId: 1
+    name: billing
+    folder: "Alerts"
+    interval: 5m
+    rules:
+      # --- OpenRouter vertical spend high ------------------------------------------
+      # Source: openrouter_vertical_usd (mini-metrics/openrouter-spend.sh, 10m
+      # push of OpenRouter's own billing per vertical key — pi/opencode/gateway/
+      # podcast). $40/mo per vertical = tunable headroom over the fleet's
+      # ~$60/mo theoretical cap and July's ~$100 lab burn. Fleet food (NOT
+      # meta): the triager can name the vertical, cite the ledgers, and file —
+      # deciding whether the spend is legitimate stays with the operator.
+      # noDataState OK: pushed metric — a paused collector isn't an overrun.
+      - uid: billing-vertical-high
+        title: "OpenRouter vertical spend high (over USD 40 month-to-date)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: billing }
+        annotations:
+          summary: "OpenRouter vertical '{{ $labels.vertical }}' at USD {{ $values.q }} month-to-date (threshold 40). Reconcile: homepage vertical cards vs Grafana LLM Gateway table vs fleet self-report."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 7200, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max by (vertical) (last_over_time(openrouter_vertical_usd{window="month"}[2h]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [40] } }]
+
+  - orgId: 1
     name: app-health
     folder: "Alerts"
     interval: 1m
