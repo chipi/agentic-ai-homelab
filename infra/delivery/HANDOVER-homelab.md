@@ -70,3 +70,37 @@ This note is so you can review + polish; nothing here is urgent-broken.
 - Dashboards: Grafana → "Delivery worker" + the Podcast-Operator delivery row.
 - Re-sync the seam contract when app PR #1441 changes: see `schema/SYNC.md`.
 - App-side handshake needed for full function: `HANDOVER-app-side.md`.
+
+---
+
+## Homelab agent resolution (2026-08-05)
+
+Worked the 7 candidates. Outcome:
+
+- **#2 config.alloy inode caveat — DONE.** Documented in the `config.alloy` header
+  (replacing the single-file bind mount → new inode breaks the mount until
+  `docker restart alloy-homelab`; edit in place).
+- **#3 container hardening — DONE.** All 3 services now have: a HEALTHCHECK
+  (email/push = liveness-file mtime <120s, catching a hung loop that still serves
+  `/metrics`; events = `/metrics` responds, since it writes no liveness file and a
+  stalled cursor is already caught by `delivery-events-stalled`), `mem_limit: 256m`
+  + `cpus: 0.5`, and json-file log rotation (10m×3). Deployed + verified healthy.
+- **#1 secrets → sops — NOT A GAP (corrected).** The premise was wrong: NO stack
+  in this homelab uses sops. observability/glitchtip/langfuse all run from a plain
+  gitignored `.env` on the mini; `.sops.yaml` has a placeholder recipient and no
+  `secrets.sops.env` exists anywhere. delivery's plain `.env` already MATCHES the
+  live convention — migrating just delivery to sops would make it the sole outlier
+  and needs a repo-wide age-key wiring decision. Verified `infra/delivery/.env` is
+  gitignored + never committed (no leak). Left as-is by design.
+- **#5 image provenance / #7 metrics on 127.0.0.1 — no action** (deferred / not a
+  gap, as flagged).
+- **#4 alert routing — NEEDS OPERATOR DECISION (not resolved).** `delivery-worker-down`
+  (severity=critical) routes via `policies.yaml` to the `glitchtip` contact point,
+  which is STILL the placeholder `https://glitchtip.example.com/PLACEHOLDER-SET-IN-ENV`
+  (falls through to `default` = `alerts@homelab.local`, also non-deliverable). So a
+  real worker outage is currently SILENT. This is the operator's reserved
+  routing/fleet-integration design surface — left untouched, flagged for decision.
+- **#6 VAPID key backup — NEEDS OPERATOR ACTION.** `PODCAST_VAPID_PRIVATE_KEY` lives
+  only in the host `.env`; losing it invalidates every push subscription. Backup
+  destination (e.g. the operator's password manager, alongside the age key) is the
+  operator's call — flagged, not done.

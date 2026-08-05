@@ -2,7 +2,15 @@
 # every service is an egress-only client (app outbox over the tailnet, Resend/push over 443).
 # Logs → stdout JSONL (Alloy tails them → VictoriaLogs). /metrics on loopback → Alloy scrape
 # (prometheus.scrape "delivery" in hosts/homelab/config.alloy: 9110/9111/9112).
-# Secrets from .env (homelab sops-env → bootstrap → .env). Nothing committed.
+# Secrets from a plain gitignored .env — the live homelab convention (observability/glitchtip/
+# langfuse all run the same way; repo sops is aspirational/unwired). Nothing committed.
+#
+# Hardening (2026-08-05): each service has a HEALTHCHECK, memory + cpu limits, and json-file
+# log rotation. Health signal per service:
+#   • email/push — the worker's per-cycle liveness file mtime (catches a HUNG loop that still
+#     serves /metrics — a failure mode up{job="delivery"} cannot see).
+#   • events     — /metrics responds (the events poller writes no liveness file; a stalled
+#     cursor is already caught by the delivery-events-stalled alert on cursor age).
 #
 # PAUSE ALL SENDS (<5 min):  docker compose stop
 # (SIGTERM lets each loop finish its current batch and exit; the app outbox keeps the backlog.)
@@ -22,6 +30,17 @@ services:
     volumes: ["delivery-state:/var/lib/delivery"]
     restart: unless-stopped
     stop_grace_period: 60s
+    mem_limit: 256m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "python", "-c", "import glob,os,sys,time; fs=glob.glob('/var/lib/delivery/live-*-email'); sys.exit(0 if fs and max(os.path.getmtime(f) for f in fs) > time.time()-120 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
   delivery-push:
     image: closelistening-delivery:local
@@ -38,6 +57,17 @@ services:
     restart: unless-stopped
     stop_grace_period: 60s
     depends_on: [delivery-email]
+    mem_limit: 256m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "python", "-c", "import glob,os,sys,time; fs=glob.glob('/var/lib/delivery/live-*-push'); sys.exit(0 if fs and max(os.path.getmtime(f) for f in fs) > time.time()-120 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
   delivery-events:
     image: closelistening-delivery:local
@@ -54,6 +84,17 @@ services:
     restart: unless-stopped
     stop_grace_period: 60s
     depends_on: [delivery-email]
+    mem_limit: 256m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:9112/metrics',timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
 volumes:
   delivery-state:

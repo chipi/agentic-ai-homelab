@@ -10,6 +10,14 @@
 //   • CONTAINER logs (the whole observability stack) → Docker socket.
 // Writes to the LOCAL backend on the same box (host.docker.internal published
 // ports). No tailnet / no ACL — everything is loopback-local.
+//
+// ⚠ EDITING CAVEAT — this file is a SINGLE-FILE bind mount
+// (docker-compose.yml: ./config.alloy:/etc/alloy/config.alloy:ro). Editing it
+// IN PLACE is fine (Alloy hot-reloads). But REPLACING the file (scp/mv/rsync →
+// new inode) breaks the bind mount — the container keeps the old inode and the
+// new content is never seen. After any scp/mv of this file you MUST
+// `docker restart alloy-homelab` to re-bind. (Edit-in-place with sed/an editor
+// avoids this; a whole-file copy does not.)
 // =============================================================================
 
 // ---------- HOST: macOS via native node_exporter ----------
