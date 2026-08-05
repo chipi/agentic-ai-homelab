@@ -45,9 +45,38 @@ model_list:
     litellm_params:
       model: openrouter/z-ai/glm-5.2
       api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: homelab-glm47-flash
+    litellm_params:
+      model: openrouter/z-ai/glm-4.7-flash
+      api_key: os.environ/OPENROUTER_API_KEY
   - model_name: homelab-kimi
     litellm_params:
       model: openrouter/moonshotai/kimi-k2.6
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: homelab-qwen
+    litellm_params:
+      model: openrouter/qwen/qwen3.6-35b-a3b
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: homelab-qwen37-flash
+    litellm_params:
+      model: openrouter/qwen/qwen3.7-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: homelab-qwen37-plus
+    litellm_params:
+      model: openrouter/qwen/qwen3.7-plus
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: homelab-qwen38-max
+    litellm_params:
+      model: openrouter/qwen/qwen3.8-max
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: homelab-flash-0731
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash-0731
       api_key: os.environ/OPENROUTER_API_KEY
 
 litellm_settings:
@@ -55,7 +84,7 @@ litellm_settings:
   # Langfuse traces on success+failure, GlitchTip (sentry-compatible) on failure
   success_callback: ["langfuse"]
   failure_callback: ["langfuse", "sentry"]
-  num_retries: 2
+  num_retries: 6
   request_timeout: 120
 
 general_settings:
