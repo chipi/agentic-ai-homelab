@@ -657,6 +657,41 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [3600] } }]
 
+      # Digest-scheduler sidecar dead-man (podcast_scraper #1412 / ADR-146). The player's
+      # digest-scheduler sidecar wakes hourly and logs one `[digest-scheduler] tick: …` line per
+      # cycle (shipped via player.alloy: app=player, surface=scheduler). If those stop, the sidecar
+      # is dark and no "Your Week" digests are being enqueued — the on-box healthcheck can't page,
+      # so this watches it from here. Log-absence, so it CANNOT tell "died" from "not deployed yet":
+      # it must be provisioned AFTER the player sidecar is live (before that it pages on absence).
+      - uid: delivery-scheduler-silent
+        title: "Digest scheduler silent (no ticks 2h)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        execErrState: OK
+        labels: { severity: warning, kind: delivery }
+        annotations:
+          summary: "No digest-scheduler ticks in 2h — the player sidecar is dark; 'Your Week' digests are not being enqueued. On prod: docker logs player-digest-scheduler-1; the compose sidecar (restart:unless-stopped) should recover it."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 7200, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'app:player "digest-scheduler" "tick" | stats count() as value'
+              queryType: instant
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
 # NOT re-homed yet — Caddy edge 5xx (the third T-11 rule). The caddy.service
 # systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
 # (with status codes) is not tailed into VictoriaLogs (status:* = 0 hits). Wire the
