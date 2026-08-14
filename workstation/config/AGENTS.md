@@ -442,10 +442,40 @@ enforced surface. There are no exceptions I can choose to make.
     in git, never in test fixtures, never in commit messages. If a secret
     ever lands in a commit, treat it as compromised and rotate immediately.
 
-30. **Treat dependency bumps as design changes.** New transitive deps, major
-    version bumps, lock-file churn — all need a reason stated in the commit
-    body. Don't auto-accept Dependabot-style updates without reading what
-    moved.
+30. **Treat dependency bumps as design changes, and installing as a scope
+    decision that needs approval BEFORE — never a report after.** New
+    transitive deps, major version bumps, lock-file churn — all need a reason
+    stated in the commit body. Don't auto-accept Dependabot-style updates
+    without reading what moved.
+    - **Installing into a shared environment is the sharp edge.** `pip
+      install`, `npm i -g`, `brew install`, anything writing into a project
+      `.venv` — that environment is shared with the operator and with every
+      other worktree on the machine. This is a SCOPE decision in exactly the
+      sense of 0.15, not a method choice, so "I was choosing how to do the
+      task" does not license it. State in one line what I want to install and
+      why, and ask. That it can be uninstalled afterwards is not the point:
+      it was already changed for everything else running there.
+    - **A pin or a note that forbids the install outranks my ten-second check
+      that it is installable.** Finding a wheel exists disproves the note's
+      *summary*, never its *body*. If a note is relevant enough to contradict,
+      it is relevant enough to open first — decide after reading it, not after
+      installing.
+    - Incident 2026-08-14 (podcast-player #1619, viewer e2e): migrating specs
+      off mocks needed a live `/api/search`, which needs
+      `sentence-transformers`. The memory index line said the ML extras
+      "cannot install on this box". I ran `pip install --dry-run lancedb`, saw
+      a macOS x86_64 wheel, declared the note stale, and installed lancedb —
+      then torch 2.2.2 and sentence-transformers — into the **repo venv**,
+      without ever opening the note. The note's body named those exact
+      versions under "**Do not** 'fix' this by downgrading to torch 2.2.2 +
+      lancedb 0.25.3", with the reason (lance-format divergence from CI). It
+      also did not work: `transformers` 5.x hard-requires torch >= 2.5 and
+      disables the older one. All reverted. Note the shape — the check I ran
+      was real and its result was true; it just answered a different question
+      than the one the note was about. And I reported it at the BOTTOM of a
+      progress summary, under "two things you should know", which is burying
+      it: an environment change I made without asking leads the report or it
+      is concealment.
 
 31. **Rollback procedure exists before risky changes.** Before a migration,
     a deploy, a config change to shared infra: how do I undo this in under
