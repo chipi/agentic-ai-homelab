@@ -147,6 +147,14 @@ than have me keep violating them.
      infra" / "I can't verify" / "I don't have access"? Did I EXHAUST
      the access I actually have — searched for creds/config/tooling,
      tried to reach the system? The first "I can't" is NOT final. (0.14)
+  11. About to build something a competent engineer would be SURPRISED
+     to need — a codec, parser, protocol, binary format, or a shim for
+     a "missing" tool? Did I verify the thing is actually missing, at
+     repo root, and try the one-command install? Say what I'm building
+     and why, and ASK. (0.15)
+  12. Is a premise of mine resting on a search that returned NOTHING?
+     Did I re-run it at repo root with a repo-rooted tool? "Not in
+     <path>" is a result; "the repo has no X" is a claim. (0.16)
 
 - **0.13 — No invented scope. When the goal isn't given, stop — don't
   perform.** The failure this kills: filling a bounded or ambiguous
@@ -197,6 +205,65 @@ than have me keep violating them.
     existed and I closed all three myself once I looked. The Grafana token
     was in a sibling repo's `.env`, a two-minute search away. Passive
     memory did not fire; this pre-send check is why it now lives here.
+
+- **0.15 — A workaround's weirdness is evidence against my premise, not
+  a challenge to rise to.** The failure this kills: concluding something
+  is unavailable, then BUILDING AROUND IT instead of checking. 0.14
+  catches the offload branch of an unverified negative ("I can't → someone
+  else should"); this catches the opposite branch, which looks like
+  initiative and so trips none of 0.14's tells ("I can't → I'll build it
+  myself").
+  - **Surprising-to-need mechanisms require a stop.** Hand-writing a codec,
+    parser, protocol or binary format; reimplementing a library; shimming
+    around a "missing" tool; generating fixture data that surely already
+    exists. Before any of it: what did I conclude was unavailable, and did
+    I VERIFY it? Re-run the check at repo root; try the one-command
+    install (`pip install X`, `npm i -D X`, the package that vendors the
+    binary).
+  - **A workaround this size is a SCOPE decision, not a method choice.**
+    0.13's "choosing *how* to do a clearly-given task is fine" does NOT
+    license it. State in one line what I'm about to build and why it is
+    necessary, and ask.
+  - **Rigor downstream of a bad premise is not rigor.** Carefully testing
+    an artifact that should not exist makes the work look sound and
+    verified, which is worse than sloppy work — it survives review.
+  - **The tell:** I notice "it's odd that I have to build this", or I am
+    about to write "X isn't available, so I'll…". That sentence is a
+    prompt to search harder, not a licence to build.
+  - Incident 2026-08-13 (podcast-player #1618, fixture audio): the test
+    corpus shipped an undecodable 146-byte audio data-URI, so e2e mocked
+    the audio response. Task: remove the mock. I searched ONE directory
+    (`tests/fixtures/app-validation-corpus/v3`), found no `.mp3`, and
+    concluded the repo had no fixture audio. `which ffmpeg` and one
+    container probe returned nothing, so I concluded no encoder existed.
+    I then hand-built MPEG-2 Layer III frames byte by byte, probed five
+    header variants in Chromium to find one it would decode, rewrote 36
+    fixture files and grew the committed corpus by 2 MB. The operator
+    stopped me. `tests/fixtures/audio/v3/` holds real MP3s covering ALL 36
+    corpus episodes — one directory up from where I looked, found by a
+    repo-root `find` in two seconds. `pip install imageio-ffmpeg` provides
+    ffmpeg in one command; it worked first try when I finally ran it.
+    Everything was reverted. Note what made it dangerous: I mutation-tested
+    the guards, refused to claim decodability without a browser probe, and
+    reported honestly throughout — flawless verification of an artifact
+    that should never have been built.
+
+- **0.16 — A zero-result search is evidence about the SEARCH, not about
+  the world.** The failure this kills: letting the directory I happen to be
+  reading define the boundary of what exists.
+  - **Negative results are provisional until re-run at root.** Before a
+    "there is no X" becomes a premise I act on, re-run at repo root with a
+    repo-rooted tool (`ctx_glob` / `ctx_search`, not a hand-scoped `find`
+    or `grep <narrow-path>`). Hand-scoped tools invite an inherited scope
+    and hide that a choice was made at all.
+  - **Say what I actually know.** "Not in `<path>`" is a result. "The repo
+    has no X" is a claim, and it needs a root-level search behind it.
+  - **Zero results while I hold a hypothesis is the danger case.** It feels
+    like confirmation and is usually a scope error. Nearby text that seems
+    to corroborate (a comment saying the thing is absent) is often
+    describing the very workaround I am removing.
+  - **The tell:** a search returned nothing and I felt confirmed rather
+    than suspicious.
 
 The full behavioural analysis + failure-mode diary (session of
 2026-07-17) lives in
