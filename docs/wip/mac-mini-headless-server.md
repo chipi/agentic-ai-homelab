@@ -338,6 +338,28 @@ Repo is now the reproducible inventory — `git clone` + per-box `.env` restores
 Note: `.env` (secrets) stays gitignored on each box. Delivery templates ARE in git
 (`delivery/delivery/templates/`), earlier "not in git" was a wrong-dir read.
 
+## ✅ LEVEL 2 — DGX telemetry migrated to TLS nodes (2026-08-15)
+
+The DGX runs Grafana Alloy that pushes metrics + logs to the mini. Moved it off
+the mini's plaintext raw ports onto the per-service caddy-tailscale TLS nodes.
+- ACL: `tag:dgx-llm-host → tag:homelab-svc:443` (PR #1664, merged/applied). This
+  grant also gives the DGX **netmap visibility** so MagicDNS resolves the node
+  names (were NXDOMAIN — ACL-gated; the DGX uses MagicDNS, just couldn't see them).
+- DGX Alloy `.env` (`/home/ops/agentic-ai-homelab/infra/observability/.env`,
+  box-local/gitignored) repointed:
+  - `GRAFANA_CLOUD_PROM_URL` → `https://vm.tail6d0ed4.ts.net/api/v1/write`
+  - `LOGS_WRITE_URL` → `https://vlogs.tail6d0ed4.ts.net/insert/loki/api/v1/push`
+  - (backup on the DGX: `.env.bak-pre-tls-*`)
+- **Verified**: `tls_verify=0` from the DGX; metrics landing (`{instance="dgx-llm-1"}`
+  4649 series, age ~1s), logs landing (fresh MOSS log via vlogs node); Alloy has no
+  remote_write/TLS errors.
+- The mini's `dgx-scrape/push.sh` is unaffected — it TCP-health-checks the DGX and
+  writes `dgx_service_up` to `localhost:8428` (local write, not tailnet).
+
+**Still open (Level 3):** prod's Alloy still pushes to the raw `:8428`/`:9428`
+(see `hosts/prod-podcast/.env.example`); GlitchTip domain/DSN; then retire the raw
+0.0.0.0 ports + the temporary `9443` grant + revoke the caddy-tailscale auth key.
+
 ## Other open items (non-blocking)
 - **Reboot test NOT performed** (operator declined). It's the only way to *prove*
   headless survival — but pointless/risky until Tailscale option is resolved,
