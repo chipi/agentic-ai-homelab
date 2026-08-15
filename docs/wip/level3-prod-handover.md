@@ -130,6 +130,34 @@ Only once BOTH DGX (done) and prod push to the nodes:
 - ACL #1665: additive; revert = drop the `tag:prod` src from the grant (another PR).
 - GlitchTip/Umami upstream: restore the prior Caddy env value + reload.
 
+## SEPARATE prod bug — LiteLLM→Langfuse tracing is very likely also dead
+Not part of the TLS migration, but prod-side + urgent. The colima migration reseeded the
+homelab Langfuse with fresh volumes → only the `agents` project survived (the homelab
+LiteLLM was silently 401'ing for 3h; I fixed it by syncing its keys to Langfuse's seeded
+`LANGFUSE_INIT_PROJECT_*` pair). **Prod's LiteLLM targets a `litellm-vps` Langfuse project
+(`deploy-litellm.sh`) that no longer exists** → prod's keys point at a dead project → prod
+LLM tracing is almost certainly silently 401'ing too (LiteLLM logs nothing).
+
+**Fix (your call on the model):**
+- **Consolidate (simplest):** point prod's LiteLLM `LANGFUSE_PUBLIC_KEY`/`SECRET_KEY` at the
+  live `agents` pair (`infra/langfuse/.env` `LANGFUSE_INIT_PROJECT_PUBLIC_KEY`/`SECRET_KEY`)
+  and redeploy litellm. Prod + homelab traces share one project (tag per gateway if you want
+  them split in the UI).
+- **Separate project:** recreate a `litellm-vps` project in Langfuse (UI, or the admin API
+  with `LANGFUSE_INIT_USER_*` creds) + new keys → set them on prod → redeploy.
+- Verify: `curl -u $PK:$SK http://homelab:4000/api/public/projects` → 200, then a call
+  through the prod gateway lands a trace.
+
+**Wire prod into the new health check:** once prod's Langfuse keys are known-good, drop them
+into the mini's `infra/langfuse-check/prod.env` (gitignored):
+```
+PROD_LF_PUBLIC_KEY=pk-lf-...
+PROD_LF_SECRET_KEY=sk-lf-...
+```
+The `com.homelab.langfuse-check` daemon then also emits `langfuse_export_up{gateway="prod"}`
+and the `langfuse-export-down` alert covers prod too. (Send me the keys and I'll place the
+file — or you drop it on the mini.)
+
 ## Open questions for you to confirm (I couldn't, no prod access)
 1. Full contents of `/opt/vps-observability/.env` — anything besides the two URLs? (affects
    surgical-upsert vs template).
