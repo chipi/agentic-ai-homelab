@@ -7,7 +7,7 @@ services:
     # it over HTTPS at homelab.<tailnet>/home (serve can't proxy to the mini's own
     # tailnet IP — it self-loops — so it needs the 127.0.0.1 bind).
     ports:
-      - "100.87.33.61:8888:80"
+      # - "100.87.33.61:8888:80"  # colima: bind 127.0.0.1, tailscale serve /home covers it
       - "127.0.0.1:8888:80"
     networks: [backend_default]
     volumes:
