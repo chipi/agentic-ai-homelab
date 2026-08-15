@@ -13,7 +13,13 @@ LL_K=$(get "$REPO/litellm/.env" LITELLM_MASTER_KEY)
 # Embedding follows the page's existing trust model (admin creds are already
 # on it; the page itself is basic-auth + tailnet-only).
 GF_VIEW=$(get ~/signal-fleet/fleet-gateway.env GRAFANA_TOKEN)
-H=https://homelab.tail6d0ed4.ts.net; G=$H/grafana
+H=https://homelab.tail6d0ed4.ts.net   # legacy node (GlitchTip still fronted here until Level 3)
+# Per-service caddy-tailscale nodes — each <name>.tail6d0ed4.ts.net with its own
+# Tailscale cert (infra/reverse-proxy; docs/wip/mac-mini-headless-server.md).
+TS=tail6d0ed4.ts.net
+G=https://grafana.$TS
+LF=https://langfuse.$TS; UM=https://umami.$TS; LL=https://litellm.$TS
+VM=https://vm.$TS; VL=https://vlogs.$TS; VT=https://vtraces.$TS
 DASH_MINI=$G/d/homelab-mini/homelab-e28094-mac-mini
 DASH_GPU=$G/d/gpu-dcgm/gpu-e28094-dcgm
 DASH_DGX=$G/d/dgx-services/dgx-e28094-services
@@ -138,12 +144,12 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
 HDR
 row "Grafana"         "$G"            "$GF_U" "$GF_P" "3000"
 row "GlitchTip"       "$H:8445"       "$GT_U" "$GT_P" "8090"
-row "Langfuse"        "$H:8443"       "$LF_U" "$LF_P" "4000"
-row "Umami"           "$H:8444"       "$UM_U" "$UM_P" "3001"
-row "LiteLLM"         "$H:10000/ui/"  "admin" "$LL_K" "4001"
-row "VictoriaMetrics" "$H/vm/vmui"    "&mdash;" "tailnet" "8428"
-row "VictoriaLogs"    "$H/vlogs"      "&mdash;" "tailnet" "9428"
-row "VictoriaTraces"  "$H/vtraces"    "&mdash;" "tailnet" "10428"
+row "Langfuse"        "$LF"           "$LF_U" "$LF_P" "4000"
+row "Umami"           "$UM"           "$UM_U" "$UM_P" "3001"
+row "LiteLLM"         "$LL/ui/"       "admin" "$LL_K" "4001"
+row "VictoriaMetrics" "$VM/vmui"      "&mdash;" "tailnet" "8428"
+row "VictoriaLogs"    "$VL"           "&mdash;" "tailnet" "9428"
+row "VictoriaTraces"  "$VT"           "&mdash;" "tailnet" "10428"
 cat <<MID
   </tbody></table>
 </div>

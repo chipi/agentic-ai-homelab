@@ -1,0 +1,58 @@
+# Durable homelab exposure — one tailnet node per service, real Tailscale certs.
+#
+# Each `bind tailscale/<name>` registers <name>.tail6d0ed4.ts.net as its own
+# tailnet node; the https:// address makes Caddy serve that node's auto-issued
+# Tailscale cert. MagicDNS resolves the names for every tailnet device — no
+# split DNS, no domain, no CA to trust. Nodes authenticate with $TS_AUTHKEY
+# (reusable, tagged tag:homelab-svc). Backends are reached container-to-container
+# over each stack's docker network (internal ports).
+{
+	tailscale {
+		auth_key {env.TS_AUTHKEY}
+	}
+}
+
+https://grafana.tail6d0ed4.ts.net {
+	bind tailscale/grafana
+	reverse_proxy grafana:3000
+}
+
+https://vm.tail6d0ed4.ts.net {
+	bind tailscale/vm
+	reverse_proxy victoriametrics:8428
+}
+
+https://vlogs.tail6d0ed4.ts.net {
+	bind tailscale/vlogs
+	reverse_proxy victorialogs:9428
+}
+
+https://vtraces.tail6d0ed4.ts.net {
+	bind tailscale/vtraces
+	reverse_proxy victoriatraces:10428
+}
+
+https://litellm.tail6d0ed4.ts.net {
+	bind tailscale/litellm
+	reverse_proxy litellm:4000
+}
+
+https://langfuse.tail6d0ed4.ts.net {
+	bind tailscale/langfuse
+	reverse_proxy langfuse-langfuse-web-1:3000
+}
+
+https://umami.tail6d0ed4.ts.net {
+	bind tailscale/umami
+	reverse_proxy umami:3000
+}
+
+https://glitchtip.tail6d0ed4.ts.net {
+	bind tailscale/glitchtip
+	reverse_proxy glitchtip-web-1:8080
+}
+
+https://hub.tail6d0ed4.ts.net {
+	bind tailscale/hub
+	reverse_proxy homelab-home:80
+}

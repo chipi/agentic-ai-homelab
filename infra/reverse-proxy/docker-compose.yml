@@ -1,0 +1,39 @@
+# Durable service exposure — Caddy + Tailscale plugin. Each service is its own
+# tailnet node (<name>.tail6d0ed4.ts.net) with a real Tailscale cert. No host
+# ports are published: the listeners live on the tailnet via tsnet. Backends are
+# reached over each stack's docker network. Needs TS_AUTHKEY (reusable, tagged
+# tag:homelab-svc) in .env. See docs/wip/mac-mini-headless-server.md.
+services:
+  caddy:
+    build: .
+    image: caddy-tailscale:local
+    container_name: caddy
+    restart: unless-stopped
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:?set TS_AUTHKEY (reusable, tag:homelab-svc) in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # persists each node's tsnet identity + certs
+      - caddy_config:/config
+    networks:
+      - backend_default
+      - litellm_default
+      - langfuse_default
+      - umami_default
+      - glitchtip_default
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  backend_default:
+    external: true
+  litellm_default:
+    external: true
+  langfuse_default:
+    external: true
+  umami_default:
+    external: true
+  glitchtip_default:
+    external: true
