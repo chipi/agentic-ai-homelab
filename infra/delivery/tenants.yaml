@@ -13,6 +13,27 @@ tenants:
     unsubscribe_path: /api/app/comms/unsubscribe
     vapid_subject: mailto:info@closelistening.app
 
+  # Dev/test twin of podcast — drains a LOCAL player-api outbox so dev/test and prod
+  # deliver at the SAME time (one worker per tenant). Reuses podcast's templates +
+  # schema. SANDBOXED: mail_from must be a Resend-VERIFIED TEST domain so a test
+  # drain can never reach real inboxes; its own token + VAPID isolate it from prod.
+  # Activate (all required, or leave commented):
+  #   1. local player-api running on :8092 implementing /internal/outbox/*
+  #   2. set PODCAST_DEV_INTERNAL_OUTBOX_TOKEN + PODCAST_DEV_VAPID_PRIVATE_KEY in .env
+  #   3. verify the sandbox mail_from domain in Resend
+  #   4. symlink templates/podcast-dev -> podcast and schema/podcast-dev -> podcast
+  #      (templates/ is box-local — not in git)
+  #   5. uncomment, then `docker compose up -d` the delivery stack
+  # See docs/wip/mac-mini-headless-server.md.
+  # podcast-dev:
+  #   outbox_base_url: http://127.0.0.1:8092
+  #   internal_token_env: PODCAST_DEV_INTERNAL_OUTBOX_TOKEN
+  #   vapid_private_key_env: PODCAST_DEV_VAPID_PRIVATE_KEY
+  #   mail_from: "Close Listening (dev) <digest@REPLACE-with-resend-verified-sandbox>"
+  #   app_origin: http://127.0.0.1:8092
+  #   unsubscribe_path: /api/app/comms/unsubscribe
+  #   vapid_subject: mailto:info@closelistening.app
+
   # Example second tenant — orrery. Enable by verifying mail.orrerylearn.com in Resend,
   # generating an orrery VAPID keypair, filling its secrets, and adding its templates/schema.
   # Commented out until its outbox implements the /internal/outbox/* seam.
