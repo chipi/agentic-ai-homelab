@@ -20,6 +20,8 @@ git clone <this repo>
 > `~/.claude/skills/*.bak.*` dirs so they don't show up as duplicate skills.
 
 Full step-by-step for a clean Mac: [`setup-new-computer.md`](setup-new-computer.md).
+After every full **restart** (not sleep), validate the machine came back with
+[`post-reboot-checklist.md`](post-reboot-checklist.md).
 
 ## Home ↔ repo map
 

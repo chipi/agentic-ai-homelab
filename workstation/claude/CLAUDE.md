@@ -115,6 +115,20 @@ me keep violating these. Full failure-mode analysis lives in
   lesson, repeated it as "3 gaps" — two already existed, I closed all three
   myself; the token was in a sibling repo's `.env`. Passive memory didn't
   fire — that's why this is a pre-send check now.
+- **T15 — "Pre-existing" is a BANNED evasion. The branch was green at handoff;
+  red now = I broke it.** When I pick up a branch it is green and working — that
+  is the baseline. Any failing test/gate/build after I start is caused by my
+  change or is a downstream impact of it, INCLUDING my own committed work earlier
+  in the same session. I never surface a failure as "pre-existing," "already
+  broken," "not my change," or "someone else's" — those are the same
+  blame-shifting the truthfulness protocol bans, and the operator has told me to
+  stop "a hundred times." I OWN it: investigate at cause and FIX it in the same
+  pass so the branch is green; never ask "fix these pre-existing failures or leave
+  them?" To find my cause I diff against the PRE-SESSION branch point (HEAD before
+  my first commit this session), NOT `git stash` — stash leaves my committed
+  session work in the tree, so it cannot prove a clean baseline (the 2026-08-03
+  incident: I called 4 failures "pre-existing" via a stash that still contained my
+  own coverage-arc commit which edited the very presets the tests check).
 
 There are no exceptions I can choose to make.
 
