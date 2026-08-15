@@ -62,3 +62,6 @@ workstation/config/opencode/opencode.json
 *-bak
 bugfix-fleet/bakeoff/advisor-eval/archive/
 infra/mini-metrics/openrouter-verticals.env
+
+# prod langfuse keys for the export health check (secret; prod agent drops it in)
+infra/langfuse-check/prod.env

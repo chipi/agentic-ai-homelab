@@ -571,6 +571,34 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+  # --- Langfuse trace-export health (2026-08-15 silent-401 outage; infra/langfuse-check) --
+  - orgId: 1
+    name: langfuse
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      # LiteLLM->Langfuse trace export rejected (stale keys → 401) for 15m. LiteLLM logs
+      # nothing when this happens, so this metric is the only signal. gateway=homelab now;
+      # gateway=prod appears once prod's keys are wired into infra/langfuse-check/prod.env.
+      - uid: langfuse-export-down
+        title: "Langfuse trace-export down (LiteLLM keys rejected)"
+        condition: threshold
+        for: 15m
+        labels: { severity: warning, kind: langfuse }
+        annotations:
+          summary: "LiteLLM->Langfuse trace export failing for gateway={{ $labels.gateway }} — keys rejected (401); silent LLM-observability loss. Fix: infra/litellm/.env LANGFUSE_* must equal infra/langfuse/.env LANGFUSE_INIT_PROJECT_*."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model: { expr: 'min by (gateway) (langfuse_export_up)', instant: true, queryType: instant }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
   # --- Delivery worker (podcast_scraper #1412 / ADR-145) -----------------------------
   - orgId: 1
     name: delivery
