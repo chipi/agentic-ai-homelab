@@ -5,7 +5,7 @@
 
 tenants:
   podcast:
-    outbox_base_url: http://127.0.0.1:8092        # the player API over the tailnet
+    outbox_base_url: http://100.124.111.115:8099        # prod player API over the tailnet
     internal_token_env: PODCAST_INTERNAL_OUTBOX_TOKEN
     vapid_private_key_env: PODCAST_VAPID_PRIVATE_KEY
     mail_from: "Close Listening <digest@mail.closelistening.app>"
