@@ -17,6 +17,7 @@ x-logging: &logging
 services:
   langfuse-worker:
     image: docker.io/langfuse/langfuse-worker:3.221.1
+    cpus: 0.5   # trace-ingest worker, barely-used homelab; cap it
     restart: always
     <<: *logging
     depends_on: &langfuse-depends-on
@@ -88,6 +89,7 @@ services:
 
   clickhouse:
     image: docker.io/clickhouse/clickhouse-server
+    cpus: 1.0   # idle ClickHouse scales background threads to cores; cap it (barely-used homelab, was ~204%)
     restart: always
     <<: *logging
     user: "101:101"
@@ -107,6 +109,7 @@ services:
 
   minio:
     image: cgr.dev/chainguard/minio
+    cpus: 0.5   # barely-used object store for langfuse; cap it (was ~40%)
     restart: always
     <<: *logging
     entrypoint: sh

@@ -47,6 +47,7 @@ services:
   victorialogs:
     image: victoriametrics/victoria-logs:v1.52.0
     container_name: victorialogs
+    cpus: 1.0   # cap ingest/query bursts (spiked to ~95% on the 8-core VM)
     command:
       - --httpListenAddr=:9428
       - --retentionPeriod=${VLOGS_RETENTION:-30d}
