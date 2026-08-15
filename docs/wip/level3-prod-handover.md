@@ -148,7 +148,12 @@ LLM tracing is almost certainly silently 401'ing too (LiteLLM logs nothing).
 - Verify: `curl -u $PK:$SK http://homelab:4000/api/public/projects` → 200, then a call
   through the prod gateway lands a trace.
 
-**Wire prod into the new health check:** once prod's Langfuse keys are known-good, drop them
+**✅ DONE (2026-08-15):** `infra/langfuse-check/prod.env` is written and
+`langfuse_export_up{gateway="prod"}=1` is verified live in VictoriaMetrics — i.e. prod's
+Langfuse keys are valid, so **prod LiteLLM→Langfuse tracing is already working** and now
+alerted. No further action on this item.
+
+**(Reference — how it was wired:)** drop prod's Langfuse keys
 into the mini's `infra/langfuse-check/prod.env` (gitignored):
 ```
 PROD_LF_PUBLIC_KEY=pk-lf-...
