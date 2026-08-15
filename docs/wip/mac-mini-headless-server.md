@@ -318,6 +318,26 @@ tag:homelab-host (443 paths + 8443/8444/8445/10000) + the `--tcp=9443` passthrou
 the 9443 ACL grant. Old access still live in parallel until each service is cut over.
 Auth key can be revoked once nodes proven stable (state persisted).
 
+## Committed to origin/main (2026-08-15, "commit everything minus secrets")
+
+Repo is now the reproducible inventory — `git clone` + per-box `.env` restores a box:
+- Caddy reverse-proxy stack + `.env.example`, homepage `gen.sh` (per-service URLs),
+  workstation edits, homelab-home colima port fix, this doc.
+- **delivery**: podcast tenant outbox synced to the deployed prod value
+  (`100.124.111.115:8099`); **podcast-dev tenant added + ACTIVE** — a twin that
+  drains the local dev player-api outbox (`127.0.0.1:8092`) alongside prod so dev +
+  prod deliver simultaneously. Reuses podcast's `PODCAST_*` secrets + templates +
+  schema (symlinks `delivery/templates/podcast-dev` and `schema/podcast-dev` →
+  podcast). Delivery config is BAKED into the image (Dockerfile COPYs tenants.yaml +
+  delivery/), read from `/app/tenants.yaml` — so activating needed an **image
+  rebuild**, not a bind-mount edit. Rebuilt + recreated on the mini; both workers
+  live. When `:8092` is down the podcast-dev worker logs a caught connection-refused
+  each poll (VLogs noise only — no alert: `delivery-worker-down` watches
+  `up{job=delivery}` per channel; liveness is process-based; no error metric).
+
+Note: `.env` (secrets) stays gitignored on each box. Delivery templates ARE in git
+(`delivery/delivery/templates/`), earlier "not in git" was a wrong-dir read.
+
 ## Other open items (non-blocking)
 - **Reboot test NOT performed** (operator declined). It's the only way to *prove*
   headless survival — but pointless/risky until Tailscale option is resolved,
