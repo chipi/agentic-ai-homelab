@@ -61,7 +61,12 @@ services:
       # current main revision.
       # - --revision=MODEL_REVISION_PLACEHOLDER
       - --host=0.0.0.0
-      - --port=${VLLM_PORT:-8003}
+      # API port HARDCODED to 8003 (the only port the tailnet ACL permits out of
+      # the DGX). Decoupled from VLLM_PORT on purpose: vLLM's EngineCore binds
+      # VLLM_PORT+1 for its ZMQ, and with VLLM_PORT=8003 that was 8004 = moss's
+      # port → a ~3-day silent moss crash-loop. Set VLLM_PORT=8090 in .env so the
+      # engine lands on 8091, clear of moss:8004. Validated 2026-08-16.
+      - --port=8003
       - --api-key=${VLLM_API_KEY:-buddy-is-the-king}
       # No tool-call parser flags here — autoresearch sweeps measure
       # summary / GI / KG quality, not tool use. The eval harness drives
@@ -84,7 +89,7 @@ services:
       - NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4
       - autoresearch
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${VLLM_PORT:-8003}/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8003/health"]
       interval: 30s
       timeout: 5s
       retries: 3

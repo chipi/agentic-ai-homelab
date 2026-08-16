@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Nightly observability-DB backup on the mini. Install:
+       sudo cp com.homelab.db-backup.plist /Library/LaunchDaemons/
+       sudo launchctl load -w /Library/LaunchDaemons/com.homelab.db-backup.plist
+     Runs dump-observability-dbs.sh at 04:30 daily. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.homelab.db-backup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/markodragoljevic/agentic-ai-homelab/infra/backup/dump-observability-dbs.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>30</integer></dict>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/tmp/com.homelab.db-backup.log</string>
+  <key>StandardErrorPath</key><string>/tmp/com.homelab.db-backup.log</string>
+</dict>
+</plist>

@@ -48,22 +48,32 @@ Pre-existing (vLLM up 2d20h), surfaced by a moss recreate. **Resolved** by
 `gpu-mode-swap.sh free` (idles vLLM, frees 8004) per operator — moss now healthy,
 `RestartCount=0`.
 
-## NOT done / pending (equal weight)
-- **Durable vLLM port fix** (task #7): idling fixed it *now*, but `gpu-mode-swap.sh
-  research` will re-collide. Fix = pin vLLM engine port off 8004 (`VLLM_PORT` in
-  `infra/vllm/autoresearch/docker-compose.yml`, keep `--port=8003`). **Staged, not
-  shipped** — needs a live vLLM start to validate it doesn't break startup; box is
-  idled, so deferred to next research swap.
-- **env label `production`** (task, batch): today moss=`prod`, pyannote=`dgx-prod`,
-  log label `env=prod`. Standardize both (alloy `HOMELAB_ENV` + converge
-  `SENTRY_ENVIRONMENT`) — cross-repo (podcast_scraper converge). Not yet done.
-- **Backup guardrail** (task #6): nightly `pg_dump` of GlitchTip/Umami/Langfuse so a
-  future volume reprovision is a restore, not permanent loss (the failure that
-  started this whole thread). Not yet built.
-- **vllm logs** not live-validated (idled).
+## Done in the 2026-08-16 fix pass (all validated)
+- **Durable vLLM port fix (task #7): SHIPPED + validated.** API hardcoded to 8003,
+  `VLLM_PORT=8090` → engine binds **8091** (not 8004). Started research live:
+  `:8003/health → 200`, EngineCore on `:8090`, **moss kept :8004, RestartCount=0** —
+  they coexist. Then re-idled (`free`). Fix in `infra/vllm/autoresearch/`
+  docker-compose.yml + .env.example, and on the DGX `.env` (`VLLM_PORT=8090`).
+- **vllm logs: validated** — 20 `vllm-autoresearch` lines in VictoriaLogs while up.
+- **env label `production`: done + validated.** Set in all 4 sources (shared `.env`
+  `SENTRY_ENVIRONMENT`, moss compose override, DGX alloy `HOMELAB_ENV`, converge
+  `deploy.py`). GlitchTip events for proj 14+15 now tagged `production`; VLogs DGX
+  logs carry `env=production, cluster=dgx`.
+- **Backup guardrail (task #6): done + tested.** `infra/backup/dump-observability-dbs.sh`
+  + `com.homelab.db-backup.plist` (nightly 04:30) installed on the mini; test dump of
+  all 4 config DBs succeeded (glitchtip/umami/langfuse/litellm).
+
+## Still open
+- **converge durability caveat:** the `SENTRY_ENVIRONMENT=production` edit to
+  `deploy.py` was made in the DGX runner checkout — the **podcast_scraper GitHub repo**
+  needs the same commit or a CI re-checkout reverts it (moss's compose is
+  converge-generated). Coordinate with the podcast/orrery agent.
 - **Repo divergence:** the DGX `/home/ops/agentic-ai-homelab` checkout has
   `infra/librechat` + `infra/vllm/autoresearch` that differ from origin — reconcile
-  before relying on in-repo copies for those two.
+  before relying on in-repo copies for those two. (The vLLM compose fix here was made
+  to BOTH the DGX copy and this repo; librechat still needs reconciling.)
+- **GlitchTip cosmetic:** stale `prod`/`dgx-prod` environment rows remain (FK-guarded
+  delete didn't take) — harmless, no new events use them.
 
 ## Rollback
 - Per-service DSN: `/home/markodragoljevic/.env.bak-*` on the DGX (backed up before
