@@ -89,7 +89,10 @@ services:
 
   clickhouse:
     image: docker.io/clickhouse/clickhouse-server
-    cpus: 1.0   # idle ClickHouse scales background threads to cores; cap it (barely-used homelab, was ~204%)
+    cpus: 0.5   # idle ClickHouse scales background threads to cores; cap it (barely-used homelab, was ~204%).
+                # config tune (clickhouse-lowcpu.xml, async metrics 1s->60s) didn't crack the idle spin —
+                # it's thread-pool-driven and background_pool_size can't go low (mutation sanity check) — so
+                # the cgroup cap is the reliable lever for this trivial trace volume.
     restart: always
     <<: *logging
     user: "101:101"
@@ -100,6 +103,7 @@ services:
     volumes:
       - langfuse_clickhouse_data:/var/lib/clickhouse
       - langfuse_clickhouse_logs:/var/log/clickhouse-server
+      - ./clickhouse-lowcpu.xml:/etc/clickhouse-server/config.d/zzz-lowcpu.xml:ro
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
       interval: 5s

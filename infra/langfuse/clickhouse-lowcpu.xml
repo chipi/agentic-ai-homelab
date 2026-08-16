@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!-- Low-CPU tuning for a barely-used homelab Langfuse ClickHouse. Default ClickHouse
+     recomputes ALL async metrics every 1s (reads /proc + system tables constantly),
+     which is the bulk of its ~1-core idle spin (261 threads, 0 merges). Stretching that
+     interval is the safe, high-impact lever. Loads last (zzz-) so it wins over defaults.
+     NOTE: do NOT shrink background_pool_size here — ClickHouse's mutation sanity check
+     requires background_pool_size * background_merges_mutations_concurrency_ratio >= 20,
+     so lowering it to 2 makes the server refuse to start (BAD_ARGUMENTS). -->
+<clickhouse>
+    <asynchronous_metrics_update_period_s>60</asynchronous_metrics_update_period_s>
+    <asynchronous_heavy_metrics_update_period_s>300</asynchronous_heavy_metrics_update_period_s>
+</clickhouse>
