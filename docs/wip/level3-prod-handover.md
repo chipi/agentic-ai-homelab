@@ -98,6 +98,16 @@ Umami upstream) from the raw homelab endpoint to `glitchtip.tail6d0ed4.ts.net` /
 Host must be allowed). **Do NOT do GlitchTip alone** — ping me and we flip both together, or
 we sequence it as its own mini-step. (Umami has no server-side host binding, lower risk.)
 
+**✅ HOMELAB SIDE DONE (2026-08-16):** on the mini I set `GLITCHTIP_DOMAIN=https://glitchtip.tail6d0ed4.ts.net`
+and wired `CSRF_TRUSTED_ORIGINS=https://glitchtip.tail6d0ed4.ts.net,https://homelab.tail6d0ed4.ts.net:8445`
+(new node + old serve port, so UI login works on both during the flip), recreated web+worker.
+Verified: UI `GET / → 200` (real cert, `ssl_verify=0`); ingest `POST /api/1/envelope/ → 403
+{"detail":"Denied"}` = DSN-auth reject, **host accepted** (not DisallowedHost). `ALLOWED_HOSTS`
+defaults to `["*"]` so the current raw `:8090` path keeps working until you flip — **no breakage
+window.** Prod agent: flip `GLITCHTIP_UPSTREAM` → `https://glitchtip.tail6d0ed4.ts.net` (the node
+speaks TLS, so `reverse_proxy https://glitchtip.tail6d0ed4.ts.net` — no `header_up Host` needed,
+`ALLOWED_HOSTS=*`), `systemctl restart caddy`. Umami flips independently (no host binding).
+
 ### 5. Verify prod telemetry lands on the nodes (same as I did for DGX)
 From anywhere on the tailnet:
 ```
