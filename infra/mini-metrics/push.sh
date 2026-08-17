@@ -73,5 +73,11 @@ while true; do
   $D inspect $($D ps -aq) --format "$CFMT" 2>/dev/null \
     | python3 "$(cd "$(dirname "$0")" && pwd)/ctr.py" mini \
     | curl -s -m8 -o /dev/null --data-binary @- "$VM" || true
+  # per-container cpu/mem BY NAME via docker stats (cAdvisor can't see containers on
+  # colima's cgroup v2). --no-stream snapshot (~5s). Feeds container_cpu_percent /
+  # container_memory_bytes{box="mini",name=…}.
+  $D stats --no-stream --no-trunc --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' 2>/dev/null \
+    | python3 "$(cd "$(dirname "$0")" && pwd)/stats.py" mini \
+    | curl -s -m10 -o /dev/null --data-binary @- "$VM" || true
   sleep 20
 done

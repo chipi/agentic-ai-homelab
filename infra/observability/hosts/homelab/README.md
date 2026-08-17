@@ -10,13 +10,16 @@ The DGX's Alloy collector can't run here (Linux-only). This is the macOS variant
 |---|---|---|
 | macOS host (cpu/mem/**disk**/load) | **native `node_exporter`** (brew) on `:9100` | MUST be native — a container sees the colima Linux VM, not real macOS |
 | container logs (all stack containers) | Alloy container + Docker socket → VictoriaLogs | high value |
+| per-container cpu/mem | **`docker stats`** collector (`infra/mini-metrics/`) → `container_cpu_percent` / `container_memory_bytes{box,name}` | see note below |
 | metrics/logs sink | local backend via `host.docker.internal:8428/:9428` | loopback-local, no tailnet/ACL |
 
-**Known gap:** per-container CPU/mem (cAdvisor) is not included — it was
-unreliable on the old OrbStack runtime. **On colima (current runtime) this may now
-be viable** — revisit if you want per-container resource metrics. (Container
-*state/uptime* is already covered by `infra/mini-metrics/ctr.py`; cAdvisor would
-add per-container CPU/mem/IO on top.)
+**Per-container cpu/mem — why `docker stats`, not cAdvisor:** cAdvisor does **not**
+work on colima (cgroup v2 + cgroupfs driver + cgroupns — it only sees the
+system/systemd cgroups, not the docker container scopes, so it yields zero
+per-container data on the mini). `docker stats --no-stream` sees every container
+*and* carries the friendly name, so `infra/mini-metrics/push.sh` (via `stats.py`)
+scrapes it into `container_cpu_percent` / `container_memory_bytes{box,name}`.
+Container *state/uptime* is a separate series from `infra/mini-metrics/ctr.py`.
 
 ## Setup
 
