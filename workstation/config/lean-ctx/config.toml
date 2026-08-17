@@ -22,6 +22,22 @@ update_check_disabled = true
 bm25_max_cache_mb = 128
 memory_profile = "balanced"
 memory_cleanup = "aggressive"
+shell_allowlist_extra = [
+    "gitleaks",
+    "docker",
+    "python3.12",
+    "python3.11",
+    "ffmpeg",
+    "rclone",
+    "tofu",
+    "sops",
+    "tmux",
+    "launchctl",
+    "zsh",
+    "defaults",
+    "plutil",
+    "bash",
+]
 
 [cloud]
 contribute_enabled = false
@@ -74,10 +90,10 @@ max_procedures = 100
 max_window_size = 10
 
 [memory.lifecycle]
-decay_rate = 0.009999999776482582
-low_confidence_threshold = 0.30000001192092896
+decay_rate = 0.01
+low_confidence_threshold = 0.3
 stale_days = 30
-similarity_threshold = 0.8500000238418579
+similarity_threshold = 0.85
 
 [memory.embeddings]
 max_facts = 2000
@@ -85,6 +101,9 @@ max_facts = 2000
 [memory.gotcha]
 max_gotchas_per_project = 100
 retrieval_budget_per_room = 10
-default_decay_rate = 0.029999999329447746
+default_decay_rate = 0.03
 
 [memory.gotcha.category_decay_overrides]
+
+[gain]
+last_auto_publish = "2026-08-17T15:21:49.879173+00:00"

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Workbench tmux session — recreates the 'main' session with one window per
+  project by running ~/bin/wb-session.sh. The script is idempotent: it exits 0
+  immediately if the session already exists, so re-running is always safe.
+
+  Install:
+    cp com.chipi.workbench.plist ~/Library/LaunchAgents/
+    launchctl load -w ~/Library/LaunchAgents/com.chipi.workbench.plist
+  Stop:
+    launchctl unload -w ~/Library/LaunchAgents/com.chipi.workbench.plist
+  Logs:
+    ~/Library/Logs/workbench.{out,err}.log
+
+  SCOPE CAVEAT: this is a LaunchAgent in the 'claude' user domain, so it runs
+  when a 'claude' session starts (SSH login) — NOT at boot. The console user on
+  this box is 'markodragoljevic' and no autoLoginUser is set, so 'claude' never
+  gets a login session from a plain reboot. Covering the no-login boot case
+  needs a LaunchDaemon in /Library/LaunchDaemons with <UserName>claude</UserName>,
+  which requires root.
+
+  tmux socket is /private/tmp/tmux-503/default (tmux honours TMUX_TMPDIR/-L, not
+  TMPDIR), so the session is reachable from any session type with the same uid.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.chipi.workbench</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/claude/bin/wb-session.sh</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <!-- Must include Background: this box reaches 'claude' over SSH, never Aqua.
+       A LaunchAgent defaults to Aqua only, which fails to bootstrap here. -->
+  <key>LimitLoadToSessionType</key>
+  <array>
+    <string>Aqua</string>
+    <string>Background</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/claude</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StandardOutPath</key><string>/Users/claude/Library/Logs/workbench.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/claude/Library/Logs/workbench.err.log</string>
+</dict>
+</plist>

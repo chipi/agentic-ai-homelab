@@ -46,6 +46,13 @@ link config/AGENTS.md              "$HOME/.config/AGENTS.md"
 link config/lean-ctx/config.toml   "$HOME/.config/lean-ctx/config.toml"
 link config/ponytail/config.json   "$HOME/.config/ponytail/config.json"
 link claude/CLAUDE.md              "$HOME/.claude/CLAUDE.md"
+# workbench — persistent tmux session for phone/SSH access (workbench/README.md).
+# The LaunchAgent still needs a one-off bootstrap after linking:
+#   launchctl bootstrap user/$(id -u) ~/Library/LaunchAgents/com.chipi.workbench.plist
+link workbench/wb                  "$HOME/bin/wb"
+link workbench/wb-session.sh       "$HOME/bin/wb-session.sh"
+link workbench/tmux.conf           "$HOME/.tmux.conf"
+link workbench/com.chipi.workbench.plist "$HOME/Library/LaunchAgents/com.chipi.workbench.plist"
 for _sk in "$WS"/claude/skills/*/; do
   [ -d "$_sk" ] || continue
   _n="$(basename "$_sk")"
