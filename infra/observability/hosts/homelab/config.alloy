@@ -1,11 +1,11 @@
 // =============================================================================
-// homelab (Mac mini) SELF-monitoring collector — runs as a CONTAINER on OrbStack.
+// homelab (Mac mini) SELF-monitoring collector — runs as a CONTAINER on colima.
 //
 // The DGX collector can't run here (it's Linux: network_mode host, /rootfs, DCGM).
 // On macOS the split is:
 //   • macOS HOST metrics (cpu/mem/DISK/load) → a NATIVE node_exporter (brew) on
 //     :9100, reached from this container via host.docker.internal. A container
-//     CANNOT see real macOS host stats (it sees the OrbStack Linux VM), so the
+//     CANNOT see real macOS host stats (it sees the colima Linux VM), so the
 //     host exporter MUST run natively — see README.
 //   • CONTAINER logs (the whole observability stack) → Docker socket.
 // Writes to the LOCAL backend on the same box (host.docker.internal published
@@ -56,6 +56,28 @@ prometheus.scrape "delivery" {
   forward_to      = [prometheus.remote_write.local.receiver]
   job_name        = "delivery"
   scrape_interval = "30s"
+}
+
+// ---------- CONTAINERS: cAdvisor (per-container cpu/mem/io) ----------
+// cadvisor is a bridge container on THIS compose's network (see docker-compose.yml),
+// reached by docker DNS at cadvisor:8080 — NOT host.docker.internal (which points at
+// the Mac, not the colima VM). Was excluded under OrbStack (unreliable); viable on
+// colima. The keep-list curates cAdvisor's firehose to the series the container
+// dashboards use (matches the prod-podcast collector's cadvisor_keep).
+prometheus.scrape "cadvisor" {
+  targets         = [{ __address__ = "cadvisor:8080", instance = "homelab" }]
+  forward_to      = [prometheus.relabel.cadvisor_keep.receiver]
+  job_name        = "cadvisor"
+  scrape_interval = "60s"
+}
+
+prometheus.relabel "cadvisor_keep" {
+  forward_to = [prometheus.remote_write.local.receiver]
+  rule {
+    source_labels = ["__name__"]
+    regex         = "container_cpu_usage_seconds_total|container_memory_(usage|working_set|max_usage|rss)_bytes|container_fs_(reads|writes)_bytes_total|container_network_(receive|transmit)_bytes_total|container_oom_events_total|container_start_time_seconds|container_last_seen|container_spec_memory_limit_bytes|container_spec_cpu_(quota|period)|container_tasks_state|machine_cpu_cores|machine_memory_bytes"
+    action        = "keep"
+  }
 }
 
 // ---------- LOGS: all docker container stdout/stderr ----------

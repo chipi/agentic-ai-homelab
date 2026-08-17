@@ -24,3 +24,28 @@ services:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
     restart: unless-stopped
+
+  # Per-container cpu/mem/io. Reads the colima VM's cgroups + docker via the mounts,
+  # so it sees every container on the mini — no host networking needed (cAdvisor reads
+  # cgroups, not the network). Bridge-networked on this compose's default net so
+  # `alloy` reaches it by docker DNS at cadvisor:8080 (host.docker.internal points at
+  # the Mac, not the VM, on colima). Was excluded under OrbStack (unreliable); viable
+  # on colima.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    privileged: true
+    cgroup: host
+    command: ["--port=8080"]
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    restart: unless-stopped
