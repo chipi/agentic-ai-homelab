@@ -41,8 +41,14 @@ Need: a repeatable, low-toil "empty Mac mini → running platform" path.
   first. Fresh-start means the mini's Grafana/GlitchTip/Langfuse begin empty.
 - **Mac-specific unknowns to validate on first boot** (flagged in the runbook):
   publishing container ports to the `utun` tailnet IP (may need `0.0.0.0` + macOS
-  firewall instead); OrbStack auto-start + restart-on-reboot; volume perf.
-- New deps recorded here (sops, age, OrbStack) per the deps/big-bets rules.
+  firewall instead); colima auto-start + restart-on-reboot; volume perf.
+- New deps recorded here (sops, age, colima) per the deps/big-bets rules.
+
+**Implementation update (2026-08-14):** shipped with colima (not OrbStack) for better
+macOS native integration. Exposure via caddy-tailscale nodes — each service has its own
+Tailscale certificate node (Grafana, GlitchTip, Umami, Langfuse, LiteLLM, VictoriaMetrics,
+VictoriaLogs, VictoriaTraces, hub). See [`docs/observability-dependency-map.md`](../observability-dependency-map.md)
+for the architecture.
 
 ## Non-goals
 

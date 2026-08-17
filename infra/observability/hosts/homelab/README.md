@@ -8,13 +8,15 @@ The DGX's Alloy collector can't run here (Linux-only). This is the macOS variant
 
 | Signal | Mechanism | Notes |
 |---|---|---|
-| macOS host (cpu/mem/**disk**/load) | **native `node_exporter`** (brew) on `:9100` | MUST be native — a container sees the OrbStack Linux VM, not real macOS |
+| macOS host (cpu/mem/**disk**/load) | **native `node_exporter`** (brew) on `:9100` | MUST be native — a container sees the colima Linux VM, not real macOS |
 | container logs (all stack containers) | Alloy container + Docker socket → VictoriaLogs | high value |
 | metrics/logs sink | local backend via `host.docker.internal:8428/:9428` | loopback-local, no tailnet/ACL |
 
-**Known gap:** per-container CPU/mem (cAdvisor) is not included — cAdvisor is
-unreliable on OrbStack. Host + logs cover the important signals; add cAdvisor
-later if you want per-container metrics.
+**Known gap:** per-container CPU/mem (cAdvisor) is not included — it was
+unreliable on the old OrbStack runtime. **On colima (current runtime) this may now
+be viable** — revisit if you want per-container resource metrics. (Container
+*state/uptime* is already covered by `infra/mini-metrics/ctr.py`; cAdvisor would
+add per-container CPU/mem/IO on top.)
 
 ## Setup
 

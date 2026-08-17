@@ -8,32 +8,37 @@ sender cutover is **done**; it's stable now, and future host swaps are free
 
 ## The mapping (infra owns this)
 
-`homelab` → the observability host. One host, one name, services by port:
+`homelab` → the observability host (Mac mini). One host, one name, services by port and tailnet node:
+
+**Sender paths (internal ingest):**
 
 | Port | Service | Sender path |
 |---|---|---|
-| `8428` | VictoriaMetrics (metrics ingest) | `http://homelab:8428/api/v1/write` |
-| `9428` | VictoriaLogs (logs ingest) | `http://homelab:9428/insert/loki/api/v1/push` |
-| `10428` | VictoriaTraces (OTLP traces) | `http://homelab:10428/insert/opentelemetry/v1/traces` |
-| `3000` | Grafana (UI) | `http://homelab:3000` |
-| `8090` | GlitchTip (errors) | DSN host `homelab:8090` |
-| `4000` | Langfuse (LLM tracing) | ingest `http://homelab:4000/api/public/ingestion` |
+| `8428` | VictoriaMetrics (metrics ingest) | `http://homelab:8428/api/v1/write` or `http://100.87.33.61:8428/api/v1/write` |
+| `9428` | VictoriaLogs (logs ingest) | `http://homelab:9428/insert/loki/api/v1/push` or `http://100.87.33.61:9428/insert/loki/api/v1/push` |
+| `10428` | VictoriaTraces (OTLP traces) | `http://homelab:10428/insert/opentelemetry/v1/traces` or `http://100.87.33.61:10428/insert/opentelemetry/v1/traces` |
+| `3000` | Grafana (UI, internal) | `http://homelab:3000` |
+| `8090` | GlitchTip (ingest, loopback-only) | DSN host `homelab:8090` (loopback; use node URL for tailnet ingest, see below) |
+| `4000` | Langfuse (ingest backend, internal) | `http://homelab:4000/api/public/ingestion` |
 
-The rows above are **sender / ingest** paths (how apps push telemetry). The
-human-facing **web UIs** are served separately over HTTPS via `tailscale serve`
-(tailnet-only), on dedicated TLS ports because several frontends can't run under
-a stripped `/path` subpath. Base FQDN `https://homelab.tail6d0ed4.ts.net`:
+**Web UIs via per-service Tailscale nodes** (HTTPS, tailnet-only):
 
-| UI | URL |
+The human-facing **web UIs** are served via dedicated **Tailscale certificate nodes** —
+each service is a real Tailscale host (no `tailscale serve`). Access by node FQDN:
+
+| Service | Node URL |
 |---|---|
-| Grafana | `…/grafana` |
-| Langfuse | `…:8443` |
-| Umami | `…:8444` |
-| GlitchTip | `…:8445` |
-| LiteLLM (admin) | `…:10000/ui/` |
-| VictoriaMetrics / Logs / Traces | `…/vm/vmui` · `…/vlogs` · `…/vtraces` |
+| Grafana | `https://grafana.tail6d0ed4.ts.net` |
+| Langfuse (web UI) | `https://langfuse.tail6d0ed4.ts.net` |
+| Umami (admin UI) | `https://umami.tail6d0ed4.ts.net` |
+| GlitchTip (admin UI) | `https://glitchtip.tail6d0ed4.ts.net` |
+| LiteLLM (admin UI) | `https://litellm.tail6d0ed4.ts.net/ui/` |
+| VictoriaMetrics | `https://vm.tail6d0ed4.ts.net` |
+| VictoriaLogs | `https://vlogs.tail6d0ed4.ts.net` |
+| VictoriaTraces | `https://vtraces.tail6d0ed4.ts.net` |
+| Homelab hub (start page) | `https://hub.tail6d0ed4.ts.net` |
 
-See [`infra/homelab-serve/`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/homelab-serve/README.md) for the serve map + ACL.
+See [`infra/reverse-proxy/`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/reverse-proxy/) for the Caddyfile + [`docs/observability-dependency-map.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/observability-dependency-map.md) for the architecture.
 
 ## How `homelab` works on FREE Tailscale (device name, not a custom record)
 

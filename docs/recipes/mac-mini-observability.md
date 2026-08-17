@@ -13,7 +13,7 @@ Decision + rationale: [ADR-0006](../adr/ADR-0006-mac-mini-observability-provisio
 > healthy locally but tailnet peers time out, re-run bootstrap with
 > **`BIND=0.0.0.0 ./infra/observability/bootstrap.sh`** (binds all interfaces —
 > also LAN-exposed; rely on macOS firewall + the tailnet ACL). Also confirm
-> OrbStack is set to start at login and restart containers after reboot.
+> colima is set to start at login and restart containers after reboot.
 >
 > **Sizing:** the 2018 i7 mini with **32 GB** runs the full stack comfortably
 > (~8–10 GB working set) — no staging needed. `bootstrap.sh` warns if RAM < 12 GB.
@@ -21,8 +21,8 @@ Decision + rationale: [ADR-0006](../adr/ADR-0006-mac-mini-observability-provisio
 ## 0. Prereqs (install once)
 
 ```sh
-# Docker runtime — OrbStack (lighter/faster than Docker Desktop)
-brew install orbstack           # then launch it once; enable "start at login"
+# Docker runtime — colima (QEMU-backed, lighter/faster than Docker Desktop)
+brew install colima             # then launch it once; enable "start at login"
 brew install tailscale sops age git
 ```
 - `tailscale up` — note the mini's tailnet IP (`tailscale ip -4`) and give it a
@@ -52,6 +52,7 @@ Generators: passwords `openssl rand -hex 16`; keys `openssl rand -hex 32`
 ## 2. Bootstrap (repeatable)
 
 ```sh
+colima start                                    # start the container runtime (if not running)
 ./infra/observability/bootstrap.sh --dry-run    # writes .env files only, no containers
 ./infra/observability/bootstrap.sh              # decrypt → .env → compose up → verify
 ```
@@ -68,7 +69,7 @@ In the Tailscale admin console, grant to this host's tag:
 ## 4. Post-bootstrap (fresh-start setup)
 
 - **GlitchTip:** the org/team/project are NOT auto-created (mobile UI hangs on
-  org creation) — create them from a desktop browser at `https://homelab.tail6d0ed4.ts.net:8445`
+  org creation) — create them from a desktop browser at `https://glitchtip.tail6d0ed4.ts.net`
   (superuser login, then Organization → Team → Project), or server-side via the
   container's Django shell; then grab the project DSN. Setup + admin bootstrap:
   [`infra/glitchtip/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/glitchtip/README.md).

@@ -26,14 +26,14 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 
 | System | Purpose | Host | Access | Creds | README |
 |---|---|---|---|---|---|
-| **observability** | Metrics/logs/traces backend — Grafana + VictoriaMetrics/Logs/Traces + Alloy | mini | Grafana `homelab:3000` · VM `:8428` · VLogs `:9428` · VTraces `:10428` | `backend/.env` | [observability/](observability/README.md) |
-| **glitchtip** | Self-hosted error tracking (Sentry-compatible) | mini | admin UI `homelab:8445` (HTTPS serve) · public ingest `telemetry.closelistening.app` | `glitchtip/.env` | [glitchtip/](glitchtip/README.md) |
-| **umami** | Privacy-friendly web analytics | mini | admin `homelab:8444` (HTTPS serve → loopback `:3001`) | `~/umami/.env` | [umami/](umami/README.md) |
-| **langfuse** | LLM tracing / cost observability | mini | `homelab:4000` | `langfuse/.env` | [langfuse/](langfuse/README.md) |
-| **litellm** | Production LLM gateway — provider-swappable aliases + per-consumer budget keys | mini | `homelab:4001/v1` (master + virtual keys) | `litellm/.env` | [litellm/](litellm/README.md) |
+| **observability** | Metrics/logs/traces backend — Grafana + VictoriaMetrics/Logs/Traces + Alloy | mini | Grafana `https://grafana.tail6d0ed4.ts.net` · VM `https://vm.tail6d0ed4.ts.net` · VLogs `https://vlogs.tail6d0ed4.ts.net` · VTraces `https://vtraces.tail6d0ed4.ts.net` | `backend/.env` | [observability/](observability/README.md) |
+| **glitchtip** | Self-hosted error tracking (Sentry-compatible) | mini | admin UI `https://glitchtip.tail6d0ed4.ts.net` · public ingest `telemetry.closelistening.app` · ingest port `:8090` (loopback) | `glitchtip/.env` | [glitchtip/](glitchtip/README.md) |
+| **umami** | Privacy-friendly web analytics | mini | admin `https://umami.tail6d0ed4.ts.net` · ingest port `:3001` (loopback) | `~/umami/.env` | [umami/](umami/README.md) |
+| **langfuse** | LLM tracing / cost observability | mini | web UI `https://langfuse.tail6d0ed4.ts.net` · ingest `:4000` (internal) | `langfuse/.env` | [langfuse/](langfuse/README.md) |
+| **litellm** | Production LLM gateway — provider-swappable aliases + per-consumer budget keys | mini | web UI `https://litellm.tail6d0ed4.ts.net/ui/` · ingest `:4001/v1` (internal) | `litellm/.env` | [litellm/](litellm/README.md) |
 | **delivery** | Outbound comms — multi-tenant digest email (Resend) + self-hosted Web Push | mini | tailnet-only, egress-only; loopback `/metrics` `:9110-9112` | `delivery/.env` | [delivery/](delivery/README.md) |
-| **homelab-home** | Tailnet start page (mini · DGX · prod columns) | mini | `homelab:8888` | reads other stacks' `.env` | [homelab-home/](homelab-home/README.md) |
-| **homelab-serve** | Tailnet HTTPS entry points (`tailscale serve`) for the mini's services — re-appliable map | mini | `homelab/<svc>` · `:8443` Langfuse · `:8444` Umami · `:8445` GlitchTip · `:10000` LiteLLM UI | — | [homelab-serve/](homelab-serve/README.md) |
+| **homelab-home** | Tailnet start page (mini · DGX · prod columns) | mini | `https://hub.tail6d0ed4.ts.net` | reads other stacks' `.env` | [homelab-home/](homelab-home/README.md) |
+| **reverse-proxy** | Per-service Tailscale nodes (Caddy) serving HTTPS for observability + admin UIs | mini | web nodes `{grafana,glitchtip,umami,langfuse,litellm,hub,vm,vlogs,vtraces}.tail6d0ed4.ts.net` | — | [reverse-proxy/](reverse-proxy/README.md) |
 | **mini-metrics** | Mac-mini host metrics → VictoriaMetrics | mini | pushes to VM `:8428` | — | [mini-metrics/](mini-metrics/README.md) |
 | **dgx-scrape** | Pulls DGX GPU/app metrics + TCP health over tailnet → VM | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
 | **ci-ops-poller** | Pulls GitHub Actions runs (CI / drift / drill) → VictoriaLogs for CI health + DORA | mini | pushes to VLogs `:9428` | `ci-ops-poller/.env` | [ci-ops-poller/](ci-ops-poller/README.md) |
@@ -84,7 +84,7 @@ are the OS-level pieces a fresh install needs first. Do them top to bottom:
 |---|---|---|---|
 | 1 | **Xcode Command Line Tools** | `xcode-select --install` | gives `git` + `make` — needed to clone the repo and build `osx-cpu-temp` |
 | 2 | **Homebrew** | the [brew.sh](https://brew.sh) install one-liner | the package manager everything below rides on |
-| 3 | **Brew packages** | `brew bundle --file infra/Brewfile` | OrbStack (container engine), node_exporter, sops, age — see [`Brewfile`](Brewfile). `mini-setup.sh` runs this for you. |
+| 3 | **Brew packages** | `brew bundle --file infra/Brewfile` | colima (container engine, QEMU-backed), node_exporter, sops, age — see [`Brewfile`](Brewfile). `mini-setup.sh` runs this for you. |
 | 4 | **Tailscale** | Mac **App Store** → sign in, `tailscale up` | the tailnet everything binds to. It's the App Store GUI build (root-owned), **not** a brew cask — that's why it's not in the Brewfile. |
 | 5 | **age key** | drop the private key at `~/.config/sops/age/keys.txt` | `bootstrap.sh` decrypts `secrets.sops.env` with it — the one secret no script can regenerate; restore it from your password manager / backup. |
 
@@ -95,7 +95,7 @@ Both run **in-place from this checkout** (no copy-outs), so `git pull` ships upd
 ```sh
 git clone <repo> ~/agentic-ai-homelab && cd ~/agentic-ai-homelab
 ./infra/observability/bootstrap.sh   # CONTAINERS — Grafana + Victoria* + GlitchTip + Langfuse + Umami
-                                     #   (needs OrbStack running, tailscale up, sops+age+age-key from above)
+                                     #   (needs colima running, tailscale up, sops+age+age-key from above)
 ./infra/mini-setup.sh                # HOST bits — runs `brew bundle`, then installs node_exporter,
                                      #   the launchd collectors (mini-metrics / dgx-scrape / ci-ops-poller),
                                      #   the CPU-temp reader, and the Grafana alert-provisioning reload
@@ -117,11 +117,11 @@ reversible** — do them directly, no approval:
 | I want to… | Do this |
 |---|---|
 | See what's running on the hub | `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes homelab '/usr/local/bin/docker ps'` |
-| Open a dashboard | Grafana at `http://homelab:3000` (tailnet) |
+| Open a dashboard | Grafana at `https://grafana.tail6d0ed4.ts.net` (tailnet) |
 | Query a metric | `curl -s "http://homelab:8428/api/v1/query?query=up"` |
-| Search logs | VictoriaLogs `http://homelab:9428` (LogsQL) |
-| See traces | VictoriaTraces `http://homelab:10428` (via Grafana) |
-| Check errors / LLM traces | GlitchTip `https://homelab.tail6d0ed4.ts.net:8445` · Langfuse `https://homelab.tail6d0ed4.ts.net:8443` |
+| Search logs | VictoriaLogs `https://vlogs.tail6d0ed4.ts.net` (LogsQL) |
+| See traces | VictoriaTraces `https://vtraces.tail6d0ed4.ts.net` (or via Grafana) |
+| Check errors / LLM traces | GlitchTip `https://glitchtip.tail6d0ed4.ts.net` · Langfuse `https://langfuse.tail6d0ed4.ts.net` |
 | Snapshot the DGX/GPU state | the `dgx-status` skill (read-only) |
 | Know which vLLM owns the GPU | the `gpu-mode` skill, read-only: `~/bin/gpu-mode-swap.sh --mode-only` |
 | Resolve a service's real URL | the `homelab-endpoint` skill, or the tables above |

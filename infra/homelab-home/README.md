@@ -1,7 +1,7 @@
 # homelab-home — tailnet start page
 
 A single-page overview of the homelab machines, served on the mini at
-`http://homelab:8888` (tailnet-only, basic-auth). Two symmetric columns —
+`https://hub.tail6d0ed4.ts.net` (tailnet-only, HTTPS via Tailscale node). Two symmetric columns —
 **Mac mini** and **DGX** — each showing: host stat row, CPU/GPU charts,
 service health traffic-lights, a Docker line, and a services table. Every
 chart/badge deep-links to the matching Grafana dashboard or service.
@@ -29,9 +29,8 @@ and the compose mounts it. `www/`, `.htpasswd`, `.basic-auth-cred` are gitignore
 ./gen.sh                       # rebuild www/index.html
 docker compose up -d           # (re)start nginx
 ```
-Reachable at `homelab:8888` (direct) and `homelab.<tailnet>/home` (HTTPS via
-`tailscale serve`, see [`../homelab-serve/`](../homelab-serve/README.md)) — the
-tailnet ACL grants `tag:homelab-host:8888` + `:443`.
+Reachable at `https://hub.tail6d0ed4.ts.net` (HTTPS via Tailscale certificate node/Caddy).
+The container binds loopback `:8888` internally; the public entry point is the dedicated node.
 
 ## Related
 

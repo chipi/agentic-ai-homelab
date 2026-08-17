@@ -34,12 +34,10 @@ public** — visitor browsers load `script.js` and POST events from the open
 internet. So:
 
 - **Admin UI** — **tailnet-only**. The operator reaches it over HTTPS at
-  **`https://homelab.tail6d0ed4.ts.net:8444`** (a dedicated `tailscale serve` TLS
-  port → loopback `:3001`). It needs its own port ∵ Umami is a Next.js app that
-  emits root-absolute `/_next` assets which 404 under a stripped `/umami` subpath
-  — see [`infra/homelab-serve/`](../homelab-serve/README.md). The container binds
-  loopback `:3001` by default (`UMAMI_LISTEN`); the ACL grant is on
-  `tag:homelab-host:8444` (the serve port), not `:3001`.
+  **`https://umami.tail6d0ed4.ts.net`** (via Tailscale certificate node/Caddy reverse-proxy).
+  It needs its own node ∵ Umami is a Next.js app that emits root-absolute `/_next` assets 
+  which 404 under a stripped `/umami` subpath. The container binds loopback `:3001` 
+  internally (`UMAMI_LISTEN`); the web UI is served via the dedicated `umami` node.
 - **Beacon path** — exposed publicly via **Tailscale Funnel** or **Cloudflare
   Tunnel** (operator decision, #8). Only the collection endpoint is public.
 
