@@ -1,5 +1,13 @@
 # homelab-serve — tailnet HTTPS entry points for the mini's services
 
+> ⚠️ **DEPRECATED (2026-08-15) — RETIRED, do not use.** Exposure moved to
+> **per-service caddy-tailscale nodes** (`grafana./glitchtip./umami./langfuse./
+> litellm./vm./vlogs./vtraces./hub.tail6d0ed4.ts.net`, each with a real Tailscale
+> cert). See [`infra/reverse-proxy/`](../reverse-proxy/) for the current
+> architecture and [`docs/observability-dependency-map.md`](../../docs/observability-dependency-map.md)
+> for who consumes what. `tailscale serve` is empty on the mini; the old
+> `:8443/:8444/:8445/:10000/:9443` ports and `:443` paths below are historical.
+
 The self-hosted services on the mini bind plain HTTP on the tailnet. Browsers /
 mobile apps refuse cleartext (iOS ATS, Android cleartext default, Capacitor
 mixed-content), so each service is fronted by **`tailscale serve`** — a
