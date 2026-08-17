@@ -143,7 +143,7 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
   <table><thead><tr><th>Service</th><th>Port</th><th>User</th><th>Password</th></tr></thead><tbody>
 HDR
 row "Grafana"         "$G"            "$GF_U" "$GF_P" "3000"
-row "GlitchTip"       "$H:8445"       "$GT_U" "$GT_P" "8090"
+row "GlitchTip"       "https://glitchtip.$TS" "$GT_U" "$GT_P" "8090"
 row "Langfuse"        "$LF"           "$LF_U" "$LF_P" "4000"
 row "Umami"           "$UM"           "$UM_U" "$UM_P" "3001"
 row "LiteLLM"         "$LL/ui/"       "admin" "$LL_K" "4001"
@@ -216,8 +216,11 @@ cat <<TOK
 TOK
 cat <<'SCRIPT'
 <script>
-const W=260,H=40,B='https://homelab.tail6d0ed4.ts.net',G=B+'/grafana';
-const MINILINK={grafana:G,glitchtip:B+':8445',langfuse:B+':8443',umami:B+':8444',litellm:B+':10000/ui',victoriametrics:B+'/vm/vmui',victorialogs:B+'/vlogs',victoriatraces:B+'/vtraces'};
+const W=260,H=40,TS='tail6d0ed4.ts.net',G='https://grafana.'+TS;
+// Service LINK targets = per-service caddy-tailscale nodes (real certs). The
+// metric/alert FETCHES below stay same-origin (/vm/, /grafana/) — nginx proxies
+// those to the backends; they must NOT become cross-origin (CORS).
+const MINILINK={grafana:G,glitchtip:'https://glitchtip.'+TS,langfuse:'https://langfuse.'+TS,umami:'https://umami.'+TS,litellm:'https://litellm.'+TS+'/ui/',victoriametrics:'https://vm.'+TS+'/vmui',victorialogs:'https://vlogs.'+TS,victoriatraces:'https://vtraces.'+TS};
 const DGXDASH=G+'/d/dgx-services/dgx-e28094-services';
 async function q(query){try{const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(query))).json();return j.data.result;}catch(e){return[];}}
 const g1=async m=>{const r=await q(m);return r.length?r[0].value:null;};
