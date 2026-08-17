@@ -244,7 +244,7 @@ async function ctable(elId,box){
   const el=document.getElementById(elId);if(!el)return;
   const col={running:'#3fb950',restarting:'#d29922',created:'#d29922',paused:'#d29922',exited:'#f85149',dead:'#f85149'};
   if(!rows.length){el.innerHTML='<tr><td class=muted colspan=4>no data</td></tr>';return;}
-  el.innerHTML=rows.sort((a,b)=>{const A=(a.metric.app||'')+'/'+a.metric.name,B=(b.metric.app||'')+'/'+b.metric.name;return A<B?-1:1;}).map(s=>{const m=s.metric,c=col[m.state]||'#7a7a8c',up=m.state=='running'?fmtUp(s.value[1]):m.state;return '<tr><td>'+m.name+'</td><td><span class=dot style=\"background:'+c+'\"></span></td><td class=u>'+up+'</td><td>'+(m.port?'<code>'+m.port+'</code>':'&mdash;')+'</td></tr>';}).join('');
+  el.innerHTML=rows.sort((a,b)=>{const A=(a.metric.app||'')+'/'+a.metric.name,B=(b.metric.app||'')+'/'+b.metric.name;return A<B?-1:1;}).map(s=>{const m=s.metric;let c,up;if(m.state=='running'){if(m.health=='unhealthy'){c='#d29922';up='unhealthy';}else if(m.health=='starting'){c='#d29922';up='starting';}else{c='#3fb950';up=fmtUp(s.value[1]);}}else if(m.state=='exited'){if(m.exit_code=='0'){c='#7a7a8c';up='done';}else{c='#f85149';up='exit '+m.exit_code;}}else{c=col[m.state]||'#7a7a8c';up=m.state;}return '<tr><td>'+m.name+'</td><td><span class=dot style=\"background:'+c+'\"></span></td><td class=u>'+up+'</td><td>'+(m.port?'<code>'+m.port+'</code>':'&mdash;')+'</td></tr>';}).join('');
 }
 async function mini(){
   draw('c_cpu','mini_cpu_used_percent',x=>x.toFixed(0)+'%',100);

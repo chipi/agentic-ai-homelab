@@ -69,7 +69,7 @@ while true; do
   } | curl -s -o /dev/null --data-binary @- "$VM?extra_label=instance=homelab&extra_label=host=mini"
   # per-container detail (name/state/uptime/port) for the landing page's Containers
   # table — via ctr.py (shared with dgx-scrape). Carries its own box label.
-  CFMT=$(printf '{{.Name}}\t{{.State.Status}}\t{{.State.StartedAt}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{json .NetworkSettings.Ports}}')
+  CFMT=$(printf '{{.Name}}\t{{.State.Status}}\t{{.State.StartedAt}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{json .NetworkSettings.Ports}}\t{{.State.ExitCode}}\t{{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}')
   $D inspect $($D ps -aq) --format "$CFMT" 2>/dev/null \
     | python3 "$(cd "$(dirname "$0")" && pwd)/ctr.py" mini \
     | curl -s -m8 -o /dev/null --data-binary @- "$VM" || true

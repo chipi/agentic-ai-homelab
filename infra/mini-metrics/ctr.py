@@ -51,6 +51,12 @@ for line in sys.stdin:
     if len(parts) < 5:
         continue
     name, state, started, app, ports_json = parts[0], parts[1], parts[2], parts[3], parts[4]
+    # exit_code: 0 for a clean/one-shot finish, non-0 = crash. health: healthy/
+    # unhealthy/starting/- (no healthcheck). Both let the page distinguish "job
+    # done" and "running-but-failing" from a real failure. Older callers send 5
+    # fields → default them.
+    exit_code = parts[5] if len(parts) >= 6 else "0"
+    health = parts[6] if len(parts) >= 7 and parts[6] else "-"
     name = name.lstrip("/")
     up = 0
     if state == "running" and started and not started.startswith("0001"):
@@ -64,6 +70,6 @@ for line in sys.stdin:
             up = 0
     port = pick_port(ports_json)
     print(
-        'container_uptime_seconds{box="%s",app="%s",name="%s",port="%s",state="%s"} %d'
-        % (esc(box), esc(app), esc(name), esc(port), esc(state), up)
+        'container_uptime_seconds{box="%s",app="%s",name="%s",port="%s",state="%s",exit_code="%s",health="%s"} %d'
+        % (esc(box), esc(app), esc(name), esc(port), esc(state), esc(exit_code), esc(health), up)
     )
