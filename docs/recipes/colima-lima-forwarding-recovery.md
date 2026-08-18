@@ -60,7 +60,7 @@ crucially **real consumers are unaffected**:
 | `sudo -u _dockerhost … docker ps` (host CLI) | `Cannot connect to the Docker daemon at …/docker.sock` |
 | Host loopback ports (`127.0.0.1:4001/:8428/:3000/:9189`) | `HTTP 000` (connection refused / timeout) |
 | **`up{job="litellm-postgres"}` in VM** | **absent → "LiteLLM gateway down" alert FALSE-fires** |
-| `container_cpu_percent{box="mini"}` / `container_uptime_seconds{box="mini"}` | stale / absent (host mini-metrics collectors are dead) |
+| `mini_container_cpu_percent` / `container_uptime_seconds{box="mini"}` | stale / absent (host mini-metrics collectors are dead) |
 | Delivery-worker board | stale (scraped via forwarded `:9110-9112`) |
 | **`colima status` (as `_dockerhost`)** | **"colima is running"** — the VM is fine |
 | **dockerd inside the VM** | **`active`, all containers `Up`** |
@@ -146,7 +146,7 @@ ssh ops@dgx-llm-1 '
 ```
 
 Green = litellm `200` from the DGX, `up{job="litellm-postgres"}` back to `1`
-(the false alert clears), and `container_cpu_percent{box="mini"}` fresh again.
+(the false alert clears), and `mini_container_cpu_percent` fresh again.
 
 ---
 

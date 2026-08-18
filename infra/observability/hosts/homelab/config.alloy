@@ -66,9 +66,9 @@ prometheus.scrape "delivery" {
 
 // NOTE: cAdvisor was tried here for per-container cpu/mem/io but doesn't work on
 // colima (cgroup v2 + cgroupfs + cgroupns — it only sees system/systemd cgroups, not
-// the docker container scopes). Replaced by a `docker stats` collector in
-// mini-metrics/push.sh (stats.py) → container_cpu_percent / container_memory_bytes,
-// keyed by container NAME.
+// the docker container scopes). Covered instead by an inline `docker stats` block in
+// mini-metrics/push.sh → mini_container_cpu_percent / mini_container_mem_bytes, keyed
+// by container NAME.
 
 // ---------- LOGS: all docker container stdout/stderr ----------
 discovery.docker "containers" {
