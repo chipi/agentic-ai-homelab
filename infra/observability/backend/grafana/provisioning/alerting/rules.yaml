@@ -249,6 +249,35 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+      # mini host<->VM forward dead-man's switch. The forward-watchdog (mini-metrics)
+      # heart-beats mini_forward_up=1 over the FORWARDED :8428; when lima's host
+      # forward breaks on a network transition the heartbeat stops (host CLI +
+      # loopback ports go dark while the VM + containers keep running). NOT meta —
+      # like dgx/prod-silent the fleet can still corroborate (the VM-internal
+      # backend keeps running). Recovery is a graceful `colima restart` (runbook).
+      - uid: mini-forward-down
+        title: "Mac mini host↔VM forward down (colima socket unreachable 5m)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "The mini stopped heart-beating mini_forward_up for 5m — lima's host↔VM forward likely broke on a network transition (docker socket + loopback ports dead), or the VM/watchdog is down. Containers + tailnet TLS nodes may be fine; the host CLI, loopback ports, and host metric collectors are blind. This is NOT a service outage — recover with a graceful `colima restart`. Runbook: recipes/colima-lima-forwarding-recovery.md."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(count_over_time(mini_forward_up{box="mini"}[5m])) or vector(0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
       # --- Mac mini CPU temperature (warning >85°C, critical >95°C) ---------------
       # The mini runs 24/7; healthy idle ~60°C, thermal-throttles ~100°C. 85 = warn
       # headroom; 95 = imminent throttle. Source: mini_cpu_temp_celsius (osx-cpu-temp

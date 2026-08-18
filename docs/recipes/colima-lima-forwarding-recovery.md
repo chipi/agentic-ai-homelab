@@ -168,17 +168,25 @@ rest reduce frequency or improve the signal.
    process, not a container.) Config:
    `infra/observability/hosts/homelab/{config.alloy,docker-compose.yml}`.
 
-2. **A forward-health watchdog that auto-recovers.**
-   A small launchd/cron probe on the mini: if the host docker socket is dead
-   **but** `colima status` says the VM is up, run `colima restart` (optionally
-   only after it's been dead > N minutes). Turns a manual, hours-later fix into
-   an automatic, minutes-later one. Bounces containers, but only when already
-   broken.
+2. **A forward-health watchdog.** — 2a ✅ **DONE (2026-08-18)** · 2b opt-in
+   - **2a (notify-first — DONE):** `infra/mini-metrics/forward-watchdog.sh` (launchd
+     `com.homelab.forward-watchdog`) proves `docker ps` every 30s and heart-beats
+     `mini_forward_up=1` over the *forwarded* `:8428`. Because the heartbeat rides
+     the same forward, it stops the instant the forward breaks → the
+     `mini-forward-down` alert fires (#3). Detect-only; it does **not** restart.
+   - **2b (auto-restart — opt-in, NOT enabled):** upgrade the watchdog to run
+     `colima restart` itself when the socket is dead > 5 min **and** the VM is up,
+     with a cooldown so a flapping network can't restart-loop, logging each action.
+     Left opt-in because auto-running a container-bouncing restart on shared infra
+     is a standing pre-authorization of a disruptive action — enable only once 2a's
+     signal has proven trustworthy in practice.
 
-3. **Alert on the break itself, not on its shadow.**
-   Add an alert for "host docker socket / forwarded ports unreachable while the
-   VM is up." Today the *only* signal is a **false** "LiteLLM down" alert, which
-   points at the wrong thing. A dedicated signal names the real cause.
+3. **Alert on the break itself, not on its shadow.** — ✅ **DONE (2026-08-18)**
+   `mini-forward-down` in `infra/observability/backend/grafana/provisioning/alerting/rules.yaml`
+   is a dead-man's switch (same pattern as `dgx-silent`): fires `warning` when
+   `mini_forward_up` has no samples for 5m — `kind:infra`, routed to the operator
+   email surface. Replaces the misleading false "LiteLLM down" alert with a signal
+   that names the real cause and links this runbook.
 
 4. **Reduce the triggering transitions.**
    Wired Ethernet over Wi-Fi, a stable uplink, and keeping the Mac awake

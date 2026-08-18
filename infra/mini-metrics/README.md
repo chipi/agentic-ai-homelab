@@ -49,6 +49,22 @@ The plist hardcodes `/Users/markodragoljevic/...` (operator restore). After
 editing `push.sh`, `pkill -f mini-metrics/push.sh` — launchd respawns with the
 new script (bash caches the running copy).
 
+## Forward watchdog — `forward-watchdog.sh`
+
+A **second** launchd job (`com.homelab.forward-watchdog`), separate from the 20s
+collector: every 30s it proves `docker ps` works, then heart-beats
+`mini_forward_up{box="mini"}=1` over the **forwarded** `:8428`. Because the
+heartbeat rides the same lima forward, it stops the instant colima's host↔VM
+forward breaks on a network transition — and the `mini-forward-down` alert
+(`rules.yaml`, a dead-man's switch) fires. Detect-only; recovery is a human
+`colima restart`. Full story + resilience roadmap:
+[colima/lima forwarding recovery](../../docs/recipes/colima-lima-forwarding-recovery.md).
+
+```sh
+cp com.homelab.forward-watchdog.plist ~/Library/LaunchAgents/
+launchctl load -w ~/Library/LaunchAgents/com.homelab.forward-watchdog.plist
+```
+
 ## Related
 
 - Systems index: [`infra/README.md`](../README.md)
