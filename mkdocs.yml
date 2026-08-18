@@ -84,6 +84,7 @@ nav:
     - DGX terminal dashboard: recipes/dgx-terminal-dashboard.md
     - GPU mode-swap: recipes/gpu-mode-swap.md
     - Mac mini → observability host: recipes/mac-mini-observability.md
+    - colima/lima forwarding — break & recovery: recipes/colima-lima-forwarding-recovery.md
     - Observability endpoints (obs name): recipes/observability-endpoints.md
     - Observability dependency & blast-radius map: observability-dependency-map.md
     - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md
