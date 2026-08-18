@@ -239,12 +239,14 @@ async function badges(elId,metric,order,linkFor){
   const el=document.getElementById(elId);if(!el)return;
   el.innerHTML=order.map(n=>{let c='stale';const v=map[n];if(v){const a=now-+v[0];c=a>120?'stale':(+v[1]?'up':'down');}return '<a class=svc href="'+linkFor(n)+'"><span class="dot '+c+'"></span>'+n+'</a>';}).join('');
 }
-async function ctable(elId,box){
+async function ctable(elId,box,cpuq,memq){
   const rows=await q('container_uptime_seconds{box=\"'+box+'\"}');
   const el=document.getElementById(elId);if(!el)return;
   const col={running:'#3fb950',restarting:'#d29922',created:'#d29922',paused:'#d29922',exited:'#f85149',dead:'#f85149'};
-  if(!rows.length){el.innerHTML='<tr><td class=muted colspan=4>no data</td></tr>';return;}
-  el.innerHTML=rows.sort((a,b)=>{const A=(a.metric.app||'')+'/'+a.metric.name,B=(b.metric.app||'')+'/'+b.metric.name;return A<B?-1:1;}).map(s=>{const m=s.metric;let c,up;if(m.state=='running'){if(m.health=='unhealthy'){c='#d29922';up='unhealthy';}else if(m.health=='starting'){c='#d29922';up='starting';}else{c='#3fb950';up=fmtUp(s.value[1]);}}else if(m.state=='exited'){if(m.exit_code=='0'){c='#7a7a8c';up='done';}else{c='#f85149';up='exit '+m.exit_code;}}else{c=col[m.state]||'#7a7a8c';up=m.state;}return '<tr><td>'+m.name+'</td><td><span class=dot style=\"background:'+c+'\"></span></td><td class=u>'+up+'</td><td>'+(m.port?'<code>'+m.port+'</code>':'&mdash;')+'</td></tr>';}).join('');
+  if(!rows.length){el.innerHTML='<tr><td class=muted colspan='+(cpuq?6:4)+'>no data</td></tr>';return;}
+  const cpuM={},memM={};
+  if(cpuq){(await q(cpuq)).forEach(s=>cpuM[s.metric.name]=+s.value[1]);(await q(memq)).forEach(s=>memM[s.metric.name]=+s.value[1]);}
+  el.innerHTML=rows.sort((a,b)=>{const A=(a.metric.app||'')+'/'+a.metric.name,B=(b.metric.app||'')+'/'+b.metric.name;return A<B?-1:1;}).map(s=>{const m=s.metric;let c,up;if(m.state=='running'){if(m.health=='unhealthy'){c='#d29922';up='unhealthy';}else if(m.health=='starting'){c='#d29922';up='starting';}else{c='#3fb950';up=fmtUp(s.value[1]);}}else if(m.state=='exited'){if(m.exit_code=='0'){c='#7a7a8c';up='done';}else{c='#f85149';up='exit '+m.exit_code;}}else{c=col[m.state]||'#7a7a8c';up=m.state;}var cv=cpuq?cpuM[m.name]:null,mv=cpuq?memM[m.name]:null,res=cpuq?('<td class=u>'+(cv!=null?cv.toFixed(0)+'%':'&mdash;')+'</td><td class=u>'+(mv!=null?(mv/1048576).toFixed(0)+' MB':'&mdash;')+'</td>'):'';return '<tr><td>'+m.name+'</td><td><span class=dot style=\"background:'+c+'\"></span></td><td class=u>'+up+'</td>'+res+'<td>'+(m.port?'<code>'+m.port+'</code>':'&mdash;')+'</td></tr>';}).join('');
 }
 async function mini(){
   draw('c_cpu','mini_cpu_used_percent',x=>x.toFixed(0)+'%',100);
@@ -260,7 +262,7 @@ async function mini(){
   badges('health','service_up',['grafana','glitchtip','langfuse','umami','litellm','victoriametrics','victorialogs','victoriatraces'],n=>MINILINK[n]||G);
   const run=await g1('mini_docker_running'),tot=await g1('mini_docker_total'),rst=await g1('mini_docker_restarting'),unh=await g1('mini_docker_unhealthy');
   const md=document.getElementById('mdocker');if(md&&run)md.innerHTML='<b>'+run[1]+'/'+tot[1]+'</b> running'+(rst&&+rst[1]?' &middot; <span style=color:#f85149>'+rst[1]+' restarting</span>':'')+(unh&&+unh[1]?' &middot; <span style=color:#f85149>'+unh[1]+' unhealthy</span>':'');
-  ctable('mctr','mini');
+  ctable('mctr','mini','mini_container_cpu_percent','mini_container_mem_bytes');
 }
 async function dgx(){
   draw('g_temp','DCGM_FI_DEV_GPU_TEMP',x=>x.toFixed(0)+'&deg;C');
