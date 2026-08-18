@@ -30,28 +30,34 @@ prometheus.scrape "node" {
 
 // ---------- LiteLLM stack health: postgres-exporter ----------
 // LiteLLM's own /metrics is enterprise-gated (401), so the stack's postgres-
-// exporter sidecar is the health probe. Published on the host at :9189 (reached
-// like node, via host.docker.internal). Feeds up{job="litellm-postgres"}, which
+// exporter sidecar is the health probe. Feeds up{job="litellm-postgres"}, which
 // the "LiteLLM gateway down" alert (rules.yaml) watches as a dead-man's switch —
 // without this scrape the metric is absent and the alert fires false NoData.
+// Scraped VM-INTERNALLY by container name over the litellm docker network (alloy
+// joins litellm_default — see docker-compose.yml), NOT via the host's forwarded
+// :9189. host.docker.internal round-trips through lima's SSH forward, which dies
+// on any network transition (see recipes/colima-lima-forwarding-recovery.md) —
+// that break once vanished this metric and false-fired the gateway-down alert.
 prometheus.scrape "litellm_postgres" {
-  targets         = [{ __address__ = "host.docker.internal:9189", instance = "homelab" }]
+  targets         = [{ __address__ = "litellm-postgres-exporter:9187", instance = "homelab" }]
   forward_to      = [prometheus.remote_write.local.receiver]
   job_name        = "litellm-postgres"
   scrape_interval = "30s"
 }
 
 // ---------- Delivery workers (podcast_scraper #1412 / ADR-144) ----------
-// Each delivery loop exposes Prometheus /metrics on loopback (compose publishes
-// 127.0.0.1:9110 email / 9111 push / 9112 events); reach them via host.docker.internal.
+// Each delivery loop exposes Prometheus /metrics (email 9110 / push 9111 / events 9112).
 // Feeds the delivery_* series the "Delivery worker" Grafana board reads (bounce-rate =
 // the deliverability canary). Logs are already captured by the generic container source
 // below. Source of truth: podcast_scraper-infra/infra/observability/delivery.alloy.
+// Scraped VM-INTERNALLY by container name over the delivery docker network (alloy joins
+// delivery_default — see docker-compose.yml), NOT via the host's forwarded :9110-9112,
+// so the board survives a lima forward break (see the litellm_postgres note above).
 prometheus.scrape "delivery" {
   targets = [
-    { __address__ = "host.docker.internal:9110", instance = "homelab", channel = "email" },
-    { __address__ = "host.docker.internal:9111", instance = "homelab", channel = "push" },
-    { __address__ = "host.docker.internal:9112", instance = "homelab", channel = "events" },
+    { __address__ = "delivery-email:9110", instance = "homelab", channel = "email" },
+    { __address__ = "delivery-push:9111", instance = "homelab", channel = "push" },
+    { __address__ = "delivery-events:9112", instance = "homelab", channel = "events" },
   ]
   forward_to      = [prometheus.remote_write.local.receiver]
   job_name        = "delivery"

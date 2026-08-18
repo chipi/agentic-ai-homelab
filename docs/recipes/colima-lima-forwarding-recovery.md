@@ -155,14 +155,18 @@ Green = litellm `200` from the DGX, `up{job="litellm-postgres"}` back to `1`
 Ranked by value. The first two remove the failure modes that actually hurt; the
 rest reduce frequency or improve the signal.
 
-1. **Scrape the critical exporters VM-internally, not via `host.docker.internal`.**
+1. **Scrape the critical exporters VM-internally, not via `host.docker.internal`.** — ✅ **DONE (2026-08-18)**
    *(highest value — kills the false-alert failure mode entirely)*
-   alloy-homelab runs *inside* the VM, yet it scrapes the LiteLLM postgres
+   alloy-homelab runs *inside* the VM but used to scrape the LiteLLM postgres
    exporter and the delivery workers by bouncing out to the Mac host's forwarded
-   ports (`host.docker.internal:9189`, `:9110-9112`). Point it at the exporter
-   **containers directly over the docker network** (by container name) so the
-   dead-man's switch and delivery metrics survive any host-forward break. Config:
-   `infra/observability/hosts/homelab/config.alloy`.
+   ports (`host.docker.internal:9189`, `:9110-9112`) — so a forward break vanished
+   those metrics and false-fired the gateway-down alert. Now alloy joins
+   `litellm_default` + `delivery_default` and scrapes the **containers directly by
+   name** (`litellm-postgres-exporter:9187`,
+   `delivery-{email,push,events}:{9110,9111,9112}`), immune to any host-forward
+   break. (node_exporter stays on `host.docker.internal:9100` — it's a *native* Mac
+   process, not a container.) Config:
+   `infra/observability/hosts/homelab/{config.alloy,docker-compose.yml}`.
 
 2. **A forward-health watchdog that auto-recovers.**
    A small launchd/cron probe on the mini: if the host docker socket is dead

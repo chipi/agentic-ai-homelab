@@ -12,6 +12,13 @@ services:
     container_name: alloy-homelab
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      # default (homelab_default) for isolation; litellm_default + delivery_default so
+      # alloy scrapes those exporters by container name over the docker network, not via
+      # the host's fragile lima port-forward. See config.alloy + the recovery recipe.
+      - default
+      - litellm
+      - delivery
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro    # container-log discovery
@@ -24,3 +31,14 @@ services:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
     restart: unless-stopped
+
+networks:
+  # external networks owned by the litellm + delivery stacks — alloy joins them to
+  # scrape their exporters VM-internally by container name (resilient to lima forward
+  # breaks). If either stack is renamed/removed, update the target name here.
+  litellm:
+    external: true
+    name: litellm_default
+  delivery:
+    external: true
+    name: delivery_default
