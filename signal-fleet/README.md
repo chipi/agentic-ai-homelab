@@ -7,6 +7,31 @@ RFC-0002). It never touches production and never fixes code; its `File` output
 chains to Fleet 1 as a labelled GitHub issue. This is RFC-0002's own Phase-3
 ("o11y-reactive agents"), promoted to its own project.
 
+## ⚡ Current state — read first (2026-08-19, saves you the archaeology)
+
+- **This IS live** — runs continuously as `fleetd` (LaunchAgent) on the mini, not a
+  one-shot. Cycle = `python3 mvp/orchestrator.py --cycle` over Grafana + GlitchTip.
+- **Deploy reality:** the running copy is `~/signal-fleet/` on the mini — **NOT a git
+  repo**. Source of truth is this repo's `signal-fleet/mvp/`; **deploy = `scp` the
+  changed `mvp/*.py` to the mini** (verify they match — they were 0/15 diff on
+  2026-08-19). fleetd config: `~/fleetd/fleetd.json` (`env_file=~/signal-fleet/fleet-gateway.env`).
+- **env files:** `fleet-gateway.env` is the ONE fleetd loads. `fleet.env` is a stale
+  duplicate — ignore it (its tokens are old; kept in sync only as a courtesy).
+- **LLM = homelab LiteLLM gateway.** Triager posts to
+  `SF_OPENROUTER_URL=http://localhost:4001/v1/chat/completions` with the `fleet-triage`
+  virtual key (`OPENROUTER_API_KEY` in `fleet-gateway.env`), model `fleet-triage-pro`.
+- **Langfuse tracing IS wired now** (project **"agents"**; keys = langfuse init keys).
+- **Flood hardening (2026-08):** #2 fail-**closed** on a persistent triager 401 (files
+  ONE `fleet-triager-down` issue, not N escalations); #4 storm group-rules
+  (cost-cap/budget/402); #5 operational classifier (cost-cap/402 → dismiss-not-ticket,
+  no LLM); #7 test/synthetic suppression at ingestion. Full write-up:
+  [`docs/wip/signal-fleet-flood-hardening.md`](../docs/wip/signal-fleet-flood-hardening.md).
+- **Gotcha — recreation casualties:** a colima/DB recreate wipes the litellm virtual
+  key, the Grafana/GlitchTip source tokens, and the Langfuse keys → the fleet 401s and
+  fails (historically fails-open → issue flood). If it's misbehaving, check those creds
+  first (litellm key: [`infra/litellm/README.md`](../infra/litellm/README.md); tokens
+  live in `fleet-gateway.env`).
+
 ## Status (2026-07-24)
 - **Design:** SIGNALS.md living doc; **RFC-0003** (Proposed). Fleet-1's reviewer
   ran **2 rounds** — all findings folded (intent gate, L1-candidate seam, ledger,
@@ -39,7 +64,6 @@ chains to Fleet 1 as a labelled GitHub issue. This is RFC-0002's own Phase-3
   `File` from dry-run to live).
 
 ## Boundaries (deliberate, not gaps to fix now)
-Triage-only forever (remediation = future Fleet 3); MVP `File` is dry-run pending
-the target repo; single-shot poll (no daemon); orrery-only (GlitchTip errors =
-Phase B); patterns reused but not yet the TS worker seam; Langfuse tracing not
-wired.
+Triage-only forever (remediation = future Fleet 3). *(Historical Jul-24 caveats now
+superseded — see Current state above: it's live as a daemon, files real issues,
+covers Grafana + GlitchTip, and Langfuse tracing is wired.)*
