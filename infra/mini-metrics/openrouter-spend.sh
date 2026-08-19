@@ -1,14 +1,19 @@
 #!/bin/bash
 # Per-vertical OpenRouter spend -> VictoriaMetrics (homepage cards + weekly
-# reconciliation ritual). One OpenRouter key per vertical (verified separate
-# 2026-08-05): pi lab / opencode / fleet gateway / podcast workspace.
+# reconciliation ritual). Separate-key-per-vertical was INTENDED, but as of
+# 2026-08-18 only TWO keys actually exist: a SHARED key used by the litellm
+# gateway + triage fleet + bugfix-fleet (the pi/opencode bake-off all run on it),
+# and a separate podcast key. So pi/opencode can't be broken out yet — their spend
+# lands under the shared 'gateway' label. Keep OR_KEY_PI/OPENCODE BLANK until each
+# is minted its own OpenRouter key (else the shared spend double-counts under 3
+# labels). The loop skips empty keys.
 #
 # Keys live in openrouter-verticals.env next to this script (gitignored; the
 # operator home dir is chmod 700 so the claude workbench user can't read it):
-#   OR_KEY_PI=sk-or-...
-#   OR_KEY_OPENCODE=sk-or-...
-#   OR_KEY_GATEWAY=sk-or-...     (same value as infra/litellm OPENROUTER_API_KEY)
-#   OR_KEY_PODCAST=sk-or-...     (same value as OPENROUTER_API_KEY_PODCAST)
+#   OR_KEY_GATEWAY=sk-or-...     (the SHARED key; == infra/litellm OPENROUTER_API_KEY)
+#   OR_KEY_PODCAST=sk-or-...     (== OPENROUTER_API_KEY_PODCAST)
+#   OR_KEY_PI=                   (blank until pi gets its own key)
+#   OR_KEY_OPENCODE=             (blank until opencode gets its own key)
 #
 # /auth/key returns usage for THE KEY MAKING THE CALL — that's why every key
 # must be present here; there is no list-all endpoint on a normal key.
