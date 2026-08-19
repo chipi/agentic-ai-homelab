@@ -116,4 +116,15 @@ Deterministic gate (not a prompt hope), in `triage.py` alongside the existing ga
   `fleet-gateway.env`: clean cycle, **0 source failures**, 3 GlitchTip issues fetched +
   deduped. Fleet is functional. (Minor cleanup: drop the stale token dupes from `fleet.env`
   so nobody trips on them.)
-- [ ] cleanup (bulk-close podcast) · [ ] bugfix-fleet audit
+- [x] cleanup — the flood was already ~115-closed in Aug (102 on Aug 19); closed the
+  remaining 15 cost-cap duplicates (#1559–#1582) with a root-cause comment. 0 cost-cap
+  open. orrery had no storm (nothing to close).
+- [x] bugfix-fleet audit — no flood risk: daemon not wired (`fleetd.json` Track B gate +
+  stop-flag), no python triage-style fail-open (shell bake-off harness, model-tier
+  escalation not GH-issue), `fleet-bugfix` key recreated, orrery clean.
+
+## Minor follow-ups (non-blocking)
+- Drop the stale duplicate `GRAFANA_TOKEN`/`GLITCHTIP_TOKEN` from `fleet.env` (unused by
+  fleetd, but a landmine for anyone sourcing it).
+- The fleet's Langfuse tracing key 401s (`observ.finalize` best-effort push) — another
+  recreation casualty; non-blocking (traces only), recreate when convenient.
