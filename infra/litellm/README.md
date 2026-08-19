@@ -35,17 +35,38 @@ curl -s http://localhost:4001/health/liveliness   # -> "I'm alive!"
 
 ## Virtual keys (per-consumer budgets — the money backstop)
 
-Minted with the master key; consumers NEVER get the master key:
+Minted with the master key; consumers NEVER get the master key. The keys live in
+LiteLLM's **postgres** (`LiteLLM_VerificationToken` table), so a DB reset /
+stack-recreate **wipes them** — after which the fleet 401-floods (see recreate
+note). Current consumers:
+
+| key_alias | models | max_budget (lifetime) | consumer |
+|---|---|---|---|
+| `fleet-triage` | `fleet-triage-flash`, `fleet-triage-pro` | $50 | signal-fleet triager (`OPENROUTER_API_KEY` in `~/signal-fleet/fleet-gateway.env`) |
+| `fleet-bugfix` | `fleet-bugfix-pro` | $100 | bugfix-fleet (`LITELLM_FLEET_BUGFIX_KEY`) |
+
+Both route to `openrouter/deepseek-v4-pro` via `OPENROUTER_API_KEY` (the shared
+key) — so their spend shows on the hub's **"Lab (shared key)"** OpenRouter vertical
+(and per-key via `/key/info`). `max_budget` is a hard lifetime cap (raise
+deliberately = auditable top-up).
 
 ```sh
 curl -s http://localhost:4001/key/generate \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" -H 'Content-Type: application/json' \
-  -d '{"key_alias":"fleet-triage","max_budget":10,"models":["fleet-triage-flash","fleet-triage-pro"]}'
+  -d '{"key_alias":"fleet-triage","max_budget":50,"models":["fleet-triage-flash","fleet-triage-pro"]}'
 ```
 
-`max_budget` is a hard lifetime cap (raise deliberately = auditable top-up);
-`/key/info` shows spend. One key per consumer: `fleet-triage`,
-`fleet-bugfix`, future projects each their own.
+**Recreate after a DB wipe (recreation casualty).** Pass the *exact existing key
+value* from `fleet-gateway.env` via the `key` field, so no consumer config changes:
+```sh
+curl -s http://localhost:4001/key/generate -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"'"$OPENROUTER_API_KEY"'","key_alias":"fleet-triage","max_budget":50,"models":["fleet-triage-flash","fleet-triage-pro"]}'
+```
+Incident 2026-08-18: the colima/DB recreate wiped both keys → every triager call
+`401`'d → the fleet failed **open** and filed ~90 escalations onto
+`chipi/podcast_scraper`. Detect with `/key/info?key=…` (`404` = wiped); a triage
+call 401s with a body naming `LiteLLM_VerificationTokenTable`.
 
 ## Observability (full package, day one)
 
