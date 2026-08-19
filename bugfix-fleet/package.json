@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "node --loader ts-node/esm src/main.ts"
+    "dev": "npm run build && node --env-file=.env dist/main.js"
   },
   "dependencies": {
     "@octokit/auth-app": "^7.1.0",
