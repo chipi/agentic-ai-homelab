@@ -19,6 +19,16 @@ model_list:
     litellm_params:
       model: openrouter/deepseek/deepseek-v4-pro
       api_key: os.environ/OPENROUTER_API_KEY
+  # bugfix-fleet triage/dispatch (cheap) + reviewer (glm). Routes the bugfix-fleet
+  # through the gateway too (was OpenRouter-direct) — one budget key, one meter.
+  - model_name: fleet-bugfix-flash
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: fleet-bugfix-reviewer
+    litellm_params:
+      model: openrouter/z-ai/glm-5.2
+      api_key: os.environ/OPENROUTER_API_KEY
 
   # --- direct-provider test aliases (provider bake-off; A/B vs OpenRouter) --
   # Same underlying models via api.deepseek.com. Names follow DeepSeek's

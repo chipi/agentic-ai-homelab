@@ -43,7 +43,7 @@ note). Current consumers:
 | key_alias | models | max_budget (lifetime) | consumer |
 |---|---|---|---|
 | `fleet-triage` | `fleet-triage-flash`, `fleet-triage-pro` | $50 | signal-fleet triager (`OPENROUTER_API_KEY` in `~/signal-fleet/fleet-gateway.env`) |
-| `fleet-bugfix` | `fleet-bugfix-pro` | $100 | bugfix-fleet (`LITELLM_FLEET_BUGFIX_KEY`) |
+| `fleet-bugfix` | `fleet-bugfix-flash`, `fleet-bugfix-pro`, `fleet-bugfix-reviewer` | $100 | bugfix-fleet — routes via the gateway (`LLM_BASE_URL=http://localhost:4001/v1` + `LLM_API_KEY=LITELLM_FLEET_BUGFIX_KEY`), was OpenRouter-direct |
 
 Both route to `openrouter/deepseek-v4-pro` via `OPENROUTER_API_KEY` (the shared
 key) — so their spend shows on the hub's **"Lab (shared key)"** OpenRouter vertical

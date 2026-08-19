@@ -20,19 +20,27 @@ export interface LlmMeta {
   harness?: string;
 }
 
+// Chat endpoint: OpenRouter direct by default, but override to the homelab LiteLLM
+// gateway (LLM_BASE_URL=http://homelab:4001/v1) to route every call through the
+// gateway — per-consumer virtual-key budget, spend metering, and gateway-side
+// Langfuse. When LLM_API_KEY is set (the litellm virtual key) it overrides the
+// per-call apiKey; the model names then become litellm aliases (fleet-bugfix-*).
+const LLM_BASE_URL = (process.env.LLM_BASE_URL ?? "https://openrouter.ai/api/v1").replace(/\/+$/, "");
+const LLM_API_KEY = process.env.LLM_API_KEY;
+
 export async function orChat(
   apiKey: string, model: string, system: string, user: string, meta: LlmMeta,
 ): Promise<string> {
   const start = new Date();
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${LLM_API_KEY ?? apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model, messages: [{ role: "system", content: system }, { role: "user", content: user }],
       response_format: { type: "json_object" }, temperature: meta.phase === "dispatch" ? 0 : 0.1,
     }),
   });
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) throw new Error(`LLM gateway ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const j: any = await res.json();
   const content: string = j.choices?.[0]?.message?.content ?? "";
   const u = j.usage;
