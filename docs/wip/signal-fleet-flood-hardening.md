@@ -109,7 +109,11 @@ Deterministic gate (not a prompt hope), in `triage.py` alongside the existing ga
   full run-scoped attach-to-root-issue deferred as a refinement
 - [x] all unit-tested (classify/group/suppress + the TriagerDown fail-closed flow) + a
   dry-run shadow cycle
-- [ ] **source-token drift found** — `GRAFANA_TOKEN` + `GLITCHTIP_TOKEN` in
-  `fleet-gateway.env` 401 (more recreation casualties; the fleet can't FETCH signals until
-  fixed — separate from the hardening code, which handled it gracefully as source failures)
+- [x] **source tokens OK (my earlier "401 drift" was a test artifact — corrected).**
+  `fleetd.json` loads `env_file=fleet-gateway.env`, whose `GRAFANA_TOKEN`/`GLITCHTIP_TOKEN`
+  test **200/200**. My first dry-run wrongly sourced `fleet.env` *after* it, and `fleet.env`
+  holds **stale duplicate** tokens (glsa_0…/be48a4…, 401). Re-run with only
+  `fleet-gateway.env`: clean cycle, **0 source failures**, 3 GlitchTip issues fetched +
+  deduped. Fleet is functional. (Minor cleanup: drop the stale token dupes from `fleet.env`
+  so nobody trips on them.)
 - [ ] cleanup (bulk-close podcast) · [ ] bugfix-fleet audit
