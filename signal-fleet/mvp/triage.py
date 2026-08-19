@@ -15,11 +15,20 @@ import hashlib
 import json
 import re
 import time
+import urllib.error
 
 import config
 import observ
 import probes
 from http_util import post_json
+
+
+class TriagerDown(Exception):
+    """The triager LLM gateway is PERSISTENTLY unavailable (auth 401/403) — not a
+    one-off transport flake. Propagated out of triage() so the orchestrator fails
+    CLOSED (one aggregate issue), instead of escalating every signal individually.
+    This is the 2026-08-13→19 flood's core fix (a wiped litellm key 401'd every
+    call and the fleet fail-open escalated ~90 signals)."""
 
 ALLOWED_INTENT = {"reporter", "spec", "repo-data", "code-invariant", "baseline",
                   "operator-rule", "slo"}
@@ -36,6 +45,35 @@ INDEP_PROBES = {"service_logs", "metric", "trace", "source_state"}
 CLEANUP_MARKERS = re.compile(
     r"delete me|safe to delete|\btest\b|validation|probe|smoke|e2e|ladder-verify|"
     r"wiring|placeholder|dashless|crashorrerytest|staging|\bdev\b|\bverify\b", re.I)
+
+# Operational states that are NOT code bugs: a guardrail firing (its own incident,
+# working as designed), a billing state, or a DOWNSTREAM effect of one. These are
+# classified deterministically and acknowledged-not-ticketed — the guardrail/alert
+# already fired; the fleet must not turn each occurrence into a bug ticket. 72 of
+# the 2026-08-13→19 flood were "cost soft cap". Downstream (provider-not-initialized
+# / fallback-failed) is folded to the same class here (the correlation half of #6:
+# they share the budget/cap root). See docs/wip/signal-fleet-flood-hardening.md.
+OPERATIONAL_MARKERS = [
+    (re.compile(r"cost soft cap|cost cap exceeded|costcapexceeded|soft[- ]?cap exceeded", re.I),
+     "cost-cap"),
+    (re.compile(r"no budget|no credit|insufficient (credit|budget|fund)|\b402\b|"
+                r"payment required|out of credit|quota exceeded", re.I),
+     "provider-budget"),
+    (re.compile(r"openaiprovider not initialized|provider not initialized|"
+                r"fallback tier failed|all fallbacks failed|fallback failed", re.I),
+     "provider-fallback"),
+]
+
+
+def operational_class(signal):
+    """Return the operational class (cost-cap/provider-budget/provider-fallback) if
+    the signal is an operational state, else None. Deterministic, no LLM."""
+    hay = " ".join(str(signal.get(k, "")) for k in ("alertname", "summary")) + \
+        " " + json.dumps(signal.get("labels", {}))
+    for rx, cls in OPERATIONAL_MARKERS:
+        if rx.search(hay):
+            return cls
+    return None
 
 _SYSTEM = """You are the triager for an autonomous observability signal fleet. Your JOB
 is to DISPOSE of each signal so a human does NOT have to look at it. You INVESTIGATE
@@ -114,10 +152,19 @@ def _trim(v, n=1800):
 def _call(messages):
     if not config.OPENROUTER_KEY:
         raise SystemExit("[triage] OPENROUTER_API_KEY not set")
-    resp = post_json(config.OPENROUTER_URL,
-                     {"model": config.TRIAGE_MODEL, "messages": messages,
-                      "response_format": {"type": "json_object"}, "temperature": 0},
-                     headers={"Authorization": f"Bearer {config.OPENROUTER_KEY}"}, timeout=90)
+    try:
+        resp = post_json(config.OPENROUTER_URL,
+                         {"model": config.TRIAGE_MODEL, "messages": messages,
+                          "response_format": {"type": "json_object"}, "temperature": 0},
+                         headers={"Authorization": f"Bearer {config.OPENROUTER_KEY}"}, timeout=90)
+    except urllib.error.HTTPError as e:
+        # 401/403 = the gateway rejected our key (wiped litellm virtual key is the
+        # known cause) — PERSISTENT, every call will fail. Fail closed, don't escalate.
+        if e.code in (401, 403):
+            raise TriagerDown(f"HTTP {e.code} auth failure to the triager gateway "
+                              f"({config.OPENROUTER_URL}) — litellm virtual key rejected "
+                              f"(recreate: infra/litellm/README.md)") from e
+        raise
     return resp["choices"][0]["message"]["content"], resp.get("usage", {})
 
 
@@ -252,7 +299,9 @@ def investigate(signal, max_probes=None, probe_table=None):
                     usage[k] += turn_usage.get(k) or 0
         except SystemExit:
             raise
-        except Exception as e:  # transport
+        except TriagerDown:
+            raise   # persistent auth outage — fail CLOSED at the orchestrator, not per-signal
+        except Exception as e:  # transport (one-off flake) — keep the per-signal escalate
             return _finish(signal, {"disposition": "escalate", "reason": f"triager call failed: {e}",
                                     "question": "transient failure — retry?"}, trace, "n/a", usage, t0)
         if not isinstance(raw, str) or not raw.strip():
@@ -300,4 +349,25 @@ def investigate(signal, max_probes=None, probe_table=None):
 # back-compat: orchestrator calls triage.triage(signal, evidence); investigation
 # does its own lazy probing, so `evidence` is ignored.
 def triage(signal, evidence=None, attempts=3):
+    # deterministic operational-state gate (no LLM): guardrail/billing/downstream
+    # states are acknowledged-not-ticketed, and this holds even when the triager is
+    # down (so a 401 outage can't turn a cost-cap storm into bug tickets).
+    cls = operational_class(signal)
+    if cls:
+        disp = {
+            "disposition": "dismiss",
+            "reason": (f"operational state ({cls}) — a guardrail/billing state or its "
+                       f"downstream, not a code bug; the alert already fired. "
+                       f"Acknowledged, not ticketed."),
+            "dismissal_evidence": f"deterministic operational classifier matched '{cls}'",
+            "certainty": "high",
+            "_meta": {"model": "none(operational-gate)",
+                      "prompt_ver": config.TRIAGE_PROMPT_VER, "prompt_sha": PROMPT_SHA,
+                      "gates": f"operational:{cls}", "probes": [], "n_probes": 0,
+                      "table_miss": 0, "cost_usd": 0.0, "certainty": "high",
+                      "operational_class": cls, "usage": {}},
+        }
+        observ.finalize(signal, disp, usage={}, latency_s=0.0)
+        print(f"    [operational:{cls}] {signal.get('alertname','')[:70]} -> dismiss (no ticket)")
+        return disp
     return investigate(signal)

@@ -53,6 +53,18 @@ GROUP_RULES = [
      "gemini-provider-instability"),
     (re.compile(r"dgx-whisper|resilience fuse", re.I), "dgx-whisper-fuse"),
     (re.compile(r"span batch|span export", re.I), "otel-span-export"),
+    # 2026-08 flood classes — collapse distinct-fingerprint same-class signals onto
+    # ONE group issue (the 2nd+ finds the group via ledger_lookup(fp, group_key) and
+    # comments, not files). Belt-and-suspenders behind triage's operational gate,
+    # which already dismisses most of these; a group rule catches any that reach FILE.
+    (re.compile(r"cost soft cap|cost cap exceeded|costcapexceeded|soft[- ]?cap exceeded", re.I),
+     "cost-cap"),
+    (re.compile(r"no budget|no credit|insufficient (credit|budget|fund)|\b402\b|"
+                r"out of credit|quota exceeded", re.I),
+     "provider-budget"),
+    (re.compile(r"openaiprovider not initialized|provider not initialized|"
+                r"fallback tier failed|fallback failed|summarization failed|summariz\w* fail", re.I),
+     "provider-fallback"),
 ]
 
 

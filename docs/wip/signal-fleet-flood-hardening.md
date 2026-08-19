@@ -98,5 +98,18 @@ Deterministic gate (not a prompt hope), in `triage.py` alongside the existing ga
 
 ## Status
 - [x] #1 auth — both keys recreated + documented (`infra/litellm/README.md`)
-- [ ] #2 fail-closed · [ ] #4 grouping+threshold · [ ] #5 classify · [ ] #6 correlate · [ ] #7 suppress-test
+- [x] #2 fail-closed — `TriagerDown` (triage.py) on 401/403 → orchestrator files ONE
+  `grafana:fleet-triager-down` issue on the ops repo (not N escalations)
+- [x] #4 group rules — cost-cap / provider-budget / provider-fallback collapse
+  distinct-fingerprint same-class signals (filing.py `GROUP_RULES`)
+- [x] #5 operational classifier — cost-cap/402/budget/provider-init → dismiss-no-ticket,
+  deterministic, no LLM (triage.py `operational_class`)
+- [x] #7 suppress test/synthetic at ingestion (sources.py `TEST_RUN_MARKER`)
+- [~] #6 — covered via #4 (grouping) + #5 (downstream states dismissed/grouped with root);
+  full run-scoped attach-to-root-issue deferred as a refinement
+- [x] all unit-tested (classify/group/suppress + the TriagerDown fail-closed flow) + a
+  dry-run shadow cycle
+- [ ] **source-token drift found** — `GRAFANA_TOKEN` + `GLITCHTIP_TOKEN` in
+  `fleet-gateway.env` 401 (more recreation casualties; the fleet can't FETCH signals until
+  fixed — separate from the hardening code, which handled it gracefully as source failures)
 - [ ] cleanup (bulk-close podcast) · [ ] bugfix-fleet audit

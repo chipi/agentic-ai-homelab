@@ -122,6 +122,39 @@ def run_glitchtip(limit=5, dry_run=True):
     return disps
 
 
+def _file_triager_down(reason, dry_run):
+    """Fail-closed handler (#2): the triager is persistently down, so file/update
+    ONE aggregate 'triager unavailable' issue on the ops repo — deduped by a fixed
+    fingerprint — instead of escalating every signal. Turns an auth outage into one
+    ticket, not ~90 (the 2026-08 flood)."""
+    sig = {
+        "fingerprint": "grafana:fleet-triager-down",
+        "occurrence_id": "grafana:fleet-triager-down",
+        "source": "grafana",
+        "alertname": "signal-fleet triager unavailable",
+        "labels": {"meta": "true"},
+        "summary": reason,
+    }
+    issue = {
+        "title": "[fleet] triager unavailable — signals unclassified (fail-closed)",
+        "labels": ["triage-fleet/substrate"],
+        "body": "\n".join([
+            "The signal-fleet triager LLM call is failing persistently:", "",
+            f"`{reason}`", "",
+            "The fleet is failing **CLOSED** — ONE issue for the whole outage, not one "
+            "escalation per signal (the 2026-08-13→19 flood was ~90 of those). Signals "
+            "this cycle go unclassified until the triager is restored.", "",
+            "**Fix:** recreate the litellm virtual key — see `infra/litellm/README.md` "
+            "→ *Recreate after a DB wipe*. The fleet then resumes automatically.", "",
+            "_signal-fleet fail-closed._"]),
+    }
+    if dry_run:
+        print(f"[TRIAGER-DOWN dry-run] would file/update ONE ops issue: {reason[:120]}")
+        return
+    import filing
+    print(f"[TRIAGER-DOWN fail-closed] {filing.file_or_update(sig, issue, 'substrate')}")
+
+
 def run_poll(limit=10, dry_run=True):
     """One daemon cycle — every live trigger in one pass (EVAL.md (i)). Each
     source pass is isolated so one failing source never sinks the cycle.
@@ -143,16 +176,25 @@ def run_poll(limit=10, dry_run=True):
     print(f"== signal-fleet cycle {cid or '(manual)'} stage={stage} "
           f"{datetime.datetime.now(datetime.timezone.utc).isoformat()} ==")
     disps, failures = [], 0
+    triager_down = None
     try:
         disps += run_grafana(limit=limit, dry_run=dry_run)   # ALL non-meta Grafana alerts
+    except triage.TriagerDown as e:
+        triager_down = str(e)
     except Exception as e:  # noqa: BLE001
         failures += 1
         print("  grafana pass error:", e)
-    try:
-        disps += run_glitchtip(limit=limit, dry_run=dry_run)       # GlitchTip errors
-    except Exception as e:  # noqa: BLE001
-        failures += 1
-        print("  glitchtip pass error:", e)
+    if triager_down is None:   # triager down => both passes would fail; skip the rest
+        try:
+            disps += run_glitchtip(limit=limit, dry_run=dry_run)   # GlitchTip errors
+        except triage.TriagerDown as e:
+            triager_down = str(e)
+        except Exception as e:  # noqa: BLE001
+            failures += 1
+            print("  glitchtip pass error:", e)
+    if triager_down:
+        failures += 2   # force a non-zero cycle so the daemon's health flags it too
+        _file_triager_down(triager_down, dry_run)
     # operator-inbox surfacing (queue depth, escalations, VL content) —
     # best-effort: the dashboard lagging a cycle must never fail the cycle
     try:

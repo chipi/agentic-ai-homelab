@@ -4,9 +4,23 @@ The first slice reacts to one signal: the *orrery launch-data-stale* Grafana
 alert. `firing_alerts()` is the general poll; `orrery_staleness()` picks the one.
 """
 import hashlib
+import re
 
 import config
 from http_util import get_json
+
+# Test / synthetic run markers — signals carrying these are noise-at-source and
+# must never reach triage (a real prod escalation of an `agentE2E…player` E2E run
+# is what motivated this, 2026-08-19). Suppressed at ingestion, not via the LLM,
+# so it holds even when the triager is down (fail-open would otherwise escalate
+# them). camelCase run-ids (agentE2E<epoch>) are the common shape.
+TEST_RUN_MARKER = re.compile(
+    r"agente2e|synthetic|smoke[-_ ]?test|\be2e[-_]run\b|ladder[-_]verify|\btest[-_]run\b",
+    re.I)
+
+
+def _is_test_signal(*fields):
+    return bool(TEST_RUN_MARKER.search(" ".join(str(f) for f in fields if f)))
 
 
 def firing_alerts():
@@ -28,7 +42,10 @@ def firing_alerts():
     return [a for a in data
             if a.get("status", {}).get("state") == "active"
             and a.get("labels", {}).get("meta") != "true"
-            and a.get("labels", {}).get("alertname") not in _PLUMBING]
+            and a.get("labels", {}).get("alertname") not in _PLUMBING
+            and not _is_test_signal(a.get("labels", {}).get("alertname"),
+                                    a.get("labels", {}).get("run_id"),
+                                    a.get("labels", {}).get("environment"))]
 
 
 def _fingerprint(alert):
@@ -85,7 +102,17 @@ def glitchtip_unresolved(limit=10):
     issues = _gt(f"/organizations/homelab/issues/?limit={limit}&sort=-last_seen")
     if not isinstance(issues, list):
         raise RuntimeError(f"glitchtip issues error: {str(issues)[:160]}")
-    return [i for i in issues if i.get("status") == "unresolved"]
+    out = []
+    for i in issues:
+        if i.get("status") != "unresolved":
+            continue
+        meta = i.get("metadata") or {}
+        if _is_test_signal(i.get("title"), i.get("culprit"), i.get("shortId"),
+                           meta.get("value"), meta.get("type")):
+            print(f"  [suppress test/synthetic] {i.get('shortId')} {str(i.get('title',''))[:70]}")
+            continue
+        out.append(i)
+    return out
 
 
 def to_error_signal(issue):
