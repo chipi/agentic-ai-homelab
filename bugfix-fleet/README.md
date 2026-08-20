@@ -26,8 +26,15 @@ on a long-lived `fixes` branch; Claude reviews the batch PR (Phase 1). Runs on t
   or `npm run dev -- <cmd>` (cmd ∈ `poll|dispatch|cutpr|review|metrics|ship`).
   `dispatch` is the safe no-mutation smoke test. **Verified working E2E 2026-08-19**
   (200s through the gateway, spend metered, traces landed).
-- **NOT a daemon yet** — `fleetd.json`'s bugfix cycle is `"not wired (Track B gate)"`.
-  Nothing runs continuously; it's manual/on-demand.
+- **Autonomous/nonstop by design — currently DORMANT on purpose (deliberate pause).**
+  It's built to run continuously, picking up the bug issues the **triage fleet
+  (`signal-fleet/`) files** — triage → bugfix is a pipeline. It is NOT on-demand and
+  NOT a work/sleep rhythm. Right now it's **paused** (`fleetd.json` bugfix cycle
+  disabled = the `"Track B gate"`): it ran ONE batch, and the operator paused it to
+  review those results and decide how to fine-tune before letting it run nonstop.
+  **Do not wake the fix-loop** (`poll`/`cutpr`/`review`/`ship` mutate GitHub) while
+  it's parked — only read-only ops (`dispatch`, `metrics`) are safe. The metrics
+  pusher (`com.homelab.bugfix-metrics`, every 120s) keeps running during dormancy.
 - **Gotcha — recreation casualties:** a colima/DB recreate wipes the litellm virtual
   key → every call 401s. Fix = recreate the key ([`infra/litellm/README.md`](../infra/litellm/README.md)
   → *Recreate after a DB wipe*).
