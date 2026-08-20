@@ -541,6 +541,40 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [1] } }]
 
+      # --- bugfix-fleet mass-stuck (fail-loud) -------------------------------------
+      # The bugfix-fleet runs autonomously in batches (dormant between operator
+      # reviews). On a systemic failure — e.g. the litellm virtual key wiped by a
+      # DB recreate (a recurring casualty) — EVERY issue in the batch errors and
+      # lands in flow:stuck, silently. The metrics job (run-metrics.sh, every 120s)
+      # already pushes bugfix_fleet_issues{flow}, so this is a fail-loud ALERT, not
+      # fleet code. Fire on the RISE (gauge delta over 3h), NOT the absolute count:
+      # a couple of genuinely-hard bugs sitting stuck long-term is normal and must
+      # not page; a batch stucking 3+ at once is the systemic signal. meta=true —
+      # substrate alert, terminates at the operator (a broken fix-fleet isn't triage
+      # food). Threshold tunable once the normal batch/stuck rhythm is observed.
+      - uid: bugfix-mass-stuck
+        title: "bugfix-fleet: batch mass-stuck (systemic failure — likely wiped key)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: fleet, meta: "true" }
+        annotations:
+          summary: "bugfix-fleet flow:stuck rose by >=3 in 3h — a batch is systemically failing (likely the litellm virtual key was wiped: infra/litellm/README.md -> Recreate after a DB wipe), not slow hard-bug residue. The fix-loop is producing unreviewable output; check before the next batch."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 10800, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '(last_over_time(bugfix_fleet_issues{flow="stuck"}[10m]) - min_over_time(bugfix_fleet_issues{flow="stuck"}[3h])) or vector(0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gte, params: [3] } }]
+
       # --- fleetd silent (dead-man) ------------------------------------------------
       # The inverse rule — what the old rule was accidentally being: total
       # absence of cycle samples for 3+ cycle periods (10m cadence) = fleetd
