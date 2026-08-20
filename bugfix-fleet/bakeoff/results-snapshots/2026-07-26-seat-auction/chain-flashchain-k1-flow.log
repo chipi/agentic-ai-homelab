@@ -2,13 +2,13 @@ FLOW: triaging  (qa-rounds=0)
 TRIAGE: verdict=actionable  shape=PASS  | 115s $0
 FLOW: fixing  (round=0 manifest=bugs/triaged/orrery-fly-physics-L0-triaged.json)
 VERDICT: FAIL (ftp_still_failing=2, regressions=0)   | 190s  $0  42 turns  scope=no
-FLOW: kick-back  (round=1 evidence=/Users/markodragoljevic/.bugfix-fleet/bakeoff/results/orrery-fly-physics-L0-triaged/pi)
+FLOW: kick-back  (round=1 evidence=/home/dev/.bugfix-fleet/bakeoff/results/orrery-fly-physics-L0-triaged/pi)
 FLOW: advising  (model=z-ai/glm-5.2)
 ADVISOR PIN: src/lib/orbital/fly-physics.ts :: heliocentricSpeed  (50s)
 TRIAGE: verdict=actionable  shape=PASS  | 80s $0
 FLOW: fixing  (round=1 manifest=bugs/triaged/orrery-fly-physics-L0-triaged-kb1.json)
 VERDICT: FAIL (ftp_still_failing=1, regressions=0)   | 70s  $0  9 turns  scope=yes
-FLOW: kick-back  (round=2 evidence=/Users/markodragoljevic/.bugfix-fleet/bakeoff/results/orrery-fly-physics-L0-triaged-kb1/pi)
+FLOW: kick-back  (round=2 evidence=/home/dev/.bugfix-fleet/bakeoff/results/orrery-fly-physics-L0-triaged-kb1/pi)
 FLOW: acceptance-gap  (fixed at pin src/lib/orbital/fly-physics.ts, still failing — reporter)
 TRIAGE: verdict=actionable  shape=PASS  | 75s $0
 FLOW: downgrade  (acceptance-gap triage returned actionable — forcing needs-info)

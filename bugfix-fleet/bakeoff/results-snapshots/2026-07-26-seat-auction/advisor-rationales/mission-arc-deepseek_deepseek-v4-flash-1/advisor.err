@@ -1,1 +1,1 @@
-[pi-lean-ctx] ctx_read bridge call failed, falling back to CLI: McpError: MCP error -32602: ERROR: file not found: /Users/markodragoljevic/.bugfix-fleet/bakeoff/orrery/src/lib/interplanetary-geometry.ts — verify the path with ctx_tree or ctx_search
+[pi-lean-ctx] ctx_read bridge call failed, falling back to CLI: McpError: MCP error -32602: ERROR: file not found: /home/dev/.bugfix-fleet/bakeoff/orrery/src/lib/interplanetary-geometry.ts — verify the path with ctx_tree or ctx_search

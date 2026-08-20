@@ -1,7 +1,7 @@
 #!/bin/bash
 export NODE_OPTIONS="--max-old-space-size=4096"
 ROOT=~/.bugfix-fleet/bakeoff; SRC=$ROOT/orrery-src; WT=$ROOT/orrery
-AUTH=/Users/markodragoljevic/Projects/agentic-ai-homelab/bugfix-fleet/bakeoff/oracles/orrery/image-bytes.test.ts
+AUTH=/home/dev/Projects/agentic-ai-homelab/bugfix-fleet/bakeoff/oracles/orrery/image-bytes.test.ts
 run_oracle(){ ( cd "$WT" && npx vitest run "$1" --reporter=json --outputFile=/tmp/vres.json >/dev/null 2>&1 ); }
 cnt(){ jq -r "[.testResults[].assertionResults[]|select(.status==\"$1\")]|length" /tmp/vres.json 2>/dev/null || echo ERR; }
 verify(){
