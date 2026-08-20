@@ -1,0 +1,118 @@
+{
+  "id": "glitchtip-ORRERY-E",
+  "source": "glitchtip",
+  "frozen_at": "2026-07-25T07:26:26.826353+00:00",
+  "signal": {
+    "fingerprint": "glitchtip:ORRERY-E",
+    "occurrence_id": "glitchtip:ORRERY-E@2026-07-25T06:49:12.309Z",
+    "source": "glitchtip",
+    "alertname": "TypeError: Failed to fetch dynamically imported module: https://example-orrery.test/_app/immutable/…",
+    "labels": {
+      "project": "orrery",
+      "level": "error",
+      "culprit": "",
+      "count": "1"
+    },
+    "summary": "TypeError: Failed to fetch dynamically imported module: https://example-orrery.test/_app/immutable/… (count=1, level=error, culprit=)",
+    "startsAt": "2026-07-25T06:49:12.309Z",
+    "issue_id": "32",
+    "raw": {
+      "id": "32",
+      "count": "1",
+      "type": "error",
+      "level": "error",
+      "status": "unresolved",
+      "metadata": {
+        "type": "TypeError",
+        "value": "Failed to fetch dynamically imported module: https://example-orrery.test/_app/immutable/nodes/0.CjNTxyFI.js"
+      },
+      "project": {
+        "id": "4",
+        "platform": "javascript",
+        "slug": "orrery",
+        "name": "orrery"
+      },
+      "shortId": "ORRERY-E",
+      "numComments": 0,
+      "stats": {
+        "24h": []
+      },
+      "shareId": null,
+      "logger": null,
+      "permalink": "http://<ip>:8090/orrery/issues/32",
+      "statusDetails": {},
+      "subscriptionDetails": null,
+      "userCount": 0,
+      "matchingEventId": null,
+      "firstRelease": {
+        "shortVersion": "gha-<sha>",
+        "dateCreated": "2026-07-25T06:49:15.350Z",
+        "dateReleased": null,
+        "version": "gha-<sha>"
+      },
+      "lastRelease": {
+        "shortVersion": "gha-<sha>",
+        "dateCreated": "2026-07-25T06:49:15.350Z",
+        "dateReleased": null,
+        "version": "gha-<sha>"
+      },
+      "firstSeen": "2026-07-25T06:49:12.309Z",
+      "lastSeen": "2026-07-25T06:49:12.309Z",
+      "assignedTo": null,
+      "title": "TypeError: Failed to fetch dynamically imported module: https://example-orrery.test/_app/immutable/…",
+      "culprit": ""
+    }
+  },
+  "probes": {
+    "event_detail:{}": {
+      "platform": "javascript",
+      "culprit": "/posters",
+      "message": "TypeError: Failed to fetch dynamically imported module: https://example-orrery.test/_app/immutable/nodes/0.CjN…",
+      "environment": "prod",
+      "component": "orrery",
+      "release": "gha-<sha>",
+      "trace_id": "<hex>",
+      "tags": {
+        "release": "gha-<sha>",
+        "platform": "web",
+        "component": "orrery",
+        "environment": "prod"
+      },
+      "frames": []
+    },
+    "occurrence_history:{}": {
+      "count": "1",
+      "userCount": 0,
+      "firstSeen": "2026-07-25T06:49:12.309Z",
+      "lastSeen": "2026-07-25T06:49:12.309Z",
+      "level": "error",
+      "status": "unresolved",
+      "culprit": ""
+    },
+    "service_logs:{}": "{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:25:55.41781084Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:25:25.343415583Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:24:55.281190287Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:24:25.225379523Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"http://example-orrery.test\\\" \\\"Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:23:57.489057502Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:23:55.17310499Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"HEAD / HTTP/1.1\\\" 200 0 \\\"https://example-orrery.test/\\\" \\\"Mozilla/5.0+(compatible; example-monitor/2.0; http://www.example-monitor/)\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:23:35.458306908Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:23:25.11856371Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:22:55.05903775Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:22:25.006632346Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:21:54.954409113Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"http://example-orrery.test\\\" \\\"Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:21:29.144046491Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:21:24.88736291Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:20:54.831208498Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [25/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 36901 \\\"-\\\" \\\"Wget\\\"\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",container=\\\"orrery-web\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T07:20:24.774639202Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n",
+    "metric:{}": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      },
+      "stats": {
+        "seriesFetched": "0",
+        "executionTimeMsec": 2
+      }
+    },
+    "trace:{}": "<no trace_id provided>",
+    "source_state:{}": "{\"_msg\":\"[refresh-prod-data] 2026-07-25T06:00:19Z ok — launches.json 549982 bytes\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:19.622690127Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"[fetch-launches] done.\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:17.867667626Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/2010-2019.json — 883 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:17.867663899Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/2000-2009.json — 662 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:17.867661144Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/1990-1999.json — 893 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:17.867659872Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/1980-1989.json — 1193 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:17.867611728Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/1970-1979.json — 1224 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:17.867597481Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/1957-1969.json — 1027 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:17.867589725Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/2020-2026.json — 1414 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:17.867579134Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches.json — 349 upcoming entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-25T06:00:17.867567171Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n"
+  },
+  "freeze_dispositions": [
+    "dismiss",
+    "dismiss"
+  ],
+  "ground_truth": {
+    "disposition": "dismiss",
+    "work_type": null,
+    "notes": "",
+    "correct_autonomous": "dismiss",
+    "label_note": "labeled 2026-07-25 (takeover): client module-fetch transient, count=1"
+  }
+}

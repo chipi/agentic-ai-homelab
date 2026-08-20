@@ -1,0 +1,113 @@
+{
+  "id": "glitchtip-PODCAST-4",
+  "source": "glitchtip",
+  "frozen_at": "2026-07-24T20:50:44.630336+00:00",
+  "signal": {
+    "fingerprint": "glitchtip:PODCAST-4",
+    "occurrence_id": "glitchtip:PODCAST-4@2026-07-22T14:58:26.732Z",
+    "source": "glitchtip",
+    "alertname": "Failed to export span batch due to timeout, max retries or shutdown.",
+    "labels": {
+      "project": "podcast",
+      "level": "error",
+      "culprit": "",
+      "count": "42"
+    },
+    "summary": "Failed to export span batch due to timeout, max retries or shutdown. (count=42, level=error, culprit=)",
+    "startsAt": "2026-07-22T14:58:26.732Z",
+    "issue_id": "6",
+    "raw": {
+      "id": "6",
+      "count": "42",
+      "type": "default",
+      "level": "error",
+      "status": "unresolved",
+      "metadata": {},
+      "project": {
+        "id": "1",
+        "platform": "python",
+        "slug": "podcast",
+        "name": "podcast"
+      },
+      "shortId": "PODCAST-4",
+      "numComments": 0,
+      "stats": {
+        "24h": []
+      },
+      "shareId": null,
+      "logger": null,
+      "permalink": "http://<ip>:8090/podcast/issues/6",
+      "statusDetails": {},
+      "subscriptionDetails": null,
+      "userCount": 0,
+      "matchingEventId": null,
+      "firstRelease": {
+        "shortVersion": "sha-<sha>",
+        "dateCreated": "2026-07-21T23:08:46.592Z",
+        "dateReleased": null,
+        "version": "sha-<sha>"
+      },
+      "lastRelease": {
+        "shortVersion": "sha-<sha>",
+        "dateCreated": "2026-07-21T23:08:46.592Z",
+        "dateReleased": null,
+        "version": "sha-<sha>"
+      },
+      "firstSeen": "2026-07-22T14:58:26.732Z",
+      "lastSeen": "2026-07-22T14:58:28.314Z",
+      "assignedTo": null,
+      "title": "Failed to export span batch due to timeout, max retries or shutdown.",
+      "culprit": ""
+    }
+  },
+  "probes": {
+    "event_detail:{}": {
+      "platform": "python",
+      "culprit": "",
+      "message": "Failed to export span batch due to timeout, max retries or shutdown.",
+      "environment": "prod",
+      "component": null,
+      "release": "sha-<sha>",
+      "trace_id": "<hex>",
+      "tags": {
+        "release": "sha-<sha>",
+        "environment": "prod",
+        "server_name": "f828f640b578"
+      },
+      "frames": []
+    },
+    "occurrence_history:{}": {
+      "count": "42",
+      "userCount": 0,
+      "firstSeen": "2026-07-22T14:58:26.732Z",
+      "lastSeen": "2026-07-22T14:58:28.314Z",
+      "level": "error",
+      "status": "unresolved",
+      "culprit": ""
+    },
+    "service_logs:{}": "{\"_msg\":\"<ip> - - [24/Jul/<ip6> +0000] \\\"GET /healthz HTTP/1.1\\\" 200 1401 \\\"-\\\" \\\"Wget\\\" \\\"-\\\"\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-viewer-1\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:49:58.210593437Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [24/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 1401 \\\"-\\\" \\\"Wget\\\" \\\"-\\\"\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-viewer-1\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:49:50.663299898Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"INFO:     <ip>:38806 - \\\"GET /api/health HTTP/1.1\\\" 200 OK\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-api-1\\\",instance=\\\"prod-host\\\",surface=\\\"api\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:49:31.905300175Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"api\"}\n{\"_msg\":\"<ip> - - [24/Jul/<ip6> +0000] \\\"GET /healthz HTTP/1.1\\\" 200 1401 \\\"-\\\" \\\"Wget\\\" \\\"-\\\"\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-viewer-1\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:49:28.178291074Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [24/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 1401 \\\"-\\\" \\\"Wget\\\" \\\"-\\\"\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-viewer-1\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:49:20.609194229Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"INFO:     <ip>:50762 - \\\"GET /metrics HTTP/1.1\\\" 200 OK\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-api-1\\\",instance=\\\"prod-host\\\",surface=\\\"api\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:49:19.68198761Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"api\"}\n{\"_msg\":\"INFO:     <ip>:39950 - \\\"GET /api/health HTTP/1.1\\\" 200 OK\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-api-1\\\",instance=\\\"prod-host\\\",surface=\\\"api\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:49:01.826422505Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"api\"}\n{\"_msg\":\"<ip> - - [24/Jul/<ip6> +0000] \\\"GET /healthz HTTP/1.1\\\" 200 1401 \\\"-\\\" \\\"Wget\\\" \\\"-\\\"\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-viewer-1\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:48:58.148412165Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [24/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 1401 \\\"-\\\" \\\"Wget\\\" \\\"-\\\"\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-viewer-1\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:48:50.550942436Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"INFO:     <ip>:34554 - \\\"GET /api/health HTTP/1.1\\\" 200 OK\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-api-1\\\",instance=\\\"prod-host\\\",surface=\\\"api\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:48:31.760451815Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"api\"}\n{\"_msg\":\"<ip> - - [24/Jul/<ip6> +0000] \\\"GET /healthz HTTP/1.1\\\" 200 1401 \\\"-\\\" \\\"Wget\\\" \\\"-\\\"\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-viewer-1\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:48:28.110096851Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"<ip> - - [24/Jul/<ip6> +0000] \\\"GET / HTTP/1.1\\\" 200 1401 \\\"-\\\" \\\"Wget\\\" \\\"-\\\"\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-viewer-1\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:48:20.495710802Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n{\"_msg\":\"INFO:     <ip>:40918 - \\\"GET /metrics HTTP/1.1\\\" 200 OK\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-api-1\\\",instance=\\\"prod-host\\\",surface=\\\"api\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:48:19.682504554Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"api\"}\n{\"_msg\":\"INFO:     <ip>:46356 - \\\"GET /api/health HTTP/1.1\\\" 200 OK\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-api-1\\\",instance=\\\"prod-host\\\",surface=\\\"api\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:48:01.699618274Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"api\"}\n{\"_msg\":\"<ip> - - [24/Jul/<ip6> +0000] \\\"GET /healthz HTTP/1.1\\\" 200 1401 \\\"-\\\" \\\"Wget\\\" \\\"-\\\"\",\"_stream\":\"{app=\\\"podcast\\\",cluster=\\\"vps\\\",container=\\\"compose-viewer-1\\\",instance=\\\"prod-host\\\",surface=\\\"web\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T20:47:58.074621327Z\",\"app\":\"podcast\",\"cluster\":\"vps\",\"container\":\"<host>\",\"instance\":\"<host>\",\"surface\":\"web\"}\n",
+    "metric:{}": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      },
+      "stats": {
+        "seriesFetched": "0",
+        "executionTimeMsec": 0
+      }
+    },
+    "trace:{}": "<no trace_id provided>",
+    "source_state:{}": "{\"_msg\":\"[refresh-prod-data] 2026-07-24T18:01:58Z ok — launches.json 551488 bytes\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:58.823170482Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"[fetch-launches] done.\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:57.06878176Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/2010-2019.json — 883 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:57.068780428Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/2000-2009.json — 662 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:57.068726613Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/1990-1999.json — 893 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:57.068713086Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/1980-1989.json — 1193 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:57.068706403Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/1970-1979.json — 1224 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:57.068694691Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/1957-1969.json — 1027 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:57.068676314Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches-historic/2020-2026.json — 1414 entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:56.818058978Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n{\"_msg\":\"  ✓ launches.json — 350 upcoming entries\",\"_stream\":\"{app=\\\"orrery\\\",cluster=\\\"vps\\\",filename=\\\"/rootfs/srv/orrery/data-refresh.log\\\",instance=\\\"prod-host\\\",job=\\\"orrery-data-refresh\\\",surface=\\\"pipeline\\\"}\",\"_stream_id\":\"<hex>\",\"_time\":\"2026-07-24T18:01:56.818040602Z\",\"app\":\"orrery\",\"cluster\":\"vps\",\"filename\":\"/rootfs/srv/orrery/data-refresh.log\",\"instance\":\"<host>\",\"job\":\"orrery-data-refresh\",\"surface\":\"pipeline\"}\n"
+  },
+  "freeze_dispositions": [
+    "dismiss"
+  ],
+  "ground_truth": {
+    "disposition": "file",
+    "work_type": "config-enhancement",
+    "notes": "operator: OTel exporter span-batch loss x42; config fix",
+    "correct_autonomous": "file",
+    "label_note": "relabeled 2026-07-25: escalate<=5% philosophy + code-invariant floor (R2-3); was escalate"
+  }
+}

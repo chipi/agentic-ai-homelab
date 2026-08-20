@@ -7,11 +7,18 @@ measure the triager. `mvp/freeze.py` builds them; `mvp/score.py` runs them.
 the triager's.** The model is the thing under test; if it labels its own exam the
 eval is circular. So freeze.py leaves `ground_truth` blank for the operator.
 
-## Status (data hygiene)
-Fixtures live on the homelab mini (`~/signal-fleet/reference/`) — they hold real
-signal evidence (IPv4-redacted by freeze.py). They are **not committed here yet**,
-pending an operator decision on committing real logs. The machinery
-(`mvp/freeze.py`, `mvp/score.py`) is version-controlled.
+## Status (data hygiene) — COMMITTED + SCRUBBED (operator-approved 2026-08-20)
+These fixtures **are now versioned here** (previously mini-only). The operator
+approved committing them to the public repo *after a thorough scrub*. Every fixture
+passes through `mvp/scrub.py` — a two-tier reproducible scrubber: **secrets**
+hard-redacted (with a `--scan` gate that fails on any), **identifiers** (real
+domains, operator paths/handle, host topology, git shas, long hashes) mapped to
+stable synthetic equivalents that preserve shape + semantics, so the triager's
+dispositions are unchanged. `freeze.py` applies it automatically, so future fixtures
+are auto-scrubbed. Validated: 0 leaks, `score.py` replays them without table-miss.
+
+See also the deterministic hardening eval:
+[`../reference-hardening/`](../reference-hardening/README.md).
 
 ## Label vocabulary
 - `disposition`: `dismiss` | `file` | `escalate`

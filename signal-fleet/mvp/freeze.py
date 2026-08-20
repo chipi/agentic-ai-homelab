@@ -28,21 +28,17 @@ import re
 
 import config
 import probes
+import scrub as _scrub
 import sources
 import triage
 
-IPV4 = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
 FREEZE_K = int(config.env("SF_FREEZE_K", "2"))  # model passes to capture arg variance
 
 
 def _redact(obj):
-    if isinstance(obj, str):
-        return IPV4.sub("<ip>", obj)
-    if isinstance(obj, dict):
-        return {k: _redact(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_redact(x) for x in obj]
-    return obj
+    # full scrub (secrets + identifiers -> synthetic), so frozen fixtures are safe to
+    # commit to the PUBLIC repo. Supersedes the old IPv4-only redaction. See scrub.py.
+    return _scrub.scrub(obj)
 
 
 class _RecordingTable:
@@ -111,10 +107,11 @@ def _write(fid, signal, probe_table, source, seen_dispositions):
         "source": source,
         "frozen_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "signal": _redact(signal),
-        # the frozen probe->response table the scorer replays against. Redact the
-        # RESPONSES only — the keys are probe_key() strings the scorer must match
-        # byte-for-byte, so they are never rewritten.
-        "probes": {k: _redact(v) for k, v in probe_table.items()},
+        # the frozen probe->response table the scorer replays against. Scrub keys AND
+        # values with the SAME deterministic rules (scrub.py): a probe key can embed a
+        # trace_id, and scrubbing both sides identically keeps the frozen key matching
+        # the key the scorer rebuilds from the scrubbed signal at replay.
+        "probes": _redact(probe_table),
         # what the model actually did during freeze (a hint for labeling, NOT truth):
         "freeze_dispositions": seen_dispositions,
         # OPERATOR fills this (the human oracle — EVAL.md §4 sourcing #2). Preserved
