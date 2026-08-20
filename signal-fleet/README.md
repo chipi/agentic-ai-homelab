@@ -11,10 +11,16 @@ chains to Fleet 1 as a labelled GitHub issue. This is RFC-0002's own Phase-3
 
 - **This IS live** — runs continuously as `fleetd` (LaunchAgent) on the mini, not a
   one-shot. Cycle = `python3 mvp/orchestrator.py --cycle` over Grafana + GlitchTip.
-- **Deploy reality:** the running copy is `~/signal-fleet/` on the mini — **NOT a git
-  repo**. Source of truth is this repo's `signal-fleet/mvp/`; **deploy = `scp` the
-  changed `mvp/*.py` to the mini** (verify they match — they were 0/15 diff on
-  2026-08-19). fleetd config: `~/fleetd/fleetd.json` (`env_file=~/signal-fleet/fleet-gateway.env`).
+- **Deploy reality (2026-08-20): runs from the GIT CHECKOUT** — `fleetd` runs the
+  triage cycle from `~/agentic-ai-homelab/signal-fleet/mvp` (the checkout), so a
+  `git pull` on the mini ships code updates with **no scp** (was: an untracked
+  `~/signal-fleet/` copy deployed by scp — that drift class is gone). Clean
+  separation: **code** = the checkout; **state + secrets** = mini-local under
+  `~/signal-fleet/` (gitignored) — `fleet-gateway.env`, the ledger
+  (`results/dispositions.tsv`, `results/filed.tsv`), `queue/`. All state paths are
+  absolute + env-overridable (`SF_LEDGER`/`SF_QUEUE`/`SF_FILED_LEDGER`…), so the
+  code is cwd-independent. fleetd config: `~/fleetd/fleetd.json`
+  (`workdir=…/agentic-ai-homelab/signal-fleet/mvp`, `env_file=~/signal-fleet/fleet-gateway.env`).
 - **env files:** `fleet-gateway.env` is the ONE fleetd loads. `fleet.env` is a stale
   duplicate — ignore it (its tokens are old; kept in sync only as a courtesy).
 - **LLM = homelab LiteLLM gateway.** Triager posts to
