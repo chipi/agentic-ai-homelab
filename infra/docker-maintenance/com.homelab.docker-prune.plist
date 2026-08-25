@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.homelab.docker-prune</string>
+  <key>ProgramArguments</key><array>
+    <string>/bin/bash</string>
+    <string>/Users/markodragoljevic/agentic-ai-homelab/infra/docker-maintenance/docker-prune.sh</string>
+  </array>
+  <!-- Weekly: Sunday 04:00 local. Runs at next wake if the mini was asleep. -->
+  <key>StartCalendarInterval</key><dict>
+    <key>Weekday</key><integer>0</integer>
+    <key>Hour</key><integer>4</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key><string>/tmp/docker-prune.log</string>
+  <key>StandardErrorPath</key><string>/tmp/docker-prune.log</string>
+</dict></plist>
