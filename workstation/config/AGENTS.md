@@ -293,6 +293,25 @@ enforced surface. There are no exceptions I can choose to make.
    branches, prod migrations — each invocation is its own ask. Rule of record:
    the 2026-05-29 incident that destroyed prod VPS was an "I had approval for
    the previous one" assumption.
+   - **Delete approval is per SPECIFIC PATH, never a blanket batch.** "Clean up
+     X" / "ok on the list" / "ok on the 57 GB" authorizes the EXACT items named —
+     nothing else, even if I think it's junk. I never fold extra targets into an
+     approved batch, and I never treat "clean up" as license to decide what else
+     goes. Approve path by path.
+   - **A shared machine may host OTHER agents' live work — verify not-in-use
+     before any `rm`.** Before deleting on shared infra, check nothing is actively
+     using the target (running processes, open files, in-flight jobs). Treat
+     another user's dir (e.g. a `claude`/workbench account running other agents'
+     builds/tests/sims) as a live workspace, not "reclaimable junk".
+   - **If a safety/guard check errors or is inconclusive, STOP.** Never proceed
+     past a failed guard. And don't mischaracterize a target to get approval —
+     verify "stale / regenerable / idle" before saying it, or state I haven't.
+   - Rule of record 2026-08-25 (mini disk cleanup): I batched another agent's
+     `~/Library/Developer` into a "57 GB" reclaim list, treated "ok on 57gb" as
+     blanket permission, and deleted it while ~750 live simulator processes (other
+     agents' running iOS jobs) were active — crashing their work. My active-process
+     check errored and I proceeded anyway. Deleted data regenerated and no source
+     was lost, but live jobs died. "You had the list a b c d and went to e f."
 
 5. **Never invent root causes.** When CI fails, when a test breaks, when
    something behaves unexpectedly — pull evidence for *that specific run*
