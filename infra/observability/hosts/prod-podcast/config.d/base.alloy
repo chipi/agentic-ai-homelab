@@ -81,27 +81,11 @@ prometheus.scrape "api" {
   scrape_interval = "60s"
 }
 
-// ---------- APP EVENTS: pipeline-runner container stdout (canonical JSONL) -> VL ----------
-// Pipeline runs are ephemeral `docker compose run --rm pipeline[-llm]` containers
-// on the VPS; capture their stdout while they run — it carries the structured
-// events the app emits (llm_cost, ml_inference, pipeline_stage). Long-lived
-// api/viewer stdout is still NOT shipped (avoid the firehose) — only the scoped
-// pipeline containers + the persistent corpus event files below.
-discovery.relabel "pipeline" {
-  targets = discovery.docker.app.targets
-  rule {
-    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
-    regex         = "pipeline(-llm)?"
-    action        = "keep"
-  }
-}
-
-loki.source.docker "pipeline" {
-  host       = "unix:///var/run/docker.sock"
-  targets    = discovery.relabel.pipeline.output
-  forward_to = [loki.process.homelab_std.receiver]
-  labels     = { job = "podcast-pipeline" }
-}
+// ---------- (removed) pipeline-runner container stdout ----------
+// The pipeline docker-source moved to the podcast repo's operator.alloy drop-in
+// (canonical labels app=podcast, surface=pipeline). Keeping a copy here double-shipped
+// every pipeline log line to VictoriaLogs (podcast #1819, removed on-box 2026-08-26 —
+// dedup verified: one canary line, one VL hit, canonical stream only).
 
 // ---------- APP EVENTS: persistent corpus JSONL event files -> VL ----------
 // Search / listen / job events are append-only JSONL. file_match watches the
