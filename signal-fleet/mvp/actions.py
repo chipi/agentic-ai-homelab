@@ -120,11 +120,29 @@ def already_done(occurrence_id):
     return last
 
 
+def signal_code_version(signal):
+    """#6 — the release/commit the signal fired on, so a reader (and the fix fleet)
+    resolves stack frames against the right revision. GlitchTip carries it on the
+    issue's last/first release; '' when unknown."""
+    raw = signal.get("raw") or {}
+    for key in ("lastRelease", "firstRelease"):
+        rel = raw.get(key) or {}
+        v = rel.get("shortVersion") or rel.get("version")
+        if v:
+            return v
+    return ""
+
+
 def build_issue(signal, f):
     """GitHub issue payload for a File-shaped item. Label = work_type (the router)."""
     body = [
         f"**Signal:** `{signal.get('alertname')}` "
         f"(source: {signal.get('source')}, fp: `{signal.get('fingerprint')}`)",
+    ]
+    cv = signal_code_version(signal)
+    if cv:
+        body.append(f"**Code version:** `{cv}`  _(frames resolve against this revision)_")
+    body += [
         "", f"**Symptom:** {f.get('symptom', '')}",
         "", f"**Area:** {f.get('area', '')}",
         "", "**Acceptance criteria (intent-cited):**",
@@ -137,9 +155,11 @@ def build_issue(signal, f):
         body.append(f"- {e}")
     body.append("")
     body.append("_Filed by signal-fleet MVP._")
-    return {"title": f.get("title", ""),
-            "labels": [f.get("work_type", "config-enhancement")],
-            "body": "\n".join(body)}
+    labels = [f.get("work_type", "config-enhancement")]
+    area = (f.get("area") or "").strip().lower()
+    if area:                       # #8 — area label for release-planning filters
+        labels.append(f"area:{area}")
+    return {"title": f.get("title", ""), "labels": labels, "body": "\n".join(body)}
 
 
 def _tune_followup(signal, disp):
@@ -169,16 +189,22 @@ def queue_proposal(signal, issue, kind):
     operator review (propose-first — EVAL.md transition (i)). Not a real issue;
     real issue creation is gated on the File-quality eval (transition (iii))."""
     os.makedirs(config.QUEUE_DIR, exist_ok=True)
-    fp = (signal.get("fingerprint") or "sig").replace(":", "_").replace("/", "_")
-    # one queued proposal per (kind, fingerprint) — titles drift per day, so
-    # hashing the title alone let duplicates pile up (2026-08-05: 42
-    # config-enhancement drafts, mostly re-proposals of the same tunes)
+    # dedup slug prefers the normalized key (#1) so the SHADOW path collapses the
+    # same fragmentation the live path does (operator 2026-08-28: extend to shadow)
+    # — else 10 volatile-fingerprint occurrences queue 10 drafts. Falls back to the
+    # fingerprint when there's nothing stable to normalize.
+    import filing
+    nk = filing.normalized_key(signal)
+    slug = (nk or signal.get("fingerprint") or "sig").replace(":", "_").replace("/", "_")
+    # one queued proposal per (kind, slug) — titles drift per day, so hashing the
+    # title alone let duplicates pile up (2026-08-05: 42 config-enhancement drafts,
+    # mostly re-proposals of the same tunes)
     import glob as _glob
-    existing = _glob.glob(os.path.join(config.QUEUE_DIR, f"{kind}-{fp}-*.json"))
+    existing = _glob.glob(os.path.join(config.QUEUE_DIR, f"{kind}-{slug}-*.json"))
     if existing:
         return existing[0]
     h = hashlib.sha1((issue.get("title", "")).encode()).hexdigest()[:6]
-    path = os.path.join(config.QUEUE_DIR, f"{kind}-{fp}-{h}.json")
+    path = os.path.join(config.QUEUE_DIR, f"{kind}-{slug}-{h}.json")
     with open(path, "w") as f:
         json.dump({"queued_at": _now(), "kind": kind,
                    "signal": {k: signal.get(k) for k in

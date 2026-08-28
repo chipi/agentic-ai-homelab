@@ -1,0 +1,1926 @@
+{
+ "_schema": "signal-fleet dedup-efficacy corpus v1 — a frozen, SCRUBBED sample of real GlitchTip signals. eval_dedup.py replays it through the DETERMINISTIC filing stage (operational gate + norm_key dedup + low-signal) and asserts the collapse ratio, so the #1 dedup benefit becomes a permanent regression guard. No LLM.",
+ "_provenance": "100 real chipi GlitchTip issues (org=homelab), 2026-08-28, scrubbed via scrub.py.",
+ "signals": [
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3L",
+   "source": "glitchtip",
+   "alertname": "Multi-feed run finished with one or more feed failures",
+   "summary": "Multi-feed run finished with one or more feed failures (count=4, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "4"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "4",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-42",
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.7429 > $10.0000). 5 of …",
+   "summary": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.7429 > $10.0000). 5 of … (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-41",
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $10.7429 > $10.0000",
+   "summary": "CostCapExceeded: cost soft cap exceeded: $10.7429 > $10.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "CostCapExceeded",
+     "value": "cost soft cap exceeded: $10.7429 > $10.0000",
+     "filename": "podcast_scraper/workflow/selection_gate.py",
+     "function": "enforce_selection_budget"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3N",
+   "source": "glitchtip",
+   "alertname": "REFUSING TO START: selection of 10 episode(s) is estimated at $2.01, which exceeds the $10.00 per-r…",
+   "summary": "REFUSING TO START: selection of 10 episode(s) is estimated at $2.01, which exceeds the $10.00 per-r… (count=3, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "3"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "3",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-40",
+   "source": "glitchtip",
+   "alertname": "run budget: projected spend $10.7429 would exceed the $10.0000 per-run cap (already spent $8.7305) …",
+   "summary": "run budget: projected spend $10.7429 would exceed the $10.0000 per-run cap (already spent $8.7305) … (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-8",
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [9] Summarization failed (recoverable): Summary schema parsing faile…",
+   "summary": "RecoverableSummarizationError: [9] Summarization failed (recoverable): Summary schema parsing faile… (count=4, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "4"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RecoverableSummarizationError",
+     "value": "[9] Summarization failed (recoverable): Summary schema parsing failed after the ADR-148 re-roll: Structured summary JSON was incomplete or invalid (e.g. truncated). Skipping prose fallback; retry summarization for this episode.. Metadata generation will continue without summary.",
+     "filename": "podcast_scraper/workflow/metadata_generation.py",
+     "function": "_generate_episode_summary"
+    },
+    "culprit": "",
+    "count": "4",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3V",
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [8] Summarization failed (recoverable): Summary schema parsing faile…",
+   "summary": "RecoverableSummarizationError: [8] Summarization failed (recoverable): Summary schema parsing faile… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RecoverableSummarizationError",
+     "value": "[8] Summarization failed (recoverable): Summary schema parsing failed after the ADR-148 re-roll: Structured summary JSON was incomplete or invalid (e.g. truncated). Skipping prose fallback; retry summarization for this episode.. Metadata generation will continue without summary.",
+     "filename": "podcast_scraper/workflow/metadata_generation.py",
+     "function": "_generate_episode_summary"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1B",
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [3] Summarization failed (recoverable): Summary schema parsing faile…",
+   "summary": "RecoverableSummarizationError: [3] Summarization failed (recoverable): Summary schema parsing faile… (count=2, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "2"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RecoverableSummarizationError",
+     "value": "[3] Summarization failed (recoverable): Summary schema parsing failed after the ADR-148 re-roll: Structured summary JSON was incomplete or invalid (e.g. truncated). Skipping prose fallback; retry summarization for this episode.. Metadata generation will continue without summary.",
+     "filename": "podcast_scraper/workflow/metadata_generation.py",
+     "function": "_generate_episode_summary"
+    },
+    "culprit": "",
+    "count": "2",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PLAYER-8",
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED — player prod (sha fb6989f) — https://github.com/acme/podcast_scrape…",
+   "summary": "Post-deploy live smoke FAILED — player prod (sha fb6989f) — https://github.com/acme/podcast_scrape… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "player",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3U",
+   "source": "glitchtip",
+   "alertname": "No index at /app/output/search/lance_index",
+   "summary": "No index at /app/output/search/lance_index (count=5, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "5"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "5",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:ORRERY-9",
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutab…",
+   "summary": "TypeError: Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutab… (count=5, level=error, culprit=)",
+   "labels": {
+    "project": "orrery",
+    "level": "error",
+    "culprit": "",
+    "count": "5"
+   },
+   "raw": {
+    "metadata": {
+     "type": "TypeError",
+     "value": "Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutable/nodes/0.bny7n7Ws.js"
+    },
+    "culprit": "",
+    "count": "5",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3T",
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.6577 > $10.0000). 5 of …",
+   "summary": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.6577 > $10.0000). 5 of … (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3S",
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $10.6577 > $10.0000",
+   "summary": "CostCapExceeded: cost soft cap exceeded: $10.6577 > $10.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "CostCapExceeded",
+     "value": "cost soft cap exceeded: $10.6577 > $10.0000",
+     "filename": "podcast_scraper/workflow/selection_gate.py",
+     "function": "enforce_selection_budget"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3R",
+   "source": "glitchtip",
+   "alertname": "run budget: projected spend $10.6577 would exceed the $10.0000 per-run cap (already spent $8.6453) …",
+   "summary": "run budget: projected spend $10.6577 would exceed the $10.0000 per-run cap (already spent $8.6453) … (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-5",
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [1] Summarization failed (recoverable): Summary schema parsing faile…",
+   "summary": "RecoverableSummarizationError: [1] Summarization failed (recoverable): Summary schema parsing faile… (count=4, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "4"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RecoverableSummarizationError",
+     "value": "[1] Summarization failed (recoverable): Summary schema parsing failed after the ADR-148 re-roll: Structured summary JSON was incomplete or invalid (e.g. truncated). Skipping prose fallback; retry summarization for this episode.. Metadata generation will continue without summary.",
+     "filename": "podcast_scraper/workflow/metadata_generation.py",
+     "function": "_generate_episode_summary"
+    },
+    "culprit": "",
+    "count": "4",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3Q",
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [10] Summarization failed (recoverable): Summary schema parsing fail…",
+   "summary": "RecoverableSummarizationError: [10] Summarization failed (recoverable): Summary schema parsing fail… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RecoverableSummarizationError",
+     "value": "[10] Summarization failed (recoverable): Summary schema parsing failed after the ADR-148 re-roll: Structured summary JSON was incomplete or invalid (e.g. truncated). Skipping prose fallback; retry summarization for this episode.. Metadata generation will continue without summary.",
+     "filename": "podcast_scraper/workflow/metadata_generation.py",
+     "function": "_generate_episode_summary"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PLAYER-7",
+   "source": "glitchtip",
+   "alertname": "[ALERT-PATH TEST] Live smoke FAILED — player prod (sha fb6989f) — https://github.com/acme/podcast_…",
+   "summary": "[ALERT-PATH TEST] Live smoke FAILED — player prod (sha fb6989f) — https://github.com/acme/podcast_… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "player",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PLAYER-6",
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED — player prod (sha d64284a) — https://github.com/acme/podcast_scrape…",
+   "summary": "Post-deploy live smoke FAILED — player prod (sha d64284a) — https://github.com/acme/podcast_scrape… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "player",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PLAYER-5",
+   "source": "glitchtip",
+   "alertname": "PermissionError: [Errno 13] Permission denied: '/app/appdata/users/u_d1fcd94843b41dd6b1525839/ranki…",
+   "summary": "PermissionError: [Errno 13] Permission denied: '/app/appdata/users/u_d1fcd94843b41dd6b1525839/ranki… (count=2, level=error, culprit=)",
+   "labels": {
+    "project": "player",
+    "level": "error",
+    "culprit": "",
+    "count": "2"
+   },
+   "raw": {
+    "metadata": {
+     "type": "PermissionError",
+     "value": "[Errno 13] Permission denied: '/app/appdata/users/u_d1fcd94843b41dd6b1525839/ranking_events.jsonl'",
+     "filename": "pathlib.py",
+     "function": "open"
+    },
+    "culprit": "",
+    "count": "2",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PLAYER-4",
+   "source": "glitchtip",
+   "alertname": "PermissionError: [Errno 13] Permission denied: '/app/appdata/users/u_d1fcd94843b41dd6b1525839/.coll…",
+   "summary": "PermissionError: [Errno 13] Permission denied: '/app/appdata/users/u_d1fcd94843b41dd6b1525839/.coll… (count=6, level=error, culprit=)",
+   "labels": {
+    "project": "player",
+    "level": "error",
+    "culprit": "",
+    "count": "6"
+   },
+   "raw": {
+    "metadata": {
+     "type": "PermissionError",
+     "value": "[Errno 13] Permission denied: '/app/appdata/users/u_d1fcd94843b41dd6b1525839/.collections.json.lock'",
+     "filename": "filelock/_unix.py",
+     "function": "_acquire_native"
+    },
+    "culprit": "",
+    "count": "6",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3P",
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.4494 > $10.0000). 5 of …",
+   "summary": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.4494 > $10.0000). 5 of … (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3O",
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $10.4494 > $10.0000",
+   "summary": "CostCapExceeded: cost soft cap exceeded: $10.4494 > $10.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "CostCapExceeded",
+     "value": "cost soft cap exceeded: $10.4494 > $10.0000",
+     "filename": "podcast_scraper/workflow/selection_gate.py",
+     "function": "enforce_selection_budget"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3M",
+   "source": "glitchtip",
+   "alertname": "run budget: projected spend $10.4494 would exceed the $10.0000 per-run cap (already spent $8.4370) …",
+   "summary": "run budget: projected spend $10.4494 would exceed the $10.0000 per-run cap (already spent $8.4370) … (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-31",
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [2] Summarization failed (recoverable): Summary schema parsing faile…",
+   "summary": "RecoverableSummarizationError: [2] Summarization failed (recoverable): Summary schema parsing faile… (count=2, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "2"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RecoverableSummarizationError",
+     "value": "[2] Summarization failed (recoverable): Summary schema parsing failed after the ADR-148 re-roll: Structured summary JSON was incomplete or invalid (e.g. truncated). Skipping prose fallback; retry summarization for this episode.. Metadata generation will continue without summary.",
+     "filename": "podcast_scraper/workflow/metadata_generation.py",
+     "function": "_generate_episode_summary"
+    },
+    "culprit": "",
+    "count": "2",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3K",
+   "source": "glitchtip",
+   "alertname": "work-list: repaired 18/19 · 1 NOT FOUND in any feed's corpus: [6eb845ef-3075-4858-9dbf-4dda8eca28fd]",
+   "summary": "work-list: repaired 18/19 · 1 NOT FOUND in any feed's corpus: [6eb845ef-3075-4858-9dbf-4dda8eca28fd] (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3J",
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.3261 > $10.0000). 10 of…",
+   "summary": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.3261 > $10.0000). 10 of… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3I",
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $10.3261 > $10.0000",
+   "summary": "CostCapExceeded: cost soft cap exceeded: $10.3261 > $10.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "CostCapExceeded",
+     "value": "cost soft cap exceeded: $10.3261 > $10.0000",
+     "filename": "podcast_scraper/workflow/cost_monitoring.py",
+     "function": "enforce_cost_soft_cap"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3H",
+   "source": "glitchtip",
+   "alertname": "[7] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is …",
+   "summary": "[7] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is … (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3G",
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 7 has been running longer than 1200s and is STILL RUNN…",
+   "summary": "DEADLINE EXCEEDED: summarization for episode 7 has been running longer than 1200s and is STILL RUNN… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1C",
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [7] Summarization failed (recoverable): Summary schema parsing faile…",
+   "summary": "RecoverableSummarizationError: [7] Summarization failed (recoverable): Summary schema parsing faile… (count=3, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "3"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RecoverableSummarizationError",
+     "value": "[7] Summarization failed (recoverable): Summary schema parsing failed after the ADR-148 re-roll: Structured summary JSON was incomplete or invalid (e.g. truncated). Skipping prose fallback; retry summarization for this episode.. Metadata generation will continue without summary.",
+     "filename": "podcast_scraper/workflow/metadata_generation.py",
+     "function": "_generate_episode_summary"
+    },
+    "culprit": "",
+    "count": "3",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3F",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_rss.flightcast.com_c63dc3c0/run_97180b23-e8e5-4714-8475-…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_rss.flightcast.com_c63dc3c0/run_97180b23-e8e5-4714-8475-… (count=6, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "6"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "6",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3E",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.simplecast.com_999571cd/run_20260819-060035_285e51…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.simplecast.com_999571cd/run_20260819-060035_285e51… (count=3, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "3"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "3",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3D",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.simplecast.com_2e104dc7/run_a6064369-b804-400b-821…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.simplecast.com_2e104dc7/run_a6064369-b804-400b-821… (count=3, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "3"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "3",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3C",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.npr.org_7ce5b183/run_2e8dd80f-a73f-4111-8669-95204…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.npr.org_7ce5b183/run_2e8dd80f-a73f-4111-8669-95204… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3B",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.npr.org_7ce5b183/run_20260819-043606_285e51f2/medi…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.npr.org_7ce5b183/run_20260819-043606_285e51f2/medi… (count=11, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "11"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "11",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-3A",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_755f5437/run_57093ff3-129b-403f-b9c2-…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_755f5437/run_57093ff3-129b-403f-b9c2-… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-39",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_755f5437/run_49981cea-3988-4863-be46-…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_755f5437/run_49981cea-3988-4863-be46-… (count=6, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "6"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "6",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-38",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_370fb395/run_9f35cd75-fc3a-4714-8558-…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_370fb395/run_9f35cd75-fc3a-4714-8558-… (count=4, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "4"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "4",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-37",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_370fb395/run_20260819-030507_285e51f2…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_370fb395/run_20260819-030507_285e51f2… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-36",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_3581c092/run_944b3422-6fe1-4ea6-a1c0-…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_3581c092/run_944b3422-6fe1-4ea6-a1c0-… (count=5, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "5"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "5",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-35",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_3581c092/run_20260818-232834_285e51f2…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_3581c092/run_20260818-232834_285e51f2… (count=16, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "16"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "16",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-34",
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_api.substack.com_8c774140/run_20260825-024254_285e51f2/m…",
+   "summary": "audio eviction: KEEP /app/output/feeds/rss_api.substack.com_8c774140/run_20260825-024254_285e51f2/m… (count=10, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "10"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "10",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-33",
+   "source": "glitchtip",
+   "alertname": "[10] CLEANING DESTROYED THE TRANSCRIPT: 113979 chars -> 1893 (1.7%) by HybridCleaner. A cleaner rem…",
+   "summary": "[10] CLEANING DESTROYED THE TRANSCRIPT: 113979 chars -> 1893 (1.7%) by HybridCleaner. A cleaner rem… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-32",
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [11] Summarization failed (recoverable): Summary schema parsing fail…",
+   "summary": "RecoverableSummarizationError: [11] Summarization failed (recoverable): Summary schema parsing fail… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RecoverableSummarizationError",
+     "value": "[11] Summarization failed (recoverable): Summary schema parsing failed after the ADR-148 re-roll: Structured summary JSON was incomplete or invalid (e.g. truncated). Skipping prose fallback; retry summarization for this episode.. Metadata generation will continue without summary.",
+     "filename": "podcast_scraper/workflow/metadata_generation.py",
+     "function": "_generate_episode_summary"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-30",
+   "source": "glitchtip",
+   "alertname": "CANARY-2026-08-24-fix1: pipeline DSN probe",
+   "summary": "CANARY-2026-08-24-fix1: pipeline DSN probe (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-API-2",
+   "source": "glitchtip",
+   "alertname": "RuntimeError: CANARY-2026-08-24-fix1: glitchtip transport probe (operator api)",
+   "summary": "RuntimeError: CANARY-2026-08-24-fix1: glitchtip transport probe (operator api) (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-api",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RuntimeError",
+     "value": "CANARY-2026-08-24-fix1: glitchtip transport probe (operator api)",
+     "filename": "<string>",
+     "function": "<module>"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:ORRERY-C",
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutab…",
+   "summary": "TypeError: Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutab… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "orrery",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "TypeError",
+     "value": "Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutable/nodes/3.Br5bdbWV.js"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:ORRERY-B",
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutab…",
+   "summary": "TypeError: Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutab… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "orrery",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "TypeError",
+     "value": "Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutable/nodes/0.BarC0uR4.js"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:ORRERY-A",
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutab…",
+   "summary": "TypeError: Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutab… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "orrery",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "TypeError",
+     "value": "Failed to fetch dynamically imported module: https://acme.github.io/orrery/_app/immutable/nodes/7.DsH5I13s.js"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:ORRERY-8",
+   "source": "glitchtip",
+   "alertname": "TypeError: Importing a module script failed.",
+   "summary": "TypeError: Importing a module script failed. (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "orrery",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "TypeError",
+     "value": "Importing a module script failed."
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2V",
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $11.1191 > $5.0000",
+   "summary": "[11] processing future raised error: cost soft cap exceeded: $11.1191 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2U",
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $9.8284 > $5.0000",
+   "summary": "[10] processing future raised error: cost soft cap exceeded: $9.8284 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2T",
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $8.9815 > $5.0000",
+   "summary": "[9] processing future raised error: cost soft cap exceeded: $8.9815 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2S",
+   "source": "glitchtip",
+   "alertname": "[8] processing future raised error: cost soft cap exceeded: $8.4330 > $5.0000",
+   "summary": "[8] processing future raised error: cost soft cap exceeded: $8.4330 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2R",
+   "source": "glitchtip",
+   "alertname": "[7] processing future raised error: cost soft cap exceeded: $6.8473 > $5.0000",
+   "summary": "[7] processing future raised error: cost soft cap exceeded: $6.8473 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2Q",
+   "source": "glitchtip",
+   "alertname": "[6] processing future raised error: cost soft cap exceeded: $6.4723 > $5.0000",
+   "summary": "[6] processing future raised error: cost soft cap exceeded: $6.4723 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2P",
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $16.8967 > $5.0000",
+   "summary": "[15] processing future raised error: cost soft cap exceeded: $16.8967 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-19",
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'deepseek' also failed on extract_kg_graph: OpenAIProvider summarization not initiali…",
+   "summary": "Fallback tier 'deepseek' also failed on extract_kg_graph: OpenAIProvider summarization not initiali… (count=2, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "2"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "2",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2O",
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $16.8946 > $5.0000",
+   "summary": "CostCapExceeded: cost soft cap exceeded: $16.8946 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "CostCapExceeded",
+     "value": "cost soft cap exceeded: $16.8946 > $5.0000",
+     "filename": "podcast_scraper/workflow/cost_monitoring.py",
+     "function": "enforce_cost_soft_cap"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2N",
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $16.2215 > $5.0000",
+   "summary": "[14] processing future raised error: cost soft cap exceeded: $16.2215 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2M",
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $15.3166 > $5.0000",
+   "summary": "[13] processing future raised error: cost soft cap exceeded: $15.3166 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2L",
+   "source": "glitchtip",
+   "alertname": "[12] processing future raised error: cost soft cap exceeded: $14.7861 > $5.0000",
+   "summary": "[12] processing future raised error: cost soft cap exceeded: $14.7861 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2K",
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $13.6583 > $5.0000",
+   "summary": "[11] processing future raised error: cost soft cap exceeded: $13.6583 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2J",
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $11.9259 > $5.0000",
+   "summary": "[10] processing future raised error: cost soft cap exceeded: $11.9259 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2I",
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $11.0554 > $5.0000",
+   "summary": "[9] processing future raised error: cost soft cap exceeded: $11.0554 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2H",
+   "source": "glitchtip",
+   "alertname": "[8] processing future raised error: cost soft cap exceeded: $9.9106 > $5.0000",
+   "summary": "[8] processing future raised error: cost soft cap exceeded: $9.9106 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2G",
+   "source": "glitchtip",
+   "alertname": "[7] processing future raised error: cost soft cap exceeded: $7.6084 > $5.0000",
+   "summary": "[7] processing future raised error: cost soft cap exceeded: $7.6084 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2F",
+   "source": "glitchtip",
+   "alertname": "[6] processing future raised error: cost soft cap exceeded: $7.3183 > $5.0000",
+   "summary": "[6] processing future raised error: cost soft cap exceeded: $7.3183 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2E",
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [4] Summarization failed (recoverable): Summary schema parsing faile…",
+   "summary": "RecoverableSummarizationError: [4] Summarization failed (recoverable): Summary schema parsing faile… (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "RecoverableSummarizationError",
+     "value": "[4] Summarization failed (recoverable): Summary schema parsing failed after the ADR-148 re-roll: Structured summary JSON was incomplete or invalid (e.g. truncated). Skipping prose fallback; retry summarization for this episode.. Metadata generation will continue without summary.",
+     "filename": "podcast_scraper/workflow/metadata_generation.py",
+     "function": "_generate_episode_summary"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2D",
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $9.2569 > $5.0000",
+   "summary": "CostCapExceeded: cost soft cap exceeded: $9.2569 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "CostCapExceeded",
+     "value": "cost soft cap exceeded: $9.2569 > $5.0000",
+     "filename": "podcast_scraper/workflow/cost_monitoring.py",
+     "function": "enforce_cost_soft_cap"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2C",
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $8.4817 > $5.0000",
+   "summary": "[15] processing future raised error: cost soft cap exceeded: $8.4817 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2B",
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $8.0576 > $5.0000",
+   "summary": "[14] processing future raised error: cost soft cap exceeded: $8.0576 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-2A",
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $8.0418 > $5.0000",
+   "summary": "[13] processing future raised error: cost soft cap exceeded: $8.0418 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-29",
+   "source": "glitchtip",
+   "alertname": "[12] processing future raised error: cost soft cap exceeded: $7.3981 > $5.0000",
+   "summary": "[12] processing future raised error: cost soft cap exceeded: $7.3981 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-28",
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $6.7058 > $5.0000",
+   "summary": "[11] processing future raised error: cost soft cap exceeded: $6.7058 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-27",
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $5.6256 > $5.0000",
+   "summary": "[10] processing future raised error: cost soft cap exceeded: $5.6256 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-26",
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $5.0179 > $5.0000",
+   "summary": "[9] processing future raised error: cost soft cap exceeded: $5.0179 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-25",
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $6.4991 > $5.0000",
+   "summary": "CostCapExceeded: cost soft cap exceeded: $6.4991 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "CostCapExceeded",
+     "value": "cost soft cap exceeded: $6.4991 > $5.0000",
+     "filename": "podcast_scraper/workflow/cost_monitoring.py",
+     "function": "enforce_cost_soft_cap"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-24",
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $6.4027 > $5.0000",
+   "summary": "[15] processing future raised error: cost soft cap exceeded: $6.4027 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-23",
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $5.7245 > $5.0000",
+   "summary": "[14] processing future raised error: cost soft cap exceeded: $5.7245 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-22",
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $5.1135 > $5.0000",
+   "summary": "[13] processing future raised error: cost soft cap exceeded: $5.1135 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-20",
+   "source": "glitchtip",
+   "alertname": "    Whisper transcription failed: deepgram: no budget/credit left on this key — this is NOT retryab…",
+   "summary": "    Whisper transcription failed: deepgram: no budget/credit left on this key — this is NOT retryab… (count=14, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "14"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "14",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1V",
+   "source": "glitchtip",
+   "alertname": "Deepgram transcription failed: deepgram: no budget/credit left on this key — this is NOT retryable,…",
+   "summary": "Deepgram transcription failed: deepgram: no budget/credit left on this key — this is NOT retryable,… (count=14, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "14"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "14",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1U",
+   "source": "glitchtip",
+   "alertname": "deepgram: no budget/credit left on this key — this is NOT retryable, so the run is hard-stopping (t…",
+   "summary": "deepgram: no budget/credit left on this key — this is NOT retryable, so the run is hard-stopping (t… (count=14, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "14"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "14",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-21",
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $9.0260 > $5.0000",
+   "summary": "CostCapExceeded: cost soft cap exceeded: $9.0260 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "CostCapExceeded",
+     "value": "cost soft cap exceeded: $9.0260 > $5.0000",
+     "filename": "podcast_scraper/workflow/cost_monitoring.py",
+     "function": "enforce_cost_soft_cap"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1T",
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $9.0260 > $5.0000",
+   "summary": "[14] processing future raised error: cost soft cap exceeded: $9.0260 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1S",
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $8.6354 > $5.0000",
+   "summary": "[13] processing future raised error: cost soft cap exceeded: $8.6354 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1R",
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $8.0245 > $5.0000",
+   "summary": "[11] processing future raised error: cost soft cap exceeded: $8.0245 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1Q",
+   "source": "glitchtip",
+   "alertname": "[12] processing future raised error: cost soft cap exceeded: $7.2510 > $5.0000",
+   "summary": "[12] processing future raised error: cost soft cap exceeded: $7.2510 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1P",
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $6.5346 > $5.0000",
+   "summary": "[10] processing future raised error: cost soft cap exceeded: $6.5346 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1O",
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $5.4390 > $5.0000",
+   "summary": "[9] processing future raised error: cost soft cap exceeded: $5.4390 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1N",
+   "source": "glitchtip",
+   "alertname": "[8] processing future raised error: cost soft cap exceeded: $5.1064 > $5.0000",
+   "summary": "[8] processing future raised error: cost soft cap exceeded: $5.1064 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1M",
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $11.2762 > $5.0000",
+   "summary": "[15] processing future raised error: cost soft cap exceeded: $11.2762 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1L",
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $11.2349 > $5.0000",
+   "summary": "CostCapExceeded: cost soft cap exceeded: $11.2349 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {
+     "type": "CostCapExceeded",
+     "value": "cost soft cap exceeded: $11.2349 > $5.0000",
+     "filename": "podcast_scraper/workflow/cost_monitoring.py",
+     "function": "enforce_cost_soft_cap"
+    },
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1K",
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $9.7299 > $5.0000",
+   "summary": "[14] processing future raised error: cost soft cap exceeded: $9.7299 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1J",
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $9.2641 > $5.0000",
+   "summary": "[13] processing future raised error: cost soft cap exceeded: $9.2641 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1I",
+   "source": "glitchtip",
+   "alertname": "[12] processing future raised error: cost soft cap exceeded: $9.1188 > $5.0000",
+   "summary": "[12] processing future raised error: cost soft cap exceeded: $9.1188 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1H",
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $8.7653 > $5.0000",
+   "summary": "[11] processing future raised error: cost soft cap exceeded: $8.7653 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1G",
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $7.8518 > $5.0000",
+   "summary": "[10] processing future raised error: cost soft cap exceeded: $7.8518 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  },
+  {
+   "fingerprint": "glitchtip:PODCAST-PIPELINE-1F",
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $6.9490 > $5.0000",
+   "summary": "[9] processing future raised error: cost soft cap exceeded: $6.9490 > $5.0000 (count=1, level=error, culprit=)",
+   "labels": {
+    "project": "podcast-pipeline",
+    "level": "error",
+    "culprit": "",
+    "count": "1"
+   },
+   "raw": {
+    "metadata": {},
+    "culprit": "",
+    "count": "1",
+    "userCount": 0
+   }
+  }
+ ]
+}

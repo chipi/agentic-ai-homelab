@@ -47,6 +47,13 @@ def _check(case):
         got = triage.operational_class(sig)
         return got == exp["operational_class"], f"operational_class={got!r} (want {exp['operational_class']!r})"
 
+    if kind == "signal-class":
+        # #3/#2 — the deterministic secondary class (external/environment/recoverable)
+        # or None. Includes negative controls: a real code bug, and a bare-"timeout"
+        # with NO named upstream, must classify None (not external-transient).
+        got = triage.signal_class(sig)
+        return got == exp["signal_class"], f"signal_class={got!r} (want {exp['signal_class']!r})"
+
     if kind == "operational":
         # #5 — the operational gate dismisses (no LLM) and tags the class
         cls = triage.operational_class(sig)

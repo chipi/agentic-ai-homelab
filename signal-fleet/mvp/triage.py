@@ -13,6 +13,7 @@ Certainty is metadata only, never a gate.
 """
 import hashlib
 import json
+import os
 import re
 import time
 import urllib.error
@@ -71,6 +72,69 @@ def operational_class(signal):
     hay = " ".join(str(signal.get(k, "")) for k in ("alertname", "summary")) + \
         " " + json.dumps(signal.get("labels", {}))
     for rx, cls in OPERATIONAL_MARKERS:
+        if rx.search(hay):
+            return cls
+    return None
+
+
+# #3/#2 — secondary classes that BIAS routing (work_type) but NEVER gate the
+# disposition. The LLM still owns file-vs-escalate; the class is a per-signal HINT
+# that steers `bug` → `config-enhancement` for provider/environment/recoverable
+# conditions and templates the acceptance criteria. PRECEDENCE (review R5):
+# operational_class runs FIRST (dismiss, no LLM); signal_class only classifies what
+# reaches investigation, so a "fallback failed" (operational → dismiss) never reaches
+# the recoverable hint. Markers are SPECIFIC/server-side so they can't fire on the
+# existing client-side fixtures (a bare "timeout" is NOT enough — a named upstream
+# is required), which keeps the eval's existing behavior unchanged.
+SIGNAL_CLASS_MARKERS = [
+    (re.compile(r"(deepgram|openai|anthropic|gemini|whisper|elevenlabs|assemblyai|"
+                r"\bs3\b|\bgcs\b)\b.{0,40}?(timed out|timeout|temporarily unavailable|"
+                r"connection reset|\b50[234]\b)", re.I), "external-transient"),
+    (re.compile(r"\b(write|read) operation timed out\b", re.I), "external-transient"),
+    (re.compile(r"data_inspection_failed|content[_ ]?policy|moderation_blocked|"
+                r"invalid_request_error.{0,40}(safety|policy)", re.I), "external"),
+    (re.compile(r"permission denied|read-only file system|no space left|cargo_home|"
+                r"/root/\.cargo|lanceerror\(io\)|errno 1[38]|errno 28|disk quota exceeded",
+                re.I), "environment"),
+    (re.compile(r"recoverablesummarizationerror|recoverable\w*error|repaired \d+/\d+|"
+                r"\bdegraded\b|recovered gracefully|extractive fallback|reroll succeeded",
+                re.I), "recoverable"),
+]
+
+# defeasible hints — each ends by handing the decision back so the class stays a
+# BIAS, not a gate (the anchor-override fixture verifies the LLM can overrule it).
+_CLASS_HINT = {
+    "external-transient": (
+        "PRE-CLASSIFICATION HINT (deterministic, advisory): this looks like an EXTERNAL "
+        "TRANSIENT — a named third-party dependency timed out or was briefly unavailable. "
+        "If so it is NOT a code invariant: file as work_type=config-enhancement "
+        "(retry-with-backoff, then WARN + degrade on exhaustion). BUT if the evidence "
+        "shows OUR code mishandles the failure, file work_type=bug. You decide."),
+    "external": (
+        "PRE-CLASSIFICATION HINT (deterministic, advisory): this looks like an UPSTREAM "
+        "REJECTION — the provider refused on its own policy/safety, not our defect. If so, "
+        "work_type=config-enhancement (catch → skip/fallback that item + WARN). File "
+        "work_type=bug only if our code should have handled it and does not. You decide."),
+    "environment": (
+        "PRE-CLASSIFICATION HINT (deterministic, advisory): this looks like an ENVIRONMENT/"
+        "INFRA condition (permissions, disk, missing mount) — a container/image fix, "
+        "work_type=config-enhancement, NOT a code invariant. File work_type=bug only if "
+        "the code itself is at fault. You decide."),
+    "recoverable": (
+        "PRE-CLASSIFICATION HINT (deterministic, advisory): this looks RECOVERABLE — the "
+        "pipeline already handled/degraded through it and still logged ERROR. It is WARN-"
+        "level, low-priority: file work_type=config-enhancement (track the degradation) "
+        "rather than work_type=bug. File work_type=bug only if the recovery itself is "
+        "broken. You decide."),
+}
+
+
+def signal_class(signal):
+    """Deterministic secondary class or None. A HINT to the triager (see _CLASS_HINT),
+    NEVER a disposition gate. Runs conceptually AFTER operational_class."""
+    hay = " ".join(str(signal.get(k, "")) for k in ("alertname", "summary")) + \
+        " " + json.dumps(signal.get("labels", {}))
+    for rx, cls in SIGNAL_CLASS_MARKERS:
         if rx.search(hay):
             return cls
     return None
@@ -140,8 +204,14 @@ PROMPT_SHA = hashlib.sha1(_sys().encode()).hexdigest()[:8]
 
 
 def _signal_intro(signal):
-    return "SIGNAL:\n" + json.dumps(
+    intro = "SIGNAL:\n" + json.dumps(
         {k: signal.get(k) for k in ("source", "alertname", "labels", "summary")}, indent=2)
+    cls = signal_class(signal)   # #3/#2 — per-signal HINT, keeps PROMPT_SHA stable
+    # SF_NO_CLASS_HINT suppresses the hint — used ONLY for the eval A/B to reproduce
+    # pre-#3/#2 behavior on the identical fixtures. Never set in production.
+    if cls and not os.environ.get("SF_NO_CLASS_HINT"):
+        intro += "\n\n" + _CLASS_HINT[cls]
+    return intro
 
 
 def _trim(v, n=1800):

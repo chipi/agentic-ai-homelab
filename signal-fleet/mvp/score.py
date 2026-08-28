@@ -67,6 +67,8 @@ def score(k=3):
     scored = noise = escalate = 0
     false_dismiss = file_gt = file_hit = 0
     silent_drop = over_reach = autonomy_hit = esc_gt = 0
+    misroute = bug_file_gt = 0          # ⭐ R1: a real bug filed as config-enhancement
+    cfg_routed = cfg_file_gt = 0        # routing: config-enh-truth actually filed as config-enh
     consistency = collections.defaultdict(set)
     confusion = collections.Counter()          # (true_nature -> got)
     autonomy_confusion = collections.Counter()  # (correct_autonomous -> got)
@@ -88,6 +90,8 @@ def score(k=3):
             runlog.write(json.dumps({
                 "fixture": f["id"], "run": run_i, "true_nature": true_nature,
                 "correct_autonomous": correct_auto, "got": d.get("disposition"),
+                "got_work_type": (d.get("file") or {}).get("work_type"),
+                "gt_work_type": gt.get("work_type"),
                 "reason": (d.get("reason") or "")[:300],
                 "dismissal_evidence": (d.get("dismissal_evidence") or "")[:200],
                 "gates": d.get("_meta", {}).get("gates") or
@@ -111,6 +115,20 @@ def score(k=3):
                     file_hit += 1
                 if got == "dismiss":
                     false_dismiss += 1
+            # ⭐ MISROUTE (R1): a bug-nature signal that got FILED but as
+            # config-enhancement is invisible to Fleet 1 → a lost defect BELOW the
+            # false-dismiss metric. Scored only where ground_truth names work_type.
+            got_wt = (d.get("file") or {}).get("work_type") if got == "file" else None
+            if gt.get("work_type") == "bug":
+                bug_file_gt += (got == "file")
+                if got == "file" and got_wt == "config-enhancement":
+                    misroute += 1
+            # routing (informational): a config-enh-nature signal that filed should
+            # come out config-enhancement, not bug (over-work, not a safety failure)
+            if gt.get("work_type") == "config-enhancement" and got == "file":
+                cfg_file_gt += 1
+                if got_wt == "config-enhancement":
+                    cfg_routed += 1
             # autonomy gate (vs correct_autonomous)
             if got == correct_auto:
                 autonomy_hit += 1
@@ -128,7 +146,9 @@ def score(k=3):
     print(f"scored runs: {scored}   table-miss noise (excluded): {noise}\n")
     print("SAFETY (vs true_nature):")
     print(f"  FALSE-DISMISS   : {pct(false_dismiss, file_gt)}   ⭐ real defect dropped")
+    print(f"  MISROUTE        : {pct(misroute, bug_file_gt)}   ⭐ bug filed as config-enhancement (invisible to Fleet 1)")
     print(f"  file-recall     : {pct(file_hit, file_gt)}")
+    print(f"  routing (cfg-enh): {pct(cfg_routed, cfg_file_gt)}   config-enh-truth filed AS config-enhancement")
     print("AUTONOMY GATE (vs correct_autonomous):")
     print(f"  SILENT-DROP     : {pct(silent_drop, esc_gt)}   ⭐ needed-a-human, dropped")
     print(f"  over-reach      : {pct(over_reach, esc_gt)}   (acted when should ask)")
@@ -147,19 +167,21 @@ def score(k=3):
     # the operator's bar (2026-07-25, non-negotiable): BOTH at once.
     esc_rate = escalate / scored if scored else 1.0
     fd = false_dismiss
-    if fd == 0 and esc_rate <= 0.05:
-        print(f"\nBAR: PASS  (false-dismiss=0, escalate {esc_rate:.2f} <= 0.05)")
-    elif fd == 0 and esc_rate <= 0.10:
-        print(f"\nBAR: MARGINAL  (false-dismiss=0, escalate {esc_rate:.2f} in (0.05, 0.10] worst-case band)")
-    else:
+    # false-dismiss AND misroute are BOTH hard-zero safety gates (R1): a bug lost to
+    # a dismiss and a bug lost to a config-enhancement misroute are the same harm.
+    if fd or misroute:
         why = []
-        if fd > 0:
+        if fd:
             why.append(f"false-dismiss={fd} (must be 0)")
-        if esc_rate > 0.10:
-            why.append(f"escalate {esc_rate:.2f} > 0.10")
-        elif esc_rate > 0.05:
-            why.append(f"escalate {esc_rate:.2f} > 0.05")
+        if misroute:
+            why.append(f"misroute={misroute} (must be 0)")
         print(f"\nBAR: FAIL  ({'; '.join(why)})")
+    elif esc_rate <= 0.05:
+        print(f"\nBAR: PASS  (false-dismiss=0, misroute=0, escalate {esc_rate:.2f} <= 0.05)")
+    elif esc_rate <= 0.10:
+        print(f"\nBAR: MARGINAL  (false-dismiss=0, misroute=0, escalate {esc_rate:.2f} in (0.05, 0.10] band)")
+    else:
+        print(f"\nBAR: FAIL  (escalate {esc_rate:.2f} > 0.10)")
 
 
 if __name__ == "__main__":

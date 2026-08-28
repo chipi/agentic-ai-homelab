@@ -1,0 +1,82 @@
+{
+  "id": "glitchtip-PODCAST-DEEPGRAM-1",
+  "source": "glitchtip",
+  "frozen_at": "2026-08-28T00:00:00+00:00",
+  "signal": {
+    "fingerprint": "glitchtip:PODCAST-DEEPGRAM-1",
+    "occurrence_id": "glitchtip:PODCAST-DEEPGRAM-1@2026-08-20T00:00:00Z",
+    "source": "glitchtip",
+    "alertname": "Deepgram transcription failed: The write operation timed out",
+    "labels": {
+      "project": "podcast",
+      "level": "error",
+      "culprit": "",
+      "count": "3"
+    },
+    "summary": "Deepgram transcription failed: The write operation timed out (count=3)",
+    "startsAt": "2026-08-20T00:00:00Z",
+    "issue_id": "9000",
+    "raw": {
+      "metadata": {
+        "type": "TimeoutError",
+        "value": "The write operation timed out"
+      },
+      "culprit": "",
+      "count": "3",
+      "userCount": 0
+    }
+  },
+  "probes": {
+    "event_detail:{}": {
+      "platform": "python",
+      "culprit": "",
+      "message": "Deepgram transcription failed: The write operation timed out",
+      "cause_type": null,
+      "cause_value": null,
+      "cause_frame": "",
+      "chain_depth": 1,
+      "exc_type": "TimeoutError",
+      "top_frame": "providers/deepgram.py _request",
+      "environment": "prod",
+      "component": null,
+      "release": "sha-cc33dd4",
+      "code_version": "sha-cc33dd4",
+      "trace_id": null,
+      "tags": {
+        "release": "sha-cc33dd4",
+        "environment": "prod"
+      },
+      "frames": [
+        "providers/deepgram.py:1 _request"
+      ]
+    },
+    "occurrence_history:{}": {
+      "count": "3",
+      "userCount": 0,
+      "firstSeen": "2026-08-20T00:00:00Z",
+      "lastSeen": "2026-08-20T02:00:00Z",
+      "level": "error",
+      "status": "unresolved",
+      "culprit": ""
+    },
+    "service_logs:{}": "",
+    "metric:{}": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    },
+    "trace:{}": "<no trace_id on event>",
+    "source_state:{}": "<not applicable: not the orrery data-refresh case>"
+  },
+  "freeze_dispositions": [
+    "file"
+  ],
+  "ground_truth": {
+    "disposition": "file",
+    "work_type": "config-enhancement",
+    "correct_autonomous": "file",
+    "notes": "external-transient provider timeout, retries exhausted \u2014 retry/backoff+degrade config. Correct-routing test."
+  }
+}

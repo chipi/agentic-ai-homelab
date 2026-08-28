@@ -1,0 +1,82 @@
+{
+  "id": "glitchtip-PODCAST-ANCHOR-1",
+  "source": "glitchtip",
+  "frozen_at": "2026-08-28T00:00:00+00:00",
+  "signal": {
+    "fingerprint": "glitchtip:PODCAST-ANCHOR-1",
+    "occurrence_id": "glitchtip:PODCAST-ANCHOR-1@2026-08-20T00:00:00Z",
+    "source": "glitchtip",
+    "alertname": "Deepgram request timed out; then crashed handling the empty result",
+    "labels": {
+      "project": "podcast",
+      "level": "error",
+      "culprit": "transcribe in _handle_result",
+      "count": "5"
+    },
+    "summary": "Deepgram request timed out; downstream AttributeError: 'NoneType' object has no attribute 'transcript' (count=5)",
+    "startsAt": "2026-08-20T00:00:00Z",
+    "issue_id": "9000",
+    "raw": {
+      "metadata": {
+        "type": "AttributeError",
+        "value": "'NoneType' object has no attribute 'transcript'"
+      },
+      "culprit": "transcribe._handle_result",
+      "count": "5",
+      "userCount": 2
+    }
+  },
+  "probes": {
+    "event_detail:{}": {
+      "platform": "python",
+      "culprit": "transcribe._handle_result",
+      "message": "AttributeError: 'NoneType' object has no attribute 'transcript'",
+      "cause_type": "TimeoutError",
+      "cause_value": null,
+      "cause_frame": "providers/deepgram.py _request",
+      "chain_depth": 2,
+      "exc_type": "AttributeError",
+      "top_frame": "workflow/transcribe.py _handle_result",
+      "environment": "prod",
+      "component": null,
+      "release": "sha-aa11bb2",
+      "code_version": "sha-aa11bb2",
+      "trace_id": null,
+      "tags": {
+        "release": "sha-aa11bb2",
+        "environment": "prod"
+      },
+      "frames": [
+        "workflow/transcribe.py:1 _handle_result"
+      ]
+    },
+    "occurrence_history:{}": {
+      "count": "5",
+      "userCount": 2,
+      "firstSeen": "2026-08-20T00:00:00Z",
+      "lastSeen": "2026-08-20T02:00:00Z",
+      "level": "error",
+      "status": "unresolved",
+      "culprit": "transcribe._handle_result"
+    },
+    "service_logs:{}": "",
+    "metric:{}": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    },
+    "trace:{}": "<no trace_id on event>",
+    "source_state:{}": "<not applicable: not the orrery data-refresh case>"
+  },
+  "freeze_dispositions": [
+    "file"
+  ],
+  "ground_truth": {
+    "disposition": "file",
+    "work_type": "bug",
+    "correct_autonomous": "file",
+    "notes": "ANCHOR-OVERRIDE (R1 control): external-transient hint fires but OUR code null-derefs the empty result (AttributeError, 2 users). MUST file work_type=bug \u2014 config-enhancement here = MISROUTE."
+  }
+}

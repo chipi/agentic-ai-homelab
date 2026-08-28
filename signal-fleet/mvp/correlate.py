@@ -55,24 +55,75 @@ def _gt(path):
                     headers={"Authorization": f"Bearer {config.GLITCHTIP_TOKEN}"})
 
 
-def _event_summary(issue_id):
-    """Compact the latest event: culprit, env/component, trace_id, top frames."""
-    e = _gt(f"/issues/{issue_id}/events/latest/")
-    tags = {t.get("key"): t.get("value") for t in (e.get("tags") or []) if isinstance(t, dict)}
-    trace = (e.get("contexts") or {}).get("trace", {}) or {}
-    frames = []
+def _exc_values(e):
+    """The chained-exception list from a Sentry/GlitchTip event. The API returns it
+    under entries[type==exception].data.values; some shapes nest it as
+    exception.values. [] when the event carries no exception."""
     for entry in (e.get("entries") or []):
         if entry.get("type") == "exception":
-            for val in (entry.get("data", {}) or {}).get("values", []):
-                for fr in ((val.get("stacktrace") or {}).get("frames") or [])[-4:]:
-                    frames.append(f"{fr.get('filename')}:{fr.get('lineNo')} {fr.get('function')}")
+            return (entry.get("data", {}) or {}).get("values") or []
+    return ((e.get("exception") or {}).get("values")) or []
+
+
+def _top_app_frame(stack):
+    """The crash-site APP frame of a stacktrace, as 'filename function' WITHOUT the
+    line number. Sentry orders frames oldest→newest (caller first, crash site last),
+    so the top frame is the LAST; prefer the last in_app frame, else the last frame.
+    lineNo is deliberately omitted — line numbers drift across deploys and the
+    norm_key (#1) must be deploy-stable."""
+    frames = (stack or {}).get("frames") or []
+    app = [f for f in frames if f.get("in_app")] or frames
+    if not app:
+        return ""
+    fr = app[-1]
+    fn = fr.get("filename") or fr.get("module") or ""
+    return f"{fn} {fr.get('function') or ''}".strip()
+
+
+def _summarize_event(e):
+    """Pure event→summary (no network — unit-testable with a frozen event dict).
+
+    #5 (innermost __cause__): Sentry chained-exception `values` is ordered oldest→
+    newest — values[0] is the INNERMOST root cause (the exception raised `from`),
+    values[-1] the OUTERMOST wrapper actually logged (develop.sentry.dev Exception
+    interface, "oldest to newest"). The #1854 shape ("one or more feed failures")
+    is the outer wrapper; the actionable per-feed error is the inner cause. We
+    surface both, distinctly, so triage reasons over the cause not the wrapper.
+    ORDERING VERIFIED against the real Sentry Python SDK (sentry_sdk 2.63.0,
+    event_from_exception on a `raise Outer from Inner`): values[0] is the inner
+    root cause, values[-1] the outer wrapper (2026-08-28).
+
+    #6 (code_version): the release/commit the event fired on, so stack frames
+    resolve against the right revision."""
+    tags = {t.get("key"): t.get("value") for t in (e.get("tags") or []) if isinstance(t, dict)}
+    trace = (e.get("contexts") or {}).get("trace", {}) or {}
+    values = _exc_values(e)
+    inner = values[0] if values else {}
+    outer = values[-1] if values else {}
+    frames = []
+    for val in values:
+        for fr in ((val.get("stacktrace") or {}).get("frames") or [])[-4:]:
+            frames.append(f"{fr.get('filename')}:{fr.get('lineNo')} {fr.get('function')}")
+    code_version = tags.get("release") or e.get("release") or ""
     return {
         "platform": e.get("platform"), "culprit": e.get("culprit"),
         "message": e.get("message"),
+        # #5 innermost actionable cause, kept distinct from the outer wrapper
+        "cause_type": inner.get("type"), "cause_value": inner.get("value"),
+        "cause_frame": _top_app_frame(inner.get("stacktrace")),
+        "chain_depth": len(values),
+        # the outermost raised type + crash frame — what norm_key (#1) keys on
+        "exc_type": outer.get("type"), "top_frame": _top_app_frame(outer.get("stacktrace")),
         "environment": tags.get("environment"), "component": tags.get("component"),
-        "release": tags.get("release"), "trace_id": trace.get("trace_id"),
+        "release": tags.get("release"), "code_version": code_version,  # #6
+        "trace_id": trace.get("trace_id"),
         "tags": tags, "frames": frames[-6:],
     }
+
+
+def _event_summary(issue_id):
+    """Fetch the latest event for a GlitchTip issue and summarize it (#5/#6)."""
+    return _summarize_event(_gt(f"/issues/{issue_id}/events/latest/"))
 
 
 def vt_trace(trace_id):

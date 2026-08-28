@@ -1,0 +1,82 @@
+{
+  "id": "glitchtip-PODCAST-CARGO-1",
+  "source": "glitchtip",
+  "frozen_at": "2026-08-28T00:00:00+00:00",
+  "signal": {
+    "fingerprint": "glitchtip:PODCAST-CARGO-1",
+    "occurrence_id": "glitchtip:PODCAST-CARGO-1@2026-08-20T00:00:00Z",
+    "source": "glitchtip",
+    "alertname": "LanceError(IO): Permission denied (os error 13)",
+    "labels": {
+      "project": "podcast",
+      "level": "error",
+      "culprit": "",
+      "count": "2"
+    },
+    "summary": "LanceError(IO): Permission denied (os error 13), /root/.cargo/registry/... (count=2)",
+    "startsAt": "2026-08-20T00:00:00Z",
+    "issue_id": "9000",
+    "raw": {
+      "metadata": {
+        "type": "LanceError",
+        "value": "Permission denied (os error 13)"
+      },
+      "culprit": "",
+      "count": "2",
+      "userCount": 0
+    }
+  },
+  "probes": {
+    "event_detail:{}": {
+      "platform": "python",
+      "culprit": "",
+      "message": "LanceError(IO): Permission denied (os error 13), /root/.cargo/registry",
+      "cause_type": null,
+      "cause_value": null,
+      "cause_frame": "",
+      "chain_depth": 1,
+      "exc_type": "LanceError",
+      "top_frame": "search/index.py _open_table",
+      "environment": "prod",
+      "component": null,
+      "release": "sha-ee55ff6",
+      "code_version": "sha-ee55ff6",
+      "trace_id": null,
+      "tags": {
+        "release": "sha-ee55ff6",
+        "environment": "prod"
+      },
+      "frames": [
+        "search/index.py:1 _open_table"
+      ]
+    },
+    "occurrence_history:{}": {
+      "count": "2",
+      "userCount": 0,
+      "firstSeen": "2026-08-20T00:00:00Z",
+      "lastSeen": "2026-08-20T02:00:00Z",
+      "level": "error",
+      "status": "unresolved",
+      "culprit": ""
+    },
+    "service_logs:{}": "",
+    "metric:{}": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    },
+    "trace:{}": "<no trace_id on event>",
+    "source_state:{}": "<not applicable: not the orrery data-refresh case>"
+  },
+  "freeze_dispositions": [
+    "file"
+  ],
+  "ground_truth": {
+    "disposition": "file",
+    "work_type": "config-enhancement",
+    "correct_autonomous": "file",
+    "notes": "environment/perms (CARGO_HOME on a read-only path) \u2014 container/image fix, config-enhancement not code bug."
+  }
+}
