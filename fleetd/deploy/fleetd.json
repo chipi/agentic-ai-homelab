@@ -8,7 +8,7 @@
       "enabled": true,
       "interval": "10m",
       "cycle_cmd": "python3 orchestrator.py --cycle --limit 10 --no-dry-run",
-      "workdir": "/Users/markodragoljevic/signal-fleet/mvp",
+      "workdir": "/Users/markodragoljevic/agentic-ai-homelab/signal-fleet/mvp",
       "env_file": "/Users/markodragoljevic/signal-fleet/fleet-gateway.env",
       "stop_flag": "/Users/markodragoljevic/signal-fleet/STOP",
       "budget_day_usd": 2.0,
