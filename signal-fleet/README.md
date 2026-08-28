@@ -19,8 +19,12 @@ chains to Fleet 1 as a labelled GitHub issue. This is RFC-0002's own Phase-3
   `~/signal-fleet/` (gitignored) — `fleet-gateway.env`, the ledger
   (`results/dispositions.tsv`, `results/filed.tsv`), `queue/`. All state paths are
   absolute + env-overridable (`SF_LEDGER`/`SF_QUEUE`/`SF_FILED_LEDGER`…), so the
-  code is cwd-independent. fleetd config: `~/fleetd/fleetd.json`
-  (`workdir=…/agentic-ai-homelab/signal-fleet/mvp`, `env_file=~/signal-fleet/fleet-gateway.env`).
+  code is cwd-independent. fleetd config: `~/fleetd/fleetd.json` — the committed
+  `fleetd/deploy/fleetd.json` sets `workdir=~/signal-fleet/mvp`,
+  `env_file=~/signal-fleet/fleet-gateway.env`. For "runs from the checkout, no
+  scp" to hold, `~/signal-fleet/mvp` must be a symlink into the checkout's `mvp/`
+  (NOT re-verified this pass — the mini's `~markodragoljevic` paths aren't readable
+  from the ops account; confirm the symlink on the box if this ever surprises you).
 - **env files:** `fleet-gateway.env` is the ONE fleetd loads. `fleet.env` is a stale
   duplicate — ignore it (its tokens are old; kept in sync only as a courtesy).
 - **LLM = homelab LiteLLM gateway.** Triager posts to

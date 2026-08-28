@@ -18,10 +18,10 @@ INFRA="$(cd "$(dirname "$0")" && pwd)"
 LA="$HOME/Library/LaunchAgents"
 mkdir -p "$LA"
 
-echo "== 1. Homebrew packages (Brewfile: orbstack, node_exporter, sops, age) =="
+echo "== 1. Homebrew packages (Brewfile: colima, docker, node_exporter, sops, age) =="
 if command -v brew >/dev/null 2>&1; then
-  # --no-upgrade: install only what's MISSING; never upgrade an installed formula/
-  # cask on a routine re-run (an OrbStack upgrade would bounce every container).
+  # --no-upgrade: install only what's MISSING; never upgrade an installed formula
+  # on a routine re-run (a colima/docker upgrade would bounce every container).
   brew bundle install --no-upgrade --file "$INFRA/Brewfile" && echo "   brew bundle satisfied"
   brew services list 2>/dev/null | grep -q '^node_exporter.*started' || brew services start node_exporter
 else

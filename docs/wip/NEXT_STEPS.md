@@ -52,6 +52,41 @@ drafted, but they haven't been run for real yet.
       patterns (RTK + lean-ctx) are already covered by the recipes; the
       missing piece is the harness-specific defaults.
 
+## Harden follow-ups (surfaced 2026-08-28 by the pre-close harden audit)
+
+Findings the audit flagged as untracked/parked. Code/doc fixes from the same
+audit already landed on the `harden-followups` branch (Brewfile orbstack→colima,
+verify.sh oracle path, webpush rs field, signal-fleet README workdir; +Go/Python
+test coverage for fleetd chain.go, ci-ops-poller, delivery `_aged_out`). The items
+below are decisions/work, not one-line fixes:
+
+- [ ] **bugfix-fleet Langfuse span emission is a no-op stub.**
+      `bugfix-fleet/src/observability/langfuse.ts:22` has a `TODO(langfuse)` — the
+      per-chain telemetry that feeds the bakeoff Langfuse scores isn't emitted.
+- [ ] **Structured-output retry policy for flash workers.** `BAKEOFF.md:603` —
+      flash has a ~1/11 structured-output flake; graceful-degrade lands it in
+      `stuck` (not a crash), but the retry decision is parked. A flash-worker
+      fleet accumulates stuck chains silently without it.
+- [ ] **Flash worker under kick-back/advisor path is unmeasured.**
+      `BAKEOFF.md:891` — flash won the worker seat on price, but the load-bearing
+      kick-back/advisor-pin reliability was only measured with v4-pro.
+- [ ] **Trim the obsolete 9443 ACL grant** (PR #1662), superseded by the
+      caddy-tailscale plugin. `docs/wip/mac-mini-headless-server.md:302`. Minor
+      tailnet hygiene (unnecessary open-port grant).
+- [ ] **Land the uncommitted mini changes** (need push approval):
+      `infra/reverse-proxy/` (Caddy stack, on mini + local, not committed) and the
+      `infra/homelab-home/docker-compose.yml` tailnet-port edit.
+      `docs/wip/mac-mini-headless-server.md:29-31`.
+- [ ] **bugfix-fleet TypeScript has no test suite** (`bugfix-fleet/src/`, 15
+      modules). Highest-value targets: `worker/schemas.ts` (label-schema parsing)
+      and `fleet/dispatch.ts` (fallback routing). Blocked on a decision: adding a
+      test runner (vitest/jest) is a new dev dependency — needs approval before
+      install (rule 30). Not done in the harden pass for that reason.
+- [ ] **pi/opencode worker adapters are skeletons** (`bugfix-fleet/src/worker/
+      piAdapter.ts`, `opencodeAdapter.ts`, marked `STATUS: skeleton`). Deliberate
+      in-progress per the bakeoff MVP design — real harness integration is its own
+      work item, not a hardening fix.
+
 ## Deferred (intentional)
 
 These were considered and explicitly NOT extracted, because the honest
