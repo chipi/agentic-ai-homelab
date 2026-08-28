@@ -52,7 +52,7 @@ const TRIAGE_SYS =
   'needsInfo = a question for the operator if not actionable, else "". ' +
   'recommend = whether the fleet should attempt a fix.';
 
-function parseVerdict(raw: string): TriageVerdict {
+export function parseVerdict(raw: string): TriageVerdict {
   const m = raw.match(/\{[\s\S]*\}/);
   const o = JSON.parse(m ? m[0] : raw);
   if (!["backend", "ui", "infra", "docs"].includes(o.area)) throw new Error(`bad area: ${o.area}`);
