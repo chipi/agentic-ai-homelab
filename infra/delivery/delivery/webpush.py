@@ -101,7 +101,13 @@ def encrypt_payload(
     cek = _hkdf(salt, ikm, b"Content-Encoding: aes128gcm\x00", 16)
     nonce = _hkdf(salt, ikm, b"Content-Encoding: nonce\x00", 12)
     ciphertext = AESGCM(cek).encrypt(nonce, payload + b"\x02", None)
-    record_size = len(salt) + 4 + 1 + len(as_public) + len(ciphertext)
+    # RFC 8188 §2.1: `rs` is the size of an encrypted RECORD (the ciphertext, incl.
+    # the 16-byte AEAD tag + padding delimiter) — NOT the whole message. The header
+    # bytes (salt/rs/keyid-len/as_public) must not be counted, or rs is inflated by
+    # ~90 bytes and a payload in the ~3994–4096-byte band gets a wrong record size.
+    # A single record shorter than rs is valid (it's the last record), so the 4096
+    # floor stays.
+    record_size = len(ciphertext)
     header = (
         salt
         + struct.pack(">I", max(record_size, 4096))

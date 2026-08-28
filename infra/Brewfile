@@ -16,7 +16,12 @@
 # p7zip) is intentionally left out so this file stays a truthful infra manifest.
 
 # --- container runtime -------------------------------------------------------
-cask "orbstack"        # Docker/Compose engine — every infra/ stack runs on this
+# colima (QEMU-backed) replaced OrbStack under the _dockerhost service account
+# (ADR-0006, mac-mini-headless-server.md). colima is the VM; the docker CLI +
+# compose plugin are separate formulae (colima provides the daemon, not the CLI).
+brew "colima"          # Docker/Compose engine (VM) — every infra/ stack runs on this
+brew "docker"          # docker CLI (talks to the colima-hosted daemon)
+brew "docker-compose"  # compose v2 plugin
 
 # --- host metrics ------------------------------------------------------------
 brew "node_exporter"   # darwin host metrics → VictoriaMetrics (mini-metrics scrapes it)

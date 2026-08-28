@@ -6,13 +6,16 @@ MINI    := homelab
 SSH     := ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes
 DEST    := ~/fleetd
 
-.PHONY: build vet smoke deploy status stop start logs
+.PHONY: build vet smoke test deploy status stop start logs
 
 build:
 	@go build $(LDFLAGS) -o fleetd . && echo "BUILD PASS ($(SHA))" || (echo "BUILD FAIL"; exit 1)
 
 vet:
 	@go vet ./... && echo "VET PASS" || (echo "VET FAIL"; exit 1)
+
+test:
+	@go test ./... && echo "TEST PASS" || (echo "TEST FAIL"; exit 1)
 
 smoke: build
 	@./deploy/smoke.sh && echo "SMOKE PASS" || (echo "SMOKE FAIL"; exit 1)
