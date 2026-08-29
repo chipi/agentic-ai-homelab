@@ -60,7 +60,7 @@ a.card:hover{border-color:#3d3d63}
 .health{display:flex;gap:14px;margin:0 0 12px;flex-wrap:wrap;font-size:13px}
 a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
-.up{background:#3fb950}.down{background:#f85149}.stale{background:#7a7a8c}
+.up{background:#3fb950}.down{background:#f85149}.stale{background:#7a7a8c}.mid{background:#d29922}
 .dock{color:#c8c8e0;font-size:13.5px;margin:2px 0 4px}.dock b{color:#e6e6ef}
 #alertbar{margin:0 0 18px}
 .abar{display:block;border-radius:8px;padding:10px 14px;margin:0 0 8px;font-size:13.5px;text-decoration:none;color:#e6e6ef}
@@ -83,6 +83,24 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
 }</style></head><body>
 <h1>homelab</h1>
 <div id=alertbar></div>
+<!-- Production apps — the operator's FIRST impression of app health, above the fleets and
+     machine columns. Fed by each app's prod-ops-health run (podcast_scraper #1876) pushing
+     prod_ops_health_* gauges into this VM; per-app template — clone the block and swap the
+     app="..." label for the next production app. Traffic lights: 1 green / 0.5 orange
+     (degraded, not customer-impacting) / 0 red; STALENESS IS A STATE — no run for >26h renders
+     grey/stale, because a dead health check must never look healthy. -->
+<div style="margin:0 0 22px">
+  <h2><span class="dot stale" id=ph_agg></span><a href="https://github.com/chipi/podcast_scraper/actions/workflows/prod-ops-health.yml">Podcast &mdash; production &rarr;</a></h2>
+  <div class=charts style="max-width:1140px">
+    <a class=card href="https://github.com/chipi/podcast_scraper/actions/workflows/prod-ops-health.yml"><h3>App health</h3><div id=ph_overall>&hellip;</div></a>
+    <a class=card href="https://github.com/chipi/podcast_scraper/actions/workflows/prod-ops-health.yml"><h3>LLM gateway</h3><div id=ph_gateway>&hellip;</div></a>
+    <a class=card href="$G/d/victorialogs"><h3>Logs flowing</h3><div id=ph_o11y_logs>&hellip;</div></a>
+    <a class=card href="$DASH_PROD"><h3>Metrics flowing</h3><div id=ph_o11y_metrics>&hellip;</div></a>
+    <a class=card href="$G/d/victoriatraces"><h3>Traces flowing</h3><div id=ph_o11y_traces>&hellip;</div></a>
+    <a class=card href="https://glitchtip.tail6d0ed4.ts.net"><h3>Error tracking</h3><div id=ph_o11y_glitchtip>&hellip;</div></a>
+    <a class=card href="https://github.com/chipi/podcast_scraper/actions/workflows/prod-ops-health.yml"><h3>Last check</h3><div id=ph_age>&hellip;</div></a>
+  </div>
+</div>
 <div style="margin:0 0 22px">
   <h2><a href="$DASH_FLEET">Triage fleet &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
@@ -390,7 +408,28 @@ async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+
   // exactly how a dark box like the DGX presents)
   const dot=(id,v)=>{const e=document.getElementById(id);if(!e)return;let c='down';if(v){const a=now-+v[0];c=a<180?'up':'stale';}e.className='dot '+c;e.title=v?Math.round(now-+v[0])+'s since last sample':'no samples >5m — box dark?';};
   dot('st_mini',mc);dot('st_dgx',dg);dot('st_prod',pc);}
-function refresh(){alerts();mini();dgx();prod();fleet();delivery();fresh();}
+async function podcastHealth(){
+  // prod-ops-health traffic lights (podcast_scraper #1876). Values: 1 green / 0.5 orange
+  // (failed but not customer-impacting) / 0 red. STALENESS OVERRIDES GREEN: the pusher runs
+  // daily at 06:00 UTC, so >26h without a sample means the health check itself is dead — render
+  // grey "STALE", never a reassuring green from old data. last_over_time(28h) still finds the
+  // sample; the timestamp metric carries when it was really taken.
+  const A='{app="podcast"}';
+  const ts=await g1('last_over_time(prod_ops_health_last_run_timestamp'+A+'[28h])');
+  const agg=await g1('last_over_time(prod_ops_health_aggregate'+A+'[28h])');
+  const now=Date.now()/1000, stale=!ts||now-(+ts[1])>26*3600;
+  const cls=v=>stale?'stale':(+v===1?'up':(+v===0?'down':'mid'));
+  const word=v=>stale?'STALE':(+v===1?'GREEN':(+v===0?'RED':'ORANGE'));
+  const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
+  const light=(id,v)=>set(id,'<div class=cv><span class="dot '+(v==null?'stale':cls(v[1]))+'"></span>'+(v==null?'&mdash;':word(v[1]))+'</div>');
+  light('ph_overall',agg);
+  const hd=document.getElementById('ph_agg');if(hd)hd.className='dot '+(agg==null?'stale':cls(agg[1]));
+  const checks=await q('last_over_time(prod_ops_health_check'+A+'[28h])');
+  for(const r of checks){const id='ph_'+r.metric.check;light(id,r.value);}
+  if(ts){const h=Math.round((now-+ts[1])/3600);set('ph_age','<div class=cv>'+(h<1?'<1':h)+'h ago</div>'+(stale?'<div class=muted style="font-size:12px">STALE &mdash; check not running</div>':''));}
+  else set('ph_age','<div class=cv>never</div>');
+}
+function refresh(){alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
