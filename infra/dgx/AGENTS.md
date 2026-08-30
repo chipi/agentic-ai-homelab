@@ -30,10 +30,43 @@ in non-interactive shells.
 Full contract (output modes, exit codes, env-var config, sudo requirement,
 failure modes): [`bin/README.md`](bin/README.md).
 
+## Everything on the DGX runs as the `ops` account — look there FIRST
+
+**The checkout, every vLLM compose stack, every `.env`, and every running
+container live under `/home/ops/agentic-ai-homelab/`.** `/home/ops` is mode
+`drwxr-x---`, so from any other account (e.g. `markodragoljevic`) the box looks
+*empty* — `ls ~` shows no checkout, `~/bin` shows no script, and it is very easy
+to conclude the infrastructure was deleted. It was not.
+
+```sh
+sudo -n ls /home/ops/agentic-ai-homelab/infra/vllm/      # what actually exists
+sudo -u ops <cmd>                                        # how to drive it
+docker ps --format '{{.Names}}\t{{.Label "com.docker.compose.project.working_dir"}}'
+```
+
+That last command is the fastest orientation on this box: it shows every running
+container's compose directory, which is how you discover the ops root.
+
+On the operator's account `~/bin/gpu-mode-swap.sh` is a **wrapper** that re-execs
+the real script as `ops`, and `~/README-dgx.md` carries this orientation for
+whoever lands there next. Do NOT create a second checkout or a personal
+`~/.config/gpu-mode.env` — `/home/ops/.config/gpu-mode.env` is the one that counts.
+
+**Obsolete, ignore if referenced:**
+`~/Projects/podcast_scraper/infra/dgx/vllm-autoresearch` — the pre-July path,
+gone; only a stale script backup pointed there. The current script defaults to
+`$REPO_ROOT/infra/vllm/autoresearch`.
+
+*Incident of record 2026-08-30:* a handover concluded "the autoresearch vLLM is
+MISSING — missing infrastructure, not a wrong GPU mode" after checking only
+`~markodragoljevic` and a July-1 script backup. Everything was present and
+configured under `ops`; the stack was simply stopped. Cost: a wasted session and
+a nearly-created duplicate checkout.
+
 ## The DGX repo checkout is DEPLOY-ONLY — never commit on it
 
-The `~/agentic-ai-homelab` checkout on the DGX exists to **run** things, not to
-author them. Treat it as a read-only mirror of `origin/main`:
+The `~ops/agentic-ai-homelab` checkout on the DGX exists to **run** things, not
+to author them. Treat it as a read-only mirror of `origin/main`:
 
 - **Never `git commit` on the DGX.** Author + commit on your workstation (or a
   branch), `git push` to origin, then on the DGX `git pull` (fast-forward).
