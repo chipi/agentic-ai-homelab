@@ -13,9 +13,13 @@ from http_util import get_json
 # must never reach triage (a real prod escalation of an `agentE2E…player` E2E run
 # is what motivated this, 2026-08-19). Suppressed at ingestion, not via the LLM,
 # so it holds even when the triager is down (fail-open would otherwise escalate
-# them). camelCase run-ids (agentE2E<epoch>) are the common shape.
+# them). camelCase run-ids (agentE2E<epoch>) are the common shape. Any e2e-*/e2e_*
+# token is a test artifact by naming convention (e2e-deadletter-1, the delivery e2e
+# envelope, queued two cleanup proposals in 2026-08 because the old \be2e[-_]run\b
+# only matched the literal word "run"). Deliberate CANARY probes are NOT suppressed —
+# they exist to prove the alert path end-to-end.
 TEST_RUN_MARKER = re.compile(
-    r"agente2e|synthetic|smoke[-_ ]?test|\be2e[-_]run\b|ladder[-_]verify|\btest[-_]run\b",
+    r"agente2e|synthetic|smoke[-_ ]?test|\be2e[-_]\w+|ladder[-_]verify|\btest[-_]run\b",
     re.I)
 
 

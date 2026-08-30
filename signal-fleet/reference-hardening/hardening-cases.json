@@ -1,118 +1,334 @@
 {
-  "_schema": "signal-fleet hardening eval dataset v1 — deterministic (no LLM). Each case feeds a real (scrubbed) production signal through the DETERMINISTIC hardening (triage.operational_class / triage.triage gate / sources test-suppression) and asserts the behavior. Runner: mvp/eval_hardening.py. Cultivate: when a new incident class appears, add a case here with its real (scrubbed) strings + expected behavior. Provenance links the source incident.",
-  "_provenance": "Derived from the 2026-08-13→19 chipi/podcast_scraper escalation flood (the triager was auth-broken -> fail-open -> ~128 issues). Strings are the real error titles, scrubbed (no secrets/PII). See docs/wip/signal-fleet-flood-hardening.md.",
-  "cases": [
-    {
-      "id": "op-cost-cap-cexc",
-      "kind": "operational",
-      "provenance": "podcast_scraper #1739 / #1751 / #1765",
-      "signal": {"fingerprint": "glitchtip:PODCAST-PIPELINE-A1", "occurrence_id": "glitchtip:PODCAST-PIPELINE-A1@frozen", "source": "glitchtip", "alertname": "CostCapExceeded: cost soft cap exceeded: $11.23 > $5.00", "labels": {"project": "podcast", "level": "error"}, "summary": "CostCapExceeded: cost soft cap exceeded: $11.23 > $5.00 during pipeline processing"},
-      "expect": {"disposition": "dismiss", "operational_class": "cost-cap"}
+ "_schema": "signal-fleet hardening eval dataset v1 — deterministic (no LLM). Each case feeds a real (scrubbed) production signal through the DETERMINISTIC hardening (triage.operational_class / triage.triage gate / sources test-suppression) and asserts the behavior. Runner: mvp/eval_hardening.py. Cultivate: when a new incident class appears, add a case here with its real (scrubbed) strings + expected behavior. Provenance links the source incident.",
+ "_provenance": "Derived from the 2026-08-13→19 chipi/podcast_scraper escalation flood (the triager was auth-broken -> fail-open -> ~128 issues). Strings are the real error titles, scrubbed (no secrets/PII). See docs/wip/signal-fleet-flood-hardening.md.",
+ "cases": [
+  {
+   "id": "op-cost-cap-cexc",
+   "kind": "operational",
+   "provenance": "podcast_scraper #1739 / #1751 / #1765",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-PIPELINE-A1",
+    "occurrence_id": "glitchtip:PODCAST-PIPELINE-A1@frozen",
+    "source": "glitchtip",
+    "alertname": "CostCapExceeded: cost soft cap exceeded: $11.23 > $5.00",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "op-cost-cap-future",
-      "kind": "operational",
-      "provenance": "podcast_scraper #1741..#1784 (the [N] processing-future variant, ~70 of the flood)",
-      "signal": {"fingerprint": "glitchtip:PODCAST-PIPELINE-A2", "occurrence_id": "glitchtip:PODCAST-PIPELINE-A2@frozen", "source": "glitchtip", "alertname": "[10] processing future raised error: cost soft cap exceeded", "labels": {"project": "podcast", "level": "error"}, "summary": "[10] processing future raised error: cost soft cap exceeded"},
-      "expect": {"disposition": "dismiss", "operational_class": "cost-cap"}
+    "summary": "CostCapExceeded: cost soft cap exceeded: $11.23 > $5.00 during pipeline processing"
+   },
+   "expect": {
+    "disposition": "dismiss",
+    "operational_class": "cost-cap"
+   }
+  },
+  {
+   "id": "op-cost-cap-future",
+   "kind": "operational",
+   "provenance": "podcast_scraper #1741..#1784 (the [N] processing-future variant, ~70 of the flood)",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-PIPELINE-A2",
+    "occurrence_id": "glitchtip:PODCAST-PIPELINE-A2@frozen",
+    "source": "glitchtip",
+    "alertname": "[10] processing future raised error: cost soft cap exceeded",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "op-provider-budget-deepgram",
-      "kind": "operational",
-      "provenance": "podcast_scraper #1747 / #1748",
-      "signal": {"fingerprint": "glitchtip:PODCAST-PIPELINE-A3", "occurrence_id": "glitchtip:PODCAST-PIPELINE-A3@frozen", "source": "glitchtip", "alertname": "Deepgram transcription failed: deepgram: no budget/credit left on this key", "labels": {"project": "podcast", "level": "error"}, "summary": "Deepgram transcription failed: deepgram: no budget/credit left on this key (HTTP 402)"},
-      "expect": {"disposition": "dismiss", "operational_class": "provider-budget"}
+    "summary": "[10] processing future raised error: cost soft cap exceeded"
+   },
+   "expect": {
+    "disposition": "dismiss",
+    "operational_class": "cost-cap"
+   }
+  },
+  {
+   "id": "op-provider-budget-deepgram",
+   "kind": "operational",
+   "provenance": "podcast_scraper #1747 / #1748",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-PIPELINE-A3",
+    "occurrence_id": "glitchtip:PODCAST-PIPELINE-A3@frozen",
+    "source": "glitchtip",
+    "alertname": "Deepgram transcription failed: deepgram: no budget/credit left on this key",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "op-provider-budget-402",
-      "kind": "operational",
-      "provenance": "OpenRouter weekly-limit / 402 class (podcast_scraper #1636/#1638)",
-      "signal": {"fingerprint": "glitchtip:PODCAST-PIPELINE-A4", "occurrence_id": "glitchtip:PODCAST-PIPELINE-A4@frozen", "source": "glitchtip", "alertname": "OpenRouter API key weekly limit exceeded — insufficient credit (402)", "labels": {"project": "podcast", "level": "error"}, "summary": "litellm hard-stop: no credit left, HTTP 402 payment required"},
-      "expect": {"disposition": "dismiss", "operational_class": "provider-budget"}
+    "summary": "Deepgram transcription failed: deepgram: no budget/credit left on this key (HTTP 402)"
+   },
+   "expect": {
+    "disposition": "dismiss",
+    "operational_class": "provider-budget"
+   }
+  },
+  {
+   "id": "op-provider-budget-402",
+   "kind": "operational",
+   "provenance": "OpenRouter weekly-limit / 402 class (podcast_scraper #1636/#1638)",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-PIPELINE-A4",
+    "occurrence_id": "glitchtip:PODCAST-PIPELINE-A4@frozen",
+    "source": "glitchtip",
+    "alertname": "OpenRouter API key weekly limit exceeded — insufficient credit (402)",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "op-provider-fallback-init",
-      "kind": "operational",
-      "provenance": "podcast_scraper flood downstream class",
-      "signal": {"fingerprint": "glitchtip:PODCAST-PIPELINE-A5", "occurrence_id": "glitchtip:PODCAST-PIPELINE-A5@frozen", "source": "glitchtip", "alertname": "OpenAIProvider not initialized — fallback tier failed", "labels": {"project": "podcast", "level": "error"}, "summary": "OpenAIProvider not initialized; all fallbacks failed"},
-      "expect": {"disposition": "dismiss", "operational_class": "provider-fallback"}
+    "summary": "litellm hard-stop: no credit left, HTTP 402 payment required"
+   },
+   "expect": {
+    "disposition": "dismiss",
+    "operational_class": "provider-budget"
+   }
+  },
+  {
+   "id": "op-provider-fallback-init",
+   "kind": "operational",
+   "provenance": "podcast_scraper flood downstream class",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-PIPELINE-A5",
+    "occurrence_id": "glitchtip:PODCAST-PIPELINE-A5@frozen",
+    "source": "glitchtip",
+    "alertname": "OpenAIProvider not initialized — fallback tier failed",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "neg-null-deref",
-      "kind": "negative-control",
-      "provenance": "a genuine code defect MUST NOT be swallowed by the operational gate",
-      "signal": {"fingerprint": "glitchtip:PLAYER-NEG1", "occurrence_id": "glitchtip:PLAYER-NEG1@frozen", "source": "glitchtip", "alertname": "TypeError: Cannot read properties of null (reading 'id')", "labels": {"project": "player", "level": "error"}, "summary": "TypeError: Cannot read properties of null (reading 'id') in render()"},
-      "expect": {"operational_class": null}
+    "summary": "OpenAIProvider not initialized; all fallbacks failed"
+   },
+   "expect": {
+    "disposition": "dismiss",
+    "operational_class": "provider-fallback"
+   }
+  },
+  {
+   "id": "neg-null-deref",
+   "kind": "negative-control",
+   "provenance": "a genuine code defect MUST NOT be swallowed by the operational gate",
+   "signal": {
+    "fingerprint": "glitchtip:PLAYER-NEG1",
+    "occurrence_id": "glitchtip:PLAYER-NEG1@frozen",
+    "source": "glitchtip",
+    "alertname": "TypeError: Cannot read properties of null (reading 'id')",
+    "labels": {
+     "project": "player",
+     "level": "error"
     },
-    {
-      "id": "neg-real-bug-timeout",
-      "kind": "negative-control",
-      "provenance": "real backend defect (span-export timeout) — not an operational/billing state",
-      "signal": {"fingerprint": "glitchtip:PODCAST-NEG2", "occurrence_id": "glitchtip:PODCAST-NEG2@frozen", "source": "glitchtip", "alertname": "Failed to export span batch due to timeout, max retries or shutdown", "labels": {"project": "podcast", "level": "error"}, "summary": "Failed to export span batch due to timeout (count=42)"},
-      "expect": {"operational_class": null}
+    "summary": "TypeError: Cannot read properties of null (reading 'id') in render()"
+   },
+   "expect": {
+    "operational_class": null
+   }
+  },
+  {
+   "id": "neg-real-bug-timeout",
+   "kind": "negative-control",
+   "provenance": "real backend defect (span-export timeout) — not an operational/billing state",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-NEG2",
+    "occurrence_id": "glitchtip:PODCAST-NEG2@frozen",
+    "source": "glitchtip",
+    "alertname": "Failed to export span batch due to timeout, max retries or shutdown",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "suppress-e2e-run",
-      "kind": "test-suppression",
-      "provenance": "podcast_scraper: an agentE2E run escalated as prod (#7)",
-      "signal": {"fingerprint": "glitchtip:PLAYER-E2E", "occurrence_id": "glitchtip:PLAYER-E2E@frozen", "source": "glitchtip", "alertname": "agentE2E1786873043-player synthetic pipeline error", "labels": {"project": "player", "level": "error"}, "summary": "agentE2E1786873043-player synthetic run error"},
-      "expect": {"suppressed": true}
+    "summary": "Failed to export span batch due to timeout (count=42)"
+   },
+   "expect": {
+    "operational_class": null
+   }
+  },
+  {
+   "id": "suppress-e2e-run",
+   "kind": "test-suppression",
+   "provenance": "podcast_scraper: an agentE2E run escalated as prod (#7)",
+   "signal": {
+    "fingerprint": "glitchtip:PLAYER-E2E",
+    "occurrence_id": "glitchtip:PLAYER-E2E@frozen",
+    "source": "glitchtip",
+    "alertname": "agentE2E1786873043-player synthetic pipeline error",
+    "labels": {
+     "project": "player",
+     "level": "error"
     },
-    {
-      "id": "suppress-negative-real",
-      "kind": "test-suppression",
-      "provenance": "control: a real prod signal must NOT be suppressed as test",
-      "signal": {"fingerprint": "glitchtip:PLAYER-REAL", "occurrence_id": "glitchtip:PLAYER-REAL@frozen", "source": "glitchtip", "alertname": "TypeError: Cannot read properties of undefined", "labels": {"project": "player", "level": "error"}, "summary": "real production error"},
-      "expect": {"suppressed": false}
+    "summary": "agentE2E1786873043-player synthetic run error"
+   },
+   "expect": {
+    "suppressed": true
+   }
+  },
+  {
+   "id": "suppress-negative-real",
+   "kind": "test-suppression",
+   "provenance": "control: a real prod signal must NOT be suppressed as test",
+   "signal": {
+    "fingerprint": "glitchtip:PLAYER-REAL",
+    "occurrence_id": "glitchtip:PLAYER-REAL@frozen",
+    "source": "glitchtip",
+    "alertname": "TypeError: Cannot read properties of undefined",
+    "labels": {
+     "project": "player",
+     "level": "error"
     },
-    {
-      "id": "sc-deepgram-timeout",
-      "kind": "signal-class",
-      "provenance": "podcast_scraper #1529 (handover #3) — external-transient",
-      "signal": {"fingerprint": "glitchtip:PODCAST-PIPELINE-C1", "occurrence_id": "glitchtip:PODCAST-PIPELINE-C1@frozen", "source": "glitchtip", "alertname": "Deepgram transcription failed: The write operation timed out", "labels": {"project": "podcast", "level": "error"}, "summary": "Deepgram transcription failed: The write operation timed out (count=3)"},
-      "expect": {"signal_class": "external-transient"}
+    "summary": "real production error"
+   },
+   "expect": {
+    "suppressed": false
+   }
+  },
+  {
+   "id": "sc-deepgram-timeout",
+   "kind": "signal-class",
+   "provenance": "podcast_scraper #1529 (handover #3) — external-transient",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-PIPELINE-C1",
+    "occurrence_id": "glitchtip:PODCAST-PIPELINE-C1@frozen",
+    "source": "glitchtip",
+    "alertname": "Deepgram transcription failed: The write operation timed out",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "sc-openai-data-inspection",
-      "kind": "signal-class",
-      "provenance": "podcast_scraper #1480 (handover #3) — external (upstream policy reject)",
-      "signal": {"fingerprint": "glitchtip:PODCAST-PIPELINE-C2", "occurrence_id": "glitchtip:PODCAST-PIPELINE-C2@frozen", "source": "glitchtip", "alertname": "BadRequestError: 400 data_inspection_failed", "labels": {"project": "podcast", "level": "error"}, "summary": "openai.BadRequestError: Error code 400 - data_inspection_failed for this episode"},
-      "expect": {"signal_class": "external"}
+    "summary": "Deepgram transcription failed: The write operation timed out (count=3)"
+   },
+   "expect": {
+    "signal_class": "external-transient"
+   }
+  },
+  {
+   "id": "sc-openai-data-inspection",
+   "kind": "signal-class",
+   "provenance": "podcast_scraper #1480 (handover #3) — external (upstream policy reject)",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-PIPELINE-C2",
+    "occurrence_id": "glitchtip:PODCAST-PIPELINE-C2@frozen",
+    "source": "glitchtip",
+    "alertname": "BadRequestError: 400 data_inspection_failed",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "sc-cargo-permission",
-      "kind": "signal-class",
-      "provenance": "podcast_scraper #1546 (handover #3) — environment",
-      "signal": {"fingerprint": "glitchtip:PODCAST-PIPELINE-C3", "occurrence_id": "glitchtip:PODCAST-PIPELINE-C3@frozen", "source": "glitchtip", "alertname": "LanceError(IO): Permission denied (os error 13)", "labels": {"project": "podcast", "level": "error"}, "summary": "LanceError(IO): Permission denied (os error 13), /root/.cargo/registry/..."},
-      "expect": {"signal_class": "environment"}
+    "summary": "openai.BadRequestError: Error code 400 - data_inspection_failed for this episode"
+   },
+   "expect": {
+    "signal_class": "external"
+   }
+  },
+  {
+   "id": "sc-cargo-permission",
+   "kind": "signal-class",
+   "provenance": "podcast_scraper #1546 (handover #3) — environment",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-PIPELINE-C3",
+    "occurrence_id": "glitchtip:PODCAST-PIPELINE-C3@frozen",
+    "source": "glitchtip",
+    "alertname": "LanceError(IO): Permission denied (os error 13)",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "sc-recoverable-reroll",
-      "kind": "signal-class",
-      "provenance": "podcast_scraper #1855/#1556 (handover #2) — recoverable (handled, still logged ERROR)",
-      "signal": {"fingerprint": "glitchtip:PODCAST-PIPELINE-C4", "occurrence_id": "glitchtip:PODCAST-PIPELINE-C4@frozen", "source": "glitchtip", "alertname": "RecoverableSummarizationError: schema repaired 18/19 · 1 NOT FOUND", "labels": {"project": "podcast", "level": "error"}, "summary": "RecoverableSummarizationError repaired 18/19; degraded but produced a summary"},
-      "expect": {"signal_class": "recoverable"}
+    "summary": "LanceError(IO): Permission denied (os error 13), /root/.cargo/registry/..."
+   },
+   "expect": {
+    "signal_class": "environment"
+   }
+  },
+  {
+   "id": "sc-recoverable-reroll",
+   "kind": "signal-class",
+   "provenance": "podcast_scraper #1855/#1556 (handover #2) — recoverable (handled, still logged ERROR)",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-PIPELINE-C4",
+    "occurrence_id": "glitchtip:PODCAST-PIPELINE-C4@frozen",
+    "source": "glitchtip",
+    "alertname": "RecoverableSummarizationError: schema repaired 18/19 · 1 NOT FOUND",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "sc-neg-real-bug",
-      "kind": "signal-class",
-      "provenance": "control: a genuine code defect must NOT be classed external/environment/recoverable",
-      "signal": {"fingerprint": "glitchtip:PLAYER-NEG-SC1", "occurrence_id": "glitchtip:PLAYER-NEG-SC1@frozen", "source": "glitchtip", "alertname": "TypeError: Cannot read properties of null (reading 'id')", "labels": {"project": "player", "level": "error"}, "summary": "TypeError: Cannot read properties of null (reading 'id') in render()"},
-      "expect": {"signal_class": null}
+    "summary": "RecoverableSummarizationError repaired 18/19; degraded but produced a summary"
+   },
+   "expect": {
+    "signal_class": "recoverable"
+   }
+  },
+  {
+   "id": "sc-neg-real-bug",
+   "kind": "signal-class",
+   "provenance": "control: a genuine code defect must NOT be classed external/environment/recoverable",
+   "signal": {
+    "fingerprint": "glitchtip:PLAYER-NEG-SC1",
+    "occurrence_id": "glitchtip:PLAYER-NEG-SC1@frozen",
+    "source": "glitchtip",
+    "alertname": "TypeError: Cannot read properties of null (reading 'id')",
+    "labels": {
+     "project": "player",
+     "level": "error"
     },
-    {
-      "id": "sc-neg-span-export-timeout",
-      "kind": "signal-class",
-      "provenance": "control: a bare 'timeout' with NO named upstream must NOT be external-transient (else it steals the span-export config-bug from bug-routing)",
-      "signal": {"fingerprint": "glitchtip:PODCAST-NEG-SC2", "occurrence_id": "glitchtip:PODCAST-NEG-SC2@frozen", "source": "glitchtip", "alertname": "Failed to export span batch due to timeout, max retries or shutdown", "labels": {"project": "podcast", "level": "error"}, "summary": "Failed to export span batch due to timeout (count=42)"},
-      "expect": {"signal_class": null}
+    "summary": "TypeError: Cannot read properties of null (reading 'id') in render()"
+   },
+   "expect": {
+    "signal_class": null
+   }
+  },
+  {
+   "id": "sc-neg-span-export-timeout",
+   "kind": "signal-class",
+   "provenance": "control: a bare 'timeout' with NO named upstream must NOT be external-transient (else it steals the span-export config-bug from bug-routing)",
+   "signal": {
+    "fingerprint": "glitchtip:PODCAST-NEG-SC2",
+    "occurrence_id": "glitchtip:PODCAST-NEG-SC2@frozen",
+    "source": "glitchtip",
+    "alertname": "Failed to export span batch due to timeout, max retries or shutdown",
+    "labels": {
+     "project": "podcast",
+     "level": "error"
     },
-    {
-      "id": "sc-neg-client-dynamic-import",
-      "kind": "signal-class",
-      "provenance": "control: a client-side dynamic-import failure must NOT be external-transient (it stays a dismiss-able client transient, not a config-enhancement File)",
-      "signal": {"fingerprint": "glitchtip:PLAYER-NEG-SC3", "occurrence_id": "glitchtip:PLAYER-NEG-SC3@frozen", "source": "glitchtip", "alertname": "TypeError: Failed to fetch dynamically imported module", "labels": {"project": "player", "level": "error"}, "summary": "TypeError: Failed to fetch dynamically imported module: /posters"},
-      "expect": {"signal_class": null}
-    }
-  ]
+    "summary": "Failed to export span batch due to timeout (count=42)"
+   },
+   "expect": {
+    "signal_class": null
+   }
+  },
+  {
+   "id": "sc-neg-client-dynamic-import",
+   "kind": "signal-class",
+   "provenance": "control: a client-side dynamic-import failure must NOT be external-transient (it stays a dismiss-able client transient, not a config-enhancement File)",
+   "signal": {
+    "fingerprint": "glitchtip:PLAYER-NEG-SC3",
+    "occurrence_id": "glitchtip:PLAYER-NEG-SC3@frozen",
+    "source": "glitchtip",
+    "alertname": "TypeError: Failed to fetch dynamically imported module",
+    "labels": {
+     "project": "player",
+     "level": "error"
+    },
+    "summary": "TypeError: Failed to fetch dynamically imported module: /posters"
+   },
+   "expect": {
+    "signal_class": null
+   }
+  },
+  {
+   "id": "suppress-e2e-deadletter",
+   "kind": "test-suppression",
+   "provenance": "delivery e2e envelope e2e-deadletter-1 queued 2 cleanup proposals 2026-08-05; marker only matched 'e2e_run'",
+   "signal": {
+    "fingerprint": "glitchtip:DELIVERY-E2E",
+    "occurrence_id": "glitchtip:DELIVERY-E2E@frozen",
+    "source": "glitchtip",
+    "alertname": "dead-lettering e2e-deadletter-1 after 2 attempts: [Errno 61] Connection refused",
+    "labels": {
+     "project": "delivery",
+     "level": "error"
+    },
+    "summary": "delivery dead-letter [podcast/email] e2e-deadletter-1 after 2 attempts"
+   },
+   "expect": {
+    "suppressed": true
+   }
+  }
+ ]
 }
