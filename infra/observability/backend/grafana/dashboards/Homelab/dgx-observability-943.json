@@ -1,0 +1,447 @@
+{
+  "__inputs": [
+    {
+      "description": "Prometheus datasource (Grafana Cloud) scraping the DGX exporters via Grafana Agent.",
+      "label": "Prometheus",
+      "name": "DS_PROMETHEUS",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus",
+      "type": "datasource"
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "description": "DGX (spark-2c14 / dgx-llm-1) observability. VERSIONED 2026-08-30 \u2014 was UI-only and almost entirely dead: every panel filtered on host=\"dgx\", a label these metrics do not carry (they use instance=\"dgx-llm-1\", cluster=\"dgx\"). Fixed here, along with the unavailable FB_*/PROF_* fields and a wrong pyannote service label. Source of truth is now this file in git; edit here, not in the UI.",
+  "editable": true,
+  "graphTooltip": 1,
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "GPU (DCGM)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Per-GPU utilization percentage. GB10 has 1 GPU; series count = 1.",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_GPU_UTIL{instance=\"dgx-llm-1\"}",
+          "legendFormat": "GPU {{gpu}} ({{modelName}})",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "REPLACED 2026-08-30. The original DCGM_FI_DEV_FB_USED/FB_FREE queries returned 0 series: GB10 is UNIFIED memory, there is no framebuffer (nvidia-smi -q -d MEMORY reports N/A). For GPU memory use the 'Host memory' panel below (host RAM IS GPU RAM here) or, per-process, `nvidia-smi --query-compute-apps=pid,process_name,used_memory`. This slot now carries the throttle bitmask, which IS supported and is what separates 'hot but fine' from 'silently clock-limited'.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_CLOCK_THROTTLE_REASONS",
+          "refId": "A",
+          "legendFormat": "throttle bitmask"
+        }
+      ],
+      "title": "GPU clock throttle reasons (0 = none)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "GPU temperature in \u00b0C. Alert candidate: sustained > 80\u00b0C indicates fan/airflow problem.",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 9
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_GPU_TEMP{instance=\"dgx-llm-1\"}",
+          "legendFormat": "GPU {{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU temperature",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "GPU power draw (Watts). GB10 nominal envelope is well below 450W; helps detect runaway workloads.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 9
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_POWER_USAGE{instance=\"dgx-llm-1\"}",
+          "legendFormat": "GPU {{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU power",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "REPLACED 2026-08-30. DCGM_FI_PROF_SM_ACTIVE returned 0 series \u2014 every DCGM_FI_PROF_* profiling field is silently unavailable on this GB10 (12 of the 25 default fields are). SM clock is the supported substitute: a sustained drop at stable load is the observable proxy for throttling, corroborating the panel above.",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "unit": "rothz"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 9
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_SM_CLOCK",
+          "refId": "A",
+          "legendFormat": "SM clock MHz"
+        }
+      ],
+      "title": "GPU SM clock (MHz)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 101,
+      "panels": [],
+      "title": "System (node-exporter)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Host RAM used vs available. **GB10 has 121 GiB unified CPU+GPU memory** \u2014 cap was the load-bearing finding behind #963 (vLLM 0.92 OOM'd the host).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "node_memory_MemTotal_bytes{instance=\"dgx-llm-1\"} - node_memory_MemAvailable_bytes{instance=\"dgx-llm-1\"}",
+          "legendFormat": "Used (host)",
+          "refId": "A"
+        },
+        {
+          "expr": "node_memory_MemAvailable_bytes{instance=\"dgx-llm-1\"}",
+          "legendFormat": "Available (host)",
+          "refId": "B"
+        }
+      ],
+      "title": "Host memory",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Per-mode CPU usage on the host. Pyannote and Whisper drive `system` + `iowait`; vLLM drives `user`.",
+      "fieldConfig": {
+        "defaults": {
+          "max": 1.0,
+          "min": 0,
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "avg by (mode) (rate(node_cpu_seconds_total{instance=\"dgx-llm-1\",mode!=\"idle\"}[5m]))",
+          "legendFormat": "{{mode}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Host CPU by mode",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 102,
+      "panels": [],
+      "title": "Containers (cAdvisor)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Requires cadvisor >= v0.52.1: v0.49.1's Docker API client (1.41) is below the daemon minimum (1.44), its docker factory fails to register, and every series loses the `name` label \u2014 emptying this panel. Bumped 2026-08-30.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "container_memory_working_set_bytes{instance=\"dgx-llm-1\",name!=\"\"}",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Container memory",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Requires cadvisor >= v0.52.1: v0.49.1's Docker API client (1.41) is below the daemon minimum (1.44), its docker factory fails to register, and every series loses the `name` label \u2014 emptying this panel. Bumped 2026-08-30.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{instance=\"dgx-llm-1\",name!=\"\"}[5m])",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Container CPU rate",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "id": 103,
+      "panels": [],
+      "title": "App: pyannote-server (#942/#943)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Request rate per handler. /v1/diarize is the only meaningful one; health-check rate confirms scrape reachability.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "sum by (handler) (rate(http_requests_total{service=\"pyannote\"}[5m]))",
+          "legendFormat": "{{handler}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Pyannote request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Pyannote /v1/diarize p50 + p95 + p99 latency. Pair with #954 client-side timeout (180s default).",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"pyannote\",handler=\"/v1/diarize\"}[5m])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"pyannote\",handler=\"/v1/diarize\"}[5m])))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{service=\"pyannote\",handler=\"/v1/diarize\"}[5m])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "Pyannote diarize latency",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "dgx",
+    "gpu",
+    "observability"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "DGX observability (#943)",
+  "uid": "dgx-observability-943",
+  "weekStart": ""
+}
