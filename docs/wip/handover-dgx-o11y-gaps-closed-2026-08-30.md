@@ -154,13 +154,20 @@ checks — it will never return data on this hardware.**
 ## NOT covered / open
 
 - **prod-podcast cadvisor** — same defect, pin committed, needs someone with prod SSH.
+  Filed as **[podcast_scraper#1887](https://github.com/chipi/podcast_scraper/issues/1887)**
+  with the evidence, the deploy commands and the verification block.
 - **`DCGM_FI_PROF_*`** (SM active, tensor pipe, PCIe throughput) — unavailable on GB10,
   same class as `FB_*`. If #1886 wanted tensor-pipe utilisation, it can't be had here.
 - **vLLM metrics under sustained load** — I verified they exist and flow, but the box was
   idle. Their behaviour during your 10/100-episode runs is what you're about to measure.
-- The `#943` dashboard still reports `provisioned: false` in Grafana's metadata even
-  though it now serves the file's content; a Grafana restart at a convenient moment
-  should settle that flag. Cosmetic.
+- ~~The `#943` dashboard reports `provisioned: false` … a Grafana restart should settle
+  it.~~ **Wrong — corrected 2026-08-30.** Restarting Grafana changed nothing, because
+  the provisioning config sets **`allowUiUpdates: true`** repo-wide: Grafana then
+  deliberately reports `provisioned: false` on ALL 28 dashboards so the UI stays
+  editable. Nothing to fix. The dashboard IS file-backed
+  (`provisionedExternalId: Homelab/dgx-observability-943.json`, re-read every 30s).
+  The one real consequence of that setting: a UI edit persists until the file changes
+  again, so edit in git or your change will be silently reverted on the next file update.
 
 ## Commits
 
