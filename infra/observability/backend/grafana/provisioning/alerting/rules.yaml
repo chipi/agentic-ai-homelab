@@ -830,6 +830,37 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [97200] } }]
 
+      # --- docker-prune dead-man -------------------------------------------------
+      # The weekly docker-maintenance job (infra/docker-maintenance, Sun 04:00
+      # LaunchAgent on the mini) pushes homelab_maintenance_last_run_timestamp on
+      # every completed run. Written 2026-08-25 but never installed, it silently
+      # ran zero times while the colima datadisk grew to 83G — this rule makes
+      # that failure impossible to miss again. >8d stale (weekly cadence + 1 day
+      # slack) or series absent from the whole 10d window → page.
+      - uid: docker-prune-stale
+        title: "docker-prune weekly maintenance stale (no run in 8d)"
+        condition: threshold
+        for: 15m
+        noDataState: Alerting
+        execErrState: OK
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "docker-prune hasn't completed in >8 days — colima disk bloat is accumulating again. Check: launchctl list | grep docker-prune on the mini; log at /tmp/docker-prune.log."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 864000, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - last_over_time(homelab_maintenance_last_run_timestamp{job="docker-prune"}[10d])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [691200] } }]
+
 # NOT re-homed yet — Caddy edge 5xx (the third T-11 rule). The caddy.service
 # systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
 # (with status codes) is not tailed into VictoriaLogs (status:* = 0 hits). Wire the

@@ -17,12 +17,18 @@ Measured when the alert fired — of the ~64 GB in the colima docker disk:
 deleting data or containers — it's clearing build cache + unused images on a
 schedule.
 
-## The non-obvious part — `fstrim`
+## The non-obvious parts — `fstrim`, and WHICH disk
 
-Pruning frees blocks *inside* the colima VM's ext4, but the VM disk is a **sparse
-image on the macOS host that only grows**. Without `fstrim` the freed space never
+Pruning frees blocks *inside* the colima VM's ext4, but the VM disks are **sparse
+images on the macOS host that only grow**. Without `fstrim` the freed space never
 returns to the host — the host free-space number (and the disk-low alert) don't
 move. So the job prunes **and** `fstrim`s.
+
+And it must trim **all mounts** (`fstrim -av`): docker data lives on the separate
+lima data disk (`/mnt/lima-colima`, backed by `_disks/colima/datadisk`, 98G), not
+the 20G boot disk. The original `fstrim /` trimmed only the boot disk — the
+datadisk reached 83G allocated for 19G used before the 2026-08-30 manual trim
+(reclaimed 60G) caught it.
 
 ## Install
 
@@ -34,7 +40,16 @@ launchctl start com.homelab.docker-prune && sleep 30 && tail /tmp/docker-prune.l
 ```
 
 Runs weekly (Sunday 04:00). Script runs in-place from the checkout; log at
-`/tmp/docker-prune.log`.
+`/tmp/docker-prune.log`. **Installed + verified on the mini 2026-08-30** — it had
+been written 2026-08-25 but never installed, ran zero times, and the disk grew
+unnoticed; hence the dead-man below.
+
+## Dead-man watch
+
+Every completed run pushes `homelab_maintenance_last_run_timestamp{job="docker-prune"}`
+to VictoriaMetrics; Grafana rule `docker-prune-stale` (backend alerting rules)
+pages at >8 days without a run — or if the series is absent entirely — so a
+silently-unloaded job can't recur.
 
 ## Not covered here (found in the same audit — operator's call)
 
