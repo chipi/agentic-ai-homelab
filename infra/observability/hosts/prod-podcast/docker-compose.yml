@@ -28,7 +28,12 @@ services:
     restart: unless-stopped
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    # v0.52.1 — see infra/observability/docker-compose.yml for the full rationale:
+    # v0.49.1's Docker API client (1.41) is below modern daemons' minimum (1.44),
+    # its docker factory fails to register, and container series lose the `name`
+    # label entirely. prod-podcast shows the same symptom (66 series, 0 named,
+    # measured 2026-08-30) — apply on the next prod observability deploy.
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
     container_name: cadvisor
     network_mode: host
     privileged: true
