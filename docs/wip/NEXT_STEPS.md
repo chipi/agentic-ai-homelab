@@ -32,6 +32,26 @@ drafted, but they haven't been run for real yet.
 - [ ] Run `provider-bakeoff/` with your real API keys; pick a primary
       cloud provider for the next round of work. *(Sweep cost ~$2-5.)*
 
+## Dated checks (open on/after the date — we WILL forget otherwise)
+
+- [ ] **2026-08-31+ (any day next week):** verify the docker-prune LaunchAgent
+      self-fired Sunday 04:00 on the mini (installed + hand-verified 2026-08-30,
+      but the calendar trigger itself has never fired).
+      Check: `tail /tmp/docker-prune.log` on the mini shows a `=== docker-prune
+      2026-08-31…` header, and the `docker-prune-stale` Grafana alert is still
+      inactive. If the run is missing, the dead-man alert fires by ~2026-09-07
+      anyway — but check before it has to.
+- [ ] **~2026-09-27 (a month out):** colima datadisk regrowth check —
+      `sudo du -sh /private/var/_dockerhost/.colima/_lima/_disks/colima/datadisk`
+      on the mini. Was 23G after the 2026-08-30 trim (19G live data); if it's
+      drifting far above ~30G, the weekly `fstrim -av` isn't holding and the
+      job needs a look.
+- [ ] **~2026-09-13:** check the two handed-off podcast_scraper issues moved:
+      [#1877](https://github.com/chipi/podcast_scraper/issues/1877) (prod-ops-health
+      cron → on-VPS systemd timer) and
+      [#1879](https://github.com/chipi/podcast_scraper/issues/1879) (63 batched
+      signal-fleet proposals, 18 families). If untouched, ping/reassign.
+
 ## Maintenance items (parallel, not urgent)
 
 - [ ] **Dedup existing project AGENTS.md files** against the new global.

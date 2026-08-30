@@ -51,19 +51,23 @@ to VictoriaMetrics; Grafana rule `docker-prune-stale` (backend alerting rules)
 pages at >8 days without a run — or if the series is absent entirely — so a
 silently-unloaded job can't recur.
 
-## Not covered here (found in the same audit — operator's call)
+## Not covered here (found in the 2026-08-25 audit — status as of 2026-08-30)
 
-Beyond docker, the `/Users` audit surfaced reclaimable space these jobs do NOT
-touch (they're outside docker / personal):
+Beyond docker, the `/Users` audit surfaced space these jobs do NOT touch
+(outside docker / personal). Most of it is since resolved — kept here so stale
+figures don't get re-reported:
 
-- **`/Users/claude/Library/Developer` — 37 GB** (Xcode DerivedData/simulators from
-  the workbench user) + `Logs` 5.5 GB + `Caches` 2.1 GB → ~45 GB reclaimable.
-- **`/Users/claude/projects` — 24 GB** of repo checkouts (orrery 13 GB, podcast_scraper
-  7 GB…) — the agent's working copies, reclaimable if stale.
-- **`/Users/markodragoljevic/.colima` — 13 GB** — a **stale/broken** personal colima
-  instance (`colima status` → "lima not found"); the homelab runs under `_dockerhost`,
-  so this one is dead weight.
-- `/Users/markodragoljevic/Pictures` — 72 GB personal photos (not homelab).
+- ~~`/Users/claude/Library/Developer` — 37 GB~~ **resolved**: this is what the
+  2026-08-25 incident deletion removed (crashing live simulators in the
+  process — see the destructive-ops rule of record). It regrew to a normal
+  ~4 GB working weight (3.9 GB simulator devices + Xcode caches). Nothing to
+  reclaim.
+- **`/Users/claude/projects` — 24 GB** of repo checkouts (orrery 13 GB,
+  podcast_scraper 7 GB…) — parked agents' working copies. Still true; only
+  reclaimable if those agents are done, which is a per-checkout operator call.
+- ~~`/Users/markodragoljevic/.colima` — 13 GB~~ **gone**: found already emptied
+  (0 B skeleton) 2026-08-30; husk removed.
+- `/Users/markodragoljevic/Pictures` — 72 GB personal photos (not homelab). Still true.
 
 ## Related
 - Systems index: [`infra/README.md`](../README.md)
