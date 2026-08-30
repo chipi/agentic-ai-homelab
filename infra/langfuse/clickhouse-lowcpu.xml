@@ -9,4 +9,37 @@
 <clickhouse>
     <asynchronous_metrics_update_period_s>60</asynchronous_metrics_update_period_s>
     <asynchronous_heavy_metrics_update_period_s>300</asynchronous_heavy_metrics_update_period_s>
+
+    <!-- SELF-TELEMETRY OFF (2026-08-30). ClickHouse's own debug log TABLES had no TTL and
+         were 2.89 GiB of the 3.17 GiB volume — 91% of it — vs 278 MiB of actual Langfuse
+         data: trace_log 1.10G/36M rows, text_log 955M/21M rows, metric_log 366M, part_log
+         279M. That is ~185 MB/day of writes nobody reads, on a box whose Langfuse traces
+         grow ~17 MB/day. `remove="1"` deletes the config section = the log is never
+         started (harmless if the section doesn't exist in this image's defaults).
+         query_log is KEPT (genuinely useful for debugging) but capped at 7 days.
+         Side benefit: ~26 rows/s of self-logging stops, which should also help the
+         documented idle-CPU spin the cpus:0.5 cap is currently masking. -->
+    <trace_log remove="1"/>
+    <text_log remove="1"/>
+    <metric_log remove="1"/>
+    <asynchronous_metric_log remove="1"/>
+    <part_log remove="1"/>
+    <processors_profile_log remove="1"/>
+    <opentelemetry_span_log remove="1"/>
+    <session_log remove="1"/>
+    <blob_storage_log remove="1"/>
+    <query_views_log remove="1"/>
+    <error_log remove="1"/>
+    <latency_log remove="1"/>
+    <query_metric_log remove="1"/>
+    <query_log>
+        <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
+    </query_log>
+
+    <!-- The FILE log (separate 602 MB volume) ships at trace/debug verbosity by default. -->
+    <logger>
+        <level>warning</level>
+        <size>50M</size>
+        <count>3</count>
+    </logger>
 </clickhouse>
