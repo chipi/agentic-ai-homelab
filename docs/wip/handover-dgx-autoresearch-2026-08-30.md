@@ -103,33 +103,41 @@ I audited this end-to-end because the operator flagged it as important. Verdict:
   rule — these are on-demand services, so "down" is normal, not an incident.
   Don't add a target-down alert for it; that exclusion is intentional.
 
-### Application-layer LLM tracing — covered, by the app itself
+### LLM tracing — covered, and it all lands in ONE place: the homelab Langfuse
 
-**Corrected 2026-08-30 by the operator.** An earlier draft of this handover
-claimed a tracing gap here, on the assumption that Langfuse is only ever fed
-through a LiteLLM gateway (which is how the *homelab fleet* is wired). That
-assumption does not hold for the podcast app:
+**Corrected twice on 2026-08-30, now verified against the data.** An earlier
+draft claimed a tracing gap (wrong), and a second draft claimed a separate
+production Langfuse (also wrong). The actual topology:
 
-- The app **integrates Langfuse at the application layer**, as an SDK/observability
-  concern — so traces are emitted regardless of which provider or endpoint a
-  profile routes to, including a direct call to the DGX vLLM on :8003.
-- Production has its **own LiteLLM and its own Langfuse**: prod app → prod
-  LiteLLM → the actual LLM providers, with the app tracing into the prod Langfuse.
+- **There is exactly one Langfuse — the homelab one on the mini**
+  (`langfuse.tail6d0ed4.ts.net`, project `agents`). There is **no** production
+  Langfuse.
+- **Production runs its own LiteLLM**: prod app → prod LiteLLM → the LLM
+  providers — and the tracing lands back in the homelab Langfuse.
 
-So `prod_dgx_full` pointing `vllm_api_base` at `http://dgx-llm-1:8003/v1` costs
-nothing in observability: per-request prompt/completion/cost tracing comes from
-the app, and the DGX contributes serving telemetry + container logs on top.
+Verified by querying that Langfuse's ClickHouse directly (2026-08-30):
 
-One topology fact worth knowing rather than a gap: those are two planes with
-different sinks — **app traces** land in the *production* Langfuse, while **vLLM
-serving metrics and logs** land in the *homelab* VictoriaMetrics/VictoriaLogs
-(`instance=dgx-llm-1`). Correlating a slow request end-to-end means looking in
-both. Nothing to fix; just know which window to open.
+| evidence | value |
+|---|---|
+| `litellm-acompletion` traces | 21,003 |
+| `triage-fleet/*` traces (homelab fleet, app-layer naming) | 96 |
+| models seen incl. podcast aliases | `podcast-pro-0829`, `podcast-flash-0731`, `openrouter/deepseek/deepseek-v4-flash` (17.5k), `fleet-triage-pro` |
+| most recent trace | `2026-08-30 19:58` — live |
 
-*(Not independently verified by me: the prod-side LiteLLM/Langfuse stack. The
-prod VPS exposes only the `api` and `integrations/unix` jobs to the homelab VM,
-and my key has no SSH access there — this section reflects the operator's
-description of the architecture, not my own inspection.)*
+Both emission styles are present in that one sink: gateway-level
+(`litellm-acompletion`, LiteLLM's Langfuse callback) and app-level
+(`triage-fleet/...`). So a `prod_dgx_full` run costs nothing in observability —
+per-request prompt/completion/cost tracing arrives regardless of whether the
+call goes through LiteLLM or straight to the DGX vLLM on :8003.
+
+**Everything converges on the mini**, which makes correlation easy: LLM traces
+in Langfuse, and the DGX's vLLM serving metrics + container logs in
+VictoriaMetrics/VictoriaLogs (`instance=dgx-llm-1`) — same box, one place to look.
+
+*(Not inspected by me: the prod VPS itself. It exposes only the `api` and
+`integrations/unix` jobs to the homelab VM, and prod SSH uses a separate key I
+don't hold — by design. The prod-LiteLLM half of the path above is the
+operator's description; the homelab-Langfuse half is verified from its own data.)*
 
 ## What I changed on the box
 
