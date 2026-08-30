@@ -40,6 +40,12 @@ services:
     network_mode: host
     runtime: nvidia
     cap_add: [SYS_ADMIN]
+    # Custom counter set: the image default omits CLOCK_THROTTLE_REASONS, which is
+    # the only way to tell "hot but fine" from "silently clock-limited" during a
+    # sustained LLM run (#1886 A1). Verified supported on this GB10 before adopting.
+    command: ["-f", "/etc/dcgm-exporter/homelab-counters.csv"]
+    volumes:
+      - ./dcgm-counters.csv:/etc/dcgm-exporter/homelab-counters.csv:ro
     environment:
       - DCGM_EXPORTER_LISTEN=:9400
       - DCGM_EXPORTER_KUBERNETES=false
