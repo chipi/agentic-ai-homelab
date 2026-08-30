@@ -67,6 +67,30 @@ are append-only; fresh-start loses history) → `up -d` on the new host → upda
   ClickHouse backup + MinIO data copy.
 - Rollback a bad boot: `docker compose down` (add `-v` to wipe volumes — destructive).
 
+## Retention / storage (audit 2026-08-30)
+
+**Policy: 30 days.** Three independent caps, because Langfuse data lives in three
+places. Two are runtime state on the mini (not in git) — re-apply them if the
+stack is ever rebuilt from scratch:
+
+| Layer | Cap | How it is set |
+|---|---|---|
+| ClickHouse traces/observations/scores | 30d | `projects.retention_days = 30` (Langfuse's own Data Retention job — the worker logs `Executing Data Retention Job` daily). Set in the UI (project settings) or: `docker exec langfuse-postgres-1 psql -U postgres -d postgres -c "update projects set retention_days=30"` |
+| MinIO event blobs (`events/` prefix) | 30d | bucket lifecycle rule: `mc ilm rule add lf/langfuse --expire-days 30 --prefix "events/"` |
+| ClickHouse's own debug logs | disabled | `clickhouse-lowcpu.xml` (in git) |
+
+**What the audit found — the surprise.** The 3.7 GB ClickHouse volume was **91%
+ClickHouse's own untTL'd telemetry**, not Langfuse data: `trace_log` 1.10 GiB /
+36M rows, `text_log` 955 MiB / 21M rows, `metric_log` 366 MiB, `part_log` 279 MiB
+— against **278 MiB of actual traces**. Real Langfuse growth is only ~17 MB/day;
+the self-telemetry was ~185 MB/day of writes nobody reads. Disabling those logs
+and dropping the old tables took the volume **3.69 GB → 442 MB** and the log-file
+volume **632 MB → 30 KB**; a host `fstrim` returned 37.5 GiB.
+
+Steady state at 30 days is roughly **0.5 GB ClickHouse + ~3.6 GB MinIO events**.
+MinIO event blobs (~120 MB/day) are now the dominant Langfuse consumer — they are
+raw ingestion payloads kept for replay, not needed to render the UI.
+
 ## Notes
 
 - `langfuse` images pinned; datastores at upstream tags — **pin after first good boot**.
