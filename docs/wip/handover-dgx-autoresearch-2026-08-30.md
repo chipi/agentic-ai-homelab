@@ -103,15 +103,33 @@ I audited this end-to-end because the operator flagged it as important. Verdict:
   rule — these are on-demand services, so "down" is normal, not an incident.
   Don't add a target-down alert for it; that exclusion is intentional.
 
-### NOT covered — the one real gap
+### Application-layer LLM tracing — covered, by the app itself
 
-`prod_dgx_full` points `vllm_api_base` straight at `http://dgx-llm-1:8003/v1`,
-which **bypasses the LiteLLM gateway**. So you get vLLM *serving* telemetry
-(latency, tokens, queue depth, GPU) and container logs — but **no per-request
-Langfuse traces** (prompt/completion/cost) for those calls, because Langfuse is
-fed via LiteLLM. If you want application-layer LLM tracing for this profile,
-that's a routing decision (point the profile at LiteLLM, or add native Langfuse
-SDK instrumentation in the pipeline) — it is not a misconfiguration on the DGX.
+**Corrected 2026-08-30 by the operator.** An earlier draft of this handover
+claimed a tracing gap here, on the assumption that Langfuse is only ever fed
+through a LiteLLM gateway (which is how the *homelab fleet* is wired). That
+assumption does not hold for the podcast app:
+
+- The app **integrates Langfuse at the application layer**, as an SDK/observability
+  concern — so traces are emitted regardless of which provider or endpoint a
+  profile routes to, including a direct call to the DGX vLLM on :8003.
+- Production has its **own LiteLLM and its own Langfuse**: prod app → prod
+  LiteLLM → the actual LLM providers, with the app tracing into the prod Langfuse.
+
+So `prod_dgx_full` pointing `vllm_api_base` at `http://dgx-llm-1:8003/v1` costs
+nothing in observability: per-request prompt/completion/cost tracing comes from
+the app, and the DGX contributes serving telemetry + container logs on top.
+
+One topology fact worth knowing rather than a gap: those are two planes with
+different sinks — **app traces** land in the *production* Langfuse, while **vLLM
+serving metrics and logs** land in the *homelab* VictoriaMetrics/VictoriaLogs
+(`instance=dgx-llm-1`). Correlating a slow request end-to-end means looking in
+both. Nothing to fix; just know which window to open.
+
+*(Not independently verified by me: the prod-side LiteLLM/Langfuse stack. The
+prod VPS exposes only the `api` and `integrations/unix` jobs to the homelab VM,
+and my key has no SSH access there — this section reflects the operator's
+description of the architecture, not my own inspection.)*
 
 ## What I changed on the box
 
@@ -137,10 +155,11 @@ breaking the telemetry described above and would recreate running containers.
 Reconciling that drift is a separate, deliberate maintenance task — not a
 prerequisite for starting autoresearch. Don't fold it into this work.
 
-## Two things only the operator can decide
+## One thing left to decide
 
-1. **`VLLM_GPU_MEM_UTIL` 0.65 → 0.25** while production ASR shares the GPU
-   (recommended above, deliberately left to you).
-2. **Whether the LLM tracing gap matters** — i.e. should `prod_dgx_full` route
-   through LiteLLM so calls land in Langfuse, or is serving-level telemetry
-   enough for this profile.
+**`VLLM_GPU_MEM_UTIL` 0.65 → 0.25** while production ASR shares the GPU
+(recommended above, deliberately left to you — trivially reversible).
+
+*(A second item — "does the direct-to-vLLM path lose Langfuse tracing?" — was
+raised in an earlier draft and is **resolved, not a gap**: the app traces into
+Langfuse itself. See the observability section.)*
