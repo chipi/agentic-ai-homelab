@@ -32,6 +32,20 @@ drafted, but they haven't been run for real yet.
 - [ ] Run `provider-bakeoff/` with your real API keys; pick a primary
       cloud provider for the next round of work. *(Sweep cost ~$2-5.)*
 
+## Planned mini ops (operator picks the window; prep is DONE)
+
+- [ ] **Window ~2026-08-30/31:** run the colima restart —
+      [`colima-vcpu-8-to-4-runbook.md`](colima-vcpu-8-to-4-runbook.md):
+      one `colima stop && start --cpu 4 --memory 12` (~2–5 min stack gap)
+      + the same-window Spotlight disable (`mdutil -a -i off`, instant).
+- [ ] **Step 2 (after the window, no downtime needed):** desktop-software
+      pruning per [`mini-box-pruning.md`](mini-box-pruning.md) — all 12
+      vendors approved 2026-08-30 (Backblaze dead since 2024-08, CCC
+      already a ghost); `org.cindori.AuthHelper` excluded pending ID.
+- [ ] **Hardware, someday:** install the +32G RAM the operator has at home
+      (2018 mini → 64G total). Full shutdown + physical open; no config
+      changes needed after (colima VM stays 12G — sized to guest usage).
+
 ## Dated checks (open on/after the date — we WILL forget otherwise)
 
 - [ ] **2026-08-31+ (any day next week):** verify the docker-prune LaunchAgent

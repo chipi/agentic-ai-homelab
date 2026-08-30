@@ -1,7 +1,13 @@
-# Runbook — colima 8→4 vCPU on homelab (Mac mini)
+# Runbook — colima 8→4 vCPU + 20→12G memory on homelab (Mac mini)
 
 **Status:** prepared, not executed. Pick a low-traffic window and run
-attended. Author: investigation session 2026-08-26.
+attended. Author: investigation session 2026-08-26; expanded 2026-08-30:
+memory 20→12G rides the SAME restart (zero extra downtime), plus the
+same-window Spotlight disable. Why 12G: the guest uses 6.3G of its 20G
+(`free -m` in-guest: 13.7G available, rest page cache) — 12G keeps ~2×
+headroom and returns 8G to the host. The operator has +32G RAM to
+physically install later; the VM stays 12G regardless (sized to guest
+usage, not host supply) — revisit only if in-guest pressure appears.
 
 ## Why
 
@@ -30,7 +36,7 @@ as `claude`, no sudo):
 
 ```
 cpu: 8      ← change target → 4
-memory: 20
+memory: 20  ← change target → 12
 disk: 100
 vmType: qemu
 mountType: sshfs
@@ -66,20 +72,26 @@ Live qemu cmdline confirms: `-smp 8,sockets=1,cores=8,threads=1`,
 
 ```bash
 sudo -u _dockerhost -H bash -lc \
-  'export PATH=/usr/local/bin:$PATH HOME=/var/_dockerhost; colima stop && colima start --cpu 4'
+  'export PATH=/usr/local/bin:$PATH HOME=/var/_dockerhost; colima stop && colima start --cpu 4 --memory 12'
 ```
 
-`--cpu 4` restarts AND persists `cpu: 4` into the yaml, keeping the next
-launchd boot consistent. **Run attended — watch `colima start` live, do
-NOT background it.**
+`--cpu 4 --memory 12` restarts AND persists both into the yaml, keeping
+the next launchd boot consistent. **Run attended — watch `colima start`
+live, do NOT background it.**
+
+Note (2026-08-30): passwordless sudo exists for `markodragoljevic`
+(`/etc/sudoers.d/ops`), so the agent can run this attended over ssh —
+the original "operator runs this" constraint (written from the no-sudo
+`claude` account) no longer applies.
 
 ## Verify (after start returns)
 
 ```bash
-# 1. colima up, cpu now 4
+# 1. colima up, cpu now 4, memory now 12
 sudo -u _dockerhost -H bash -lc 'export PATH=/usr/local/bin:$PATH HOME=/var/_dockerhost; colima status'
-grep -E '^cpu:' /var/_dockerhost/.colima/default/colima.yaml          # → cpu: 4
-ps -o command= -p "$(pgrep -f qemu-system-x86_64)" | tr ' ' '\n' | grep -A1 smp   # → -smp 4...
+grep -E '^cpu:|^memory:' /var/_dockerhost/.colima/default/colima.yaml # → cpu: 4 / memory: 12
+ps -o command= -p "$(pgrep -f qemu-system-x86_64)" | tr ' ' '\n' | grep -A1 -E 'smp|^-m$'  # → -smp 4… / -m 12288
+sudo -u _dockerhost -H bash -lc 'export PATH=/usr/local/bin:$PATH HOME=/var/_dockerhost; colima ssh -- free -m'  # total ~12000, available comfortably > used
 
 # 2. all 29 containers back up
 export DOCKER_HOST=unix:///var/run/docker.sock
@@ -90,12 +102,31 @@ export DOCKER_HOST=unix:///var/run/docker.sock
 for i in 1 2 3; do ps -o %cpu= -p "$(pgrep -f qemu-system-x86_64)"; sleep 1; done
 ```
 
-## Rollback (identical line, 8)
+## Rollback (identical line, original values)
 
 ```bash
 sudo -u _dockerhost -H bash -lc \
-  'export PATH=/usr/local/bin:$PATH HOME=/var/_dockerhost; colima stop && colima start --cpu 8'
+  'export PATH=/usr/local/bin:$PATH HOME=/var/_dockerhost; colima stop && colima start --cpu 8 --memory 20'
 ```
+
+## Same-window extras (independent of colima — do while containers restart)
+
+**Spotlight off (approved 2026-08-30: headless server, nobody searches).**
+Instant, reversible, no restart, saves periodic `mds`/`mds_stores` CPU +
+RAM (it currently indexes everything incl. the 72G Pictures library):
+
+```bash
+sudo mdutil -a -i off          # disable indexing on all volumes
+sudo mdutil -a -E 2>/dev/null || true   # erase existing index stores (frees disk too)
+mdutil -s /System/Volumes/Data # verify → "Indexing disabled."
+```
+
+Rollback: `sudo mdutil -a -i on` (index rebuilds itself).
+
+**NOT in this window:** the desktop-software pruning (Backblaze, Adobe,
+Wacom, …) — that's its own careful pass, see
+[`mini-box-pruning.md`](mini-box-pruning.md). Don't mix it into the
+colima downtime; nothing about it needs the VM stopped.
 
 ## Expected gap (ESTIMATE — not measured; boot log was already cleared)
 
