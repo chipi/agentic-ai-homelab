@@ -1,0 +1,13 @@
+[Unit]
+Description=Push per-process GPU memory (with container attribution) to VictoriaMetrics
+Documentation=https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/README.md
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+# root: needs /proc/<pid>/cgroup for processes owned by other users, plus docker
+User=root
+ExecStart=/usr/local/bin/gpu-process-metrics.sh
+# never let a stuck push wedge the timer
+TimeoutStartSec=30

@@ -544,6 +544,71 @@
         },
         "overrides": []
       }
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU memory by container (per-process attribution)",
+      "description": "The ONLY per-container GPU memory view on this box. GB10 unified memory means DCGM_FI_DEV_FB_* never emit; this comes from `nvidia-smi --query-compute-apps` with each PID mapped to its docker cgroup (infra/dgx/bin/gpu-process-metrics.sh, 30s systemd timer). Use it to answer 'which service is eating the GPU' during a saturation event.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "targets": [
+        {
+          "expr": "dgx_gpu_process_memory_bytes{instance=\"dgx-llm-1\"}",
+          "refId": "A",
+          "legendFormat": "{{container}}"
+        },
+        {
+          "expr": "dgx_gpu_memory_used_bytes{instance=\"dgx-llm-1\"}",
+          "refId": "B",
+          "legendFormat": "TOTAL"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "GPU memory used / processes",
+      "description": "Aggregate across all GPU processes. Headroom = GB10 unified pool minus this.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "targets": [
+        {
+          "expr": "dgx_gpu_memory_used_bytes{instance=\"dgx-llm-1\"}",
+          "refId": "A",
+          "legendFormat": "GPU mem used"
+        },
+        {
+          "expr": "dgx_gpu_process_count{instance=\"dgx-llm-1\"}",
+          "refId": "B",
+          "legendFormat": "processes"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
     }
   ],
   "description": "DGX service health. NOTE 2026-08-30: this GB10 has UNIFIED memory \u2014 all DCGM_FI_DEV_FB_* and DCGM_FI_PROF_* fields are silently unavailable. Use host memory, vllm:kv_cache_usage_perc, and nvidia-smi --query-compute-apps for GPU memory."

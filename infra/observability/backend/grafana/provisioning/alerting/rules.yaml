@@ -830,6 +830,36 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [97200] } }]
 
+      # --- DGX per-process GPU metrics dead-man -----------------------------------
+      # gpu-process-metrics.sh (30s systemd timer on dgx-llm-1) is the ONLY source of
+      # per-container GPU memory on the GB10 — DCGM_FI_DEV_FB_* are unavailable on
+      # unified memory. If it dies, GPU attribution silently disappears exactly when a
+      # saturation event would need it, so absence IS the incident (noDataState:
+      # Alerting). 10m without a push = dead; the timer fires every 30s.
+      - uid: dgx-gpu-metrics-stale
+        title: "DGX per-process GPU metrics stale (no push in 10m)"
+        condition: threshold
+        for: 5m
+        noDataState: Alerting
+        execErrState: OK
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "dgx_gpu_metrics_last_run_timestamp is >10m old — per-container GPU memory attribution is dark. On dgx-llm-1: systemctl status gpu-process-metrics.timer; journalctl -u gpu-process-metrics.service -n 20."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - last_over_time(dgx_gpu_metrics_last_run_timestamp[1h])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [600] } }]
+
       # --- docker-prune dead-man -------------------------------------------------
       # The weekly docker-maintenance job (infra/docker-maintenance, Sun 04:00
       # LaunchAgent on the mini) pushes homelab_maintenance_last_run_timestamp on

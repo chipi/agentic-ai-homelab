@@ -1,0 +1,14 @@
+[Unit]
+Description=Run gpu-process-metrics every 30s
+Documentation=https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/README.md
+
+[Timer]
+# 30s matches the cadvisor/node scrape cadence, so GPU-memory attribution lines
+# up with container CPU/RAM on the same time axis during a saturation event.
+OnBootSec=60
+OnUnitActiveSec=30
+AccuracySec=5
+Unit=gpu-process-metrics.service
+
+[Install]
+WantedBy=timers.target
