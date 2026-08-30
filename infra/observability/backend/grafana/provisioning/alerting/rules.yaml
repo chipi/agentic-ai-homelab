@@ -688,10 +688,15 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
       # Deliverability canary: bounce+complaint > 5% of terminal sends over 1h, held 15m.
+      # bounced/complaint SERIES only exist once the first bounce ever happens — same
+      # trap as fleetd-cycle-failing above: NoData is GOOD news, noDataState: OK is
+      # load-bearing (2026-08-14→30: default NoData fired DatasourceNoData for 16 days
+      # against a healthy delivery stack that had simply never bounced).
       - uid: delivery-high-bounce
         title: "Delivery bounce/complaint rate high (>5%)"
         condition: threshold
         for: 15m
+        noDataState: OK
         labels: { severity: warning, kind: delivery }
         annotations:
           summary: "Bounce+complaint >5% for 15m — sending-domain reputation at risk (check Resend + DMARC alignment)."
@@ -710,10 +715,13 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [0.05] } }]
       # Any envelope dead-lettered in the last hour (retries exhausted → not delivered).
+      # dead_lettered series absent until the first dead-letter ever → noDataState: OK
+      # (see delivery-high-bounce above).
       - uid: delivery-dead-letter
         title: "Delivery dead-letter in the last hour"
         condition: threshold
         for: 5m
+        noDataState: OK
         labels: { severity: warning, kind: delivery }
         annotations:
           summary: "{{ $values.q }} envelope(s) dead-lettered in 1h — retries exhausted; inspect delivery-* logs in VictoriaLogs."

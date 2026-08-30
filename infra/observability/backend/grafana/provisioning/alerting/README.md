@@ -50,6 +50,19 @@ Critical alerts (disk critical, fail2ban ban, scrape target down) route to Glitc
 1. Edit the relevant YAML in this directory (`rules.yaml`, `contactpoints.yaml`, or `policies.yaml`).
 2. Commit and push.
 3. Reload provisioning: `docker compose up -d grafana` in the backend stack directory.
+   Gotcha: if the container config didn't change, `up -d` does NOT restart it and the new
+   rules are NOT loaded — use the restart-free reload instead:
+   `curl -X POST -u "$ADMIN:$PASS" http://localhost:3000/api/admin/provisioning/alerting/reload`
+
+**Rule-authoring gotcha — error-counter series don't exist until the first error.** A rule
+querying a label slice that only appears after the first bad event ever (`status="bounced"`,
+`outcome="error"`, …) gets NoData on a *healthy* system, and Grafana's default `noDataState`
+turns that good news into a permanent `DatasourceNoData` plumbing alert. Set
+`noDataState: OK` on such rules. Rules of record: `fleetd-cycle-failing` (2026-08-02, 6 days
+false-firing) and `delivery-high-bounce`/`delivery-dead-letter` (2026-08-14→30, 16 days).
+The reverse also matters: for dead-man rules watching a series that SHOULD always exist
+(`prod-ops-health-stale`, `delivery-scheduler-silent`), absence is the incident —
+`noDataState: Alerting` is correct there. Decide which case a new rule is; don't inherit the default.
 
 The strict Grafana provisioning loader validates schema on startup; invalid YAML blocks the container. Check container logs (`docker logs grafana`) if provisioning fails.
 
