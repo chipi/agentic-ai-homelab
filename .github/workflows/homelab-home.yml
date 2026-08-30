@@ -1,0 +1,37 @@
+# Merge-time gate for the homelab home page (infra/homelab-home).
+#
+# The page's traffic-light JS is tested by test_page.js (dependency-free node:
+# extracts podcastHealth() from gen.sh, stub DOM + fixture VM vectors). Running
+# it here means anything that reaches origin/main has passed the test on
+# neutral infrastructure — no laptop involved, and the mini stays node-free
+# (its deploy remains pull + gen.sh, trusting main because CI gated the merge).
+
+name: homelab-home
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/homelab-home/**'
+      - '.github/workflows/homelab-home.yml'
+  pull_request:
+    paths:
+      - 'infra/homelab-home/**'
+      - '.github/workflows/homelab-home.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: gen.sh syntax + page JS tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: gen.sh syntax
+        run: bash -n infra/homelab-home/gen.sh
+
+      - name: page JS tests
+        run: node infra/homelab-home/test_page.js

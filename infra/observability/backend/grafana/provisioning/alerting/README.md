@@ -15,6 +15,7 @@ Rules are grouped by domain. Thresholds are tuned against real baselines observe
 | **SSH auth failures / probes spiking** `sec-ssh-authfail` | Count > 15 in 5m | VictoriaLogs | Security: SSH probe/auth-failure burst. Prod-podcast is tailnet-only; normal ~0/5m; >15 signals a loop or unexpected exposure. |
 | **fail2ban issued a ban** `sec-fail2ban-ban` | Count > 0 (immediately) | VictoriaLogs | Security: confirmed hostile event. Any ban is worth surfacing; fires with no delay. Opens a GlitchTip issue. |
 | **Orrery launch data stale** `orrery-launch-data-stale` | No refresh in 7h (for 15m) | VictoriaLogs | Orrery VPS cron (orrerylearn.com) refreshes launch manifest every 6h. Zero successful refreshes in a 7h window means the cron run was missed or the fetch is failing. |
+| **Prod ops health check stale** `prod-ops-health-stale` | Last run > 27h ago, or series absent 48h (for 15m) | VictoriaMetrics | Each production app's daily `prod_ops_health.sh` pushes `prod_ops_health_*` gauges; the home page greys to STALE at >26h, this pages at >27h so a dead pusher is reported, not just visible. Generic over `app` labels. |
 
 ## Contact points
 

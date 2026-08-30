@@ -783,6 +783,45 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+  # --- Production ops health (prod-ops-health pushers) -------------------------
+  # Each production app's prod_ops_health.sh (scheduled by its repo's CI, run ON
+  # the prod box) pushes prod_ops_health_* gauges to VM daily; the homelab home
+  # page renders them as traffic lights and greys to STALE at >26h. This is the
+  # active counterpart: page the operator at >27h so a dead pusher is REPORTED,
+  # not just visible-if-looked-at (GH silently disables cron workflows after
+  # ~60 days of repo inactivity — the exact failure this catches). No app label
+  # filter, so the next production app's pusher is covered with zero edits here.
+  # noDataState=Alerting: a series absent from the whole 48h window (never
+  # pushed, or >48h dead) must also trip; a VM query error must not page.
+  - orgId: 1
+    name: prod-ops-health
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      - uid: prod-ops-health-stale
+        title: "Prod ops health check stale (no run in 27h)"
+        condition: threshold
+        for: 15m
+        noDataState: Alerting
+        execErrState: OK
+        labels: { severity: warning, kind: app }
+        annotations:
+          summary: "prod_ops_health for app={{ $labels.app }} last ran >27h ago — the daily health pusher is dead (GH cron disabled? runner or VPS broken?). The home page shows STALE; check the app repo's prod-ops-health workflow."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 172800, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - last_over_time(prod_ops_health_last_run_timestamp[48h])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [97200] } }]
+
 # NOT re-homed yet — Caddy edge 5xx (the third T-11 rule). The caddy.service
 # systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
 # (with status codes) is not tailed into VictoriaLogs (status:* = 0 hits). Wire the
