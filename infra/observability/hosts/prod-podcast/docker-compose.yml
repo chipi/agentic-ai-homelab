@@ -28,12 +28,26 @@ services:
     restart: unless-stopped
 
   cadvisor:
-    # v0.52.1 — see infra/observability/docker-compose.yml for the full rationale:
-    # v0.49.1's Docker API client (1.41) is below modern daemons' minimum (1.44),
-    # its docker factory fails to register, and container series lose the `name`
-    # label entirely. prod-podcast shows the same symptom (66 series, 0 named,
-    # measured 2026-08-30) — apply on the next prod observability deploy.
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    # v0.60.5 — NOTE: prod's root cause is DIFFERENT from the DGX's, despite the
+    # identical symptom (container series with `id=` but no `name`/`image`/labels).
+    #
+    #   DGX  : Docker 29.2.1, MinAPIVersion 1.44, storage driver overlay2.
+    #          v0.49.1's API client (1.41) < 1.44 -> docker factory never registers.
+    #          Fixed by any newer client; v0.52.1 was enough there.
+    #   prod : Docker MinAPIVersion 1.40 (so v0.49.1's client is FINE), storage
+    #          driver **overlayfs** = Docker's containerd snapshotters are enabled.
+    #          Images then live in /var/lib/containerd/io.containerd.snapshotter.v1.*
+    #          NOT /var/lib/docker/image/<driver>/layerdb, so cadvisor's lookup of
+    #          /rootfs/var/lib/docker/image/overlayfs/layerdb/mounts/<id>/mount-id
+    #          fails -> "failed to identify the read-write layer ID" every 60s ->
+    #          createContainer fails -> the container is never registered.
+    #          Upstream: google/cadvisor#3643, fixed by PR #3709 (merged 2025-12-02).
+    #
+    # **v0.52.1 does NOT contain that fix** — verified via the GitHub compare API:
+    # 7eda190...v0.52.1 = "behind", ...v0.54.0 = "ahead". Earliest fixed release is
+    # v0.54.0; pinning v0.60.5 (latest, 2026-07-11). Bumping prod to v0.52.1 would
+    # have changed nothing, which is exactly what the podcast agent's precheck caught.
+    image: gcr.io/cadvisor/cadvisor:v0.60.5
     container_name: cadvisor
     network_mode: host
     privileged: true
