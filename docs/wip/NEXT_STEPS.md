@@ -38,10 +38,12 @@ drafted, but they haven't been run for real yet.
       [`colima-vcpu-8-to-4-runbook.md`](colima-vcpu-8-to-4-runbook.md):
       one `colima stop && start --cpu 4 --memory 12` (~2–5 min stack gap)
       + the same-window Spotlight disable (`mdutil -a -i off`, instant).
-- [ ] **Step 2 (after the window, no downtime needed):** desktop-software
-      pruning per [`mini-box-pruning.md`](mini-box-pruning.md) — all 12
-      vendors approved 2026-08-30 (Backblaze dead since 2024-08, CCC
-      already a ghost); `org.cindori.AuthHelper` excluded pending ID.
+- [x] ~~**Step 2:** desktop-software pruning per
+      [`mini-box-pruning.md`](mini-box-pruning.md).~~ **Done 2026-08-30**,
+      all 12 vendors, ~8.7G freed, health green throughout. Left behind:
+      `org.cindori.AuthHelper` (identified as TRIM Enabler/Sensei helper —
+      needs an explicit yes) and `~/Library/Application Support/Adobe`
+      (1.1G personal Photoshop/Lightroom/DE data — operator call).
 - [ ] **Hardware, someday:** install the +32G RAM the operator has at home
       (2018 mini → 64G total). Full shutdown + physical open; no config
       changes needed after (colima VM stays 12G — sized to guest usage).

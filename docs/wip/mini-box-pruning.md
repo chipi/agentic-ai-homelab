@@ -1,10 +1,24 @@
 # Runbook — mini box pruning: remove the desktop-era software
 
-**Status:** prepared 2026-08-30, not executed. Operator approved removing
-ALL of it ("not using it as a personal computer anymore") — including
-Backblaze and CCC, cleared by the evidence below. Step 2 after the colima
-window ([`colima-vcpu-8-to-4-runbook.md`](colima-vcpu-8-to-4-runbook.md));
-independent of it — needs no VM downtime.
+**Status: EXECUTED 2026-08-30** — all 12 vendors removed vendor-by-vendor
+with health checks green after each (29 containers, page + grafana 200
+throughout); ~8.7G freed (Adobe support 4.8G, Backblaze bzpkg 1.9G,
+/opt/X11, apps, misc). `/Library/LaunchDaemons` now holds ONLY the four
+`com.homelab.*` entries + `org.cindori.AuthHelper`; `/Library/LaunchAgents`
+has zero third-party entries.
+
+Deliberately KEPT (personal data / pending decision):
+- `~/Library/Application Support/Adobe` (1.1G) — Photoshop/Lightroom prefs
+  + a Digital Editions DRM folder; personal-data class, not daemon debris.
+  Operator call whenever.
+- `org.cindori.AuthHelper` (+ its `/Library/PrivilegedHelperTools` binary)
+  — identified as the TRIM Enabler / Sensei privileged helper (app long
+  gone, helper not running). Not on the approved list; awaiting a yes.
+
+Original plan below, kept for the record. Operator approved removing ALL
+of it ("not using it as a personal computer anymore") — including
+Backblaze and CCC, cleared by the evidence below. Executed independent of
+the colima window (needed no VM downtime).
 
 **Method: one vendor at a time, verify between each.** For every vendor:
 (1) unload+delete its launchd plists, (2) run its own uninstaller if one
