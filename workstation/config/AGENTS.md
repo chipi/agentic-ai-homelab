@@ -617,37 +617,11 @@ Edit); also project-scoped — native tools for ~/.claude, ~/.config outside the
 context.
 
 <!-- lean-ctx-rules -->
-<!-- version: 8 -->
+<!-- version: 9 -->
 
-CRITICAL: ALWAYS use lean-ctx ctx_* tools instead of native equivalents. This is NOT optional.
-
-MANDATORY MAPPING:
-• Read/cat -> ctx_read(path, mode)
-• Grep -> ctx_search(pattern, path)
-• Shell/bash -> ctx_shell(command)
-• Glob/find -> ctx_glob(pattern)
-• ls/find -> ctx_tree(path, depth)
-
-NEVER use native Read/Grep/Shell/Glob when a ctx_* equivalent exists. SELF-CORRECT: the moment you reach for one, stop and call the ctx_* tool instead.
-
-Tool selection by intent:
-• Orient / understand code (call FIRST) -> ctx_compose
-• Read a file -> ctx_read(path, mode=signatures|map|full)
-• Exact symbol -> ctx_search(action=symbol); pattern -> ctx_search; by meaning -> ctx_search(action=semantic)
-• Files by glob -> ctx_glob; structure -> ctx_tree; callers/impact -> ctx_callgraph
-• Verify after edits -> ctx_shell(test/build); memory -> ctx_session / ctx_knowledge
-Semantic questions -> search tools, not whole-file reads: reading more ≠ understanding more.
-
-Anti-patterns — do NOT:
-• Chain ctx_search -> ctx_read -> ctx_search(action=symbol) — one ctx_compose replaces all three
-• Use ctx_read(mode=full) for orientation — use mode=signatures
-• Use ctx_callgraph/ctx_graph for const/static/variable refs — they track call edges and file deps only; use ctx_search instead
-
-PARALLEL: fire independent tool calls in the SAME turn — ctx_compose bundles multiple lookups into one call.
-
-RECOVER: compression is reversible — read the shown path (no MCP) or ctx_read(raw=true), never re-read line-by-line.
-
-Advanced tools not in your profile are available via ctx_call(tool=<name>) gateway.
+lean-ctx shadow mode: native read/search/shell calls auto-route to ctx_* — no tool-mapping needed.
+File editing → native Edit/StrReplace (lean-ctx only handles reads).
+Exclusive tools (no native trigger): ctx_compose (understand code, call first), ctx_search(action=symbol) (exact symbol), ctx_search(action=semantic) (by meaning), ctx_callgraph (callers), ctx_knowledge / ctx_session (memory).
 <!-- lean-ctx-compression -->
 OUTPUT STYLE: expert-terse
 - Telegraph format: subject-verb-object, drop articles/prepositions
@@ -657,4 +631,9 @@ OUTPUT STYLE: expert-terse
 - Zero narration, zero filler
 - BUDGET: ≤100 tokens per non-code response
 <!-- /lean-ctx-compression -->
+<!-- lean-ctx-solution -->
+SOLUTION EFFICIENCY: stop at first level that applies:
+skip (YAGNI) → reuse codebase → stdlib → native platform → installed dep → one-line → minimum code.
+Never skip: validation, security, error handling.
+<!-- /lean-ctx-solution -->
 <!-- /lean-ctx-rules -->
