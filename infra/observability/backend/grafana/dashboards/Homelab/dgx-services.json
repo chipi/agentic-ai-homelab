@@ -1,22 +1,38 @@
 {
   "uid": "dgx-services",
   "id": null,
-  "title": "DGX — Services",
-  "tags": ["dgx", "homelab", "services"],
+  "title": "DGX \u2014 Services",
+  "tags": [
+    "dgx",
+    "homelab",
+    "services"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "1m",
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
         "name": "service",
         "label": "FastAPI service",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-        "query": { "query": "label_values(http_requests_total{job=~\"pyannote-app|moss-app\"}, job)", "refId": "svc" },
-        "current": { "text": "All", "value": "$__all" },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "query": {
+          "query": "label_values(http_requests_total{job=~\"pyannote-app|moss-app\"}, job)",
+          "refId": "svc"
+        },
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
         "includeAll": true,
         "multi": true,
         "sort": 1
@@ -25,74 +41,510 @@
   },
   "panels": [
     {
-      "id": 1, "type": "stat", "title": "DGX app health (up)",
-      "gridPos": { "h": 4, "w": 10, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "fieldConfig": { "defaults": { "unit": "short", "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } } ] }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" }, "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "dgx_service_up", "legendFormat": "{{service}}", "instant": true } ]
-    },
-    {
-      "id": 2, "type": "stat", "title": "GPU util",
-      "gridPos": { "h": 4, "w": 7, "x": 10, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "avg(DCGM_FI_DEV_GPU_UTIL)", "legendFormat": "gpu" } ]
-    },
-    {
-      "id": 3, "type": "stat", "title": "GPU mem used",
-      "gridPos": { "h": 4, "w": 7, "x": 17, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "fieldConfig": { "defaults": { "unit": "decmbytes" }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(DCGM_FI_DEV_FB_USED)", "legendFormat": "used" } ]
-    },
-    {
-      "id": 4, "type": "timeseries", "title": "FastAPI request rate ($service)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
-      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean"] }, "tooltip": { "mode": "multi" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (job) (rate(http_requests_total{job=~\"$service\"}[$__rate_interval]))", "legendFormat": "{{job}}" } ]
-    },
-    {
-      "id": 5, "type": "timeseries", "title": "FastAPI p95 latency ($service)",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
-      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max"] }, "tooltip": { "mode": "multi" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "histogram_quantile(0.95, sum by (le, job) (rate(http_request_duration_seconds_bucket{job=~\"$service\"}[$__rate_interval])))", "legendFormat": "{{job}}" } ]
-    },
-    {
-      "id": 6, "type": "timeseries", "title": "vLLM autoresearch — running / waiting",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 20, "showPoints": "never" } }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "id": 1,
+      "type": "stat",
+      "title": "DGX app health (up)",
+      "gridPos": {
+        "h": 4,
+        "w": 10,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(vllm:num_requests_running{job=\"vllm-autoresearch\"})", "legendFormat": "running" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(vllm:num_requests_waiting{job=\"vllm-autoresearch\"})", "legendFormat": "waiting" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "dgx_service_up",
+          "legendFormat": "{{service}}",
+          "instant": true
+        }
       ]
     },
     {
-      "id": 7, "type": "stat", "title": "Support DBs (up)",
-      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "fieldConfig": { "defaults": { "unit": "short", "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } } ] }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "value_and_name" },
+      "id": 2,
+      "type": "stat",
+      "title": "GPU util",
+      "gridPos": {
+        "h": 4,
+        "w": 7,
+        "x": 10,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "pg_up", "legendFormat": "{{service}} pg", "instant": true },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "redis_up", "legendFormat": "{{service}} redis", "instant": true }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "avg(DCGM_FI_DEV_GPU_UTIL)",
+          "legendFormat": "gpu"
+        }
       ]
     },
     {
-      "id": 8, "type": "timeseries", "title": "Postgres connections",
-      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
-      "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (service) (pg_stat_database_numbackends)", "legendFormat": "{{service}}" } ]
+      "id": 3,
+      "type": "stat",
+      "title": "GPU memory (unified, host)",
+      "gridPos": {
+        "h": 4,
+        "w": 7,
+        "x": 17,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "expr": "node_memory_MemTotal_bytes{instance=\"dgx-llm-1\"} - node_memory_MemAvailable_bytes{instance=\"dgx-llm-1\"}",
+          "refId": "A",
+          "legendFormat": "used"
+        }
+      ],
+      "description": "GB10 is UNIFIED memory: there is no framebuffer, so DCGM_FI_DEV_FB_USED never emits (nvidia-smi -q -d MEMORY reports N/A). GPU allocations land in host RAM, so host used-memory IS the GPU memory picture. Per-process attribution: nvidia-smi --query-compute-apps=pid,process_name,used_memory on the box."
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "FastAPI request rate ($service)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (job) (rate(http_requests_total{job=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "FastAPI p95 latency ($service)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, job) (rate(http_request_duration_seconds_bucket{job=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "vLLM autoresearch \u2014 running / waiting",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 20,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(vllm:num_requests_running{job=\"vllm-autoresearch\"})",
+          "legendFormat": "running"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(vllm:num_requests_waiting{job=\"vllm-autoresearch\"})",
+          "legendFormat": "waiting"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Support DBs (up)",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 12
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "pg_up",
+          "legendFormat": "{{service}} pg",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "redis_up",
+          "legendFormat": "{{service}} redis",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Postgres connections",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 12
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (service) (pg_stat_database_numbackends)",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "SM clock / GPU temp",
+      "description": "A sustained SM-clock drop at stable load is the observable proxy for throttling.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_SM_CLOCK",
+          "refId": "A",
+          "legendFormat": "SM clock MHz"
+        },
+        {
+          "expr": "DCGM_FI_DEV_GPU_TEMP",
+          "refId": "B",
+          "legendFormat": "temp C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU clock throttle reasons (0 = none)",
+      "description": "Bitmask from DCGM. Non-zero during sustained load means the GPU is clock-limited rather than merely hot \u2014 the #1886 A1 distinction. Pair with SM clock below.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_CLOCK_THROTTLE_REASONS",
+          "refId": "A",
+          "legendFormat": "throttle bitmask"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM KV-cache usage",
+      "description": "vllm:kv_cache_usage_perc \u2014 renamed from gpu_cache_usage_perc in vLLM 0.20. This is the KV-pressure signal #1886 needs in place of unavailable VRAM metrics.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "targets": [
+        {
+          "expr": "vllm:kv_cache_usage_perc",
+          "refId": "A",
+          "legendFormat": "{{model_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Sibling services \u2014 container memory (co-tenancy)",
+      "description": "Requires cadvisor >= v0.52.1 for the `name` label (v0.49.1's docker factory fails against modern daemons). Watch these while the LLM run saturates the GPU.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "targets": [
+        {
+          "expr": "container_memory_working_set_bytes{instance=\"dgx-llm-1\",name=~\"pyannote|faster-whisper|moss|vllm-autoresearch\"}",
+          "refId": "A",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
     }
-  ]
+  ],
+  "description": "DGX service health. NOTE 2026-08-30: this GB10 has UNIFIED memory \u2014 all DCGM_FI_DEV_FB_* and DCGM_FI_PROF_* fields are silently unavailable. Use host memory, vllm:kv_cache_usage_perc, and nvidia-smi --query-compute-apps for GPU memory."
 }
