@@ -57,6 +57,18 @@ drafted, but they haven't been run for real yet.
       2026-08-31…` header, and the `docker-prune-stale` Grafana alert is still
       inactive. If the run is missing, the dead-man alert fires by ~2026-09-07
       anyway — but check before it has to.
+- [ ] **After the prod_dgx_full run completes:** apply the widened cadvisor
+      keep-list on the DGX. It's already in `infra/observability/config.alloy`
+      (PSI, cpu_user/system, scrape_error, and the `container_memory_rss` fix)
+      but deliberately NOT deployed — the box was mid-run and changing collection
+      mid-measurement would muddy its own data. Deploy is a reload, not a restart:
+      copy the file into the ops checkout's config path and
+      `docker kill -s HUP alloy`, then confirm `container_pressure_io_waiting_seconds_total{instance="dgx-llm-1",name!=""}`
+      returns series. PSI is directly relevant to #1886 co-tenancy.
+      *Optional, low priority:* align the DGX cadvisor pin v0.52.1 → v0.55.1. It is
+      NOT affected by the containerd-snapshotter bug (it uses overlay2 with a real
+      layerdb), so this is consistency only — validate with a throwaway container
+      on a spare port first, as the podcast agent did on prod.
 - [ ] **2026-09-15+ (first data older than 30d):** verify the Langfuse 30-day
       caps actually delete. Set 2026-08-30; nothing was old enough to delete yet,
       so neither has been observed working end-to-end.
