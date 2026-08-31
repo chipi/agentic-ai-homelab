@@ -40,7 +40,24 @@ prometheus.relabel "cadvisor_keep" {
   forward_to = [prometheus.remote_write.sink.receiver]
   rule {
     source_labels = ["__name__"]
-    regex         = "container_cpu_usage_seconds_total|container_memory_(usage|working_set|max_usage|rss)_bytes|container_fs_(reads|writes)_bytes_total|container_network_(receive|transmit)_bytes_total|container_oom_events_total|container_start_time_seconds|container_last_seen|container_spec_memory_limit_bytes|container_spec_cpu_(quota|period)|container_tasks_state|machine_cpu_cores|machine_memory_bytes"
+    # `container_memory_rss` is its OWN alternative and has NO _bytes suffix.
+    # The previous regex folded rss into container_memory_(...)_bytes, expanding to
+    # `container_memory_rss_bytes` — which cadvisor does not export (verified against
+    # a live cadvisor 2026-08-31: only `container_memory_rss` exists). RSS was
+    # explicitly requested here and silently never collected. Do NOT re-fold it in.
+    #
+    # Widened 2026-08-31 (podcast agent, verified live on prod):
+    #   container_pressure_*  PSI — the direct starvation signal, better than utilisation
+    #   cpu_(user|system)     separates CPU-bound from syscall/IO-bound
+    #   container_scrape_error would have surfaced the containerd-snapshotter defect months earlier
+    #   fs_(usage|limit)      MACHINE-level disk only — see the caveat below
+    #
+    # CAVEAT: container_fs_* arrives with NO `name` label on this host (every series is
+    # machine-scoped, id="/"). Per-container disk needs the read-write layer mapping,
+    # which does not exist under the containerd snapshotter; cadvisor#3709 restored
+    # container identity for cpu/memory/PSI, not disk sizing. Do not label these
+    # "per-container disk" on a dashboard.
+    regex         = "container_cpu_(usage|user|system)_seconds_total|container_memory_(usage|working_set|max_usage)_bytes|container_memory_rss|container_fs_(reads|writes)_bytes_total|container_fs_(usage|limit)_bytes|container_network_(receive|transmit)_bytes_total|container_oom_events_total|container_start_time_seconds|container_last_seen|container_spec_memory_limit_bytes|container_spec_cpu_(quota|period)|container_tasks_state|container_pressure_(cpu|io|memory)_(waiting|stalled)_seconds_total|container_scrape_error|container_health_state|machine_cpu_cores|machine_memory_bytes"
     action        = "keep"
   }
 }

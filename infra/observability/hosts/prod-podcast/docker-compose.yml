@@ -44,10 +44,19 @@ services:
     #          Upstream: google/cadvisor#3643, fixed by PR #3709 (merged 2025-12-02).
     #
     # **v0.52.1 does NOT contain that fix** — verified via the GitHub compare API:
-    # 7eda190...v0.52.1 = "behind", ...v0.54.0 = "ahead". Earliest fixed release is
-    # v0.54.0; pinning v0.60.5 (latest, 2026-07-11). Bumping prod to v0.52.1 would
-    # have changed nothing, which is exactly what the podcast agent's precheck caught.
-    image: gcr.io/cadvisor/cadvisor:v0.60.5
+    # 7eda190...v0.52.1 = "behind", ...v0.54.0 = "ahead". So v0.52.1 (the DGX's fix)
+    # would have been a no-op here, which is what the podcast agent's precheck caught.
+    #
+    # PIN v0.55.1 — and DO NOT raise it from GitHub releases. GitHub lists up to
+    # v0.60.5, but those images are NOT published to gcr.io: the registry's tag list
+    # ends at v0.50.0, v0.51.0, v0.52.0, v0.52.1, v0.54.1, v0.55.1 (verified against
+    # gcr.io/v2/cadvisor/cadvisor/tags/list on 2026-08-31). A v0.60.5 pin fails the
+    # image pull and leaves prod with NO container metrics at all — worse than the
+    # bug it was meant to fix. A GitHub release is not a published image tag; check
+    # the registry, not the releases page.
+    # v0.55.1 is DEPLOYED AND PROVEN on prod: named container series 0 -> 15
+    # (= all 15 running containers), 0 layerdb errors.
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: cadvisor
     network_mode: host
     privileged: true
