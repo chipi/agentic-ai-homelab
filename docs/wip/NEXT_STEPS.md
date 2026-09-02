@@ -48,6 +48,17 @@ drafted, but they haven't been run for real yet.
       (2018 mini → 64G total). Full shutdown + physical open; no config
       changes needed after (colima VM stays 12G — sized to guest usage).
 
+- [ ] **Tailscale exit node on the mini** (NL egress for NL-only government
+      sites while travelling) — runbook prepared, NOT executed:
+      [`tailscale-exit-node-mini.md`](tailscale-exit-node-mini.md). Three steps:
+      `--advertise-exit-node` on the mini, one manual approval in the admin
+      console, and a one-rule ACL grant in **podcast_scraper**'s
+      `tailscale/policy.hujson` (no `autogroup:internet` rule exists today —
+      verified 0). Blocked on reaching the box: TCP to the tailnet would not
+      establish from the preparing network. **Known risk:** the mini's tunnel
+      only lives while the operator is logged in (paused headless swap), so a
+      reboot while abroad kills both the exit node and the remote lifeline.
+
 ## Dated checks (open on/after the date — we WILL forget otherwise)
 
 - [ ] **2026-08-31+ (any day next week):** verify the docker-prune LaunchAgent
