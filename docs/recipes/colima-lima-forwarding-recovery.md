@@ -174,6 +174,15 @@ rest reduce frequency or improve the signal.
      `mini_forward_up=1` over the *forwarded* `:8428`. Because the heartbeat rides
      the same forward, it stops the instant the forward breaks → the
      `mini-forward-down` alert fires (#3). Detect-only; it does **not** restart.
+     **Auto-capture (added 2026-09-03):** on the FIRST failed probe of a break it
+     dumps `/tmp/forward-break-<ts>.txt` — `ha.stderr.log` tail, `serial.log`
+     OOM/panic grep, relay-log tail, `colima status`, and guest zombie census /
+     top / dockerd / container list — **before** any recovery. The recovery
+     itself (`colima restart`) recreates `ha.stderr.log`, which is exactly why
+     the trigger was unidentifiable after *both* the 2026-08-18 and 2026-09-03
+     breaks. Captures once per break (marker file, cleared when the forward
+     returns); every guest probe is timeout-bounded so a wedged guest cannot
+     stall the heartbeat loop.
    - **2b (auto-restart — opt-in, NOT enabled):** upgrade the watchdog to run
      `colima restart` itself when the socket is dead > 5 min **and** the VM is up,
      with a cooldown so a flapping network can't restart-loop, logging each action.
@@ -213,6 +222,68 @@ rest reduce frequency or improve the signal.
   stalled mini-metrics collectors. Sleep was ruled out (`caffeinate` had held
   sleep off for 97 h). A non-disruptive SSH-master nudge failed; a graceful
   `colima restart` restored everything in ~1.5 min.
+
+- **2026-09-03** — **Second occurrence, ~5 h** (04:03 -> 09:07), recovered by a
+  graceful `colima restart`. **Trigger still unidentified** (see below).
+
+  **Timeline (from `/tmp/docker-relay.log`):**
+  `04:00:40` first socat `Broken pipe` — the mux half-opens and established
+  forwards start failing mid-write; three more at `04:01:43`, `04:02:08`,
+  `04:02:35`; `04:03:16` flips to `Connection refused` — the forwarded socket
+  stops accepting entirely; `04:04` last `instance="homelab"` metric sample;
+  `~04:08` `mini-forward-down` fires.
+
+  **Blast radius, measured — a host control-plane outage, NOT a service outage.**
+  Broke: the host `docker` CLI; every host loopback port
+  (`:3000/:8428/:8090/:3001/:4000/:4001/:9428/:10428/:8888`); the host collectors
+  (mini-metrics, dgx-scrape, forward-watchdog); the socat relay's upstream.
+  Kept serving throughout: `dockerd` `active` with all 28 containers `Up`; every
+  caddy tsnet node (all 9 Caddyfile upstreams are *container names*, so the
+  consumer path never touches the host forward); DGX + prod-podcast telemetry
+  ingest (continuous, zero gap 03:50-04:20 and beyond). Caddy's 502 rate was
+  **lower** during the outage (11 in 5 h = 2.2/h) than in the 2.8 h before it
+  (11 = 3.9/h) — i.e. no consumer-visible degradation.
+  *Diagnostic trap:* probing from the Mac host measures the exact plane that is
+  broken and makes a host-plane break look like a total outage. **Verify service
+  health from another tailnet node** (e.g. the DGX) before concluding anything.
+
+  **Detection worked as designed.** `mini-forward-down` fired within ~5 min and
+  named the right cause; the 5 h was *response* time, not detection time. 2a's
+  signal has now proven accurate on a real event — the precondition item **2b**
+  was gated on.
+
+  **The 2026-08-18 trigger did not reproduce.** No sustained network outage:
+  `dgx-llm-1` (LAN) and `prod-podcast` (internet) both reported into
+  VictoriaMetrics continuously across the break while only `instance="homelab"`
+  stopped. Note also the mux is `ssh -p 50866 127.0.0.1` — host loopback into
+  QEMU — which an external network transition does not traverse. A sub-minute
+  blip stays possible (2 min metric resolution); operator context: laptop closed
+  ~02:15, phone left the tailnet ~04:00 (time-correlates).
+  Also **ruled out**: `db-backup` (runs 04:30, *after* the break); container /
+  port-forward churn (`mini_docker_total` flat at **30** every 5 min,
+  02:30-04:05) despite two other agents running Docker e2e tests on the box;
+  guest resource exhaustion (guest disk 24 %, 13.5 G available, swap 0).
+
+  **Guest state at diagnosis:** `lima-guestagent` pinned at **96.9 % CPU** with
+  **109 zombies**; guest load 44 at 43.8 % idle; dockerd looping
+  `"Could not send KILL signal to container process ... process already finished"`
+  (health-probe `exec` reaping failing). After restart: **1 zombie**,
+  guest-agent 11 %, load 3.1, host load 49 -> 8.
+
+  **Open question — is the guest-agent livelock the *cause* or another symptom?**
+  Unresolvable here: `ha.stderr.log` was recreated by the restart, so lima's own
+  view of 04:00-04:03 is gone. **Capture it BEFORE restarting next time** — that
+  is the one artifact that would settle the trigger.
+
+  **Relay-noise note (for anyone reading `/tmp/docker-relay.log` in a panic):**
+  the refusal storm (~2.75/s; ~50 k today, ~140 k on 2026-08-18) is simply
+  *outage duration x normal polling rate* — mini-metrics (~9 docker calls per
+  20 s loop), forward-watchdog (1 per 30 s), plus hub regen / langfuse-check /
+  agent tooling, each failing instead of succeeding. socat logs only failures,
+  so the ~3 k/day baseline is the same polling with a >98 % success rate. It is a
+  **symptom, not a load problem** — a refused UNIX-socket connect costs
+  microseconds and did not contribute to the qemu CPU. The real cost is that the
+  log has no rotation (28 MB, ~10 MB per outage).
 
 ## Related
 
