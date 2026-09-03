@@ -74,7 +74,7 @@ drafted, but they haven't been run for real yet.
       so neither has been observed working end-to-end.
       (a) ClickHouse: `select toDate(min(timestamp)) from traces` should stop
       going further back than 30d. (b) MinIO: `mc ls lf/langfuse/events` oldest
-      object <30d. Details + commands: [`infra/langfuse/README.md`](../../infra/langfuse/README.md).
+      object <30d. Details + commands: [`infra/langfuse/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/langfuse/README.md).
 - [ ] **~2026-09-27 (a month out):** colima datadisk regrowth check —
       `sudo du -sh /private/var/_dockerhost/.colima/_lima/_disks/colima/datadisk`
       on the mini. Was 23G after the 2026-08-30 trim (19G live data); if it's
