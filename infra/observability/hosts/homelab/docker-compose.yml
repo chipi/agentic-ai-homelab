@@ -1,6 +1,8 @@
 # homelab (Mac mini) self-monitoring collector — Alloy in a container on colima.
 # Bridge-networked (NOT host mode — macOS has no host networking). Reaches the
-# native node_exporter + the local backend stores via host.docker.internal.
+# native node_exporter via host.docker.internal; the backend stores (victoriametrics,
+# victorialogs) by container name over backend_default, so the write path does not
+# ride lima's SSH forward. See docs/recipes/colima-lima-forwarding-recovery.md.
 # Ships every container's logs to the local VictoriaLogs.
 #
 # Prereq: node_exporter running natively (brew) on :9100 — see README.
@@ -19,6 +21,7 @@ services:
       - default
       - litellm
       - delivery
+      - backend
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro    # container-log discovery
@@ -42,3 +45,11 @@ networks:
   delivery:
     external: true
     name: delivery_default
+  # backend_default owns victoriametrics + victorialogs. Alloy joins it so the
+  # metrics/logs WRITE path stays VM-internal: writing via host.docker.internal
+  # sent every instance="homelab" series through lima's SSH forward, so a forward
+  # break silently deleted the mini's own telemetry for the whole outage
+  # (2026-09-03: 5h blind). Scrapes were already fixed; the write path was not.
+  backend:
+    external: true
+    name: backend_default
