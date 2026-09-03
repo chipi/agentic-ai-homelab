@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Publishes the colima docker socket (owned by _dockerhost, mode 0600) at the
+  standard /var/run/docker.sock with mode 0666, so EVERY user on the box —
+  markodragoljevic, claude, future agents — shares one engine without sudo.
+  Installed to /Library/LaunchDaemons by infra/mini-engine-setup.sh.
+
+  Runs as root (no UserName key) because it binds a path under /var/run and must
+  connect to a 0600 socket owned by another account.
+
+  KeepAlive is set here (unlike com.homelab.colima) because socat IS a
+  long-running process: if it dies, launchd should bring the shared socket back.
+
+  Diagnostic note: socat logs ONLY failures to /tmp/docker-relay.log, so that
+  file says nothing about the success rate. A steady ~2.5-3k/day of
+  "Connection refused" is NORMAL background from the metric collectors; a jump
+  to ~9-10k/hour means the upstream colima socket is gone. The log has no
+  rotation (see the follow-up in issue #50).
+-->
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.homelab.docker-relay</string>
+  <key>ProgramArguments</key><array>
+    <string>/usr/local/bin/socat</string>
+    <string>UNIX-LISTEN:/var/run/docker.sock,fork,mode=0666</string>
+    <string>UNIX-CONNECT:/var/_dockerhost/.colima/default/docker.sock</string>
+  </array>
+  <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/docker-relay.log</string>
+  <key>StandardErrorPath</key><string>/tmp/docker-relay.log</string>
+</dict></plist>

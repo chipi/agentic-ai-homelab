@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Boots the colima VM (the Docker engine) at system start, as the _dockerhost
+  service account — no login required. Installed to /Library/LaunchDaemons by
+  infra/mini-engine-setup.sh.
+
+  AbandonProcessGroup: `colima start` exits once the VM is up; the QEMU process
+  it spawned must survive that exit.
+
+  NOTE (2026-09-03): there is deliberately NO KeepAlive here. `colima start`
+  is a one-shot that returns after boot, so KeepAlive would restart-loop it.
+  The consequence is that nothing supervises the engine afterwards — a
+  host<->VM forward break is invisible to launchd and does not self-heal. That
+  is what infra/mini-metrics/forward-watchdog.sh exists to detect. See
+  docs/recipes/colima-lima-forwarding-recovery.md.
+-->
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.homelab.colima</string>
+  <key>UserName</key><string>_dockerhost</string>
+  <key>ProgramArguments</key><array>
+    <string>/bin/bash</string><string>-lc</string>
+    <string>export PATH=/usr/local/bin:$PATH HOME=/var/_dockerhost; exec colima start</string>
+  </array>
+  <key>RunAtLoad</key><true/><key>AbandonProcessGroup</key><true/>
+  <key>StandardOutPath</key><string>/tmp/colima-boot.log</string>
+  <key>StandardErrorPath</key><string>/tmp/colima-boot.log</string>
+</dict></plist>

@@ -22,6 +22,10 @@
 brew "colima"          # Docker/Compose engine (VM) — every infra/ stack runs on this
 brew "docker"          # docker CLI (talks to the colima-hosted daemon)
 brew "docker-compose"  # compose v2 plugin
+brew "socat"           # relays the _dockerhost-owned colima socket to /var/run/docker.sock
+                       # (com.homelab.docker-relay) so EVERY user shares one engine.
+                       # Was installed by hand on 2026-08-14 and never captured —
+                       # without it the relay daemon fails and nobody can reach docker.
 
 # --- host metrics ------------------------------------------------------------
 brew "node_exporter"   # darwin host metrics → VictoriaMetrics (mini-metrics scrapes it)

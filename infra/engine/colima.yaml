@@ -1,0 +1,85 @@
+# colima VM spec for the Mac mini hub — the sizing and mount config that every
+# infra/ stack runs on. Mirrors the live file at
+# /var/_dockerhost/.colima/default/colima.yaml (captured 2026-09-03).
+#
+# mini-engine-setup.sh installs this ONLY IF ABSENT. It never overwrites a live
+# instance's config — colima rewrites this file itself, and clobbering it on a
+# running VM is how you lose a hand-tuned setting silently. If it already exists
+# and differs, the script prints a diff and leaves it alone.
+#
+# Load-bearing choices, and why:
+#
+#   cpu 8 / memory 20 / disk 100 — sized for ~29 containers (Grafana, the three
+#     Victoria stores, GlitchTip, Langfuse + ClickHouse + MinIO, Umami, LiteLLM,
+#     delivery workers, caddy-tailscale). NOTE the host has 32 GB total, so a
+#     20 GB guest plus dev workloads oversubscribes it: on 2026-09-03 roughly
+#     half the guest's RAM was on host swap, which is what produces the guest's
+#     `blk_mq_requeue_work hogged CPU` / `TSC found unstable` kernel noise and
+#     the health-check-exec zombies. Revisit this number once dev workloads move
+#     off the box.
+#
+#   vmType qemu — NOT a preference. vz (Apple's Virtualization.framework, which
+#     brings virtiofs) is Apple-Silicon-only and this is an Intel mini, so QEMU
+#     is the only option here. Do not "upgrade" it to vz on this hardware.
+#
+#   mountType sshfs + portForwarder ssh — both ride the SAME lima SSH
+#     ControlMaster. When that master goes away the host loses the docker socket
+#     AND every published port AND this mount, while the VM keeps running. Six
+#     production containers bind-mount config from /Users, so a dead mount also
+#     puts them in D-state. This is the single biggest fragility in the design.
+#     See docs/recipes/colima-lima-forwarding-recovery.md.
+#
+#   mounts /Users writable — widened from the original per-directory mounts so
+#     bind-mounts from ANY user's home reach the VM (fixed the `claude` user's
+#     stack serving an empty /corpus). Broad, and it is what makes an sshfs
+#     failure expensive. Narrowing it is tracked as resilience work.
+
+cpu: 8
+disk: 100
+memory: 20
+arch: x86_64
+runtime: docker
+modelRunner: ""
+hostname: colima
+
+kubernetes:
+  enabled: false
+  version: v1.35.0+k3s1
+  k3sArgs:
+    - --disable=traefik
+  port: 0
+
+autoActivate: true
+
+network:
+  address: false
+  mode: shared
+  interface: en0
+  preferredRoute: false
+  dns: null
+  dnsHosts: {}
+  hostAddresses: false
+  gatewayAddress: 192.168.5.2
+
+forwardAgent: false
+docker: {}
+vmType: qemu
+portForwarder: ssh
+rosetta: false
+binfmt: true
+nestedVirtualization: false
+mountType: sshfs
+mountInotify: false
+cpuType: ""
+provision: null
+sshConfig: true
+sshPort: 0
+
+mounts:
+  - location: /Users
+    writable: true
+
+diskImage: ""
+forceDiskImage: false
+rootDisk: 20
+env: {}

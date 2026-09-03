@@ -26,6 +26,7 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 
 | System | Purpose | Host | Access | Creds | README |
 |---|---|---|---|---|---|
+| **engine** | Layer 0 — the Docker engine itself: `_dockerhost` account, colima VM spec, boot daemon, shared socket relay | mini | `/var/run/docker.sock` (0666, all users) | — | [engine/](engine/README.md) |
 | **observability** | Metrics/logs/traces backend — Grafana + VictoriaMetrics/Logs/Traces + Alloy | mini | Grafana `https://grafana.tail6d0ed4.ts.net` · VM `https://vm.tail6d0ed4.ts.net` · VLogs `https://vlogs.tail6d0ed4.ts.net` · VTraces `https://vtraces.tail6d0ed4.ts.net` | `backend/.env` | [observability/](observability/README.md) |
 | **glitchtip** | Self-hosted error tracking (Sentry-compatible) | mini | admin UI `https://glitchtip.tail6d0ed4.ts.net` · public ingest `telemetry.closelistening.app` · ingest port `:8090` (loopback) | `glitchtip/.env` | [glitchtip/](glitchtip/README.md) |
 | **umami** | Privacy-friendly web analytics | mini | admin `https://umami.tail6d0ed4.ts.net` · ingest port `:3001` (loopback) | `~/umami/.env` | [umami/](umami/README.md) |
@@ -88,18 +89,32 @@ are the OS-level pieces a fresh install needs first. Do them top to bottom:
 | 4 | **Tailscale** | Mac **App Store** → sign in, `tailscale up` | the tailnet everything binds to. It's the App Store GUI build (root-owned), **not** a brew cask — that's why it's not in the Brewfile. |
 | 5 | **age key** | drop the private key at `~/.config/sops/age/keys.txt` | `bootstrap.sh` decrypts `secrets.sops.env` with it — the one secret no script can regenerate; restore it from your password manager / backup. |
 
-### Then the two idempotent scripts
+### Then the three idempotent scripts
 
-Both run **in-place from this checkout** (no copy-outs), so `git pull` ships updates:
+All run **in-place from this checkout** (no copy-outs), so `git pull` ships
+updates. **Order matters** — each assumes the previous one succeeded:
 
 ```sh
 git clone <repo> ~/agentic-ai-homelab && cd ~/agentic-ai-homelab
+sudo ./infra/mini-engine-setup.sh    # LAYER 0 — the Docker engine itself: the _dockerhost
+                                     #   service account, the colima VM spec (8 cpu / 20 GB /
+                                     #   100 GB, qemu, sshfs /Users), the boot daemon, and the
+                                     #   socat relay that publishes /var/run/docker.sock 0666
+                                     #   to every user. NOTHING below works without this.
 ./infra/observability/bootstrap.sh   # CONTAINERS — Grafana + Victoria* + GlitchTip + Langfuse + Umami
                                      #   (needs colima running, tailscale up, sops+age+age-key from above)
 ./infra/mini-setup.sh                # HOST bits — runs `brew bundle`, then installs node_exporter,
-                                     #   the launchd collectors (mini-metrics / dgx-scrape / ci-ops-poller),
-                                     #   the CPU-temp reader, and the Grafana alert-provisioning reload
+                                     #   the launchd collectors (mini-metrics / dgx-scrape / ci-ops-poller
+                                     #   / forward-watchdog), the CPU-temp reader, and the Grafana
+                                     #   alert-provisioning reload
 ```
+
+> **Why layer 0 is its own script (added 2026-09-03).** `bootstrap.sh` assumes
+> colima is running; `mini-setup.sh` assumes docker works. Neither created the
+> layer underneath, so until this audit a rebuild reached "brew installed,
+> Tailscale up, age key restored" and stopped dead — with the recovery path
+> living only in a WIP doc. `socat` wasn't even in the Brewfile.
+> See [`engine/README.md`](engine/README.md).
 
 Then stage the gitignored per-stack secrets (each dir's `.env` — see its
 `.env.example`; the collectors' too, e.g. `ci-ops-poller/.env` `GITHUB_TOKEN`)
