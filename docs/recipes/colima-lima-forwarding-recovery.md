@@ -3,8 +3,7 @@
 **Applies to:** the Mac mini (`homelab`), which runs the whole observability +
 LLM-gateway stack as Docker containers inside a **colima** VM.
 
-**TL;DR:** After a network transition (internet outage, link flap, sleep/wake)
-the Mac host can lose its connection *into* the VM — the `docker` CLI, all
+**TL;DR:** The Mac host can lose its connection *into* the VM — the `docker` CLI, all
 published loopback ports, and the metrics collectors go dead — **while every
 container keeps running and every tailnet TLS node stays up for real
 consumers.** The reliable fix is a **graceful `colima restart`**. The durable
@@ -26,6 +25,35 @@ macOS cannot run Linux containers natively, so:
   `/var/run/docker.sock` so tooling finds it.
 
 ### The fragile part: the host↔VM bridge rides on SSH
+
+> **CORRECTED 2026-09-03 — the mux does not "half-open".** The guest journal
+> (persistent at `/var/log/journal` inside the VM, and it SURVIVES a
+> `colima restart`) shows that in **both** incidents sshd logged, at the break
+> second:
+>
+> ```
+> sshd[...]: Received disconnect from 192.168.5.2 port N:11: disconnected by user
+> sshd[...]: Disconnected from user _dockerhost
+> systemd[1]: Users.mount: Deactivated successfully.
+> systemd[1]: session-5.scope: Deactivated successfully.
+> ```
+>
+> Reason code `:11` is `SSH2_DISCONNECT_BY_APPLICATION` — a **clean,
+> client-initiated disconnect**. A network transition, a half-open TCP, a guest
+> stall, an OOM kill or a keepalive timeout each produce a *different* sshd line
+> ("Connection reset by", "Timeout, client not responding"). So the master was
+> **deliberately closed**: either `ssh -O exit`/`-O stop` from a mux client, or a
+> signal (SIGTERM/SIGINT/SIGHUP) to the master process.
+>
+> **The trigger — who closes it — is still unidentified.** On 2026-09-03 no ssh
+> process spawned at the break second, which argues for a signal over a freshly
+> launched `-O exit`. The one string that settles it is `Killed by signal N` in
+> `ha.stderr.log` (a signal prints it; `-O exit` prints nothing) — which is why
+> the watchdog now copies that file whole and greps for it *before* any restart.
+>
+> Read the paragraph below as the *consequence* (the host loses its window into
+> the VM, lima never rebuilds the master), not as the cause.
+
 
 lima forwards two kinds of things **from the guest VM to the Mac host over an
 SSH connection** (an SSH `ControlMaster` mux held open by the lima *hostagent*):
@@ -270,7 +298,33 @@ rest reduce frequency or improve the signal.
   (health-probe `exec` reaping failing). After restart: **1 zombie**,
   guest-agent 11 %, load 3.1, host load 49 -> 8.
 
-  **Open question — is the guest-agent livelock the *cause* or another symptom?**
+  **RESOLVED 2026-09-03 (guest journal) - the guest-agent livelock is a SYMPTOM.**
+  The guest agent answered a `SyncTime` RPC at 04:03:09, six seconds before the
+  break, and answered again within one second of reconnection at 09:03:36 - it
+  was never unresponsive. Its high CPU is structural: it runs an eBPF ticker on
+  `syscalls:sys_exit_bind`, so every `bind()` in any container (every DNS query
+  across 29 containers) triggers a port rescan; it averaged 19% CPU for 15 days
+  before any incident. Likewise the 109 zombies are health-check `wget`/`curl`
+  execs parented by containerd-shim (not the guest agent, which is not a
+  subreaper) - chronic since day one of the boot, driven by host overcommit.
+  The 44% sys / load 44 is the sshfs corpse: `Users.mount` died with the master
+  and six production containers bind-mount config from `/Users/...`, so they go
+  D-state on a dead FUSE transport.
+
+  **What actually happened:** sshd logged a clean client-initiated disconnect
+  (`:11 disconnected by user`) at 04:03:15 - one second before socat's first
+  `Connection refused`. Something closed the master; it did not break. No new
+  ssh process spawned at that second (unified log), which points at a signal
+  rather than an `-O exit`, though `ha.stderr.log` for that window was already
+  destroyed by the restart. Also: lima issued **no new SSH session at all**
+  between 04:03:16 and the 09:03 probe - direct proof it never rebuilds a dead
+  master, only retries `-O forward` against a dead control socket every 10s.
+  Suggestive but unproven: port `:8011` (a dev e2e container) accounted for
+  **68 of 127** lima port-forward events on the following boot, and that
+  container started at 04:02:07, ~68s before the break - heavy mux churn. It
+  does not explain 2026-08-17, which had no docker activity beforehand.
+
+  **Still open — WHO closed the master (a signal vs an `-O exit`).**
   Unresolvable here: `ha.stderr.log` was recreated by the restart, so lima's own
   view of 04:00-04:03 is gone. **Capture it BEFORE restarting next time** — that
   is the one artifact that would settle the trigger.
