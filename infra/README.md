@@ -111,6 +111,11 @@ infra/homelab-home && ./gen.sh && docker compose up -d`.
 
 ## Self-service — what you can do yourself, no ask needed
 
+> **Something looks broken and you are picking it up cold?** Read
+> [`docs/recipes/homelab-triage-first-15-minutes.md`](../docs/recipes/homelab-triage-first-15-minutes.md)
+> **first** — it lists the four traps that cost hours on 2026-09-03, most
+> importantly: never diagnose the mini *from* the mini.
+
 Don't wait for someone to run a command you can run. These are **read-only or
 reversible** — do them directly, no approval:
 

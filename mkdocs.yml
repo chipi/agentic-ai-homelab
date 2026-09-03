@@ -81,6 +81,7 @@ nav:
     - Agent harnesses: agent-harnesses.md
   - Agentic fleets — architecture: fleet-architecture.md
   - Recipes:
+    - Triage — the first 15 minutes: recipes/homelab-triage-first-15-minutes.md
     - DGX terminal dashboard: recipes/dgx-terminal-dashboard.md
     - GPU mode-swap: recipes/gpu-mode-swap.md
     - Mac mini → observability host: recipes/mac-mini-observability.md

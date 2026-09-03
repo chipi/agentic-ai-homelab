@@ -341,6 +341,7 @@ rest reduce frequency or improve the signal.
 
 ## Related
 
+- **Picking this up cold? Start here:** [Homelab triage — the first 15 minutes](homelab-triage-first-15-minutes.md)
 - [Mac mini → observability host](mac-mini-observability.md)
 - [Observability dependency & blast-radius map](../observability-dependency-map.md)
 - [Consuming homelab services](consuming-homelab-services.md)
