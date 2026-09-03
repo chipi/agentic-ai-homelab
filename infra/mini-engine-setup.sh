@@ -89,10 +89,14 @@ else
 fi
 
 echo "== 4. Boot daemons =="
+# Compare plists with XML comment blocks stripped: the repo copies carry
+# documentation the installed ones don't, and a raw cmp would reinstall every
+# run — which boots out docker-relay and drops the shared socket for every user.
+strip_plist() { sed '/<!--/,/-->/d' "$1" 2>/dev/null; }
 for d in com.homelab.colima com.homelab.docker-relay; do
   src="$ENGINE/$d.plist"
   [ -f "$src" ] || { echo "   skip $d (missing $src)"; continue; }
-  if cmp -s "$src" "$LD/$d.plist"; then
+  if [ -f "$LD/$d.plist" ] && diff -q <(strip_plist "$src") <(strip_plist "$LD/$d.plist") >/dev/null 2>&1; then
     echo "   unchanged $d"
   else
     cp "$src" "$LD/$d.plist"
