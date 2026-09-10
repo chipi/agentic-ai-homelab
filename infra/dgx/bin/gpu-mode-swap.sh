@@ -5,10 +5,12 @@
 # the same time (both want ~90% of VRAM). This script is the explicit,
 # scriptable contract for who owns the GPU right now.
 #
-# Modes: code | research | free | prod | status (default)
+# Modes: code | research | free | prod | prod-vllm | status (default)
 #
 #   prod — podcast_scraper pipeline: no vLLM, Ollama warm with the pinned
 #          summary/GI/KG model (see PROD_LLM_MODEL), whisper + pyannote checked.
+#   prod-vllm — production SERVING vLLM slot on :8003 (infra/vllm/prod-vllm).
+#          A real vLLM (unlike `prod`), single-owner-at-a-time like research.
 #
 # Idempotent: re-running the same mode is a no-op. Agent-friendly: supports
 # --json (machine-readable), --no-color (strip ANSI), --mode-only (print
@@ -95,6 +97,14 @@ JUDGE_NEMOTRON_DIR="${GPU_MODE_JUDGE_NEMOTRON_DIR:-$REPO_ROOT/infra/vllm/judge-n
 JUDGE_NEMOTRON_PORT="${GPU_MODE_JUDGE_NEMOTRON_PORT:-8003}"
 JUDGE_NEMOTRON_SVC="${GPU_MODE_JUDGE_NEMOTRON_SVC:-vllm-judge-nemotron}"
 
+# prod-vllm — production serving vLLM (infra/vllm/prod-vllm). A copy of the
+# autoresearch serving config kept as its own named slot. Same GB10 GPU, same
+# :8003 (single-owner-at-a-time) as the other vLLM slots. Distinct from the
+# `prod` pipeline mode, which runs no vLLM at all.
+PRODVLLM_DIR="${GPU_MODE_PRODVLLM_DIR:-$REPO_ROOT/infra/vllm/prod-vllm}"
+PRODVLLM_PORT="${GPU_MODE_PRODVLLM_PORT:-8003}"
+PRODVLLM_SVC="${GPU_MODE_PRODVLLM_SVC:-vllm-prod-vllm}"
+
 DOCKER_CMD="${GPU_MODE_DOCKER:-sudo docker}"
 SUDO="${GPU_MODE_SUDO-sudo}"                    # host-privilege prefix; "" if root
 START_TIMEOUT="${GPU_MODE_START_TIMEOUT:-120}"
@@ -121,7 +131,7 @@ while (( $# )); do
             sed -n '2,30p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
-        code|research|free|prod|status) MODE="$1" ;;
+        code|research|free|prod|prod-vllm|status) MODE="$1" ;;
         judging)
             MODE="judging"
             # judging requires a sub-arg: a, b, n (qwen-next), or x (nemotron)
@@ -133,7 +143,7 @@ while (( $# )); do
             JUDGING_SUB="$1"
             ;;
         *)
-            echo "usage: $0 [code|research|free|prod|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color]" >&2
+            echo "usage: $0 [code|research|free|prod|prod-vllm|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color]" >&2
             exit 2
             ;;
     esac
@@ -241,12 +251,12 @@ prepare_gpu_for_research() {
     warn "GPU free ${free:-?} GiB below ${RESEARCH_MIN_FREE_GIB} GiB after ${OLLAMA_FLUSH_TIMEOUT}s — starting vLLM anyway (may OOM)"
 }
 
-remove_stale_research_container() {
+remove_stale_container() {
     # A prior failed boot leaves an Exited container; `compose up` then fails
     # with a name Conflict. Remove it — but never a running one. A single
     # `docker inspect` reads the state atomically; the old two-`docker ps`
     # check could race if the container's state changed between the calls.
-    local name="$RESEARCH_SVC" state
+    local name="${1:-$RESEARCH_SVC}" state
     state="$($DOCKER_CMD inspect -f '{{.State.Status}}' "$name" 2>/dev/null)" || state=""
     if [[ -n "$state" && "$state" != "running" ]]; then
         log "removing $state $name container (avoids compose name conflict)"
@@ -265,17 +275,19 @@ running_containers() {
 
 current_mode() {
     local names; names="$(running_containers)"
-    local code_up=0 research_up=0 judge_a_up=0 judge_b_up=0 judge_qwen_next_up=0 judge_nemotron_up=0
+    local code_up=0 research_up=0 prodvllm_up=0 judge_a_up=0 judge_b_up=0 judge_qwen_next_up=0 judge_nemotron_up=0
     grep -qx "$CODER_SVC"    <<<"$names" && code_up=1
     grep -qx "$RESEARCH_SVC" <<<"$names" && research_up=1
+    grep -qx "$PRODVLLM_SVC" <<<"$names" && prodvllm_up=1
     grep -qx "$JUDGE_A_SVC"  <<<"$names" && judge_a_up=1
     grep -qx "$JUDGE_B_SVC"  <<<"$names" && judge_b_up=1
     grep -qx "$JUDGE_QWEN_NEXT_SVC" <<<"$names" && judge_qwen_next_up=1
     grep -qx "$JUDGE_NEMOTRON_SVC" <<<"$names" && judge_nemotron_up=1
-    local total=$((code_up + research_up + judge_a_up + judge_b_up + judge_qwen_next_up + judge_nemotron_up))
+    local total=$((code_up + research_up + prodvllm_up + judge_a_up + judge_b_up + judge_qwen_next_up + judge_nemotron_up))
     if   (( total > 1 ));           then echo "BROKEN-BOTH"
     elif (( code_up ));             then echo "code"
     elif (( research_up ));         then echo "research"
+    elif (( prodvllm_up ));         then echo "prod-vllm"
     elif (( judge_a_up ));          then echo "judging-a"
     elif (( judge_b_up ));          then echo "judging-b"
     elif (( judge_qwen_next_up ));  then echo "judging-qwen-next"
@@ -337,7 +349,7 @@ require_dir() {
 # the caller can then bring it up cleanly.
 stop_all_composes() {
     local except="${1:-}"
-    for d in "$CODER_DIR" "$RESEARCH_DIR" "$JUDGE_A_DIR" "$JUDGE_B_DIR" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_NEMOTRON_DIR"; do
+    for d in "$CODER_DIR" "$RESEARCH_DIR" "$PRODVLLM_DIR" "$JUDGE_A_DIR" "$JUDGE_B_DIR" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_NEMOTRON_DIR"; do
         [[ "$d" == "$except" ]] && continue
         [[ -d "$d" ]] && compose_down "$d" || true
     done
@@ -394,6 +406,7 @@ action_status() {
     case "$mode" in
         code)         ok "coder-next vLLM up on :$CODER_PORT" ;;
         research)     ok "autoresearch vLLM up on :$RESEARCH_PORT" ;;
+        prod-vllm)    ok "prod-vllm serving vLLM up on :$PRODVLLM_PORT" ;;
         judging-a)    ok "judge-a vLLM up on :$JUDGE_A_PORT" ;;
         judging-b)    ok "judge-b vLLM up on :$JUDGE_B_PORT" ;;
         judging-qwen-next) ok "judge-qwen-next vLLM up on :$JUDGE_QWEN_NEXT_PORT" ;;
@@ -406,7 +419,8 @@ action_status() {
 }
 
 action_code()     { do_swap "code"     "$CODER_DIR"    "$CODER_PORT"; }
-action_research() { do_swap "research" "$RESEARCH_DIR" "$RESEARCH_PORT"; }
+action_research() { do_swap "research" "$RESEARCH_DIR" "$RESEARCH_PORT" "$RESEARCH_SVC"; }
+action_prodvllm() { do_swap "prod-vllm" "$PRODVLLM_DIR" "$PRODVLLM_PORT" "$PRODVLLM_SVC"; }
 action_judging_a() { do_swap "judging-a" "$JUDGE_A_DIR" "$JUDGE_A_PORT"; }
 action_judging_b() { do_swap "judging-b" "$JUDGE_B_DIR" "$JUDGE_B_PORT"; }
 action_judging_n() { do_swap "judging-qwen-next" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_QWEN_NEXT_PORT"; }
@@ -495,7 +509,7 @@ action_prod() {
 }
 
 do_swap() {
-    local target=$1 start_dir=$2 start_port=$3
+    local target=$1 start_dir=$2 start_port=$3 start_svc=${4:-}
     require_dir "$start_dir"
     local current; current=$(current_mode)
 
@@ -518,11 +532,12 @@ do_swap() {
     # run before compose_up.
     flush_ollama
 
-    # research slot shares the GPU with Ollama — flush it + clear any stale
-    # container before starting. Code slot is intentionally untouched here.
-    if [[ "$target" == "research" ]]; then
+    # research + prod-vllm are the heavy same-size vLLMs sharing the GPU with
+    # Ollama — flush it + clear any stale container before starting. Code slot
+    # is intentionally untouched here.
+    if [[ "$target" == "research" || "$target" == "prod-vllm" ]]; then
         prepare_gpu_for_research
-        remove_stale_research_container
+        remove_stale_container "${start_svc:-$RESEARCH_SVC}"
     fi
 
     compose_up "$start_dir"
@@ -555,6 +570,7 @@ case "$MODE" in
     research)  action_research ;;
     free)      action_free ;;
     prod)      action_prod ;;
+    prod-vllm) action_prodvllm ;;
     judging)
         case "$JUDGING_SUB" in
             a) action_judging_a ;;
@@ -565,7 +581,7 @@ case "$MODE" in
         esac
         ;;
     *)
-        echo "usage: $0 [code|research|free|prod|status|judging {a|b}] [--json] [--mode-only] [--no-color]" >&2
+        echo "usage: $0 [code|research|free|prod|prod-vllm|status|judging {a|b}] [--json] [--mode-only] [--no-color]" >&2
         exit 2
         ;;
 esac

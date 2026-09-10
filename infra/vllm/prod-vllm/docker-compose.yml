@@ -1,0 +1,77 @@
+# vLLM prod-vllm — the production serving vLLM.
+#
+# A copy of the autoresearch stack's serving config, kept as its OWN named
+# stack so "autoresearch" (eval / sweep target) and "prod-vllm" (production
+# serving) are separate owners of the GPU rather than one folder doing double
+# duty. Same GB10 GPU, same single-owner-at-a-time rule as coder-next /
+# autoresearch / judge-* — enforced by gpu-mode-swap.sh (mode `prod-vllm`).
+#
+# NAME NOTE: this is NOT the `prod` gpu-mode. That mode is the podcast_scraper
+# pipeline (no vLLM at all — Ollama serves the pinned summary model). This is a
+# real vLLM slot; its mode is `prod-vllm`. Keep the two distinct.
+#
+# SECURITY (why this differs from autoresearch): the API key is REQUIRED, not
+# defaulted. autoresearch/ falls back to `buddy-is-the-king` (and its live .env
+# was even `EMPTY`), i.e. effectively unauthenticated. Here `--api-key` uses
+# `${VLLM_API_KEY:?…}` so `docker compose up` FAILS if a real key isn't set in
+# the untracked .env — prod never silently serves on a well-known/empty key.
+# Tailnet-only endpoint, so this is defence-in-depth, not internet exposure.
+#
+# Default model: same pin as autoresearch — Qwen3-30B-A3B-Instruct-2507-FP4.
+# Default port: 8003 (the only ACL-permitted egress out of the DGX), shared
+# with the other vLLM slots; only one is ever up at a time.
+
+services:
+  vllm-prod-vllm:
+    image: nvcr.io/nvidia/vllm:26.05-py3
+    container_name: vllm-prod-vllm
+    runtime: nvidia
+    network_mode: host
+    ipc: host                                # NCCL / large tensor moves
+    env_file:
+      - .env
+    environment:
+      - HF_HOME=${HF_HOME:-/opt/llm-models/huggingface}
+      - VLLM_CACHE_ROOT=${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    volumes:
+      - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
+      - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    command:
+      # NVIDIA vllm:*-py3 entrypoint requires `vllm serve <model>` as the
+      # leading positional args (see autoresearch/docker-compose.yml for the
+      # `--model=` gotcha). Subcommand + model name positionally.
+      - vllm
+      - serve
+      # Same pin as autoresearch — Qwen3-30B-A3B-Instruct-2507-FP4 (NVFP4, MoE,
+      # 30B total / ~3B active). Pin the revision SHA after first verified boot.
+      - NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4
+      # - --revision=MODEL_REVISION_PLACEHOLDER
+      - --host=0.0.0.0
+      # API port HARDCODED to 8003 (the only port the tailnet ACL permits out of
+      # the DGX). Decoupled from VLLM_PORT: vLLM's EngineCore binds VLLM_PORT+1
+      # for ZMQ; set VLLM_PORT=8090 in .env so the engine lands on 8091, clear
+      # of moss:8004. (Same rationale as autoresearch, validated 2026-08-16.)
+      - --port=8003
+      # REQUIRED — no default. Compose fails fast if the untracked .env has no
+      # real key, so prod never runs on a well-known or empty bearer.
+      - --api-key=${VLLM_API_KEY:?prod-vllm requires a real VLLM_API_KEY in .env — no default}
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.75}
+      - --max-model-len=32768
+      # Advertise the REAL HF id FIRST (self-describing, fail-closed served-model
+      # checks pass) plus a `prod-vllm` alias so consumers can target by role.
+      - --served-model-name
+      - NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4
+      - prod-vllm
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8003/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Cold boot is dominated by checkpoint shard load + torch.compile
+      # (~24 min observed on autoresearch's identical model). 30m absorbs the
+      # worst case without a spurious unhealthy flag.
+      start_period: 30m
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
+    restart: unless-stopped
