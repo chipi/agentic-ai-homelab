@@ -97,6 +97,13 @@ model_list:
       model: openrouter/deepseek/deepseek-v4-flash-0731
       api_key: os.environ/OPENROUTER_API_KEY_PODCAST
 
+  # ── Orrery Physics Lab /ask (dev path — mirrors the prod gateway's alias;
+  # same DEDICATED OpenRouter key on both, operator 2026-09-06) ──
+  - model_name: orrery-ask
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-flash
+      api_key: os.environ/OPENROUTER_API_KEY_ORRERY
+
 litellm_settings:
   # full-package observability from day one (operator requirement):
   # Langfuse traces on success+failure, GlitchTip (sentry-compatible) on failure
