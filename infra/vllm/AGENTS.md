@@ -15,10 +15,13 @@ shared across those stacks.
   it); the autoresearch sweep vLLM uses `8003` (matches
   `GPU_MODE_RESEARCH_PORT` in `gpu-mode-swap.sh`). Keep new stacks on this
   convention.
-- **`VLLM_API_KEY` is a single-operator dummy** (`buddy-is-the-king`). vLLM
-  requires *a* key, but there is no real secret here; clients just send the same
-  value as `Authorization: Bearer`. The one real secret is `HF_TOKEN` (gated
-  model downloads), which lives only in `.env`.
+- **`VLLM_API_KEY` is a real per-stack secret**, one distinct value per stack,
+  living only in that stack's untracked `.env` on the DGX. Clients send it as
+  `Authorization: Bearer`. `buddy-is-the-king` survives only as the compose
+  fallback / `.env.example` placeholder (so the secrets-scan allowlist stays
+  accurate) — it is not a live key. `HF_TOKEN` (gated model downloads) is the
+  other real secret, also `.env`-only. Tailnet-only endpoints, so this is
+  defence-in-depth, not internet-facing.
 
 ## GPU coordination is not optional
 

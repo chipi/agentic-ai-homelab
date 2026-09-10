@@ -62,7 +62,7 @@ DGX values):
 | Var | What it controls | Default |
 |---|---|---|
 | `HF_TOKEN` | HuggingFace token for gated model downloads | (none — required for gated models) |
-| `VLLM_API_KEY` | vLLM `--api-key` + open-webui's `OPENAI_API_KEY` | `buddy-is-the-king` |
+| `VLLM_API_KEY` | vLLM `--api-key` + open-webui's `OPENAI_API_KEY` | real per-stack secret in each stack's untracked `.env`; `buddy-is-the-king` is only the compose fallback placeholder |
 | `HF_HOME` | Host path for HF cache (volume mount source) | `/opt/llm-models/huggingface` |
 | `VLLM_CACHE_PATH` | Host path for vLLM CUDA-graph cache | `/opt/llm-models/vllm-cache` |
 | `VLLM_PORT` | vLLM listening port (host + container side) | `9000` |

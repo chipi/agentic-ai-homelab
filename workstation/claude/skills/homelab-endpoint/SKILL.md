@@ -16,8 +16,8 @@ tailnet) · `DGX_LAN_IP = 192.168.0.59` (same-LAN only).
 
 | Service | Base URL | model / notes |
 |---|---|---|
-| coder-next vLLM | `http://${DGX_TAILNET_HOST}:9000/v1` | model `coder-next`, bearer `buddy-is-the-king`; needs gpu-mode **code** |
-| autoresearch vLLM | `http://${DGX_TAILNET_HOST}:8003/v1` | model `autoresearch`, bearer `buddy-is-the-king`; needs gpu-mode **research** |
+| coder-next vLLM | `http://${DGX_TAILNET_HOST}:9000/v1` | model `coder-next`, bearer = that stack's `VLLM_API_KEY` (per-stack, in its untracked `.env` on the DGX — not published); needs gpu-mode **code** |
+| autoresearch vLLM | `http://${DGX_TAILNET_HOST}:8003/v1` | model `autoresearch`, bearer = that stack's `VLLM_API_KEY` (in its untracked `.env` on the DGX — not published); needs gpu-mode **research** |
 | Ollama | `http://${DGX_TAILNET_HOST}:11434` | metrics exporter on `:9778` |
 | Observability (PromQL labels) | — | `instance="homelab-1"`, `cluster="homelab"` |
 

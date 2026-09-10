@@ -87,7 +87,7 @@ README update).
 |---|---|---|
 | `AUTORESEARCH_VLLM_PORT` | `8003` | Port the autoresearch vLLM listens on (also `GPU_MODE_RESEARCH_PORT` for the GPU-mode swap script). |
 | `AUTORESEARCH_VLLM_MODEL` | `autoresearch` | `served-model-name` clients pass in OpenAI `model` field. NOT the HF repo id. |
-| `AUTORESEARCH_VLLM_API_KEY` | `buddy-is-the-king` (or override in `.env`) | Bearer token. Consumers should treat as a secret even though the canonical value is well-known in this homelab. |
+| `AUTORESEARCH_VLLM_API_KEY` | per-stack secret in the stack's untracked `.env` on the DGX (not published) | Bearer token. Real secret — read it from the stack `.env`, don't hardcode. |
 
 ### vLLM coder-next slot (`infra/vllm/coder-next/`)
 
@@ -95,7 +95,7 @@ README update).
 |---|---|---|
 | `CODER_NEXT_VLLM_PORT` | `9000` | Port. Also `GPU_MODE_CODER_PORT`. |
 | `CODER_NEXT_VLLM_MODEL` | `coder-next` | `served-model-name`. |
-| `CODER_NEXT_VLLM_API_KEY` | `buddy-is-the-king` (default) | Bearer token. |
+| `CODER_NEXT_VLLM_API_KEY` | per-stack secret in the stack's untracked `.env` on the DGX (not published) | Bearer token. Real secret — read it from the stack `.env`, don't hardcode. |
 
 ### Ollama (`infra/observability/` sidecar serves a Level-1 view)
 
@@ -215,7 +215,7 @@ Operator's shell (or systemd unit, or `.env` sourced beforehand) exports:
 export DGX_TAILNET_HOST=dgx-llm-1.tail6d0ed4.ts.net
 export AUTORESEARCH_VLLM_PORT=8003
 export AUTORESEARCH_VLLM_MODEL=autoresearch
-export AUTORESEARCH_VLLM_API_KEY=buddy-is-the-king
+export AUTORESEARCH_VLLM_API_KEY=<the autoresearch stack's VLLM_API_KEY — from its untracked .env on the DGX>
 ```
 
 (For the operator's existing setup these are typically already in

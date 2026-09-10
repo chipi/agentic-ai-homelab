@@ -27,7 +27,7 @@
       "name": "DGX Spark vLLM",
       "npm": "@ai-sdk/openai-compatible",
       "options": {
-        "apiKey": "buddy-is-the-king",
+        "apiKey": "<coder-next stack VLLM_API_KEY — from its untracked .env on the DGX>",
         "baseURL": "http://<your-dgx-tailnet-host>:9000/v1"
       }
     }

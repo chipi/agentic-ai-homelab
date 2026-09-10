@@ -19,7 +19,7 @@ Everything you asked to be "restored" already exists and is configured:
 | Thing | Where | State |
 |---|---|---|
 | autoresearch compose | `/home/ops/agentic-ai-homelab/infra/vllm/autoresearch/` | present |
-| its `.env` | same dir (`0640 ops:ops`) | populated — HF_TOKEN, `VLLM_API_KEY=buddy-is-the-king`, `VLLM_PORT=8090`, `HF_HOME`, cache path |
+| its `.env` | same dir (`0640 ops:ops`) | populated — HF_TOKEN, `VLLM_API_KEY` (real per-stack secret, staged in the untracked `.env` — not published here), `VLLM_PORT=8090`, `HF_HOME`, cache path |
 | model pin | in the compose | `NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4`, and `--served-model-name` is the same string → your `vllm_verify_served_model: true` will pass |
 | the model weights | `/opt/llm-models/huggingface` (1.7 TB cache) | **already downloaded** |
 | vLLM image | `nvcr.io/nvidia/vllm:26.05-py3` | already pulled |
