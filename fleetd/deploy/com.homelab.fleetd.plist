@@ -2,17 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.homelab.fleetd</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/Users/markodragoljevic/fleetd/fleetd</string>
-    <string>-config</string>
-    <string>/Users/markodragoljevic/fleetd/fleetd.json</string>
-  </array>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/Users/markodragoljevic/fleetd/fleetd.log</string>
-  <key>StandardErrorPath</key><string>/Users/markodragoljevic/fleetd/fleetd.log</string>
-  <key>WorkingDirectory</key><string>/Users/markodragoljevic/fleetd</string>
+    <key>Label</key><string>com.homelab.fleetd</string>
+    <key>UserName</key><string>markodragoljevic</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>export PATH=/usr/local/bin:$PATH HOME=/Users/markodragoljevic; exec /Users/markodragoljevic/fleetd/fleetd -config /Users/markodragoljevic/fleetd/fleetd.json</string>
+    </array>
+    <key>WorkingDirectory</key><string>/Users/markodragoljevic/fleetd</string>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>/Users/markodragoljevic/fleetd/fleetd.log</string>
+    <key>StandardErrorPath</key><string>/Users/markodragoljevic/fleetd/fleetd.log</string>
 </dict>
 </plist>

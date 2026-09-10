@@ -59,6 +59,8 @@ global `DOCKER_HOST` export in `/etc/zshenv`.
 ## Not covered here
 
 OS-level prerequisites that no script can create: Xcode Command Line Tools,
-Homebrew, Tailscale (Mac App Store build), the age key, FileVault-off, and the
-`pmset` power settings. See the Prerequisites table in
+Homebrew, the age key, FileVault-off, and the `pmset` power settings. (Tailscale
+is installed manually, but keeping it UP with no login session is handled by
+[`../tailscale/`](../tailscale/README.md) — see that README for why a LaunchAgent
+was not enough.) See the Prerequisites table in
 [`../README.md`](../README.md).

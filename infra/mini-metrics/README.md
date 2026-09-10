@@ -42,8 +42,10 @@ The plist points at `push.sh` **in this repo checkout**
 script updates with no re-copy.
 ```sh
 chmod +x push.sh
-cp com.homelab.mini-metrics.plist ~/Library/LaunchAgents/
-launchctl load -w ~/Library/LaunchAgents/com.homelab.mini-metrics.plist
+sudo cp com.homelab.mini-metrics.plist /Library/LaunchDaemons/
+sudo chown root:wheel /Library/LaunchDaemons/com.homelab.mini-metrics.plist
+sudo chmod 644 /Library/LaunchDaemons/com.homelab.mini-metrics.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.mini-metrics.plist
 ```
 The plist hardcodes `/Users/markodragoljevic/...` (operator restore). After
 editing `push.sh`, `pkill -f mini-metrics/push.sh` — launchd respawns with the
@@ -61,8 +63,10 @@ forward breaks on a network transition — and the `mini-forward-down` alert
 [colima/lima forwarding recovery](../../docs/recipes/colima-lima-forwarding-recovery.md).
 
 ```sh
-cp com.homelab.forward-watchdog.plist ~/Library/LaunchAgents/
-launchctl load -w ~/Library/LaunchAgents/com.homelab.forward-watchdog.plist
+sudo cp com.homelab.forward-watchdog.plist /Library/LaunchDaemons/
+sudo chown root:wheel /Library/LaunchDaemons/com.homelab.forward-watchdog.plist
+sudo chmod 644 /Library/LaunchDaemons/com.homelab.forward-watchdog.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.forward-watchdog.plist
 ```
 
 ## Related

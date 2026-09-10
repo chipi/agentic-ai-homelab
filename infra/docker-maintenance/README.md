@@ -33,10 +33,12 @@ datadisk reached 83G allocated for 19G used before the 2026-08-30 manual trim
 ## Install
 
 ```sh
-cp com.homelab.docker-prune.plist ~/Library/LaunchAgents/
-launchctl load -w ~/Library/LaunchAgents/com.homelab.docker-prune.plist
+sudo cp com.homelab.docker-prune.plist /Library/LaunchDaemons/
+sudo chown root:wheel /Library/LaunchDaemons/com.homelab.docker-prune.plist
+sudo chmod 644 /Library/LaunchDaemons/com.homelab.docker-prune.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.docker-prune.plist
 # run once now to verify:
-launchctl start com.homelab.docker-prune && sleep 30 && tail /tmp/docker-prune.log
+sudo launchctl kickstart -p system/com.homelab.docker-prune && sleep 30 && tail /tmp/docker-prune.log
 ```
 
 Runs weekly (Sunday 04:00). Script runs in-place from the checkout; log at

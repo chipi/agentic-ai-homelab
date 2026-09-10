@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.homelab.tailscale-up</string>
+    <key>UserName</key><string>markodragoljevic</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>export PATH=/usr/local/bin:$PATH HOME=/Users/markodragoljevic; exec /bin/bash /Users/markodragoljevic/agentic-ai-homelab/infra/tailscale/tailscale-up.sh</string>
+    </array>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key>
+    <dict><key>SuccessfulExit</key><false/></dict>
+    <key>StandardOutPath</key><string>/tmp/tailscale-up.log</string>
+    <key>StandardErrorPath</key><string>/tmp/tailscale-up.log</string>
+</dict>
+</plist>

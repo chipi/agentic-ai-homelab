@@ -56,8 +56,10 @@ cp .env.example .env && $EDITOR .env        # set GITHUB_TOKEN
 # 2. smoke-test one cycle (writes to VictoriaLogs)
 python3 poll.py --once
 # 3. install/load the launchd loop (or run ../mini-setup.sh)
-cp com.homelab.ci-ops-poller.plist ~/Library/LaunchAgents/
-launchctl load -w ~/Library/LaunchAgents/com.homelab.ci-ops-poller.plist
+sudo cp com.homelab.ci-ops-poller.plist /Library/LaunchDaemons/
+sudo chown root:wheel /Library/LaunchDaemons/com.homelab.ci-ops-poller.plist
+sudo chmod 644 /Library/LaunchDaemons/com.homelab.ci-ops-poller.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.ci-ops-poller.plist
 ```
 
 Uses `/usr/bin/python3` (stdlib only — no pip deps).

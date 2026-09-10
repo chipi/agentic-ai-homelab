@@ -36,6 +36,9 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 | **homelab-home** | Tailnet start page (mini · DGX · prod columns) | mini | `https://hub.tail6d0ed4.ts.net` | reads other stacks' `.env` | [homelab-home/](homelab-home/README.md) |
 | **reverse-proxy** | Per-service Tailscale nodes (Caddy) serving HTTPS for observability + admin UIs | mini | web nodes `{grafana,glitchtip,umami,langfuse,litellm,hub,vm,vlogs,vtraces}.tail6d0ed4.ts.net` | — | [reverse-proxy/](reverse-proxy/README.md) |
 | **mini-metrics** | Mac-mini host metrics → VictoriaMetrics | mini | pushes to VM `:8428` | — | [mini-metrics/](mini-metrics/README.md) |
+| **node-exporter** | Prometheus host exporter for the mini (`node_*`), scraped by mini-metrics | mini | `:9100` loopback | — | [node-exporter/](node-exporter/README.md) |
+| **tailscale** | Keeps the mini's OWN tailnet node up with no login session (macsys CLI) | mini | — | — | [tailscale/](tailscale/README.md) |
+| **caffeinate** | Holds off display/idle/disk/system sleep on a 24/7 host | mini | — | — | [caffeinate/](caffeinate/README.md) |
 | **dgx-scrape** | Pulls DGX GPU/app metrics + TCP health over tailnet → VM | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
 | **ci-ops-poller** | Pulls GitHub Actions runs (CI / drift / drill) → VictoriaLogs for CI health + DORA | mini | pushes to VLogs `:9428` | `ci-ops-poller/.env` | [ci-ops-poller/](ci-ops-poller/README.md) |
 | **dgx** | DGX-host operator scripts (`gpu-mode-swap`) + service map | DGX | Tailscale SSH (see above) | — | [dgx/](dgx/README.md) |

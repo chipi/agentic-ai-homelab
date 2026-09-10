@@ -30,8 +30,10 @@ collectors). Or directly — the plist points at `push.sh` **in this checkout**,
 `git pull` ships updates:
 ```sh
 chmod +x push.sh
-cp com.homelab.dgx-scrape.plist ~/Library/LaunchAgents/
-launchctl load -w ~/Library/LaunchAgents/com.homelab.dgx-scrape.plist
+sudo cp com.homelab.dgx-scrape.plist /Library/LaunchDaemons/
+sudo chown root:wheel /Library/LaunchDaemons/com.homelab.dgx-scrape.plist
+sudo chmod 644 /Library/LaunchDaemons/com.homelab.dgx-scrape.plist
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.dgx-scrape.plist
 ```
 
 ## Related
