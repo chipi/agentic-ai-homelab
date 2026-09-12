@@ -25,14 +25,17 @@ from .tenant import TenantConfig
 
 
 def _period_label(env, *, now: datetime | None = None) -> str:
-    """Human label for the digest's week, derived from the envelope date (the worker has
-    no period field in the contract). Weekly → the 7-day window ending at not_before/
-    created_at (e.g. 'Jul 28 – Aug 3'); daily → the single day."""
+    """Human label for the digest's period, derived from the envelope date (the worker has
+    no period field in the contract). Daily → the single day ('Sep 11'); monthly → the month
+    ('September 2026'); weekly (default) → the 7-day window ending at not_before/created_at."""
     basis = env.not_before or env.created_at or (now or datetime.now(timezone.utc))
     if basis.tzinfo is None:
         basis = basis.replace(tzinfo=timezone.utc)
-    if getattr(env.consent_snapshot, "cadence", "weekly") == "daily":
+    cadence = getattr(env.consent_snapshot, "cadence", "weekly")
+    if cadence == "daily":
         return f"{basis.strftime('%b')} {basis.day}"
+    if cadence == "monthly":
+        return basis.strftime("%B %Y")
     start = basis - timedelta(days=6)
     return f"{start.strftime('%b')} {start.day} – {basis.strftime('%b')} {basis.day}"
 
@@ -59,6 +62,7 @@ class RenderedPush:
 _SECTION_LABELS = {
     "revisit": "Worth revisiting",
     "new_in_follows": "New from who you follow",
+    "new_in_interests": "New in what you follow",
     "trending_in_your_corpus": "Trending in your corpus",
 }
 
@@ -102,10 +106,14 @@ class Renderer:
         return f"{self._app_origin}{deep_link}"
 
     def unsubscribe_url(self, env: DeliveryEnvelope) -> str:
-        """Public one-click unsubscribe link (app-owned endpoint, ref-based)."""
-        return (
-            f"{self._app_origin}{self._unsubscribe_path}?ref={env.consent_snapshot.unsubscribe_ref}"
-        )
+        """Public one-click unsubscribe link (app-owned endpoint, ref-based).
+
+        Carries the envelope's ``type`` so the app disables the RIGHT list — e.g. unsubscribing
+        from a ``daily_recap`` email must not silence the weekly ``digest``. Defaults to ``digest``
+        (the app's own default), so existing digest emails are unchanged.
+        """
+        ref = env.consent_snapshot.unsubscribe_ref
+        return f"{self._app_origin}{self._unsubscribe_path}?ref={ref}&type={env.type}"
 
     def _context(self, env: DeliveryEnvelope) -> dict[str, Any]:
         return {

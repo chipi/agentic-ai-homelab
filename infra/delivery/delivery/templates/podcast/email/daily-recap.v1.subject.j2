@@ -1,0 +1,1 @@
+{% if payload.count == 1 and payload.episodes %}Your recap · {{ payload.episodes[0].title }}{% else %}Your day, recapped · {{ payload.count }} episodes{% endif %}

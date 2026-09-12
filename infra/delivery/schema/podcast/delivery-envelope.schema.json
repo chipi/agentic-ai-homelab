@@ -14,6 +14,7 @@
     "recipient",
     "consent_snapshot",
     "payload",
+    "expires_at",
     "created_at"
   ],
   "properties": {
@@ -29,7 +30,14 @@
       "description": "Platform user id (app_user_store)."
     },
     "channel": { "enum": ["email", "push"] },
-    "template": { "enum": ["your-week-digest.v1", "resurface-nudge.v1"] },
+    "type": {
+      "enum": ["digest", "daily_recap", "new_episodes", "product"],
+      "default": "digest",
+      "description": "Notification TYPE (wave-I matrix). The app gates delivery on the user's per-type × per-channel consent and disables the exact (type, channel) on a bounce. 'daily_recap' is the RFC-122 #2039 end-of-day recap. The worker builds the one-click List-Unsubscribe from this type (…/comms/unsubscribe?ref=<unsubscribe_ref>&type=<type>) so unsubscribing hits the right email. Defaults to 'digest' when absent."
+    },
+    "template": {
+      "enum": ["your-week-digest.v1", "resurface-nudge.v1", "recommendations-digest.v1", "daily-recap.v1"]
+    },
     "recipient": { "$ref": "#/$defs/recipient" },
     "consent_snapshot": { "$ref": "#/$defs/consentSnapshot" },
     "payload": { "type": "object" },
@@ -41,7 +49,7 @@
     "expires_at": {
       "type": "string",
       "format": "date-time",
-      "description": "TTL — the delivery service MUST NOT deliver after this instant, so a homelab-down window does not flush stale digests on recovery. The assembler SHOULD set it (e.g. not_before + one cadence period). Seam v1.1 (2026-08-04)."
+      "description": "TTL (required) — the delivery service MUST NOT deliver after this instant, so a homelab-down window does not flush stale digests on recovery. The assembler sets it to not_before + one cadence period. Seam v1.1 (2026-08-04)."
     },
     "created_at": { "type": "string", "format": "date-time" }
   },
@@ -69,6 +77,10 @@
     {
       "if": { "properties": { "template": { "const": "resurface-nudge.v1" } } },
       "then": { "properties": { "payload": { "$ref": "#/$defs/nudgePayload" } } }
+    },
+    {
+      "if": { "properties": { "template": { "const": "recommendations-digest.v1" } } },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/digestPayload" } } }
     }
   ],
   "$defs": {
@@ -91,7 +103,7 @@
       "required": ["digest_enabled", "cadence", "unsubscribe_ref"],
       "properties": {
         "digest_enabled": { "type": "boolean" },
-        "cadence": { "enum": ["weekly", "daily"] },
+        "cadence": { "enum": ["weekly", "daily", "monthly"] },
         "unsubscribe_ref": {
           "type": "string",
           "minLength": 1,
@@ -118,6 +130,7 @@
       "type": "object",
       "additionalProperties": false,
       "description": "One resurfaced/highlighted moment. MUST carry graph_refs + a deep_link (moat rule).",
+      "$comment": "additionalProperties:false is load-bearing: it walls off the in-app-only fields the GET /api/app/your-week route adds for card rendering (image_url artwork backdrop, and a backfilled episode_title for topic-centric trending items). Those are route-local enrichments — the assembler MUST NOT write them into the envelope (they would fail validation here), and the delivery worker renders from graph_refs, not from artwork.",
       "required": ["episode_slug", "deep_link", "graph_refs"],
       "properties": {
         "quote": { "type": "string" },
@@ -126,12 +139,19 @@
         "t_ms": { "type": ["integer", "null"], "minimum": 0 },
         "graph_refs": {
           "type": "array",
+          "minItems": 1,
+          "description": "MUST be non-empty — an item carries the graph, never a flat clip (moat rule).",
           "items": { "$ref": "#/$defs/graphRef" }
+        },
+        "highlight_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The user's own capture behind this item; present only when source='user'. An auto-pick has no highlight and so no id — marking one would write resurfacing state against something that does not exist. Carried so an in-app renderer can advance the spaced ladder without parsing deep_link."
         },
         "deep_link": {
           "type": "string",
           "minLength": 1,
-          "description": "Relative in-app link with jump-to-moment, e.g. /player/{slug}?t={sec}."
+          "description": "Relative in-app link with jump-to-moment, e.g. /player/{slug}?t={sec}. For source='user' items it also carries &revisit={highlight_id} (url-encoded): arriving at the player with that marker records the review, which is how an EMAIL reader advances the spaced ladder at all. Without it the digest was write-only — it selected due items every week and nothing it sent could mark one reviewed, so the same five items were re-sent indefinitely."
         },
         "source": {
           "enum": ["user", "auto"],
@@ -144,8 +164,10 @@
       "additionalProperties": false,
       "required": ["kind", "items"],
       "properties": {
-        "kind": { "enum": ["revisit", "new_in_follows", "trending_in_your_corpus"] },
-        "items": { "type": "array", "items": { "$ref": "#/$defs/digestItem" } }
+        "kind": {
+          "enum": ["revisit", "new_in_follows", "new_in_interests", "trending_in_your_corpus"]
+        },
+        "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/digestItem" } }
       }
     },
     "digestPayload": {

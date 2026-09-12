@@ -79,6 +79,10 @@ class DeliveryEnvelope:
     recipient: Recipient
     consent_snapshot: ConsentSnapshot
     payload: dict[str, Any] = field(default_factory=dict)
+    # Notification TYPE (wave-I matrix). Drives the type-aware one-click unsubscribe link so an
+    # unsub hits the right list (e.g. daily_recap vs the weekly digest). Optional for back-compat;
+    # defaults to "digest" when the envelope omits it.
+    type: str = "digest"
     schema_version: str = "1"
     not_before: Optional[datetime] = None
     expires_at: Optional[datetime] = None
@@ -95,6 +99,7 @@ class DeliveryEnvelope:
             recipient=Recipient.from_dict(d.get("recipient", {})),
             consent_snapshot=ConsentSnapshot.from_dict(d.get("consent_snapshot", {})),
             payload=d.get("payload", {}) or {},
+            type=str(d.get("type", "digest")),
             schema_version=str(d.get("schema_version", "1")),
             not_before=_parse_dt(d.get("not_before")),
             expires_at=_parse_dt(d.get("expires_at")),

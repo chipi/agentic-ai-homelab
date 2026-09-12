@@ -1,0 +1,89 @@
+{# daily-recap.v1 — the end-of-day post-episode recap (RFC-122 #2039). Email-client-SAFE, same
+   dark shell as your-week-digest.v1 (Gmail strips <body> styles → dark theme on a <table bgcolor>
+   with per-cell colors). Adaptive:
+     payload.count == 1 → the FULL recap (key points + quote + insights + topic/storyline chips)
+     payload.count  > 1 → a COMPACT per-episode stack (title + show + quote + up to 2 key points)
+   Payload: payload.episodes[] = { slug, title, podcast_title, artwork_url?, key_points[],
+     signature_quote?{text,speaker?}, insights[], topics[]{id,label}, storylines[]{id,label},
+     deep_link (relative) } ; payload.count ; payload.day #}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#0b0e14;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="background-color:#0b0e14;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="width:600px;max-width:600px;background-color:#0b0e14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <tr><td style="padding:0 8px;">
+        <div style="letter-spacing:.14em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">Close Listening</div>
+        <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#e7ecf3;">We took notes for you</h1>
+        <div style="font-size:14px;color:#8aa0bd;margin:0 0 20px;">
+          {% if payload.count == 1 %}You finished 1 episode today{% else %}You finished {{ payload.count }} episodes today{% endif %} · {{ period_label }}
+        </div>
+
+        {% if payload.count == 1 and payload.episodes %}
+        {% set ep = payload.episodes[0] %}
+        {# ---- FULL layout (single episode) ---- #}
+        <div style="border-top:1px solid #1c2636;padding-top:18px;">
+          <div style="letter-spacing:.08em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">{{ ep.podcast_title }}</div>
+          <a href="{{ ep.deep_link | abslink }}" style="display:block;color:#e7ecf3;text-decoration:none;font-size:19px;font-weight:600;margin:4px 0 0;">{{ ep.title }}</a>
+
+          {% if ep.key_points %}
+          <div style="margin-top:14px;margin-bottom:6px;color:#8aa0bd;font-size:13px;text-transform:uppercase;letter-spacing:.08em;">Key points</div>
+          {% for point in ep.key_points[:3] %}
+          <div style="color:#c3ccd9;font-size:15px;line-height:1.5;margin:0 0 6px;">• {{ point }}</div>
+          {% endfor %}
+          {% endif %}
+
+          {% if ep.signature_quote %}
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0;"><tr>
+            <td width="3" bgcolor="#2b3a52" style="background-color:#2b3a52;width:3px;"></td>
+            <td style="padding-left:14px;">
+              <p style="color:#e7ecf3;margin:0;font-style:italic;font-size:16px;line-height:1.45;">“{{ ep.signature_quote.text }}”</p>
+              {% if ep.signature_quote.speaker %}<div style="margin-top:5px;color:#8aa0bd;font-size:13px;">— {{ ep.signature_quote.speaker }}</div>{% endif %}
+            </td>
+          </tr></table>
+          {% endif %}
+
+          {% if ep.insights %}
+          <div style="margin-top:14px;margin-bottom:6px;color:#8aa0bd;font-size:13px;text-transform:uppercase;letter-spacing:.08em;">Top insights</div>
+          {% for insight in ep.insights[:3] %}
+          <div style="color:#c3ccd9;font-size:15px;line-height:1.5;margin:0 0 8px;">{{ insight }}</div>
+          {% endfor %}
+          {% endif %}
+
+          {% if ep.topics %}
+          <div style="margin-top:12px;">
+            {% for topic in ep.topics %}
+            <a href="{{ app_origin }}/topic/{{ topic.id.split(':')[1] }}?scope=mine" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #2b3a52;border-radius:999px;font-size:12px;color:#9fb2cc;text-decoration:none;">{{ topic.label }}</a>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% for storyline in ep.storylines %}
+          <div style="margin-top:8px;"><a href="{{ app_origin }}/storyline/{{ storyline.id.split(':')[1] }}" style="color:#8aa0bd;text-decoration:none;font-size:14px;">↳ {{ storyline.label }}</a></div>
+          {% endfor %}
+        </div>
+        {% else %}
+        {# ---- COMPACT layout (several episodes) ---- #}
+        {% for ep in payload.episodes %}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;"><tr><td style="padding:18px 0;">
+          <div style="letter-spacing:.08em;font-size:11px;text-transform:uppercase;color:#8aa0bd;">{{ ep.podcast_title }}</div>
+          <a href="{{ ep.deep_link | abslink }}" style="color:#e7ecf3;text-decoration:none;font-size:17px;font-weight:600;">{{ ep.title }}</a>
+          {% if ep.signature_quote %}<p style="color:#c3ccd9;margin:10px 0 8px;font-style:italic;">“{{ ep.signature_quote.text }}”{% if ep.signature_quote.speaker %} <span style="font-style:normal;color:#6b7a90;font-size:13px;">— {{ ep.signature_quote.speaker }}</span>{% endif %}</p>{% endif %}
+          {% for point in ep.key_points[:2] %}
+          <div style="color:#9fb2cc;font-size:14px;line-height:1.5;">• {{ point }}</div>
+          {% endfor %}
+          <div style="margin-top:8px;"><a href="{{ ep.deep_link | abslink }}" style="color:#8aa0bd;text-decoration:none;font-size:14px;font-weight:600;">Open in Close Listening →</a></div>
+        </td></tr></table>
+        {% endfor %}
+        {% endif %}
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;margin-top:8px;"><tr><td style="padding-top:20px;color:#6b7a90;font-size:12px;">
+          <p style="margin:0 0 6px;color:#6b7a90;">You're getting the daily recap because you turned it on in Close Listening.</p>
+          <p style="margin:0;color:#6b7a90;"><a href="{{ unsubscribe_url }}" style="color:#8aa0bd;">Unsubscribe</a> · one click, no sign-in needed.</p>
+        </td></tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,50 @@
+{
+  "schema_version": "1",
+  "id": "drcp_20260911_u_2f9c1a7b4e6d0a3c5b8e1f2a",
+  "user_id": "u_2f9c1a7b4e6d0a3c5b8e1f2a",
+  "channel": "email",
+  "template": "daily-recap.v1",
+  "type": "daily_recap",
+  "recipient": {
+    "email": "listener@example.com",
+    "email_verified": true
+  },
+  "consent_snapshot": {
+    "digest_enabled": true,
+    "cadence": "daily",
+    "unsubscribe_ref": "example-unsubscribe-ref"
+  },
+  "payload": {
+    "day": "2026-09-11",
+    "count": 1,
+    "episodes": [
+      {
+        "slug": "acquired-nvidia-the-machine-that-makes-the-machine",
+        "title": "NVIDIA: The Machine That Makes the Machine",
+        "podcast_title": "Acquired",
+        "artwork_url": null,
+        "key_points": [
+          "The bottleneck was never compute; it was willingness to throw away a working model.",
+          "Owning the toolchain compounds into a durable moat."
+        ],
+        "signature_quote": {
+          "text": "The machine that makes the machine is the real product.",
+          "speaker": "Jensen Huang"
+        },
+        "insights": [
+          "Vertical integration is the advantage competitors can't copy in a quarter."
+        ],
+        "topics": [
+          { "id": "topic:scaling-laws", "label": "Scaling Laws" }
+        ],
+        "storylines": [
+          { "id": "topic:semiconductors", "label": "The semiconductor supply chain" }
+        ],
+        "deep_link": "/player/acquired-nvidia-the-machine-that-makes-the-machine"
+      }
+    ]
+  },
+  "not_before": "2026-09-11T22:00:00Z",
+  "expires_at": "2026-09-12T22:00:00Z",
+  "created_at": "2026-09-11T22:00:00Z"
+}

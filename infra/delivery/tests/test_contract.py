@@ -33,7 +33,12 @@ def _renderer() -> Renderer:
     return Renderer.for_tenant(_TENANTS["podcast"])
 
 
-ALL_FIXTURES = ["your-week-digest.v1.golden.json", "resurface-nudge.v1.golden.json"]
+ALL_FIXTURES = [
+    "your-week-digest.v1.golden.json",
+    "resurface-nudge.v1.golden.json",
+    "daily-recap.v1.golden.json",
+    "recommendations-digest.v1.golden.json",
+]
 
 
 @pytest.mark.parametrize("name", ALL_FIXTURES)
@@ -74,3 +79,50 @@ def test_nudge_fixture_also_renders_email():
     html = _renderer().render_email(env).html
     assert "Jensen Huang" in html
     assert "ref=example-unsubscribe-ref" in html
+
+
+def test_daily_recap_fixture_renders_email():
+    # RFC-122 #2039 — a single-episode day renders the FULL recap.
+    env = DeliveryEnvelope.from_dict(_fixture("daily-recap.v1.golden.json"))
+    assert env.channel is Channel.EMAIL
+    rendered = _renderer().render_email(env)
+    assert rendered.subject == "Your recap · NVIDIA: The Machine That Makes the Machine"
+    html = rendered.html
+    assert "NVIDIA: The Machine That Makes the Machine" in html
+    assert "The bottleneck was never compute" in html  # a key point
+    assert "the real product" in html and "Jensen Huang" in html  # signature quote + speaker
+    assert "Vertical integration" in html  # a top insight
+    assert "Scaling Laws" in html  # topic chip
+    assert "semiconductor supply chain" in html  # storyline
+    assert "https://closelistening.app/player/acquired-nvidia" in html  # deep link absolutised
+    # The one-click unsubscribe is TYPE-AWARE — it silences the recap, not the weekly digest.
+    # (The `&` is HTML-escaped to `&amp;` in the href — correct; the client unescapes it.)
+    assert "ref=example-unsubscribe-ref" in html and "type=daily_recap" in html
+
+
+def test_daily_recap_many_renders_compact_stack():
+    # A multi-episode day renders the compact per-episode stack (built inline; the golden is count=1).
+    base = _fixture("daily-recap.v1.golden.json")
+    ep = base["payload"]["episodes"][0]
+    base["payload"] = {
+        "day": "2026-09-11",
+        "count": 2,
+        "episodes": [ep, {**ep, "title": "TSMC (Part II)", "deep_link": "/player/tsmc-part-ii"}],
+    }
+    rendered = _renderer().render_email(DeliveryEnvelope.from_dict(base))
+    assert rendered.subject == "Your day, recapped · 2 episodes"
+    assert "TSMC (Part II)" in rendered.html
+    assert "Open in Close Listening" in rendered.html  # the compact-stack per-episode CTA
+
+
+def test_recommendations_fixture_renders_email():
+    # wave-H monthly discovery digest — reuses the sections shape; must now render (was never sent).
+    env = DeliveryEnvelope.from_dict(_fixture("recommendations-digest.v1.golden.json"))
+    assert env.channel is Channel.EMAIL
+    rendered = _renderer().render_email(env)
+    assert "New for you" in rendered.html
+    assert "New in what you follow" in rendered.html  # the new_in_interests section label
+    assert "TSMC (Part II)" in rendered.html
+    assert "https://closelistening.app/player/" in rendered.html
+    assert "Semiconductors" in rendered.html  # a graph_ref chip
+    assert "September 2026" in rendered.subject  # monthly period label
