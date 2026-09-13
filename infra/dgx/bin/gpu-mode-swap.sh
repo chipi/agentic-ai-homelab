@@ -5,12 +5,12 @@
 # the same time (both want ~90% of VRAM). This script is the explicit,
 # scriptable contract for who owns the GPU right now.
 #
-# Modes: code | research | free | prod | prod-vllm | status (default)
+# Modes: code | research | free | prod | ollama | status (default)
 #
-#   prod — podcast_scraper pipeline: no vLLM, Ollama warm with the pinned
-#          summary/GI/KG model (see PROD_LLM_MODEL), whisper + pyannote checked.
-#   prod-vllm — production SERVING vLLM slot on :8003 (infra/vllm/prod-vllm).
-#          A real vLLM (unlike `prod`), single-owner-at-a-time like research.
+#   prod — production SERVING vLLM slot on :8003 (infra/vllm/prod-vllm).
+#          A real vLLM, single-owner-at-a-time like research.
+#   ollama — podcast_scraper pipeline: NO vLLM, Ollama warm with the pinned
+#          summary/GI/KG model (see OLLAMA_LLM_MODEL), whisper + pyannote checked.
 #
 # Idempotent: re-running the same mode is a no-op. Agent-friendly: supports
 # --json (machine-readable), --no-color (strip ANSI), --mode-only (print
@@ -131,7 +131,7 @@ while (( $# )); do
             sed -n '2,30p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
-        code|research|free|prod|prod-vllm|status) MODE="$1" ;;
+        code|research|free|prod|ollama|status) MODE="$1" ;;
         judging)
             MODE="judging"
             # judging requires a sub-arg: a, b, n (qwen-next), or x (nemotron)
@@ -143,7 +143,7 @@ while (( $# )); do
             JUDGING_SUB="$1"
             ;;
         *)
-            echo "usage: $0 [code|research|free|prod|prod-vllm|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color]" >&2
+            echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color]" >&2
             exit 2
             ;;
     esac
@@ -287,7 +287,7 @@ current_mode() {
     if   (( total > 1 ));           then echo "BROKEN-BOTH"
     elif (( code_up ));             then echo "code"
     elif (( research_up ));         then echo "research"
-    elif (( prodvllm_up ));         then echo "prod-vllm"
+    elif (( prodvllm_up ));         then echo "prod"
     elif (( judge_a_up ));          then echo "judging-a"
     elif (( judge_b_up ));          then echo "judging-b"
     elif (( judge_qwen_next_up ));  then echo "judging-qwen-next"
@@ -406,7 +406,7 @@ action_status() {
     case "$mode" in
         code)         ok "coder-next vLLM up on :$CODER_PORT" ;;
         research)     ok "autoresearch vLLM up on :$RESEARCH_PORT" ;;
-        prod-vllm)    ok "prod-vllm serving vLLM up on :$PRODVLLM_PORT" ;;
+        prod)         ok "prod serving vLLM up on :$PRODVLLM_PORT" ;;
         judging-a)    ok "judge-a vLLM up on :$JUDGE_A_PORT" ;;
         judging-b)    ok "judge-b vLLM up on :$JUDGE_B_PORT" ;;
         judging-qwen-next) ok "judge-qwen-next vLLM up on :$JUDGE_QWEN_NEXT_PORT" ;;
@@ -420,7 +420,7 @@ action_status() {
 
 action_code()     { do_swap "code"     "$CODER_DIR"    "$CODER_PORT"; }
 action_research() { do_swap "research" "$RESEARCH_DIR" "$RESEARCH_PORT" "$RESEARCH_SVC"; }
-action_prodvllm() { do_swap "prod-vllm" "$PRODVLLM_DIR" "$PRODVLLM_PORT" "$PRODVLLM_SVC"; }
+action_prodvllm() { do_swap "prod"      "$PRODVLLM_DIR" "$PRODVLLM_PORT" "$PRODVLLM_SVC"; }
 action_judging_a() { do_swap "judging-a" "$JUDGE_A_DIR" "$JUDGE_A_PORT"; }
 action_judging_b() { do_swap "judging-b" "$JUDGE_B_DIR" "$JUDGE_B_PORT"; }
 action_judging_n() { do_swap "judging-qwen-next" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_QWEN_NEXT_PORT"; }
@@ -436,12 +436,12 @@ action_free() {
     ((JSON)) && emit_json "free" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
 }
 
-# ── prod (podcast_scraper pipeline) ──────────────────────────────────────
+# ── ollama (podcast_scraper pipeline) ────────────────────────────────────
 #
 # The pipeline's three GPU consumers are faster-whisper (:8000), pyannote
 # (:8001) and Ollama (:11434) — none of them is a vLLM. A vLLM sitting in the
-# research slot holds ~79 GB and starves them, so "prod" is precisely: no vLLM
-# at all, plus the LLM the pipeline is actually evaluated against, kept warm.
+# research/prod slot holds ~79 GB and starves them, so "ollama" is precisely: no
+# vLLM at all, plus the LLM the pipeline is actually evaluated against, kept warm.
 #
 # The model is PINNED, not incidental. ``qwen3.5:35b`` is the #928 summary/GI/KG
 # championship winner (finale 5.00/5 Sonnet, 4.90 GPT-5.4, 100% judge agreement)
@@ -449,17 +449,17 @@ action_free() {
 # Changing it is a decision that invalidates those evals, so it lives here as one
 # named constant rather than being whatever happened to be loaded.
 #
-# Unlike the vLLM modes this does NOT flush Ollama — in prod, Ollama *is* the point.
+# Unlike the vLLM modes this does NOT flush Ollama — in ollama mode, Ollama *is* the point.
 #
 # Note: `status` will report `free`, because mode is derived from which vLLM owns
-# the GPU and prod deliberately runs none. That is accurate: no vLLM owns it.
-PROD_LLM_MODEL="${GPU_MODE_PROD_LLM_MODEL:-qwen3.5:35b}"
-PROD_WHISPER_PORT="${GPU_MODE_PROD_WHISPER_PORT:-8000}"
-PROD_DIARIZE_PORT="${GPU_MODE_PROD_DIARIZE_PORT:-8001}"
-PROD_MOSS_PORT="${GPU_MODE_PROD_MOSS_PORT:-8004}"
+# the GPU and ollama mode deliberately runs none. That is accurate: no vLLM owns it.
+OLLAMA_LLM_MODEL="${GPU_MODE_OLLAMA_LLM_MODEL:-qwen3.5:35b}"
+OLLAMA_WHISPER_PORT="${GPU_MODE_OLLAMA_WHISPER_PORT:-8000}"
+OLLAMA_DIARIZE_PORT="${GPU_MODE_OLLAMA_DIARIZE_PORT:-8001}"
+OLLAMA_MOSS_PORT="${GPU_MODE_OLLAMA_MOSS_PORT:-8004}"
 
-action_prod() {
-    log "→ prod (pipeline: no vLLM; Ollama serves the pinned LLM)"
+action_ollama() {
+    log "→ ollama (pipeline: no vLLM; Ollama serves the pinned LLM)"
     local apps_before; apps_before=$(gpu_compute_app_count)
 
     stop_all_composes
@@ -470,33 +470,33 @@ action_prod() {
     if ! curl -fsS --max-time 3 "${host}/api/ps" >/dev/null 2>&1; then
         warn "Ollama unreachable at ${host} — the pipeline's summary/GI/KG stages will fail"
     else
-        log "warming pinned prod model: ${PROD_LLM_MODEL} (cold load can take ~1-2 min)"
+        log "warming pinned ollama model: ${OLLAMA_LLM_MODEL} (cold load can take ~1-2 min)"
         if curl -fsS --max-time 600 -X POST "${host}/api/generate" \
                 -H 'Content-Type: application/json' \
-                -d "$(printf '{"model":"%s","prompt":"ok","keep_alive":"24h","stream":false}' "$PROD_LLM_MODEL")" \
+                -d "$(printf '{"model":"%s","prompt":"ok","keep_alive":"24h","stream":false}' "$OLLAMA_LLM_MODEL")" \
                 >/dev/null 2>&1; then
-            ok "Ollama warm: ${PROD_LLM_MODEL} (keep_alive=24h)"
+            ok "Ollama warm: ${OLLAMA_LLM_MODEL} (keep_alive=24h)"
             llm_ok=1
         else
-            warn "could not warm ${PROD_LLM_MODEL} — pulled? try: ollama pull ${PROD_LLM_MODEL}"
+            warn "could not warm ${OLLAMA_LLM_MODEL} — pulled? try: ollama pull ${OLLAMA_LLM_MODEL}"
         fi
     fi
 
     local svc_ok=1
-    if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${PROD_WHISPER_PORT}/v1/models" 2>/dev/null; then
-        ok "faster-whisper up on :${PROD_WHISPER_PORT}"
+    if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${OLLAMA_WHISPER_PORT}/v1/models" 2>/dev/null; then
+        ok "faster-whisper up on :${OLLAMA_WHISPER_PORT}"
     else
-        warn "faster-whisper NOT responding on :${PROD_WHISPER_PORT}"; svc_ok=0
+        warn "faster-whisper NOT responding on :${OLLAMA_WHISPER_PORT}"; svc_ok=0
     fi
-    if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${PROD_DIARIZE_PORT}/v1/models" 2>/dev/null; then
-        ok "pyannote up on :${PROD_DIARIZE_PORT}"
+    if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${OLLAMA_DIARIZE_PORT}/v1/models" 2>/dev/null; then
+        ok "pyannote up on :${OLLAMA_DIARIZE_PORT}"
     else
-        warn "pyannote NOT responding on :${PROD_DIARIZE_PORT}"; svc_ok=0
+        warn "pyannote NOT responding on :${OLLAMA_DIARIZE_PORT}"; svc_ok=0
     fi
-    if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${PROD_MOSS_PORT}/v1/models" 2>/dev/null; then
-        ok "MOSS up on :${PROD_MOSS_PORT}"
+    if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${OLLAMA_MOSS_PORT}/v1/models" 2>/dev/null; then
+        ok "MOSS up on :${OLLAMA_MOSS_PORT}"
     else
-        warn "MOSS NOT responding on :${PROD_MOSS_PORT} (transcription falls back to faster-whisper)"
+        warn "MOSS NOT responding on :${OLLAMA_MOSS_PORT} (transcription falls back to faster-whisper)"
     fi
 
     local apps_after; apps_after=$(gpu_compute_app_count)
@@ -504,7 +504,7 @@ action_prod() {
 
     local all_ok=false
     [[ $llm_ok -eq 1 && $svc_ok -eq 1 ]] && all_ok=true
-    ((JSON)) && emit_json "prod" "$all_ok" "llm=${PROD_LLM_MODEL}" "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
+    ((JSON)) && emit_json "ollama" "$all_ok" "llm=${OLLAMA_LLM_MODEL}" "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
     [[ "$all_ok" == true ]] || return 1
 }
 
@@ -532,10 +532,10 @@ do_swap() {
     # run before compose_up.
     flush_ollama
 
-    # research + prod-vllm are the heavy same-size vLLMs sharing the GPU with
+    # research + prod are the heavy same-size vLLMs sharing the GPU with
     # Ollama — flush it + clear any stale container before starting. Code slot
     # is intentionally untouched here.
-    if [[ "$target" == "research" || "$target" == "prod-vllm" ]]; then
+    if [[ "$target" == "research" || "$target" == "prod" ]]; then
         prepare_gpu_for_research
         remove_stale_container "${start_svc:-$RESEARCH_SVC}"
     fi
@@ -569,8 +569,8 @@ case "$MODE" in
     code)      action_code ;;
     research)  action_research ;;
     free)      action_free ;;
-    prod)      action_prod ;;
-    prod-vllm) action_prodvllm ;;
+    prod)      action_prodvllm ;;
+    ollama)    action_ollama ;;
     judging)
         case "$JUDGING_SUB" in
             a) action_judging_a ;;
@@ -581,7 +581,7 @@ case "$MODE" in
         esac
         ;;
     *)
-        echo "usage: $0 [code|research|free|prod|prod-vllm|status|judging {a|b}] [--json] [--mode-only] [--no-color]" >&2
+        echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b}] [--json] [--mode-only] [--no-color]" >&2
         exit 2
         ;;
 esac

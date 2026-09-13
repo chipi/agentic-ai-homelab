@@ -8,7 +8,7 @@ config is layered on top via env vars.
 
 | Script | What it does | Recipe |
 |---|---|---|
-| `gpu-mode-swap.sh` | Toggle which vLLM owns the single GPU (`code` / `research` / `free` / `prod`) | [`docs/recipes/gpu-mode-swap.md`](../../../docs/recipes/gpu-mode-swap.md) |
+| `gpu-mode-swap.sh` | Toggle which vLLM owns the single GPU (`code` / `research` / `prod` / `ollama` / `free`) | [`docs/recipes/gpu-mode-swap.md`](../../../docs/recipes/gpu-mode-swap.md) |
 
 ---
 
@@ -67,7 +67,8 @@ reports **`free`** for both (it can't see the Ollama warm) — expected, not a b
 gpu-mode-swap.sh                # show current state (default = status)
 gpu-mode-swap.sh code           # coder-next vLLM up, others down
 gpu-mode-swap.sh research       # autoresearch vLLM up, others down
-gpu-mode-swap.sh prod           # no vLLM; Ollama warm (podcast pipeline); ML services checked
+gpu-mode-swap.sh prod           # prod-serving vLLM up, others down (:8003, 64k)
+gpu-mode-swap.sh ollama         # no vLLM; Ollama warm (podcast pipeline); ML services checked
 gpu-mode-swap.sh free           # no vLLM, Ollama cold — maximum free memory
 ```
 

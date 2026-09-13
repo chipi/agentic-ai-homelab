@@ -14,14 +14,14 @@ model diverges from the eval baseline.
 
 ## Name disambiguation (important)
 
-There are two "prod" things and they are **not** the same:
+Two distinct gpu-modes — don't confuse them:
 
-| Thing | What it is |
+| gpu-mode | What it is |
 |---|---|
-| gpu-mode **`prod`** | podcast_scraper pipeline mode — *no vLLM*; Ollama serves the pinned `qwen3.5:35b` summary model plus whisper/pyannote/moss. |
-| gpu-mode **`prod-vllm`** (this) | a real vLLM slot serving the model above on `:8003`. |
+| **`prod`** (this stack) | a real vLLM slot serving on `:8003`. Stack dir/container are still named `prod-vllm`; the *mode* you type is `prod`. |
+| **`ollama`** | podcast_scraper pipeline mode — *no vLLM*; Ollama serves the pinned `qwen3.5:35b` summary model plus whisper/pyannote/moss. |
 
-`gpu-mode-swap.sh prod-vllm` brings this up (and every other vLLM slot down —
+`gpu-mode-swap.sh prod` brings this up (and every other vLLM slot down —
 single-owner-at-a-time on the one GB10 GPU).
 
 ## GPU coordination
@@ -48,7 +48,7 @@ so it fails fast on a missing key.
 
 ```bash
 cp .env.example .env      # HF_TOKEN from the shared cache; VLLM_API_KEY stays EMPTY
-gpu-mode-swap.sh prod-vllm
+gpu-mode-swap.sh prod
 ```
 
 KV-cache sizing methodology: `../autoresearch/KV_CACHE_SIZING.md` (not

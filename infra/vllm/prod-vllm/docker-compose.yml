@@ -4,11 +4,11 @@
 # stack so "autoresearch" (eval / sweep target) and "prod-vllm" (production
 # serving) are separate owners of the GPU rather than one folder doing double
 # duty. Same GB10 GPU, same single-owner-at-a-time rule as coder-next /
-# autoresearch / judge-* — enforced by gpu-mode-swap.sh (mode `prod-vllm`).
+# autoresearch / judge-* — enforced by gpu-mode-swap.sh (mode `prod`).
 #
-# NAME NOTE: this is NOT the `prod` gpu-mode. That mode is the podcast_scraper
-# pipeline (no vLLM at all — Ollama serves the pinned summary model). This is a
-# real vLLM slot; its mode is `prod-vllm`. Keep the two distinct.
+# NAME NOTE: the gpu-mode for THIS stack is `prod`. The podcast_scraper pipeline
+# (no vLLM — Ollama serves the pinned summary model) is the separate `ollama`
+# mode. Stack dir + container stay named `prod-vllm`; the mode you type is `prod`.
 #
 # AUTH (2026-09-13): mirrors autoresearch — EMPTY (effectively unauthenticated)
 # so prod-vllm is a DROP-IN on :8003 for the current consumers, which send
