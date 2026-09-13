@@ -1,6 +1,6 @@
 # GPU mode-swap — toggle coder-LLM vs autoresearch-LLM on a single GPU
 
-**Date:** 2026-06-12 (v0.1 inline template) → 2026-06-13 (v0.2 promoted to repo)
+**Date:** 2026-06-12 (v0.1 inline template) → 2026-06-13 (v0.2 promoted to repo) → 2026-09-13 (modes expanded: `prod` / `ollama` / `judging`)
 **Status:** v0.2 — script lives at [`infra/dgx/bin/gpu-mode-swap.sh`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/gpu-mode-swap.sh); config via env vars (no fill-in required)
 **Reach:** runs on DGX directly (no remote invocation)
 
@@ -19,7 +19,7 @@ override any of them via env vars or `~/.config/gpu-mode.env`, see
 > | Knob | Default | Env var |
 > |---|---|---|
 > | Coder compose dir | `<repo>/infra/vllm/coder-next` | `GPU_MODE_CODER_DIR` |
-> | Research compose dir | `~/Projects/podcast_scraper/infra/dgx/vllm-autoresearch` | `GPU_MODE_RESEARCH_DIR` |
+> | Research compose dir | `<repo>/infra/vllm/autoresearch` | `GPU_MODE_RESEARCH_DIR` |
 > | Coder vLLM port | `9000` | `GPU_MODE_CODER_PORT` |
 > | Research vLLM port | `8003` | `GPU_MODE_RESEARCH_PORT` |
 > | Coder service name | `vllm-coder-next` | `GPU_MODE_CODER_SVC` |
@@ -42,12 +42,15 @@ mutex by design. Plus Ollama (`:11434`) takes a slice when actively
 serving. The mode-swap is the explicit, scriptable contract for which
 workload owns the GPU right now.
 
-Three modes:
+Modes (only one vLLM owns the GPU at a time):
 
 | Mode | What's up | When |
 |---|---|---|
-| `code` | coder-next vLLM | Day-to-day opencode / Claude Code work with local model |
-| `research` | autoresearch vLLM | Running podcast_scraper batch jobs / eval harness |
+| `code` | coder-next vLLM (:9000) | Day-to-day opencode / Claude Code work with local model |
+| `research` | autoresearch vLLM (:8003) | podcast_scraper eval / sweep harness |
+| `prod` | prod serving vLLM (:8003, 64k) | production serving — an identical EMPTY drop-in for autoresearch |
+| `ollama` | no vLLM; Ollama warm (podcast pipeline) | pipeline runtime — whisper/pyannote/moss + the pinned summary model |
+| `judging {a\|b\|n\|x}` | one judge vLLM (:8003) | multi-judge sweep phases (a / b / qwen-next / nemotron) |
 | `free` | neither | ML training, manual `nvidia-smi`-watching, freeing the box |
 
 ---
@@ -58,9 +61,11 @@ Three modes:
 gpu-mode                       # → show current state
 gpu-mode code                  # → switch to coder-next
 gpu-mode research              # → switch to autoresearch
-gpu-mode free                  # → bring both down
+gpu-mode prod                  # → switch to the prod serving vLLM (:8003, 64k)
+gpu-mode ollama                # → no vLLM; Ollama warm for the podcast pipeline
+gpu-mode free                  # → bring all vLLM down
 gpu-mode status                # → same as no-arg
-gpu-mode status --mode-only    # → just "code" / "research" / "free" (agent-friendly)
+gpu-mode status --mode-only    # → just "code" / "research" / "prod" / "ollama" / "free" (agent-friendly)
 gpu-mode code --json           # → switch + machine-readable result on stdout
 ```
 
@@ -144,9 +149,10 @@ nvidia-smi --query-gpu=memory.used --format=csv,noheader
 
 ### `wait_for_port` times out
 
-vLLM start can take longer than 120s on first run (downloading model, CUDA
-graph compile). Bump `wait_for_port "$start_port"` second arg to `300`,
-or pre-warm by running the compose once manually.
+vLLM start can take longer than 120s (model shard load + CUDA-graph /
+torch.compile — the 30B prod/research model needs ~170s cold). Raise the
+wait with `GPU_MODE_START_TIMEOUT=300 gpu-mode <mode>`, or pre-warm by
+running the compose once manually.
 
 If it's not first-run: check `cd <compose-dir> && sudo docker compose logs --tail=200`
 — most failures are `HF_TOKEN` missing or model revision mismatch.
@@ -181,16 +187,15 @@ another container) is bound to that port.
 
 ## Future improvements (not done)
 
-- **Healthcheck-aware wait** — instead of port-listening, poll
-  `curl localhost:<port>/v1/models` to confirm vLLM actually responds.
+- ~~**Healthcheck-aware wait**~~ — **done**: `do_swap` polls `/health` (not
+  just port-listening) before declaring a mode ready.
+- ~~**Mode = `ollama-only`**~~ — **done**: shipped as the `ollama` mode (no
+  vLLM; warms Ollama for the podcast pipeline).
 - **Pre-warmed swap** — keep the *idle* compose's image layers warm via
   `docker compose pull` on a cron, so `up` doesn't pay download cost.
 - **Auto-idle hook** — systemd timer that runs `gpu-mode free` if no
-  client has hit either vLLM for N minutes (frees GPU for opportunistic
+  client has hit any vLLM for N minutes (frees GPU for opportunistic
   Ollama use).
-- **Mode = `ollama-only`** — explicit fourth mode that brings both vLLM
-  composes down AND ensures Ollama is up. Currently `free` leaves Ollama
-  state alone.
 - **observability metric** — push current-mode as a custom Grafana label
   so dashboards can show "what owned the GPU at time T".
 
@@ -200,9 +205,11 @@ another container) is bound to that port.
 
 ```
 gpu-mode               # show status
-gpu-mode code          # coder-next vLLM up, autoresearch down
-gpu-mode research      # autoresearch up, coder-next down
-gpu-mode free          # both down
+gpu-mode code          # coder-next vLLM up (:9000), others down
+gpu-mode research      # autoresearch vLLM up (:8003), others down
+gpu-mode prod          # prod serving vLLM up (:8003, 64k), others down
+gpu-mode ollama        # no vLLM; Ollama warm (podcast pipeline)
+gpu-mode free          # all vLLM down
 
 Verify port:           ss -lnt | grep :<port>
 Verify GPU process:    nvidia-smi --query-compute-apps=pid,used_memory,process_name --format=csv,noheader
