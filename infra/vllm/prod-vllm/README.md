@@ -31,22 +31,23 @@ one may own the GPU at a time; `gpu-mode-swap.sh` enforces it. This stack binds
 `:8003` (the only ACL-permitted egress), same as autoresearch — which is why
 they are mutually exclusive, not concurrent.
 
-## Key handling (the security fix)
+## Key handling (EMPTY drop-in for now)
 
-`docker-compose.yml` uses `--api-key=${VLLM_API_KEY:?…}`, so `docker compose up`
-**fails fast** if the untracked `.env` has no real key. Generate one:
+`docker-compose.yml` uses `--api-key=${VLLM_API_KEY:-EMPTY}` — it **mirrors
+autoresearch's `EMPTY`** so prod-vllm is a drop-in on `:8003` for the current
+consumers, which send `Bearer EMPTY`. The prod/dev consumer configs can't be
+rotated to a new key right now, so requiring one here would 401 them all.
+Tailnet-only endpoint → defence-in-depth regardless.
 
-```bash
-openssl rand -hex 24    # → VLLM_API_KEY in .env (chmod 600, never committed)
-```
-
-Do not reuse `buddy-is-the-king` (the compose-fallback placeholder for the
-other stacks) or `EMPTY`. Tailnet-only endpoint → defence-in-depth.
+**Deferred improvement (2026-09-13):** once the consumers can take a new key,
+generate a real per-stack secret (`openssl rand -hex 24`), set it in the
+untracked `.env`, and tighten the compose back to `--api-key=${VLLM_API_KEY:?…}`
+so it fails fast on a missing key.
 
 ## Bring-up
 
 ```bash
-cp .env.example .env      # then fill HF_TOKEN + a generated VLLM_API_KEY
+cp .env.example .env      # HF_TOKEN from the shared cache; VLLM_API_KEY stays EMPTY
 gpu-mode-swap.sh prod-vllm
 ```
 

@@ -10,12 +10,13 @@
 # pipeline (no vLLM at all — Ollama serves the pinned summary model). This is a
 # real vLLM slot; its mode is `prod-vllm`. Keep the two distinct.
 #
-# SECURITY (why this differs from autoresearch): the API key is REQUIRED, not
-# defaulted. autoresearch/ falls back to `buddy-is-the-king` (and its live .env
-# was even `EMPTY`), i.e. effectively unauthenticated. Here `--api-key` uses
-# `${VLLM_API_KEY:?…}` so `docker compose up` FAILS if a real key isn't set in
-# the untracked .env — prod never silently serves on a well-known/empty key.
-# Tailnet-only endpoint, so this is defence-in-depth, not internet exposure.
+# AUTH (2026-09-13): mirrors autoresearch — EMPTY (effectively unauthenticated)
+# so prod-vllm is a DROP-IN on :8003 for the current consumers, which send
+# `Bearer EMPTY`. The prod consumer configs (prod VPS + dev) can't be rotated
+# right now, so requiring a real key here would 401 them all. Tailnet-only, so
+# this is defence-in-depth anyway. DEFERRED IMPROVEMENT: once the consumers can
+# take a new key, switch `--api-key` back to a required `${VLLM_API_KEY:?…}` and
+# set a real per-stack secret in the untracked .env.
 #
 # Default model: same pin as autoresearch — Qwen3-30B-A3B-Instruct-2507-FP4.
 # Default port: 8003 (the only ACL-permitted egress out of the DGX), shared
@@ -52,20 +53,23 @@ services:
       # for ZMQ; set VLLM_PORT=8090 in .env so the engine lands on 8091, clear
       # of moss:8004. (Same rationale as autoresearch, validated 2026-08-16.)
       - --port=8003
-      # REQUIRED — no default. Compose fails fast if the untracked .env has no
-      # real key, so prod never runs on a well-known or empty bearer.
-      - --api-key=${VLLM_API_KEY:?prod-vllm requires a real VLLM_API_KEY in .env — no default}
+      # EMPTY drop-in, matching autoresearch (see AUTH note in the header).
+      # Consumers send `Bearer EMPTY`; defaults to EMPTY if .env omits it.
+      # DEFERRED: tighten to `${VLLM_API_KEY:?…}` once consumers can rotate.
+      - --api-key=${VLLM_API_KEY:-EMPTY}
       - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.75}
       # Context window — 64k, matching autoresearch. Model is 256k-native
       # (max_position_embeddings 262144, rope_scaling null) so 64k needs no
       # RoPE/YaRN scaling; KV cache fp8_e4m3, MoE (~3B active) ≈ 48 KB/token →
       # ~3 GiB for a 64k request. Cost is concurrency, not memory. (2026-09-13)
       - --max-model-len=65536
-      # Advertise the REAL HF id FIRST (self-describing, fail-closed served-model
-      # checks pass) plus a `prod-vllm` alias so consumers can target by role.
+      # Served names IDENTICAL to autoresearch so prod-vllm is a true DROP-IN on
+      # :8003 — consumers calling the HF id OR `autoresearch` both resolve, no
+      # consumer config change. The stack/mode is still named prod-vllm; only the
+      # on-wire model names match autoresearch, by design (identical replacement).
       - --served-model-name
       - NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4
-      - prod-vllm
+      - autoresearch
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8003/health"]
       interval: 30s
