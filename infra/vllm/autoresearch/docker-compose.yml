@@ -75,11 +75,14 @@ services:
       # GPU budget — same 0.75 GB10 cap as coder-next. See PROD_RUNBOOK
       # § DGX vs cloud per stage for why 0.92 OOM-crashes the host.
       - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.75}
-      # Context window — Qwen 3.x family supports very long contexts;
-      # autoresearch summary inputs cap at ~30k tokens so we don't need
-      # the full 128k window. Reducing this frees KV-cache for higher
-      # throughput at sweep time.
-      - --max-model-len=32768
+      # Context window. NOT just an autoresearch knob: the podcast_scraper
+      # pipeline shares this endpoint and derives its episode-length policy
+      # from this flag. Raised 32k→64k (2026-09-13): the model is 256k-native
+      # (max_position_embeddings 262144, rope_scaling null), so 64k needs no
+      # RoPE/YaRN scaling and carries no long-context quality risk. KV cache is
+      # fp8_e4m3, MoE (~3B active) ≈ 48 KB/token → a 64k request costs ~3 GiB,
+      # well within the ~75 GiB free. Cost is concurrency (~6.1x → ~3x), not memory.
+      - --max-model-len=65536
       # ADR-144 phased dual-name migration (podcast_scraper): advertise the REAL HF id FIRST — so
       # podcast_scraper's fail-closed served-model check passes and its profiles are self-describing
       # (no `autoresearch` alias on the wire) — AND keep the legacy `autoresearch` alias so frozen

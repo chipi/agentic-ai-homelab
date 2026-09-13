@@ -56,7 +56,11 @@ services:
       # real key, so prod never runs on a well-known or empty bearer.
       - --api-key=${VLLM_API_KEY:?prod-vllm requires a real VLLM_API_KEY in .env — no default}
       - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.75}
-      - --max-model-len=32768
+      # Context window — 64k, matching autoresearch. Model is 256k-native
+      # (max_position_embeddings 262144, rope_scaling null) so 64k needs no
+      # RoPE/YaRN scaling; KV cache fp8_e4m3, MoE (~3B active) ≈ 48 KB/token →
+      # ~3 GiB for a 64k request. Cost is concurrency, not memory. (2026-09-13)
+      - --max-model-len=65536
       # Advertise the REAL HF id FIRST (self-describing, fail-closed served-model
       # checks pass) plus a `prod-vllm` alias so consumers can target by role.
       - --served-model-name
