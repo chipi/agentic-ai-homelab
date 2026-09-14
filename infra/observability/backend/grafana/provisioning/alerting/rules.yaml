@@ -895,3 +895,93 @@ groups:
 # systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
 # (with status codes) is not tailed into VictoriaLogs (status:* = 0 hits). Wire the
 # access log through Alloy first, then add a rule matching `status >= 500` on it.
+
+  # ---------------------------------------------------------------------------------
+  # Podcast content pipeline + enrichment.
+  #
+  # Added 2026-09-14. Until then NO dashboard and NO alert in this Grafana referenced
+  # enrichment, pipeline, ingest, asr, transcription or corpus — the product's core
+  # work was entirely unwatched, while podcast_pipeline_* metrics and ~2600 weekly
+  # pipeline_stage events sat unread. See podcast_scraper#2071.
+  #
+  # These are DEAD-MAN alerts first (did the work stop happening?) and failure alerts
+  # second. Silence is the failure mode that cost 30h on the homelab mini and let the
+  # people enricher sit dark since 2026-09-11.
+  # ---------------------------------------------------------------------------------
+  - orgId: 1
+    name: podcast-pipeline
+    folder: "Alerts"
+    interval: 5m
+    rules:
+      # --- Ingestion stopped ------------------------------------------------------
+      # The nightly runs at 03:00 daily, so 36h spans a missed night plus slack for a
+      # long run. Firing means no episode has been ingested for more than a full cycle.
+      - uid: podcast-ingest-stalled
+        title: "Podcast ingestion has not run in 36h"
+        condition: threshold
+        for: 30m
+        labels: { severity: critical, kind: podcast }
+        annotations:
+          summary: "No scheduled ingest triggered on prod-podcast for 36h — the nightly is not running."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 129600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(increase(podcast_scheduled_jobs_triggered_total{instance="prod-podcast"}[36h]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # --- Pipeline jobs failing --------------------------------------------------
+      - uid: podcast-pipeline-jobs-failing
+        title: "Podcast pipeline jobs failing"
+        condition: threshold
+        for: 15m
+        labels: { severity: warning, kind: podcast }
+        annotations:
+          summary: "{{ $value }} pipeline job(s) ended non-succeeded on prod-podcast in 6h."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 21600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(increase(podcast_pipeline_jobs_finished_total{instance="prod-podcast",status!="succeeded"}[6h]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      # --- An enricher is failing -------------------------------------------------
+      # Per-enricher so one broken enricher is named rather than hidden in a run-level
+      # "ok". org_web ran green for a day while deriving 0 rows.
+      - uid: podcast-enricher-failing
+        title: "Enricher failing on prod"
+        condition: threshold
+        for: 15m
+        labels: { severity: warning, kind: podcast }
+        annotations:
+          summary: "Enricher {{ $labels.enricher_id }} recorded {{ $value }} {{ $labels.outcome }} run(s) in 6h."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 21600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum by (enricher_id, outcome) (increase(podcast_enrichment_enricher_runs_total{instance="prod-podcast",outcome=~"failed|timeout|quarantined"}[6h]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
