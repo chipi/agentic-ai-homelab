@@ -26,6 +26,11 @@ services:
       DELIVERY_TENANTS_FILE: /app/tenants.yaml
       DELIVERY_METRICS_PORT: "9110"
       DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
+      # Traces → VictoriaTraces OTLP (published on the host :10428). obs.py gates
+      # on OTEL_EXPORTER_OTLP_ENDPOINT; the span exporter uses the TRACES endpoint
+      # as-is (VT's ingest path is /insert/opentelemetry/v1/traces).
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:10428
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:10428/insert/opentelemetry/v1/traces
     ports: ["127.0.0.1:9110:9110"]
     volumes: ["delivery-state:/var/lib/delivery"]
     restart: unless-stopped
@@ -52,6 +57,8 @@ services:
       DELIVERY_TENANTS_FILE: /app/tenants.yaml
       DELIVERY_METRICS_PORT: "9111"
       DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:10428
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:10428/insert/opentelemetry/v1/traces
     ports: ["127.0.0.1:9111:9111"]
     volumes: ["delivery-state:/var/lib/delivery"]
     restart: unless-stopped
@@ -79,6 +86,8 @@ services:
       DELIVERY_TENANTS_FILE: /app/tenants.yaml
       DELIVERY_METRICS_PORT: "9112"
       DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:10428
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:10428/insert/opentelemetry/v1/traces
     ports: ["127.0.0.1:9112:9112"]
     volumes: ["delivery-state:/var/lib/delivery"]
     restart: unless-stopped
