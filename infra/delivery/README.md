@@ -2,7 +2,9 @@
 
 Standalone, **multi-tenant** service that delivers digest emails + push nudges for any
 product on the homelab. **Homelab, tailnet-only, egress-only.** Email via the **Resend HTTP
-API**; **Web Push** is fully self-hosted (VAPID + RFC 8291, no third party). It is a **pure
+API**; **Web Push** is fully self-hosted (VAPID + RFC 8291, no third party); **native iOS
+push** via **APNs** (token-based ES256 JWT over HTTP/2) for Capacitor app builds that can't do
+Web Push. The push worker dispatches per subscription `kind` (`webpush` / `apns`). It is a **pure
 consumer** of the app↔infra delivery seam (podcast_scraper #1412 / ADR-145) — it shares no
 code with any app, only the vendored contract under `schema/<tenant>/` (see `schema/SYNC.md`).
 
@@ -24,8 +26,11 @@ tenants:
 ```
 
 One Resend account verifies every tenant's sending domain (shared `RESEND_API_KEY`), so
-email needs only a per-tenant `mail_from`. Push needs a per-tenant VAPID key. **Onboard a
-tenant:** add an entry + its templates/schema + its two secrets. That's it.
+email needs only a per-tenant `mail_from`. Web Push needs a per-tenant VAPID key; native iOS
+push needs the tenant's APNs `.p8` auth key (+ `apns_key_id`/`apns_team_id`/`apns_bundle_id`,
+and `apns_sandbox` matching the build's token: false for TestFlight/App Store, true for a
+dev-signed device build). **Onboard a tenant:** add an entry + its templates/schema + its
+secrets. That's it.
 
 Each channel service runs **one worker per tenant** (registry-driven); the events poller is
 a **single cross-tenant** loop (one Resend account) that routes each bounce back to the

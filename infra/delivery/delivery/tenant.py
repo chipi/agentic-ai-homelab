@@ -45,6 +45,22 @@ class TenantConfig:
     vapid_subject: str
     template_dir: Path
     schema_dir: Path
+    # APNs (native iOS push) — OPTIONAL (defaults keep existing constructors working). All four are
+    # needed to send to `apns` subscriptions; absent = the tenant does Web Push only. `apns_sandbox`
+    # targets Apple's sandbox host for development-signed device tokens; TestFlight/App Store = False.
+    apns_key: str = ""
+    apns_key_id: str = ""
+    apns_team_id: str = ""
+    apns_bundle_id: str = ""
+    apns_sandbox: bool = False
+
+    @property
+    def has_webpush(self) -> bool:
+        return bool(self.vapid_private_key)
+
+    @property
+    def has_apns(self) -> bool:
+        return bool(self.apns_key and self.apns_key_id and self.apns_team_id and self.apns_bundle_id)
 
     def missing_email_secrets(self) -> list[str]:
         return [] if self.internal_token else [f"{self.name}:internal_token"]
@@ -53,8 +69,9 @@ class TenantConfig:
         m = []
         if not self.internal_token:
             m.append(f"{self.name}:internal_token")
-        if not self.vapid_private_key:
-            m.append(f"{self.name}:vapid_private_key")
+        # The push worker serves web AND native subs, so at least ONE transport must be configured.
+        if not self.has_webpush and not self.has_apns:
+            m.append(f"{self.name}:vapid_private_key|apns_key")
         return m
 
 
@@ -77,6 +94,11 @@ def load_registry(
             unsubscribe_path=t.get("unsubscribe_path", "/api/app/comms/unsubscribe"),
             vapid_private_key=e.get(t.get("vapid_private_key_env", ""), ""),
             vapid_subject=t.get("vapid_subject", "mailto:info@" + t["app_origin"].split("//")[-1]),
+            apns_key=e.get(t.get("apns_key_env", ""), ""),
+            apns_key_id=t.get("apns_key_id", ""),
+            apns_team_id=t.get("apns_team_id", ""),
+            apns_bundle_id=t.get("apns_bundle_id", ""),
+            apns_sandbox=bool(t.get("apns_sandbox", False)),
             template_dir=base / "delivery" / "templates" / name,
             schema_dir=base / "schema" / name,
         )

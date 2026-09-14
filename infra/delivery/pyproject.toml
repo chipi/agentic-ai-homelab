@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Standalone outbound delivery worker (email via Resend + self-hosted Web Push) for the closelistening player. Pure consumer of the app↔infra delivery seam (#1412 / ADR-145)."
 requires-python = ">=3.11"
 dependencies = [
-  "httpx>=0.28.1,<1.0.0",       # Resend HTTP API + outbox seam + Web Push POST
+  "httpx[http2]>=0.28.1,<1.0.0", # Resend HTTP API + outbox seam + Web Push POST; http2 for APNs
   "jinja2>=3.1.6,<4.0.0",       # email/push rendering (extractive, D6 — no LLM)
   "cryptography>=44.0.0,<52.0.0",  # VAPID (RFC 8292) + aes128gcm (RFC 8291); no pywebpush
   "prometheus-client>=0.20.0,<1.0.0",  # /metrics for the homelab Alloy scrape

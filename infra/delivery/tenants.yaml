@@ -12,6 +12,15 @@ tenants:
     app_origin: https://closelistening.app
     unsubscribe_path: /api/app/comms/unsubscribe
     vapid_subject: mailto:info@closelistening.app
+    # APNs (native iOS push). The .p8 auth key rides in .env by name; the rest are non-secret ids.
+    # A prod build ships via TestFlight/App Store, so its device tokens are PRODUCTION → apns_sandbox
+    # stays false here. (A worker draining a dev outbox of development-signed / devicectl tokens would
+    # set apns_sandbox: true.) Fill apns_key_id with the .p8's Key ID from the Apple Developer portal.
+    apns_key_env: PODCAST_APNS_AUTH_KEY
+    apns_key_id: "38KC9BBJM4"
+    apns_team_id: "3P3PX275ZM"
+    apns_bundle_id: app.closelistening.player
+    apns_sandbox: false
 
   # Dev/test twin of podcast — drains the LOCAL dev player-api outbox (:8092)
   # alongside prod, so dev and prod deliver at the same time (one worker per

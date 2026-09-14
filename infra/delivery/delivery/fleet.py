@@ -20,6 +20,7 @@ from .sent_index import SentIndex
 from .tenant import TenantConfig
 from .transports import EmailTransport, PushTransport, Transport
 from .webpush import WebPushSender
+from .apns import ApnsSender, DispatchingPushSender
 from .worker import DeliveryWorker
 
 logger = logging.getLogger(__name__)
@@ -55,10 +56,23 @@ def build_channel_workers(
             transport = EmailTransport(renderer, resend, t.mail_from)
             sent_index = SentIndex(_sent_index_path(cfg))
         else:
-            sender = WebPushSender(
-                t.vapid_private_key, t.vapid_subject, timeout_sec=cfg.http_timeout_sec
-            )
-            transport = PushTransport(renderer, sender)
+            # One push worker serves a user's web AND native subscriptions; build whichever
+            # transports the tenant is configured for and dispatch by `subscription["kind"]`.
+            senders: dict[str, object] = {}
+            if t.has_webpush:
+                senders["webpush"] = WebPushSender(
+                    t.vapid_private_key, t.vapid_subject, timeout_sec=cfg.http_timeout_sec
+                )
+            if t.has_apns:
+                senders["apns"] = ApnsSender(
+                    t.apns_key,
+                    t.apns_key_id,
+                    t.apns_team_id,
+                    t.apns_bundle_id,
+                    use_sandbox=t.apns_sandbox,
+                    timeout_sec=cfg.http_timeout_sec,
+                )
+            transport = PushTransport(renderer, DispatchingPushSender(senders))
             sent_index = None  # push bounces (410/404) come back inline, not via the events poll
         workers.append(
             DeliveryWorker(
