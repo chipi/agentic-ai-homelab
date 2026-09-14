@@ -85,9 +85,15 @@ def load_registry(
     data = yaml.safe_load(reg_path.read_text(encoding="utf-8")) or {}
     out: dict[str, TenantConfig] = {}
     for name, t in (data.get("tenants") or {}).items():
+        # outbox_base_url is env-overridable (same *_env convention as secrets) so a
+        # dev tenant can follow the outbox across hosts without editing the baked
+        # registry: set `outbox_base_url_env` and the literal becomes the fallback
+        # default. Used by podcast-dev so the mini worker can point at whichever
+        # machine (mini host / laptop tailnet) is currently running the dev outbox.
+        outbox_url = e.get(t.get("outbox_base_url_env", ""), "") or t["outbox_base_url"]
         out[name] = TenantConfig(
             name=name,
-            outbox_base_url=t["outbox_base_url"],
+            outbox_base_url=outbox_url,
             internal_token=e.get(t.get("internal_token_env", ""), ""),
             mail_from=t["mail_from"],
             app_origin=t["app_origin"].rstrip("/"),

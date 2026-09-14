@@ -66,6 +66,31 @@ def test_email_fleet_one_worker_per_tenant(two_tenant_registry, tmp_path):
     assert {w._tenant for w in workers} == {"podcast", "orrery"}
 
 
+def test_outbox_base_url_env_override(tmp_path):
+    # outbox_base_url_env overrides the literal (so a dev tenant follows the outbox
+    # across hosts); the literal is the fallback default when the env is unset.
+    for t in ("podcast",):
+        (tmp_path / "delivery" / "templates" / t / "email").mkdir(parents=True)
+    reg = tmp_path / "tenants.yaml"
+    reg.write_text(
+        "tenants:\n"
+        "  podcast:\n"
+        "    outbox_base_url_env: PODCAST_DEV_OUTBOX_URL\n"
+        "    outbox_base_url: http://host.docker.internal:8092\n"
+        "    internal_token_env: PODCAST_TOK\n"
+        "    vapid_private_key_env: PODCAST_VAPID\n"
+        '    mail_from: "CL <d@mail.closelistening.app>"\n'
+        "    app_origin: https://closelistening.app\n"
+    )
+    base = {"PODCAST_TOK": "t", "PODCAST_VAPID": "v"}
+    # env set -> override wins
+    r = load_registry(str(reg), env={**base, "PODCAST_DEV_OUTBOX_URL": "http://lap.ts.net:8092"}, root=tmp_path)
+    assert r["podcast"].outbox_base_url == "http://lap.ts.net:8092"
+    # env unset -> literal default
+    r2 = load_registry(str(reg), env=base, root=tmp_path)
+    assert r2["podcast"].outbox_base_url == "http://host.docker.internal:8092"
+
+
 def test_tenant_missing_secret_is_skipped_not_fatal(tmp_path):
     for t in ("podcast", "orrery"):
         (tmp_path / "delivery" / "templates" / t / "email").mkdir(parents=True)

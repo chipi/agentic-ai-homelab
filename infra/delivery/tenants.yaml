@@ -31,13 +31,29 @@ tenants:
   # recipients. Requires templates/podcast-dev + schema/podcast-dev symlinks ->
   # podcast (templates/ is box-local, not in git).
   podcast-dev:
-    outbox_base_url: http://127.0.0.1:8092
+    # Where the dev outbox lives moves with the worktree (mini host or laptop over
+    # the tailnet), so the URL is env-overridable via PODCAST_DEV_OUTBOX_URL. The
+    # literal below is the DEFAULT used when that env is unset: host.docker.internal
+    # = the mini host, i.e. a dev API running in a mini worktree on :8092. To point
+    # at the laptop instead, set on the mini worker's .env:
+    #   PODCAST_DEV_OUTBOX_URL=http://markos-macbook-pro-1.tail6d0ed4.ts.net:8092
+    # (The dev API must bind 0.0.0.0:8092 so it's reachable over the tailnet.)
+    outbox_base_url_env: PODCAST_DEV_OUTBOX_URL
+    outbox_base_url: http://host.docker.internal:8092
     internal_token_env: PODCAST_INTERNAL_OUTBOX_TOKEN
     vapid_private_key_env: PODCAST_VAPID_PRIVATE_KEY
     mail_from: "Close Listening <digest@mail.closelistening.app>"
     app_origin: https://closelistening.app
     unsubscribe_path: /api/app/comms/unsubscribe
     vapid_subject: mailto:info@closelistening.app
+    # APNs (native iOS) — SANDBOX, for dev-signed device builds (Xcode/devicectl),
+    # whose tokens are sandbox-scoped. Same .p8 key as prod (env-agnostic); only the
+    # host differs. This is why a dev build can't hit the prod `podcast` tenant.
+    apns_key_env: PODCAST_APNS_AUTH_KEY
+    apns_key_id: "38KC9BBJM4"
+    apns_team_id: "3P3PX275ZM"
+    apns_bundle_id: app.closelistening.player
+    apns_sandbox: true
 
   # Example second tenant — orrery. Enable by verifying mail.orrerylearn.com in Resend,
   # generating an orrery VAPID keypair, filling its secrets, and adding its templates/schema.
