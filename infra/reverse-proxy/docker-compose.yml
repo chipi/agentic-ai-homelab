@@ -21,6 +21,7 @@ services:
       - langfuse_default
       - umami_default
       - glitchtip_default
+      - evals_default
 
 volumes:
   caddy_data:
@@ -36,4 +37,6 @@ networks:
   umami_default:
     external: true
   glitchtip_default:
+    external: true
+  evals_default:
     external: true

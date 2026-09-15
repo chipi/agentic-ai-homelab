@@ -56,3 +56,19 @@ https://hub.tail6d0ed4.ts.net {
 	bind tailscale/hub
 	reverse_proxy homelab-home:80
 }
+
+# Private eval research — docs site and the run_compare Streamlit UI. Source:
+# chipi/podcast-scraper-eval-data, deploy/homelab/. These pages quote real
+# episode transcripts and gold references, so tailnet-only exposure IS the
+# access control; they were on GitHub Pages before, which is public from a
+# private repo without Enterprise Cloud and cannot host Streamlit at all.
+https://evals.tail6d0ed4.ts.net {
+	bind tailscale/evals
+	reverse_proxy evals-docs:80
+}
+
+https://compare.tail6d0ed4.ts.net {
+	bind tailscale/compare
+	# Streamlit is websocket-driven; Caddy's reverse_proxy upgrades automatically.
+	reverse_proxy evals-compare:8501
+}
