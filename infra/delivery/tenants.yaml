@@ -32,14 +32,14 @@ tenants:
   # podcast (templates/ is box-local, not in git).
   podcast-dev:
     # Where the dev outbox lives moves with the worktree (mini host or laptop over
-    # the tailnet), so the URL is env-overridable via PODCAST_DEV_OUTBOX_URL. The
-    # literal below is the DEFAULT used when that env is unset: host.docker.internal
-    # = the mini host, i.e. a dev API running in a mini worktree on :8092. To point
-    # at the laptop instead, set on the mini worker's .env:
-    #   PODCAST_DEV_OUTBOX_URL=http://markos-macbook-pro-1.tail6d0ed4.ts.net:8092
-    # (The dev API must bind 0.0.0.0:8092 so it's reachable over the tailnet.)
+    # the tailnet), so the URL is env-overridable via PODCAST_DEV_OUTBOX_URL. Port
+    # 8000 = the `make serve-api` dev API (which serves /internal/outbox), now
+    # bound 0.0.0.0 by default so it's tailnet-reachable. Default below = a dev API
+    # in a mini worktree (host.docker.internal:8000). Use the `dev-outbox` helper
+    # (infra/delivery/bin/dev-outbox.sh) to point at the laptop instead:
+    #   dev-outbox laptop   # → PODCAST_DEV_OUTBOX_URL=http://<laptop-tailnet>:8000
     outbox_base_url_env: PODCAST_DEV_OUTBOX_URL
-    outbox_base_url: http://host.docker.internal:8092
+    outbox_base_url: http://host.docker.internal:8000
     internal_token_env: PODCAST_INTERNAL_OUTBOX_TOKEN
     vapid_private_key_env: PODCAST_VAPID_PRIVATE_KEY
     mail_from: "Close Listening <digest@mail.closelistening.app>"
