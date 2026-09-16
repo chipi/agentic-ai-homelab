@@ -1,43 +1,65 @@
-# prod-podcast `config.d` — where the real files live
+# MIRROR — do not edit these files by hand
 
-**Nothing in this directory is deployed from this repo.** The Alloy drop-ins that
-actually run on `prod-podcast` are owned and shipped by `podcast_scraper`:
+The `.alloy` files in this directory are **copies**. They are kept here so a checkout of
+this repo is a complete, runnable definition of the prod-podcast observability stack:
+`docker-compose.yml` one level up mounts `./config.d` into the Alloy container, so
+deleting them would leave a `docker compose up` starting Alloy with no configuration at
+all.
 
-| file | source |
+**Editing them here changes nothing on prod.** Nothing in this repo deploys them.
+
+| file | owner / source of truth |
 |---|---|
 | `base.alloy` | `podcast_scraper:infra/observability/base.alloy` |
 | `selfmon.alloy` | `podcast_scraper:infra/observability/selfmon.alloy` |
-| `player.alloy` / `operator.alloy` / `litellm.alloy` | `podcast_scraper:infra/observability/` |
+| `player.alloy`, `operator.alloy`, `litellm.alloy` | `podcast_scraper:infra/observability/` |
 
-All are deployed by `podcast_scraper:.github/workflows/deploy-config.yml`
-(scp → stage → atomic rename → `docker kill -s HUP alloy`). No root required.
+They reach the box via `podcast_scraper:.github/workflows/deploy-config.yml`
+(scp → stage → atomic rename → `docker kill -s HUP alloy`). No root required: the file
+on the box may be `root:root`, but `/opt/vps-observability/config.d` is
+`drwxrwxr-x deploy deploy` with no sticky bit, and replacing a file is governed by the
+directory's permissions, not the file's.
 
-## Why `base.alloy` was removed from here
+**To change one: edit it in `podcast_scraper`, deploy, then refresh the copy here in the
+same PR.**
 
-It sat here as a **mirror** that no deploy path shipped, and that is exactly how it
-broke. The box copy was hand-edited over SSH as root — twice; the `.bak-<timestamp>`
-siblings on the box are the fingerprint — while this copy was edited separately and
-never shipped. The two silently diverged by 41 lines, so this repo described a
-production that did not exist: a reader would reasonably conclude prod did W3C/Sentry
-trace-ID extraction into structured metadata and collected the widened cadvisor
-keep-list (PSI pressure, cpu user/system split, scrape errors). It did neither.
+## Why this warning exists
 
-A second copy with no deploy path is not documentation — it is a claim nobody checks.
-One file, one owner, one deploy path.
+`base.alloy` had no deploy path at all until 2026-09-16. It was hand-edited over SSH as
+root — twice; the `.bak-<timestamp>` siblings on the box are the fingerprint, and nothing
+in either repo creates those. Meanwhile this copy was edited separately and never
+shipped.
 
-## The unshipped work is not lost
+The two diverged by 41 lines, with **this copy the larger and newer of the pair**. So the
+divergence did not read as staleness, it read as fact: anyone here would reasonably
+conclude prod extracted W3C/Sentry trace IDs into structured metadata and collected the
+widened cadvisor keep-list (PSI pressure, cpu user/system split, scrape errors). Prod did
+neither, and never had.
 
-The larger variant — `loki.process.homelab_std` trace-ID extraction plus the widened
-cadvisor keep-list — is preserved in this repo's history at commit `4407569`:
+That is what this banner exists to prevent — not a stale copy, but a confident one. A
+mirror is useful; a mirror nobody knows is a mirror is a claim nobody checks.
+
+## Pending: the 41 lines
+
+The larger variant is preserved at commit `4407569`:
 
 ```bash
 git show 4407569:infra/observability/hosts/prod-podcast/config.d/base.alloy
 ```
 
-It lands deliberately as a follow-up, through the `podcast_scraper` deploy loop, and
-only **after** the byte-identical adoption of the running config is proven green. That
-ordering is the point: adopt with zero behaviour change first, so any failure identifies
-the pipeline rather than the content; then change behaviour through a pipeline already
-known to work.
+It lands deliberately through the `podcast_scraper` deploy loop *after* the
+byte-identical adoption of the running config is proven green — adopt with zero
+behaviour change first, so a failure identifies the pipeline rather than the content,
+then change behaviour through a pipeline already known to work.
 
 Context: `chipi/agentic-ai-homelab#64`.
+
+## Known: the `docker-compose.yml` one level up is also a mirror, and is also drifted
+
+```
+live on prod : a3e682623ac7e8dd8a81cdabdb6a9bd0
+this repo    : c8ab553f73de9141f93d36e5ef4e287a
+```
+
+Same category of problem, **no deploy path owns that file either**, and it is not fixed.
+Treat it as documentation, not as truth, until it is adopted the same way.
