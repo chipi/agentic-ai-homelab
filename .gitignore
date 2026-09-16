@@ -65,3 +65,11 @@ infra/mini-metrics/openrouter-verticals.env
 
 # prod langfuse keys for the export health check (secret; prod agent drops it in)
 infra/langfuse-check/prod.env
+
+# LibreChat on the DGX — deliberately box-local experimental work, not fleet infra.
+# It runs there (librechat-api / -meilisearch / -mongodb) and is meant to STAY, but it
+# is not tracked. Ignoring it keeps `git status` on the DGX honest: a genuinely new
+# untracked file stands out instead of hiding in permanent noise. If it ever graduates
+# from experiment to something the fleet depends on, TRACK it rather than deleting this
+# line — an untracked service that something relies on is how a config gets lost.
+infra/librechat/
