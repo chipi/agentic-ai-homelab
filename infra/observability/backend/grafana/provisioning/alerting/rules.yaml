@@ -1106,3 +1106,202 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+  # =================================================================================
+  # TELEMETRY INGEST DEAD-MAN SWITCHES — "is the observability itself alive?"
+  #
+  # Why this group exists (incident 2026-09-16, podcast_scraper#64): prod shipped NO
+  # logs for 5h11m (08:29 -> 13:40) and nothing fired. `prod-podcast dark` stayed green
+  # the whole time because it measures node_load1 — a METRIC — and metrics never
+  # stopped: Alloy's REMOTE_WRITE_URL fell back to the raw homelab:8428 (still allowed
+  # by the tailnet ACL) while LOGS_WRITE_URL fell back to homelab:9428 (revoked when
+  # telemetry moved to the TLS nodes). Box alive, metrics alive, logs silently binned.
+  #
+  # The dangerous part is second-order. There are already 9 log-based alert rules
+  # (SSH auth failures, fail2ban, ...). They use `noDataState: OK`, so when log
+  # ingestion dies they do not error — they evaluate empty and go quiet. Losing the
+  # signal ALSO disarms every alarm built on it, and the board gets quieter rather
+  # than louder. Silence is indistinguishable from health. That is the failure mode
+  # worth buying insurance against.
+  #
+  # Hence `noDataState: Alerting` + `execErrState: Alerting` on everything here: for a
+  # dead-man switch, "no data" IS the alert, and a datasource error means the thing we
+  # rely on to tell us the truth cannot be reached — also worth waking up for. This is
+  # the deliberate inverse of the security rules above.
+  #
+  # Thresholds are measured, not guessed (24h sample, 2026-09-16):
+  #   prod-podcast  quietest 15m bucket = 71 lines   (15m at 0 is unambiguous)
+  #   homelab       ~9,200 per 15m
+  #   dgx-llm-1     ~530 per 15m
+  #
+  # WHAT THIS GROUP STILL DOES NOT COVER — the honest gap, verified not assumed:
+  # the 2026-09-16 incident was PARTIAL, not total. Prod kept shipping at ~30% for
+  # five hours (per-job: systemd-journal 19,852 -> 2,489 over a comparable 3h window,
+  # -87%, while another stream was untouched). Three candidate detectors were checked
+  # against the real data and only the third works:
+  #   1. dead-man on zero          — would NOT have fired; no bucket ever hit zero.
+  #   2. alert on Alloy's own "dropping data" error lines — cannot work: prod does
+  #      not ship its Alloy container logs (`"dropping data"` count in VictoriaLogs
+  #      over the whole outage = 0, while the container's own stderr had them).
+  #   3. sender-side loki_write_dropped_entries_total — exact and unambiguous, but
+  #      exists ONLY for dgx-llm-1. `up{job="alloy"}` has no prod-podcast series;
+  #      prod's Alloy does not scrape itself.
+  # That asymmetry is the root reason the DGX had alarms for this failure class and
+  # prod did not. The real fix is making prod's Alloy observable (self-scrape its
+  # /metrics, deployable via deploy-config.yml, no root) — until then prod has the
+  # coarse dark rule plus the statistical rate-drop rule, neither as good as a
+  # counter that simply says "I threw away N lines".
+  # =================================================================================
+  - orgId: 1
+    name: telemetry-ingest
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      # --- prod logs dark ---------------------------------------------------------
+      # Catches TOTAL loss of prod logs. Be clear about what it does NOT catch:
+      # it would NOT have fired during the 2026-09-16 incident this group was written
+      # for. Measured after the fact, every one of the 21 fifteen-minute buckets from
+      # 08:30 to 13:45 was non-empty — lowest 485 lines, against a ~2000 normal — and
+      # a legitimately quiet bucket the previous day held 71, LOWER than anything
+      # during the outage. Shipping degraded ~70%, it never stopped, so no absolute
+      # floor can separate the two.
+      #
+      # A relative rate-drop rule was designed as the backstop and then ABANDONED on
+      # the data: prod's journal volume over 24h runs min 3 / median 845 / max 10,196
+      # lines per hour on the same stream, and yesterday afternoon's legitimate
+      # 66-277/hr sits BELOW the 763-874/hr measured mid-outage. Any percentage-drop
+      # threshold that fires on the incident also fires most evenings. Partial
+      # degradation is therefore NOT covered by volume analysis at all — it needs the
+      # sender-side counter (see the group header). Total loss is covered here.
+      - uid: ingest-logs-prod-dark
+        title: "prod logs dark (no lines 15m) — shipping broken, box may be fine"
+        condition: threshold
+        for: 0m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severity: critical, kind: telemetry }
+        annotations:
+          summary: "No log lines from prod-podcast for 15m. The box can be perfectly healthy — check the SHIPPER, not the host. Most likely Alloy lost its endpoints override: `docker inspect alloy --format '{{index .Config.Labels \"com.docker.compose.project.config_files\"}}'` must list .vps-observability-endpoints.override.yml. If missing, re-run deploy-vps-observability-endpoints.yml (a bare `docker compose up -d alloy` silently reverts to the raw, ACL-revoked homelab:9428)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast | stats count() as value'
+              queryType: instant
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # --- homelab logs dark ------------------------------------------------------
+      # Highest-volume source and the collector host itself. Partially self-defeating
+      # (Grafana runs here, so a total homelab outage takes the alerting with it) —
+      # kept anyway because the common case is the SHIPPER dying while the host lives,
+      # which is exactly what this catches and what just happened on prod.
+      - uid: ingest-logs-homelab-dark
+        title: "homelab logs dark (no lines 15m)"
+        condition: threshold
+        for: 0m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severity: critical, kind: telemetry }
+        annotations:
+          summary: "No log lines from homelab for 15m (normally ~9k/15m). Check the local Alloy/collector on the mini before assuming a host problem."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:homelab | stats count() as value'
+              queryType: instant
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # --- dgx logs dark ----------------------------------------------------------
+      # WARNING, not critical, and deliberately so: the DGX is powered off on purpose,
+      # and `DGX dark (no samples 10m)` already covers box-down. This rule earns its
+      # place only for the logs-broken-while-box-alive case, so it should not page at
+      # the same severity as a host loss. Expect it to accompany `DGX dark` during a
+      # planned shutdown — that pairing is the signal that the box is off, not broken.
+      - uid: ingest-logs-dgx-dark
+        title: "DGX logs dark (no lines 15m)"
+        condition: threshold
+        for: 0m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severity: warning, kind: telemetry }
+        annotations:
+          summary: "No log lines from dgx-llm-1 for 15m (normally ~530/15m). If `DGX dark` is also firing the box is off/wedged; if NOT, the box is alive and only log shipping is broken."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:dgx-llm-1 | stats count() as value'
+              queryType: instant
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # --- DGX Alloy is dropping log entries at the sender -------------------------
+      # Catches the failure at the SOURCE, before the sink goes quiet: Alloy counts
+      # what it throws away. Fires while logs are still partially flowing, so it beats
+      # the dark rules to the punch on a degrading link rather than a dead one.
+      #
+      # DGX ONLY, and that asymmetry is the point: `up{job="alloy"}` and
+      # loki_write_dropped_entries_total exist for dgx-llm-1 and for NOTHING else —
+      # prod's Alloy does not scrape itself. That is the structural reason prod had
+      # weaker coverage than the DGX going into this incident. Closing it needs a
+      # scrape target added to prod's config.d (deployable via deploy-config.yml, no
+      # root); until then prod is covered only by the coarser dark rule above.
+      - uid: ingest-alloy-dropping-dgx
+        title: "DGX Alloy is dropping log entries (sender-side)"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: telemetry }
+        annotations:
+          summary: "Alloy on dgx-llm-1 dropped log entries in the last 15m — the sink is rejecting or unreachable. Check `reason` (queue_is_full / ingester_error / rate_limited) and whether the logs endpoint is still permitted by the tailnet ACL."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(increase(loki_write_dropped_entries_total{instance="dgx-llm-1"}[15m])) or vector(0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
