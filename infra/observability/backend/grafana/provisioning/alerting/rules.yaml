@@ -1178,6 +1178,56 @@ groups:
     folder: "Alerts"
     interval: 1m
     rules:
+      # --- container crashlooping on prod ---------------------------------------
+      # THE ALERT THAT WOULD HAVE CAUGHT THE WORST OUTAGE WE HAVE HAD, and did not exist
+      # until 2026-09-16 even though the data was already being collected.
+      #
+      # 2026-09-15: a reboot wiped /dev/shm, so player-api-1 and operator-api-1 could not
+      # start (runc fails the MOUNT -> Exited(127), no app logs at all). One layer down,
+      # both nginx containers crashlooped ~527 times each, because nginx resolves its
+      # proxy_pass upstream at startup and each project's own api was the dead thing.
+      # Nothing alerted for 9.5 hours.
+      #
+      # Why nothing fired, and why the obvious rules still would not:
+      #   * `Scrape target down (up==0)` — player-api-1 / operator-api-1 are NOT scraped.
+      #     base.alloy's discovery.relabel "api" keeps only `/compose-api-1`.
+      #   * the `*logs dark` rules — the box was alive and still shipping journal + caddy
+      #     logs, so log volume looked normal throughout.
+      #   * public HTTP checks — visitors saw the coming-soon page, which returns 200.
+      #
+      # cadvisor was scraping those containers BY NAME the entire time. The signal existed
+      # and nobody read it. container_start_time_seconds changes on every (re)start, so
+      # counting changes is a direct crashloop detector, independent of whether the app
+      # has metrics, logs, or even manages to execute a single instruction.
+      #
+      # Threshold >3 in 15m, measured not guessed: a normal deploy produces exactly ONE
+      # restart per container (verified against the 2026-09-16 deploy — every container
+      # showed changes()==1 over 3h). A crashloop produces dozens. The gap between 1 and
+      # "dozens" is wide enough that this will not page on ordinary deploys.
+      - uid: ingest-container-crashloop
+        title: "Container crashlooping on prod (restart storm)"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "{{ $labels.name }} on prod-podcast restarted >3 times in 15m — a crashloop, not a deploy. If it is an nginx/web container, suspect its OWN api container is dead rather than nginx itself: nginx resolves proxy_pass at startup. Exited(127) with no app logs means runc failed a MOUNT — after a reboot that is /dev/shm, so run restage-prod-secrets.yml (surfaces: all). See DEPLOY_GOTCHAS.md §1b."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max by (name) (changes(container_start_time_seconds{instance="prod-podcast",name!=""}[15m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [3] } }]
+
       # --- prod logs dark ---------------------------------------------------------
       # Catches TOTAL loss of prod logs. Be clear about what it does NOT catch:
       # it would NOT have fired during the 2026-09-16 incident this group was written
