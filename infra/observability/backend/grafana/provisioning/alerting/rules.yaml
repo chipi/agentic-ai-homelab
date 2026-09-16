@@ -1188,7 +1188,7 @@ groups:
             datasourceUid: victorialogs
             model:
               expr: 'instance:prod-podcast | stats count() as value'
-              queryType: instant
+              queryType: stats
           - refId: reduced
             datasourceUid: __expr__
             model:
@@ -1222,7 +1222,7 @@ groups:
             datasourceUid: victorialogs
             model:
               expr: 'instance:homelab | stats count() as value'
-              queryType: instant
+              queryType: stats
           - refId: reduced
             datasourceUid: __expr__
             model:
@@ -1257,7 +1257,7 @@ groups:
             datasourceUid: victorialogs
             model:
               expr: 'instance:dgx-llm-1 | stats count() as value'
-              queryType: instant
+              queryType: stats
           - refId: reduced
             datasourceUid: __expr__
             model:
@@ -1298,7 +1298,7 @@ groups:
             model:
               expr: 'sum(increase(loki_write_dropped_entries_total{instance="dgx-llm-1"}[15m])) or vector(0)'
               instant: true
-              queryType: instant
+              queryType: stats
           - refId: threshold
             datasourceUid: __expr__
             model:
