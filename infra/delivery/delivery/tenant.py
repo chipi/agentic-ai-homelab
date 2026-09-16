@@ -90,7 +90,19 @@ def load_registry(
         # registry: set `outbox_base_url_env` and the literal becomes the fallback
         # default. Used by podcast-dev so the mini worker can point at whichever
         # machine (mini host / laptop tailnet) is currently running the dev outbox.
-        outbox_url = e.get(t.get("outbox_base_url_env", ""), "") or t["outbox_base_url"]
+        outbox_url = e.get(t.get("outbox_base_url_env", ""), "") or t.get("outbox_base_url", "")
+        # A tenant with no resolvable outbox is SKIPPED, not loaded with a dead address.
+        # podcast-dev used to carry a literal `http://host.docker.internal:8000` fallback — a
+        # developer-laptop address. On the always-on homelab worker nothing listens there, so
+        # every poll cycle produced one success for `podcast` and one ConnectError traceback for
+        # `podcast-dev`: ~480/hour across the workers, ~11k/day, burying real errors in the log
+        # anyone greps first during a delivery incident.
+        #
+        # The dev tenant now activates ONLY when its *_env var is exported (PODCAST_DEV_OUTBOX_URL),
+        # which is exactly what a developer does locally and nobody does in prod. Fail silent and
+        # absent beats fail loud and useless.
+        if not outbox_url:
+            continue
         out[name] = TenantConfig(
             name=name,
             outbox_base_url=outbox_url,

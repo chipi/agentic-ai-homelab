@@ -39,7 +39,10 @@ tenants:
     # (infra/delivery/bin/dev-outbox.sh) to point at the laptop instead:
     #   dev-outbox laptop   # → PODCAST_DEV_OUTBOX_URL=http://<laptop-tailnet>:8000
     outbox_base_url_env: PODCAST_DEV_OUTBOX_URL
-    outbox_base_url: http://host.docker.internal:8000
+    # NO literal fallback on purpose: export PODCAST_DEV_OUTBOX_URL to activate this tenant
+    # locally. Without it the tenant is skipped entirely (see tenant.py load_registry), so the
+    # always-on homelab worker does not poll a developer-laptop address it can never reach.
+    # outbox_base_url: http://host.docker.internal:8000
     internal_token_env: PODCAST_INTERNAL_OUTBOX_TOKEN
     vapid_private_key_env: PODCAST_VAPID_PRIVATE_KEY
     mail_from: "Close Listening <digest@mail.closelistening.app>"

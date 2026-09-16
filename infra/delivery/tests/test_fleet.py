@@ -253,3 +253,35 @@ def test_timezone_naive_created_at_treated_as_utc(tmp_path):
 
     poller.poll_once()
     assert "m_4" in resolved
+
+
+def test_tenant_without_resolvable_outbox_is_skipped(tmp_path):
+    """A tenant whose outbox cannot be resolved must be ABSENT, not loaded with a dead URL.
+
+    podcast-dev carried a literal `http://host.docker.internal:8000` — a developer-laptop
+    address. On the always-on homelab worker nothing listens there, so every poll cycle
+    produced one success for `podcast` and one ConnectError traceback for `podcast-dev`:
+    ~480/hour, ~11k/day, burying real errors in the first log anyone greps during an incident.
+    """
+    from delivery.tenant import load_registry
+
+    reg = tmp_path / "tenants.yaml"
+    reg.write_text(
+        "tenants:\n"
+        "  live:\n"
+        "    outbox_base_url: http://127.0.0.1:9999\n"
+        "    mail_from: a@b.c\n"
+        "    app_origin: https://b.c\n"
+        "  devonly:\n"
+        "    outbox_base_url_env: SOME_DEV_URL\n"
+        "    mail_from: a@b.c\n"
+        "    app_origin: https://b.c\n",
+        encoding="utf-8",
+    )
+
+    without = load_registry(path=str(reg), env={})
+    assert "live" in without
+    assert "devonly" not in without, "a tenant with no resolvable outbox must be skipped"
+
+    with_env = load_registry(path=str(reg), env={"SOME_DEV_URL": "http://127.0.0.1:8123"})
+    assert with_env["devonly"].outbox_base_url == "http://127.0.0.1:8123"
