@@ -201,7 +201,7 @@ groups:
       # (#61) — so this is the SECONDARY signal; dgx-memfree-crit above rides
       # node_exporter and is primary.
       #
-      # 70GB, raised from 60GB on 2026-09-16 after 60 proved to be the machine's
+      # 75GB, raised from 60GB on 2026-09-16 after 60 proved to be the machine's
       # LEGITIMATE CEILING rather than an anomaly line. The box budgets out as:
       #   vLLM        ~30GB  (pinned: --gpu-memory-utilization=0.25)
       #   ollama      ~24GB  (worst case: a 35B model at OLLAMA_CONTEXT_LENGTH=32768)
@@ -215,15 +215,32 @@ groups:
       #   >60GB  51 firings (7.3/day)      >70GB   7 firings (1.0/day)
       #   >65GB  46 firings (6.6/day)      >75-80  7 firings (identical to 70)
       #   >85GB   2 firings — catches NEITHER wedge
-      # The cliff is between 65 and 70 (46 -> 7). 70 buys the earliest warning inside
-      # the quiet band; 75/78/80 are equivalent on this data if more margin is wanted.
+      # The cliff is between 65 and 70 (46 -> 7), and 70/75/78/80 are IDENTICAL on this
+      # data, so the choice inside that range costs nothing in detection. 75 is picked
+      # because it is where healthy operation empirically stops existing. MemFree by
+      # GPU band over 8,867 samples — note the MAX column, not the min:
+      #     GPU 65-75   n=218   MemFree min 0.71  median 11.56  max 46.00
+      #     GPU 75-85   n= 37   MemFree min 1.16  median  3.83  max  6.71
+      #     GPU 85+     n= 10   MemFree min 1.04  median  2.29  max  3.78
+      # Above 75GB the BEST free memory ever observed is 6.71GB; the 65-75 band is
+      # frequently healthy (median 11.56GB), so alerting below 75 fires on good states.
+      # Samples with GPU>75GB *and* MemFree>8GB: ZERO.
+      #
+      # Why the envelope is not the full 128GB: page cache does not yield as the GPU
+      # grows — it holds ~25-37GB across every band — so GPU+cache climbs into the
+      # ceiling and MemFree is only the remainder:
+      #     GPU  0-40  median GPU+cache  73.9GB      GPU 65-75  median 104.5GB
+      #     GPU 55-65  median GPU+cache  97.1GB      GPU 75-85  median 110.5GB
+      # Usable GPU envelope is therefore ~130 - 35 (cache) - 10 (safety) ~= 85GB.
+      # If vLLM's --gpu-memory-utilization is ever raised above 0.25, this budget and
+      # this threshold both have to be recomputed.
       #
       # KNOWN LIMIT: no GPU threshold can catch the freeze-2 class. That wedge peaked
       # at only 62.46GB — inside the normal band — because the killer was GPU plus
       # ~54GB of page cache, not GPU alone. dgx-memfree-crit is the only rule that
       # catches both wedges; this one exists to lead it, not to replace it.
       - uid: dgx-gpu-mem-overcommit
-        title: "DGX GPU allocation overcommitted (>70GB of the 130GB unified pool)"
+        title: "DGX GPU allocation overcommitted (>75GB of the 130GB unified pool)"
         condition: threshold
         for: 2m
         noDataState: OK
@@ -243,7 +260,7 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [70000000000] } }]
+              conditions: [{ evaluator: { type: gt, params: [75000000000] } }]
 
       # --- Kernel OOM killer fired ---------------------------------------------------
       # The after-the-fact but NAMED signal: even when pressure spikes too fast
