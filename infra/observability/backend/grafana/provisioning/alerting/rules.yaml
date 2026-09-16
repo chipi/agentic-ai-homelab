@@ -7,6 +7,27 @@
 # routes to the default channel.
 apiVersion: 1
 
+# A NOTE ON execErrState — read before setting it to OK again.
+#
+# `execErrState: OK` means "if this rule fails to evaluate, report Normal". It does not
+# make the rule resilient; it makes the rule's FAILURE invisible. On 2026-09-16 four
+# rules — SSH auth failures, fail2ban, orrery-launch-data-stale, delivery-scheduler-silent
+# — were found erroring on EVERY evaluation, and had been for at least 8 hours, while the
+# rule list showed state=inactive health=ok. Grafana's state history told the truth:
+#
+#     prev=Normal  next=Normal (Error)
+#
+# All four carried execErrState: OK. That is not a coincidence — it is the mechanism.
+# The two security rules among them had never been capable of firing: a brute-force
+# burst or a ban would have produced silence.
+#
+# An execution error means THE ALERT IS NOT WORKING. That always warrants attention,
+# and it is the one failure a monitoring system cannot afford to hide, because it looks
+# identical to health. Every rule here is now Alerting on exec error (explicitly, or by
+# Grafana's default when unset). If a specific rule proves noisy, fix that rule's query
+# — do not re-hide it.
+
+
 groups:
   - orgId: 1
     name: infra-health
@@ -528,7 +549,7 @@ groups:
         condition: threshold
         for: 5m
         noDataState: OK
-        execErrState: OK
+        execErrState: Alerting
         labels: { tenant: common, severity: warning, kind: security }
         annotations:
           summary: "Elevated SSH auth failures/probes on prod-podcast (>15 in 5m)."
@@ -561,7 +582,7 @@ groups:
         condition: threshold
         for: 0m
         noDataState: OK
-        execErrState: OK
+        execErrState: Alerting
         labels: { tenant: common, severity: critical, kind: security }
         annotations:
           summary: "fail2ban banned a host on prod-podcast — a jail tripped."
@@ -603,7 +624,7 @@ groups:
         condition: threshold
         for: 15m
         noDataState: Alerting
-        execErrState: OK
+        execErrState: Alerting
         labels: { severity: warning, kind: orrery }
         annotations:
           summary: "No successful launch-data refresh on orrerylearn.com in 7h — the 6h VPS cron missed a run or the fetch is failing (job=orrery-data-refresh)."
@@ -888,7 +909,7 @@ groups:
         condition: threshold
         for: 0s
         noDataState: Alerting
-        execErrState: OK
+        execErrState: Alerting
         labels: { severity: warning, kind: delivery }
         annotations:
           summary: "No digest-scheduler ticks in 2h — the player sidecar is dark; 'Your Week' digests are not being enqueued. On prod: docker logs player-digest-scheduler-1; the compose sidecar (restart:unless-stopped) should recover it."
@@ -932,7 +953,7 @@ groups:
         condition: threshold
         for: 15m
         noDataState: Alerting
-        execErrState: OK
+        execErrState: Alerting
         labels: { severity: warning, kind: app }
         annotations:
           summary: "prod_ops_health for app={{ $labels.app }} last ran >27h ago — the daily health pusher is dead (GH cron disabled? runner or VPS broken?). The home page shows STALE; check the app repo's prod-ops-health workflow."
@@ -962,7 +983,7 @@ groups:
         condition: threshold
         for: 5m
         noDataState: Alerting
-        execErrState: OK
+        execErrState: Alerting
         labels: { severity: warning, kind: infra }
         annotations:
           summary: "dgx_gpu_metrics_last_run_timestamp is >10m old — per-container GPU memory attribution is dark. On dgx-llm-1: systemctl status gpu-process-metrics.timer; journalctl -u gpu-process-metrics.service -n 20."
@@ -993,7 +1014,7 @@ groups:
         condition: threshold
         for: 15m
         noDataState: Alerting
-        execErrState: OK
+        execErrState: Alerting
         labels: { severity: warning, kind: infra }
         annotations:
           summary: "docker-prune hasn't completed in >8 days — colima disk bloat is accumulating again. Check: launchctl list | grep docker-prune on the mini; log at /tmp/docker-prune.log."
@@ -1304,4 +1325,115 @@ groups:
             model:
               type: threshold
               expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+  # =================================================================================
+  # ENRICHMENT (adopted from Grafana's DB, 2026-09-16)
+  #
+  # These three rules existed ONLY in Grafana's database — created through the UI,
+  # `provenance: (none)`, in no repo, never code-reviewed, and gone the moment that DB
+  # is lost or rebuilt. Same class of problem as the unowned base.alloy (#64): live
+  # state that nothing describes.
+  #
+  # Adopted verbatim in query and threshold — they were well-formed, and notably they
+  # already used `queryType: stats`, which is the CORRECT shape. The older file-based
+  # VictoriaLogs rules used `instant` and had been erroring on every evaluation. So the
+  # UI-authored rules were the good ones; the reviewed-in-repo ones were broken. Worth
+  # remembering before assuming "in the repo" implies "correct".
+  #
+  # Changed on adoption:
+  #   folder      common-box-edge -> Alerts   (routing is by LABEL matchers, verified in
+  #                                            policies.yaml — no route references a
+  #                                            folder, so this is behaviour-neutral)
+  #   execErrState -> Alerting                (see the note on the security group)
+  # Labels preserved exactly, because routing depends on them.
+  # =================================================================================
+  - orgId: 1
+    name: enrichment-common
+    folder: "Alerts"
+    interval: 5m
+    rules:
+      # Dead-man: no enrichment run has COMPLETED in ~2 days. `for: 1d` on top of a 2d
+      # window is deliberate — this is a slow chain and a single missed night is normal.
+      - uid: enrich-common-stale
+        title: "Corpus enrichment has stopped completing"
+        condition: threshold
+        for: 1d
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { app: podcast, kind: enrichment, severity: warning }
+        annotations:
+          summary: "No corpus_enrichment run has completed in ~2 days — the enrichment chain may be stalled (paused drain, orphaned enqueue, or a crashing run)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 172800, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast "enrichment: run complete" | stats count() as n'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model: { type: reduce, expression: q, reducer: last }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # The drain is what promotes queued jobs. Paused for minutes = nothing is moving.
+      # >10 occurrences in 10m rather than >0: the message repeats per poll, so a single
+      # transient pause would otherwise page.
+      - uid: enrich-common-drain-paused
+        title: "Enrichment/job drain paused"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { app: podcast, kind: enrichment, severity: warning }
+        annotations:
+          summary: "The job queue drain has been paused for several minutes — queued enrichment (and pipeline) jobs are not being promoted."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast "job queue: drain paused" | stats count() as n'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model: { type: reduce, expression: q, reducer: last }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [10] } }]
+
+      # A run that finishes failed/partial produced no envelope for at least one
+      # enricher — the corpus is quietly incomplete rather than loudly broken.
+      - uid: enrich-common-run-failed
+        title: "Enrichment run completed FAILED or PARTIAL"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels: { app: podcast, kind: enrichment, severity: warning }
+        annotations:
+          summary: "A corpus enrichment run finished with status=failed or status=partial — at least one enricher did not produce its envelope. Check /api/enrichment/status."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast "enrichment: run complete" ("status=partial" OR "status=failed") | stats count() as n'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model: { type: reduce, expression: q, reducer: last }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
               conditions: [{ evaluator: { type: gt, params: [0] } }]
