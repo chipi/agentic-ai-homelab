@@ -9,21 +9,45 @@
 #
 #   prod — production SERVING vLLM slot on :8003 (infra/vllm/prod-vllm).
 #          A real vLLM, single-owner-at-a-time like research.
-#          STOPS THE OLLAMA DAEMON, it does not merely flush it. Flushing unloads
-#          resident models but leaves the daemon listening, so one request reloads
-#          one — and that load/unload CYCLE wedged this host three times on
-#          2026-09-15/16, each needing a physical power cycle (#63). Every wedge
-#          landed 3-16 min AFTER the release, with memory already recovered, so
-#          depth of the squeeze was never the trigger. Escape hatch:
-#          GPU_MODE_PROD_STOPS_OLLAMA=0 restores flush-only.
 #   ollama — podcast_scraper pipeline: NO vLLM, Ollama warm with the pinned
 #          summary/GI/KG model (see OLLAMA_LLM_MODEL), whisper + pyannote checked.
-#          Starts the daemon first, since prod mode may have stopped it.
+#          Starts the daemon, since any vLLM mode will have stopped it.
+#
+# OLLAMA vs vLLM — who may hold the GPU:
+#
+#   Every vLLM mode (code, research, prod, judging-*) STOPS the ollama daemon. It
+#   does not merely flush it: flushing unloads resident models but leaves the daemon
+#   listening, so one request reloads a model, and that load/unload CYCLE wedged this
+#   host three times on 2026-09-15/16, each needing a physical power cycle (#63):
+#
+#     freeze 1  ollama 15.4 -> 45.1 -> 15.4 GB   died 16 min after the unload, 37.8 GB free
+#     freeze 2  ollama  0   -> 29.7 ->  0   GB   died  3 min after the unload, 34.5 GB free
+#     freeze 3  ollama  0   -> 23.9 ->  0   GB   died  7 min after the unload, 36.1 GB free
+#
+#   Every wedge landed MINUTES AFTER the release, with memory already recovered, and
+#   the squeeze floor varied 10x (0.97 -> 9.54 GB free) without changing the outcome —
+#   so depth was never the trigger, co-residency was. Capping OLLAMA_CONTEXT_LENGTH
+#   made the squeeze shallower and the host still wedged.
+#
+#   Ollama therefore runs only when NO vLLM owns the GPU: the `ollama` and `free`
+#   modes. Escape hatch: GPU_MODE_VLLM_STOPS_OLLAMA=0 restores flush-only.
+#
+#   Observed-vs-inferred: all three wedges were in PROD mode (vllm-prod-vllm resident
+#   at 31.38 / 30.47 / 30.57 GB). research, code and judging-* are the same structure
+#   — a heavy vLLM co-resident with Ollama — but have not themselves been seen to
+#   wedge. The rule is applied on the mechanism, not on three data points.
 #
 # Idempotent: re-running the same mode is a no-op. Agent-friendly: supports
 # --json (machine-readable), --no-color (strip ANSI), --mode-only (print
 # just the current mode). All human-readable logs go to stderr; --json
 # output goes to stdout as a single object.
+#
+# RESETTING A MESSED-UP HOST: re-running the same mode does NOT do it. The mode is
+# inferred from which compose service is running, not from whether the host is sane,
+# so a hand-started ollama, a manually loaded model, or an up-but-unhealthy vLLM all
+# still report the current mode and the swap short-circuits. Use `--force` to re-run
+# the full swap (stop every compose, stop ollama, bring the target back up), or bounce
+# through `free` and back.
 #
 # Config — override any of these via env vars (or ~/.config/gpu-mode.env):
 #   GPU_MODE_CODER_DIR       Path to coder-next compose dir
@@ -46,12 +70,12 @@
 #                            free after `systemctl restart ollama` (default 30)
 #   GPU_MODE_GPU_TOTAL_GIB   Total GPU memory (GiB) for the free-VRAM estimate,
 #                            since nvidia-smi memory.total reads N/A on GB10 (default 121)
-#   GPU_MODE_PROD_STOPS_OLLAMA  1 (default) = prod mode STOPS the ollama daemon;
-#                            0 = flush resident models only, leaving it listening.
-#                            Default is 1 because a listening daemon reloads on the
-#                            next request, and that cycle wedged the host 3x (#63).
-#                            Requires sudo; if it is blocked the swap still proceeds
-#                            and warns rather than failing.
+#   GPU_MODE_VLLM_STOPS_OLLAMA  1 (default) = every vLLM mode STOPS the ollama
+#                            daemon; 0 = flush resident models only, leaving it
+#                            listening. Default is 1 because a listening daemon
+#                            reloads on the next request, and that cycle wedged the
+#                            host 3x (#63). Requires sudo; if it is blocked the swap
+#                            still proceeds and warns rather than failing.
 #
 # Exit codes:
 #   0  success — requested mode is active (or no-op confirmed)
@@ -133,6 +157,7 @@ GPU_TOTAL_GIB="${GPU_MODE_GPU_TOTAL_GIB:-121}"   # GB10 usable ~121.7 GiB; memor
 JSON=0
 MODE_ONLY=0
 NO_COLOR=0
+FORCE=0
 MODE=""
 JUDGING_SUB=""
 
@@ -141,6 +166,7 @@ while (( $# )); do
         --json)       JSON=1 ;;
         --mode-only)  MODE_ONLY=1 ;;
         --no-color)   NO_COLOR=1 ;;
+        --force)      FORCE=1 ;;
         -h|--help)
             sed -n '2,30p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//'
             exit 0
@@ -151,13 +177,13 @@ while (( $# )); do
             # judging requires a sub-arg: a, b, n (qwen-next), or x (nemotron)
             shift
             if [[ $# -eq 0 || ! "$1" =~ ^[abnx]$ ]]; then
-                echo "usage: $0 judging {a|b|n|x} [--json] [--mode-only] [--no-color]" >&2
+                echo "usage: $0 judging {a|b|n|x} [--json] [--mode-only] [--no-color] [--force]" >&2
                 exit 2
             fi
             JUDGING_SUB="$1"
             ;;
         *)
-            echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color]" >&2
+            echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color] [--force]" >&2
             exit 2
             ;;
     esac
@@ -426,10 +452,10 @@ except Exception:
 # so capping context (OLLAMA_CONTEXT_LENGTH=32768) made the squeeze shallower without
 # stopping the wedge. Stopping the daemon removes the trigger instead of softening it.
 #
-# Set GPU_MODE_PROD_STOPS_OLLAMA=0 to keep the old flush-only behaviour.
+# Set GPU_MODE_VLLM_STOPS_OLLAMA=0 to keep the old flush-only behaviour.
 stop_ollama_daemon() {
-    if [[ "${GPU_MODE_PROD_STOPS_OLLAMA:-1}" != "1" ]]; then
-        dim "GPU_MODE_PROD_STOPS_OLLAMA=0 — leaving the ollama daemon up (flush only)"
+    if [[ "${GPU_MODE_VLLM_STOPS_OLLAMA:-1}" != "1" ]]; then
+        dim "GPU_MODE_VLLM_STOPS_OLLAMA=0 — leaving the ollama daemon up (flush only)"
         flush_ollama
         return 0
     fi
@@ -594,8 +620,13 @@ do_swap() {
     require_dir "$start_dir"
     local current; current=$(current_mode)
 
-    if [[ "$current" == "$target" ]]; then
-        log "already in $target mode — no-op"
+    # --force skips this short-circuit and re-runs the whole swap. current_mode() infers the
+    # mode purely from WHICH COMPOSE SERVICE IS RUNNING, so a host messed with by hand —
+    # ollama started manually, a model loaded, the vLLM up but unhealthy — still reports the
+    # same mode and the swap no-ops, leaving the mess in place. Re-running the same mode is
+    # therefore NOT a reset; --force is.
+    if [[ "$current" == "$target" && $FORCE -eq 0 ]]; then
+        log "already in $target mode — no-op (use --force to re-run the full swap)"
         action_status
         return 0
     fi
@@ -612,14 +643,16 @@ do_swap() {
     # needed on Ollama→vLLM transitions but idempotent — safe to always
     # run before compose_up.
     #
-    # prod goes further and STOPS the daemon. Flushing leaves it listening, and a single
-    # request then reloads a model — that load/unload cycle is what wedged this host three
-    # times (#63), each time minutes after the release, with memory already recovered.
-    if [[ "$target" == "prod" ]]; then
-        stop_ollama_daemon
-    else
-        flush_ollama
-    fi
+    # ...and STOP the daemon, not merely flush it. Flushing leaves it listening, so one
+    # request reloads a model, and that load/unload cycle is what wedged this host three
+    # times (#63) — minutes after the release, with memory already recovered.
+    #
+    # Unconditional because do_swap IS the vLLM path: every one of its seven callers
+    # (code, research, prod, judging-a/-b/-qwen-next/-nemotron) brings up a vllm-* service.
+    # Keying off the mode NAME would silently miss the judging slots today and any vLLM
+    # slot added later; keying off "a vLLM is about to own the GPU" cannot drift.
+    # The modes where Ollama legitimately runs — `ollama` and `free` — never reach here.
+    stop_ollama_daemon
 
     # research + prod are the heavy same-size vLLMs sharing the GPU with
     # Ollama — flush it + clear any stale container before starting. Code slot
@@ -670,7 +703,7 @@ case "$MODE" in
         esac
         ;;
     *)
-        echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b}] [--json] [--mode-only] [--no-color]" >&2
+        echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b}] [--json] [--mode-only] [--no-color] [--force]" >&2
         exit 2
         ;;
 esac
