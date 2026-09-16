@@ -9,8 +9,16 @@
 #
 #   prod — production SERVING vLLM slot on :8003 (infra/vllm/prod-vllm).
 #          A real vLLM, single-owner-at-a-time like research.
+#          STOPS THE OLLAMA DAEMON, it does not merely flush it. Flushing unloads
+#          resident models but leaves the daemon listening, so one request reloads
+#          one — and that load/unload CYCLE wedged this host three times on
+#          2026-09-15/16, each needing a physical power cycle (#63). Every wedge
+#          landed 3-16 min AFTER the release, with memory already recovered, so
+#          depth of the squeeze was never the trigger. Escape hatch:
+#          GPU_MODE_PROD_STOPS_OLLAMA=0 restores flush-only.
 #   ollama — podcast_scraper pipeline: NO vLLM, Ollama warm with the pinned
 #          summary/GI/KG model (see OLLAMA_LLM_MODEL), whisper + pyannote checked.
+#          Starts the daemon first, since prod mode may have stopped it.
 #
 # Idempotent: re-running the same mode is a no-op. Agent-friendly: supports
 # --json (machine-readable), --no-color (strip ANSI), --mode-only (print
@@ -38,6 +46,12 @@
 #                            free after `systemctl restart ollama` (default 30)
 #   GPU_MODE_GPU_TOTAL_GIB   Total GPU memory (GiB) for the free-VRAM estimate,
 #                            since nvidia-smi memory.total reads N/A on GB10 (default 121)
+#   GPU_MODE_PROD_STOPS_OLLAMA  1 (default) = prod mode STOPS the ollama daemon;
+#                            0 = flush resident models only, leaving it listening.
+#                            Default is 1 because a listening daemon reloads on the
+#                            next request, and that cycle wedged the host 3x (#63).
+#                            Requires sudo; if it is blocked the swap still proceeds
+#                            and warns rather than failing.
 #
 # Exit codes:
 #   0  success — requested mode is active (or no-op confirmed)
@@ -396,6 +410,69 @@ except Exception:
     sleep 2
 }
 
+# Flushing is NOT enough for prod. flush_ollama unloads resident models but leaves the
+# DAEMON listening, so the next inference request reloads one — and it is that
+# allocate/serve/release CYCLE that wedges this host, not the memory depth.
+#
+# Three wedges on 2026-09-15/16 (chipi/agentic-ai-homelab#63), each needing a physical
+# power cycle. Every one of them died 3-16 minutes AFTER ollama released a model, with
+# memory already recovered:
+#
+#   freeze 1  ollama 15.4 -> 45.1 -> 15.4 GB   died 16 min after the unload, 37.8 GB free
+#   freeze 2  ollama  0   -> 29.7 ->  0   GB   died  3 min after the unload, 34.5 GB free
+#   freeze 3  ollama  0   -> 23.9 ->  0   GB   died  7 min after the unload, 36.1 GB free
+#
+# Squeeze depth varied 10x (0.97 -> 9.54 GB free) and made no difference to the outcome,
+# so capping context (OLLAMA_CONTEXT_LENGTH=32768) made the squeeze shallower without
+# stopping the wedge. Stopping the daemon removes the trigger instead of softening it.
+#
+# Set GPU_MODE_PROD_STOPS_OLLAMA=0 to keep the old flush-only behaviour.
+stop_ollama_daemon() {
+    if [[ "${GPU_MODE_PROD_STOPS_OLLAMA:-1}" != "1" ]]; then
+        dim "GPU_MODE_PROD_STOPS_OLLAMA=0 — leaving the ollama daemon up (flush only)"
+        flush_ollama
+        return 0
+    fi
+    # Unload first so the CUDA context is released cleanly rather than torn down under us.
+    flush_ollama
+    if ! systemctl is-active --quiet ollama 2>/dev/null; then
+        ok "ollama daemon already stopped"
+        return 0
+    fi
+    log "stopping the ollama daemon (prod mode: no load/unload cycles on this host)"
+    if $SUDO systemctl stop ollama 2>/dev/null; then
+        ok "ollama stopped — nothing can trigger a model load while prod owns the GPU"
+        return 0
+    fi
+    # Same constraint flush_ollama documents: a systemd unit with NoNewPrivileges=true
+    # blocks sudo, which is how the GHA self-hosted runner broke before. Do NOT abort the
+    # swap over it — prod vLLM still comes up — but be loud, because the wedge risk is back.
+    warn "could not stop ollama (no sudo / absent). Models are flushed but the DAEMON IS UP:"
+    warn "  a single inference request will reload a model and re-open the wedge window (#63)."
+    warn "  stop it by hand on the DGX:  sudo systemctl stop ollama"
+    return 0
+}
+
+# ollama mode has to undo what prod mode did, or it silently serves nothing: action_ollama
+# only ever WARNED when the endpoint was unreachable, it never started the daemon.
+start_ollama_daemon() {
+    if systemctl is-active --quiet ollama 2>/dev/null; then
+        return 0
+    fi
+    log "starting the ollama daemon"
+    if $SUDO systemctl start ollama 2>/dev/null; then
+        # The socket accepts connections before the runtime is ready to serve.
+        local i
+        for i in $(seq 1 30); do
+            curl -fsS --max-time 2 "${OLLAMA_HOST:-http://127.0.0.1:11434}/api/ps" >/dev/null 2>&1 && break
+            sleep 1
+        done
+        ok "ollama daemon started"
+    else
+        warn "could not start ollama (no sudo / absent) — start it on the DGX: sudo systemctl start ollama"
+    fi
+}
+
 action_status() {
     local mode; mode=$(current_mode)
     if (( MODE_ONLY )); then
@@ -465,6 +542,10 @@ action_ollama() {
     stop_all_composes
     sleep 2
 
+    # prod mode stops the daemon (#63), so bring it back before warming — otherwise this
+    # mode reports "Ollama unreachable" and silently serves nothing.
+    start_ollama_daemon
+
     local host="${OLLAMA_HOST:-http://127.0.0.1:11434}"
     local llm_ok=0
     if ! curl -fsS --max-time 3 "${host}/api/ps" >/dev/null 2>&1; then
@@ -530,7 +611,15 @@ do_swap() {
     # Flush Ollama's GPU-resident models so vLLM boot doesn't OOM. Only
     # needed on Ollama→vLLM transitions but idempotent — safe to always
     # run before compose_up.
-    flush_ollama
+    #
+    # prod goes further and STOPS the daemon. Flushing leaves it listening, and a single
+    # request then reloads a model — that load/unload cycle is what wedged this host three
+    # times (#63), each time minutes after the release, with memory already recovered.
+    if [[ "$target" == "prod" ]]; then
+        stop_ollama_daemon
+    else
+        flush_ollama
+    fi
 
     # research + prod are the heavy same-size vLLMs sharing the GPU with
     # Ollama — flush it + clear any stale container before starting. Code slot
