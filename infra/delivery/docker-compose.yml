@@ -31,6 +31,12 @@ services:
       # as-is (VT's ingest path is /insert/opentelemetry/v1/traces).
       OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:10428
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:10428/insert/opentelemetry/v1/traces
+    # host.docker.internal does NOT resolve on Docker-for-Linux (this box runs the
+    # engine in a colima VM), so the OTLP exporter above was throwing ConnectError
+    # twice per poll cycle — ~5,500 tracebacks/day per worker, burying real errors.
+    # Same fix the observability stack already uses for alloy-homelab.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports: ["127.0.0.1:9110:9110"]
     volumes: ["delivery-state:/var/lib/delivery"]
     restart: unless-stopped
@@ -59,6 +65,12 @@ services:
       DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:10428
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:10428/insert/opentelemetry/v1/traces
+    # host.docker.internal does NOT resolve on Docker-for-Linux (this box runs the
+    # engine in a colima VM), so the OTLP exporter above was throwing ConnectError
+    # twice per poll cycle — ~5,500 tracebacks/day per worker, burying real errors.
+    # Same fix the observability stack already uses for alloy-homelab.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports: ["127.0.0.1:9111:9111"]
     volumes: ["delivery-state:/var/lib/delivery"]
     restart: unless-stopped
@@ -88,6 +100,12 @@ services:
       DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:10428
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:10428/insert/opentelemetry/v1/traces
+    # host.docker.internal does NOT resolve on Docker-for-Linux (this box runs the
+    # engine in a colima VM), so the OTLP exporter above was throwing ConnectError
+    # twice per poll cycle — ~5,500 tracebacks/day per worker, burying real errors.
+    # Same fix the observability stack already uses for alloy-homelab.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports: ["127.0.0.1:9112:9112"]
     volumes: ["delivery-state:/var/lib/delivery"]
     restart: unless-stopped
