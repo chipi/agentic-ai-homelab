@@ -156,8 +156,21 @@ groups:
       #
       # Threshold 8GB, not 4GB: freeze 1 bottomed at 4.28GB and a 4GB rule would
       # have missed it. `for: 3m`, not 5m: freeze 2's episode lasted only 4 minutes.
-      # Rate over the 7 days to 2026-09-16: 10 episodes ~= 1.4/day, every one a real
-      # GPU-memory collision. noDataState OK — a dark box is dgx-silent's job.
+      # noDataState OK — a dark box is dgx-silent's job.
+      #
+      # Re-backtested 2026-09-16 over the preceding 7 days. 5GB, 6GB and 8GB are
+      # BEHAVIOURALLY IDENTICAL — 10 firings (1.4/day), both wedges caught:
+      #   <4GB    8 firings — misses freeze 1 (4.28GB)
+      #   <5/6/8  10 firings — catches both
+      #   <10GB  11 firings
+      #   <12GB  33 firings — noise starts here
+      # 8 is the earliest warning inside the safe band, so it is kept. Sanity check
+      # from live traffic: a healthy-but-loaded box (vLLM + a capped 35B ollama model,
+      # MemFree 9.5GB) does NOT fire, while all four historical squeeze episodes do.
+      #
+      # This rule is PRIMARY. Unlike dgx-gpu-mem-overcommit it catches both wedges,
+      # including freeze 2, which peaked at only 62.46GB of GPU — invisible to any
+      # GPU-allocation threshold because the killer was GPU plus ~54GB of page cache.
       - uid: dgx-memfree-crit
         title: "DGX free memory critically low (<8GB) — host wedge risk"
         condition: threshold
@@ -183,31 +196,40 @@ groups:
 
       # --- DGX GPU allocation overcommit (the CAUSE, ahead of the symptom) ----------
       # Fires on total GPU allocation rather than the resulting free-memory collapse,
-      # so it leads dgx-memfree-crit. Baselines after the OLLAMA_CONTEXT_LENGTH fix
-      # (2026-09-16): steady state 36GB; worst legitimate case vLLM 30.5 + ollama 9.2
-      # + moss 2.0 + pyannote 0.3 ~= 42GB. Observed during wedge events: 62.5, 82.0,
-      # 86.9, and 90.0GB. 60GB sits clear of both.
-      # Depends on the gpu-process-metrics pusher, which has its own staleness rule
-      # (dgx-gpu-metrics-stale) and is currently unreliable (#61) — so this is the
-      # SECONDARY signal; dgx-memfree-crit above rides node_exporter and is primary.
+      # so it leads dgx-memfree-crit. Depends on the gpu-process-metrics pusher, which
+      # has its own staleness rule (dgx-gpu-metrics-stale) and is currently unreliable
+      # (#61) — so this is the SECONDARY signal; dgx-memfree-crit above rides
+      # node_exporter and is primary.
       #
-      # HONEST CAVEAT — backtested at 51 firings/7d (7.3/day) over the week to
-      # 2026-09-16, which is too noisy to page on. That window is entirely PRE-fix,
-      # when every ollama load ran at -c 262144 and routinely pushed the pool past
-      # 60GB. With OLLAMA_CONTEXT_LENGTH=32768 the worst legitimate total is ~42GB,
-      # so the rate should collapse — but that is an expectation, not a measurement;
-      # no post-fix week exists yet. Deliberately kept at severity=warning (does NOT
-      # open a GlitchTip issue) until the post-fix rate is confirmed.
-      # RE-CHECK the firing rate after 2026-09-23 and either promote to critical or
-      # raise the threshold. Do not promote on the strength of this comment alone.
+      # 70GB, raised from 60GB on 2026-09-16 after 60 proved to be the machine's
+      # LEGITIMATE CEILING rather than an anomaly line. The box budgets out as:
+      #   vLLM        ~30GB  (pinned: --gpu-memory-utilization=0.25)
+      #   ollama      ~24GB  (worst case: a 35B model at OLLAMA_CONTEXT_LENGTH=32768)
+      #   moss+pyannote+faster-whisper ~5.5GB (always on)
+      #   ------------------------------------
+      #   ~60GB committed at full legitimate load
+      # So a >60GB rule fires on normal operation — observed live at 59.9GB with a
+      # capped qwen3.5:35b resident alongside vLLM, entirely healthy.
+      #
+      # Threshold chosen by backtest over the 7 days to 2026-09-16, not by feel:
+      #   >60GB  51 firings (7.3/day)      >70GB   7 firings (1.0/day)
+      #   >65GB  46 firings (6.6/day)      >75-80  7 firings (identical to 70)
+      #   >85GB   2 firings — catches NEITHER wedge
+      # The cliff is between 65 and 70 (46 -> 7). 70 buys the earliest warning inside
+      # the quiet band; 75/78/80 are equivalent on this data if more margin is wanted.
+      #
+      # KNOWN LIMIT: no GPU threshold can catch the freeze-2 class. That wedge peaked
+      # at only 62.46GB — inside the normal band — because the killer was GPU plus
+      # ~54GB of page cache, not GPU alone. dgx-memfree-crit is the only rule that
+      # catches both wedges; this one exists to lead it, not to replace it.
       - uid: dgx-gpu-mem-overcommit
-        title: "DGX GPU allocation overcommitted (>60GB of the 130GB unified pool)"
+        title: "DGX GPU allocation overcommitted (>70GB of the 130GB unified pool)"
         condition: threshold
         for: 2m
         noDataState: OK
         labels: { severity: warning, kind: infra }
         annotations:
-          summary: "dgx-llm-1 GPU processes hold more than 60GB of the shared unified pool — concurrent model loads are squeezing host memory. Expect dgx-memfree-crit next if it keeps climbing."
+          summary: "dgx-llm-1 GPU processes hold more than 70GB of the shared unified pool — above the ~60GB full-legitimate-load budget (vLLM 30 pinned + ollama 24 capped + 5.5 fixed), so something is allocating beyond plan. Expect dgx-memfree-crit next if it keeps climbing."
         data:
           - refId: q
             relativeTimeRange: { from: 300, to: 0 }
@@ -221,7 +243,7 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [60000000000] } }]
+              conditions: [{ evaluator: { type: gt, params: [70000000000] } }]
 
       # --- Kernel OOM killer fired ---------------------------------------------------
       # The after-the-fact but NAMED signal: even when pressure spikes too fast
