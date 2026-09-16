@@ -1303,6 +1303,40 @@ groups:
       # weaker coverage than the DGX going into this incident. Closing it needs a
       # scrape target added to prod's config.d (deployable via deploy-config.yml, no
       # root); until then prod is covered only by the coarser dark rule above.
+      # --- prod Alloy is dropping log entries (sender-side) -------------------------
+      # The rule the 2026-09-16 incident actually needed, and could not have until now.
+      # Prod's Alloy did not scrape itself, so loki_write_dropped_entries_total had no
+      # prod-podcast series and this alert was impossible to write. selfmon.alloy shipped
+      # 2026-09-16 (podcast_scraper#2104-adjacent work, issue #64) and the series now exists.
+      #
+      # This is the detector that WOULD have caught the incident. The dark rules would not:
+      # shipping degraded ~70% for five hours without a single 15m bucket reaching zero, and
+      # a legitimately quiet bucket the day before was lower than anything seen mid-incident.
+      # A count cannot distinguish "quiet" from "broken"; a drop counter states it outright.
+      - uid: ingest-alloy-dropping-prod
+        title: "prod Alloy is dropping log entries (sender-side)"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: critical, kind: telemetry }
+        annotations:
+          summary: "Alloy on prod-podcast dropped log entries in the last 15m — the sink is rejecting or unreachable. Check `reason` (queue_is_full / ingester_error / rate_limited). Most likely cause: alloy was recreated without its endpoints override and reverted to the raw, ACL-revoked homelab:9428 — verify `docker inspect alloy` lists .vps-observability-endpoints.override.yml in config_files, and re-run deploy-vps-observability-endpoints.yml if not."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(increase(loki_write_dropped_entries_total{instance="prod-podcast"}[15m])) or vector(0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
       - uid: ingest-alloy-dropping-dgx
         title: "DGX Alloy is dropping log entries (sender-side)"
         condition: threshold
