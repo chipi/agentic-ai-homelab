@@ -47,6 +47,23 @@ The larger variant is preserved at commit `4407569`:
 git show 4407569:infra/observability/hosts/prod-podcast/config.d/base.alloy
 ```
 
+**WARNING (verified 2026-09-16): that variant does NOT PARSE.** Run through the real
+binary it fails outright:
+
+```
+docker run --rm -v <file>:/c.alloy:ro --entrypoint /bin/alloy grafana/alloy:v1.17.0 fmt /c.alloy
+  -> exit 1: illegal character U+0023 '#'
+```
+
+Alloy's syntax uses `//` for comments, not `#`. Whoever wrote those 17 comment lines used
+shell/YAML style, and **nothing caught it because nothing ever deployed the file** — which is
+the strongest possible argument for the ownership change this README describes. Deploying that
+copy would have failed the merged config and taken down ALL prod telemetry, not just this file.
+
+So the useful content (trace-ID extraction, the widened cadvisor keep-list) must be
+**re-authored with `//` comments and validated with `alloy fmt` before it goes anywhere near
+prod** — it cannot be cherry-picked as-is.
+
 It lands deliberately through the `podcast_scraper` deploy loop *after* the
 byte-identical adoption of the running config is proven green — adopt with zero
 behaviour change first, so a failure identifies the pipeline rather than the content,
