@@ -37,6 +37,27 @@
 #   — a heavy vLLM co-resident with Ollama — but have not themselves been seen to
 #   wedge. The rule is applied on the mechanism, not on three data points.
 #
+#   THE UNIT IS ALSO `systemctl disable`d ON THE HOST (2026-09-16). Do not "fix" the
+#   DGX by re-enabling it. `stop` is runtime-only, so the boot symlink outlived every
+#   stop this script performs: the 12:35 power-cycle started ollama 9 seconds into
+#   boot, and the host sat back in the wedge-prone state for ~1h40m with nobody aware,
+#   because nothing re-applies a mode at boot. Disabling deletes
+#   default.target.wants/ollama.service, which is the only part of "prod mode" that
+#   did not already survive a reboot — every vLLM stack is `restart: unless-stopped`,
+#   so docker restores the mode by itself.
+#
+#   A boot-time `gpu-mode-swap prod` unit was considered and rejected: current_mode()
+#   reads which compose service is up, docker has already restored prod by then, so
+#   the swap short-circuits and never reaches stop_ollama_daemon. It would log success
+#   and leave ollama running. Forcing it works but tears down the vLLM docker just
+#   started, on every boot, and pins reboots to prod even when the box was left in
+#   research or judging.
+#
+#   `ollama` and `free` modes are unaffected: start_ollama_daemon calls `systemctl
+#   start`, which does not care whether a unit is enabled. Cost of the trade: after a
+#   reboot, anything expecting :11434 without running this script gets connection
+#   refused instead of a wedge. That is the intended failure direction.
+#
 # Idempotent: re-running the same mode is a no-op. Agent-friendly: supports
 # --json (machine-readable), --no-color (strip ANSI), --mode-only (print
 # just the current mode). All human-readable logs go to stderr; --json
