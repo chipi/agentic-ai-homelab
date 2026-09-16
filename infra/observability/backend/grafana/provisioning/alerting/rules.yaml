@@ -538,7 +538,7 @@ groups:
             datasourceUid: victorialogs
             model:
               expr: 'instance:prod-podcast unit:ssh.service ("Failed password" OR "Invalid user" OR "authentication failure" OR "Connection closed by authenticating user") | stats count() as value'
-              queryType: instant
+              queryType: stats
           - refId: reduced
             datasourceUid: __expr__
             model:
@@ -571,7 +571,7 @@ groups:
             datasourceUid: victorialogs
             model:
               expr: 'instance:prod-podcast unit:fail2ban.service "Ban" -"Unban" | stats count() as value'
-              queryType: instant
+              queryType: stats
           - refId: reduced
             datasourceUid: __expr__
             model:
@@ -613,7 +613,7 @@ groups:
             datasourceUid: victorialogs
             model:
               expr: 'app:orrery job:orrery-data-refresh "ok" "bytes" | stats count() as value'
-              queryType: instant
+              queryType: stats
           - refId: reduced
             datasourceUid: __expr__
             model:
@@ -898,7 +898,7 @@ groups:
             datasourceUid: victorialogs
             model:
               expr: 'app:player "digest-scheduler" "tick" | stats count() as value'
-              queryType: instant
+              queryType: stats
           - refId: reduced
             datasourceUid: __expr__
             model:
