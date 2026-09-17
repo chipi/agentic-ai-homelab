@@ -1274,7 +1274,16 @@ groups:
         execErrState: Alerting
         labels: { severity: critical, kind: telemetry }
         annotations:
-          summary: "No log lines from prod-podcast for 15m. The box can be perfectly healthy — check the SHIPPER, not the host. Most likely Alloy lost its endpoints override: `docker inspect alloy --format '{{index .Config.Labels \"com.docker.compose.project.config_files\"}}'` must list .vps-observability-endpoints.override.yml. If missing, re-run deploy-vps-observability-endpoints.yml (a bare `docker compose up -d alloy` silently reverts to the raw, ACL-revoked homelab:9428)."
+          # NO Go-template syntax in this text. Grafana expands annotations as templates, so the
+          # `docker inspect --format '{{index .Config.Labels ...}}'` recipe that used to live here
+          # was evaluated against alert data and failed on EVERY evaluation:
+          #   "Error in expanding template ... can't evaluate field Config in type template.Data"
+          # 1,239 error lines in 24h (2026-09-17) — this one rule was 99.7% of Grafana's error log,
+          # and the alert it belongs to is the prod-telemetry-dark detector, so the noise sat on top
+          # of something that must stay trustworthy. `{{ $labels.x }}` elsewhere in this file is
+          # fine; that IS alert data. Anything else brace-wrapped is not.
+          # The grep form below is verified on prod (2026-09-17) and needs no jq.
+          summary: "No log lines from prod-podcast for 15m. The box can be perfectly healthy — check the SHIPPER, not the host. Most likely Alloy lost its endpoints override: run `docker inspect alloy | grep config_files` and confirm it lists .vps-observability-endpoints.override.yml. If missing, re-run deploy-vps-observability-endpoints.yml (a bare `docker compose up -d alloy` silently reverts to the raw, ACL-revoked homelab:9428)."
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }

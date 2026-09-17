@@ -61,10 +61,25 @@ while true; do
       code=$(curl -s -o /dev/null -m3 -w "%{http_code}" "http://localhost:$port$path")
       up=0; [ "$code" = "200" ] && up=1; printf 'service_up{service="%s"} %s\n' "$n" "$up"
     done
+    # `docker stats` prints a literal `--` for a container that has no sample yet (starting,
+    # restarting, or exited mid-scrape). `${cpuv:-0}` does NOT catch that: `:-` substitutes only
+    # when the value is empty or unset, and `--` is neither. So `--` went straight into the
+    # payload and VictoriaMetrics rejected the line, logging an error for each one:
+    #
+    #   mini_container_cpu_percent{name="--"} --
+    #     -> cannot parse value "--": unparsed tail left after parsing float64
+    #
+    # 49,151 of those in 24h (2026-09-17) — ~34/min, and the single largest source of error-level
+    # logs anywhere in the estate by two orders of magnitude. Validate the SHAPE instead: anything
+    # that is not a bare number is dropped to 0, and a row with no usable name is skipped
+    # entirely rather than emitted as `name="--"`.
     $D stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}' 2>/dev/null | while IFS='|' read -r name cpu mem; do
+      case "$name" in ''|--) continue ;; esac
       cpuv=${cpu%\%}; memu=${mem%% *}
+      case "$cpuv" in ''|*[!0-9.]*) cpuv=0 ;; esac
       memb=$(echo "$memu" | awk '{v=$0;gsub(/[A-Za-z]/,"",v);u=$0;gsub(/[0-9.]/,"",u);m=(u=="GiB"?1073741824:(u=="MiB"?1048576:(u=="KiB"?1024:1)));printf "%d",v*m}')
-      printf 'mini_container_cpu_percent{name="%s"} %s\nmini_container_mem_bytes{name="%s"} %s\n' "$name" "${cpuv:-0}" "$name" "${memb:-0}"
+      case "$memb" in ''|*[!0-9]*) memb=0 ;; esac
+      printf 'mini_container_cpu_percent{name="%s"} %s\nmini_container_mem_bytes{name="%s"} %s\n' "$name" "$cpuv" "$name" "$memb"
     done
   } | curl -s -o /dev/null --data-binary @- "$VM?extra_label=instance=homelab&extra_label=host=mini"
   # per-container detail (name/state/uptime/port) for the landing page's Containers
