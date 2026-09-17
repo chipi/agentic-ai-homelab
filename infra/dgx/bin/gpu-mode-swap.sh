@@ -37,6 +37,39 @@
 #   — a heavy vLLM co-resident with Ollama — but have not themselves been seen to
 #   wedge. The rule is applied on the mechanism, not on three data points.
 #
+#   AMENDMENT 2026-09-17 — shipped logs contradict part of the above. The rule STANDS
+#   (it is the conservative one), but three claims here are now known to be wrong or
+#   unsupported. Reconstructed from VictoriaLogs, where each wedge is a gap in DGX log
+#   shipping: 09-15 19:10Z->22:00Z, 09-16 00:10Z->06:00Z, plus a partial dip at 09:00Z.
+#
+#     * "the load/unload CYCLE is the trigger" does not fit wedge 2. The last
+#       ollama-metrics line before it reads "Refreshed metrics data: 0 models loaded"
+#       — ollama was already empty and idle. There was no cycle to blame.
+#     * "only PROD mode wedged" is EXPOSURE, not a property. infra/vllm/prod-vllm and
+#       infra/vllm/autoresearch are the same image (nvcr.io/nvidia/vllm:26.05-py3) and
+#       the same flags (--gpu-memory-utilization=0.75, --max-model-len=65536, ipc:host).
+#       prod is simply what has been running since the container was created 09-13; the
+#       other modes never had the opportunity.
+#     * What BOTH wedges actually share is sustained heavy vLLM load with the ollama
+#       daemon merely present:
+#           wedge 1  19:05Z  prompt 1013.7 tok/s, gen 120.2 tok/s, Running: 4 reqs, ollama 1 model
+#           wedge 2  00:03Z  prompt 1839.6 tok/s, gen  73.8 tok/s, Running: 2 reqs, ollama 0 models
+#       Neither died at idle. 09-15 carried 200-330 chat/completions per 30min from
+#       14:00Z to 18:30Z — ~4.5h of batch — before dying; the next batch resumed 23:00Z
+#       and died ~1h in.
+#     * The driving client was 100.87.33.61 = `homelab`, the mac mini, relaying through
+#       its litellm. So the workload is ours and identifiable, not ambient.
+#
+#   Still NOT established: why load + an idle daemon would wedge a host with 34-38 GB
+#   free, and whether the mini's concurrent log storm contributed. Do not promote any of
+#   the above to a cause without a deliberate replay under load — the freezes need a
+#   PHYSICAL power cycle, so that is an operator decision, not an agent's.
+#
+#   A 2026-09-17 run started ollama co-resident with the prod vLLM and forced one
+#   load/unload cycle (23.6 GB resident, released cleanly). The host survived the full
+#   3-16 min window. That tests IDLE co-residency only and falsifies nothing above:
+#   both real wedges happened under batch load this run did not reproduce.
+#
 #   THE UNIT IS ALSO `systemctl disable`d ON THE HOST (2026-09-16). Do not "fix" the
 #   DGX by re-enabling it. `stop` is runtime-only, so the boot symlink outlived every
 #   stop this script performs: the 12:35 power-cycle started ollama 9 seconds into
