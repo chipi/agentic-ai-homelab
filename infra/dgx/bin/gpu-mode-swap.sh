@@ -474,6 +474,22 @@ except Exception:
 # stopping the wedge. Stopping the daemon removes the trigger instead of softening it.
 #
 # Set GPU_MODE_VLLM_STOPS_OLLAMA=0 to keep the old flush-only behaviour.
+# The ollama-metrics sidecar polls :11434 every ~15s forever and logs an ERROR on every
+# failure. With ollama deliberately stopped that is 5,760 error lines a day about a service
+# we chose to shut down — noise that also MASKS a real ollama failure, since a dead ollama and
+# an intentionally-absent one look identical in the log. It is a third-party image
+# (ghcr.io/norskhelsenett/ollama-metrics) so the polling cannot be tuned; bind its lifecycle to
+# ollama's instead. `restart: unless-stopped` means an explicit `docker stop` sticks until we
+# start it again, which is exactly the semantics wanted here.
+ollama_sidecar() {  # $1 = start|stop
+    docker inspect ollama-metrics >/dev/null 2>&1 || return 0
+    if docker "$1" ollama-metrics >/dev/null 2>&1; then
+        dim "ollama-metrics sidecar ${1}ped"
+    else
+        warn "could not $1 the ollama-metrics sidecar (it will keep polling a dead :11434)"
+    fi
+}
+
 stop_ollama_daemon() {
     if [[ "${GPU_MODE_VLLM_STOPS_OLLAMA:-1}" != "1" ]]; then
         dim "GPU_MODE_VLLM_STOPS_OLLAMA=0 — leaving the ollama daemon up (flush only)"
@@ -489,6 +505,7 @@ stop_ollama_daemon() {
     log "stopping the ollama daemon (prod mode: no load/unload cycles on this host)"
     if $SUDO systemctl stop ollama 2>/dev/null; then
         ok "ollama stopped — nothing can trigger a model load while prod owns the GPU"
+        ollama_sidecar stop
         return 0
     fi
     # Same constraint flush_ollama documents: a systemd unit with NoNewPrivileges=true
@@ -515,6 +532,7 @@ start_ollama_daemon() {
             sleep 1
         done
         ok "ollama daemon started"
+        ollama_sidecar start
     else
         warn "could not start ollama (no sudo / absent) — start it on the DGX: sudo systemctl start ollama"
     fi
