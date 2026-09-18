@@ -225,7 +225,23 @@ services:
   # Published on 127.0.0.1 only (host-net Alloy reaches via localhost; never
   # tailnet-exposed). Host ports 9188/9122 to avoid glitchtip's 9187/9121.
   postgres-exporter:
-    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    # v0.15.0 (2023-10-27) predates PG17. Checkpoint columns moved out of
+    # pg_stat_bgwriter into pg_stat_checkpointer in PG17, so its stat_bgwriter
+    # collector failed on EVERY scrape against our postgres 17.11:
+    #
+    #   collector failed name=stat_bgwriter err="pq: column \"checkpoints_timed\" does not exist"
+    #
+    # Broken since the container was first started; invisible because nothing scraped
+    # this exporter until 2026-09-18. Fixed upstream in v0.17.0 ("Checkpoint related
+    # columns in PG 17 have been moved from pg_stat_bgwriter to pg_stat_checkpointer");
+    # v0.20.1 is current stable.
+    #
+    # The sibling exporters in infra/litellm and infra/glitchtip are ALSO on v0.15.0 and
+    # are NOT bumped here: both run postgres 16, where the column still exists, so they
+    # log nothing. They will break identically the day their postgres goes to 17. The
+    # litellm one additionally feeds the gateway-down dead-man alert (up{job=
+    # "litellm-postgres"}), so it wants its own change with that alert watched.
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
     <<: *logging
     environment:
       DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-postgres}?sslmode=disable
