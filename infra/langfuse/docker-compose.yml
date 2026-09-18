@@ -142,10 +142,14 @@ services:
       - ./clickhouse-lowcpu.xml:/etc/clickhouse-server/config.d/zzz-lowcpu.xml:ro
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
-      interval: 5s
+      # 5s -> 30s. ClickHouse is the heaviest idle process here (cpu-capped at 0.5 because
+      # it spun ~204% doing nothing), so a probe that forks wget 12x/min is the one least
+      # worth paying for. 138,655 -> 23,109 per 8 days. start_period covers the slow first
+      # boot that the 1s interval was really compensating for.
+      interval: 30s
       timeout: 5s
-      retries: 10
-      start_period: 1s
+      retries: 5
+      start_period: 60s
 
   minio:
     image: cgr.dev/chainguard/minio
@@ -162,9 +166,14 @@ services:
       - langfuse_minio_data:/data
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
-      interval: 1s
+      # 1s was the worst in the stack: 60 probes/min = 693,278 per 8 days, each forking the
+      # `mc` client, for an object store langfuse touches only on media/event upload.
+      # 30s -> 23,109 per 8 days (-97%). start_period preserves fast first boot, which is
+      # the only thing a 1s interval ever bought.
+      interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 30s
       start_period: 1s
 
   redis:
@@ -197,9 +206,13 @@ services:
     <<: *logging
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 3s
+      # 3s -> 15s, matching redis: pg_isready opens a real connection per probe, so this was
+      # another ~231,092 connections per 8 days against a database langfuse barely writes to.
+      # 15s -> ~46,218 (-80%), unhealthy still inside 75s.
+      interval: 15s
       timeout: 3s
-      retries: 10
+      retries: 5
+      start_period: 20s
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
