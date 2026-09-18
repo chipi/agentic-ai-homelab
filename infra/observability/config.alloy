@@ -37,6 +37,29 @@ prometheus.scrape "host" {
 }
 
 // ---------- GPU: NVIDIA DCGM ----------
+// 15s, NOT faster — and the reason is in VictoriaMetrics, not here.
+//
+// VM runs with `-dedup.minScrapeInterval=15s`, so it keeps ONE sample per 15s window and
+// discards the rest on merge (vm_deduplicated_samples_total{type="merge"} was 5.7M when
+// this was measured). Scraping faster than 15s therefore buys NOTHING: the extra samples
+// are shipped, then thrown away. A 5s interval here was tried 2026-09-18 and was a no-op
+// that made the config lie about the platform's real resolution.
+//
+// Measured fidelity at the effective 15s, against a 1Hz reference, using controlled
+// prefill bursts of known length (raw stored samples, not grid-aligned query_range):
+//     burst 17s   true 58.5W   VM 7.2W    MISSED ENTIRELY (reported as idle)
+//     burst 25s   true 59.6W   VM 7.7W    MISSED ENTIRELY
+//     burst 34s   true 60.8W   VM 59.7W   -1.1W   good
+//     burst 51s   true 62.0W   VM 60.5W   -1.4W   good
+//     burst 69s   true 63.1W   VM 57.7W   -5.4W   good
+//
+// So: trustworthy for anything sustained beyond ~30s, BLIND below ~25s — and blind in the
+// worst way, reporting a 58W burst as a 7W idle box rather than as a low estimate. Accepted
+// deliberately: real workloads here run for minutes, and raising fidelity means lowering
+// dedup platform-wide (3x stored samples on every series), which is not worth it for
+// sub-25s transients.
+//
+// If that trade ever changes, the knob is VM's -dedup.minScrapeInterval FIRST, then this.
 prometheus.scrape "dcgm" {
   targets         = [{ __address__ = "localhost:9400", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
   forward_to      = [prometheus.remote_write.sink.receiver]
