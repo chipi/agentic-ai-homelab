@@ -56,9 +56,18 @@ prometheus.scrape "litellm_postgres" {
 // lima-fragility reason as litellm_postgres above.
 //
 // `redis_connected_clients` is the one worth watching: langfuse#13601 reports the
-// socket-timeout watchdog leaking connections to 87+. Ours read 5, with
-// redis_connections_received_total=7 across 8 days of uptime — so we are NOT leaking, and
-// this is the series that would show it if that changes.
+// socket-timeout watchdog leaking connections to 87+. Ours reads 96 — in that range, but
+// FLAT over the minutes observed, and a leak only shows as monotonic growth over hours.
+// UNRESOLVED on purpose: langfuse opens a blocking connection per BullMQ queue and there
+// are 15+, so 96 may simply be its pool. This scrape is what makes the question answerable
+// at all; before it, no `redis_*` series existed anywhere.
+//
+// ⚠ Check it via the SERIES, not by hand. Host :9121 is GLITCHTIP's exporter (5 clients);
+// langfuse's is remapped to :9122, and both report `9121/tcp` container-side. That trap
+// produced a confidently wrong "we are not leaking" reading on 2026-09-18.
+//
+// Note redis_connections_received_total is NOT a leak signal here: ~21.8/min is this
+// stack's own 3s `redis-cli ping` healthcheck, unchanged before and after the watchdog fix.
 prometheus.scrape "langfuse_redis" {
   targets         = [{ __address__ = "langfuse-redis-exporter-1:9121", instance = "homelab" }]
   forward_to      = [prometheus.remote_write.local.receiver]
