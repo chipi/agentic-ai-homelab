@@ -178,9 +178,18 @@ services:
       - langfuse_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 3s
-      timeout: 10s
-      retries: 10
+      # 3s (the upstream default) opened a fresh connection every 3 seconds forever:
+      # 251,847 connections over 8 days of uptime, ~20/min, which is the ENTIRE value of
+      # redis_connections_received_total on this box. Nothing needs to know within 3s that
+      # a cache which has been healthy for 8 days is still healthy.
+      #
+      # 15s cuts that by 80% (~50k instead of ~250k over the same window). retries 5 keeps
+      # unhealthy-detection at 75s, and start_period gives boot its grace without the
+      # steady-state cost — `depends_on: condition: service_healthy` still gates correctly.
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   postgres:
     image: docker.io/postgres:${POSTGRES_VERSION:-17}
