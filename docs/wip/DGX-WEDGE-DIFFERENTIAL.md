@@ -138,6 +138,77 @@ TRUNCATED. An abrupt rail drop gives the kernel no chance to flush; that is exac
 power-off leaves no trace where a panic would. Still run it — absence of a panic trace is
 itself confirmatory — but do not expect a smoking gun there.
 
+## ⭐ THE PRECURSOR — the only thing that separates every wedge from every survivor
+
+Found 2026-09-18 by mining vLLM's own metrics instead of host symptoms. This is the first
+signal that is present in ALL wedge windows and ABSENT in ALL survivor windows.
+
+**At matched prompt sizes, prefill ran ~40% slower before every wedge:**
+
+| | tok/req | prefill tok/s | | tok/req | prefill tok/s |
+|---|---|---|---|---|---|
+| wedge 1 | 6565 | **11,617** | surv 04:30 | 6259 | 21,284 |
+| wedge 2 | 4564 | **10,070** | surv 03:00 | 4712 | 16,391 |
+| wedge 4 | 4097 | **9,322** | surv 05:30 | 3914 | 15,034 |
+
+Three pairs matched on prompt size; the wedge window is slower every time (61-83% faster on
+the survivor side). The 23:30 survivor reads 8,910 tok/s but its prompts were only 2,158
+tokens, where fixed overhead dominates — not comparable.
+
+**And it was hotter at identical everything else:**
+
+```
+                  wedge1  wedge4  │  surv03  surv04  surv05
+GPU util %          96      96    │    96      96      96
+SM clock MHz      2483    2528    │  2528    2528    2528
+GPU power W         61      44    │    42      43      48
+GPU temp C          75      71    │    63      64      65     <- 7-10C hotter
+board zone max C     —      79    │    70      71      73     <- 7-9C hotter
+```
+
+Same clock, same power in, ~40% less work out, 7-10C hotter. That is the signature of SMs
+STALLING — GPU "utilisation" only means a kernel is resident, not that it is progressing.
+Stalled SMs still burn power and still make heat.
+
+**This also corrects the H2 entry above.** That compared wedge PEAKS against the overnight
+PEAK and concluded "the survivor ran hotter". At MATCHED windows the wedges run consistently
+hotter. The 84.6C overnight figure was a brief excursion; wedge windows sat 7-10C above
+comparable survivor windows throughout.
+
+### What the precursor is NOT
+
+* **Not process contention.** `dgx_gpu_process_memory_bytes` is identical in slow and fast
+  windows: faster-whisper 0.2 GB, moss 1.9 GB, pyannote 3.0 GB, vllm-prod-vllm 29.5 GB,
+  34.6 GB total. Same four processes, same allocations to the decimal.
+* **Not memory bandwidth.** DECODE throughput was unaffected (wedges 125/88/77 tok/s vs
+  survivors 90/89/84). Decode is memory-bandwidth-bound; prefill is compute-bound. Only the
+  compute-bound half degraded.
+* **Not KV pressure.** `kv_cache_usage_perc` 0.02-0.08%, zero preemptions, zero swapped.
+* **Not queueing.** `num_requests_waiting` = 0, queue time ~0 in every window.
+
+### What it points at
+
+The GPU's arithmetic throughput dropped ~40% while clocks read full and
+`DCGM_FI_DEV_CLOCK_THROTTLE_REASONS` stayed 0. That is silent derating happening BELOW what
+DCGM reports — i.e. in the EC/firmware layer Linux cannot see. Which is the same layer that
+later removed power without telling the OS.
+
+Causality is NOT established: the extra heat may cause the slowdown, or the slowdown may
+cause the heat by extending time-at-load. Both readings fit.
+
+### Deliberately NOT alerted on
+
+The operator's call, and correct: an alert saying "the box will die in ~15 minutes" is not
+actionable — there is nothing to do with the warning. Recorded as a diagnostic, not a
+monitor.
+
+### Gap this exposed
+
+vLLM prefix-cache metrics are NOT collected (a search for prefix/cache in VictoriaMetrics
+returns only `alloy_*` and `pg_*`). If the inside-the-LLM angle is ever pursued — e.g. "did
+cache hit rate collapse, forcing more real compute per token" — that data does not exist
+today.
+
 ## STILL OPEN
 
 ### H10 — USB-C PD / power-delivery firmware fault  ← strongest remaining
