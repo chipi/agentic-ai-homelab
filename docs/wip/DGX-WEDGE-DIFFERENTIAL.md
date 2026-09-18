@@ -95,6 +95,30 @@ exactly why the `#` syntax bug survived undetected. A cause must explain all fou
 
 ---
 
+## ⚡ DECIDED 2026-09-18 — smart-plug evidence: THE BOX POWERED ITSELF OFF
+
+The DGX is on a metering smart plug. Operator checked it while the box was down:
+
+* **plug relay ON the whole time, never tripped, no protection event in its history**
+* **DGX drawing ~nothing** — household baseline back to its normal ~65 W
+
+That single observation closes two hypotheses that telemetry alone could not separate:
+
+* **H12 kernel lockup — DEAD.** A frozen kernel still executes; CPU+GPU would keep pulling
+  the ~44 W they were drawing at 08:27 indefinitely. Zero draw means the rails are down,
+  not that software hung.
+* **External power cut — DEAD.** The plug never switched or tripped, so nothing removed
+  the supply from outside.
+
+What remains is a **self-initiated power-off under load** — the machine cut its own rails.
+That is the documented GB10/DGX Spark failure mode and is now the ONLY surviving hypothesis
+(H10 PD-firmware and H11 EC/thermal are two mechanisms for the same self-off).
+
+**Consequence for evidence gathering:** `journalctl -b -1 -k` is now LIKELY EMPTY OR
+TRUNCATED. An abrupt rail drop gives the kernel no chance to flush; that is exactly why a
+power-off leaves no trace where a panic would. Still run it — absence of a panic trace is
+itself confirmatory — but do not expect a smoking gun there.
+
 ## STILL OPEN
 
 ### H10 — USB-C PD / power-delivery firmware fault  ← strongest remaining
