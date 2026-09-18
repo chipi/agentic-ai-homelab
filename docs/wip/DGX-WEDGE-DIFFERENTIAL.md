@@ -110,9 +110,28 @@ That single observation closes two hypotheses that telemetry alone could not sep
 * **External power cut — DEAD.** The plug never switched or tripped, so nothing removed
   the supply from outside.
 
-What remains is a **self-initiated power-off under load** — the machine cut its own rails.
-That is the documented GB10/DGX Spark failure mode and is now the ONLY surviving hypothesis
-(H10 PD-firmware and H11 EC/thermal are two mechanisms for the same self-off).
+What remains is a **self-initiated power-off with NO IDENTIFIED TRIGGER** — the machine cut
+its own rails. H10 (PD-firmware) and H11 (EC/thermal) are two mechanisms for the same self-off.
+
+⚠ DO NOT WRITE "under load" HERE. The vendor documents this as an "under-load power-off
+issue" and it is tempting to repeat that phrase, but OUR data contradicts load as the
+trigger — the run that SURVIVED 8 h was higher on every load measure:
+
+| | overnight (survived 8 h) | morning (died in 12 min) |
+|---|---|---|
+| GPU power peak | **83.2 W** | 51.3 W |
+| board temp max | **84.6 °C** | 77.8 °C |
+| CPU load max | **4.37** | 2.32 |
+| minutes >78 °C | **24** | 1 |
+
+The ONLY load-related claim the data supports is much weaker: all four wedges happened while
+the box was SERVING, none while idle (it has sat idle for long stretches, including a 20 min
+idle window that same morning, without incident). So activity may be a NECESSARY precondition.
+It is demonstrably not sufficient, and its LEVEL predicts nothing.
+
+That pattern — intermittent, requires activity, but uncorrelated with how much — is what a
+marginal hardware/firmware fault looks like (a race, or a component near tolerance), not a
+threshold being crossed.
 
 **Consequence for evidence gathering:** `journalctl -b -1 -k` is now LIKELY EMPTY OR
 TRUNCATED. An abrupt rail drop gives the kernel no chance to flush; that is exactly why a
