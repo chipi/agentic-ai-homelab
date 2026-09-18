@@ -266,8 +266,82 @@ digiegg) had the symptom disappear entirely on replacement units, which is the s
 available evidence that at least some fraction of these are genuinely defective hardware rather
 than a universal platform limit.
 
-**Gotchas:** use version 1.0.9-1 if `ofed-scripts` is unavailable; Secure Boot may need
-disabling.
+### Attempt 2026-09-18 — BLOCKED BY SECURE BOOT
+
+Installed and attempted. **Did not run.** The tool is staged and ready; the only thing missing is
+physical console access.
+
+**Install** — `2.0.4-1` (the apt candidate) is **not installable**: it depends on `ofed-scripts`,
+a virtual package provided by DOCA/MLNX_OFED which is not present, giving
+`E: Unable to correct problems, you have held broken packages`. Pin the older version, whose only
+dependencies are `stress-ng`, `fio`, `memtester`:
+
+```bash
+sudo apt-get install -y dgx-spark-fieldiag=1.0.9-1
+```
+
+Installed to `/opt/nvidia/dgx-spark-fieldiag/`. 17 packages, all new, nothing upgraded or removed
+(the long tail is `fio`'s gluster/ceph/pmem storage-engine backends).
+
+**The blocker:**
+
+```
+Removing Nvidia drivers and services...
+Installing MODS driver...
+Error while executing command: "( setup_module_compile && install_mods_module )", exit code "1"
+```
+
+and in `dmesg`, unambiguously:
+
+```
+[ 1640.706055] Loading of unsigned module is rejected
+```
+
+`SecureBoot enabled` → `/sys/kernel/security/lockdown` = `[integrity]` → the unsigned MODS kernel
+driver cannot load. **`--lockdown` does not bypass this** — that flag only *informs* the
+diagnostic that the kernel is locked down. Secure Boot must actually be turned off, via UEFI setup
+or `mokutil`, and **both require interacting with the physical console at next boot**. The MOK
+manager screen does not accept SSH input, and this box has no DRM card enumerated, so that means
+physically attaching a monitor and keyboard.
+
+**The command, ready to run once Secure Boot is off:**
+
+```bash
+cd /opt/nvidia/dgx-spark-fieldiag
+sudo ./partnerdiag --field --test=PowerStress \
+  --partner_extra_logging=power,thermal,clock \
+  --partner_extra_logging_ms=200
+```
+
+`--test=PowerStress` — the `virtual_id` in `spec_dgx_spark_field_level2.json` is the test name
+itself. Available tests: `GpuStress`, `C2CStress`, `CpuStress1`, `CpuStress2`, `PowerStress`,
+`ThermalStress`, `FioSSD`, `MemStress`. PowerStress has `timeout_sec: 1800`.
+
+`--partner_extra_logging` at 200 ms is worth using: it is exactly the high-rate power/thermal
+capture that forum users had to build externally because journald loses the final ~40 s before the
+power cut.
+
+**Prepare before running, and restore after — the tool is invasive.** It stops `docker.service`
+and unloads the NVIDIA drivers as its first act, and does not put them all back when it aborts.
+
+```bash
+# before
+for c in vllm-prod-vllm pyannote moss faster-whisper dcgm-exporter; do docker stop -t 30 $c; done
+sudo systemctl stop gpu-clock-cap     # test stock hardware, not our mitigation
+
+# after — verify each, do not assume
+sudo systemctl start nvidia-persistenced
+sudo systemctl start gpu-clock-cap
+for c in dcgm-exporter pyannote moss faster-whisper vllm-prod-vllm; do docker start $c; done
+lsmod | grep -i mods                  # expect nothing
+```
+
+Note those containers are `restart: unless-stopped`, so an explicit `docker stop` means they will
+**not** return on their own after a reboot — they must be started by hand.
+
+**Other gotchas:** Secure Boot must be off (above). The unit is an NVIDIA **Founders Edition**
+(`dmidecode` reports `NVIDIA NVIDIA_DGX_Spark`), not an ASUS Ascent GX10 — so NVIDIA's standing
+*"if you have an OEM device, contact your provider support"* deflection does not apply here.
 
 **This is worth running whether or not the clock cap holds.** A pass tells us the hardware is
 within spec and the problem is configuration; a fail gets a replacement. Either outcome is more
