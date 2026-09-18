@@ -60,6 +60,24 @@ services:
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_AUTH: ${REDIS_AUTH:?set REDIS_AUTH in .env}
       REDIS_TLS_ENABLED: ${REDIS_TLS_ENABLED:-false}
+      # Langfuse puts a 30s socket watchdog on EVERY redis connection: "expecting data and
+      # receives none for 30 seconds" -> destroy the socket. On idle BullMQ queues that is
+      # permanent — every queue's blocking read trips it, so unrelated queues log the same
+      # error within the same 93ms. 925-5,000 lines/day of it, and NOT one failing job.
+      #
+      # Upstream bug: langfuse#13601 (regression from v3.163.0, still present in our
+      # 3.221.1). The alarming symptom there is a connection LEAK (connected_clients -> 87+).
+      # We measured ours: connected_clients=5, connections_received_total=7 across 8 days
+      # uptime. We are not leaking — the watchdog logs without actually recycling — so for
+      # us this is purely log noise.
+      #
+      # 0 disables it (langfuse's documented value; a positive value must be >=10000
+      # because BullMQ blocking commands need headroom). The trade: the watchdog exists to
+      # stop a genuinely hung connection holding a BullMQ concurrency slot forever. With 7
+      # connections in 8 days there is no evidence of hung connections here. If that ever
+      # changes, set 300000 instead — long enough that idle queues never trip it, short
+      # enough to still reap a dead socket.
+      REDIS_SOCKET_TIMEOUT_MS: ${REDIS_SOCKET_TIMEOUT_MS:-0}
       EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-}
       SMTP_CONNECTION_URL: ${SMTP_CONNECTION_URL:-}
 

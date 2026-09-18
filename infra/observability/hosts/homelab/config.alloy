@@ -45,6 +45,34 @@ prometheus.scrape "litellm_postgres" {
   scrape_interval = "30s"
 }
 
+// ---------- Langfuse datastores (redis + postgres) ----------
+// Both exporters had been up 8 days serving /metrics that NOTHING scraped: a check for
+// `redis_*` in VictoriaMetrics returned ZERO series, so the LLM-observability stack's own
+// datastores were the one unmonitored corner of the estate. Found 2026-09-18 while chasing
+// the langfuse-worker socket-timeout noise — the tell was having to curl the exporter by
+// hand because there was no series to query.
+//
+// Container names over langfuse_default, NOT the host's :9122/:9188 forwards, for the same
+// lima-fragility reason as litellm_postgres above.
+//
+// `redis_connected_clients` is the one worth watching: langfuse#13601 reports the
+// socket-timeout watchdog leaking connections to 87+. Ours read 5, with
+// redis_connections_received_total=7 across 8 days of uptime — so we are NOT leaking, and
+// this is the series that would show it if that changes.
+prometheus.scrape "langfuse_redis" {
+  targets         = [{ __address__ = "langfuse-redis-exporter-1:9121", instance = "homelab" }]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "langfuse-redis"
+  scrape_interval = "30s"
+}
+
+prometheus.scrape "langfuse_postgres" {
+  targets         = [{ __address__ = "langfuse-postgres-exporter-1:9187", instance = "homelab" }]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "langfuse-postgres"
+  scrape_interval = "30s"
+}
+
 // ---------- Delivery workers (podcast_scraper #1412 / ADR-144) ----------
 // Each delivery loop exposes Prometheus /metrics (email 9110 / push 9111 / events 9112).
 // Feeds the delivery_* series the "Delivery worker" Grafana board reads (bounce-rate =

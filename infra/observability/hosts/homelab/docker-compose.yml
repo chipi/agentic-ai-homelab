@@ -22,6 +22,7 @@ services:
       - litellm
       - delivery
       - backend
+      - langfuse
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro    # container-log discovery
@@ -45,6 +46,14 @@ networks:
   delivery:
     external: true
     name: delivery_default
+  # langfuse_default — its redis + postgres exporters had been running for 8 days
+  # serving /metrics that NOTHING scraped (0 `redis_*` series existed anywhere), so
+  # the LLM-observability stack's own datastores had no monitoring at all. Joined for
+  # the same container-name reason as the two above: the exporters ARE published on
+  # the host (:9122 / :9188, remapped), but that path is the fragile lima forward.
+  langfuse:
+    external: true
+    name: langfuse_default
   # backend_default owns victoriametrics + victorialogs. Alloy joins it so the
   # metrics/logs WRITE path stays VM-internal: writing via host.docker.internal
   # sent every instance="homelab" series through lima's SSH forward, so a forward
