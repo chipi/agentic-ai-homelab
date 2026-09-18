@@ -65,6 +65,11 @@
 #   the above to a cause without a deliberate replay under load — the freezes need a
 #   PHYSICAL power cycle, so that is an operator decision, not an agent's.
 #
+#   ⚠ SUPERSEDED BY WEDGE 4 — read the block at the end of this section FIRST. The
+#   "did NOT reproduce" finding below was written at 07:30Z on 2026-09-18 and the host
+#   wedged again at 08:27Z the same morning. It is kept because its DATA is still valid
+#   (8h of co-residency really did survive); its CONCLUSION is not.
+#
 #   REPLAY UNDER LOAD, 2026-09-17/18 — the stated mechanism did NOT reproduce.
 #
 #   An 8-hour operator-run crunch with ollama co-resident on the prod vLLM. Survived:
@@ -97,6 +102,76 @@
 #   THE RULE IS LEFT IN PLACE. One clean replay does not overturn three power cycles,
 #   and the failure mode is a hard wedge. Treat this as evidence for revisiting the
 #   rule deliberately, not as licence to run co-resident by default.
+#
+#   ---------------------------------------------------------------------------------
+#   WEDGE 4 — 2026-09-18 08:27Z. It reproduced, 57 minutes after the block above was
+#   committed. And the evidence points AWAY from software entirely.
+#
+#   Every telemetry path stopped inside 60 seconds of each other:
+#
+#     logs                 last 08:27:14Z
+#     host memory (/proc)  last 08:27:00Z
+#     cadvisor (127 srs)   last 08:27:00Z
+#     DCGM (GPU driver)    last 08:28:00Z
+#     vLLM engine          last 08:28:00Z
+#     alloy self-metrics   last 08:28:00Z
+#
+#   Those are INDEPENDENT subsystems. A container crash or a GPU hang kills one. All of
+#   them stopping together means the host stopped executing — and ping/:8003/ssh were
+#   dead FROM THE MINI too, so it is not a laptop-network artifact.
+#
+#   Thermals in the final 20 minutes (the box had been idle at 38C):
+#
+#     08:16  47C  95% util   38.9W   <- load starts
+#     08:20  65C  96% util   43.1W
+#     08:25  68C  96% util   43.5W
+#     08:27  70C  96% util   43.9W
+#     08:28  71C  96% util   44.2W   <- last sample, still climbing, never plateaued
+#
+#   Board ACPI zones at 08:28Z: 79.0 / 79.0 / 77.8 / 76.7 / 71.7 / 68.8 / 67.8 C.
+#   Hottest board zone 79C vs GPU die 70C = +9C, matching the documented "~10C hotter"
+#   offset for this hardware.
+#
+#   TWO EARLIER CLAIMS IN THIS FILE ARE NOW SUSPECT:
+#
+#   1. "Every wedge landed MINUTES AFTER the release." At wedge 4 the GPU was pinned at
+#      96% util with 2 requests running at the final sample. What LOOKED like a release
+#      was one 10s vLLM log line between batches; the GPU never let go. If wedges 1-3
+#      were read the same way — from an instantaneous log line rather than GPU util —
+#      the "load/unload cycle" theory rests on a misread.
+#   2. "depth was never the trigger." Memory held flat at 73.2-73.3 GB free through the
+#      entire final window. That part survives: it is NOT memory.
+#
+#   THE LIKELY CAUSE IS THE HARDWARE, NOT US. NVIDIA GB10 / DGX Spark has a documented
+#   "under-load power-off issue" — see github.com/maci0/gb10-thermal-toolkit, which
+#   exists solely to work around it, and the NVIDIA forum threads on ACPI zones hitting
+#   96-97C with "fans not ramping". Key points from that work:
+#
+#     * the governing sensor is the BOARD / Grace-CPU ACPI zone, ~10C hotter than the
+#       GPU die (confirmed here: 79 vs 70)
+#     * danger zone 94-96C; 87-91C is the safe band
+#     * power is never the limiter (~49W peak against a ~140W budget) — it is COOLING
+#     * mitigations: verify case fan airflow DIRECTION (~18C on affected units), and
+#       cap clocks with `nvidia-smi -lgc` around 2200 MHz
+#     * after a thermal power-off a unit can latch into a stuck ~14W state — disconnect
+#       power for ~5 MINUTES to reset the controller, a quick cycle may not clear it
+#
+#   HONEST GAP: our hottest zone read 79C, below the documented 94-96C trip. Every zone
+#   was still rising at the last sample and we sample at 60s, so it may have spiked in
+#   the unobserved final minute — but that is unproven. What IS established is a
+#   monotonic 58->79C climb over 12 minutes at a FLAT ~43W with no plateau, which is a
+#   cooling signature, not a compute one.
+#
+#   WE HAVE NO FAN TELEMETRY. The box publishes no tachometer to node_exporter
+#   (node_hwmon_fan_rpm absent); cooling is EC/firmware-controlled and invisible to
+#   Linux. node_cooling_device_* exists but is PCIe link-speed + CPU throttle states,
+#   all reading 0 (nothing ever throttled). So "was the fan spinning" is unanswerable
+#   from telemetry — which is itself worth fixing.
+#
+#   ALERT WE SHOULD HAVE HAD, on metrics already collected:
+#     max(node_thermal_zone_temp{cluster="dgx"}) > 85                    (warn)
+#     deriv(max(node_thermal_zone_temp{cluster="dgx"})[10m:]) > 1.5      (climbing)
+#   The second would have fired ~08:20Z, about seven minutes before the host died.
 #
 #   THE UNIT IS ALSO `systemctl disable`d ON THE HOST (2026-09-16). Do not "fix" the
 #   DGX by re-enabling it. `stop` is runtime-only, so the boot symlink outlived every
