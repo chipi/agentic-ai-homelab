@@ -236,6 +236,56 @@ guard is not a proof. Confirm on the next natural reboot with:
 systemctl is-active gpu-clock-cap && nvidia-smi -q -d CLOCK | grep -A1 '^    Clocks$'
 ```
 
+### Validation run 2026-09-18 13:04-13:26 — survived at wedge-level intensity
+
+Real corpus relabelling workload, 133 requests completed, sampled every 20 s on-box.
+
+```
+requests completed    133          prefill seconds    66.6
+prompt tokens     662,595          cache hit rate    36.5%
+kv actually computed 416,195       preemptions           0
+generated tokens  102,048
+```
+
+| | TRUE tok/s | cache % | kv/s | GPU W | peak °C | outcome |
+|---|---|---|---|---|---|---|
+| wedge windows | 6,563 | 35.4 | 334 | 52.6 | 79 | **died** |
+| survivor windows | 6,593 | 50.5 | 229 | 44.8 | 64-73 | lived |
+| this run, capped | 6,248 | **36.5** | **326** | 26-29 | 76 | lived |
+
+**The significant result is the cache hit rate: 36.5 %, which is the *wedge* range (35.4 %), not
+the survivor range (50.5 %).** Real compute came to ~326 kv/s against 334 at the wedges. So this
+run matched the deaths on both characterising metrics and held.
+
+Thermal envelope over 21 minutes: steady 60-72 °C with two single-sample excursions to 76 °C,
+never near the 85 °C tripwire. Power sat at 26-29 W with three bursts to 49 W, 53 W and 48 W,
+each lasting one sample — the burst shape the external-recorder reports describe. Clock never
+breached the cap. Zero preemptions. `uptime` confirmed no reboot.
+
+**Throughput cost: -5.2 %** (6,248 vs 6,593 survivor baseline), consistent with the ~5 % measured
+elsewhere. It read 6,657 at the nine-minute mark and drifted down; -5.2 % is the honest full-run
+figure.
+
+**What this does NOT establish, stated plainly:**
+
+- **That the cap is the reason it survived.** 26-29 W against 52.6 W is roughly half the power
+  from a ~10 % clock reduction (2418 → 2177 MHz). That does not add up. Something else about this
+  workload differs from the pre-wedge ones and it has not been identified.
+- **That the box is fixed.** One 21-minute run. Deaths came after uptimes of 41 minutes to 3 days.
+- **The CPU-cap question.** `TSOC` and `TS1P` were consistently the hottest zones, and the one
+  sharp excursion — **+16 °C in 20 s at flat power (26 W)** — was CPU-side while `TGPU` sat at
+  61 °C. Suggestive of a CPU-driven thermal transient; never got hot enough to justify acting.
+  `cpufreq` is available (governor `performance`, max 2808 MHz) if the evidence ever warrants it.
+
+Zone map, recovered from the boot log (needed to read any of this):
+
+```
+zone0 = TSOC (SoC)         zone4 = TS1P (CPU cluster 1, perf)
+zone1 = TS0E (CPU c0 eff)  zone5 = TGPU (GPU)
+zone2 = TS0P (CPU c0 perf) zone6 = TUNC (uncore)
+zone3 = TS1E (CPU c1 eff)
+```
+
 ## 2.3 Not done, and why
 
 | Action | Status |
