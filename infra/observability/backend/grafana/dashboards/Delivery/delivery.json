@@ -290,6 +290,247 @@
           "legendFormat": "p95 {{channel}}"
         }
       ]
+    },
+    {
+      "id": 107,
+      "type": "row",
+      "title": "Per-cadence enqueue health (#2119)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Age of last enqueue, per cadence \u2014 THE #2119 signal",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 0,
+        "y": 27
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "podcast_digest_last_success_age_seconds",
+          "legendFormat": "{{cadence}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 129600
+              },
+              {
+                "color": "red",
+                "value": 691200
+              }
+            ]
+          }
+        }
+      },
+      "description": "Seconds since each cadence last produced an envelope. A cadence that has NEVER produced one is ABSENT from this panel entirely \u2014 not zero. That absence is the #2119 signature: daily_recap and the monthly recommendations digest were never called at all, for their whole lives, while every other delivery panel stayed green. Thresholds: 36h (daily) amber, 8d (weekly) red."
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Consenting users per type (the denominator)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 27
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "podcast_digest_consenting_users",
+          "legendFormat": "{{type}}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "value"
+      },
+      "description": "Zero envelopes is CORRECT when nobody has consented. Without this number the age alerts cannot tell an empty roster from a fault \u2014 and an alert that cries wolf on an empty roster gets muted, which is how you end up back here."
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Last RUN vs last SUCCESS \u2014 separates 'never called' from 'nobody due'",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "podcast_digest_last_run_age_seconds",
+          "legendFormat": "run {{cadence}}"
+        },
+        {
+          "refId": "B",
+          "expr": "podcast_digest_last_success_age_seconds",
+          "legendFormat": "success {{cadence}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "description": "If RUN is fresh and SUCCESS is stale, the enqueuer is being called and nobody is due \u2014 correct. If BOTH are stale or absent, the enqueuer is not being called at all. That is the distinction nothing could express before #2119."
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Envelopes enqueued, cumulative per cadence",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 36
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "podcast_digest_enqueued_total",
+          "legendFormat": "{{cadence}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "description": "Flat line on a cadence with consenting users = nothing is being produced."
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Cadence last error (age)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 36
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "podcast_digest_last_error_age_seconds",
+          "legendFormat": "{{cadence}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10800
+              },
+              {
+                "color": "green",
+                "value": 86400
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "background"
+      },
+      "description": "Per-enqueuer isolation means one broken assembler no longer takes the others down \u2014 so this is the ONLY signal that a single cadence is erroring. Recent (red) is bad."
+    },
+    {
+      "id": 212,
+      "type": "logs",
+      "title": "Enqueue events (structured) \u2014 join to delivery on correlation_id",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "app:player \"digest-scheduler-json\"",
+          "queryType": "instant"
+        }
+      ],
+      "description": "The sidecar runs network_mode:none and CANNOT emit OTEL spans. These structured lines carry correlation_id (= the envelope id) \u2014 the same key the delivery worker stamps on every span, log, metric and the outbound Resend header. Copy a correlation_id from here into the delivery traces to follow one digest from enqueue to inbox."
     }
   ]
 }

@@ -933,6 +933,132 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+      # --- PER-CADENCE delivery outcome (podcast_scraper #2119) ------------------------
+      #
+      # Everything above this point watches LIVENESS or needs successful traffic to already
+      # exist. None of it can express "the expected output never arrived", which is why
+      # daily_recap and the monthly recommendations digest ran DEAD for their entire lives
+      # behind an all-green delivery dashboard:
+      #
+      #   delivery-worker-down       up==0                 worker was up
+      #   delivery-scheduler-silent  tick log lines        ticked perfectly, hourly
+      #   delivery-events-stalled    cursor age            cursor was fine
+      #   delivery-high-bounce       RATE of sends         needs sends to exist
+      #   delivery-dead-letter       INCREASE of sends     needs sends to exist
+      #
+      # The primitive below is AGE OF LAST SUCCESS, PER CADENCE. Age works from a single
+      # sample with no traffic history, and it catches "never happened" as well as "stopped
+      # happening". Per cadence because the scheduler can be perfectly healthy while exactly
+      # one cadence is broken — an aggregate masks that in both directions.
+      #
+      # noDataState: Alerting is LOAD-BEARING and is the opposite of the choice made for
+      # delivery-high-bounce above. There, NoData means "no bounce ever happened" = good news.
+      # HERE, an absent series means "this cadence has NEVER produced an envelope" — which is
+      # precisely the #2119 failure. Absence must page.
+      #
+      # Written by the digest sidecar to the shared appdata volume (it runs network_mode:none
+      # and cannot expose or push metrics) and exported by the player API, already scraped as
+      # job "api". No new scrape target.
+
+      - uid: delivery-cadence-weekly-stale
+        title: "Weekly digest has not been enqueued in 8 days"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        execErrState: OK
+        labels: { severity: warning, kind: delivery }
+        annotations:
+          summary: "'Your Week' has enqueued nothing for >8d (cadence is weekly, so one missed slot). Check podcast_digest_last_run_age_seconds{cadence=\"weekly\"} — if THAT is fresh the enqueuer ran and nobody was due; if it is also stale the sidecar is not calling it. On prod: docker logs player-digest-scheduler-1 | tail."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(podcast_digest_last_success_age_seconds{cadence="weekly"}) or vector(999999) and on() (max(podcast_digest_consenting_users{type="digest"}) > 0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [691200] } }]
+
+      - uid: delivery-cadence-daily-recap-stale
+        title: "Daily recap has not been enqueued in 36 hours"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        execErrState: OK
+        labels: { severity: warning, kind: delivery }
+        annotations:
+          summary: "Daily recap has enqueued nothing for >36h (cadence is daily). This is the exact alert that would have caught #2119, where daily_recap was never called at all for its entire life. Check podcast_digest_last_run_age_seconds{cadence=\"daily_recap\"}: fresh = ran with nobody due; stale/absent = not being called."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(podcast_digest_last_success_age_seconds{cadence="daily_recap"}) or vector(999999) and on() (max(podcast_digest_consenting_users{type="daily_recap"}) > 0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [129600] } }]
+
+      - uid: delivery-cadence-recommendations-stale
+        title: "Monthly recommendations digest has not been enqueued in 40 days"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        execErrState: OK
+        labels: { severity: warning, kind: delivery }
+        annotations:
+          summary: "The monthly recommendations digest has enqueued nothing for >40d (fires on the 1st, so 40d is one missed month plus slack). Also shipped dead in #2119."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(podcast_digest_last_success_age_seconds{cadence="recommendations"}) or vector(999999) and on() (max(podcast_digest_consenting_users{type="digest"}) > 0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [3456000] } }]
+
+      # A cadence that RAISES every hour is a different fault from one that is never called —
+      # this catches a broken assembler while the others keep working (per-enqueuer isolation
+      # means one failing cadence no longer takes the rest down, so nothing else would show it).
+      - uid: delivery-cadence-erroring
+        title: "A digest cadence has been erroring for 3h"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        execErrState: OK
+        labels: { severity: warning, kind: delivery }
+        annotations:
+          summary: "Cadence {{ $labels.cadence }} has raised within the last 3h. Per-enqueuer isolation keeps the other cadences running, so this is the ONLY signal for a single broken assembler. On prod: docker logs player-digest-scheduler-1 | grep 'enqueuer .* failed'."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min by (cadence) (podcast_digest_last_error_age_seconds)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [10800] } }]
+
   # --- Production ops health (prod-ops-health pushers) -------------------------
   # Each production app's prod_ops_health.sh (scheduled by its repo's CI, run ON
   # the prod box) pushes prod_ops_health_* gauges to VM daily; the homelab home
