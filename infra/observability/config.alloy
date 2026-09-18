@@ -90,6 +90,33 @@ prometheus.relabel "cadvisor_keep" {
     regex         = "container_cpu_(usage|user|system)_seconds_total|container_memory_(usage|working_set|max_usage)_bytes|container_memory_rss|container_fs_(reads|writes)_bytes_total|container_fs_(usage|limit)_bytes|container_network_(receive|transmit)_bytes_total|container_oom_events_total|container_start_time_seconds|container_last_seen|container_spec_memory_limit_bytes|container_spec_cpu_(quota|period)|container_tasks_state|container_pressure_(cpu|io|memory)_(waiting|stalled)_seconds_total|container_scrape_error|container_health_state|machine_cpu_cores|machine_memory_bytes"
     action        = "keep"
   }
+
+  // The rule above picks WHICH METRICS. This one picks WHICH LABELS, and without it we
+  // were losing data silently.
+  //
+  // cadvisor turns every Docker label into a metric label, on EVERY series. Measured on
+  // this box 2026-09-18: 53 labels per series, 49 of them `container_label_*` — the
+  // NVIDIA images alone contribute cublas/cudnn/cufft/curand/cusolver/cusparse/cal
+  // versions, build_id, build_ref. VictoriaMetrics caps labels per timeseries and drops
+  // the excess, logging:
+  //
+  //   dropping 3 labels for {__name__="container_memory_working_set_bytes", cluster="dgx", …}
+  //
+  // 796 of those in 2h. Three costs, only one of which is noise:
+  //   1. SILENT DATA LOSS — VM chooses what to drop, not us. Nothing guarantees the
+  //      survivors are the useful ones.
+  //   2. CARDINALITY — `com_docker_compose_config_hash` and `project_config_files` change
+  //      on every compose edit, so each edit spawns a whole new series per container.
+  //   3. Storage/query cost for 49 mostly-identical strings about CUDA versions.
+  //
+  // Dropping the lot leaves cadvisor's own `id`, `image`, `name` (verified against live
+  // cadvisor here — 53 -> 4). `name` is what the dashboards key on, so nothing that is
+  // actually read is lost. If a compose label is ever genuinely needed, add it back
+  // explicitly rather than reopening the whole namespace.
+  rule {
+    regex  = "container_label_.*"
+    action = "labeldrop"
+  }
 }
 
 // ---------- LLM SERVING: vLLM coder model on port 9000 ----------
