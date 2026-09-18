@@ -142,7 +142,9 @@ itself confirmatory — but do not expect a smoking gun there.
 
 ### H10 — USB-C PD / power-delivery firmware fault  ← strongest remaining
 The GB10 is powered by a 240 W USB-C PD brick with an MCU that has a **documented firmware bug**
-causing hard power-off under load, independent of PSU wattage adequacy.
+causing hard power-off — the vendor calls it an "under-load power-off issue", independent of
+PSU wattage adequacy. (Their phrasing, not a claim about our data: see the warning above —
+our heavier run survived.)
 
 **For:** matches the invariant signature exactly (instantaneous whole-host stop, physical
 intervention required). Intermittent rather than threshold-driven, which fits a firmware race far
