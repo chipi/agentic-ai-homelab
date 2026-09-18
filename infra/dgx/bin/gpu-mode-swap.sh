@@ -65,10 +65,38 @@
 #   the above to a cause without a deliberate replay under load — the freezes need a
 #   PHYSICAL power cycle, so that is an operator decision, not an agent's.
 #
-#   A 2026-09-17 run started ollama co-resident with the prod vLLM and forced one
-#   load/unload cycle (23.6 GB resident, released cleanly). The host survived the full
-#   3-16 min window. That tests IDLE co-residency only and falsifies nothing above:
-#   both real wedges happened under batch load this run did not reproduce.
+#   REPLAY UNDER LOAD, 2026-09-17/18 — the stated mechanism did NOT reproduce.
+#
+#   An 8-hour operator-run crunch with ollama co-resident on the prod vLLM. Survived:
+#   uptime unbroken (boot 2026-09-16 12:35:08 throughout), log shipping continuous
+#   across all 20 half-hour buckets with no gap, 0 OOM kills, 0 CUDA/NVML/Xid/illegal-
+#   memory events, and 0 error-level lines from the DGX in 10h.
+#
+#   It was not an idle sit. vLLM sustained 300-584 chat/completions per hour for 7+
+#   hours (peak 741.8 tok/s prompt, 2 concurrent). From 02:00Z ollama ran REPEATED
+#   load/unload cycles — resident ~6-8 min per hour, four hours running — concurrent
+#   with that load. That is the exact cycle blamed above, exercised over and over,
+#   for longer than either wedge survived:
+#
+#     wedge 1      1013.7 tok/s, 4 reqs, ollama 1 model    died after ~4.5h
+#     wedge 2      1839.6 tok/s, 2 reqs, ollama 0 models   died after ~1h
+#     this replay   741.8 tok/s, 2 reqs, ollama cycling    8h+, no failure
+#
+#   Caveat, stated so nobody over-reads this: peak intensity was LOWER (741 vs
+#   1013/1839 tok/s; 2 concurrent vs 4). This does not prove immunity at the highest
+#   load the box has seen. What it does is falsify "the load/unload CYCLE wedges the
+#   host" as a sufficient mechanism — the cycle ran for hours under real load and
+#   nothing happened.
+#
+#   What else changed between the wedges and this replay: the mac mini (the client
+#   driving both wedges, via its litellm) had ~50,400 log lines/day of pure noise
+#   removed at cause on 2026-09-17 — 49,151 VictoriaMetrics parse rejects and 1,239
+#   Grafana template errors. Whether that is causally related is UNKNOWN and untested;
+#   it is recorded only because it is the other thing that moved.
+#
+#   THE RULE IS LEFT IN PLACE. One clean replay does not overturn three power cycles,
+#   and the failure mode is a hard wedge. Treat this as evidence for revisiting the
+#   rule deliberately, not as licence to run co-resident by default.
 #
 #   THE UNIT IS ALSO `systemctl disable`d ON THE HOST (2026-09-16). Do not "fix" the
 #   DGX by re-enabling it. `stop` is runtime-only, so the boot symlink outlived every
