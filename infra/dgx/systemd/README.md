@@ -6,6 +6,7 @@ there is no guessing about where a file belongs.
 | Repo path | Install path |
 |---|---|
 | `ollama.service.d/override.conf` | `/etc/systemd/system/ollama.service.d/override.conf` |
+| `gpu-clock-cap.service` | `/etc/systemd/system/gpu-clock-cap.service` |
 
 Install:
 
@@ -14,6 +15,11 @@ sudo install -m 0644 -D ollama.service.d/override.conf \
   /etc/systemd/system/ollama.service.d/override.conf
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
+
+sudo install -m 0644 -D gpu-clock-cap.service \
+  /etc/systemd/system/gpu-clock-cap.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now gpu-clock-cap.service
 ```
 
 Verify from ollama's own startup log rather than from the file — the file being
@@ -23,6 +29,42 @@ correct does not prove systemd loaded it:
 journalctl -u ollama -b 0 --no-pager -o cat --since -1min \
   | grep -oE 'OLLAMA_CONTEXT_LENGTH:[0-9]+|OLLAMA_MAX_LOADED_MODELS:[0-9]+|OLLAMA_GPU_OVERHEAD:[0-9]+'
 ```
+
+## Why `gpu-clock-cap.service` exists
+
+The box hard-powered-off four times in three days (2026-09-15..18) under sustained
+vLLM prefill: journal stops mid-line with no `shutdown.target`, `/sys/fs/pstore` empty,
+no Xid, no thermal trip, no shutdown record in `last -x reboot`, physical power button
+required every time.
+
+This is the **most-reported DGX Spark failure**, not a fault of this deployment. NVIDIA
+support names the clock cap as *"the current workaround"*
+([forum 378315](https://forums.developer.nvidia.com/t/hard-power-off-under-sustained-gpu-load-at-90w-persists-after-full-platform-firmware-update/378315)).
+
+**It is a power transient, not a thermal ceiling.** Our box died at 79 C board zone
+having already survived 84.6 C for 24 minutes, so peak temperature does not predict
+death. Users with external per-sample recorders measured draw swinging 18 W <-> 95 W
+synchronised with vLLM's prefill phase, surviving 82-85 W peaks at ~96 C but dying at a
+95 W peak. Capping the clock cuts the peak, not the average.
+
+Two caveats that must not be lost:
+
+- **It reduces, it does not eliminate.** One user still died at a 2000 MHz cap — lower
+  than ours. The box is mitigated, not fixed.
+- **`nvidia-smi` under-reads the real hot spot by 8-16 C** across three independent
+  measurements. Board ACPI zones are the honest signal; `temperature.gpu` is not.
+
+Verify it took effect — the unit reporting `active` does not prove the cap applied:
+
+```bash
+nvidia-smi -q -d CLOCK | grep -A1 '^    Clocks$'     # expect Graphics <= 2200 MHz
+```
+
+Check it under load, not at idle. Remove the mitigation with
+`sudo systemctl stop gpu-clock-cap` (its `ExecStop` runs `nvidia-smi -rgc`).
+
+Full hypothesis history, including a retracted precursor that turned out to be a
+prefix-cache artifact: `docs/wip/DGX-WEDGE-DIFFERENTIAL.md`.
 
 ## Why `ollama.service.d/override.conf` exists
 

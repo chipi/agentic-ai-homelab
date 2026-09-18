@@ -1,0 +1,38 @@
+[Unit]
+# Caps the GB10 SM clock at 2200 MHz to blunt the prefill power transient.
+#
+# WHY: this box hard-powered-off 4 times in 3 days (2026-09-15..18) under sustained
+# vLLM prefill — no pstore record, no shutdown sequence in the journal, physical power
+# button required. That is the most-reported DGX Spark failure, and NVIDIA support
+# names this cap as "the current workaround":
+#   https://forums.developer.nvidia.com/t/hard-power-off-under-sustained-gpu-load-at-90w-persists-after-full-platform-firmware-update/378315
+#
+# The mechanism is a power transient, not a thermal ceiling: users with external
+# per-sample recorders measured draw swinging 18W <-> 95W synchronised with vLLM's
+# prefill, surviving 82-85W peaks at ~96C but dying at a 95W peak. Capping the clock
+# cuts the peak, not the average. Our own telemetry agrees on the shape — the box died
+# at 79C having already survived 84.6C, so peak temperature is not the trigger.
+#
+# Measured elsewhere: ~20 log-less power-offs in 3 weeks -> zero, at ~5% throughput cost
+# (tonyd2wild); peak power 93.2W -> 74.0W and time above 95C 12% -> 0% (ai-muninn).
+# It REDUCES rather than eliminates — one user still died at a 2000 MHz cap, lower than
+# this one. Treat the box as mitigated, not fixed.
+#
+# nvidia-smi -lgc is volatile and does NOT survive a reboot, which is the only reason
+# this unit exists.
+Description=Cap GB10 SM clock at 2200 MHz (hard-power-off mitigation)
+After=nvidia-persistenced.service
+Wants=nvidia-persistenced.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Retry: the driver is not always ready the instant the unit is reached on a cold boot.
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do /usr/bin/nvidia-smi -L >/dev/null 2>&1 && exit 0; sleep 2; done; exit 1'
+ExecStart=/usr/bin/nvidia-smi -pm 1
+ExecStart=/usr/bin/nvidia-smi -lgc 300,2200
+# Restore stock behaviour if the unit is stopped, so removing the mitigation is one command.
+ExecStop=/usr/bin/nvidia-smi -rgc
+
+[Install]
+WantedBy=multi-user.target

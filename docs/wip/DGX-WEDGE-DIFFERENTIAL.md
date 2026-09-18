@@ -287,3 +287,206 @@ Genuinely missing and not fixable from software: fan RPM.
 Sources: [gb10-thermal-toolkit](https://github.com/maci0/gb10-thermal-toolkit) ·
 [GX10 PD throttle fix](https://github.com/Sggin1/DGX-SPARK/blob/main/GX10_PD_Throttle_Fix.md) ·
 [NVIDIA forum: ACPI zones 96-97C, fans not ramping](https://forums.developer.nvidia.com/t/dgx-spark-gb10-thermal-throttling-after-ec-uefi-updates-acpi-zones-96-97c-fans-not-ramping/377044)
+
+---
+
+## 2026-09-18 10:07Z — recovery #4 forensics, and the firmware finding
+
+Operator pressed the rear button; box came back in ~24 s. Evidence collected on the fresh boot:
+
+| check | result | what it rules out |
+|---|---|---|
+| `/sys/fs/pstore/` | **empty** | firmware recorded no crash, no BERT/APEI record |
+| `dmesg` grep for `bert\|hardware error\|mce\|xid\|throttl` | only boot-time thermal-zone registration | no machine check, no GPU Xid, no thermal trip |
+| `journalctl -b -1` last line | `10:27:02+02:00`, ordinary user-session teardown | no `shutdown.target`, no service stops, no unmounts |
+| `last -x reboot` | **all six boots show "still running"** | no shutdown record for ANY of the 4 deaths |
+| GPU at idle after boot | 10.65 W, 38 °C, `clocks_event_reasons.active = 0x0`, max SM 3003 MHz | came back unlatched and healthy — **kills H10 (PD latch)** |
+
+The journal stops mid-normal-operation with no OS-initiated shutdown of any kind. Combined with the
+empty pstore: **nothing in the OS or the driver decided to stop, and firmware logged nothing.**
+Power was removed from under a running system, four times.
+
+The final 40 s before death contain only our own 10 s polling loop (`docker ps` / `docker inspect`
+as `ops` over Tailscale SSH) and `gpu-process-metrics.service`. Neither can cut power; they are
+noise, not cause.
+
+### H12 — stale Embedded Controller / SoC firmware (NEW, ACTIONABLE)
+
+`fwupdmgr get-updates` found **two unapplied NVIDIA updates, both `Urgency: High`**:
+
+```
+Embedded Controller   0x03000302 -> 0x03000508   (release 143461, created 2026-06-05)
+  "improves the performance and stability of the Embedded Controller in DGX Spark"
+
+SoC FW (UEFI + GPU)   0x0200980f -> 0x02009b0b   (release 143466)
+  "improves the performance and stability of the System-on-Chip Firmware
+   including UEFI and GPU in DGX Spark"
+```
+
+Signed payloads, tested by NVIDIA on Ubuntu 24.04 **from our exact current version**.
+
+**Why it fits:** the EC owns the power rails, the fan curve, and thermal derating, and it is
+invisible to Linux. That is exactly the shape of our signature — ~40 % prefill loss plus 7-10 °C
+of extra heat at identical clock/power/utilisation with `THROTTLE_REASONS = 0`, then a power cut
+with no log anywhere.
+
+**What this does NOT establish:** the changelog is generic vendor boilerplate; there is no evidence
+it addresses our specific fault. And the firmware was published 2026-06-05 while the box ran clean
+2026-08-13 -> 2026-09-16. Stale firmware alone does not explain "why now" — it only works as an
+explanation if the trigger is load-dependent, which is consistent with the context window having
+doubled but is not proven by it.
+
+**Counter-signal, stated explicitly:** the NVIDIA forum thread linked directly above is titled
+*"thermal throttling AFTER EC/UEFI updates — ACPI zones 96-97 C, fans not ramping."* The update we
+are applying is in the same family as one a user blames for a thermal regression. That is a real
+argument against the action, not a footnote. Mitigation: watch board-zone temps and fan behaviour
+closely on the first loaded run after the flash; `Minimum Version: 0x02003400` indicates a
+downgrade path back below the new version exists if temps regress.
+
+**Action taken 2026-09-18 10:10Z** (operator-approved): both capsules staged via
+`fwupdmgr update -y --no-reboot-check` -> `Successfully installed firmware`, then
+`systemctl reboot` at 10:11:02Z to apply. Containers deliberately NOT stopped by hand — they are
+`restart: unless-stopped`, and an explicit `docker stop` would keep them down across the reboot.
+
+### H13 — the fan never ramps because the box is headless (STRONGEST FIT SO FAR)
+
+Measured on our box 2026-09-18 12:22 local, minutes after the post-flash cold boot:
+
+```
+/sys/class/hwmon/hwmon*/fan*_input     NO fan tachometer
+/sys/class/hwmon/hwmon*/pwm*           NO fan control
+nvidia-smi --query-gpu=fan.speed       [N/A]
+cooling_device* types                  Processor x20, PCIe_Port_Link_Speed x6
+                                       -> NO "Fan" cooling device registered in ACPI
+/sys/class/drm/card*/status            glob does not expand — no DRM card enumerated
+systemctl is-active display-manager    active
+thermal zones at IDLE (GPU 11 W)       z0 54.9 C, z4 54.9 C, rest 42.8-44.7 C
+```
+
+This retroactively **confirms** the earlier line "genuinely missing and not fixable from software:
+fan RPM" — which was asserted before it was checked. It is now checked. Linux has no fan interface
+of any kind: nothing to read, nothing to write, and ACPI does not register a fan as a cooling
+device. The EC owns the fan alone and never tells the OS.
+
+Multiple independent reports say DGX Spark fans do not spin when the machine is headless:
+
+- [Fans do not spin in headless boot mode, temperature rises to ~70 C](https://forums.developer.nvidia.com/t/dgx-spark-gb10-fans-do-not-spin-in-headless-boot-mode-temperature-rises-to-70-c/361960)
+  — no HDMI, fans never start, temperature climbs **with no workload at all**. NVIDIA staff reply:
+  *"This is not expected behavior and I cannot reproduce this."* No official fix in-thread. One
+  user reports enabling a local X11 login with HDMI attached took idle from 55-58 C down to 36-40 C.
+- [Fans stop when the screen goes dark or running from SSH](https://forums.developer.nvidia.com/t/dgx-spark-fans-stop-when-the-screen-goes-dark-or-running-from-ssh-box-gets-too-hot-to-touch-fire-hazard/378945)
+  — with a display attached, fans cut ~1 min after blanking; mouse movement restores them.
+- [Low fan speed / high temps, no Linux or BIOS fan control](https://dredyson.com/fix-dgx-spark-low-fan-speed-and-high-temps-a-beginners-step-by-step-guide-to-understanding-thermal-performance-fan-control-limitations-and-proven-workarounds-for-overheating-issues/)
+
+Reference idle temperatures from those threads: healthy headless unit **34-35 C**; affected units
+**60-70 C with no workload**. Ours reads **54.9 C at idle** and was still rising when measured.
+
+**H13 STATUS: the supporting evidence was RETRACTED within the hour — see the retraction below.**
+Idle thermal drift was measured and came back healthy (54 C post-boot transient falling to 37-40 C
+and holding, against a 34-35 C healthy reference and a 60-70 C affected reference). The fan cools
+this box fine at idle. H13 is not dead — a fan that idles fine but fails to ramp under sustained
+load is untested — but it no longer has the prefill evidence behind it.
+
+**Candidate interventions, untested here:** attach an HDMI display or EDID dummy plug; keep a
+graphical session non-blanked; external forced-air cooling.
+
+---
+
+## RETRACTION 2026-09-18 — the precursor was a measurement artifact
+
+**The "~40 % prefill degradation before every wedge" does not exist.** It was the prefix-cache hit
+rate falling, measured with a metric that cannot tell the two apart.
+
+The original precursor used `request_prompt_tokens_sum / request_prefill_time_seconds_sum`. Prompt
+tokens include tokens served from the prefix cache, which cost approximately no compute. That ratio
+therefore conflates "the GPU got slower" with "fewer tokens came from cache".
+
+`vllm:request_prefill_kv_computed_tokens` is "new KV tokens computed during prefill (**excluding
+cached tokens**)". Dividing it by prefill time gives real compute throughput, immune to cache-rate
+changes. It was in VictoriaMetrics the whole time.
+
+| window | OLD tok/s | TRUE tok/s | cache hit % |
+|---|---|---|---|
+| wedge 1 DIED | 11,617 | 6,201 | 47.0 |
+| wedge 2 DIED | 10,070 | 6,671 | 32.6 |
+| wedge 4 DIED | 9,322 | 6,818 | 26.6 |
+| surv 03:00 | 16,391 | 6,922 | 58.0 |
+| surv 04:30 | 21,284 | 5,742 | 73.4 |
+| surv 05:30 | 15,034 | 5,584 | 62.1 |
+
+```
+OLD  prompt-tokens/s   wedge 10,336   survivor 15,405    -32.9%
+TRUE kv-computed/s     wedge  6,563   survivor  6,593     -0.4%
+cache hit %            wedge   35.4   survivor   50.5    -29.9%
+```
+
+**Compute throughput before every death was flat to within 0.4 %.** No degradation, ever.
+
+### What was actually happening
+
+Measured on real-work metrics over the same windows:
+
+```
+                            wedge      survivor    delta
+kv computed/s (real work)   334.2       229.0     +45.9%
+generation tok/s             96.5        70.6     +36.7%
+GPU power W                  52.6        44.8     +17.3%
+GPU temp C                   73.0        64.0     +14.1%
+board zone C                 79.0        71.0     +11.3%
+```
+
+The box was not degrading. It was doing **~46 % more real work, drawing ~17 % more power, running
+11-14 % hotter**. The temperature rise attributed to failing cooling is fully accounted for by
+more work going in.
+
+### Errors of record
+
+1. **"+7-10 C at *identical* clock, power and utilisation."** False. The precursor table in this
+   very document showed wedge 1 at **61 W** against survivors at **42-48 W**. The word "identical"
+   was written over a table that contradicted it.
+2. **"vLLM prefix-cache metrics are NOT collected."** False. All eight relevant series
+   (`request_prefill_kv_computed_tokens_sum/_count`, `prefix_cache_hits_total`,
+   `prefix_cache_queries_total`, `prompt_tokens_cached_total`, `num_preemptions_total`, …) exist
+   continuously across 09-15..09-18. A search returned nothing and was reported as fact instead of
+   re-run — the exact failure mode that rule exists to prevent. A task was then filed on the false
+   premise, deferring the one measurement that mattered.
+3. **H12 and H13 were both propped up by the artifact.** Each was presented as "fitting every
+   observation" while resting on a degradation that never occurred.
+
+### What survives, unchanged
+
+- Four unclean power losses; nothing in pstore, dmesg, or the journal; physical button required.
+- Linux has no fan interface at all — no tachometer, no PWM, no ACPI fan cooling device.
+- Idle cooling is healthy: 54 C post-boot falling to 37-40 C and holding.
+- **It died at 79 C board / 73 C GPU having already survived 84.6 C.** Peak temperature is not
+  the trigger, and now neither is degraded cooling.
+
+### Where that points
+
+Not heat — **total power draw**. The deaths correlate with a +17 % GPU power rise on a chassis fed
+by a 240 W brick, and GPU die power excludes CPU, 128 GB of unified LPDDR5X under saturated
+bandwidth, NVMe and networking. An EC cutting the rails on an over-current or over-budget condition
+produces exactly what we see: instantaneous loss, no OS involvement, no firmware log, button to
+recover.
+
+Stated as a direction, not a conclusion. The previous confident hypothesis was wrong and this one
+has had no adversarial pass yet.
+
+**The measurement that would settle it is the smart plug** (total system draw at the wall, against
+the 240 W budget) — deferred in task #36, partly on error 2 above. It is pure observation and
+changes nothing about how the box behaves.
+
+### Next measurement — the discriminator
+
+`/tmp/prefill_live.py` reports prefill tokens/sec against the measured bands:
+
+```
+healthy survivors   15,000 - 21,300 tok/s
+pre-wedge windows    9,300 - 11,600 tok/s
+```
+
+On the first loaded run after the flash:
+- reads **healthy** -> the box boots healthy and degrades under load; whether firmware fixed
+  anything is then only answerable by time-to-next-wedge.
+- reads **degraded immediately** -> the degradation survives a power cycle AND a firmware flash,
+  which would point at the silicon rather than the controller.
