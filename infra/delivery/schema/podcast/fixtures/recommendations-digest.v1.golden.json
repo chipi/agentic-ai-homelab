@@ -26,7 +26,7 @@
             "graph_refs": [
               { "id": "topic:ai-safety", "kind": "topic", "label": "AI Safety" }
             ],
-            "deep_link": "/player/dwarkesh-paul-christiano-how-ai-could-go-wrong"
+            "deep_link": "/episode/dwarkesh-paul-christiano-how-ai-could-go-wrong"
           }
         ]
       },
@@ -40,7 +40,7 @@
             "graph_refs": [
               { "id": "topic:semiconductors", "kind": "topic", "label": "Semiconductors" }
             ],
-            "deep_link": "/player/acquired-tsmc-part-ii"
+            "deep_link": "/episode/acquired-tsmc-part-ii"
           }
         ]
       }

@@ -6,7 +6,7 @@ Aligned to the committed contract:
 - ``digestItem`` = ``{quote?, episode_slug, episode_title?, t_ms?, graph_refs[],
   deep_link, source?}``
 - unsubscribe link uses ``consent_snapshot.unsubscribe_ref``
-- ``deep_link`` is RELATIVE (``/player/...``); the email absolutises it against the app origin.
+- ``deep_link`` is RELATIVE (``/episode/...``); the email absolutises it against the app origin.
 """
 
 from __future__ import annotations

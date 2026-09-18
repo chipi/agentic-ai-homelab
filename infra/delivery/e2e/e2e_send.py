@@ -60,11 +60,11 @@ def _digest_envelope(to: str) -> DeliveryEnvelope:
                  "t_ms": 3921000,
                  "graph_refs": [{"id": "person:jensen-huang", "kind": "person", "label": "Jensen Huang"},
                                 {"id": "topic:scaling-laws", "kind": "topic", "label": "Scaling Laws"}],
-                 "deep_link": "/player/acquired-nvidia?t=3921", "source": "user"}]},
+                 "deep_link": "/episode/acquired-nvidia?t=3921", "source": "user"}]},
             {"kind": "new_in_follows", "items": [
                 {"episode_slug": "dwarkesh-ai-safety", "episode_title": "How AI Could Go Wrong",
                  "graph_refs": [{"id": "topic:ai-safety", "kind": "topic", "label": "AI Safety"}],
-                 "deep_link": "/player/dwarkesh-ai-safety", "source": "auto"}]},
+                 "deep_link": "/episode/dwarkesh-ai-safety", "source": "auto"}]},
         ]},
     })
 

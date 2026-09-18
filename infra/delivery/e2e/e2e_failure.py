@@ -62,7 +62,7 @@ def main() -> int:
         "recipient": {"email": "nobody@example.com", "email_verified": True},
         "consent_snapshot": {"digest_enabled": True, "cadence": "weekly", "unsubscribe_ref": "r"},
         "payload": {"sections": [{"kind": "revisit", "items": [
-            {"episode_slug": "x", "episode_title": "X", "deep_link": "/player/x",
+            {"episode_slug": "x", "episode_title": "X", "deep_link": "/episode/x",
              "graph_refs": [{"id": "topic:ai", "kind": "topic", "label": "AI"}]}]}]},
     })
     outbox = OneEnvelopeOutbox(envelope)

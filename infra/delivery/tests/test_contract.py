@@ -59,7 +59,7 @@ def test_digest_fixture_renders_email():
     html = _renderer().render_email(env).html
     # graph_refs carried as chips (moat rule); relative deep_links absolutised; ref unsubscribe.
     assert "Jensen Huang" in html and "AI Safety" in html
-    assert "https://closelistening.app/player/" in html
+    assert "https://closelistening.app/episode/" in html
     assert "ref=example-unsubscribe-ref" in html
     assert "&lt;" not in html.split("<body")[0]  # sanity: head not double-escaped
 
@@ -94,7 +94,7 @@ def test_daily_recap_fixture_renders_email():
     assert "Vertical integration" in html  # a top insight
     assert "Scaling Laws" in html  # topic chip
     assert "semiconductor supply chain" in html  # storyline
-    assert "https://closelistening.app/player/acquired-nvidia" in html  # deep link absolutised
+    assert "https://closelistening.app/episode/acquired-nvidia" in html  # deep link absolutised
     # The one-click unsubscribe is TYPE-AWARE — it silences the recap, not the weekly digest.
     # (The `&` is HTML-escaped to `&amp;` in the href — correct; the client unescapes it.)
     assert "ref=example-unsubscribe-ref" in html and "type=daily_recap" in html
@@ -107,7 +107,7 @@ def test_daily_recap_many_renders_compact_stack():
     base["payload"] = {
         "day": "2026-09-11",
         "count": 2,
-        "episodes": [ep, {**ep, "title": "TSMC (Part II)", "deep_link": "/player/tsmc-part-ii"}],
+        "episodes": [ep, {**ep, "title": "TSMC (Part II)", "deep_link": "/episode/tsmc-part-ii"}],
     }
     rendered = _renderer().render_email(DeliveryEnvelope.from_dict(base))
     assert rendered.subject == "Your day, recapped · 2 episodes"
@@ -123,6 +123,6 @@ def test_recommendations_fixture_renders_email():
     assert "New for you" in rendered.html
     assert "New in what you follow" in rendered.html  # the new_in_interests section label
     assert "TSMC (Part II)" in rendered.html
-    assert "https://closelistening.app/player/" in rendered.html
+    assert "https://closelistening.app/episode/" in rendered.html
     assert "Semiconductors" in rendered.html  # a graph_ref chip
     assert "September 2026" in rendered.subject  # monthly period label

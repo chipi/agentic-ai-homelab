@@ -29,7 +29,7 @@ def make_envelope(**over: Any) -> DeliveryEnvelope:
                         {
                             "episode_slug": "ep-1",
                             "episode_title": "Ep One",
-                            "deep_link": "/player/ep-1",
+                            "deep_link": "/episode/ep-1",
                             "graph_refs": [{"id": "topic:ai", "kind": "topic", "label": "AI"}],
                         }
                     ],

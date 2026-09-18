@@ -40,7 +40,7 @@
         "storylines": [
           { "id": "topic:semiconductors", "label": "The semiconductor supply chain" }
         ],
-        "deep_link": "/player/acquired-nvidia-the-machine-that-makes-the-machine"
+        "deep_link": "/episode/acquired-nvidia-the-machine-that-makes-the-machine"
       }
     ]
   },
