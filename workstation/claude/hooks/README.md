@@ -97,6 +97,61 @@ is too shallow to name a family, the sweep is **skipped** (fail-safe).
 
 ---
 
+## session-orphan-report.sh — SessionStart detector (REPORT ONLY, never kills)
+
+Covers the one gap `session-reap.sh` structurally cannot: it fires on **SessionEnd**, so a job
+started inside a session that simply *keeps going* is never reaped — and after a context
+compaction the agent holds no record that it launched one.
+
+**Incident 2026-09-19.** An enrichment CLI ran **4d 22h at 198% CPU** on the shared Mac —
+**224.9 hours of CPU for zero bytes of output** — across several compactions. Nothing surfaced
+it; the operator found it by hand. It had staged its input into `/tmp`, which macOS's reaper
+deleted out from under the live process, so it span on data that no longer existed.
+
+Wired to **SessionStart**, which fires on `startup`, `resume` **and `compact`** — precisely when
+the agent's context is empty and it would otherwise have no way to know.
+
+### Two gates, not one — age AND cpu-time
+
+Age alone is useless: an idle MCP server sits at **20 days elapsed with 0m of CPU** and is
+healthy infra. Reporting that every session is the noise that gets a check ignored — the same
+way a crying-wolf alert becomes furniture. CPU-time is what separates *abandoned and eating the
+machine* from *long-lived and idle*, and it filters by **behaviour rather than by name**, so a
+server this list has never heard of is still correctly ignored.
+
+Output reports `elapsed`, `cputime`, and `sustained=N core(s)` (cpu÷elapsed — `~2.0` means it
+has pegged two cores its whole life, which is exactly what the runaway looked like).
+
+### Why report-only
+
+A long run is often legitimate (a real corpus pass, a model sweep), and SessionStart cannot
+tell a wanted 30h job from an abandoned one. Surfacing it is enough — the entire failure was
+that nobody was looking. It never signals anything.
+
+### Env knobs
+
+| var | default | meaning |
+|---|---|---|
+| `ORPHAN_REPORT_MIN_AGE` | `3600` (1h) | age floor |
+| `ORPHAN_REPORT_MIN_CPU` | `600` (10m) | cpu-time floor — the load-bearing one |
+| `ORPHAN_REPORT_OFF` | unset | `1` disables entirely |
+
+Family-scoped exactly like `session-reap.sh` (shared `family_prefix`), so an orrery session
+never reports a podcast process. Verified against a live CPU burner: `podcast_scraper-infra`
+and its sibling `-FUTURE` both see it, `orrery` does not, and `$HOME` is refused outright.
+Silent (exit 0, no output) when clean.
+
+### Wiring
+
+Installed as a symlink by `workstation/install.sh` like every other hook, then added to the
+`SessionStart` `".*"` matcher in `~/.claude/settings.json`:
+
+```json
+{ "type": "command", "command": "$HOME/.claude/hooks/session-orphan-report.sh", "timeout": 20 }
+```
+
+---
+
 ## cleanup-worktree.sh (per-repo manual cleaner — cross-ref)
 
 A repo may ship its own `scripts/cleanup-worktree.sh` — the **manual** counterpart,
