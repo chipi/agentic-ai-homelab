@@ -83,8 +83,25 @@ prometheus.scrape "api" {
 
 // ---------- APP EVENTS: pipeline-runner container stdout (canonical JSONL) -> VL ----------
 // ---------- APP EVENTS: persistent corpus JSONL event files -> VL ----------
-// Search / listen / job events are append-only JSONL. file_match watches the
-// globs even before the files exist (created on first search / listen / run).
+// file_match watches the globs even before the files exist (created on first search / listen
+// / run).
+//
+// query_log.jsonl and listen.jsonl ARE append-only. jobs.jsonl IS NOT, despite the .jsonl
+// suffix and despite what this comment used to claim. It is a mutable REGISTRY:
+// pipeline_job_registry.write_jobs_atomic rewrites the whole file via temp-file rename every
+// time any job changes status. loki.source.file assumes append-only, so after a rewrite the
+// tailer resumes at a byte offset that now lands inside a different line and ships fragments
+// like `s": "succeeded"}` as standalone entries.
+//
+// CONSEQUENCE, measured 2026-09-19 over 30 days: of 456 podcast-jobs entries, 413 arrived on
+// the single day the file happened to be re-read from offset zero; on normal days only 1-4
+// lines a day parse into fields at all. DO NOT BUILD ALERTS ON job=podcast-jobs. The
+// `podcast-ingest-stalled` rule did, and matched on exactly one day in thirty while appearing
+// green. It now reads podcast_pipeline_last_success_age_seconds, a metric the api collects
+// from the same registry file at scrape time.
+//
+// The target is kept only because the Grafana "Surface: Operator" dropdown selects it for
+// ad-hoc log browsing. Treat what it shows as lossy and partial.
 local.file_match "app_events" {
   path_targets = [
     { __path__ = "/rootfs/srv/podcast-scraper/corpus/search/query_log.jsonl", job = "podcast-search" },

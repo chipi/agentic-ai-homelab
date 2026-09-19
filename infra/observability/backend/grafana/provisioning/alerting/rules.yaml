@@ -1192,13 +1192,32 @@ groups:
       # that cries wolf after every deploy is one people learn to ignore — the same way the
       # `execErrState: OK` rules were ignorable for the opposite reason.
       #
-      # corpus/.viewer/jobs.jsonl is append-only on disk and shipped by base.alloy as
-      # job=podcast-jobs, so it survives restarts and redeploys. Verified against the same
-      # window: 253 succeeded full_incremental_pipeline entries in 36h, max(_time)
-      # 2026-09-17T03:00:00.016Z — exactly the cron slot.
+      # That reasoning was right and its replacement was not. The rule was moved onto the
+      # VictoriaLogs tail of corpus/.viewer/jobs.jsonl, described here as "append-only on
+      # disk". It is not: pipeline_job_registry.write_jobs_atomic REWRITES THE WHOLE FILE via
+      # temp-file rename on every status change, while base.alloy tails it with
+      # loki.source.file, which assumes append-only. The tailer resumes at a stale byte offset
+      # inside a rewritten file and ships JSON fragments like `s": "succeeded"}` — so the
+      # `status` field frequently never arrives as a queryable field at all.
       #
-      # queryType MUST be `stats` (see the banner at the top of this file): `instant` returns a
-      # log-line frame the reduce expression rejects as type "long".
+      # Measured 2026-09-19 over 30 days, this rule's exact query matched on ONE day:
+      #     2026-09-16 -> 253 hits;  every other day -> 0
+      # The 253-hit day was a bulk re-read of the whole file from offset zero. The "verified"
+      # note above was written against that window, so the check captured the anomaly and read
+      # it as proof. The rule never worked; it was green because the threshold is `lt 1` and a
+      # query returning nothing scored 0 only on days the re-read did not happen — on every
+      # other day it was noDataState carrying the alert, not the data.
+      #
+      # Now reads podcast_pipeline_last_success_age_seconds, a gauge the api collects AT SCRAPE
+      # TIME from the job registry file. That satisfies both constraints at once: durable
+      # across restarts and deploys (it reads the file, so there is no counter to reset), and
+      # actually queryable (a metric, not a tail of a mutable document). The command_type label
+      # keeps the original precision — an operator-triggered enrichment succeeding must not
+      # mask a dead nightly.
+      #
+      # `or vector(999999)` makes "the gauge is absent" fire rather than pass silently. Absent
+      # means the nightly has NEVER succeeded, or the api is not exporting — both warrant
+      # waking someone, and silent-pass is precisely how this alert spent its whole life.
       - uid: podcast-ingest-stalled
         title: "Podcast ingestion has not run in 36h"
         condition: threshold
@@ -1207,26 +1226,21 @@ groups:
         execErrState: Alerting
         labels: { severity: critical, kind: podcast }
         annotations:
-          summary: "No successful full_incremental_pipeline job recorded on prod-podcast for 36h — the nightly (cron 0 3 * * *) is not completing. Check the scheduler is registered (`scheduler: started with N enabled job(s)` in the api logs) and the job ledger at corpus/.viewer/jobs.jsonl."
+          summary: "No successful full_incremental_pipeline job on prod-podcast for 36h — the nightly (cron 0 3 * * *) is not completing. Check the scheduler is registered (`scheduler: started with N enabled job(s)` in the api logs) and the job ledger at corpus/.viewer/jobs.jsonl. If the value is 999999 the gauge is absent entirely: either the nightly has never succeeded, or the api is not exporting podcast_pipeline_last_success_age_seconds (check PODCAST_METRICS_ENABLED and that /metrics is being scraped)."
         data:
           - refId: q
-            relativeTimeRange: { from: 129600, to: 0 }
-            datasourceUid: victorialogs
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
             model:
-              expr: 'job:podcast-jobs command_type:full_incremental_pipeline status:succeeded | stats count() as value'
-              queryType: stats
-          - refId: reduced
-            datasourceUid: __expr__
-            model:
-              type: reduce
-              expression: q
-              reducer: last
+              expr: 'max(podcast_pipeline_last_success_age_seconds{instance="prod-podcast",command_type="full_incremental_pipeline"}) or vector(999999)'
+              instant: true
+              queryType: instant
           - refId: threshold
             datasourceUid: __expr__
             model:
               type: threshold
-              expression: reduced
-              conditions: [{ evaluator: { type: lt, params: [1] } }]
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [129600] } }]
 
       # --- Pipeline jobs failing --------------------------------------------------
       - uid: podcast-pipeline-jobs-failing
