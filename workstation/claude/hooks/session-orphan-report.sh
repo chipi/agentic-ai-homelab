@@ -55,7 +55,11 @@ hms_secs() {
   local e="$1" d=0 hms
   [ -z "$e" ] && { echo 0; return; }
   case "$e" in *-*) d="${e%%-*}"; hms="${e#*-}" ;; *) hms="$e" ;; esac
-  local IFS=:; set -- $hms
+  local IFS=:
+  # SC2086 is deliberate: IFS=':' plus word-splitting is HOW the hh:mm:ss fields become
+  # $1/$2/$3. Quoting would pass the whole string as one arg and break the parse.
+  # shellcheck disable=SC2086
+  set -- $hms
   case $# in
     3) echo $(( 10#$d*86400 + 10#$1*3600 + 10#$2*60 + 10#${3%%.*} )) ;;
     2) echo $(( 10#$d*86400 + 10#$1*60 + 10#${2%%.*} )) ;;
