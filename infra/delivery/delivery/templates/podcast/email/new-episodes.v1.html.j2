@@ -1,0 +1,45 @@
+{# new-episodes.v1 — an ALERT that something dropped in a followed show (#2124). Email-client-SAFE,
+   same dark shell as daily-recap.v1 (Gmail strips <body> styles → dark theme on a <table bgcolor>
+   with per-cell colors).
+
+   Deliberately SPARSE. This is not a digest: the job is "a show you follow has a new episode,
+   here it is" and then get out of the way. Key points, quotes and insights belong in Your Week
+   and the daily recap — an alert that takes two minutes to read is a digest wearing a hat.
+
+   Payload (from app_digest_sections.new_in_follows_items — these key names are exact, NOT
+   `slug`/`title`): payload.episodes[] = { episode_slug, episode_title, graph_refs, deep_link } ;
+   payload.count #}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#0b0e14;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="background-color:#0b0e14;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="width:600px;max-width:600px;background-color:#0b0e14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <tr><td style="padding:0 8px;">
+        <div style="letter-spacing:.14em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">Close Listening</div>
+        <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#e7ecf3;">
+          {% if payload.count == 1 %}A new episode is out{% else %}{{ payload.count }} new episodes are out{% endif %}
+        </h1>
+        <div style="font-size:14px;color:#8aa0bd;margin:0 0 20px;">In shows you follow</div>
+
+        {% for ep in payload.episodes %}
+        <div style="border-top:1px solid #1c2636;padding:18px 0;">
+          {% if ep.podcast_title %}
+          <div style="letter-spacing:.08em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">{{ ep.podcast_title }}</div>
+          {% endif %}
+          <a href="{{ ep.deep_link | abslink }}" style="display:block;color:#e7ecf3;text-decoration:none;font-size:19px;font-weight:600;margin:4px 0 12px;">{{ ep.episode_title }}</a>
+          <a href="{{ ep.deep_link | abslink }}" style="display:inline-block;background-color:#2b3a52;color:#e7ecf3;text-decoration:none;font-size:14px;font-weight:600;padding:9px 18px;border-radius:6px;">Listen</a>
+        </div>
+        {% endfor %}
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;margin-top:8px;"><tr><td style="padding-top:20px;color:#6b7a90;font-size:12px;">
+          <p style="margin:0 0 6px;color:#6b7a90;">You're getting new-episode alerts because you turned them on in Close Listening.</p>
+          <p style="margin:0;color:#6b7a90;"><a href="{{ unsubscribe_url }}" style="color:#8aa0bd;">Unsubscribe</a> · one click, no sign-in needed.</p>
+        </td></tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

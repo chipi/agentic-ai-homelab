@@ -1,0 +1,23 @@
+{# new-episodes.v1 push payload (#2125). Rendered for BOTH transports — APNs and web push consume
+   this same JSON.
+
+   Payload keys are exact, from app_digest_sections.new_in_follows_items:
+     payload.episodes[] = { episode_slug, episode_title, graph_refs, deep_link } ; payload.count
+
+   Design notes:
+   - `title` is the SHOW when we have it, so the notification is scannable on a lock screen
+     without unlocking. Falling back to a generic string is worse than useless.
+   - `url` deep-links to the episode itself, not a generic rail — the whole point of an alert is
+     one tap to the thing.
+   - `tag` is per-episode so the OS COLLAPSES a repeat rather than stacking duplicates. A shared
+     tag across episodes would hide the second alert entirely, which is the opposite failure. #}
+{% set first = payload.episodes[0] %}
+{
+  "title": {{ (first.podcast_title | default('New episode')) | tojson }},
+  "body": {{ (
+      first.episode_title if payload.count == 1
+      else (first.episode_title ~ ' · +' ~ (payload.count - 1) ~ ' more')
+    ) | tojson }},
+  "url": {{ (first.deep_link | default('/')) | tojson }},
+  "tag": {{ ('new-episodes:' ~ (first.episode_slug | default('unknown'))) | tojson }}
+}

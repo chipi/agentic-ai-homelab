@@ -1,0 +1,1 @@
+{% if payload.count == 1 and payload.episodes %}New episode · {{ payload.episodes[0].episode_title }}{% else %}{{ payload.count }} new episodes in shows you follow{% endif %}
