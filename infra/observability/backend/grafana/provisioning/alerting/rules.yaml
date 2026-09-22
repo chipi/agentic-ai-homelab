@@ -974,7 +974,7 @@ groups:
             relativeTimeRange: { from: 3600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'max(podcast_digest_last_success_age_seconds{cadence="weekly"}) or vector(999999) and on() (max(podcast_digest_consenting_users{type="digest"}) > 0)'
+              expr: 'max(podcast_digest_last_success_age_seconds{cadence="weekly"}) or vector(99999999) and on() (max(podcast_digest_consenting_users{type="digest"}) > 0)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -998,7 +998,7 @@ groups:
             relativeTimeRange: { from: 3600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'max(podcast_digest_last_success_age_seconds{cadence="daily_recap"}) or vector(999999) and on() (max(podcast_digest_consenting_users{type="daily_recap"}) > 0)'
+              expr: 'max(podcast_digest_last_success_age_seconds{cadence="daily_recap"}) or vector(99999999) and on() (max(podcast_digest_consenting_users{type="daily_recap"}) > 0)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -1022,7 +1022,7 @@ groups:
             relativeTimeRange: { from: 3600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'max(podcast_digest_last_success_age_seconds{cadence="recommendations"}) or vector(999999) and on() (max(podcast_digest_consenting_users{type="digest"}) > 0)'
+              expr: 'max(podcast_digest_last_success_age_seconds{cadence="recommendations"}) or vector(99999999) and on() (max(podcast_digest_consenting_users{type="digest"}) > 0)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -1215,7 +1215,7 @@ groups:
       # keeps the original precision — an operator-triggered enrichment succeeding must not
       # mask a dead nightly.
       #
-      # `or vector(999999)` makes "the gauge is absent" fire rather than pass silently. Absent
+      # `or vector(99999999)` makes "the gauge is absent" fire rather than pass silently. Absent
       # means the nightly has NEVER succeeded, or the api is not exporting — both warrant
       # waking someone, and silent-pass is precisely how this alert spent its whole life.
       - uid: podcast-ingest-stalled
@@ -1226,13 +1226,13 @@ groups:
         execErrState: Alerting
         labels: { severity: critical, kind: podcast }
         annotations:
-          summary: "No successful full_incremental_pipeline job on prod-podcast for 36h — the nightly (cron 0 3 * * *) is not completing. Check the scheduler is registered (`scheduler: started with N enabled job(s)` in the api logs) and the job ledger at corpus/.viewer/jobs.jsonl. If the value is 999999 the gauge is absent entirely: either the nightly has never succeeded, or the api is not exporting podcast_pipeline_last_success_age_seconds (check PODCAST_METRICS_ENABLED and that /metrics is being scraped)."
+          summary: "No successful full_incremental_pipeline job on prod-podcast for 36h — the nightly (cron 0 3 * * *) is not completing. Check the scheduler is registered (`scheduler: started with N enabled job(s)` in the api logs) and the job ledger at corpus/.viewer/jobs.jsonl. If the value is 99999999 the gauge is absent entirely: either the nightly has never succeeded, or the api is not exporting podcast_pipeline_last_success_age_seconds (check PODCAST_METRICS_ENABLED and that /metrics is being scraped)."
         data:
           - refId: q
             relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'max(podcast_pipeline_last_success_age_seconds{instance="prod-podcast",command_type="full_incremental_pipeline"}) or vector(999999)'
+              expr: 'max(podcast_pipeline_last_success_age_seconds{instance="prod-podcast",command_type="full_incremental_pipeline"}) or vector(99999999)'
               instant: true
               queryType: instant
           - refId: threshold
