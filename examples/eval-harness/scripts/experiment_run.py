@@ -17,23 +17,26 @@ than most deltas anyone was arguing about.
     python scripts/experiment_run.py --config data/configs/demo.yaml
     python scripts/experiment_run.py --config data/configs/demo.yaml --repeat 3
 
-WIRING YOUR SYSTEM IN: replace `run_item()`. It is the only function that knows
-anything about what is being evaluated. Everything else is bookkeeping.
+WIRING YOUR SYSTEM IN: edit `scripts/adapter.py`. Nothing in this file needs to
+change — it times the call, records what it cost, scores the output against the
+reference if one exists, and aggregates. That split is the point: the generic
+half stays generic.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import random
 import statistics
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from adapter import call_system, score  # noqa: E402
 from _common import (  # noqa: E402
     MATERIALIZED,
+    REFERENCES,
     RUNS,
     build_info,
     die,
@@ -49,23 +52,17 @@ except ImportError:  # pragma: no cover
     die("pyyaml is required — pip install -r requirements.txt")
 
 
-# ── the only project-specific function in the skeleton ───────────────────────
-def run_item(item: Dict[str, Any], item_path: Path, params: Dict[str, Any]) -> Dict[str, Any]:
-    """Evaluate ONE item. Replace this with a call into your system.
+def _reference_for(dataset_id: str) -> tuple[Path | None, str | None]:
+    """Prefer gold over silver, and report which was used.
 
-    Returns a dict of per-item numbers. Whatever keys you return become the
-    score names; the aggregate is their mean across items.
-
-    The stub is deterministic per (item_id, seed) so the demo runs with no
-    dependencies and `--repeat` shows ZERO spread — which is the correct
-    reading for a deterministic arm, and the contrast you want when you wire in
-    something that is not.
+    A score against silver is not a score against gold, and a report that does
+    not say which is unreadable six months later.
     """
-    rng = random.Random(f"{item['item_id']}:{params.get('seed', 0)}")
-    text = item_path.read_text(encoding="utf-8", errors="replace") if item_path.is_file() else ""
-    base = min(1.0, len(text) / max(1, params.get("length_norm", 400)))
-    jitter = rng.uniform(-params.get("noise", 0.0), params.get("noise", 0.0))
-    return {"score": round(max(0.0, min(1.0, base + jitter)), 6), "chars": float(len(text))}
+    for tier in ("gold", "silver"):
+        d = REFERENCES / tier / dataset_id
+        if d.is_dir():
+            return d, tier
+    return None, None
 
 
 def one_pass(ds: Dict[str, Any], cfg: Dict[str, Any], idx: int) -> Dict[str, Any]:
@@ -77,18 +74,45 @@ def one_pass(ds: Dict[str, Any], cfg: Dict[str, Any], idx: int) -> Dict[str, Any
         )
     params = dict(cfg.get("params") or {})
     params.setdefault("seed", idx)
+    ref_dir, ref_tier = _reference_for(ds["dataset_id"])
 
     predictions: List[Dict[str, Any]] = []
+    outputs: Dict[str, str] = {}
     for item in ds["items"]:
         rel = item.get("source_path") or item["item_id"]
-        out = run_item(item, mat / rel, params)
-        predictions.append({"item_id": item["item_id"], **out})
+        src = mat / rel
+        res = call_system(src.read_text(encoding="utf-8", errors="replace"), params)
+        outputs[item["item_id"]] = res.output
+
+        reference = None
+        if ref_dir is not None:
+            rf = ref_dir / f"{item['item_id']}.txt"
+            if rf.is_file():
+                reference = rf.read_text(encoding="utf-8", errors="replace")
+
+        row: Dict[str, Any] = {"item_id": item["item_id"], **score(res.output, reference)}
+        for field_name in ("latency_ms", "tokens_in", "tokens_out", "cost_usd"):
+            v = getattr(res, field_name)
+            if v is not None:
+                row[field_name] = float(v)
+        row.update({k: float(v) for k, v in res.extra.items()})
+        predictions.append(row)
 
     keys = sorted({k for p in predictions for k in p if k != "item_id"})
     scores = {
         k: round(statistics.fmean([float(p[k]) for p in predictions if k in p]), 6) for k in keys
     }
-    return {"predictions": predictions, "scores": scores}
+    # Totals, not means, for the things you are billed for.
+    for k in ("cost_usd", "tokens_in", "tokens_out"):
+        vals = [float(p[k]) for p in predictions if k in p]
+        if vals:
+            scores[f"total_{k}"] = round(sum(vals), 8)
+    return {
+        "predictions": predictions,
+        "scores": scores,
+        "outputs": outputs,
+        "reference_tier": ref_tier,
+    }
 
 
 def main() -> int:
@@ -109,6 +133,12 @@ def main() -> int:
     stamp = now().replace(":", "").replace("-", "")
     base_id = args.run_id or f"{cfg['config_id']}_{stamp}"
     build = build_info()
+    ref_dir, ref_tier = _reference_for(cfg["dataset_id"])
+    if ref_tier:
+        print(f"  scoring against {ref_tier.upper()} references for {cfg['dataset_id']}")
+    else:
+        print(f"  no references for {cfg['dataset_id']} — quality cannot be scored.")
+        print(f"  make reference-create DATASET_ID={cfg['dataset_id']} CONFIG=<a model you trust>")
     if build["ref"] == "unknown":
         print("  WARNING: could not identify the build — this run is not attributable")
 
@@ -123,6 +153,10 @@ def main() -> int:
             "".join(json.dumps(p, sort_keys=True) + "\n" for p in result["predictions"]),
             encoding="utf-8",
         )
+        (run_dir / "outputs").mkdir(exist_ok=True)
+        for item_id, text in result["outputs"].items():
+            (run_dir / "outputs" / f"{item_id}.txt").write_text(text, encoding="utf-8")
+
         metrics = {
             "run_id": run_id,
             "dataset_id": cfg["dataset_id"],
@@ -132,6 +166,8 @@ def main() -> int:
             "scores": result["scores"],
             "n_items": len(result["predictions"]),
         }
+        if result["reference_tier"]:
+            metrics["reference_tier"] = result["reference_tier"]
         if args.repeat > 1:
             metrics["repeat_index"] = i + 1
         write_json(run_dir / "metrics.json", metrics)

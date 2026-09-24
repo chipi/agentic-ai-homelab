@@ -1,0 +1,8 @@
+# The config that AUTHORS references. Point it at the best model you have —
+# the reference is the yardstick everything else is measured against, so this
+# is the one place to spend money.
+config_id: golden_echo_v1
+dataset_id: smoke_v1
+params:
+  provider: echo      # swap for: anthropic / openrouter
+  sentences: 2

@@ -60,28 +60,52 @@ rebuilds it. If something in there cannot be rebuilt, it is in the wrong place.
 
 ---
 
-## 4. Point the runner at your system
+## 4. Point the harness at your system
 
-Edit **one function**, `run_item()` in `scripts/experiment_run.py`:
+Edit **one function**, `call_system()` in `scripts/adapter.py`:
 
 ```python
-def run_item(item, item_path, params):
-    result = your_system.process(item_path.read_text(), **params)
-    return {"accuracy": score(result), "latency_ms": result.elapsed_ms}
+def call_system(text, params):
+    from myproject.summarise import summarise      # your existing code
+    out = summarise(text, model=params["model"])
+    return Result(output=out.text,
+                  tokens_in=out.usage.prompt_tokens,
+                  tokens_out=out.usage.completion_tokens)
 ```
 
-Whatever keys you return become the metric names. The aggregate is their mean
-across items.
-
-Then describe the experiment in `data/configs/<name>.yaml`:
+Then describe each arm in `data/configs/<name>.yaml` — the knobs belong in the
+config, not in code, so an arm is reproducible and diffable:
 
 ```yaml
 config_id: my_config_v1
 dataset_id: my_v1
 params:
-  model: your-model
+  provider: anthropic
+  model: claude-sonnet-4-6
   temperature: 0.0
+  usd_per_mtok_in: 3.0      # so the run records what it cost
+  usd_per_mtok_out: 15.0
 ```
+
+Full detail in [INTEGRATION.md](INTEGRATION.md).
+
+---
+
+## 4b. Author ground truth — you cannot score quality without it
+
+Most projects have none. Generate it with the best model you have:
+
+```bash
+make reference-create DATASET_ID=my_v1 CONFIG=data/configs/best_model.yaml ARGS="--limit 10"
+```
+
+That writes **silver** references — model-generated, therefore consistent
+rather than correct. Enough to rank arms against each other; not a claim about
+truth. Review some by hand and re-run with `TIER=gold` for the ones a human
+has actually checked.
+
+Every later run is scored against these automatically and records which tier it
+used. Ten items is enough to rank four arms; keep the first pass cheap.
 
 ---
 
@@ -95,7 +119,7 @@ Output ends with:
 
 ```text
 Arm spread over 3 repeats (max - min on identical input):
-  accuracy     spread=0.043888   treat deltas below 0.043888 as noise
+  overlap_f1   spread=0.043888   treat deltas below 0.043888 as noise
 ```
 
 **This step is the difference between measuring and guessing.** A real example
@@ -128,6 +152,10 @@ For anything you intend to promote, commit first and re-run.
 make run-compare BASE=<run_id> CAND=<run_id> NOISE=0.043888
 ```
 
+Quality, cost and speed appear side by side — `overlap_f1` next to
+`total_cost_usd` and `latency_ms`. "Better" and "better and 4x the price" are
+different findings, and only one of them is a decision.
+
 Read the verdict column, not the delta. A `+0.02` that is below your measured
 spread is **noise**, and the tool says so. Without `NOISE=` it nags, because a
 delta judged against nothing is not evidence.
@@ -142,8 +170,8 @@ It refuses outright if the two runs used different `dataset_id`s.
 make promote RUN=<run_id> REASON="beat prev baseline by 6% on my_v1 n=40, spread 0.004"
 ```
 
-Refused if the run came from a dirty tree, or if the reason is a single word.
-Both refusals exist for the same reason: in six months, *"why is this the
+Refused if the run came from a dirty tree, if its build is unknown, or if the
+reason is a single word. Those refusals exist for the same reason: in six months, *"why is this the
 baseline?"* must have an answer.
 
 The previous baseline is archived under `data/baselines/superseded/`. A baseline
@@ -191,15 +219,23 @@ reasoning is in the main README.
 
 ## Choosing what to evaluate against
 
-The **system under test** is recorded as `build.ref` by `build_info()` in
-`scripts/_common.py`. It defaults to this tree's git SHA, which is right only if
-this tree *is* the system.
+The **system under test** is recorded as `build.ref`. It defaults to this tree's
+git SHA, which is right only if this tree *is* the system — and a drop-in
+usually is not.
 
-If you are evaluating something installed — a package, a container, a service —
-change `build_info()` to report *that* thing's identity: a version, an image
-digest, a pinned dependency ref. Pin it explicitly rather than tracking
-`latest`: an eval against a moving target measures the target's movement, and
-you will spend a day attributing it to your change.
+Declare it instead. No code edit:
+
+```bash
+EVAL_BUILD_REF=v2.3.1                make experiment-run CONFIG=...
+EVAL_BUILD_REF=sha256:ab12…          make experiment-run CONFIG=...   # image digest
+EVAL_BUILD_REF=$(git -C ../ rev-parse HEAD)   make experiment-run ...  # the parent repo
+```
+
+**Pin it.** An eval against a moving target measures the target's movement, and
+you will spend a day attributing that to your change.
+
+`make validate` fails on any run whose build is `unknown`, and `make promote`
+refuses one — a baseline that names no system cannot be acted on.
 
 ---
 
@@ -211,6 +247,9 @@ In order, because each is cheaper than the next:
 2. `make runs-list` — was the run from a dirty tree?
 3. `REPEAT=3` — is the delta inside the arm's own spread?
 4. Same `dataset_id` on both sides? (`run-compare` refuses, but check the ids)
-5. Did a source change? `make dataset-materialize --force` re-verifies hashes.
+5. Scored against **silver**? `make runs-list` shows the tier — silver ranks
+   arms, it does not establish correctness.
+6. Did a source change? `make dataset-materialize DATASET_ID=... ARGS=--force`
+   re-verifies every hash.
 
 Most "regressions" are one of the first three.

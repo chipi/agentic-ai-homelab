@@ -1,0 +1,3 @@
+config_id: arm_short_v1
+dataset_id: smoke_v1
+params: {provider: echo, sentences: 1}

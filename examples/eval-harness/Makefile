@@ -11,7 +11,7 @@ REPEAT ?= 1
 NOISE ?= 0
 
 .PHONY: help demo dataset-create dataset-materialize experiment-run runs-list \
-        run-compare promote baselines-list validate judge clean
+        run-compare promote baselines-list validate judge clean reference-create
 
 help:
 	@echo "Eval skeleton — a frozen dataset, a run, a comparison, a baseline."
@@ -23,8 +23,10 @@ help:
 	@echo "  1. put your inputs in data/sources/"
 	@echo "  2. make dataset-create  DATASET_ID=my_v1     freeze a selection (+ hashes)"
 	@echo "  3. make dataset-materialize DATASET_ID=my_v1 verify hashes, build run inputs"
-	@echo "  4. edit scripts/experiment_run.py run_item() to call YOUR system"
-	@echo "  5. make experiment-run  CONFIG=data/configs/demo.yaml"
+	@echo "  4. edit scripts/adapter.py call_system() to call YOUR system"
+	@echo "  5. make reference-create DATASET_ID=my_v1 CONFIG=<trusted model>"
+	@echo "                                               ground truth to score against"
+	@echo "  6. make experiment-run  CONFIG=data/configs/demo.yaml"
 	@echo ""
 	@echo "MEASURE HONESTLY"
 	@echo "  make experiment-run REPEAT=3                 the arm's own spread"
@@ -54,6 +56,12 @@ dataset-create:
 
 dataset-materialize:
 	$(PYTHON) scripts/materialize.py --dataset-id $(DATASET_ID) $(ARGS)
+
+# Author ground truth for a dataset using a model you trust. Produces SILVER by
+# default (model-generated); pass TIER=gold once a human has reviewed it.
+reference-create:
+	@test -n "$(CONFIG)" || { echo "CONFIG=<config naming the reference model> is required"; exit 1; }
+	$(PYTHON) scripts/reference_create.py --dataset-id $(DATASET_ID) --config $(CONFIG) --tier $(or $(TIER),silver) $(ARGS)
 
 experiment-run:
 	$(PYTHON) scripts/experiment_run.py --config $(CONFIG) --repeat $(REPEAT) $(ARGS)
