@@ -1,0 +1,7 @@
+# The same arm with run-to-run variance, so `make experiment-run REPEAT=3`
+# shows a non-zero spread — and `make run-compare` can flag a delta as noise.
+config_id: demo_noisy_v1
+dataset_id: smoke_v1
+params:
+  length_norm: 400
+  noise: 0.05

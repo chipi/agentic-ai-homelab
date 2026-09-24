@@ -1,0 +1,13 @@
+# derived — regenerate with `make dataset-materialize`
+data/materialized/*
+!data/materialized/README.md
+
+# experiment output — commit what you promote, not every run
+data/runs/*
+!data/runs/README.md
+
+# judge panel output
+out/
+
+.venv/
+__pycache__/

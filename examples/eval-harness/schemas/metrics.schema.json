@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "metrics",
+  "description": "One run's result. dataset_id and build are REQUIRED: a number without the data it measured and the build that produced it cannot be compared to anything.",
+  "type": "object",
+  "required": ["run_id", "dataset_id", "config_id", "build", "created_at", "scores"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "dataset_id": {"type": "string"},
+    "config_id": {"type": "string"},
+    "created_at": {"type": "string"},
+    "build": {
+      "type": "object",
+      "description": "The SYSTEM UNDER TEST. Without this a delta cannot be attributed to a code change.",
+      "required": ["ref"],
+      "properties": {
+        "ref": {"type": "string"},
+        "dirty": {"type": "boolean"},
+        "source": {"type": "string"}
+      }
+    },
+    "scores": {
+      "type": "object",
+      "description": "Aggregate metrics. Keys are yours; values must be numbers.",
+      "additionalProperties": {"type": "number"}
+    },
+    "n_items": {"type": "integer"},
+    "repeat_index": {"type": "integer", "description": "Which repetition this is, when measuring an arm's own variance."}
+  }
+}

@@ -1,115 +1,145 @@
-# Eval harness — provider-agnostic, cost-capped, judge-paneled
+# Eval harness — a drop-in skeleton for evaluating a system against frozen data
 
-Provider-agnostic harness for running LLM evals at scale. Shape extracted
-from `podcast_scraper-FUTURE/src/podcast_scraper/evaluation/finale_runner.py`
-(633 lines) and genericized down to the four operations that compose:
+Copy this directory into a project, point it at your inputs, and you have the
+whole loop: a **frozen dataset**, **runs** that know what produced them,
+**comparisons** that refuse to lie, **baselines** you can defend, and an
+**LLM judge panel** with a cost cap.
 
-1. **Promote** — given a pool of candidate runs ranked by a primary
-   metric, narrow it down to finalists via top-K-per-stratum + floor +
-   global cap, with a carte-blanche override for "always include this
-   one even if its cheap metric says no".
-2. **Judge** — for each finalist, score every item with an LLM judge.
-   Stop mid-run if a cost cap is exceeded; preserve partial results so
-   a budget-blown sweep still yields a usable report.
-3. **Aggregate** — reduce per-item scores to per-dimension means. If a
-   cross-judge is configured, compute pairwise agreement and flag
-   contested finalists.
-4. **Report** — write `finalists.jsonl`, `report.json`, and `report.md`
-   to a stamped output dir.
+```bash
+make demo        # the entire loop on bundled sample data — no API key needed
+make help        # the verbs, in the order you need them
+```
 
-Each step is one function. Compose them in `runner.py`; swap judges in
-`judges.py`; tune knobs in `config.example.yaml`. The harness is ~250
-lines total.
+It is deliberately small. Six scripts, three schemas, one Makefile. You should
+be able to read all of it in a sitting, because you will need to change one
+function in it.
 
-## When to use this shape
+---
 
-- You have **many candidate runs** of an experiment (model × prompt ×
-  hyperparam sweeps) and want to pick winners.
-- The cheap metric (ROUGE / cosine / BLEU / exact-match) is **known to
-  be biased** in your domain, but you have an LLM judge that's expensive
-  but trustworthy. You want to use the cheap metric for triage and the
-  LLM judge for the final answer.
-- You need **cost discipline** baked in — at scale, an eval sweep can
-  blow $100s in minutes without it.
-- You want **adversarial verification** for high-stakes calls — two
-  independent judges, contested-flag when they disagree.
+## The idea
 
-If your eval is "run a prompt once and look at the output", this is
-overkill. Use `examples/claude-api-with-caching/` instead.
+Most eval tooling produces numbers. The hard part is making numbers *mean*
+something, and that comes down to three inputs:
+
+| input | recorded as | without it |
+| --- | --- | --- |
+| **system under test** | `build.ref` on every run | you cannot tell a code change from an eval change |
+| **instrument** | `config_id` | you cannot tell a config change from a code change |
+| **data** | `dataset_id` | you cannot compare anything to anything |
+
+Every run here records all three. The tooling then **refuses** the comparisons
+that would be meaningless — which is the part that makes it worth having:
+
+- different `dataset_id` → refused outright
+- a delta smaller than the arm's own run-to-run spread → reported as noise
+- promoting a run from a dirty tree → refused
+- promoting without a reason → refused
+
+> A metric compared across two different `dataset_id`s is not a comparison.
+> It is a coincidence.
+
+---
+
+## The loop
+
+```text
+data/sources/        your raw inputs — IMMUTABLE, never edited in place
+      ↓  make dataset-create
+data/datasets/       a frozen selection + a sha256 per item. This is the contract.
+      ↓  make dataset-materialize
+data/materialized/   derived run inputs, every hash re-verified
+      ↓  make experiment-run
+data/runs/           metrics.json (scores + dataset_id + config_id + build) + predictions
+      ↓  make run-compare / make judge
+data/baselines/      make promote — the number future work is judged against
+```
+
+`make validate` checks the whole tree at any point.
+
+---
+
+## Wiring in your system
+
+**One function.** `run_item()` in `scripts/experiment_run.py` is the only place
+that knows what is being evaluated. It takes an item and returns a dict of
+numbers; whatever keys you return become your metrics.
+
+```python
+def run_item(item, item_path, params):
+    result = your_system.process(item_path.read_text(), **params)
+    return {"accuracy": score(result), "latency_ms": result.elapsed_ms}
+```
+
+Everything else — freezing, hashing, provenance, aggregation, refusals — is
+bookkeeping that does not care about your domain.
+
+**`build_info()`** in `scripts/_common.py` identifies the system under test. It
+defaults to the git SHA of this tree; change it to whatever actually identifies
+your system — a package version, an image digest, a pinned dependency ref.
+
+---
 
 ## Files
 
-| File | What it holds |
-|---|---|
-| `runner.py` | The 4 operations + a `main()` that wires them via a YAML config |
-| `judges.py` | Judge protocol + `FakeJudge` (deterministic, for tests) + `LLMJudge` (Anthropic-shaped) |
-| `config.example.yaml` | All the knobs documented inline |
-| `requirements.txt` | `anthropic`, `pyyaml` |
+| Path | What it is |
+| --- | --- |
+| `Makefile` | the verbs — start with `make help` |
+| `docs/RUNBOOK.md` | the walk-through, with the reasoning |
+| `scripts/dataset_create.py` | freeze a selection of sources into a `dataset_id` |
+| `scripts/materialize.py` | build run inputs, verifying every hash |
+| `scripts/experiment_run.py` | run a config against a dataset → a run dir |
+| `scripts/compare_runs.py` | compare two runs, or refuse |
+| `scripts/promote_baseline.py` | run → baseline, or refuse |
+| `scripts/validate_tree.py` | six integrity checks over the tree |
+| `scripts/list_runs.py` | what runs and baselines exist |
+| `schemas/` | the three contracts: dataset, metrics, baseline |
+| `runner.py` | the judge panel: promote → judge → aggregate → report |
+| `judges.py` | `Judge` protocol, `FakeJudge` (keyless), `LLMJudge` |
+| `config.example.yaml` | the judge panel's knobs |
 
-## Run the demo
+---
 
-The harness ships with `FakeJudge` so it runs without any API key —
-exercises the promotion + aggregation paths against synthetic scores.
+## The judge panel
+
+`runner.py` is the original harness this skeleton grew around, and it still
+does exactly what it did: given many candidate runs, narrow them to finalists
+(top-K per stratum + floor + global cap), score each with an LLM judge, stop
+mid-run if a cost cap is exceeded, aggregate to per-dimension means, and flag
+finalists where two judges disagree.
 
 ```bash
-cd examples/eval-harness
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-python runner.py --config config.example.yaml --use-fake-judge
+make judge                                  # FakeJudge, no API key
+ANTHROPIC_API_KEY=... python runner.py --config config.example.yaml
 ```
 
-Switch to a real Claude judge:
+Use it when the cheap metric is known to be biased in your domain but you have
+an expensive judge you trust: cheap metric for triage, judge for the answer.
 
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-python runner.py --config config.example.yaml
-```
+**Cost discipline is a mid-run abort, not a pre-flight estimate.** Estimates are
+usually wrong; an abort guarantees the bill stops the moment the cap is hit, and
+partial results are written so a budget-blown sweep still yields a usable
+report.
 
-Output lands in `out/<tag>/` per the config.
+---
 
 ## Adapting
 
-The four operations are intentionally narrow. Each one is one
-function, ~30-50 lines. To adapt:
-
 | Want to change | Edit |
-|---|---|
-| Primary ranking metric (default: `primary_score`) | `RunCandidate` field + `load_run_candidate` |
-| Stratification rule (default: substring match on `run_id`) | `_classify_stratum` in `runner.py` |
-| Promotion rule (default: top-K + floor + global-cap) | `promote_finalists` in `runner.py` |
-| Judge interface | Adapt the `Judge` protocol in `judges.py` |
-| Cross-judge agreement threshold (default: 0.5 on a 1-5 scale) | `aggregate_finalist` in `runner.py` |
-| Output format | `write_report` in `runner.py` |
+| --- | --- |
+| what an item's score is | `run_item()` in `scripts/experiment_run.py` |
+| what identifies your build | `build_info()` in `scripts/_common.py` |
+| what counts as an item | `--glob` on `make dataset-create` |
+| which integrity rules apply | the `vN_*` functions in `scripts/validate_tree.py` |
+| promotion rule for the judge panel | `promote_finalists` in `runner.py` |
+| judge interface | the `Judge` protocol in `judges.py` |
 
-Real-world ratio: the shape stays; the specifics swap. The
-podcast_scraper version of this harness has 633 lines because of
-domain wiring (transcript materialization, multi-judge orchestration,
-NER scoring, embedding-cosine handling). The shape underneath those
-is what's here.
-
-## Cost discipline notes
-
-The cost cap is a **soft mid-run abort**, not a pre-flight estimate.
-This is deliberate:
-
-- Pre-flight estimates are usually wrong (token counts vary,
-  cache hits change pricing).
-- Mid-run abort guarantees the bill stops growing the moment the cap
-  is hit, even if the estimate was way off.
-- Partial results are written every N items so a budget-blown sweep
-  yields *something*. A sweep that promotes 12 finalists but only
-  scores 4 of them is still useful — the report tells you which 4.
-
-The pattern composes with the broader [`docs/cloud-ai-workflow.md`](../../docs/cloud-ai-workflow.md)
-cost-gate discipline — env-var-driven soft + hard limits at the
-provider-client layer.
+---
 
 ## See also
 
-- [`docs/cloud-ai-workflow.md`](../../docs/cloud-ai-workflow.md) — Pillar 3
-  narrative including prompt-caching, batch API, cost-gate doctrine.
-- [`examples/claude-api-with-caching/`](../claude-api-with-caching/) —
-  the simpler companion for single-prompt work.
-- Source shape: `podcast_scraper-FUTURE/src/podcast_scraper/evaluation/finale_runner.py`
-  (not in this repo; operator-local reference).
+- [`docs/cloud-ai-workflow.md`](../../docs/cloud-ai-workflow.md) — the cost-gate
+  doctrine this composes with: env-driven soft and hard limits at the provider
+  client layer.
+- [`examples/claude-api-with-caching/`](../claude-api-with-caching/) — the
+  simpler companion for single-prompt work. If your eval is "run a prompt once
+  and look at the output", use that instead; this is overkill.

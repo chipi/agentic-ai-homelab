@@ -1,0 +1,3 @@
+config_id: tiny_v1
+dataset_id: tiny_v1
+params: {length_norm: 400, noise: 0.0}

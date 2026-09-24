@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dataset",
+  "description": "A FROZEN selection of items. The dataset_id is the comparison contract: two metrics are only comparable if they name the same dataset_id.",
+  "type": "object",
+  "required": ["dataset_id", "version", "created_at", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "dataset_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "version": {"type": "string"},
+    "description": {"type": "string"},
+    "created_at": {"type": "string"},
+    "source_dir": {"type": "string"},
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["item_id", "source_sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {"type": "string"},
+          "source_path": {"type": "string"},
+          "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "tags": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}
