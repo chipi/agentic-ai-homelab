@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import pathlib
 import logging
 import subprocess
 import sys
@@ -359,6 +360,56 @@ def _synth_items(run_id: str, n: int = 5) -> List[Dict[str, Any]]:
     ]
 
 
+def _candidates_from(cfg: Dict[str, Any]) -> List["RunCandidate"]:
+    """Build candidates from real runs when asked, else from the config list.
+
+    The panel used to accept ONLY a hand-written `runs:` block, which meant it
+    could not judge the runs the rest of this harness produces — you had to
+    copy ids and scores across by hand. Setting
+
+        runs_from: data/runs          # any path, or the string "runs"
+        primary_metric: overlap_f1    # which score ranks them
+        dataset_id: my_v1             # optional filter
+
+    reads `metrics.json` from each run directory instead. The stratum defaults
+    to the config_id, so repeats of one arm group together.
+    """
+    src = cfg.get("runs_from")
+    if not src:
+        return [RunCandidate(**r) for r in cfg["runs"]]
+
+    root = pathlib.Path(src if src != "runs" else "data/runs")
+    if not root.is_absolute():
+        root = pathlib.Path(__file__).resolve().parent / root
+    if not root.is_dir():
+        raise SystemExit(f"runs_from: no such directory: {root}")
+
+    metric = cfg.get("primary_metric")
+    want_ds = cfg.get("dataset_id")
+    out: List[RunCandidate] = []
+    for d in sorted(root.iterdir()):
+        mf = d / "metrics.json"
+        if not mf.is_file():
+            continue
+        m = json.loads(mf.read_text(encoding="utf-8"))
+        if want_ds and m.get("dataset_id") != want_ds:
+            continue
+        scores = m.get("scores", {})
+        key = metric or next((k for k in sorted(scores) if not k.startswith("total_")), None)
+        if key is None or key not in scores:
+            continue
+        out.append(RunCandidate(run_id=m["run_id"], stratum=m.get("config_id", "default"),
+                                primary_score=float(scores[key])))
+    if not out:
+        raise SystemExit(
+            f"runs_from={root} matched no runs"
+            + (f" on dataset {want_ds}" if want_ds else "")
+            + (f" carrying metric {metric!r}" if metric else "")
+        )
+    logger.info("Loaded %d candidate run(s) from %s", len(out), root)
+    return out
+
+
 def main(argv: List[str]) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
@@ -369,7 +420,7 @@ def main(argv: List[str]) -> int:
 
     cfg = yaml.safe_load(Path(args.config).read_text())
 
-    candidates = [RunCandidate(**r) for r in cfg["runs"]]
+    candidates = _candidates_from(cfg)
     promoted, promo_summary = promote_finalists(
         candidates,
         per_stratum_top_k=cfg["promotion"]["per_stratum_top_k"],

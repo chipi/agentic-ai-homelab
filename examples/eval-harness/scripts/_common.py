@@ -10,6 +10,54 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_dotenv(path: Optional[Path] = None) -> int:
+    """Read `.env` into the environment. No dependency, no surprises.
+
+    Loaded by every script, so keys are never exported by hand and never pasted
+    into a command that lands in shell history. An already-exported variable
+    WINS — so `ANTHROPIC_API_KEY=... make experiment-run` overrides the file
+    for one call without editing it.
+
+    Copy `.env.example` to `.env` to start. `.env` is gitignored.
+    """
+    import os
+
+    env_path = path or (ROOT / ".env")
+    if not env_path.is_file():
+        return 0
+    loaded = 0
+    for raw in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key, val = key.strip(), val.strip().strip('"').strip("'")
+        if key and val and key not in os.environ:
+            os.environ[key] = val
+            loaded += 1
+    return loaded
+
+
+load_dotenv()
+
+
+def env_float(name: str, default: Optional[float] = None) -> Optional[float]:
+    import os
+
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        raise SystemExit(f"ERROR: {name}={raw!r} is not a number")
+
+
+def env_int(name: str, default: int) -> int:
+    v = env_float(name, float(default))
+    return int(v) if v is not None else default
 DATA = ROOT / "data"
 SOURCES = DATA / "sources"
 DATASETS = DATA / "datasets"
@@ -18,6 +66,16 @@ CONFIGS = DATA / "configs"
 RUNS = DATA / "runs"
 BASELINES = DATA / "baselines"
 REFERENCES = DATA / "references"
+
+
+class CostCapExceeded(RuntimeError):
+    """Raised mid-run when EVAL_MAX_COST_USD is reached.
+
+    Deliberately an abort rather than a pre-flight estimate: estimates are
+    usually wrong (token counts vary, cache hits change pricing), and an abort
+    stops the bill the moment the cap is hit. Callers catch it and write
+    whatever they have, so a capped run still yields a usable partial report.
+    """
 
 
 def now() -> str:

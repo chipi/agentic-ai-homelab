@@ -30,7 +30,7 @@ import json
 import statistics
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from adapter import call_system, score  # noqa: E402
@@ -38,8 +38,10 @@ from _common import (  # noqa: E402
     MATERIALIZED,
     REFERENCES,
     RUNS,
+    CostCapExceeded,
     build_info,
     die,
+    env_float,
     load_dataset,
     now,
     read_json,
@@ -65,7 +67,12 @@ def _reference_for(dataset_id: str) -> tuple[Path | None, str | None]:
     return None, None
 
 
-def one_pass(ds: Dict[str, Any], cfg: Dict[str, Any], idx: int) -> Dict[str, Any]:
+def one_pass(
+    ds: Dict[str, Any],
+    cfg: Dict[str, Any],
+    idx: int,
+    resume_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
     mat = MATERIALIZED / ds["dataset_id"]
     if not mat.is_dir():
         die(
@@ -78,11 +85,30 @@ def one_pass(ds: Dict[str, Any], cfg: Dict[str, Any], idx: int) -> Dict[str, Any
 
     predictions: List[Dict[str, Any]] = []
     outputs: Dict[str, str] = {}
+    spent = 0.0
+    cap = env_float("EVAL_MAX_COST_USD")
+    capped_at: Optional[str] = None
+
     for item in ds["items"]:
+        # Resume: an item already produced by this run is not paid for twice.
+        # A sweep that died at item 15 of 20 resumes at 16.
+        done = resume_dir / f"{item['item_id']}.txt" if resume_dir else None
+        if done is not None and done.is_file():
+            outputs[item["item_id"]] = done.read_text(encoding="utf-8")
+            continue
+
+        # Check BEFORE the call: the cap is a ceiling on spend, not a report of
+        # having exceeded it.
+        if cap is not None and spent >= cap:
+            capped_at = item["item_id"]
+            break
+
         rel = item.get("source_path") or item["item_id"]
         src = mat / rel
         res = call_system(src.read_text(encoding="utf-8", errors="replace"), params)
         outputs[item["item_id"]] = res.output
+        if res.cost_usd:
+            spent += res.cost_usd
 
         reference = None
         if ref_dir is not None:
@@ -112,7 +138,52 @@ def one_pass(ds: Dict[str, Any], cfg: Dict[str, Any], idx: int) -> Dict[str, Any
         "scores": scores,
         "outputs": outputs,
         "reference_tier": ref_tier,
+        "capped_at": capped_at,
+        "spent_usd": round(spent, 8),
     }
+
+
+def _dry_run(ds: Dict[str, Any], cfg: Dict[str, Any], repeat: int) -> int:
+    """Shape and cost the sweep without calling anything.
+
+    A pre-flight estimate is not a substitute for the mid-run cap — token
+    counts vary and cache hits change pricing, so this is an order of
+    magnitude, not a quote. Its job is to stop you discovering that an arm
+    is 40x another one's price AFTER the invoice.
+    """
+    params = dict(cfg.get("params") or {})
+    items = ds["items"]
+    mat = MATERIALIZED / ds["dataset_id"]
+    chars = sum(
+        len((mat / (i.get("source_path") or i["item_id"])).read_text(errors="replace"))
+        for i in items
+        if (mat / (i.get("source_path") or i["item_id"])).is_file()
+    )
+    # ~4 chars per token is the usual English rule of thumb; it is a rule of
+    # thumb, and the number below inherits that.
+    est_in = chars / 4
+    est_out = int(params.get("max_tokens", 600)) * len(items)
+    calls = len(items) * repeat
+
+    print(f"DRY RUN — nothing was called\n")
+    print(f"  config      {cfg['config_id']}  ({params.get('provider', 'echo')}"
+          + (f" / {params['model']}" if params.get("model") else "") + ")")
+    print(f"  dataset     {ds['dataset_id']}  ({len(items)} items)")
+    print(f"  repeats     {repeat}")
+    print(f"  API calls   {calls}")
+    print(f"  input       ~{est_in / 1000:.1f}k tokens/pass (from {chars / 1000:.0f}k chars)")
+    print(f"  output      <= {est_out / 1000:.1f}k tokens/pass (max_tokens x items)")
+
+    pin, pout = params.get("usd_per_mtok_in"), params.get("usd_per_mtok_out")
+    if pin is None or pout is None:
+        print("\n  No price in the config, so no estimate. Add usd_per_mtok_in /")
+        print("  usd_per_mtok_out and the run will record what it actually cost.")
+    else:
+        est = (est_in / 1e6 * float(pin) + est_out / 1e6 * float(pout)) * repeat
+        print(f"\n  ESTIMATE    ~${est:.4f}  (upper bound: assumes max_tokens every time)")
+    cap = env_float("EVAL_MAX_COST_USD")
+    print(f"  cap         " + (f"${cap:.2f} (EVAL_MAX_COST_USD)" if cap else "NONE — set EVAL_MAX_COST_USD"))
+    return 0
 
 
 def main() -> int:
@@ -120,6 +191,16 @@ def main() -> int:
     ap.add_argument("--config", required=True, type=Path)
     ap.add_argument("--repeat", type=int, default=1, help="run N times to measure the arm's spread")
     ap.add_argument("--run-id", help="default: <config_id>_<timestamp>")
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="cost and shape the sweep WITHOUT calling anything",
+    )
+    ap.add_argument(
+        "--resume",
+        metavar="RUN_ID",
+        help="reuse outputs already produced by RUN_ID; only pay for what is missing",
+    )
     args = ap.parse_args()
 
     if not args.config.is_file():
@@ -142,11 +223,18 @@ def main() -> int:
     if build["ref"] == "unknown":
         print("  WARNING: could not identify the build — this run is not attributable")
 
+    if args.dry_run:
+        return _dry_run(ds, cfg, args.repeat)
+
+    resume_dir = (RUNS / args.resume / "outputs") if args.resume else None
+    if args.resume and not resume_dir.is_dir():
+        die(f"cannot resume: no outputs under {resume_dir}")
+
     made: List[Path] = []
     per_repeat: List[Dict[str, float]] = []
     for i in range(args.repeat):
         run_id = base_id if args.repeat == 1 else f"{base_id}_r{i + 1}"
-        result = one_pass(ds, cfg, i)
+        result = one_pass(ds, cfg, i, resume_dir=resume_dir)
         run_dir = RUNS / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "predictions.jsonl").write_text(
@@ -174,6 +262,14 @@ def main() -> int:
         made.append(run_dir)
         per_repeat.append(result["scores"])
         print(f"  {run_id}  " + "  ".join(f"{k}={v}" for k, v in result["scores"].items()))
+        if result["capped_at"]:
+            print(
+                f"\n  COST CAP HIT at item {result['capped_at']} — "
+                f"spent ${result['spent_usd']:.4f} of EVAL_MAX_COST_USD.\n"
+                f"  Partial results kept. Raise the cap and resume without paying twice:\n"
+                f"    make experiment-run CONFIG={args.config} ARGS=\"--resume {run_id}\""
+            )
+            break
 
     if args.repeat > 1:
         print("\n  Arm spread over %d repeats (max - min on identical input):" % args.repeat)

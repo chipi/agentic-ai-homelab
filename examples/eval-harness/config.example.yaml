@@ -12,6 +12,12 @@ tag: demo
 # Each entry is a "run" — a unit of work being evaluated. For the demo,
 # the harness synthesizes runs from this list; for real use, replace with
 # a glob of run dirs (see runner.py:load_run_candidate).
+# Read the runs this harness actually produced, instead of a hand-written list.
+# Comment this block out to go back to the literal `runs:` below.
+runs_from: data/runs
+primary_metric: overlap_f1
+dataset_id: smoke_v1
+
 runs:
   - {run_id: cloud-claude-sonnet-46-v1, stratum: cloud,  primary_score: 0.82}
   - {run_id: cloud-claude-sonnet-46-v2, stratum: cloud,  primary_score: 0.81}

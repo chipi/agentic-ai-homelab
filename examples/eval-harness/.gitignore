@@ -1,3 +1,6 @@
+# secrets — never commit; .env.example carries the placeholders
+.env
+
 # derived — regenerate with `make dataset-materialize`
 data/materialized/*
 !data/materialized/README.md

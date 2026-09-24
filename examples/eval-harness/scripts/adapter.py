@@ -19,9 +19,15 @@ decision.
 from __future__ import annotations
 
 import os
+import random
+import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import env_int  # noqa: E402
 
 
 @dataclass
@@ -59,10 +65,40 @@ def call_system(text: str, params: Dict[str, Any]) -> Result:
     provider = params.get("provider", "echo")
     fn: Callable[[str, Dict[str, Any]], Result] = PROVIDERS.get(provider, _echo)
     started = time.perf_counter()
-    result = fn(text, params)
+    result = _with_retries(fn, text, params)
     if result.latency_ms is None:
         result.latency_ms = round((time.perf_counter() - started) * 1000, 3)
     return result
+
+
+def _with_retries(fn, text: str, params: Dict[str, Any]) -> "Result":
+    """Retry transient provider failures with exponential backoff and jitter.
+
+    A sweep of a few hundred calls WILL hit a 429 or a 5xx. Without this the
+    whole run dies at item 15 and you pay for the first 14 twice.
+
+    Only transient classes are retried — a bad key or a malformed request is
+    raised immediately, because retrying those just spends time and money
+    failing. Tune with EVAL_MAX_RETRIES.
+    """
+    attempts = max(1, env_int("EVAL_MAX_RETRIES", 3))
+    transient = ("429", "500", "502", "503", "504", "overloaded", "timeout",
+                 "rate limit", "connection", "temporarily")
+    last: Optional[Exception] = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn(text, params)
+        except SystemExit:
+            raise                      # our own "key not set" — not retryable
+        except Exception as exc:       # noqa: BLE001 — provider SDKs vary widely
+            msg = f"{type(exc).__name__}: {exc}".lower()
+            if not any(t in msg for t in transient) or attempt == attempts:
+                raise
+            last = exc
+            delay = min(30.0, 2 ** (attempt - 1)) + random.uniform(0, 0.5)
+            print(f"      transient ({type(exc).__name__}), retry {attempt}/{attempts - 1} in {delay:.1f}s")
+            time.sleep(delay)
+    raise last if last else RuntimeError("unreachable")
 
 
 # ── 2. HOW GOOD WAS IT ───────────────────────────────────────────────────────

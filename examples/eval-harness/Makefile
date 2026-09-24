@@ -1,97 +1,151 @@
-# Eval skeleton — the verbs. `make help` is the entry point.
+# Eval harness — the verbs. `make help` is the entry point.
 #
-# Drop this directory into a project, point `data/sources/` at your inputs, and
-# the loop below works without editing any script except `run_item()` in
-# scripts/experiment_run.py.
+# Drop this directory into a project, point `data/sources/` at your inputs, edit
+# ONE function in scripts/adapter.py, and the loop below works.
+#
+# Target names deliberately mirror the conventions of the project this pattern
+# came from, so muscle memory transfers: dataset-create, dataset-materialize,
+# experiment-dry-run, experiment-run, run-compare, run-promote, runs-list,
+# baselines-list, validate, check, ci.
 
 PYTHON ?= python3
+VENV ?= .venv
 DATASET_ID ?= smoke_v1
 CONFIG ?= data/configs/demo.yaml
 REPEAT ?= 1
-NOISE ?= 0
+NOISE ?=
+TIER ?= silver
 
-.PHONY: help demo dataset-create dataset-materialize experiment-run runs-list \
-        run-compare promote baselines-list validate judge clean reference-create
+.PHONY: help demo env-check install venv-init \
+        dataset-create dataset-materialize reference-create \
+        experiment-dry-run experiment-run sweep \
+        runs-list baselines-list run-compare leaderboard run-promote \
+        validate judge check ci test clean clean-cache
 
+# ── getting started ─────────────────────────────────────────────────────────
 help:
-	@echo "Eval skeleton — a frozen dataset, a run, a comparison, a baseline."
+	@echo "Eval harness — a frozen dataset, a run, a comparison, a baseline."
 	@echo ""
 	@echo "START HERE"
-	@echo "  make demo                     the whole loop on the bundled sample data"
+	@echo "  make install                  create $(VENV) and install deps"
+	@echo "  make demo                     the whole loop on bundled data (no API key)"
+	@echo "  make env-check                are my keys and caps set?"
 	@echo ""
 	@echo "YOUR DATA"
 	@echo "  1. put your inputs in data/sources/"
-	@echo "  2. make dataset-create  DATASET_ID=my_v1     freeze a selection (+ hashes)"
-	@echo "  3. make dataset-materialize DATASET_ID=my_v1 verify hashes, build run inputs"
-	@echo "  4. edit scripts/adapter.py call_system() to call YOUR system"
-	@echo "  5. make reference-create DATASET_ID=my_v1 CONFIG=<trusted model>"
-	@echo "                                               ground truth to score against"
-	@echo "  6. make experiment-run  CONFIG=data/configs/demo.yaml"
+	@echo "  2. cp .env.example .env       and fill in the keys you need"
+	@echo "  3. make dataset-create  DATASET_ID=my_v1"
+	@echo "  4. make dataset-materialize DATASET_ID=my_v1"
+	@echo "  5. edit scripts/adapter.py    call_system() -> YOUR system"
+	@echo "  6. make reference-create DATASET_ID=my_v1 CONFIG=<trusted model>"
 	@echo ""
-	@echo "MEASURE HONESTLY"
-	@echo "  make experiment-run REPEAT=3                 the arm's own spread"
-	@echo "  make run-compare BASE=<run> CAND=<run> NOISE=0.01"
-	@echo "  make promote RUN=<run> REASON=\"...\""
+	@echo "MEASURE  (dry-run first — it costs nothing and tells you what the sweep will)"
+	@echo "  make experiment-dry-run CONFIG=data/configs/arm_a.yaml"
+	@echo "  make experiment-run     CONFIG=data/configs/arm_a.yaml REPEAT=3"
+	@echo "  make sweep CONFIGS=\"data/configs/arm_*.yaml\" REPEAT=2"
 	@echo ""
-	@echo "INSPECT"
+	@echo "DECIDE"
+	@echo "  make leaderboard DATASET_ID=my_v1        rank every arm: quality, cost, speed"
+	@echo "  make run-compare BASE=<run> CAND=<run> NOISE=<measured spread>"
+	@echo "  make run-promote RUN=<run> REASON=\"...\""
+	@echo ""
+	@echo "INSPECT / GATE"
 	@echo "  make runs-list | baselines-list | validate | judge"
+	@echo "  make check                    validate + test"
 	@echo ""
-	@echo "Read docs/RUNBOOK.md — it walks the same path with the reasoning."
+	@echo "Read docs/INTEGRATION.md first, then docs/RUNBOOK.md."
+
+install venv-init:
+	@test -d $(VENV) || $(PYTHON) -m venv $(VENV)
+	$(VENV)/bin/pip install -q --upgrade pip
+	$(VENV)/bin/pip install -q -r requirements.txt
+	@echo "$(VENV) ready. Use it with:  make <target> PYTHON=$(VENV)/bin/python"
+
+env-check:
+	@$(PYTHON) scripts/env_check.py
 
 demo:
 	@test -n "$$(ls data/sources/*.txt 2>/dev/null)" || { \
 	  echo "make demo needs the bundled sample data in data/sources/."; \
-	  echo "If you stripped it for a real project, skip the demo and start at"; \
-	  echo "step 1 of docs/RUNBOOK.md: put your inputs in data/sources/, then"; \
+	  echo "If you stripped it for a real project, start at step 1 of docs/RUNBOOK.md:"; \
 	  echo "  make dataset-create DATASET_ID=my_v1"; exit 1; }
 	@$(MAKE) --no-print-directory dataset-create DATASET_ID=$(DATASET_ID) ARGS="--force"
 	@$(MAKE) --no-print-directory dataset-materialize DATASET_ID=$(DATASET_ID)
 	@$(MAKE) --no-print-directory experiment-run CONFIG=$(CONFIG) REPEAT=3
 	@$(MAKE) --no-print-directory validate
 	@echo ""
-	@echo "Now: make runs-list, then compare two of them, then promote one."
+	@echo "Now: make runs-list, then make leaderboard DATASET_ID=$(DATASET_ID)"
 
+# ── data lifecycle ──────────────────────────────────────────────────────────
 dataset-create:
 	$(PYTHON) scripts/dataset_create.py --dataset-id $(DATASET_ID) $(ARGS)
 
 dataset-materialize:
 	$(PYTHON) scripts/materialize.py --dataset-id $(DATASET_ID) $(ARGS)
 
-# Author ground truth for a dataset using a model you trust. Produces SILVER by
-# default (model-generated); pass TIER=gold once a human has reviewed it.
+# Author ground truth with a model you trust. SILVER by default (model-generated);
+# TIER=gold once a human has reviewed it.
 reference-create:
 	@test -n "$(CONFIG)" || { echo "CONFIG=<config naming the reference model> is required"; exit 1; }
-	$(PYTHON) scripts/reference_create.py --dataset-id $(DATASET_ID) --config $(CONFIG) --tier $(or $(TIER),silver) $(ARGS)
+	$(PYTHON) scripts/reference_create.py --dataset-id $(DATASET_ID) --config $(CONFIG) --tier $(TIER) $(ARGS)
+
+# ── experiments ─────────────────────────────────────────────────────────────
+experiment-dry-run:
+	$(PYTHON) scripts/experiment_run.py --config $(CONFIG) --repeat $(REPEAT) --dry-run
 
 experiment-run:
 	$(PYTHON) scripts/experiment_run.py --config $(CONFIG) --repeat $(REPEAT) $(ARGS)
 
+# CONFIGS is a glob: make sweep CONFIGS="data/configs/arm_*.yaml"
+sweep:
+	@test -n "$(CONFIGS)" || { echo 'CONFIGS="data/configs/arm_*.yaml" is required'; exit 1; }
+	$(PYTHON) scripts/sweep.py --configs $(CONFIGS) --repeat $(REPEAT) $(ARGS)
+
+# ── inspect and decide ──────────────────────────────────────────────────────
 runs-list:
 	@$(PYTHON) scripts/list_runs.py
 
 baselines-list:
 	@$(PYTHON) scripts/list_runs.py --baselines
 
-# BASE/CAND are run ids from `make runs-list`.
-# NOISE should be the spread `make experiment-run REPEAT=3` reported.
+leaderboard:
+	$(PYTHON) scripts/leaderboard.py --dataset-id $(DATASET_ID) $(ARGS)
+
 run-compare:
 	@test -n "$(BASE)" || { echo "BASE=<run_id> is required (see: make runs-list)"; exit 1; }
 	@test -n "$(CAND)" || { echo "CAND=<run_id> is required (see: make runs-list)"; exit 1; }
-	$(PYTHON) scripts/compare_runs.py --baseline $(BASE) --candidate $(CAND) --noise $(NOISE)
+	$(PYTHON) scripts/compare_runs.py --baseline $(BASE) --candidate $(CAND) \
+	  $(if $(NOISE),--noise $(NOISE),) $(ARGS)
 
-promote:
+run-promote:
 	@test -n "$(RUN)" || { echo "RUN=<run_id> is required (see: make runs-list)"; exit 1; }
-	@test -n "$(REASON)" || { echo "REASON=\"why this run earned it\" is required"; exit 1; }
+	@test -n "$(REASON)" || { echo 'REASON="why this run earned it" is required'; exit 1; }
 	$(PYTHON) scripts/promote_baseline.py --run $(RUN) --reason "$(REASON)" $(ARGS)
 
+# ── gates ───────────────────────────────────────────────────────────────────
 validate:
 	$(PYTHON) scripts/validate_tree.py
 
-# The judging harness this skeleton grew around: promote -> judge -> aggregate
-# -> report over many candidate runs. Keyless by default (FakeJudge).
-judge:
-	$(PYTHON) runner.py --config config.example.yaml --use-fake-judge
+test:
+	$(PYTHON) scripts/self_test.py
 
+check: validate test
+	@echo ""
+	@echo "check: tree valid, self-tests pass"
+
+ci: check
+	@echo "ci: green"
+
+# The judge panel: promote -> judge -> aggregate -> report over candidate runs.
+# Keyless by default (FakeJudge).
+judge:
+	$(PYTHON) runner.py --config config.example.yaml --use-fake-judge $(ARGS)
+
+# ── housekeeping ────────────────────────────────────────────────────────────
 clean:
 	rm -rf data/materialized/* data/runs/* out/
-	@echo "cleaned materialized/, runs/ and out/ — sources, datasets and baselines kept"
+	@echo "cleaned materialized/, runs/ and out/ — sources, datasets, references and baselines kept"
+
+clean-cache:
+	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+	@echo "cleaned __pycache__"
