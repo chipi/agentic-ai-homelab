@@ -104,6 +104,32 @@ model_list:
       model: openrouter/deepseek/deepseek-v4-flash
       api_key: os.environ/OPENROUTER_API_KEY_ORRERY
 
+  # ── eval-harness. Anthropic is reached THROUGH OpenRouter, so the gateway
+  # holds no Anthropic credential of its own.
+  #
+  # On the PODCAST key, deliberately: what these aliases evaluate IS the podcast
+  # work, so its spend belongs to the podcast vertical's $25 rather than to a
+  # fourth one. #1412 says a workload must not spend ANOTHER's budget — this is
+  # the same budget's own measurement, and splitting it would only hide what the
+  # podcast bake-off actually costs to know about.
+  #
+  # opus is the GOLDEN: references are authored once with the strongest model
+  # available, and every cheaper arm is then scored against them. sonnet/haiku
+  # are sweep arms. Consumers hold ONE virtual key (alias eval-harness),
+  # scoped to exactly these aliases.
+  - model_name: eval-claude-opus
+    litellm_params:
+      model: openrouter/anthropic/claude-opus-5.5
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+  - model_name: eval-claude-sonnet
+    litellm_params:
+      model: openrouter/anthropic/claude-sonnet-5
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+  - model_name: eval-claude-haiku
+    litellm_params:
+      model: openrouter/anthropic/claude-haiku-4.5
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
 litellm_settings:
   # full-package observability from day one (operator requirement):
   # Langfuse traces on success+failure, GlitchTip (sentry-compatible) on failure

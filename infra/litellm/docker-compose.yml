@@ -22,6 +22,10 @@ services:
       - .env
     environment:
       DATABASE_URL: "postgresql://litellm:${LITELLM_PG_PASSWORD}@postgres:5432/litellm"
+      # Persist models added at runtime via /model/new, so adding an alias stops
+      # requiring a restart of a gateway that fleets depend on. Needs the DB
+      # above, which this stack already has.
+      STORE_MODEL_IN_DB: "True"
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     logging:
       driver: json-file

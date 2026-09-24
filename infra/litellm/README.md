@@ -44,11 +44,22 @@ note). Current consumers:
 |---|---|---|---|
 | `fleet-triage` | `fleet-triage-flash`, `fleet-triage-pro` | $50 | signal-fleet triager (`OPENROUTER_API_KEY` in `~/signal-fleet/fleet-gateway.env`) |
 | `fleet-bugfix` | `fleet-bugfix-flash`, `fleet-bugfix-pro`, `fleet-bugfix-reviewer` | $100 | bugfix-fleet — routes via the gateway (`LLM_BASE_URL=http://localhost:4001/v1` + `LLM_API_KEY=LITELLM_FLEET_BUGFIX_KEY`), was OpenRouter-direct |
+| `eval-harness` | `eval-claude-opus`, `eval-claude-sonnet`, `eval-claude-haiku`, `homelab-flash` | $20 / 30d | `examples/eval-harness` — golden references + model sweeps (`LITELLM_BASE_URL` + `LITELLM_API_KEY` in its `.env`) |
 
 Both route to `openrouter/deepseek-v4-pro` via `OPENROUTER_API_KEY` (the shared
 key) — so their spend shows on the hub's **"Lab (shared key)"** OpenRouter vertical
 (and per-key via `/key/info`). `max_budget` is a hard lifetime cap (raise
 deliberately = auditable top-up).
+
+`eval-harness` routes on the **podcast** OpenRouter key, not a fourth one: what
+its aliases measure IS the podcast work, so the cost of knowing sits in the same
+$25 as the thing being known about. Its own $20 virtual-key cap under that $25
+means the proxy refuses first, with an error naming the key, instead of
+OpenRouter returning a 402 that says nothing about which workload spent it.
+
+It is also the only key with a rolling `budget_duration` rather than a lifetime
+cap. A sweep is repeated work, not a one-off allowance; a lifetime cap on it
+just means someone raises the number every few months without reading it.
 
 ```sh
 curl -s http://localhost:4001/key/generate \
