@@ -137,6 +137,7 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
   <div class=charts style="max-width:1140px">
     <a class=card href="$G/d/llm-gateway"><h3>Lab (shared key)</h3><div id=v_gateway>&hellip;</div></a>
     <a class=card href="$G/d/llm-gateway"><h3>Podcast</h3><div id=v_podcast>&hellip;</div></a>
+    <a class=card href="$G/d/llm-gateway"><h3>Orrery</h3><div id=v_orrery>&hellip;</div></a>
   </div>
 </div>
 <div class=cols>
@@ -356,10 +357,11 @@ async function fleet(){
   catch(e){set('b_route',cv('&rarr;'));}
   // per-vertical OpenRouter billing (openrouter-spend.sh collector, 10m cadence):
   // big number = month-to-date as OpenRouter bills it; small = lifetime total.
-  // Only 2 keys exist today: 'gateway' is the SHARED key (litellm gateway + triage
-  // fleet + bugfix-fleet pi/opencode bake-off all use it); 'podcast' is separate.
-  // pi/opencode get their own cards once they're minted their own OpenRouter keys.
-  for (const vt of ['gateway','podcast']) {
+  // 'gateway' is the SHARED key (litellm gateway + triage fleet + bugfix-fleet
+  // pi/opencode bake-off all use it); 'podcast' and 'orrery' each have their own
+  // dedicated OpenRouter key. pi/opencode get their own cards once they're minted
+  // their own keys (until then their spend lands under 'gateway').
+  for (const vt of ['gateway','podcast','orrery']) {
     const vm=await g1('last_over_time(openrouter_vertical_usd{vertical="'+vt+'",window="month"}[2h])');
     const vtot=await g1('last_over_time(openrouter_vertical_usd{vertical="'+vt+'",window="total"}[2h])');
     set('v_'+vt, cv($(vm))+'<div class=muted style="font-size:12px">'+$(vtot)+' total</div>');

@@ -12,6 +12,9 @@
 # operator home dir is chmod 700 so the claude workbench user can't read it):
 #   OR_KEY_GATEWAY=sk-or-...     (the SHARED key; == infra/litellm OPENROUTER_API_KEY)
 #   OR_KEY_PODCAST=sk-or-...     (== OPENROUTER_API_KEY_PODCAST)
+#   OR_KEY_ORRERY=sk-or-...      (== OPENROUTER_API_KEY_ORRERY; the orrery /ask vertical,
+#                                 dedicated key on both the prod + mini litellm — /auth/key
+#                                 reports its GLOBAL usage across both instances)
 #   OR_KEY_PI=                   (blank until pi gets its own key)
 #   OR_KEY_OPENCODE=             (blank until opencode gets its own key)
 #
@@ -28,7 +31,7 @@ poll() {
   # shellcheck disable=SC1090
   . "$ENVF"
   local LINES=""
-  for V in pi:$OR_KEY_PI opencode:$OR_KEY_OPENCODE gateway:$OR_KEY_GATEWAY podcast:$OR_KEY_PODCAST; do
+  for V in pi:$OR_KEY_PI opencode:$OR_KEY_OPENCODE gateway:$OR_KEY_GATEWAY podcast:$OR_KEY_PODCAST orrery:$OR_KEY_ORRERY; do
     local NAME="${V%%:*}" KEY="${V#*:}"
     [ -n "$KEY" ] || continue
     local J
