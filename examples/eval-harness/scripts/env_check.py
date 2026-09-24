@@ -16,21 +16,48 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import ROOT, env_float, env_int, load_dotenv  # noqa: E402
+from _common import DOTENV_LOADED, ROOT, env_float, env_int  # noqa: E402
 
 PROVIDER_KEYS = ("ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY")
+
+
+def _probe(base: str) -> str:
+    """Is the proxy actually up? A sweep should not be how you find out."""
+    import json
+    import urllib.error
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(base.rstrip("/") + "/health/liveliness", timeout=4) as r:
+            return f"yes ({r.status})"
+    except urllib.error.HTTPError as exc:
+        return f"responded {exc.code} — up, but that endpoint is not there"
+    except Exception as exc:  # noqa: BLE001
+        return f"NO — {type(exc).__name__}: {exc}"
 
 
 def main() -> int:
     argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args()
     env_file = ROOT / ".env"
-    loaded = load_dotenv()
-    print(f".env: {'loaded ' + str(loaded) + ' var(s)' if env_file.is_file() else 'NOT PRESENT'}"
+    # DOTENV_LOADED is the count from the FIRST load, at import. Calling
+    # load_dotenv() again here would report 0 — everything is already in the
+    # environment by then — which read as "your .env did nothing".
+    print(f".env: {'loaded ' + str(DOTENV_LOADED) + ' var(s)' if env_file.is_file() else 'NOT PRESENT'}"
           f"   ({env_file})")
     if not env_file.is_file():
         print("      cp .env.example .env   then fill in the keys you need\n")
 
-    print("\nprovider keys")
+    print("\nLiteLLM proxy (one key, many providers)")
+    base = os.environ.get("LITELLM_BASE_URL", "")
+    lkey = os.environ.get("LITELLM_API_KEY", "")
+    proxy_ready = bool(base and lkey)
+    print(f"  LITELLM_BASE_URL       {base or 'not set'}")
+    print(f"  LITELLM_API_KEY        "
+          + (f"set ({len(lkey)} chars, ends …{lkey[-4:]})" if lkey else "not set"))
+    if proxy_ready:
+        print(f"  reachable?             {_probe(base)}")
+
+    print("\ndirect provider keys (only needed without a proxy)")
     any_key = False
     for name in PROVIDER_KEYS:
         raw = os.environ.get(name, "")
@@ -42,9 +69,10 @@ def main() -> int:
             any_key = True
             state = f"set ({len(raw)} chars, ends …{raw[-4:]})"
         print(f"  {name:22} {state}")
-    if not any_key:
-        print("\n  No usable provider key. `provider: echo` still works offline —")
+    if not any_key and not proxy_ready:
+        print("\n  No usable credential. `provider: echo` still works offline —")
         print("  that is enough to prove the plumbing, not to evaluate a model.")
+    any_key = any_key or proxy_ready
 
     print("\nsystem under test")
     ref = os.environ.get("EVAL_BUILD_REF", "")

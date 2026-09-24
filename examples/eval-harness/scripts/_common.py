@@ -40,7 +40,7 @@ def load_dotenv(path: Optional[Path] = None) -> int:
     return loaded
 
 
-load_dotenv()
+DOTENV_LOADED = load_dotenv()
 
 
 def env_float(name: str, default: Optional[float] = None) -> Optional[float]:

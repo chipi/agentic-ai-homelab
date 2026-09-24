@@ -54,6 +54,7 @@ def call_system(text: str, params: Dict[str, Any]) -> Result:
     example adapters work out of the box:
 
         echo        no network, deterministic — proves the plumbing
+        litellm     a LiteLLM proxy: ONE key, many providers, central spend
         anthropic   Claude via the official SDK
         openai      anything OpenAI-compatible, including OpenRouter
 
@@ -165,6 +166,34 @@ def _anthropic(text: str, params: Dict[str, Any]) -> Result:
     )
 
 
+def _litellm(text: str, params: Dict[str, Any]) -> Result:
+    """A LiteLLM proxy — one key, many providers, spend tracked centrally.
+
+    Usually the best answer for a sweep: the proxy already holds the provider
+    keys, so the harness carries ONE credential instead of four, and every call
+    lands in the proxy's spend log under this key's alias. Point `.env` at it:
+
+        LITELLM_BASE_URL=http://127.0.0.1:4001
+        LITELLM_API_KEY=sk-...
+
+    `model` is the proxy's model_name, not the upstream id — the mapping from
+    `eval-claude-sonnet` to `openrouter/anthropic/...` is the proxy's business,
+    which is the point of putting it there.
+    """
+    params = {
+        **params,
+        "base_url": (params.get("base_url") or os.environ.get("LITELLM_BASE_URL", "")).rstrip("/")
+        + "/v1",
+        "api_key_env": params.get("api_key_env", "LITELLM_API_KEY"),
+    }
+    if not params["base_url"].startswith("http"):
+        raise SystemExit(
+            "LITELLM_BASE_URL is not set. Copy .env.example to .env and point it at "
+            "your proxy, e.g. http://127.0.0.1:4001"
+        )
+    return _openai_compatible(text, params)
+
+
 def _openai_compatible(text: str, params: Dict[str, Any]) -> Result:
     """OpenAI-shaped APIs, including OpenRouter — set `base_url` in params."""
     from openai import OpenAI  # lazy
@@ -212,4 +241,5 @@ PROVIDERS: Dict[str, Callable[[str, Dict[str, Any]], Result]] = {
     "anthropic": _anthropic,
     "openai": _openai_compatible,
     "openrouter": _openai_compatible,
+    "litellm": _litellm,
 }
