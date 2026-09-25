@@ -456,16 +456,28 @@ _COT = re.compile(
     r"<think>|</think>|analysis:|draft:|final( answer| summary)?:)",
     re.I,
 )
-_LABEL = re.compile(r"^\s*(\*\*|##|#\s)?\s*(wire |news )?summary\s*[:\-]|^\s*\*\*", re.I)
+# Two different disobediences, previously counted as one. Of 109 hits in this corpus only
+# 27 were an actual label ("**Wire Summary:**"); the other 82 were a first sentence in
+# bold -- a formatting habit, not a preamble. One counter conflated them and the name
+# described the rarer case.
+_LABEL = re.compile(r"^\s*(\*\*|##|#\s+)?\s*(wire |news )?summary\s*[:\-]", re.I)
+_MARKDOWN = re.compile(r"^\s*(\*\*|__|##|#\s+|>\s+)")
 _BULLET = re.compile(r"^\s*[-*\u2022]\s", re.M)
 
 
 def _format_flags(output: str) -> Dict[str, float]:
     """1.0 = this output broke the format contract in that way, 0.0 = it did not."""
+    words = len(output.split())
     return {
         "fmt_narration": 1.0 if _COT.search(output) else 0.0,
         "fmt_label": 1.0 if _LABEL.match(output) else 0.0,
+        "fmt_markdown": 1.0 if _MARKDOWN.match(output) else 0.0,
         "fmt_bullets": 1.0 if _BULLET.search(output) else 0.0,
+        # The prompt asks for "2-3 short sentences". These two say whether it was obeyed
+        # at all, which no other flag covered: 15 outputs in this corpus are multi-
+        # paragraph and 25 run past 90 words, and both were invisible.
+        "fmt_paragraphs": 1.0 if "\n\n" in output.strip() else 0.0,
+        "fmt_overlong": 1.0 if words > 90 else 0.0,
     }
 
 
@@ -612,5 +624,8 @@ METRIC_KINDS = {
     # quality column is partly measuring something else. Read it before the ranking.
     "fmt_narration": "descriptive",
     "fmt_label": "descriptive",
+    "fmt_markdown": "descriptive",
     "fmt_bullets": "descriptive",
+    "fmt_paragraphs": "descriptive",
+    "fmt_overlong": "descriptive",
 }

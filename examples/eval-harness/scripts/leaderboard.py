@@ -156,10 +156,20 @@ def _significance(matrix: Dict[str, Dict[str, float]], metric: str, seed: int = 
         print("    An effect exists, but NO PAIR is distinguishable once all comparisons\n"
               "    are accounted for. 'Which arm is better than which' has no answer here.")
 
-    # Rank intervals: resample ITEMS, re-rank the whole table each time. Marginal, not
-    # simultaneous -- two non-overlapping intervals are suggestive, not a controlled
-    # claim about that pair. The Nemenyi line above is the claim.
+    # Resample ITEMS, re-rank the whole table each time, and report PROBABILITIES rather
+    # than an interval.
+    #
+    # This used to print a 95% rank interval per arm. Those are MARGINAL: each is correct
+    # on its own, but jointly they cover only ~57% of resamples, and two non-overlapping
+    # intervals read as "this pair is separated" when that is exactly the claim they
+    # cannot make -- the critical-difference line above is the only thing that can. A
+    # simultaneous band would be honest but useless here: its half-width is 14-17 rank
+    # positions out of 24.
+    #
+    # P(top 5) and P(bottom 5) answer the question people actually bring to a leaderboard
+    # -- "is this one of the good ones" -- and cannot be misread as a pairwise verdict.
     R = 2000
+    top_n = max(1, min(5, k // 4))
     tally: Dict[str, List[int]] = {a: [] for a in arms}
     for _ in range(R):
         idx = [rng.randrange(N) for _ in range(N)]
@@ -167,13 +177,17 @@ def _significance(matrix: Dict[str, Dict[str, float]], metric: str, seed: int = 
         for pos, a in enumerate(sorted(arms, key=lambda x: -mu[x]), 1):
             tally[a].append(pos)
     width = max(len(a) for a in arms) + 2
-    print(f"\n    {'arm':{width}} {'avg rank':>9} {'95% rank interval':>19}")
+    print(f"\n    {'arm':{width}} {'avg rank':>9} {'P(1st)':>8} "
+          f"{f'P(top {top_n})':>10} {f'P(bot {top_n})':>10}")
     for a in sorted(arms, key=lambda x: avg_rank[x]):
-        t = sorted(tally[a])
-        lo, hi = t[int(0.025 * R)], t[int(0.975 * R)]
-        print(f"    {a:{width}} {avg_rank[a]:9.2f} {f'[{lo}, {hi}]':>19}")
-    print("    Intervals are where an arm LANDS across resampled items. They are not a\n"
-          "    pairwise claim -- read the critical-difference line for that.")
+        t = tally[a]
+        p1 = sum(1 for x in t if x == 1) / R
+        pt = sum(1 for x in t if x <= top_n) / R
+        pb = sum(1 for x in t if x > k - top_n) / R
+        print(f"    {a:{width}} {avg_rank[a]:9.2f} {p1:8.2f} {pt:10.2f} {pb:10.2f}")
+    print(f"    Probabilities over resampled items: how often this arm lands 1st, in the\n"
+          f"    top {top_n}, in the bottom {top_n}. NOT a pairwise claim -- the\n"
+          f"    critical-difference line above is the only pairwise verdict here.")
 
 
 
@@ -280,6 +294,24 @@ def main() -> int:
     sort_key = args.sort or primary or (
         quality[0] if quality else (descriptive[0] if descriptive else all_keys[0])
     )
+    # SAY SO when the headline metric was picked alphabetically. Runs written before
+    # adapters declared PRIMARY_METRIC carry none, so this falls through to whichever
+    # quality metric sorts first by name -- for one set of runs here that is `grounding`,
+    # an extractiveness measure, silently promoted to the ranking metric.
+    if not args.sort and not primary:
+        print(f"  NOTE: no run declares a primary metric, so {sort_key!r} was chosen by\n"
+              f"        sort order, not by meaning. Pass --sort explicitly, or re-run with\n"
+              f"        an adapter that sets PRIMARY_METRIC.")
+    # SAY SO when the table mixes config versions. v1 and v2 of one arm are different
+    # measurements -- often different scorers -- and listing them side by side reads as
+    # 48 models. The fix is to scope the view, never to delete the older runs.
+    import re as _re
+    versions = {m.group(0) for c in by_config for m in [_re.search(r"_v\d+$", c)] if m}
+    if len(versions) > 1:
+        print(f"  NOTE: this table mixes config versions ({', '.join(sorted(versions))}) —"
+              f" {len(by_config)} rows.\n"
+              f"        Those are different measurements, not repeats. Scope with"
+              f" --match <version>.")
     ranking_on_descriptive = kinds.get(sort_key) == "descriptive"
     if sort_key not in all_keys:
         die(f"no metric {sort_key!r} on these runs. Available: {', '.join(all_keys)}")

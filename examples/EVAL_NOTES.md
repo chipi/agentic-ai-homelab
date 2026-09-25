@@ -1144,3 +1144,38 @@ capability rather than a scratch script somebody has to rediscover.
   18 arms of paid results here.
 
 `make ci: green`.
+
+### 2026-09-25 · 36 — Review leftovers, all closed. `make ci: green`.
+
+**Format flags split, and two gaps closed.** `fmt_label` was counting two different
+disobediences as one, and was named after the rarer: of 109 hits across both sweeps only
+**27** were an actual label (`**Wire Summary:**`); the other **82** were a first sentence
+in bold — a formatting habit, not a preamble. Now `fmt_label` (27) and `fmt_markdown`
+(109), separately.
+
+Two more added, because "2-3 short sentences" compliance was measured by nothing:
+`fmt_paragraphs` (multi-paragraph output, 23 across both sweeps) and `fmt_overlong`
+(>90 words, 33). Both were invisible before — 16 of the overlong ones are `anthropic_l`.
+
+**Rank intervals replaced by probabilities.** The 95% rank interval per arm was marginal:
+each correct alone, but jointly covering only ~57% of resamples, and two non-overlapping
+intervals read as *"this pair is separated"* — precisely the claim they cannot make. A
+simultaneous band would be honest and useless (half-width 14–17 of 24 rank positions).
+Now `P(1st)`, `P(top 5)`, `P(bottom 5)`, which answer the question people actually bring
+to a leaderboard and cannot be misread as a pairwise verdict:
+
+```
+  cnn_deepseek_m_v2   avg rank  8.93   P(1st) 0.48   P(top5) 0.95   P(bot5) 0.00
+  cnn_qwen_m_v2       avg rank 16.88   P(1st) 0.00   P(top5) 0.00   P(bot5) 0.92
+```
+
+**Two silent fallbacks now speak.**
+
+- Runs written before adapters declared `PRIMARY_METRIC` carry none, so the leaderboard
+  fell through to the alphabetically-first quality metric — for the v1 runs that is
+  `grounding`, an *extractiveness* measure, silently made the ranking metric. It now says
+  so and points at `--sort`.
+- An unscoped leaderboard listed v1 and v2 of each arm as 48 separate models. It now
+  names the versions present and points at `--match`. Deliberately a warning and not a
+  default filter: hiding runs by default is how a table starts lying quietly.
+
