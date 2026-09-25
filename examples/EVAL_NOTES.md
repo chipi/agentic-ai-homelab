@@ -916,3 +916,56 @@ Verified: `providers_seen: {'Alibaba': 20}` on a smoke run of `qwen_s`.
 
 **Not retroactive.** The 72 v2 runs carry no provider data; the adapter changed after
 they finished. From the next sweep onward.
+
+### 2026-09-25 · 28 — DECISION: version the arms to v2 rather than delete v1's runs
+
+The scorer changed and the configs changed, so v1 and v2 runs are not repeats of one
+another: v1 carries rougeL/rouge2, v2 carries coverage/concision/rougeLsum and the
+format flags. Grouped under one `config_id` the leaderboard would average each metric
+over whichever runs happened to carry it — one row whose columns have different n,
+presented as one arm.
+
+**The alternative considered and rejected was deleting v1's runs so the table would be
+24 rows instead of 48.** That is exactly what destroyed 18 arms of paid results earlier
+today (entry 3): rename the ids, then delete what no longer matches so the output looks
+clean. Instead: v1's runs stay untouched, configs go to `_v2`, and `leaderboard.py`
+gained `--match` to scope the view. Scoping a table is a display problem; deleting data
+is not a solution to a display problem.
+
+### 2026-09-25 · 29 — v2 results. Controlling for length may erase the arm effect.
+
+24 arms, 72 runs, complete (`mistral_l` recovered — entry 25). Ranked by `coverage`:
+
+```
+  IS THE ORDERING REAL?   metric=coverage  k=23 arms*  N=20 items
+    global test (permutation on within-item ranks): p = 0.1260 -> NO detectable arm effect
+    Nemenyi critical difference = 7.76 rank positions; observed span = 6.92
+    pairs distinguishable: 0 of 253
+```
+\* computed before `mistral_l` landed; k=24 not yet recomputed.
+
+Against v1 scored by `rougeL`: p = 0.0316, "an arm effect exists", 0 of 276 pairs
+separated. So the *global* effect that was detectable on rougeL is not detectable on
+coverage, while the pairwise answer is unchanged — nothing is distinguishable either way.
+
+The ordering also scrambles: `anthropic_m` 14th on rougeL → **1st** on coverage; `glm_s`
+4th → 20th; `openai_l` 2nd → 13th. Which is what you would expect if the old ranking was
+substantially reading how much each model wrote.
+
+**The tempting claim is "the rougeL arm effect was a length effect; control for length
+and it disappears." I do not trust it yet, and it is under external review.** v1→v2
+changed TWO things at once: the metric AND the sample. These are different API calls
+against a system where only 11% of outputs repeat byte-identically (entry 6), so a
+p-value moving 0.03 → 0.13 could be run-to-run variation rather than the metric working.
+The disentangling test costs nothing and is on disk — score v1's stored outputs with the
+v2 scorer and v2's with the v1 metric, and compare all four cells. Until that is done
+this is a hypothesis, not a finding.
+
+**What the new metrics caught on their own, with no hand-scanning:**
+
+- `glm_l`: `fmt_narration` 0.0667 (4/60) and `fmt_bullets` 0.05 (3/60) — matching its v1
+  behaviour almost exactly. Its chain-of-thought leak is a stable property of that arm,
+  not a one-off.
+- `mistral_s`: `fmt_bullets` 0.10 (6/60).
+
+**Cost of v2**: ~$1.45 for the sweep plus ~$0.05 for the `mistral_l` recovery.
