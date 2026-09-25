@@ -26,15 +26,17 @@ from pathlib import Path
 from typing import Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import RUNS, die, read_json  # noqa: E402
+from _common import (  # noqa: E402
+    COST_KEYS,
+    DESCRIPTIVE_KEYS,
+    RUNS,
+    SPEED_KEYS,
+    die,
+    read_json,
+)
 
-COST_KEYS = ("total_cost_usd", "cost_usd", "total_tokens_in", "total_tokens_out",
-             "tokens_in", "tokens_out")
-SPEED_KEYS = ("latency_ms",)
-# Descriptive, not evaluative: they say what the output WAS, not whether it was
-# good. Ranking by one of these puts the most verbose arm on top — which is how
-# a leaderboard ends up confidently answering the wrong question.
-DESCRIPTIVE_KEYS = ("output_words", "output_chars", "lines", "chars", "n_items")
+# COST_KEYS / SPEED_KEYS / DESCRIPTIVE_KEYS now live in _common, so that
+# compare_runs.py judges direction the same way this ranks it.
 
 
 def main() -> int:
@@ -71,7 +73,18 @@ def main() -> int:
 
     rows = []
     for config_id, runs in by_config.items():
-        row = {"config_id": config_id, "n_runs": len(runs), "tier": runs[0].get("reference_tier", "—")}
+        # EVERY run's tier, not runs[0]'s. Taking the first one meant a config whose
+        # earliest run predated the reference (reference_tier: None) suppressed the
+        # SILVER warning below — while the quality column on that very row came only
+        # from the silver-scored runs. A model-generated number, printed as if it were
+        # ground truth, which is the one thing this table must never do.
+        tiers = {r.get("reference_tier") for r in runs if r.get("reference_tier")}
+        row = {
+            "config_id": config_id,
+            "n_runs": len(runs),
+            "tier": "+".join(sorted(tiers)) if tiers else "—",
+            "tiers": tiers,
+        }
         for k in all_keys:
             vals = [r["scores"][k] for r in runs if k in r["scores"]]
             if vals:
@@ -114,7 +127,7 @@ def main() -> int:
                 f"  leader's own run-to-run spread ({spread:.6f}). Treat them as tied, or\n"
                 f"  run more repeats before choosing."
             )
-    if any(r["tier"] == "silver" for r in rows):
+    if any("silver" in r["tiers"] for r in rows):
         print(
             "\n  Scored against SILVER references (model-generated). Good for ranking\n"
             "  these arms against each other; not a claim that any of them is correct."

@@ -22,7 +22,19 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import DATASETS, SOURCES, die, now, sha256, write_json  # noqa: E402
+from _common import DATASETS, ROOT, SOURCES, die, now, sha256, write_json  # noqa: E402
+
+
+def _relative_source_dir(source_dir: Path) -> str:
+    """``source_dir`` relative to the harness root, or its bare name if it lies outside.
+
+    Never an absolute path: a dataset is copied between machines and checked into git, and
+    the directory it was built from is not a property of the host that built it.
+    """
+    try:
+        return source_dir.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return source_dir.name
 
 
 def main() -> int:
@@ -89,7 +101,12 @@ def main() -> int:
             "version": "1.0",
             "description": args.description or f"{len(items)} item(s) from {args.source_dir.name}/",
             "created_at": now(),
-            "source_dir": args.source_dir.as_posix(),
+            # Relative to the harness root when it sits inside it. `as_posix()` on the
+            # resolved arg wrote an ABSOLUTE path into a committed file — every dataset in
+            # this repo carries "/Users/<name>/projects/..." today. That leaks whoever ran
+            # it into a public repo, and makes the file describe a machine rather than a
+            # selection. The item hashes are what freeze a dataset; this field is a label.
+            "source_dir": _relative_source_dir(args.source_dir),
             "items": items,
         },
     )

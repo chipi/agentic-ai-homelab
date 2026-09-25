@@ -28,6 +28,7 @@ dataset — a 10-item golden pass is enough to rank four arms.
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from pathlib import Path
 
@@ -70,6 +71,14 @@ def main() -> int:
             "  References are frozen — every score already reported was measured\n"
             "  against these. Use a new dataset version, or --force if nothing cites them."
         )
+    # Author into a sibling .partial/ and rename at the end, so a run that dies midway leaves
+    # NOTHING. It used to mkdir here and write per item: a crash on item 1 — a missing client
+    # library, a bad key — left an empty frozen directory, and the (correct) refusal above then
+    # blocked the retry. The first thing a new user hit was a freeze guard protecting nothing.
+    final_dir = out_dir
+    out_dir = out_dir.with_name(out_dir.name + ".partial")
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     items = ds["items"][: args.limit] if args.limit else ds["items"]
@@ -108,6 +117,13 @@ def main() -> int:
             ),
         },
     )
+    # Only now is it a reference set. Rename is atomic on the same filesystem, so the directory
+    # either does not exist or is complete — never half-authored.
+    if final_dir.exists():
+        shutil.rmtree(final_dir)
+    out_dir.rename(final_dir)
+    out_dir = final_dir
+
     print(f"\n{out_dir}  ({len(items)} item(s), tier={args.tier}"
           + (f", ${total_cost:.4f}" if n_priced else "") + ")")
     print("Runs against this dataset will now be scored against it automatically.")

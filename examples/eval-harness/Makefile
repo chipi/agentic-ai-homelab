@@ -8,7 +8,9 @@
 # experiment-dry-run, experiment-run, run-compare, run-promote, runs-list,
 # baselines-list, validate, check, ci.
 
-PYTHON ?= python3
+# Prefer the venv `make install` creates, so `make install` is not immediately followed by
+# having to pass PYTHON=.venv/bin/python to every other target. Overridable as before.
+PYTHON ?= $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 VENV ?= .venv
 DATASET_ID ?= smoke_v1
 CONFIG ?= data/configs/demo.yaml
@@ -143,8 +145,12 @@ judge:
 
 # ── housekeeping ────────────────────────────────────────────────────────────
 clean:
-	rm -rf data/materialized/* data/runs/* out/
-	@echo "cleaned materialized/, runs/ and out/ — sources, datasets, references and baselines kept"
+	# `rm -rf data/runs/*` also deleted data/runs/README.md — the file that documents what a
+	# run directory IS — while the line below reassured you about the directories it had not
+	# touched. Four per-directory READMEs were lost that way before anyone noticed. Keep them.
+	@find data/materialized data/runs -mindepth 1 -not -name README.md -exec rm -rf {} + 2>/dev/null || true
+	@rm -rf out/
+	@echo "cleaned materialized/, runs/ and out/ — READMEs, sources, datasets, references and baselines kept"
 
 clean-cache:
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true

@@ -83,6 +83,83 @@ def test_cli_help_works() -> None:
         check(f"{script}.py --help", r.returncode == 0, r.stderr.strip()[:80])
 
 
+def test_metric_direction_is_not_always_up() -> None:
+    """Cost and latency improve by going DOWN.
+
+    compare_runs.py judged every metric with `"better" if d > 0 else "worse"`, so a run
+    that got faster or cheaper was reported as worse — while leaderboard.py, in the same
+    harness, already knew these keys were lower-is-better. Two scripts disagreeing about
+    what a number means is worse than either being wrong alone: whichever you read last
+    is the one you believe.
+    """
+    sys.path.insert(0, str(HERE / "scripts"))
+    from _common import verdict_for
+
+    check("direction: faster is better", verdict_for("latency_ms", -0.5) == "better")
+    check("direction: slower is worse", verdict_for("latency_ms", 0.5) == "worse")
+    check("direction: cheaper is better", verdict_for("cost_usd", -0.1) == "better")
+    check("direction: dearer is worse", verdict_for("cost_usd", 0.1) == "worse")
+    # The quality metric keeps the ordinary orientation, or the fix would have
+    # inverted the thing that actually matters.
+    check("direction: higher quality is better", verdict_for("overlap_f1", 0.05) == "better")
+    check("direction: lower quality is worse", verdict_for("overlap_f1", -0.05) == "worse")
+    check("direction: no movement is identical", verdict_for("cost_usd", 0.0) == "identical")
+
+
+def test_descriptive_metrics_get_no_verdict() -> None:
+    """A longer output is not a better one, and the table must not imply it is."""
+    sys.path.insert(0, str(HERE / "scripts"))
+    from _common import verdict_for
+
+    check("descriptive: more words is 'changed'", verdict_for("output_words", 12) == "changed")
+    check("descriptive: fewer words is 'changed'", verdict_for("output_words", -12) == "changed")
+
+
+def test_leaderboard_declares_silver_from_any_run() -> None:
+    """The SILVER caveat must survive a config whose FIRST run predates the reference.
+
+    leaderboard.py read `runs[0].get("reference_tier")`. A config with an early unscored
+    run therefore printed a silver-derived quality score with no disclaimer — a
+    model-generated number shown as if it were ground truth, which is the single thing
+    this table must never do.
+    """
+    rows = [
+        {"reference_tier": None},
+        {"reference_tier": "silver"},
+    ]
+    tiers = {r.get("reference_tier") for r in rows if r.get("reference_tier")}
+    check("leaderboard: silver seen behind an unscored first run", "silver" in tiers)
+    check(
+        "leaderboard: no tier at all stays unlabelled",
+        {r.get("reference_tier") for r in [{"reference_tier": None}] if r.get("reference_tier")}
+        == set(),
+    )
+
+
+def test_no_absolute_home_path_in_committed_data() -> None:
+    """A dataset describes a SELECTION, not the machine that built it.
+
+    dataset_create.py wrote `args.source_dir.as_posix()` — the resolved, absolute path — so
+    every dataset in this repo carried "/Users/<name>/projects/..." into git. That leaks
+    whoever ran it, and makes a file that is meant to travel between machines describe one.
+    Only `created_at` and `source_dir` differ after the fix; every source_sha256 is
+    unchanged, which is what actually freezes a dataset.
+    """
+    import re
+
+    home = re.compile(r"/(?:Users|home)/(?!runner\b|operator\b|user\b)[A-Za-z0-9_.-]+/")
+    offenders = []
+    for d in (HERE / "data").rglob("*.json"):
+        if ".partial" in d.parts:
+            continue
+        try:
+            if home.search(d.read_text(encoding="utf-8")):
+                offenders.append(str(d.relative_to(HERE)))
+        except OSError:
+            continue
+    check("no home path in committed data/", not offenders, f"offenders: {offenders[:5]}")
+
+
 def main() -> int:
     print("harness self-tests (no network, no keys)\n")
     for fn in (
@@ -90,6 +167,10 @@ def main() -> int:
         test_price_needs_all_four_inputs,
         test_score_handles_absent_reference,
         test_compare_refuses_cross_dataset,
+        test_metric_direction_is_not_always_up,
+        test_descriptive_metrics_get_no_verdict,
+        test_leaderboard_declares_silver_from_any_run,
+        test_no_absolute_home_path_in_committed_data,
         test_cli_help_works,
     ):
         fn()

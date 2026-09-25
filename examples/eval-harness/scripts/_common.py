@@ -164,3 +164,62 @@ def iter_runs() -> Iterable[Path]:
 
 def die(msg: str) -> "NoReturn":  # type: ignore[valid-type]
     raise SystemExit(f"ERROR: {msg}")
+
+
+# ── what a metric MEANS ──────────────────────────────────────────────────────
+# These lived in leaderboard.py, which used them to pick a sort key and to warn
+# when someone ranked on a descriptive metric. compare_runs.py had no idea they
+# existed and judged every metric with one hardcoded direction:
+#
+#     verdict = "better" if d > 0 else "worse"
+#
+# So a run that got FASTER was reported "worse", and one that got more EXPENSIVE
+# would have been reported "better". Two scripts in the same harness disagreed
+# about what a number means, which is worse than either being wrong alone —
+# whichever one you read last is the one you believe.
+
+#: Lower is better. Cost and token counts.
+COST_KEYS = (
+    "total_cost_usd",
+    "cost_usd",
+    "total_tokens_in",
+    "total_tokens_out",
+    "tokens_in",
+    "tokens_out",
+)
+#: Lower is better. Wall time.
+SPEED_KEYS = ("latency_ms",)
+#: Neither better nor worse: they say what the output WAS, not whether it was
+#: good. Ranking by one puts the most verbose arm on top — which is how a
+#: leaderboard ends up confidently answering the wrong question. Comparing two
+#: of them and calling the bigger one "better" is the same error, per-metric.
+DESCRIPTIVE_KEYS = ("output_words", "output_chars", "lines", "chars", "n_items")
+
+
+def lower_is_better(metric: str) -> bool:
+    """Whether a DECREASE in ``metric`` is an improvement (cost, tokens, latency)."""
+    return metric in COST_KEYS or metric in SPEED_KEYS or metric.startswith("total_tokens")
+
+
+def is_descriptive(metric: str) -> bool:
+    """Whether ``metric`` describes the output rather than judging it.
+
+    A direction cannot be assigned to these, so callers must say "changed"
+    rather than "better" or "worse".
+    """
+    return metric in DESCRIPTIVE_KEYS
+
+
+def verdict_for(metric: str, delta: float) -> str:
+    """"better" / "worse" / "changed" / "identical" for ``delta`` on ``metric``.
+
+    The one place that decides what a movement MEANS. Descriptive metrics get
+    "changed" on purpose: calling a longer output "better" is a claim the number
+    cannot support, and it is exactly the claim a reader will take away.
+    """
+    if delta == 0:
+        return "identical"
+    if is_descriptive(metric):
+        return "changed"
+    improved = delta < 0 if lower_is_better(metric) else delta > 0
+    return "better" if improved else "worse"

@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import RUNS, die, read_json  # noqa: E402
+from _common import RUNS, die, is_descriptive, read_json, verdict_for  # noqa: E402
 
 
 def load(run_id: str) -> dict:
@@ -82,11 +82,16 @@ def main() -> int:
         # doing exactly the right thing.
         if args.noise is not None and abs(d) <= args.noise:
             verdict = f"NOISE (<= {args.noise})"
-        elif d == 0:
-            verdict = "identical"
         else:
-            verdict = "better" if d > 0 else "worse"
-            worth += 1
+            # Direction comes from _common, the same place leaderboard.py gets it.
+            # This used to be `"better" if d > 0 else "worse"` for every metric, so a
+            # run that got FASTER or CHEAPER was reported as worse.
+            verdict = verdict_for(k, d)
+            # Only a real regression or improvement counts toward "moved beyond the
+            # noise floor". A descriptive metric moving is not a verdict, and counting
+            # it inflated the number a reader uses to decide whether to care.
+            if verdict in ("better", "worse"):
+                worth += 1
         print(f"  {k:{w}} {av:12.6f} {bv:12.6f} {d:+12.6f}   {verdict}")
 
     if args.noise is None:
