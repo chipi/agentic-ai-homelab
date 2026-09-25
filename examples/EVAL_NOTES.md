@@ -1079,3 +1079,68 @@ afterwards. The rule is now "keep everything the new scorer does not itself prod
 
 Makefile help gained a RE-MEASURE section and a SCOPING section (`MATCH`, `EVAL_RUNS_DIR`).
 144 runs rescored; `make ci: green`.
+
+### 2026-09-25 · 34 — Silver, measured. It is a biased proxy, not just a noisy one.
+
+Item 4 of the post-review plan, recomputed with the FIXED scorer (entry 31) rather than
+taking the review's numbers, since everything else measured with the broken one moved.
+
+The experiment costs **nothing**, which is the part I had wrong when I budgeted ~$1.00
+for it: "author silver with model X, same prompt and settings as the arms" is *exactly
+what X already produced on this dataset*. So every arm on disk is a candidate silver
+author, and all 24 can be tried instead of the 3 I proposed.
+
+Method: for each author A, use A's v1 outputs as the reference set, score every OTHER
+arm's v2 outputs against them, rank those arms, and compare that ranking to the one gold
+gives for the same arms. A's own row excluded throughout.
+
+```
+  CEILING (same arms, same gold, two different sets of runs):   rho = +0.928
+  silver agreement with gold:   min -0.012   mean +0.352   max +0.691
+  sibling lift (own family promoted):  mean +7.6 rank positions, 22 of 24 authors
+```
+
+**Robust to the scorer fix** — the only number today that was. The review measured mean
+rho 0.36 and lift 7.9 with the broken scorer; the fixed scorer gives 0.35 and 7.6.
+
+**The ceiling is the point.** Two runs of the same arms against the same gold agree at
+0.928, not 1.0, so that is the most any proxy could score. A silver at 0.35 is not
+"moderate agreement" — it is about a third of the agreement that was available.
+
+**The finding that matters is the bias, not the noise.** A silver author systematically
+promotes models of its own family by ~8 rank positions, for 22 of 24 authors, and
+**excluding the author's own row does not remove it**. The circularity is not "the judge
+scores itself first" — that part is easy to fix. It is "the judge rewards its own kind's
+style", which survives every fix of that shape. So a silver-ranked leaderboard is not
+merely noisier than a gold one; it is wrong in a direction you can predict from who wrote
+the references.
+
+Best authors here: `llama_s` (0.691), `deepseek_m` (0.628), `llama_m` (0.545). Worst:
+`mistral_m` (-0.012), `gemma_l` (0.109), `openai_m` (0.120). An author's own quality rank
+barely predicts its usefulness as a reference author — so "pick the best model to write
+silver" is not a strategy the data supports.
+
+**DECISION: the $1.00 silver-authoring experiment is dropped.** The question it was meant
+to answer is answered, more completely, for free. Entry 12's open question is closed:
+silver stays as an exhibit of measured circularity, not as a scoring target.
+
+### 2026-09-25 · 35 — The process changes fold into `make` and the runbook
+
+Marko's point: an entire category of analysis lands here, so it should be a harness
+capability rather than a scratch script somebody has to rediscover.
+
+- **`make silver-calibrate DATASET_ID=... REF_MATCH=... ARM_MATCH=...`** —
+  `scripts/silver_calibrate.py`. Generic: the grouping key for the sibling-bias report is
+  `--group-by` (default `family`, read from params), so it is not summarisation-specific.
+  Prints the ceiling first, because a proxy score means nothing without it.
+- **`make rescore DATASET_ID=... MATCH=... OUT=...`** — recompute scores from stored
+  outputs, $0 (entry 33).
+- **`make leaderboard ... MATCH=_v2`** — scope a dataset that has grown across config
+  versions, instead of deleting the older runs.
+- Makefile help gained `TRUST THE REFERENCE?`, `RE-MEASURE` and `SCOPING` sections.
+- README gained four sections: *Is the ranking real?*, *Re-measuring without re-running*,
+  *Do you trust your reference?*, *Scoping a dataset that has grown* — each stating the
+  mistake that motivated it, including that deleting runs to shorten a table is what cost
+  18 arms of paid results here.
+
+`make ci: green`.

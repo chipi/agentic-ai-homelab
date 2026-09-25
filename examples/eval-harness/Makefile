@@ -47,6 +47,12 @@ help:
 	@echo "  make experiment-run     CONFIG=data/configs/arm_a.yaml REPEAT=3"
 	@echo "  make sweep CONFIGS=\"data/configs/arm_*.yaml\" REPEAT=2"
 	@echo ""
+	@echo "TRUST THE REFERENCE?  (free — no API calls)"
+	@echo "  make silver-calibrate DATASET_ID=my_v1 REF_MATCH=_v1 ARM_MATCH=_v2"
+	@echo "      does a model-authored reference rank arms the way GOLD does?"
+	@echo "      every arm on disk is tried as the silver author; read it against"
+	@echo "      the ceiling it prints, not against 1.0"
+	@echo ""
 	@echo "RE-MEASURE  (free — recomputes scores from stored outputs, no API calls)"
 	@echo "  make rescore DATASET_ID=my_v1 MATCH=_v2   after changing a metric"
 	@echo "  EVAL_RUNS_DIR=data/runs-rescored make leaderboard DATASET_ID=my_v1"
@@ -123,6 +129,15 @@ baselines-list:
 # Re-score finished runs from their stored outputs. No API calls, no money: the outputs
 # are the expensive part, the scores are arithmetic over them. Writes to a SEPARATE
 # directory so the originals -- the record of what was measured and paid for -- stay put.
+# Is a MODEL-AUTHORED reference a usable stand-in for a trusted one? Free: every arm on
+# disk is already a candidate silver author, since "author silver with model X using the
+# same prompt and settings" is exactly what X produced. Read the result against the
+# CEILING it prints -- two runs against the same gold do not agree perfectly either.
+silver-calibrate:
+	$(PYTHON) scripts/silver_calibrate.py --dataset-id $(DATASET_ID) \
+	  $(if $(REF_MATCH),--ref-match $(REF_MATCH),) $(if $(ARM_MATCH),--arm-match $(ARM_MATCH),) \
+	  $(if $(METRIC),--metric $(METRIC),) $(if $(GROUP_BY),--group-by $(GROUP_BY),)
+
 rescore:
 	$(PYTHON) scripts/rescore.py --dataset-id $(DATASET_ID) $(if $(MATCH),--match $(MATCH),) --out $(OUT)
 	@echo ""
