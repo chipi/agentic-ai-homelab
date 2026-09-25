@@ -469,6 +469,26 @@ def _format_flags(output: str) -> Dict[str, float]:
     }
 
 
+
+def _clip_words(text: str, budget: int) -> str:
+    """First `budget` whitespace-delimited words, keeping the whitespace between them.
+
+    Naive `" ".join(text.split()[:n])` loses newlines, and newlines are what rougeLsum
+    uses to find sentences.
+    """
+    if budget <= 0:
+        return ""
+    kept, count, i = [], 0, 0
+    for token in re.split(r"(\s+)", text):
+        if token and not token.isspace():
+            if count == budget:
+                break
+            count += 1
+        kept.append(token)
+        i += 1
+    return "".join(kept).strip()
+
+
 def score(output: str, reference: Optional[str], source: Optional[str] = None) -> Dict[str, float]:
     """ROUGE against the gold summary, plus the facets ROUGE cannot see."""
     out: Dict[str, float] = {"summary_words": float(len(output.split()))}
@@ -489,10 +509,24 @@ def score(output: str, reference: Optional[str], source: Optional[str] = None) -
     #
     # rouge2 is gone: it correlated at 0.83 with the LCS metric across 24 arms, so it
     # never disagreed with it. A facet that always agrees is not a facet.
-    scorer = rouge_scorer.RougeScorer(["rouge1", "rougeLsum"], use_stemmer=True)
+    # split_summaries=True IS THE WHOLE POINT, and without it the rename was cosmetic.
+    # rouge_score splits for rougeLsum on "\n" ONLY. Our gold references contain no
+    # newlines, so rougeLsum was byte-identical to rougeL on 1435 of 1440 outputs -- the
+    # metric advertised in this file as "the CNN/DailyMail convention" was plain rougeL
+    # wearing its name. Sentence-level LCS never ran once.
+    #
+    # Measured on a reordered-sentence pair: rougeL 0.6000 / rougeLsum 0.6000 without the
+    # flag, 0.6000 / 1.0000 with it.
+    scorer = rouge_scorer.RougeScorer(
+        ["rouge1", "rougeLsum"], use_stemmer=True, split_summaries=True
+    )
     scores = scorer.score(reference, output)
     for name, value in scores.items():
-        out[name] = round(value.fmeasure, 6)
+        # 10 decimals, not 6. These are ratios of small integers, so two arms that
+        # genuinely tie on an item can differ by ~1e-7 after 6-decimal rounding and get
+        # strictly ordered by the significance test -- inventing a difference the data
+        # does not contain. Storage is free; the precision is not recoverable later.
+        out[name] = round(value.fmeasure, 10)
     out["reference_words"] = float(len(reference.split()))
 
     # ── the two facets that are meant to disagree ────────────────────────────
@@ -508,11 +542,16 @@ def score(output: str, reference: Optional[str], source: Optional[str] = None) -
     # dataset, including one whose references vary in length.
     ref_words = reference.split()
     budget = len(ref_words)
-    clipped = " ".join(output.split()[:budget]) if budget else output
-    out["coverage"] = round(scorer.score(reference, clipped)["rougeLsum"].recall, 6)
+    # Clip on WORDS but rejoin on the original whitespace, so sentence structure survives
+    # into the scorer. The previous " ".join(...) flattened every newline, which meant
+    # rougeLsum's sentence splitting could not run on the clipped text even once the
+    # split_summaries flag was set. Clipping mid-sentence is fine -- union-LCS handles a
+    # partial trailing sentence -- but silently turning the text into one line is not.
+    clipped = _clip_words(output, budget) if budget else output
+    out["coverage"] = round(scorer.score(reference, clipped)["rougeLsum"].recall, 10)
     # CONCISION: precision over the WHOLE output -- what share of what the model wrote
     # earned its place. Padding is punished here exactly as it is rewarded in raw recall.
-    out["concision"] = round(scores["rougeLsum"].precision, 6)
+    out["concision"] = round(scores["rougeLsum"].precision, 10)
     # Length ratio against the REFERENCE: 1.0 means the model wrote as much as the human
     # did. ROUGE rises with length, so this is how a verbose winner gets caught.
     if reference.split():
@@ -520,7 +559,7 @@ def score(output: str, reference: Optional[str], source: Optional[str] = None) -
     if source:
         grounded = _grounding(output, source)
         if grounded is not None:
-            out["grounding"] = round(grounded, 6)
+            out["grounding"] = round(grounded, 10)
         if source.split():
             out["compression"] = round(len(output.split()) / len(source.split()), 6)
     return out

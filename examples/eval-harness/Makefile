@@ -15,6 +15,7 @@ VENV ?= .venv
 DATASET_ID ?= smoke_v1
 CONFIG ?= data/configs/demo.yaml
 REPEAT ?= 1
+OUT ?= data/runs-rescored
 NOISE ?=
 TIER ?= silver
 
@@ -46,6 +47,10 @@ help:
 	@echo "  make experiment-run     CONFIG=data/configs/arm_a.yaml REPEAT=3"
 	@echo "  make sweep CONFIGS=\"data/configs/arm_*.yaml\" REPEAT=2"
 	@echo ""
+	@echo "RE-MEASURE  (free — recomputes scores from stored outputs, no API calls)"
+	@echo "  make rescore DATASET_ID=my_v1 MATCH=_v2   after changing a metric"
+	@echo "  EVAL_RUNS_DIR=data/runs-rescored make leaderboard DATASET_ID=my_v1"
+	@echo ""
 	@echo "DECIDE"
 	@echo "  make leaderboard DATASET_ID=my_v1        rank every arm: quality, cost, speed"
 	@echo "  make run-compare BASE=<run> CAND=<run> NOISE=<measured spread>"
@@ -53,6 +58,11 @@ help:
 	@echo ""
 	@echo "INSPECT / GATE"
 	@echo "  make runs-list | baselines-list | validate | judge"
+	@echo ""
+	@echo "SCOPING  (a dataset accumulates arms across config versions)"
+	@echo "  make leaderboard DATASET_ID=my_v1 MATCH=_v2   only v2 arms"
+	@echo "  EVAL_RUNS_DIR=<dir>                           run/read elsewhere, e.g. a"
+	@echo "                                                smoke pass or a rescore"
 	@echo "  make check                    validate + test"
 	@echo ""
 	@echo "Read docs/INTEGRATION.md first, then docs/RUNBOOK.md."
@@ -110,8 +120,17 @@ runs-list:
 baselines-list:
 	@$(PYTHON) scripts/list_runs.py --baselines
 
+# Re-score finished runs from their stored outputs. No API calls, no money: the outputs
+# are the expensive part, the scores are arithmetic over them. Writes to a SEPARATE
+# directory so the originals -- the record of what was measured and paid for -- stay put.
+rescore:
+	$(PYTHON) scripts/rescore.py --dataset-id $(DATASET_ID) $(if $(MATCH),--match $(MATCH),) --out $(OUT)
+	@echo ""
+	@echo "  EVAL_RUNS_DIR=$(OUT) make leaderboard DATASET_ID=$(DATASET_ID)"
+
+
 leaderboard:
-	$(PYTHON) scripts/leaderboard.py --dataset-id $(DATASET_ID) $(ARGS)
+	$(PYTHON) scripts/leaderboard.py --dataset-id $(DATASET_ID) $(if $(MATCH),--match $(MATCH),) $(ARGS)
 
 run-compare:
 	@test -n "$(BASE)" || { echo "BASE=<run_id> is required (see: make runs-list)"; exit 1; }

@@ -989,3 +989,93 @@ observed span shrank under the length-controlled metric — the arms are closer 
 on coverage than they were on rougeL — which is the shape the length hypothesis predicts
 but is still not evidence for it while the metric and the sample both changed at once.
 The four-cell test in entry 29 remains the thing that would settle it.
+
+### 2026-09-25 · 31 — `rougeLsum` was `rougeL`. The scorer never split a sentence.
+
+Found by external review. `rouge_score` splits text for `rougeLsum` on `"\n"` **only**
+(`rouge_scorer.py:143`, `split_summaries=False` by default). Our gold references contain
+**zero newlines** — verified: `gold refs containing a newline: 0 of 20`. So:
+
+```
+  rougeL == rougeLsum on 1435 of 1440 v2 outputs
+  coverage's clip did " ".join(output.split()[:budget])  -> strips every newline
+```
+
+Sentence-level LCS never ran once. Entry 22's claim that this was "the CNN/DailyMail
+convention, so our numbers are comparable to published ones" is **false in effect**:
+published rougeLsum uses newline-separated highlights. The rename was cosmetic and I
+asserted the benefit without checking that gold had sentence boundaries at all.
+
+Fix: `split_summaries=True`, plus `_clip_words()` which clips on word count while keeping
+the original whitespace, so structure survives into the scorer. Demonstrated on a
+reordered-sentence pair: rougeL 0.6000 / rougeLsum **0.6000** before, 0.6000 / **1.0000**
+after.
+
+Second defect, same review: `_significance` detected ties by **exact equality** on means
+of 6-decimal stored values, so genuinely tied arms differing by float noise were strictly
+ordered. Fixed with a `1e-9` tolerance (328 -> 339 tied within-item pairs). A looser
+tolerance was rejected: stored scores are 6-decimal, so a mean of 3 repeats has real
+granularity 3.3e-7, and 5e-7 would merge differences that are real. Score precision
+raised 6 -> 10 decimals so the question stops arising.
+
+### 2026-09-25 · 32 — RETRACTION: "nothing is distinguishable at n=20" was the scorer
+
+Both sweeps rescored from stored outputs with the fixed scorer:
+
+```
+                          v1 outputs                 v2 outputs
+  coverage      p=0.0156    1 of 276 pairs   p=0.0066    1 of 276 pairs
+  concision     p=0.0002   22 of 276 pairs   p=0.0002   35 of 276 pairs
+  rouge1        p=0.0002    3 of 276 pairs   p=0.0002    5 of 276 pairs
+  rougeLsum     p=0.0034    2 of 276 pairs   p=0.0002    9 of 276 pairs
+
+  BEFORE:  v1 rougeL p=0.0316 0 of 276   |   v2 coverage p=0.1306 0 of 276
+```
+
+**Retracted, all of them mine:**
+
+- *"At n=20 these models are genuinely indistinguishable — as 24, as 8, as 4, as 2"*
+  (entries 17, 18). False. Up to **35 pairs** separate on concision. The lever I tested
+  and reported as failed (fewer arms) was not the lever; the scorer was.
+- *"The arm effect visible on rougeL was substantially a length effect; control for
+  length and it disappears"* (entry 29). False on every cell. The length-controlled
+  metric detects the effect in both sweeps.
+- *"An effect exists and no pair is distinguishable"* (entry 18) — was true only of a
+  broken metric.
+
+**The two sweeps now agree.** The 0.0316-vs-0.1306 disagreement I attributed to sampling
+was the broken metric; v1 and v2 give the same verdict on all four measures.
+
+**What survives, and is now better supported**: `concision` carries the most arm signal
+(22 and 35 pairs, p=0.0002 in both), and `coverage` the least (1 pair) — coverage is
+coarse, with many exact within-item ties. The facets still disagree; the disagreement is
+now about which is the more *sensitive* measure, not about which length artifact you pick.
+
+**The cost of this**: entry 17's decision to stay at n=20 was taken partly because I told
+Marko nothing could be separated at any n. That advice was wrong. The decision happens to
+survive — n=20 *does* separate arms once the metric works — but it was made on a false
+premise.
+
+### 2026-09-25 · 33 — Rescoring from stored outputs, so a metric change costs $0
+
+`scripts/rescore.py` + `make rescore DATASET_ID=... MATCH=... OUT=...`.
+
+Scores were only ever computed at run time, so every change to a metric meant re-running
+the sweep: ~$1.45 and 80 minutes to answer "what would this look like measured
+differently". That is why the `rougeLsum` defect survived two sweeps — checking it would
+have cost another one. The outputs are the expensive part; the scores are arithmetic over
+them.
+
+Rescored runs go to a **separate directory**, never over the originals: the originals are
+the record of what was measured and paid for, and a rescored run under the same
+`config_id` would average two different metrics into one row. `EVAL_RUNS_DIR` points the
+leaderboard at them. Each carries `rescored_from`, `rescored_at` and the scorer's sha256,
+so a rescored run can never be mistaken for a measured one.
+
+**A bug caught while testing it**: the first version carried a fixed list of fields across
+(`latency_ms`, `tokens_in`, `tokens_out`, `cost_usd`) and silently dropped `truncated` and
+`reasoning_tokens`, which come from `Result.extra` at call time and cannot be recovered
+afterwards. The rule is now "keep everything the new scorer does not itself produce".
+
+Makefile help gained a RE-MEASURE section and a SCOPING section (`MATCH`, `EVAL_RUNS_DIR`).
+144 runs rescored; `make ci: green`.

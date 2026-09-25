@@ -52,6 +52,11 @@ from _common import (  # noqa: E402
 # walk top-down or bottom-up, and on this data those two directions disagree about
 # whether the top arm is separated from the field at all.
 
+#: Two per-item values closer than this count as tied. Loose enough to absorb the
+#: 6-decimal rounding applied when scores are written, tight enough that no real
+#: difference in these metrics (smallest meaningful step ~1e-4) is swallowed.
+_TIE_TOL = 1e-9
+
 _NEMENYI_Q05 = {  # Demsar 2006, alpha = 0.05: studentised range / sqrt(2)
     2: 1.960, 3: 2.343, 4: 2.569, 5: 2.728, 6: 2.850, 7: 2.949, 8: 3.031, 9: 3.102,
     10: 3.164, 11: 3.219, 12: 3.268, 13: 3.313, 14: 3.354, 15: 3.391, 16: 3.426,
@@ -99,7 +104,16 @@ def _significance(matrix: Dict[str, Dict[str, float]], metric: str, seed: int = 
         i = 0
         while i < len(col):
             grp = [i]
-            while grp[-1] + 1 < len(col) and col[grp[-1] + 1][0] == col[i][0]:
+            # TIES NEED A TOLERANCE, not exact equality. These values are means of scores
+            # that were rounded to 6 decimals on the way to disk, and several of these
+            # metrics are ratios of small integers -- so two arms that genuinely tied on an
+            # item come back differing by ~1e-7 and get strictly ordered. Exact equality
+            # found 179 tied pairs where 216 were real, and that alone moved one reported
+            # p-value from 0.110 to 0.138. `fmean` adds its own ~5e-17 on top.
+            while (
+                grp[-1] + 1 < len(col)
+                and abs(col[grp[-1] + 1][0] - col[i][0]) <= _TIE_TOL
+            ):
                 grp.append(grp[-1] + 1)
             shared = statistics.fmean(x + 1 for x in grp)
             for x in grp:
