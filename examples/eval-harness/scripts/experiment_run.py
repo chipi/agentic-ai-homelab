@@ -27,16 +27,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import importlib.util
 import statistics
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from adapter import call_system, score  # noqa: E402
+from _fingerprint import build_fingerprint  # noqa: E402
 from _common import (  # noqa: E402
     MATERIALIZED,
     REFERENCES,
+    ROOT,
     RUNS,
     CostCapExceeded,
     build_info,
@@ -53,6 +56,63 @@ try:
 except ImportError:  # pragma: no cover
     die("pyyaml is required — pip install -r requirements.txt")
 
+
+
+def load_adapter(spec: Optional[str]) -> tuple[Any, Any, str, Optional[Path], Any, Any]:
+    """``(call_system, score, adapter_id)`` for the adapter a config names.
+
+    Defaults to ``scripts/adapter.py`` — the single seam, unchanged for anyone who has one
+    system to measure. A config may name its own instead:
+
+        adapter: examples/summarization-cnn-dailymail/adapter.py
+
+    That exists because an example is not just a different model, it is a different TASK:
+    summarisation scores ROUGE, classification scores macro-F1, and neither is the token
+    overlap the bundled adapter computes. One adapter file per task, selected by the arm,
+    keeps "an arm is a YAML file" true.
+
+    The returned id is recorded on the run. It has to be: a scorer is half of what a number
+    means, so two runs sharing a config_id but scored by different adapters are no more
+    comparable than two runs on different datasets. run-compare refuses across it.
+    """
+    if not spec:
+        from adapter import call_system, score  # noqa: PLC0415
+        import adapter as _default  # noqa: PLC0415
+
+        return (
+            call_system,
+            score,
+            "scripts/adapter.py",
+            Path(__file__).resolve().parent / "adapter.py",
+            getattr(_default, "warmup", None),
+            getattr(_default, "fingerprint", None),
+        )
+
+    path = Path(spec)
+    if not path.is_absolute():
+        path = ROOT / path
+    if not path.is_file():
+        die(f"adapter not found: {spec} (resolved to {path})")
+    module_spec = importlib.util.spec_from_file_location(f"eval_adapter_{path.stem}", path)
+    if module_spec is None or module_spec.loader is None:
+        die(f"adapter is not importable: {path}")
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    for required in ("call_system", "score"):
+        if not hasattr(module, required):
+            die(f"adapter {spec} defines no {required}()")
+    try:
+        adapter_id = str(path.relative_to(ROOT))
+    except ValueError:
+        adapter_id = str(path)
+    return (
+        module.call_system,
+        module.score,
+        adapter_id,
+        path,
+        getattr(module, "warmup", None),
+        getattr(module, "fingerprint", None),
+    )
 
 def _reference_for(dataset_id: str) -> tuple[Path | None, str | None]:
     """Prefer gold over silver, and report which was used.
@@ -72,7 +132,12 @@ def one_pass(
     cfg: Dict[str, Any],
     idx: int,
     resume_dir: Optional[Path] = None,
+    *,
+    call_system: Any,
+    score: Any,
 ) -> Dict[str, Any]:
+    """One pass over the dataset. ``call_system``/``score`` are INJECTED rather than
+    imported at module scope, because which adapter runs is a property of the arm now."""
     mat = MATERIALIZED / ds["dataset_id"]
     if not mat.is_dir():
         die(
@@ -206,6 +271,9 @@ def main() -> int:
     if not args.config.is_file():
         die(f"no config at {args.config}")
     cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
+    call_system, score, adapter_id, adapter_path, warmup, model_fingerprint = load_adapter(
+        cfg.get("adapter")
+    )
     for required in ("config_id", "dataset_id"):
         if required not in cfg:
             die(f"{args.config} is missing required key: {required}")
@@ -226,6 +294,44 @@ def main() -> int:
     if args.dry_run:
         return _dry_run(ds, cfg, args.repeat)
 
+    # WARM UP once per arm, before anything is timed. Two jobs in one:
+    #
+    #   measurement — a local model's first call includes loading its weights. Left in the
+    #   timed path that cost lands in latency_ms and gets amortised over the dataset, so
+    #   the arm looks catastrophically slow on 5 items and fine on 500: the metric would
+    #   be measuring dataset size.
+    #
+    #   pre-flight — a bad key or an absent model fails HERE, before any item is paid for,
+    #   instead of on item 34 of 50 after you have already paid for 33.
+    #
+    # Once per ARM, not per repeat: REPEAT exists to measure the arm's own jitter, and
+    # letting load variance into that measures the wrong thing.
+    warmup_ms: Optional[float] = None
+    if warmup is not None:
+        started = time.perf_counter()
+        try:
+            warmup(dict(cfg.get("params") or {}))
+        except Exception as exc:  # noqa: BLE001 - fail before spending, with the reason
+            die(
+                f"warm-up failed for {cfg['config_id']}: {type(exc).__name__}: {exc}\n"
+                "  nothing was run and nothing was spent."
+            )
+        warmup_ms = round((time.perf_counter() - started) * 1000, 3)
+        print(f"  warmed up in {warmup_ms:.0f}ms — timing below excludes it")
+
+    fingerprint = build_fingerprint(
+        root=ROOT,
+        dataset=ds,
+        reference_id=(str(ref_dir.relative_to(REFERENCES)) if ref_dir else None),
+        reference_tier=ref_tier,
+        config_id=cfg["config_id"],
+        params=dict(cfg.get("params") or {}),
+        adapter_id=adapter_id,
+        adapter_path=adapter_path,
+        model_hook=model_fingerprint,
+    )
+    print(f"  fingerprint {fingerprint['hash'][:12]}")
+
     resume_dir = (RUNS / args.resume / "outputs") if args.resume else None
     if args.resume and not resume_dir.is_dir():
         die(f"cannot resume: no outputs under {resume_dir}")
@@ -234,7 +340,9 @@ def main() -> int:
     per_repeat: List[Dict[str, float]] = []
     for i in range(args.repeat):
         run_id = base_id if args.repeat == 1 else f"{base_id}_r{i + 1}"
-        result = one_pass(ds, cfg, i, resume_dir=resume_dir)
+        result = one_pass(
+            ds, cfg, i, resume_dir=resume_dir, call_system=call_system, score=score
+        )
         run_dir = RUNS / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "predictions.jsonl").write_text(
@@ -257,6 +365,17 @@ def main() -> int:
             # tell a deterministic repeat (same params, same scores — expected) from two
             # different configs landing on byte-identical output (worth a look).
             "params": dict(cfg.get("params") or {}),
+            # WHICH scorer produced these numbers. A scorer is half of what a number means,
+            # so a run that does not name it cannot be compared to one that used another.
+            "adapter": adapter_id,
+            # Outside `scores` on purpose: real, worth seeing, but not the arm's per-item
+            # speed — and in scores it would reach the leaderboard's speed column and V5's
+            # duplicate key, where it means something else.
+            "warmup_ms": warmup_ms,
+            # What this number depended on, and one hash over all of it. A comparison is
+            # only valid if exactly one field moved; this is what makes that checkable
+            # rather than asserted.
+            "fingerprint": fingerprint,
             "scores": result["scores"],
             "n_items": len(result["predictions"]),
         }

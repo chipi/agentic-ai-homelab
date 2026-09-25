@@ -26,6 +26,43 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import RUNS, die, is_descriptive, read_json, verdict_for  # noqa: E402
 
 
+
+def _report_fingerprint_delta(a: dict, b: dict) -> None:
+    """Say WHAT changed between the two runs, not just that something did.
+
+    "The fingerprints differ" is true and useless. A comparison is only an experiment if
+    exactly one thing moved, and this names which fields did — so a 3x latency win reads
+    as "you moved to the DGX" rather than "the model got faster".
+    """
+    fa, fb = a.get("fingerprint"), b.get("fingerprint")
+    if not (fa and fb):
+        print(
+            "\n  NOTE: at least one run predates fingerprinting, so what else changed"
+            "\n  between them cannot be checked — only asserted."
+        )
+        return
+    if fa.get("hash") == fb.get("hash"):
+        print(
+            "\n  Fingerprints MATCH: dataset, reference, adapter, model, host and harness"
+            "\n  are identical, so any delta above is the arm or its own noise."
+        )
+        return
+
+    from _fingerprint import differing_paths  # noqa: PLC0415
+
+    moved = differing_paths(fa, fb)
+    # arm.params differing is the POINT of a comparison; everything else is a confound.
+    confounds = [p for p in moved if not p.startswith("arm.")]
+    print("\n  Fingerprints DIFFER. Fields that moved:")
+    for path in moved:
+        marker = "   " if path.startswith("arm.") else " ! "
+        print(f"   {marker}{path}")
+    if confounds:
+        print(
+            f"\n  {len(confounds)} of those are NOT the arm (marked !). More than one thing"
+            "\n  changed, so this is not a controlled comparison — it is two observations."
+        )
+
 def load(run_id: str) -> dict:
     p = RUNS / run_id / "metrics.json"
     if not p.is_file():
@@ -66,6 +103,8 @@ def main() -> int:
         print("  instrument or run-to-run noise, not a code change.")
     if a["build"].get("dirty") or b["build"].get("dirty"):
         print("\n  NOTE: a build was DIRTY — its ref does not identify what ran.")
+
+    _report_fingerprint_delta(a, b)
 
     keys = sorted(set(a["scores"]) | set(b["scores"]))
     w = max([len(k) for k in keys] + [6])

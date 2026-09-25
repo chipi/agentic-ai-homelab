@@ -201,6 +201,99 @@ def test_no_committed_artifact_depends_on_an_ignored_one() -> None:
         )
 
 
+def test_fingerprint_core_imports_no_ml_framework() -> None:
+    """The core must stay usable by someone who never installs an ML framework.
+
+    The whole reason the model half is a hook rather than an inspection: an LLM-only eval,
+    or a regex baseline, should not pull in torch. This asserts the module text itself
+    never imports one — a runtime check would pass simply because the framework is absent.
+    """
+    import ast
+
+    # The AST, not a substring search: this module's own docstring says "must never import
+    # torch", and grepping for that phrase failed the test on its own prose. A test that
+    # reads documentation as code is worse than no test — it trains you to ignore it.
+    tree = ast.parse((HERE / "_fingerprint.py").read_text(encoding="utf-8"))
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module.split(".")[0])
+    banned = {"torch", "transformers", "sklearn", "numpy", "openai", "anthropic", "datasets"}
+    leaked = sorted(imported & banned)
+    check("fingerprint core: imports no ML framework or SDK", not leaked, f"imports {leaked}")
+    check("fingerprint core: stdlib only", "hashlib" in imported and "platform" in imported)
+
+
+def test_fingerprint_reports_library_versions_without_importing_them() -> None:
+    """importlib.metadata reads distribution metadata off disk. So the core can say
+    "torch 2.2.2" while having no torch dependency and never loading it."""
+    sys.path.insert(0, str(HERE))
+    from _fingerprint import _installed_versions
+
+    before = "torch" in sys.modules
+    versions = _installed_versions()
+    check("fingerprint: version lookup imports nothing", ("torch" in sys.modules) == before)
+    check("fingerprint: reports something installed", isinstance(versions, dict))
+
+
+def test_fingerprint_does_not_invent_a_revision() -> None:
+    """A model the adapter cannot version is recorded as unversioned.
+
+    Substituting a plausible-looking value would make two runs of "the same model" appear
+    provably identical when nothing proved it. Same error as reporting 0.0 for a metric
+    that was never measured.
+    """
+    sys.path.insert(0, str(HERE))
+    from _fingerprint import _model_identity
+
+    no_rev = _model_identity(lambda _p: {"id": "some-local-blob"}, {})
+    check("fingerprint: absent revision stays None", no_rev["revision"] is None)
+    check("fingerprint: absent revision is labelled", no_rev["revision_source"] == "unavailable")
+    none_hook = _model_identity(None, {})
+    check("fingerprint: no hook -> declared False", none_hook == {"declared": False})
+
+
+def test_a_broken_fingerprint_hook_does_not_kill_the_run() -> None:
+    """Fingerprinting describes a run; it is not a precondition for one."""
+    sys.path.insert(0, str(HERE))
+    from _fingerprint import _model_identity
+
+    def boom(_params):
+        raise RuntimeError("no model here")
+
+    got = _model_identity(boom, {})
+    check("fingerprint: broken hook is caught", got["declared"] is False)
+    check("fingerprint: broken hook records why", "no model here" in got.get("error", ""))
+
+
+def test_fingerprint_hash_changes_when_anything_does() -> None:
+    """The hash is the one-glance answer to "did anything else move?"."""
+    sys.path.insert(0, str(HERE))
+    from _fingerprint import build_fingerprint, differing_paths
+
+    ds = {"dataset_id": "d1", "items": [{"item_id": "i1", "source_sha256": "aaa"}]}
+    kw = dict(root=HERE.parent, dataset=ds, reference_id=None, reference_tier=None,
+              config_id="c1", adapter_id="scripts/adapter.py",
+              adapter_path=HERE / "adapter.py", model_hook=None)
+    base = build_fingerprint(params={"sentences": 1}, **kw)
+    same = build_fingerprint(params={"sentences": 1}, **kw)
+    moved = build_fingerprint(params={"sentences": 2}, **kw)
+    check("fingerprint: stable across identical inputs", base["hash"] == same["hash"])
+    check("fingerprint: changes when a param moves", base["hash"] != moved["hash"])
+    check("fingerprint: names the field that moved",
+          differing_paths(base, moved) == ["arm.params.sentences"],
+          f"got {differing_paths(base, moved)}")
+    # Different DATA must move it too — dataset_id is a name, the item hashes are identity.
+    other = build_fingerprint(params={"sentences": 1},
+                              **{**kw, "dataset": {"dataset_id": "d1",
+                                                   "items": [{"item_id": "i1",
+                                                              "source_sha256": "bbb"}]}})
+    check("fingerprint: same dataset_id, different bytes -> different hash",
+          base["hash"] != other["hash"])
+
+
 def main() -> int:
     print("harness self-tests (no network, no keys)\n")
     for fn in (
@@ -213,6 +306,11 @@ def main() -> int:
         test_leaderboard_declares_silver_from_any_run,
         test_no_absolute_home_path_in_committed_data,
         test_no_committed_artifact_depends_on_an_ignored_one,
+        test_fingerprint_core_imports_no_ml_framework,
+        test_fingerprint_reports_library_versions_without_importing_them,
+        test_fingerprint_does_not_invent_a_revision,
+        test_a_broken_fingerprint_hook_does_not_kill_the_run,
+        test_fingerprint_hash_changes_when_anything_does,
         test_cli_help_works,
     ):
         fn()
