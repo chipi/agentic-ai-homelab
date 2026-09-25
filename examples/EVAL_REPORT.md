@@ -9,41 +9,54 @@
 
 ## Executive summary
 
-**There is a measurable difference between these 24 models, and this experiment can name
-almost none of it.** A global test finds an arm effect on the primary quality facet
-(p = 0.0054). Accounting for the 276 pairwise comparisons that 24 arms imply, **exactly one
-pair is distinguishable**: `deepseek_s` beats `qwen_m`. Any leaderboard presenting a
-confident 1-to-24 ordering from this data is asserting 275 comparisons it cannot support.
+**Twenty articles are enough to answer decision questions and not enough to rank 24
+models.** Those are different things, and conflating them is the easiest way to misread
+this report in either direction.
 
-**Which article you drew matters roughly 28× more than which model summarised it.** 73.5%
-of the variance in the primary facet is between articles, 2.6% between arms. This is the
-dominant fact about the experiment and it is why the analysis is paired.
+**The expensive arms do not earn their price.** `deepseek_m` at **$0.0029** per 20 articles
+beats `anthropic_l` at **$0.1939** — 67× dearer — on the primary quality facet
+(delta +0.031, p = 0.043) and on the literature-standard one (p = 0.039). This is the
+question the price-tier design was built to ask, and the answer is clear.
 
-**Price is almost uncorrelated with quality here.** The most expensive arm costs **202×**
-the cheapest and ranks **9th of 24**. Ten of 24 arms sit on the quality/cost/speed Pareto
-frontier; the other 14 are beaten on all three axes simultaneously. The two standouts —
-`deepseek_m` and `deepseek_s` — lead the table at **$0.002–0.003 per 20 articles**.
+**Fourteen of 24 arms are off the table entirely**, with no statistics required: each is
+beaten by some other arm on quality *and* cost *and* speed simultaneously. Ten arms remain
+on the frontier. That is the report's most directly actionable output.
 
-**The facets that separate the most arms are the ones measuring length, not quality.**
-`summary_words` separates 85 pairs, `grounding` 50, `concision` 33 — and 27 of concision's
-33 are pairs length alone also separates, with the shorter arm winning, 0 the other way.
-The length-controlled facet separates 1. A metric's discriminating power and its
-informativeness are different things, and on this task they point in opposite directions.
+**The cheapest family leads.** `deepseek_m` and `deepseek_s` take the top two places on
+coverage at **$0.002–0.003**, ahead of models costing 60–100× more. `llama_l` at $0.0033
+is the most consistent arm across facets — 1st on `concision`, 1st on `rougeLsum`, 3rd on
+`coverage`.
 
-**A model-authored reference ("silver") is biased, not merely noisy.** With gold available
-to check against, silver rankings agree with gold at ρ = 0.33 on average against a
-retest ceiling of 0.92 — and every author promotes models of its own family, for 22 of 24
-authors. The best reference author here ranks 14th of 24 as a summariser.
+**What the data will not support is a confident 1-to-24 ordering.** Asking "which of all
+276 possible pairs differ?" and paying the multiplicity price for all 276 leaves 10 pairs
+separated on `rougeLsum` and 1 on `coverage`. A leaderboard printing a smooth ranking of
+24 models from this data is asserting hundreds of comparisons it cannot support — but that
+is a limit on *ranking*, not on deciding.
+
+**Which article you drew matters ~28× more than which model summarised it.** 73.5% of the
+variance in the primary facet is between articles, 2.6% between arms. This governs any
+future eval on this task: without pairing, the model signal is buried.
+
+**Beware the metric that separates most.** Ranked by pairs distinguished —
+`summary_words` 85, `grounding` 50, `concision` 33, `rougeLsum` 10, `rouge1` 5,
+`coverage` 1 — the order is almost exactly how much each measure depends on output length.
+The most "sensitive" metric available is a word count. An eval that picks its headline
+facet by which one separates cleanest will pick a length measure and call it quality.
+
+**A model-authored reference ("silver") is biased, not merely noisy.** Checked against real
+gold: silver rankings agree with gold at ρ = 0.33 on average against a retest ceiling of
+0.92, and **every silver author promotes models of its own family** — +7.4 rank positions,
+22 of 24 authors, permutation p < 0.001. The best reference author here ranks 14th of 24 as
+a summariser, so "use your strongest model to write the references" is not supported.
 
 **Temperature 0 is not deterministic.** 9.8% of outputs were byte-identical across three
-repeats; 12 of 24 arms produced zero identical outputs.
+repeats; 12 of 24 arms produced zero identical outputs. Single-run evals on this task
+measure one sample of a random process.
 
-**Six findings in this report's own history were retracted**, two of them caused by bugs in
-this harness's scorer, all found by adversarial review rather than by the person who wrote
-them. That history is in [`EVAL_NOTES.md`](EVAL_NOTES.md) and is not incidental — it is the
-main evidence for how much of an eval's output is instrument rather than signal.
-
----
+**Six findings in this report's own history were retracted**, two caused by bugs in this
+harness's own scorer, all found by adversarial review rather than by the author. §6 records
+them, because the retraction rate measures how much of a first-pass eval is instrument
+rather than signal.
 
 ## 1. What was measured
 
@@ -168,6 +181,29 @@ critical difference applied simultaneously to all 276 pairs:
 | `summary_words` | 0.0002 | 8.13 | 19.60 | 85 / 276 |
 
 The single `coverage` separation is **`deepseek_s` > `qwen_m`**.
+
+### 3.1b Decision questions, asked one at a time
+
+§3.1 answers *"which of all 276 pairs differ?"* and pays the multiplicity price for all
+276. That is the right price for that question and the wrong question for a decision. A
+single comparison decided **before** looking carries no such penalty. Sign-flip permutation
+test on per-article deltas, 20 000 permutations:
+
+| question | metric | delta | articles won | p | verdict |
+|---|---|---|---|---|---|
+| `deepseek_m` vs `anthropic_l` — is 67× the price worth it? | coverage | +0.0308 | 12/20 | **0.043** | separated |
+| | rougeLsum | +0.0384 | 13/20 | **0.039** | separated |
+| `deepseek_m` vs `qwen_m` — best vs worst | coverage | +0.0659 | 16/20 | **0.0004** | separated |
+| `llama_l` vs `mistral_l` — best vs worst open large | rougeLsum | +0.0799 | 17/20 | **0.0021** | separated |
+| `deepseek_m` vs `anthropic_m` — vs the best-placed dear arm | coverage | +0.0111 | 12/20 | 0.52 | not separated |
+| `deepseek_s` vs `openai_l` | coverage | +0.0312 | 15/20 | 0.071 | not separated |
+
+**Honest caveat**: these six were chosen *after* seeing the table, so they are not truly
+pre-registered. Treated as a family of six and Holm-corrected, only `deepseek_m > qwen_m`
+survives on coverage and two survive on `rougeLsum`. The price comparison is sound if the
+price question was yours before you looked — which, given the price-tier design, it was —
+and is fishing if it was not. The distinction is not cosmetic: it is the difference between
+a test and a search.
 
 ### 3.2 Variance decomposition (`coverage`)
 
