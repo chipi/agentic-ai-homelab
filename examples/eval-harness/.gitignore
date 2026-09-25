@@ -8,6 +8,13 @@ data/materialized/*
 # experiment output — commit what you promote, not every run
 data/runs/*
 !data/runs/README.md
+# The ONE worked example that ships, so a fresh checkout sees a walked loop instead of an
+# empty directory: sources -> dataset -> reference -> run -> baseline. It is also what keeps
+# the tree self-consistent — data/baselines/ is committed and V6 requires each baseline's
+# source run to exist, so a committed baseline must point at a committed run. Your own runs
+# stay ignored by default; commit them if you want them, that is your call.
+!data/runs/demo_v1_20260925T070923Z/
+!data/runs/demo_v1_20260925T070923Z/**
 
 # judge panel output
 out/

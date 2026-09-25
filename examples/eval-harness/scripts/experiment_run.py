@@ -251,6 +251,12 @@ def main() -> int:
             "config_id": cfg["config_id"],
             "created_at": now(),
             "build": build,
+            # The knobs this run ACTUALLY used, not just the config's name. A config_id
+            # names a file, and a file can be edited after the run — so without this a run
+            # cannot say what produced it, only which YAML was pointed at. It also lets V5
+            # tell a deterministic repeat (same params, same scores — expected) from two
+            # different configs landing on byte-identical output (worth a look).
+            "params": dict(cfg.get("params") or {}),
             "scores": result["scores"],
             "n_items": len(result["predictions"]),
         }

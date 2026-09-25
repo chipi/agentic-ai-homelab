@@ -145,12 +145,20 @@ judge:
 
 # ── housekeeping ────────────────────────────────────────────────────────────
 clean:
-	# `rm -rf data/runs/*` also deleted data/runs/README.md — the file that documents what a
-	# run directory IS — while the line below reassured you about the directories it had not
-	# touched. Four per-directory READMEs were lost that way before anyone noticed. Keep them.
-	@find data/materialized data/runs -mindepth 1 -not -name README.md -exec rm -rf {} + 2>/dev/null || true
+	# NEVER delete a tracked file. `rm -rf data/runs/*` used to take data/runs/README.md with
+	# it — the file documenting what a run directory IS — while the line below reassured you
+	# about the directories it had NOT touched; four per-directory READMEs were lost that way.
+	# It would now also delete the shipped worked example, and with it the run the committed
+	# baseline points at, so `make clean` would leave the tree failing its own V6.
+	#
+	# "Is it tracked?" is the right question, not "is it named README.md": git already knows
+	# which files someone decided to keep.
+	@find data/materialized data/runs -mindepth 1 -maxdepth 1 -print 2>/dev/null \
+	  | while read -r f; do \
+	      git ls-files --error-unmatch "$$f" >/dev/null 2>&1 || rm -rf "$$f"; \
+	    done
 	@rm -rf out/
-	@echo "cleaned materialized/, runs/ and out/ — READMEs, sources, datasets, references and baselines kept"
+	@echo "cleaned materialized/, runs/ and out/ — every TRACKED file kept (READMEs, the shipped worked example, sources, datasets, references, baselines)"
 
 clean-cache:
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true

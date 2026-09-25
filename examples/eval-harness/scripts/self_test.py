@@ -11,12 +11,18 @@ are tested rather than asserted in a README.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+#: The harness root. HERE is scripts/, which is what the sys.path inserts below want — but
+#: a data check written against HERE scans scripts/data/, which does not exist, so it finds
+#: nothing and passes for the wrong reason. That is exactly how the first version of
+#: test_no_absolute_home_path_in_committed_data shipped green while checking nothing.
+ROOT = HERE.parent
 ROOT = HERE.parent
 PY = sys.executable
 failures: list[str] = []
@@ -149,15 +155,50 @@ def test_no_absolute_home_path_in_committed_data() -> None:
 
     home = re.compile(r"/(?:Users|home)/(?!runner\b|operator\b|user\b)[A-Za-z0-9_.-]+/")
     offenders = []
-    for d in (HERE / "data").rglob("*.json"):
+    for d in (ROOT / "data").rglob("*.json"):
         if ".partial" in d.parts:
             continue
         try:
             if home.search(d.read_text(encoding="utf-8")):
-                offenders.append(str(d.relative_to(HERE)))
+                offenders.append(str(d.relative_to(ROOT)))
         except OSError:
             continue
     check("no home path in committed data/", not offenders, f"offenders: {offenders[:5]}")
+
+
+def test_no_committed_artifact_depends_on_an_ignored_one() -> None:
+    """The rule that decides what ships.
+
+    sources, datasets, configs, references and baselines are COMMITTED. materialized and
+    runs are IGNORED, because a command regenerates them. The one place those two sets
+    touched was a baseline's `promoted_from`, which named a run — so a committed artifact
+    depended on an ignored one, and V6 ("every baseline's source run still exists") could
+    not hold on a fresh clone OR after `make clean`, which deletes runs while explicitly
+    keeping baselines.
+
+    Resolved by shipping ONE worked example run, force-included in .gitignore, so a fresh
+    checkout sees a walked loop and the committed baseline resolves. This asserts the
+    dependency stays inside the committed set.
+    """
+    import subprocess
+
+    baselines = sorted((ROOT / "data" / "baselines").glob("*.json"))
+    check("consistency: a baseline ships", bool(baselines), "none found")
+    for b in baselines:
+        promoted_from = json.loads(b.read_text()).get("promoted_from")
+        if not promoted_from:
+            continue
+        run_dir = ROOT / "data" / "runs" / promoted_from
+        tracked = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", str(run_dir / "metrics.json")],
+            cwd=ROOT, capture_output=True,
+        ).returncode == 0
+        check(
+            f"consistency: {b.name} -> a TRACKED run",
+            tracked,
+            f"{promoted_from} is not tracked — a committed baseline citing an ignored run "
+            f"breaks V6 on any clean checkout",
+        )
 
 
 def main() -> int:
@@ -171,6 +212,7 @@ def main() -> int:
         test_descriptive_metrics_get_no_verdict,
         test_leaderboard_declares_silver_from_any_run,
         test_no_absolute_home_path_in_committed_data,
+        test_no_committed_artifact_depends_on_an_ignored_one,
         test_cli_help_works,
     ):
         fn()
