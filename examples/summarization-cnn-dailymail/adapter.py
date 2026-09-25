@@ -409,19 +409,84 @@ def _grounding(summary: str, source: str) -> Optional[float]:
     return len(sb & ab) / len(sb)
 
 
+
+# ── format compliance ────────────────────────────────────────────────────────
+# The prompt says "Output only the summary." Whether a model OBEYED that is not a
+# ROUGE question, and it is not something to check by reading a few outputs: five were
+# read on one article and declared clean, and a scan of all 1440 found 65 contaminated
+# -- including four where the model wrote its reasoning out in the open ("The user wants
+# a 2-3 sentence news wire style summary... Let me draft:") and scored 0.10 for it.
+#
+# So it is COMPUTED, on every output, as a metric. Three flags rather than one score,
+# because they are three different failures with three different meanings:
+#   narration  the model thought out loud instead of answering -- the output is not a
+#              summary at all, and its quality numbers describe something else
+#   label      "**Wire Summary:**" and friends -- disobedient but harmless, ~0.001 ROUGE
+#   bullets    list formatting where prose was asked for
+_COT = re.compile(
+    r"\b(the user (wants|is asking|asked)|let me (draft|think|write|check)|"
+    r"i (need|should|will) (to )?(draft|write|summar|check)|okay,? (so|let)|"
+    r"first,? i|that'?s (three|two) sentences|wait,?|hmm,?|let'?s (see|draft)|"
+    r"<think>|</think>|analysis:|draft:|final( answer| summary)?:)",
+    re.I,
+)
+_LABEL = re.compile(r"^\s*(\*\*|##|#\s)?\s*(wire |news )?summary\s*[:\-]|^\s*\*\*", re.I)
+_BULLET = re.compile(r"^\s*[-*\u2022]\s", re.M)
+
+
+def _format_flags(output: str) -> Dict[str, float]:
+    """1.0 = this output broke the format contract in that way, 0.0 = it did not."""
+    return {
+        "fmt_narration": 1.0 if _COT.search(output) else 0.0,
+        "fmt_label": 1.0 if _LABEL.match(output) else 0.0,
+        "fmt_bullets": 1.0 if _BULLET.search(output) else 0.0,
+    }
+
+
 def score(output: str, reference: Optional[str], source: Optional[str] = None) -> Dict[str, float]:
     """ROUGE against the gold summary, plus the facets ROUGE cannot see."""
     out: Dict[str, float] = {"summary_words": float(len(output.split()))}
+    # Format compliance does not need a reference -- it is a property of the output
+    # alone -- so it is computed before the early return, and an arm scored without
+    # ground truth still reports whether it obeyed the prompt.
+    out.update(_format_flags(output))
     if reference is None:
         return out
 
     from rouge_score import rouge_scorer  # noqa: PLC0415
 
-    scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
+    # rougeLsum, not rougeL. rougeL takes the longest common subsequence over the whole
+    # text as one string, so it penalises a model for ordering the same facts across
+    # sentences differently; rougeLsum does it per sentence. These outputs are 2-3
+    # sentences, and rougeLsum is what the CNN/DailyMail literature reports -- using
+    # rougeL made our numbers non-comparable to every published figure for no benefit.
+    #
+    # rouge2 is gone: it correlated at 0.83 with the LCS metric across 24 arms, so it
+    # never disagreed with it. A facet that always agrees is not a facet.
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rougeLsum"], use_stemmer=True)
     scores = scorer.score(reference, output)
     for name, value in scores.items():
         out[name] = round(value.fmeasure, 6)
     out["reference_words"] = float(len(reference.split()))
+
+    # ── the two facets that are meant to disagree ────────────────────────────
+    # F1 against a single reference is a LENGTH ranking wearing a quality costume:
+    # across 24 arms, rho(words, precision) = -0.845 and rho(words, recall) = +0.795.
+    # Picking recall over F1 does not remove the bias, it flips it. So measure both
+    # ends deliberately, and control the one that can be controlled.
+    #
+    # COVERAGE: recall, with the output cut to the REFERENCE's own length. Every arm is
+    # judged on the same budget the human used, so writing more cannot buy coverage --
+    # it can only buy it by putting the important thing first. Truncating to the
+    # per-item reference length rather than a fixed constant keeps this correct on any
+    # dataset, including one whose references vary in length.
+    ref_words = reference.split()
+    budget = len(ref_words)
+    clipped = " ".join(output.split()[:budget]) if budget else output
+    out["coverage"] = round(scorer.score(reference, clipped)["rougeLsum"].recall, 6)
+    # CONCISION: precision over the WHOLE output -- what share of what the model wrote
+    # earned its place. Padding is punished here exactly as it is rewarded in raw recall.
+    out["concision"] = round(scores["rougeLsum"].precision, 6)
     # Length ratio against the REFERENCE: 1.0 means the model wrote as much as the human
     # did. ROUGE rises with length, so this is how a verbose winner gets caught.
     if reference.split():
@@ -439,10 +504,23 @@ def score(output: str, reference: Optional[str], source: Optional[str] = None) -
 #: output. Without it the leaderboard ranked a ten-model sweep by `compression` — a length
 #: ratio — and its own "that is a descriptive metric" warning stayed silent, because by the
 #: core's tuples compression looked like quality.
+#: The headline facet. Coverage, not concision: the question this example exists to ask
+#: is "did the summary carry the story", and the terseness half is the counterweight you
+#: read beside it -- not the thing that decides the ranking. Sorting alphabetically made
+#: `concision` the default and put the shortest arms on top.
+PRIMARY_METRIC = "coverage"
+
 METRIC_KINDS = {
+    # The two that are built to disagree: coverage rewards saying the important thing,
+    # concision rewards not saying anything else. No arm maxes both, and which one you
+    # care about is a product decision the eval must not make for you.
+    "coverage": "quality",
+    "concision": "quality",
+    # Literature-comparable F1s. Kept so our numbers can be placed beside published
+    # CNN/DailyMail results -- but both are length-sensitive, so they are read after
+    # coverage/concision, not instead of them.
     "rouge1": "quality",
-    "rouge2": "quality",
-    "rougeL": "quality",
+    "rougeLsum": "quality",
     "grounding": "quality",
     # Descriptive: they say what the output WAS, not whether it was good. Ranking by any of
     # them puts the most verbose arm on top.
@@ -457,4 +535,10 @@ METRIC_KINDS = {
     # reasoning-off condition the other arms were, so it is not comparable to them --
     # whatever its quality column says.
     "reasoning_tokens": "descriptive",
+    # Format compliance. Descriptive because they describe the output rather than rank it
+    # -- but fmt_narration > 0 means some of that arm's outputs are not summaries, so its
+    # quality column is partly measuring something else. Read it before the ranking.
+    "fmt_narration": "descriptive",
+    "fmt_label": "descriptive",
+    "fmt_bullets": "descriptive",
 }

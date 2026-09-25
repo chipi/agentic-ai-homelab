@@ -700,3 +700,92 @@ demo_v1_...`) that is not broken. Unset it before validating.
 
 Phase A spend: **~$0.35** total, all of it the `smoke-reasoning` pass. The 72 real runs
 are untouched.
+
+### 2026-09-25 · 22 — Phase B complete. `make ci: green`.
+
+**B1 — format compliance is a metric now.** `fmt_narration`, `fmt_label`, `fmt_bullets`,
+computed inside `score()` on every output, before the reference check so an arm scored
+without ground truth still reports whether it obeyed the prompt. Validated by rescoring
+all 1440 existing outputs offline against counts established independently in entry 14:
+
+```
+  glm_l      expected (4 narration, 0 label, 3 bullets)  got (4, 0, 3)   OK
+  mistral_l  expected (0, 48, 0)                         got (0, 48, 0)  OK
+  mistral_s  expected (0,  7, 0)                         got (0,  7, 0)  OK
+  every other arm clean                                                  OK
+```
+
+62 flag instances over 1440 outputs (fewer distinct outputs — a narrated output can also
+carry bullets). Entry 8's failure mode is now impossible to repeat by accident.
+
+**B2 — coverage and concision, and they are genuinely independent.**
+
+*Changed from the plan*: instead of a fixed 37-word budget, each output is truncated to
+**that item's own reference length**. Self-calibrating, so it stays correct on a dataset
+whose references vary in length, which a hardcoded constant would not.
+
+- **coverage** = rougeLsum *recall* of the output clipped to the reference's word count.
+  Every arm judged on the same budget the human used, so length cannot buy coverage —
+  only putting the important thing first can.
+- **concision** = rougeLsum *precision* over the whole output. Padding is punished here
+  exactly as raw recall rewards it.
+- `rougeL` → **`rougeLsum`** (per-sentence LCS; the CNN/DailyMail convention, so our
+  numbers are comparable to published ones). `rouge2` dropped — ρ 0.83 with the LCS
+  metric, so it never disagreed, and a facet that always agrees is not a facet.
+
+```
+  rho(words, coverage )  = +0.357     (raw recall was +0.795)
+  rho(words, concision)  = -0.845     (by design: it IS precision)
+  rho(coverage, concision) = +0.009   <- orthogonal, not opposed-by-artifact
+```
+
+`gemma_l` is 21st on coverage and 5th on concision; `anthropic_m` 3rd and 20th. A real
+trade-off a reader has to decide about.
+
+**NOT fixed**: coverage is *not* length-neutral, only much less length-driven. +0.357
+residual. Part of it is structural — an arm writing fewer words than the reference is
+never truncated, so short arms are judged on less text than long ones. Not claimed as
+solved.
+
+**B3 — Friedman + Nemenyi + rank intervals replace the band walk, in the harness.** The
+leaderboard now reads `predictions.jsonl`, builds the arm × item matrix, and prints the
+global test *before* anything else. Reproduces the standalone analysis exactly:
+
+```
+  IS THE ORDERING REAL?   metric=rougeL  k=24 arms  N=20 items
+    global test (permutation on within-item ranks): p = 0.0316 -> an arm effect exists
+    Nemenyi critical difference = 8.13 rank positions; observed span = 7.85
+    pairs distinguishable: 0 of 276
+    An effect exists, but NO PAIR is distinguishable once all comparisons are
+    accounted for. 'Which arm is better than which' has no answer here.
+```
+
+Rank intervals are printed as *context*, with the output saying in as many words that
+they are marginal and not a pairwise claim.
+
+**B4 — the Pareto frontier, which the leaderboard never had.** Dominated arms (worse on
+quality *and* cost *and* speed than some other arm) are named and set aside. The output
+always states which quality facet produced it, because swapping the facet once produced
+a completely different frontier from the same runs.
+
+**A fifth thing, not on the plan, from watching the first smoke run.** The leaderboard
+defaulted to the alphabetically-first quality metric — which for `coverage`/`concision`
+is **concision**, silently promoting brevity to the headline. Same shape as the accident
+that once ranked a sweep by `compression`. Adapters now declare `PRIMARY_METRIC`;
+this example declares `coverage`; explicit `--sort` still wins.
+
+**The most interesting result of the phase was an accident of that fix.** The same four
+smoke arms, same items, two facets:
+
+```
+  sorted by concision:  p = 0.0024   span 1.45   2 of 6 pairs distinguishable
+  sorted by coverage :  p = 0.9276   span 0.25   0 of 6 pairs distinguishable
+```
+
+These four cheap models differ **measurably in terseness and not at all in content
+coverage**. Which facet you pick decides whether this experiment sees an effect at all —
+the clearest possible demonstration of why one quality number is a lie, and it fell out
+of a 4-arm, half-cent smoke run.
+
+Phase B spend: **~$0.01** (two smoke passes). No sweep re-run; B1–B4 were validated by
+rescoring artifacts already on disk.

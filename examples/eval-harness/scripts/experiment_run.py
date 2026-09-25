@@ -71,6 +71,25 @@ def _adapter_metric_kinds(adapter_id: str, adapter_path: Optional[Path]) -> Dict
     kinds = getattr(module, "METRIC_KINDS", None)
     return dict(kinds) if isinstance(kinds, dict) else {}
 
+
+def _adapter_primary_metric(adapter_path: Optional[Path]) -> Optional[str]:
+    """`PRIMARY_METRIC` from the adapter, or None.
+
+    WHICH quality facet heads the table is a judgement the adapter author makes, not
+    something to settle alphabetically. Without this the leaderboard sorted by whichever
+    quality metric sorted first by name -- which, for a summariser declaring `coverage`
+    and `concision`, is `concision`: brevity, quietly promoted to the headline. The same
+    shape of accident once ranked a ten-model sweep by `compression`.
+    """
+    module = sys.modules.get(f"eval_adapter_{adapter_path.stem}") if adapter_path else None
+    if module is None:
+        try:
+            import adapter as module  # noqa: PLC0415
+        except ImportError:
+            return None
+    value = getattr(module, "PRIMARY_METRIC", None)
+    return value if isinstance(value, str) and value else None
+
 def _score_wants_source(score: Any) -> bool:
     """Whether this adapter's `score()` takes the source text as a third argument.
 
@@ -474,6 +493,7 @@ def main() -> int:
             # The adapter's own reading of its metrics, carried on the run so a leaderboard
             # built later does not have to guess what `compression` is.
             "metric_kinds": dict(metric_kinds or {}),
+            "primary_metric": _adapter_primary_metric(adapter_path),
             # Outside `scores` on purpose: real, worth seeing, but not the arm's per-item
             # speed — and in scores it would reach the leaderboard's speed column and V5's
             # duplicate key, where it means something else.
