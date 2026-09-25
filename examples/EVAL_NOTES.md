@@ -1179,3 +1179,81 @@ to a leaderboard and cannot be misread as a pairwise verdict:
   names the versions present and points at `--match`. Deliberately a warning and not a
   default filter: hiding runs by default is how a table starts lying quietly.
 
+
+### 2026-09-25 · 37 — Third review. The README I had just committed was not true.
+
+Twenty minutes after committing a public teaching document, an external review found it
+carried numbers from v1 and from the **broken** scorer. Every one is now recomputed from
+the v2 rescored set with the current scorer:
+
+| claimed | actual |
+|---|---|
+| dearest arm 176x the cheapest | **202x** — I had written 202 in chat and 176 in the file |
+| rho(coverage, concision) = +0.01, "independent" | **+0.248** — related, not independent |
+| rho(words, precision) = -0.85 | **-0.727** |
+| 66% articles / 3% arms | **73.5% / 2.6%** (coverage, v2) |
+| 11% identical, 11 of 24 arms | **9.8%, 12 of 24** (v2) |
+| "62 contaminated" | **77 of 1440** outputs hit a flag |
+| "every arm shares the adapter" | **false** — `mistral_l_v2` carries a different adapter sha |
+| the `IS THE ORDERING REAL` block | from `runs-rescored`, while the README's own commands read `data/runs` and print p=0.1306, 0 of 276 — **and the README never mentioned `make rescore`** |
+
+That last one is the worst of them: a reader following the instructions would not have
+reproduced the output printed beside them.
+
+**Two substantive claims were wrong, not just stale.**
+
+- **I over-corrected on concision.** Of the 33 pairs it separates, **27 are pairs output
+  length alone also separates, with the shorter arm winning, and 0 go the other way.**
+  Concision is precision (rho(words) = -0.73), so it is largely detecting *writes short*.
+  Entry 32 retracted "the arm effect is substantially a length effect" wholesale; for the
+  *pairwise* signal that retraction was itself wrong. Both the README and this journal now
+  say so.
+- **`coverage` is not the length-controlled facet.** |rho(words, coverage)| = 0.282 against
+  |rho(words, rougeLsum)| = 0.297 — same magnitude, opposite sign. And the clip only binds
+  ABOVE the reference length: **205 of 1440 outputs (14%) are shorter than the reference
+  and never clipped**, up to 37% for one arm. "Writing more cannot buy coverage" was false
+  exactly where it mattered. Coverage stays primary as the interpretable question, and the
+  README now says that is why, rather than claiming a neutrality it does not have.
+
+**A shipping bug**: `split_summaries=True` needs NLTK's `punkt_tab`, provisioned nowhere
+in the repo. Reproduced with an empty NLTK path: `LookupError: Resource 'punkt_tab' not
+found`. On a fresh clone that means `uv sync` succeeds, warm-up succeeds, **item 1 is paid
+for, then the run dies and the output is lost.** Fixed by splitting sentences locally
+(`_as_lines`) and dropping the dependency entirely — deterministic, no corpus, no network,
+and blunter than NLTK in the same way for every arm, which is what a comparison needs.
+Warm-up now also calls `score()` on a dummy pair, so a broken scorer fails before anything
+is billed.
+
+**And my explanation in entry 31 was wrong.** `split_summaries=True` uses NLTK sentence
+tokenisation, not newlines, so `_clip_words` changed **0 of 1440** outputs. The fix was
+real; the mechanism I gave for it was not.
+
+### 2026-09-25 · 38 — Code defects from the same review, all fixed
+
+- **`rescore.py` died on the bundled demo** — adapter ids are relative to the harness root
+  for its own adapter and to the examples root for an example's; assuming one broke the
+  other. Now tries both.
+- **`rescore.py` carried stale metrics as live.** "Keep everything the new scorer does not
+  produce" carried v1's `rouge2`/`rougeL` into the rescored runs, where the leaderboard
+  showed them as quality columns beside the new ones. Now carries only call-time fields,
+  and records `rescore_dropped_metrics`.
+- **`rescore.py` copied the fingerprint verbatim**, so a rescored run asserted the OLD
+  scorer in the one field meant to identify it. Now rewrites `instrument.adapter` and
+  nulls the hash with `hash_invalid_because`.
+- **`rescore.py` ignored `source_path`** — worked here only because it equals
+  `<item_id>.txt`; anywhere else `source_text` would be silently None.
+- **`silver_calibrate.py` depended on filesystem order.** The reference set was whichever
+  repeat `glob` listed first; one author's rho moved 0.238 -> 0.391 by directory order
+  alone. Sorted. Also: version-suffix stripping was a hardcoded `_v1.._v3` (so `_v10`
+  stayed), and `_spearman` gave tied values arbitrary distinct ranks. Both fixed.
+- **`_retry.py` matched status codes as substrings**, so `"requested 15000 tokens"` on a
+  permanent 400 was retried eight times for the "500" inside it. Codes are now matched as
+  whole numbers. Verified: that message is no longer retried, real 429/500 still are.
+- **`_TIE_TOL = 1e-9` is wrong for 6-decimal runs**, and my justification for it was wrong
+  too — the "3.3e-7 granularity" is storage granularity; the smallest genuine gap between
+  distinct per-item coverage means is 6.2e-3. A looser constant would merge a real rouge1
+  gap at 8.8e-7, so instead the leaderboard now **detects** stored precision (on the raw
+  values, not their means — `fmean` returns full precision whatever it was given) and tells
+  you to rescore. Silent on the rescored set, warns on the originals.
+
+`make ci: green`.

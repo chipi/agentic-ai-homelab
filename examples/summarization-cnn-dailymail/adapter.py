@@ -319,6 +319,10 @@ def warmup(params: Dict[str, Any]) -> None:
         _local_pipeline(params)
     else:
         _litellm("Warm up.", {**params, "max_tokens": 1})
+    # Prove the SCORER runs before the loop spends anything. The provider working and the
+    # metrics working are different failures, and the second one used to surface on item 1
+    # -- after that item had been called and billed.
+    score("A short sentence. And another one.", "A short sentence. And another.", "source text")
 
 
 # ── fingerprint ──────────────────────────────────────────────────────────────
@@ -482,6 +486,26 @@ def _format_flags(output: str) -> Dict[str, float]:
 
 
 
+
+_SENT = re.compile(r"(?<=[.!?])[\"\')\]]*\s+")
+
+
+def _as_lines(text: str) -> str:
+    """One sentence per line, which is how rouge_score finds sentences for rougeLsum.
+
+    Deliberately not NLTK: `split_summaries=True` pulls in a `punkt_tab` corpus that is
+    not vendored, not downloaded by anything here, and absent on a fresh clone -- where it
+    raises only once scoring starts, i.e. after the first item has been paid for.
+
+    This splitter is blunter than NLTK's ("Dr. Smith" becomes two lines) but it is
+    deterministic, needs nothing, and errs the same way for every arm -- which is what a
+    comparison requires. Existing newlines are kept.
+    """
+    if not text:
+        return text
+    return "\n".join(part.strip() for part in _SENT.split(text.strip()) if part.strip())
+
+
 def _clip_words(text: str, budget: int) -> str:
     """First `budget` whitespace-delimited words, keeping the whitespace between them.
 
@@ -521,18 +545,22 @@ def score(output: str, reference: Optional[str], source: Optional[str] = None) -
     #
     # rouge2 is gone: it correlated at 0.83 with the LCS metric across 24 arms, so it
     # never disagreed with it. A facet that always agrees is not a facet.
-    # split_summaries=True IS THE WHOLE POINT, and without it the rename was cosmetic.
-    # rouge_score splits for rougeLsum on "\n" ONLY. Our gold references contain no
-    # newlines, so rougeLsum was byte-identical to rougeL on 1435 of 1440 outputs -- the
-    # metric advertised in this file as "the CNN/DailyMail convention" was plain rougeL
-    # wearing its name. Sentence-level LCS never ran once.
+    # rougeLsum scores sentence by sentence; rougeL takes one LCS over the whole text and
+    # so punishes a model for ordering the same facts differently. rouge_score finds those
+    # sentences by splitting on "\n" -- and our gold references contain none, so for two
+    # sweeps rougeLsum was byte-identical to rougeL on 1435 of 1440 outputs. The metric
+    # named after the CNN/DailyMail convention was plain rougeL wearing its name.
     #
-    # Measured on a reordered-sentence pair: rougeL 0.6000 / rougeLsum 0.6000 without the
-    # flag, 0.6000 / 1.0000 with it.
-    scorer = rouge_scorer.RougeScorer(
-        ["rouge1", "rougeLsum"], use_stemmer=True, split_summaries=True
-    )
-    scores = scorer.score(reference, output)
+    # The obvious fix, split_summaries=True, hands the job to NLTK -- which needs a
+    # `punkt_tab` corpus that nothing here installs. On a fresh clone that means warm-up
+    # passes, item 1 is PAID FOR, and then the run dies with LookupError and the output is
+    # lost. A scorer that can fail after spending money is worse than a blunt one.
+    #
+    # So the sentences are found here, with no corpus, no download and no network, and the
+    # scorer is handed text it can already split.
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rougeLsum"], use_stemmer=True)
+    scores = scorer.score(_as_lines(reference), _as_lines(output))
+
     for name, value in scores.items():
         # 10 decimals, not 6. These are ratios of small integers, so two arms that
         # genuinely tie on an item can differ by ~1e-7 after 6-decimal rounding and get
@@ -560,7 +588,9 @@ def score(output: str, reference: Optional[str], source: Optional[str] = None) -
     # split_summaries flag was set. Clipping mid-sentence is fine -- union-LCS handles a
     # partial trailing sentence -- but silently turning the text into one line is not.
     clipped = _clip_words(output, budget) if budget else output
-    out["coverage"] = round(scorer.score(reference, clipped)["rougeLsum"].recall, 10)
+    out["coverage"] = round(
+        scorer.score(_as_lines(reference), _as_lines(clipped))["rougeLsum"].recall, 10
+    )
     # CONCISION: precision over the WHOLE output -- what share of what the model wrote
     # earned its place. Padding is punished here exactly as it is rewarded in raw recall.
     out["concision"] = round(scores["rougeLsum"].precision, 10)

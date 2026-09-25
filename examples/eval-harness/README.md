@@ -104,8 +104,8 @@ before it shows you anything else:
 
 ```
 IS THE ORDERING REAL?   metric=coverage  k=24 arms  N=20 items
-  global test (permutation on within-item ranks): p = 0.0066 -> an arm effect exists
-  Nemenyi critical difference = 8.13 rank positions; observed span = 7.20
+  global test (permutation on within-item ranks): p = 0.0054 -> an arm effect exists
+  Nemenyi critical difference = 8.13 rank positions; observed span = 8.57
   pairs distinguishable: 1 of 276
 ```
 
@@ -119,8 +119,11 @@ Three readings, all computed over the whole table at once:
   two average ranks must be before that *pair* is distinguishable. Applied to every pair
   simultaneously, so it accounts for the fact that 24 arms means 276 comparisons and ~14
   of them will look significant by luck.
-- **Rank intervals** — resample the items, re-rank everything from scratch, report where
-  each arm lands. Context, not a pairwise claim; the critical-difference line is the claim.
+- **Rank probabilities** — resample the items, re-rank everything from scratch, and report
+  how often each arm lands 1st / in the top 5 / in the bottom 5. This replaced a 95% rank
+  interval per arm: those were marginal, so two non-overlapping intervals read as "this
+  pair is separated" — exactly the claim they cannot make. Context, never a pairwise
+  verdict; the critical-difference line is the verdict.
 
 What this deliberately does **not** do is walk down the table comparing each arm to a
 running "leader". That is a sorting algorithm, not a comparison: walked bottom-up instead
@@ -161,7 +164,7 @@ and all of them are tried.
 
 Read the result against the **ceiling** it prints. Two runs of the same arms against the
 same gold do not rank identically either, so that retest correlation is the best any proxy
-could score. On the bundled example: ceiling 0.93, silver authors 0.00–0.69 (mean 0.35).
+could score. On the bundled example: ceiling 0.93, silver authors −0.01–0.69 (mean 0.35).
 
 The number that matters most is the last one. Grouping arms by `family`, a silver author
 **promotes models of its own kind by ~8 rank positions, for 22 of 24 authors** — and

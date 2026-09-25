@@ -87,8 +87,18 @@ def main() -> int:
             print(f"  SKIP {d.name}: the run records no adapter")
             continue
         if spec not in adapters:
-            # Resolve against the repo root: runs record a repo-relative adapter path.
-            adapters[spec] = load_adapter(str((ROOT.parent / spec)), None)
+            # Adapter ids are relative to the HARNESS root for its own bundled adapter
+            # ("scripts/adapter.py") and to the examples root for an example's
+            # ("summarization-cnn-dailymail/adapter.py"). Assuming one broke the other:
+            # `make rescore DATASET_ID=smoke_v1` died looking for examples/scripts/adapter.py.
+            for base in (ROOT, ROOT.parent):
+                cand = Path(spec) if Path(spec).is_absolute() else base / spec
+                if cand.is_file():
+                    adapters[spec] = load_adapter(str(cand), None)
+                    break
+            else:
+                die(f"adapter not found for {d.name}: {spec!r} is under neither "
+                    f"{ROOT} nor {ROOT.parent}")
         _call, score, adapter_id, adapter_path, _warm, _fp = adapters[spec]
         wants_source = _score_wants_source(score)
 
@@ -97,6 +107,11 @@ def main() -> int:
             if (m.get("fingerprint", {}).get("data", {}) or {}).get("reference_id") else None
 
         rows: List[Dict[str, Any]] = []
+        # Keys the ADAPTER attached at call time (Result.extra) rather than at score time:
+        # `truncated`, `reasoning_tokens`. Unrecoverable afterwards, so they ride along.
+        extra_keys = set(m.get("metric_kinds", {})) & {"truncated", "reasoning_tokens"}
+        extra_keys |= {"truncated", "reasoning_tokens"}
+        dropped: set = set()
         for line in (d / "predictions.jsonl").read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
@@ -112,8 +127,12 @@ def main() -> int:
                 if rf.is_file():
                     reference = rf.read_text(encoding="utf-8", errors="replace")
             source_text = None
-            src = mat / item_id
-            for cand in (mat / f"{item_id}.txt", src):
+            # `source_path` is the dataset's own name for the file; it only happens to
+            # equal "<item_id>.txt" here. Ignoring it means source_text is silently None
+            # on any dataset that names files differently -- and a scorer that wanted the
+            # source then measures nothing, quietly.
+            rel = (old.get("source_path") or f"{item_id}.txt")
+            for cand in (mat / rel, mat / f"{item_id}.txt", mat / item_id):
                 if cand.is_file():
                     source_text = cand.read_text(encoding="utf-8", errors="replace")
                     break
@@ -122,8 +141,17 @@ def main() -> int:
             row: Dict[str, Any] = {"item_id": item_id, **scored}
             for k, v in old.items():
                 if k == "item_id" or k in scored:
-                    continue          # the new scorer owns anything it produces
-                row[k] = v            # everything else survives, CARRY included
+                    continue
+                # Carry ONLY things that describe the call. "Keep everything the new
+                # scorer does not produce" was too generous: it carried the previous
+                # scorer's metrics (`rouge2`, `rougeL`) into the rescored run, where the
+                # leaderboard showed them as live quality columns beside the new ones.
+                # A rescored run must not report a number the current scorer never
+                # computed.
+                if k in CARRY or k in extra_keys or k.startswith("_"):
+                    row[k] = v
+                else:
+                    dropped.add(k)
             rows.append(row)
 
         import statistics
@@ -154,6 +182,26 @@ def main() -> int:
             "adapter": adapter_id,
             "sha256": _sha(adapter_path),
         }
+        # The fingerprint is copied from the source run, and its `instrument.adapter`
+        # identifies the scorer that produced the ORIGINAL numbers -- not these. Left
+        # alone, a rescored run asserts the old scorer in the one field meant to identify
+        # it, and every downstream tool (compare_runs, validate_tree, promote_baseline)
+        # believes it. Overwrite it and invalidate the hash, which no longer describes
+        # anything that was computed together.
+        fp = new.get("fingerprint")
+        if isinstance(fp, dict):
+            fp = json.loads(json.dumps(fp))
+            fp.setdefault("instrument", {})["adapter"] = {
+                "id": adapter_id, "sha256": _sha(adapter_path),
+            }
+            fp["hash"] = None
+            fp["hash_invalid_because"] = (
+                "scores were recomputed by a different scorer than the one this "
+                "fingerprint was built from; see rescored_with"
+            )
+            new["fingerprint"] = fp
+        if dropped:
+            new["rescore_dropped_metrics"] = sorted(dropped)
         write_json(run_dir / "metrics.json", new)
         written += 1
         print(f"  {d.name}  -> {len(rows)} item(s)")

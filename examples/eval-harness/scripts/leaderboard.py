@@ -52,10 +52,36 @@ from _common import (  # noqa: E402
 # walk top-down or bottom-up, and on this data those two directions disagree about
 # whether the top arm is separated from the field at all.
 
-#: Two per-item values closer than this count as tied. Loose enough to absorb the
-#: 6-decimal rounding applied when scores are written, tight enough that no real
-#: difference in these metrics (smallest meaningful step ~1e-4) is swallowed.
+#: Two per-item values closer than this count as tied.
+#:
+#: 1e-9 is right for scores stored at full precision and WRONG for scores rounded on the
+#: way to disk: at 6 decimals, arms that genuinely tie can land ~1e-6 apart and get
+#: strictly ordered. The previous comment here claimed this tolerance "absorbs the
+#: 6-decimal rounding". It does not.
+#:
+#: The fix is not a looser constant -- 1e-6 would merge a real gap (the closest distinct
+#: rouge1 means on this data are 8.8e-7 apart). It is to notice the precision and say so,
+#: so low-precision runs get rescored rather than quietly mis-tied.
 _TIE_TOL = 1e-9
+
+#: Below this many decimals, stored scores cannot be tie-detected reliably.
+_MIN_TIE_DECIMALS = 8
+
+
+#: Raw per-item values as they came off disk, before any averaging. Precision has to be
+#: measured HERE: `fmean` returns full float precision whatever it was given, so checking
+#: the means reports 17 decimals for scores that were stored with 6.
+_RAW_SEEN: List[float] = []
+
+
+def _stored_decimals(values: List[float]) -> int:
+    """How many decimal places the stored values actually carry."""
+    best = 0
+    for v in values[:500]:
+        t = f"{v!r}"
+        if "." in t and "e" not in t:
+            best = max(best, len(t.split(".")[1].rstrip("0")))
+    return best
 
 _NEMENYI_Q05 = {  # Demsar 2006, alpha = 0.05: studentised range / sqrt(2)
     2: 1.960, 3: 2.343, 4: 2.569, 5: 2.728, 6: 2.850, 7: 2.949, 8: 3.031, 9: 3.102,
@@ -81,6 +107,7 @@ def _per_item(runs: List[dict], run_dirs: Dict[int, Path], metric: str) -> Dict[
             row = json.loads(line)
             if metric in row:
                 acc[row["item_id"]].append(float(row[metric]))
+                _RAW_SEEN.append(row[metric])
     return {k: statistics.fmean(v) for k, v in acc.items() if v}
 
 
@@ -120,6 +147,13 @@ def _significance(matrix: Dict[str, Dict[str, float]], metric: str, seed: int = 
                 ranks[col[x][1]].append(shared)
             i = grp[-1] + 1
     avg_rank = {a: statistics.fmean(ranks[a]) for a in arms}
+
+    decimals = _stored_decimals(_RAW_SEEN)
+    if decimals and decimals < _MIN_TIE_DECIMALS:
+        print(f"\n  NOTE: these runs store scores to ~{decimals} decimals, so arms that\n"
+              f"        genuinely tie on an item can differ by rounding alone and be\n"
+              f"        ordered anyway — which inflates the p-value. `make rescore` "
+              f"regenerates\n        them at full precision.")
 
     # Friedman, as a permutation test: shuffle which arm got which rank WITHIN each item
     # -- exactly the world where arms do not matter -- and see how often chance beats the

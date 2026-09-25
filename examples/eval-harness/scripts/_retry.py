@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import os
 import random
+import re
 import time
 from typing import Any, Callable, Iterable, Optional, Sequence, Tuple
 
@@ -30,8 +31,12 @@ from typing import Any, Callable, Iterable, Optional, Sequence, Tuple
 #: "TypeName: message", because provider SDKs disagree about everything else: some raise
 #: typed errors, some raise a generic one with the status in the text, some wrap a third
 #: party's exception. The status codes and these words are what they have in common.
+#: Status codes, matched as WHOLE NUMBERS rather than substrings. As a substring, "500"
+#: also matches "requested 15000 tokens" -- a permanent 400 that retried eight times over
+#: two minutes before failing anyway.
+TRANSIENT_CODES: Tuple[str, ...] = ("429", "500", "502", "503", "504")
+
 TRANSIENT: Tuple[str, ...] = (
-    "429", "500", "502", "503", "504",
     "rate limit", "rate-limited", "ratelimit", "too many requests",
     "overloaded", "capacity", "temporarily", "try again",
     "timeout", "timed out", "connection", "reset by peer", "eof occurred",
@@ -53,7 +58,9 @@ def is_transient(exc: BaseException, extra: Iterable[str] = ()) -> bool:
     msg = f"{type(exc).__name__}: {exc}".lower()
     if any(m in msg for m in FATAL):
         return False
-    return any(m in msg for m in tuple(TRANSIENT) + tuple(extra))
+    if any(m in msg for m in tuple(TRANSIENT) + tuple(extra)):
+        return True
+    return any(c in re.findall(r"\d+", msg) for c in TRANSIENT_CODES)
 
 
 def _env_int(name: str, default: int) -> int:

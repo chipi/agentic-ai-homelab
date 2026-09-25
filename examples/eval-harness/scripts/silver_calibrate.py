@@ -35,6 +35,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import statistics
 import sys
 from collections import defaultdict
@@ -46,11 +47,26 @@ from _common import REFERENCES, RUNS, ROOT, die, read_json  # noqa: E402
 from experiment_run import load_adapter, _score_wants_source  # noqa: E402
 
 
+def _ranks(vals: List[float]) -> List[float]:
+    """Ranks with ties sharing the average. A value->index dict silently gave tied values
+    one arbitrary rank each, which is wrong whenever two arms score the same."""
+    order = sorted(range(len(vals)), key=lambda i: vals[i])
+    out = [0.0] * len(vals)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and vals[order[j + 1]] == vals[order[i]]:
+            j += 1
+        shared = (i + j) / 2.0
+        for k in range(i, j + 1):
+            out[order[k]] = shared
+        i = j + 1
+    return out
+
+
 def _spearman(a: List[float], b: List[float]) -> float:
-    ra = {v: i for i, v in enumerate(sorted(a))}
-    rb = {v: i for i, v in enumerate(sorted(b))}
-    x = [ra[v] for v in a]
-    y = [rb[v] for v in b]
+    x = _ranks(a)
+    y = _ranks(b)
     mx, my = statistics.fmean(x), statistics.fmean(y)
     num = sum((xi - mx) * (yi - my) for xi, yi in zip(x, y))
     den = (sum((xi - mx) ** 2 for xi in x) * sum((yi - my) ** 2 for yi in y)) ** 0.5
@@ -60,20 +76,23 @@ def _spearman(a: List[float], b: List[float]) -> float:
 def _collect(dataset_id: str, match: Optional[str]) -> Dict[str, Dict[str, Any]]:
     """arm -> {"texts": {item: [text, ...]}, "params": {...}, "adapter": str}"""
     acc: Dict[str, Dict[str, Any]] = {}
-    for mp in glob.glob(str(RUNS / "*" / "metrics.json")):
+    # SORTED. The reference set is whichever repeat comes first, and glob order is the
+    # filesystem's, not the run's: one author's rho moved 0.238 -> 0.391 purely by which
+    # repeat the directory happened to list first. A result that changes when you copy the
+    # directory is not a result.
+    for mp in sorted(glob.glob(str(RUNS / "*" / "metrics.json"))):
         m = read_json(Path(mp))
         if m.get("dataset_id") != dataset_id:
             continue
         cid = m.get("config_id", "")
         if match and match not in cid:
             continue
-        arm = cid
-        for suffix in ("_v1", "_v2", "_v3"):
-            if arm.endswith(suffix):
-                arm = arm[: -len(suffix)]
+        # Strip ANY numeric version suffix, not a hardcoded three: `_v10` was kept while
+        # `_v1` was stripped, so the same arm appeared twice under different names.
+        arm = re.sub(r"_v\d+$", "", cid)
         entry = acc.setdefault(arm, {"texts": defaultdict(list), "params": m.get("params") or {},
                                      "adapter": m.get("adapter")})
-        for f in glob.glob(os.path.join(os.path.dirname(mp), "outputs", "*.txt")):
+        for f in sorted(glob.glob(os.path.join(os.path.dirname(mp), "outputs", "*.txt"))):
             entry["texts"][os.path.basename(f)[:-4]].append(
                 Path(f).read_text(encoding="utf-8").strip())
     return acc
