@@ -15,7 +15,10 @@
       "required": ["ref"],
       "properties": {
         "ref": {"type": "string"},
-        "dirty": {"type": "boolean"},
+        "dirty": {
+          "type": ["boolean", "null"],
+          "description": "Was the system-under-test tree dirty? null = UNKNOWN, which is the honest value when the ref is self-declared (EVAL_BUILD_REF) rather than read from a checkout. It was hardcoded false there, asserting a clean tree on no evidence; null and false are different claims and the schema must admit both."
+        },
         "source": {"type": "string"}
       }
     },

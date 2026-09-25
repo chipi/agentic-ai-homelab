@@ -185,6 +185,13 @@ def v6_baselines() -> None:
 
 
 def main() -> int:
+    # `--help` prints help. It used to fall through and run the whole validation, which
+    # made self_test's `validate_tree.py --help` check assert "the tree is valid" instead
+    # of "the CLI responds" — so the one script whose failure matters most had a self-test
+    # that could only pass when it had nothing to report.
+    if "--help" in sys.argv[1:] or "-h" in sys.argv[1:]:
+        print(__doc__)
+        return 0
     print(f"eval tree: {ROOT / 'data'}\n")
     for fn in (v1_schemas, v2_dataset_ids, v3_provenance, v4_materialized, v5_duplicate_scores, v6_baselines):
         fn()

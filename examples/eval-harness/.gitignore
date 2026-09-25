@@ -32,9 +32,12 @@ __pycache__/
 # why these rules name the dataset directory rather than the whole of sources/.
 # Convention for the next example: real corpora live in data/sources/<dataset_id>/ and
 # get a line here.
-data/sources/cnn_dailymail_20/
-data/references/gold/cnn_dailymail_20/
-data/references/silver/cnn_dailymail_20/
+# Globbed by slice size, not written out per size: `fetch.py --n 200` names its dataset
+# cnn_dailymail_200, and a corpus whose exclusion depends on someone remembering to add a
+# line is one forgotten line away from being redistributed.
+data/sources/cnn_dailymail_*/
+data/references/gold/cnn_dailymail_*/
+data/references/silver/cnn_dailymail_*/
 
 # Rescored runs are derived: regenerate with `make rescore`. Same reasoning as
 # data/runs/ -- the originals are the record, these are a recomputation of them.
