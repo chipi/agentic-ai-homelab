@@ -969,3 +969,23 @@ this is a hypothesis, not a finding.
 - `mistral_s`: `fmt_bullets` 0.10 (6/60).
 
 **Cost of v2**: ~$1.45 for the sweep plus ~$0.05 for the `mistral_l` recovery.
+
+### 2026-09-25 · 30 — Entry 29's footnote closed: k=24 recomputed
+
+Entry 29 reported the v2 global test at k=23, before `mistral_l` landed. At the full 24
+arms:
+
+```
+  metric=coverage  k=24 arms  N=20 items
+    global test: p = 0.1378  ->  NO detectable arm effect
+    Nemenyi critical difference = 8.13;  observed span = 7.20
+    pairs distinguishable: 0 of 276
+```
+
+Unchanged in substance from the k=23 figure (p = 0.1260): adding the 24th arm moves the
+p-value slightly and the conclusion not at all. Directly comparable to v1/rougeL now,
+which had the same k and N: **CD 8.13 vs span 7.85 there, 8.13 vs 7.20 here.** The
+observed span shrank under the length-controlled metric — the arms are closer together
+on coverage than they were on rougeL — which is the shape the length hypothesis predicts
+but is still not evidence for it while the metric and the sample both changed at once.
+The four-cell test in entry 29 remains the thing that would settle it.
