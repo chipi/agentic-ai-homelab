@@ -130,6 +130,51 @@ model_list:
       model: openrouter/anthropic/claude-haiku-4.5
       api_key: os.environ/OPENROUTER_API_KEY_PODCAST
 
+  # ── open-weight and OpenAI arms for the summarisation eval example ────────────
+  #
+  # All on OPENROUTER_API_KEY_PODCAST, like the eval-claude-* aliases above: the eval
+  # vertical's spend stays inside the eval vertical's budget, so a sweep across a dozen
+  # models cannot drain the fleet's or orrery's. That isolation is the reason these are
+  # separate aliases rather than reuse of the homelab-* ones, which point at the same
+  # upstreams through a different key.
+  #
+  # Model ids were read from OpenRouter's /api/v1/models rather than recalled — a wrong id
+  # fails at request time, halfway through a paid sweep.
+  - model_name: eval-llama-70b
+    litellm_params:
+      model: openrouter/meta-llama/llama-3.3-70b-instruct
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
+  - model_name: eval-llama-scout
+    litellm_params:
+      model: openrouter/meta-llama/llama-4-scout
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
+  - model_name: eval-gemma-31b
+    litellm_params:
+      model: openrouter/google/gemma-4-31b-it
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
+  - model_name: eval-qwen-flash
+    litellm_params:
+      model: openrouter/qwen/qwen3.8-flash
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
+  - model_name: eval-deepseek-pro
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-pro
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
+  - model_name: eval-gpt-mini
+    litellm_params:
+      model: openrouter/openai/gpt-5.4-mini
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
+  - model_name: eval-gpt
+    litellm_params:
+      model: openrouter/openai/gpt-5.5
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
 litellm_settings:
   # full-package observability from day one (operator requirement):
   # Langfuse traces on success+failure, GlitchTip (sentry-compatible) on failure
