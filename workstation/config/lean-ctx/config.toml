@@ -37,6 +37,34 @@ shell_allowlist_extra = [
     "defaults",
     "plutil",
     "bash",
+    "tailscale",
+    "Tailscale",
+    "ifconfig",
+    "dscacheutil",
+    "ping",
+    "ssh",
+    "scutil",
+    "host",
+    "dig",
+    "ssh-add",
+    "actionlint",
+    "shellcheck",
+    "brew",
+    "sysctl",
+    "sudo",
+    "limactl",
+    "colima",
+    "qlmanage",
+    "xcrun",
+    "xcodebuild",
+    "pod",
+    "xcode-select",
+    "gem",
+    "chown",
+    "chmod",
+    "true",
+    "osascript",
+    "xcodegen",
 ]
 
 [cloud]
@@ -106,4 +134,4 @@ default_decay_rate = 0.03
 [memory.gotcha.category_decay_overrides]
 
 [gain]
-last_auto_publish = "2026-08-17T15:21:49.879173+00:00"
+last_auto_publish = "2026-09-13T08:38:32.577166+00:00"
