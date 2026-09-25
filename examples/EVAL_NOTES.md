@@ -834,3 +834,85 @@ a summary.
   different authors, score all 24 arms against each, and measure how well each silver
   ranking reproduces the gold ranking. This is the experiment that tests whether silver
   is a usable proxy at all — which matters most for the case where gold does not exist.
+
+### 2026-09-25 · 25 — The example adapter had NO retry logic. Two arms died of it.
+
+`EVAL_MAX_RETRIES` is documented, and the harness's **bundled demo** adapter honours it.
+The summarisation example defines its **own** adapter, and that one had no retry code at
+all. So the knob looked wired up, raising it did nothing, and every one of ~1440 calls
+was a single attempt. Two sweeps each lost a whole arm to one upstream 429:
+`mistral_mixtral` in the 18-arm sweep, `mistral_l` in v2 — roughly 20 paid calls
+discarded each time, reported as `ARM FAILED` as though the model could not do the task.
+
+**I compounded it.** I twice announced I was re-running `mistral_l` "with more retries";
+both times `EVAL_MAX_RETRIES=8` was a no-op. The first of those two attempts never even
+started — I wrapped it in `until ! pgrep -f 'scripts/sweep.py'`, a pattern that matches
+the waiting shell's **own** command line, so it waited on itself for 23 minutes; and I
+piped it through `tail`, which buffers until exit, so the log stayed empty and hid it.
+Then I told Marko the arm might be unrunnable. It was not. Once retries actually existed
+it succeeded **in 13 seconds**, and the full 3-repeat arm needed **exactly one retry**.
+
+**CORRECTION to what I said about providers.** "`mistral-large-2512` has one provider,
+so there is nowhere to fall back to" is wrong in the detail that matters: it has **two
+endpoints** — `mistral/zdr` and `mistral/eu` — both operated by Mistral but separately
+routable. There is somewhere to fall back to.
+
+**v2 is now complete: 24 arms, 72 runs.**
+
+### 2026-09-25 · 26 — Retries move into the core, where they should have been
+
+`scripts/_retry.py`. The harness wraps **both** `call_system` and `warmup`, so every
+adapter gets retries by existing rather than by remembering to copy twenty lines — which
+is the whole lesson: this was infrastructure sitting in a place where each new example
+would have to reinvent it, and the second example would have hit the same wall.
+
+- attempts: `EVAL_MAX_RETRIES` (default 8); delay cap: `EVAL_RETRY_MAX_DELAY` (default 60s)
+- backoff doubles — 1, 2, 4, 8, 16, 32 … — then **flattens at the cap**, so the wait
+  grows quickly while a blip is plausible and then stops growing
+- jitter, so N arms recovering from one upstream hiccup do not return in lockstep and
+  cause the next one
+- **`FATAL` is checked before `TRANSIENT`**, so `"401 invalid api key, please try again
+  later"` is raised at once rather than retried eight times for the word "again"
+- `SystemExit` is never retried: the harness raises it for "your key is not set", which
+  is an instruction to the operator, not weather
+- adapters may **add** markers via `TRANSIENT_MARKERS` (a local runtime's "model is
+  warming up"), never shrink the core's list
+- `sleep` is injectable, so the tests run instantly — a retry policy with slow tests is
+  a retry policy nobody runs
+
+The example adapter's copy is deleted; it now only *declares* its extra markers. Eight
+assertions added to `make ci`, including the 401-that-says-try-again trap.
+
+### 2026-09-25 · 27 — Which machine ran it is now part of the record
+
+Raised by Marko: over time, differences may come from the infra rather than the model,
+and we could not tell. He is right, and it is not a Mistral problem — it is every
+open-weight arm:
+
+```
+  meta-llama/llama-4-maverick      5 providers (DeepInfra, DigitalOcean, Google, Novita, Parasail)
+  mistralai/mistral-small-3.2-24b  4 providers (DeepInfra, Mistral, Parasail, Venice)
+  mistralai/mistral-large-2512     2 endpoints (Mistral zdr, Mistral eu)
+```
+
+A gateway load-balances between these silently, and two hosts can serve the same weights
+at different quantisations. Across 141 runs, **nothing recorded which host answered** —
+an uncontrolled variable underneath an experiment whose entire claim is "only the model
+varied".
+
+It was recoverable all along: OpenRouter returns `provider` as a non-standard field that
+the OpenAI SDK keeps in `model_extra`. The proxy rewrites `model` to our own alias, so
+the response otherwise says nothing about it.
+
+Recorded in two places, deliberately kept apart:
+
+- **fingerprint** → `provider_routing`: the policy we ASKED for. Knowable before the run.
+- **run record** → `providers_seen`: the hosts that actually ANSWERED, counted across the
+  20 items. Knowable only afterwards. An arm served by two hosts has its 20 items
+  produced by two systems and its mean mixes them — the confound the fingerprint exists
+  to rule out, happening one level below where the fingerprint could see it.
+
+Verified: `providers_seen: {'Alibaba': 20}` on a smoke run of `qwen_s`.
+
+**Not retroactive.** The 72 v2 runs carry no provider data; the adapter changed after
+they finished. From the next sweep onward.

@@ -31,6 +31,7 @@ WHAT THE SCORERS ARE FOR
 from __future__ import annotations
 
 import os
+import random
 import re
 import sys
 import time
@@ -151,6 +152,14 @@ def _litellm(text: str, params: Dict[str, Any]) -> Result:
     for passthrough in ("reasoning", "reasoning_effort"):
         if params.get(passthrough) is not None:
             extra_body[passthrough] = params[passthrough]
+    # WHICH MACHINE RAN IT. For an open-weight model the host is part of the system under
+    # test -- two providers can serve the same weights at different quantisations, and a
+    # gateway load-balances between them without telling you. `provider_routing` is the
+    # policy we ASK for; the provider we actually GOT is recorded per call below. The key
+    # is not called `provider` because that name is already taken by this adapter's own
+    # backend selector (litellm / hf_local).
+    if params.get("provider_routing") is not None:
+        extra_body["provider"] = params["provider_routing"]
     resp = client.chat.completions.create(
         model=params["model"],
         temperature=float(params.get("temperature", 0.0)),
@@ -209,6 +218,13 @@ def _litellm(text: str, params: Dict[str, Any]) -> Result:
             # Distinguishes "provider said zero" from "provider said nothing", which the
             # numeric metric above cannot express once it is a float.
             "reasoning_tokens_reported": reasoning_tokens is not None,
+            # Non-standard field; the OpenAI SDK keeps it in model_extra. This is the only
+            # way to learn which host actually served the request -- the proxy rewrites
+            # `model` to our own alias, so the response otherwise says nothing about it.
+            "provider": (
+                getattr(resp, "provider", None)
+                or (getattr(resp, "model_extra", None) or {}).get("provider")
+            ),
         },
     )
 
@@ -270,6 +286,11 @@ def _price(params: Dict[str, Any], tin: Optional[int], tout: Optional[int]) -> O
 
 
 PROVIDERS = {"hf_local": _hf_local, "litellm": _litellm}
+
+
+
+
+
 
 
 def call_system(text: str, params: Dict[str, Any]) -> Result:
@@ -373,6 +394,11 @@ def fingerprint(params: Dict[str, Any]) -> Dict[str, Any]:
         "revision": None,
         "revision_source": "api-model-string",
         "endpoint": os.environ.get("LITELLM_BASE_URL"),
+        # The routing POLICY, which is knowable before the run and therefore belongs in
+        # the fingerprint. Which provider actually answered is only knowable afterwards,
+        # so it is recorded in the run as `providers_seen` instead -- asking for a thing
+        # and getting it are two different facts and the record keeps them apart.
+        "provider_routing": params.get("provider_routing"),
         "temperature": params.get("temperature"),
         # The instruction is part of the system under test. Two arms given different
         # prompts are not comparable, and run-compare marks a differing hash as a confound
@@ -508,6 +534,13 @@ def score(output: str, reference: Optional[str], source: Optional[str] = None) -
 #: is "did the summary carry the story", and the terseness half is the counterweight you
 #: read beside it -- not the thing that decides the ranking. Sorting alphabetically made
 #: `concision` the default and put the shortest arms on top.
+#: Extra failure shapes worth retrying for THIS adapter, on top of the core's list.
+#: The core owns the universal ones (429, 503, "rate limit"); an adapter adds only what
+#: is peculiar to its own backends. Retrying itself is the harness's job -- this example
+#: carried its own copy for exactly one afternoon, which is one afternoon too long for
+#: infrastructure every adapter needs.
+TRANSIENT_MARKERS = ("model is warming up", "no instances available", "upstream")
+
 PRIMARY_METRIC = "coverage"
 
 METRIC_KINDS = {

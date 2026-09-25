@@ -89,7 +89,7 @@ def _with_retries(fn, text: str, params: Dict[str, Any]) -> "Result":
     raised immediately, because retrying those just spends time and money
     failing. Tune with EVAL_MAX_RETRIES.
     """
-    attempts = max(1, env_int("EVAL_MAX_RETRIES", 3))
+    attempts = max(1, env_int("EVAL_MAX_RETRIES", 8))
     transient = ("429", "500", "502", "503", "504", "overloaded", "timeout",
                  "rate limit", "connection", "temporarily")
     last: Optional[Exception] = None

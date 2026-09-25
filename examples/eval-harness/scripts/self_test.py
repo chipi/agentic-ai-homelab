@@ -285,6 +285,64 @@ def test_a_broken_fingerprint_hook_does_not_kill_the_run() -> None:
 
     got = _model_identity(boom, {})
     check("fingerprint: broken hook is caught", got["identity_declared"] is False)
+
+    # ── retries ──────────────────────────────────────────────────────────────
+    # Guarded here because the absence of these was invisible: EVAL_MAX_RETRIES was
+    # honoured by one adapter and not by the one doing the work, and two sweeps each
+    # lost a whole arm to one upstream 429 before anybody noticed.
+    from _retry import call_with_retries, is_transient  # noqa: PLC0415
+
+    waits: list = []
+    calls = {"n": 0}
+
+    def _flaky(_x):
+        calls["n"] += 1
+        if calls["n"] < 4:
+            raise RuntimeError("Error code: 429 - rate limit")
+        return "done"
+
+    got_val = call_with_retries(_flaky, ("x",), attempts=6, sleep=waits.append)
+    check("retry: transient recovers", got_val == "done")
+    check("retry: backoff doubles", [round(w) for w in waits] == [1, 2, 4])
+
+    waits.clear()
+
+    def _always(_x):
+        raise RuntimeError("503 overloaded")
+
+    try:
+        call_with_retries(_always, ("x",), attempts=9, max_delay=8, sleep=waits.append)
+        check("retry: exhausts and raises", False)
+    except RuntimeError:
+        check("retry: exhausts and raises", True)
+    check("retry: delay capped", waits and max(waits) <= 8.5 and len(waits) == 8)
+
+    waits.clear()
+
+    def _bad_key(_x):
+        # the trap: a fatal error whose text also contains a transient-sounding phrase
+        raise RuntimeError("401 invalid api key, please try again later")
+
+    try:
+        call_with_retries(_bad_key, ("x",), attempts=5, sleep=waits.append)
+        check("retry: fatal raises at once", False)
+    except RuntimeError:
+        check("retry: fatal raises at once", waits == [])
+
+    waits.clear()
+
+    def _exit(_x):
+        raise SystemExit("KEY not set")
+
+    try:
+        call_with_retries(_exit, ("x",), attempts=5, sleep=waits.append)
+        check("retry: SystemExit never retried", False)
+    except SystemExit:
+        check("retry: SystemExit never retried", waits == [])
+
+    check("retry: adapter marker honoured",
+          is_transient(RuntimeError("model is warming up"), extra=("model is warming up",)))
+    check("retry: unknown error is not transient", not is_transient(ValueError("banana")))
     check("fingerprint: broken hook records why", "no model here" in got.get("error", ""))
 
 

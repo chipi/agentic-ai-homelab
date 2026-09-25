@@ -36,6 +36,7 @@ from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _fingerprint import build_fingerprint  # noqa: E402
+from _retry import call_with_retries  # noqa: E402
 from _common import (  # noqa: E402
     MATERIALIZED,
     REFERENCES,
@@ -70,6 +71,21 @@ def _adapter_metric_kinds(adapter_id: str, adapter_path: Optional[Path]) -> Dict
             return {}
     kinds = getattr(module, "METRIC_KINDS", None)
     return dict(kinds) if isinstance(kinds, dict) else {}
+
+
+def _adapter_transient(adapter_path: Optional[Path]) -> tuple:
+    """Extra "worth retrying" markers this adapter declares, as `TRANSIENT_MARKERS`.
+
+    The core knows the shapes every HTTP provider shares (429, 503, "rate limit"). It
+    cannot know that a particular local runtime says "CUDA out of memory" on a transient
+    allocation, or that some SDK wraps a timeout in a bespoke class. The adapter can add
+    to the list; it cannot shrink it, because the shapes in the core are not negotiable.
+    """
+    module = sys.modules.get(f"eval_adapter_{adapter_path.stem}") if adapter_path else None
+    if module is None:
+        return ()
+    markers = getattr(module, "TRANSIENT_MARKERS", None)
+    return tuple(str(m) for m in markers) if isinstance(markers, (list, tuple)) else ()
 
 
 def _adapter_primary_metric(adapter_path: Optional[Path]) -> Optional[str]:
@@ -228,6 +244,7 @@ def one_pass(
     *,
     call_system: Any,
     score: Any,
+    extra_transient: tuple = (),
 ) -> Dict[str, Any]:
     """One pass over the dataset. ``call_system``/``score`` are INJECTED rather than
     imported at module scope, because which adapter runs is a property of the arm now."""
@@ -264,7 +281,13 @@ def one_pass(
         rel = item.get("source_path") or item["item_id"]
         src = mat / rel
         source_text = src.read_text(encoding="utf-8", errors="replace")
-        res = call_system(source_text, params)
+        # EVERY adapter gets retries, whether or not its author wrote any. This used to
+        # be the adapter's business, and one adapter simply had none -- so a single
+        # upstream 429 discarded an arm mid-sweep along with the items already paid for.
+        res = call_with_retries(
+            call_system, (source_text, params),
+            extra_transient=extra_transient, label=f"item {item['item_id'][:8]}",
+        )
         outputs[item["item_id"]] = res.output
         if res.cost_usd:
             spent += res.cost_usd
@@ -309,9 +332,20 @@ def one_pass(
         vals = [float(p[k]) for p in predictions if k in p]
         if vals:
             scores[f"total_{k}"] = round(sum(vals), 8)
+    # WAS THIS ARM ONE SYSTEM? A gateway can serve the same model from several hosts and
+    # switch between calls. If it did, the arm's 20 items were not produced by one system
+    # and its mean mixes two -- which is exactly the confound the fingerprint exists to
+    # rule out, happening below the level the fingerprint can see. Counted here so the
+    # run says so instead of the numbers quietly absorbing it.
+    providers: Dict[str, int] = {}
+    for pred in predictions:
+        name = (pred.get("_meta") or {}).get("provider")
+        if name:
+            providers[name] = providers.get(name, 0) + 1
     return {
         "predictions": predictions,
         "scores": scores,
+        "providers_seen": providers,
         "outputs": outputs,
         "reference_tier": ref_tier,
         "capped_at": capped_at,
@@ -422,7 +456,13 @@ def main() -> int:
     if warmup is not None:
         started = time.perf_counter()
         try:
-            warmup(dict(cfg.get("params") or {}))
+            # Retried too. Warm-up is a real network call, and a transient failure here
+            # aborted the arm before a single item was attempted -- a safety check that
+            # invents a new way to lose a run is not a safety check.
+            call_with_retries(
+                warmup, (dict(cfg.get("params") or {}),), label="warm-up",
+                extra_transient=_adapter_transient(adapter_path),
+            )
         except Exception as exc:  # noqa: BLE001 - fail before spending, with the reason
             die(
                 f"warm-up failed for {cfg['config_id']}: {type(exc).__name__}: {exc}\n"
@@ -463,7 +503,8 @@ def main() -> int:
     for i in range(args.repeat):
         run_id = base_id if args.repeat == 1 else f"{base_id}_r{i + 1}"
         result = one_pass(
-            ds, cfg, i, resume_dir=resume_dir, call_system=call_system, score=score
+            ds, cfg, i, resume_dir=resume_dir, call_system=call_system, score=score,
+            extra_transient=_adapter_transient(adapter_path),
         )
         run_dir = RUNS / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -493,6 +534,7 @@ def main() -> int:
             # The adapter's own reading of its metrics, carried on the run so a leaderboard
             # built later does not have to guess what `compression` is.
             "metric_kinds": dict(metric_kinds or {}),
+            "providers_seen": result.get("providers_seen") or {},
             "primary_metric": _adapter_primary_metric(adapter_path),
             # Outside `scores` on purpose: real, worth seeing, but not the arm's per-item
             # speed — and in scores it would reach the leaderboard's speed column and V5's

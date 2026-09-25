@@ -211,6 +211,12 @@ def main() -> int:
     ap.add_argument("--dataset-id", required=True)
     ap.add_argument("--sort", help="metric to rank by (default: the first quality metric)")
     ap.add_argument("--asc", action="store_true", help="lower is better for the sort metric")
+    # A dataset accumulates arms across config VERSIONS -- v1 and v2 of the same arm are
+    # different measurements and must not share a row, but they do share a dataset. Without
+    # a way to scope the table, the only ways to get a readable leaderboard are to delete
+    # the older runs or to read past them. Deleting paid-for results to tidy a table is how
+    # 18 arms were lost once; this is the alternative.
+    ap.add_argument("--match", help="only arms whose config_id contains this substring")
     args = ap.parse_args()
 
     by_config: Dict[str, List[dict]] = defaultdict(list)
@@ -223,14 +229,17 @@ def main() -> int:
         m = run / "metrics.json"
         if m.is_file():
             d = read_json(m)
-            if d.get("dataset_id") == args.dataset_id:
+            if d.get("dataset_id") == args.dataset_id and (
+                not args.match or args.match in d.get("config_id", "")
+            ):
                 by_config[d["config_id"]].append(d)
                 run_dirs[id(d)] = run
 
     if not by_config:
         die(
-            f"no runs on dataset {args.dataset_id!r}.\n"
-            "  make runs-list   to see what exists"
+            f"no runs on dataset {args.dataset_id!r}"
+            + (f" matching {args.match!r}" if args.match else "")
+            + ".\n  make runs-list   to see what exists"
         )
 
     all_keys = sorted({k for runs in by_config.values() for r in runs for k in r["scores"]})
