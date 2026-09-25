@@ -10,9 +10,14 @@
 # qwen's "large" is the OLDEST generation of the three. So this experiment cannot
 # attribute a difference between tiers to size, and no conclusion here should try.
 #
+# v2, not a re-run of v1: the config changed (`tier` -> `price_tier`) and so did the
+# scorer -- v1 runs carry rougeL/rouge2, v2 runs carry coverage/concision/rougeLsum
+# and the format flags. Grouping both under one id would average metrics over
+# different numbers of runs and call it one arm. v1's runs stay on disk, untouched.
+#
 # Every arm shares the dataset, the adapter, the prompt file and reasoning-off. Only the
 # model varies — which the run fingerprint records, so "we varied one thing" is checkable.
-config_id: cnn_openai_m_v1
+config_id: cnn_openai_m_v2
 dataset_id: cnn_dailymail_20
 adapter: ../adapter.py
 params:
