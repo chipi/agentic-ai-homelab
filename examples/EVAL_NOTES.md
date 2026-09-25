@@ -1257,3 +1257,101 @@ real; the mechanism I gave for it was not.
   you to rescore. Silent on the rescored set, warns on the originals.
 
 `make ci: green`.
+
+### 2026-09-26 · 39 — Executive summary rewritten; decision-pair table added
+
+`EVAL_REPORT.md` §Executive summary replaced. The previous version led with
+"1 of 276 pairs distinguishable" (the `coverage` figure). Under the same Nemenyi
+correction `rougeLsum` separates 10 pairs and `rouge1` separates 5.
+
+New §3.1b records single-pair sign-flip permutation tests (20 000 permutations) on
+per-article deltas:
+
+```
+  deepseek_m vs anthropic_l   coverage   +0.0308  12/20  p=0.0428
+  deepseek_m vs anthropic_l   rougeLsum  +0.0384  13/20  p=0.0388
+  deepseek_m vs qwen_m        coverage   +0.0659  16/20  p=0.0004
+  llama_l    vs mistral_l     rougeLsum  +0.0799  17/20  p=0.0021
+  deepseek_m vs anthropic_m   coverage   +0.0111  12/20  p=0.5236
+  deepseek_s vs openai_l      coverage   +0.0312  15/20  p=0.0712
+```
+
+These six pairs were selected after inspecting the results. Holm-corrected across the
+six, one survives on `coverage` and two on `rougeLsum`.
+
+### 2026-09-26 · 40 — Power analysis (coverage, 80% power, α=0.05, single pair)
+
+```
+  best vs worst            deepseek_m vs mistral_l    delta 0.0674  sd 0.1147  n =    23
+  best vs dearest (9th)    deepseek_m vs anthropic_l  delta 0.0308  sd 0.0635  n =    33
+  best vs 5th              deepseek_m vs llama_m      delta 0.0193  sd 0.0720  n =   109
+  best vs 3rd              deepseek_m vs llama_l      delta 0.0100  sd 0.0556  n =   245
+  best vs 2nd              deepseek_m vs deepseek_s   delta 0.0048  sd 0.0860  n = 2472
+```
+
+Minimum detectable delta by n (sd 0.0712, the mean paired-delta sd among the top 6):
+
+```
+  n=20  0.0446   n=50  0.0282   n=100 0.0200   n=200 0.0141
+  n=500 0.0089   n=1000 0.0063  n=2000 0.0045
+```
+
+Coverage spread: top-3 range 0.0100, top-5 range 0.0193, full range 0.0674.
+
+### 2026-09-26 · 41 — Cross-facet ranking and per-million cost
+
+Mean rank across `coverage`, `concision`, `rougeLsum`, `rouge1` (v2 rescored, n=24):
+
+```
+   # arm          family     mean rk  worst  cov/con/lsum/r1   $/20    ms  flags
+   1 llama_l      llama         2.00      3  3/1/1/3         0.0033  2988      0
+   2 deepseek_s   deepseek      2.75      4  2/4/3/2         0.0019  2873      0
+   3 deepseek_m   deepseek      3.50     10  1/10/2/1        0.0029  2512      1
+   4 deepseek_l   deepseek      6.00     10  10/6/4/4        0.0053  2925      0
+   5 openai_l     openai        6.25     12  12/3/5/5        0.0519  3068      0
+   6 openai_m     openai        7.25     11  11/5/7/6        0.0290  2342      0
+   7 qwen_s       qwen          8.00      9  7/9/9/7         0.0010 10920      0
+   8 llama_m      llama         9.00     11  5/11/11/9       0.0021  3419      0
+   9 anthropic_m  anthropic     9.00     18  4/18/6/8        0.1094  3609      1
+  10 glm_s        glm          11.50     21  21/2/10/13      0.0011  4470      0
+```
+
+Cost per 1M articles at measured per-article rates: deepseek_s $96, deepseek_m $143,
+llama_l $166, deepseek_l $267, openai_m $1,452, openai_l $2,597, anthropic_m $5,468,
+anthropic_l $9,693.
+
+### 2026-09-26 · 42 — Dataset size on disk
+
+```
+  articles        20
+  article words   min 111   median 452   max 1133   mean 530
+  gold words      min  18   median  36   max   56   mean 36.7
+  total           10,607 words; 108 KB sources + 80 KB gold references
+```
+
+Upstream `abisee/cnn_dailymail` is larger; no on-disk artifact records the upstream total.
+`fetch.py --n <N>` fetches more.
+
+### 2026-09-26 · 43 — Existing judge machinery in the private eval repo
+
+Located in `podcast-scraper-eval-data`, not in this repo:
+
+- `autoresearch/JUDGING.md` — dual-judge design. Score blend
+  `final = 0.70 * ROUGE-L_f1 + 0.30 * judge_mean` (`AUTORESEARCH_SCORE_ROUGE_WEIGHT`).
+  Judge A OpenAI `gpt-4o-mini`, Judge B Anthropic `claude-haiku-4-5`; episode score is the
+  midpoint. Judge models pinned in `bundled_prompt_tuning/eval/judge_config.yaml`, changed
+  only between rounds. Three stated correctness preconditions for the ship gate:
+  disjoint-vendor silver + judge, scalar mode not pairwise, `</think>`-stripped score
+  parsing. Governing ADR-143; human ground truth (golden fixtures #1189) is a separate
+  reprocess-acceptance gate, not the parity gate.
+- `docs/guides/eval-reports/EVAL_AUTORESEARCH_JUDGE_TRUST_MATRIX_2026_07.md` — 10 phases
+  vs cloud ground truth (Sonnet-4.6 + GPT-5.4 scalar). `judge_qwen_next_scalar` ρ=+0.958;
+  `judge_gpt_oss_scalar` +0.937; `judge_nemotron_scalar` +0.832; `judge_qwen_scalar`
+  +0.755; `judge_llama_scalar` +0.741; pairwise variants +0.664 down to +0.105. Scalar
+  beat pairwise for all 5 judges tested. 3-judge panel average ρ=0.930, below the single
+  best judge. Trust thresholds: ρ>0.6 trustworthy, 0.3–0.6 noisy, <0.3 unreliable.
+- Other judge code: `podcast_scraper_eval/judges/`, `podcast_scraper_eval/search/llm_judge.py`,
+  `scripts/eval/judge_panel.py`.
+
+No judge is wired into `examples/summarization-cnn-dailymail`. The harness's own
+`runner.py` / `make judge` exists and is unused by this example.
