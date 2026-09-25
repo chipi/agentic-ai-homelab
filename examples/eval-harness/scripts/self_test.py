@@ -154,9 +154,28 @@ def test_no_absolute_home_path_in_committed_data() -> None:
     import re
 
     home = re.compile(r"/(?:Users|home)/(?!runner\b|operator\b|user\b)[A-Za-z0-9_.-]+/")
+    # TRACKED files only -- which is what "committed" means, and what this check is for.
+    # It used to rglob the whole working tree, so it failed on `data/runs/`, a GITIGNORED
+    # directory whose contents can never be committed by definition. A test that fails on
+    # files outside its own subject teaches people to ignore it.
+    #
+    # This is not a narrowing to make a failure go away: the cause -- experiment_run.py
+    # writing an absolute adapter path into every metrics.json -- is fixed at source in
+    # `_portable_id`. This check still catches the real case, including someone choosing
+    # to track `data/runs/` (the private eval repo does exactly that).
+    import subprocess  # noqa: PLC0415
+
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "-z", "--", "data"],
+            cwd=ROOT, capture_output=True, text=True, timeout=30, check=True,
+        ).stdout.split("\0")
+        tracked = [ROOT / f for f in listed if f.endswith(".json")]
+    except Exception:  # noqa: BLE001 -- no git available: fall back to scanning everything
+        tracked = list((ROOT / "data").rglob("*.json"))
     offenders = []
-    for d in (ROOT / "data").rglob("*.json"):
-        if ".partial" in d.parts:
+    for d in tracked:
+        if ".partial" in d.parts or not d.is_file():
             continue
         try:
             if home.search(d.read_text(encoding="utf-8")):
@@ -252,7 +271,8 @@ def test_fingerprint_does_not_invent_a_revision() -> None:
     check("fingerprint: absent revision stays None", no_rev["revision"] is None)
     check("fingerprint: absent revision is labelled", no_rev["revision_source"] == "unavailable")
     none_hook = _model_identity(None, {})
-    check("fingerprint: no hook -> declared False", none_hook == {"declared": False})
+    check("fingerprint: no hook -> identity_declared False",
+          none_hook == {"identity_declared": False})
 
 
 def test_a_broken_fingerprint_hook_does_not_kill_the_run() -> None:
@@ -264,7 +284,7 @@ def test_a_broken_fingerprint_hook_does_not_kill_the_run() -> None:
         raise RuntimeError("no model here")
 
     got = _model_identity(boom, {})
-    check("fingerprint: broken hook is caught", got["declared"] is False)
+    check("fingerprint: broken hook is caught", got["identity_declared"] is False)
     check("fingerprint: broken hook records why", "no model here" in got.get("error", ""))
 
 

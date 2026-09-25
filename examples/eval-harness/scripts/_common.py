@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,7 +64,13 @@ SOURCES = DATA / "sources"
 DATASETS = DATA / "datasets"
 MATERIALIZED = DATA / "materialized"
 CONFIGS = DATA / "configs"
-RUNS = DATA / "runs"
+# Where run artifacts land. Redirectable via EVAL_RUNS_DIR so a throwaway pass -- a
+# smoke check after a harness change -- cannot add repeats to the arms of a real sweep
+# and silently move numbers that have already been reported. ONLY runs are redirected:
+# sources, datasets and references stay shared, so a smoke run is scored against the
+# same references as the real thing and is therefore actually a check of the real path.
+_runs_override = os.environ.get("EVAL_RUNS_DIR", "").strip()
+RUNS = Path(_runs_override).expanduser() if _runs_override else DATA / "runs"
 BASELINES = DATA / "baselines"
 REFERENCES = DATA / "references"
 
@@ -125,7 +132,13 @@ def build_info() -> Dict[str, Any]:
 
     declared = os.environ.get("EVAL_BUILD_REF")
     if declared:
-        return {"ref": declared, "dirty": False, "source": "EVAL_BUILD_REF"}
+        # `dirty` was hardcoded False here, which asserts "the thing under test was built
+        # from a clean tree" on zero evidence -- we are being handed a string by an
+        # environment variable and cannot see the tree it came from. None means unknown,
+        # and unknown is the truth. It also sat in the same run record as
+        # `instrument.harness.dirty: true`, two flags with the same name meaning different
+        # things and appearing to contradict each other.
+        return {"ref": declared, "dirty": None, "source": "EVAL_BUILD_REF"}
 
     def git(*args: str) -> Optional[str]:
         try:
@@ -223,3 +236,29 @@ def verdict_for(metric: str, delta: float) -> str:
         return "changed"
     improved = delta < 0 if lower_is_better(metric) else delta > 0
     return "better" if improved else "worse"
+
+
+def classify_metrics(extra_kinds: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """metric -> "cost" | "speed" | "descriptive" | "quality", with adapter overrides.
+
+    The built-in tuples only know the metrics the bundled adapter emits. An example that
+    brings its own scorer brings its own vocabulary — `compression`, `length_vs_reference`,
+    `summary_words` are descriptive; `grounding` and `rouge*` are quality — and the core
+    cannot know that.
+
+    It showed up as a wrong answer rather than a missing feature: the first real sweep
+    ranked ten models by `compression`, because the sort key defaults to the first metric
+    not otherwise classified and `compression` sorts before `grounding` and `rouge1`. The
+    leaderboard's own "you are ranking on a descriptive metric" warning stayed silent,
+    because by its tuples compression was a quality metric.
+    """
+    kinds: Dict[str, str] = {}
+    for k in COST_KEYS:
+        kinds[k] = "cost"
+    for k in SPEED_KEYS:
+        kinds[k] = "speed"
+    for k in DESCRIPTIVE_KEYS:
+        kinds[k] = "descriptive"
+    if extra_kinds:
+        kinds.update(extra_kinds)
+    return kinds

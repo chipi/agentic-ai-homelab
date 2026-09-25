@@ -139,21 +139,26 @@ def _model_identity(hook: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]],
                     params: Dict[str, Any]) -> Dict[str, Any]:
     """Whatever the adapter says identifies its system under test.
 
-    Absent hook -> `{"declared": False}`. That is honest: an echo arm has no model, and a
+    Absent hook -> `{"identity_declared": False}`. That is honest: an echo arm has no model,
+    and a
     fingerprint claiming otherwise would be worse than one admitting the gap.
 
     A hook that raises is caught. Fingerprinting must never be the reason a run fails —
     it is a description of the run, not a precondition for it.
     """
     if hook is None:
-        return {"declared": False}
+        return {"identity_declared": False}
     try:
         declared = hook(params) or {}
     except Exception as exc:  # noqa: BLE001 - a broken hook must not kill the run
-        return {"declared": False, "error": f"{type(exc).__name__}: {exc}"}
+        return {"identity_declared": False, "error": f"{type(exc).__name__}: {exc}"}
     if not isinstance(declared, dict):
-        return {"declared": False, "error": "fingerprint() did not return a dict"}
-    out: Dict[str, Any] = {"declared": True, **declared}
+        return {"identity_declared": False, "error": "fingerprint() did not return a dict"}
+    # `identity_declared` is a FLAG -- did the adapter tell us what its system under
+    # test is -- not the identity itself. It was called `declared`, which reads like it
+    # holds a value, and it was identical across 24 different models because it means
+    # "yes". The identity lives in the keys the adapter returns, beside it.
+    out: Dict[str, Any] = {"identity_declared": True, **declared}
     # Say the quiet part: no revision means no proof two runs used the same weights.
     if not declared.get("revision"):
         out.setdefault("revision", None)

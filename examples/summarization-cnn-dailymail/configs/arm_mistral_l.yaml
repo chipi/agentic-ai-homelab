@@ -1,0 +1,19 @@
+# mistral / large
+#
+# Every arm shares the dataset, the adapter, the prompt file and reasoning-off. Only the
+# model varies — which the run fingerprint records, so "we varied one thing" is checkable.
+config_id: cnn_mistral_l_v1
+dataset_id: cnn_dailymail_20
+adapter: ../adapter.py
+params:
+  provider: litellm
+  model: eval-mistral-large
+  family: mistral
+  tier: large
+  temperature: 0.0
+  prompt_file: prompt.txt
+  reasoning:
+    enabled: false
+  max_tokens: 1200
+  usd_per_mtok_in: 0.6
+  usd_per_mtok_out: 1.8

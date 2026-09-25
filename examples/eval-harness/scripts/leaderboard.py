@@ -27,10 +27,8 @@ from typing import Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (  # noqa: E402
-    COST_KEYS,
-    DESCRIPTIVE_KEYS,
     RUNS,
-    SPEED_KEYS,
+    classify_metrics,
     die,
     read_json,
 )
@@ -61,13 +59,21 @@ def main() -> int:
         )
 
     all_keys = sorted({k for runs in by_config.values() for r in runs for k in r["scores"]})
+    # An adapter may declare what ITS metrics mean; runs carry the declaration. Without
+    # this the sort key falls to whatever sorts first among the unclassified, which ranked
+    # a ten-model sweep by `compression` — a length ratio — and called it quality.
+    declared: dict[str, str] = {}
+    for runs in by_config.values():
+        for r in runs:
+            declared.update(r.get("metric_kinds") or {})
+    kinds = classify_metrics(declared)
     quality = [
         k for k in all_keys
-        if k not in COST_KEYS + SPEED_KEYS + DESCRIPTIVE_KEYS and not k.startswith("total_")
+        if kinds.get(k, "quality") == "quality" and not k.startswith("total_")
     ]
-    descriptive = [k for k in all_keys if k in DESCRIPTIVE_KEYS]
+    descriptive = [k for k in all_keys if kinds.get(k) == "descriptive"]
     sort_key = args.sort or (quality[0] if quality else (descriptive[0] if descriptive else all_keys[0]))
-    ranking_on_descriptive = sort_key in DESCRIPTIVE_KEYS
+    ranking_on_descriptive = kinds.get(sort_key) == "descriptive"
     if sort_key not in all_keys:
         die(f"no metric {sort_key!r} on these runs. Available: {', '.join(all_keys)}")
 
@@ -95,7 +101,7 @@ def main() -> int:
     rows.sort(key=lambda r: r.get(sort_key, float("inf") if args.asc else float("-inf")),
               reverse=not args.asc)
 
-    show = quality + descriptive + [k for k in all_keys if k in COST_KEYS + SPEED_KEYS]
+    show = quality + descriptive + [k for k in all_keys if kinds.get(k) in ("cost", "speed")]
     show = [k for k in show if k in all_keys]
     w = max(len(r["config_id"]) for r in rows) + 2
     print(f"dataset: {args.dataset_id}   ranked by: {sort_key}"
@@ -132,7 +138,7 @@ def main() -> int:
             "\n  Scored against SILVER references (model-generated). Good for ranking\n"
             "  these arms against each other; not a claim that any of them is correct."
         )
-    if not any(k in show for k in COST_KEYS):
+    if not any(kinds.get(k) == "cost" for k in show):
         print(
             "\n  No cost recorded. Add usd_per_mtok_in / usd_per_mtok_out to the configs\n"
             "  so the ranking can weigh quality against price."

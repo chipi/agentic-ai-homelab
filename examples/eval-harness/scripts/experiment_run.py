@@ -58,7 +58,65 @@ except ImportError:  # pragma: no cover
 
 
 
-def load_adapter(spec: Optional[str]) -> tuple[Any, Any, str, Optional[Path], Any, Any]:
+
+
+def _adapter_metric_kinds(adapter_id: str, adapter_path: Optional[Path]) -> Dict[str, str]:
+    """`METRIC_KINDS` from the loaded adapter module, or {}."""
+    module = sys.modules.get(f"eval_adapter_{adapter_path.stem}") if adapter_path else None
+    if module is None:
+        try:
+            import adapter as module  # noqa: PLC0415
+        except ImportError:
+            return {}
+    kinds = getattr(module, "METRIC_KINDS", None)
+    return dict(kinds) if isinstance(kinds, dict) else {}
+
+def _score_wants_source(score: Any) -> bool:
+    """Whether this adapter's `score()` takes the source text as a third argument.
+
+    Arity, not configuration: the bundled adapter scores output against reference and has
+    no use for the input, while a summarisation adapter needs it to measure grounding.
+    Inspected once per run rather than guessed, so an adapter that does not want it is
+    never handed an argument it cannot take.
+    """
+    import inspect  # noqa: PLC0415
+
+    try:
+        params = inspect.signature(score).parameters
+    except (TypeError, ValueError):
+        return False
+    positional = [
+        p for p in params.values()
+        if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+    ]
+    return len(positional) >= 3 or any(p.kind is p.VAR_POSITIONAL for p in params.values())
+
+
+def _portable_id(path: Path) -> str:
+    """A path safe to write into a run record: relative, resolved, never a home directory.
+
+    This is recorded in `metrics.json` and hashed into the fingerprint, so an absolute
+    path both leaks the author's username into anything published and makes two identical
+    runs on two machines look different.
+
+    The old version tried `relative_to(ROOT)` on an UNRESOLVED path. Adapters live in
+    sibling example directories, so that never matched -- `configs/../adapter.py` is not
+    under the harness root -- and every run silently fell back to the absolute path.
+    Resolve first, then widen the base one level so a sibling example resolves cleanly,
+    and if even that fails keep only the last two components rather than emit a home path.
+    """
+    resolved = path.resolve()
+    for base in (ROOT, ROOT.parent):
+        try:
+            return str(resolved.relative_to(base))
+        except ValueError:
+            continue
+    return str(Path(*resolved.parts[-2:]))
+
+
+def load_adapter(
+    spec: Optional[str], config_path: Optional[Path] = None
+) -> tuple[Any, Any, str, Optional[Path], Any, Any]:
     """``(call_system, score, adapter_id)`` for the adapter a config names.
 
     Defaults to ``scripts/adapter.py`` — the single seam, unchanged for anyone who has one
@@ -88,23 +146,39 @@ def load_adapter(spec: Optional[str]) -> tuple[Any, Any, str, Optional[Path], An
             getattr(_default, "fingerprint", None),
         )
 
+    # Relative to the CONFIG first, then the harness root. An example's arm sits beside its
+    # adapter and should be able to say `adapter: adapter.py` — the two travel together, and
+    # a path written from the harness's point of view breaks the moment the example moves.
     path = Path(spec)
-    if not path.is_absolute():
-        path = ROOT / path
-    if not path.is_file():
-        die(f"adapter not found: {spec} (resolved to {path})")
+    candidates = []
+    if path.is_absolute():
+        candidates = [path]
+    else:
+        if config_path is not None:
+            candidates.append(config_path.resolve().parent / path)
+        candidates.append(ROOT / path)
+    for candidate in candidates:
+        if candidate.is_file():
+            path = candidate
+            break
+    else:
+        die(
+            f"adapter not found: {spec}\n"
+            + "".join(f"  looked in: {c}\n" for c in candidates)
+        )
     module_spec = importlib.util.spec_from_file_location(f"eval_adapter_{path.stem}", path)
     if module_spec is None or module_spec.loader is None:
         die(f"adapter is not importable: {path}")
     module = importlib.util.module_from_spec(module_spec)
+    # Register BEFORE exec: @dataclass resolves its own module via sys.modules[cls.__module__],
+    # and an unregistered module makes that None — the decorator then dies on a Result class
+    # that is perfectly valid. Any module-level dataclass in an adapter would hit this.
+    sys.modules[module_spec.name] = module
     module_spec.loader.exec_module(module)
     for required in ("call_system", "score"):
         if not hasattr(module, required):
             die(f"adapter {spec} defines no {required}()")
-    try:
-        adapter_id = str(path.relative_to(ROOT))
-    except ValueError:
-        adapter_id = str(path)
+    adapter_id = _portable_id(path)
     return (
         module.call_system,
         module.score,
@@ -170,7 +244,8 @@ def one_pass(
 
         rel = item.get("source_path") or item["item_id"]
         src = mat / rel
-        res = call_system(src.read_text(encoding="utf-8", errors="replace"), params)
+        source_text = src.read_text(encoding="utf-8", errors="replace")
+        res = call_system(source_text, params)
         outputs[item["item_id"]] = res.output
         if res.cost_usd:
             spent += res.cost_usd
@@ -181,15 +256,32 @@ def one_pass(
             if rf.is_file():
                 reference = rf.read_text(encoding="utf-8", errors="replace")
 
-        row: Dict[str, Any] = {"item_id": item["item_id"], **score(res.output, reference)}
+        # Pass the SOURCE when the scorer wants it. Facets that compare the output to the
+        # INPUT — grounding, compression — cannot be computed from output+reference alone,
+        # and a scorer asking for a third argument used to get None silently: the
+        # hallucination check simply never ran and nothing said so.
+        scored = (
+            score(res.output, reference, source_text)
+            if _score_wants_source(score)
+            else score(res.output, reference)
+        )
+        row: Dict[str, Any] = {"item_id": item["item_id"], **scored}
         for field_name in ("latency_ms", "tokens_in", "tokens_out", "cost_usd"):
             v = getattr(res, field_name)
             if v is not None:
                 row[field_name] = float(v)
         row.update({k: float(v) for k, v in res.extra.items()})
+        # Raw provider metadata rides along under a `_`-prefixed key. Everything
+        # `_`-prefixed is excluded from the aggregation below, so an adapter can record
+        # a nested dict (a usage object, a finish_reason) without the mean-of-every-key
+        # loop trying to average it.
+        if res.meta:
+            row["_meta"] = res.meta
         predictions.append(row)
 
-    keys = sorted({k for p in predictions for k in p if k != "item_id"})
+    keys = sorted(
+        {k for p in predictions for k in p if k != "item_id" and not k.startswith("_")}
+    )
     scores = {
         k: round(statistics.fmean([float(p[k]) for p in predictions if k in p]), 6) for k in keys
     }
@@ -272,8 +364,9 @@ def main() -> int:
         die(f"no config at {args.config}")
     cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
     call_system, score, adapter_id, adapter_path, warmup, model_fingerprint = load_adapter(
-        cfg.get("adapter")
+        cfg.get("adapter"), Path(args.config)
     )
+    metric_kinds = _adapter_metric_kinds(adapter_id, adapter_path)
     for required in ("config_id", "dataset_id"):
         if required not in cfg:
             die(f"{args.config} is missing required key: {required}")
@@ -331,6 +424,16 @@ def main() -> int:
         model_hook=model_fingerprint,
     )
     print(f"  fingerprint {fingerprint['hash'][:12]}")
+    # A DIRTY TREE IS NOT A VERSION. The fingerprint records it, but a field nobody reads
+    # is not a warning: a 72-run sweep completed with `harness.dirty: true` throughout, so
+    # its `harness.commit` identified code that was never what ran, and nothing said so
+    # until the runs were audited afterwards. Say it at the top of the run, where the
+    # person paying for it will see it.
+    if (fingerprint.get("instrument", {}).get("harness", {}) or {}).get("dirty"):
+        print("  WARNING: harness tree is DIRTY — the recorded commit does not identify\n"
+              "           the code that is about to run. Commit first for a reproducible\n"
+              "           record, or accept that this run cannot be reproduced from its\n"
+              "           own fingerprint.")
 
     resume_dir = (RUNS / args.resume / "outputs") if args.resume else None
     if args.resume and not resume_dir.is_dir():
@@ -368,6 +471,9 @@ def main() -> int:
             # WHICH scorer produced these numbers. A scorer is half of what a number means,
             # so a run that does not name it cannot be compared to one that used another.
             "adapter": adapter_id,
+            # The adapter's own reading of its metrics, carried on the run so a leaderboard
+            # built later does not have to guess what `compression` is.
+            "metric_kinds": dict(metric_kinds or {}),
             # Outside `scores` on purpose: real, worth seeing, but not the arm's per-item
             # speed — and in scores it would reach the leaderboard's speed column and V5's
             # duplicate key, where it means something else.

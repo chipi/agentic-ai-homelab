@@ -21,3 +21,17 @@ out/
 
 .venv/
 __pycache__/
+
+# ── third-party corpus content: NEVER committed to this public repo ──────────
+# CNN/DailyMail article text and its human-written highlights belong to the dataset's
+# publishers, not to us. The example ships a DOWNLOAD RECIPE instead — see
+# ../summarization-cnn-dailymail/fetch.py and its README — so anyone can reproduce the
+# tree locally without us redistributing anything.
+#
+# The synthetic demo items (data/sources/item_0*.txt) are OURS and stay tracked; that is
+# why these rules name the dataset directory rather than the whole of sources/.
+# Convention for the next example: real corpora live in data/sources/<dataset_id>/ and
+# get a line here.
+data/sources/cnn_dailymail_20/
+data/references/gold/cnn_dailymail_20/
+data/references/silver/cnn_dailymail_20/

@@ -1,0 +1,19 @@
+# llama / mid
+#
+# Every arm shares the dataset, the adapter, the prompt file and reasoning-off. Only the
+# model varies — which the run fingerprint records, so "we varied one thing" is checkable.
+config_id: cnn_llama_m_v1
+dataset_id: cnn_dailymail_20
+adapter: ../adapter.py
+params:
+  provider: litellm
+  model: eval-llama-70b
+  family: llama
+  tier: mid
+  temperature: 0.0
+  prompt_file: prompt.txt
+  reasoning:
+    enabled: false
+  max_tokens: 1200
+  usd_per_mtok_in: 0.12
+  usd_per_mtok_out: 0.3

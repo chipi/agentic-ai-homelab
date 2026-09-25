@@ -40,6 +40,13 @@ class Result:
     cost_usd: Optional[float] = None
     latency_ms: Optional[float] = None
     extra: Dict[str, float] = field(default_factory=dict)
+    # Raw provider metadata, kept verbatim and never averaged: the `usage` object,
+    # `finish_reason`, the model string the provider actually reports back. Anything
+    # numeric belongs in `extra` (it becomes a metric); anything you want preserved
+    # for forensics belongs here. Without this the harness could not answer "were
+    # reasoning tokens billed?" or "was this output cut off at max_tokens?" -- both
+    # of which silently corrupt a comparison.
+    meta: Dict[str, Any] = field(default_factory=dict)
 
 
 # ── 1. YOUR SYSTEM ───────────────────────────────────────────────────────────
