@@ -789,3 +789,48 @@ of a 4-arm, half-cent smoke run.
 
 Phase B spend: **~$0.01** (two smoke passes). No sweep re-run; B1–B4 were validated by
 rescoring artifacts already on disk.
+
+### 2026-09-25 · 23 — Phase C complete. `tier` is now `price_tier`.
+
+All 24 configs renamed, and each one now carries the reason inline rather than in a
+document nobody opens beside the config:
+
+> this field is the vendor's own small/mid/large product step, which is a PRICE ladder.
+> It was called `tier` and read as model size, and that was wrong in every family — the
+> three arms differ in generation as well as price. qwen's "large" is the OLDEST
+> generation of the three. So this experiment cannot attribute a difference between
+> tiers to size, and no conclusion here should try.
+
+A second benefit that was not the point: `tier` collided conceptually with
+`reference_tier` (gold/silver), which is an unrelated axis. `price_tier` removes the
+ambiguity.
+
+Verified: `price_tier` reaches `fingerprint.arm.params`, so a run records which rung of
+the price ladder it was on, and the size claims retracted in entry 9 cannot be
+reconstructed by accident from the field name.
+
+### 2026-09-25 · 24 — Phase D is already finished, by Phase A.
+
+D1 was a ~$0.20 probe to find out whether reasoning could be turned off. A1 answered it
+for free (entry 20): the provider reports `reasoning_tokens: 0` explicitly on every arm,
+so `reasoning: {enabled: false}` was honoured throughout and there was never anything to
+turn off. D2 (drop models that cannot comply) therefore has no candidates.
+
+D3 survives in a changed form. `glm_l` narrated its reasoning into the visible output on
+4 of 60 items — an instruction-following failure, not a reasoning-flag failure — and
+B1's `fmt_narration` now flags exactly those 4. They no longer need to be found by hand
+or excluded by hand: any future run reports them as a metric, and an arm with
+`fmt_narration > 0` has a quality column that is partly measuring something that is not
+a summary.
+
+**Remaining plan: the two steps that cost money.**
+
+- Re-run the 24 arms on the new facets (~$1.45, r=3). Nothing on disk carries
+  `coverage`, `concision`, `rougeLsum` or the format flags — those are computed at score
+  time, so the existing 72 runs cannot be upgraded in place. Everything in Phases B and
+  C was validated by rescoring their OUTPUTS offline, which is why none of it needed a
+  sweep; but a leaderboard built from stored metrics needs stored metrics.
+- Silver calibration (~$1.00, entry 12 / plan Part 3): author silver with three
+  different authors, score all 24 arms against each, and measure how well each silver
+  ranking reproduces the gold ranking. This is the experiment that tests whether silver
+  is a usable proxy at all — which matters most for the case where gold does not exist.
