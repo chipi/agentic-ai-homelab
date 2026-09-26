@@ -44,12 +44,18 @@ note). Current consumers:
 |---|---|---|---|
 | `fleet-triage` | `fleet-triage-flash`, `fleet-triage-pro` | $50 | signal-fleet triager (`OPENROUTER_API_KEY` in `~/signal-fleet/fleet-gateway.env`) |
 | `fleet-bugfix` | `fleet-bugfix-flash`, `fleet-bugfix-pro`, `fleet-bugfix-reviewer` | $100 | bugfix-fleet — routes via the gateway (`LLM_BASE_URL=http://localhost:4001/v1` + `LLM_API_KEY=LITELLM_FLEET_BUGFIX_KEY`), was OpenRouter-direct |
-| `eval-harness` | `eval-claude-opus`, `eval-claude-sonnet`, `eval-claude-haiku`, `homelab-flash` | $20 / 30d | `examples/eval-harness` — golden references + model sweeps (`LITELLM_BASE_URL` + `LITELLM_API_KEY` in its `.env`) |
+| `eval-harness` | `eval-claude-opus`, `eval-claude-sonnet`, `eval-claude-haiku`, `homelab-flash` | $35 / 30d | [chipi/eval-harness](https://github.com/chipi/eval-harness) — golden references + model sweeps (`LITELLM_BASE_URL` + `LITELLM_API_KEY` in its `.env`). The key name stays `eval-harness`; only the consumer moved. |
 
 Both route to `openrouter/deepseek-v4-pro` via `OPENROUTER_API_KEY` (the shared
 key) — so their spend shows on the hub's **"Lab (shared key)"** OpenRouter vertical
 (and per-key via `/key/info`). `max_budget` is a hard lifetime cap (raise
 deliberately = auditable top-up).
+
+The `eval-harness` cap was raised $20 -> $35 on 2026-09-26: a 24-arm sweep over 200
+articles stopped mid-flight at 12 arms on `budget_exceeded`. Two things to know if it
+happens again — the harness's own `EVAL_MAX_COST_USD` is a PER-RUN cap and knows
+nothing about this one, and the enforced figure came back as exactly 2x what
+`/key/info` reported as spend, so raising by the apparent headroom under-shoots.
 
 `eval-harness` routes on the **podcast** OpenRouter key, not a fourth one: what
 its aliases measure IS the podcast work, so the cost of knowing sits in the same

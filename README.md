@@ -52,7 +52,7 @@ the four pillars to real.
 ├── examples/                 — small concrete code samples (cloud + local)
 │   ├── claude-api-with-caching/  — prompt-cache discipline demo
 │   ├── mcp-tool-template/        — FastMCP skeleton with 3 tool shapes
-│   └── eval-harness/             — provider-agnostic 4-op harness
+│   └── (eval-harness moved out — see chipi/eval-harness)
 └── provider-bakeoff/         — top-level lift-able: 10 providers × 2 tasks
 ```
 
@@ -73,7 +73,8 @@ the four pillars to real.
    prompt caching as discipline, batch API, multi-provider routing, eval
    harnesses, cost gates.
    → [Pillar 3](docs/cloud-ai-workflow.md) · `examples/claude-api-with-caching/`,
-   `examples/mcp-tool-template/`, `examples/eval-harness/`
+   `examples/mcp-tool-template/`, and the eval harness, now its own repo:
+   [chipi/eval-harness](https://github.com/chipi/eval-harness)
 4. **Agent harnesses** — the connective tissue. Global AGENTS.md,
    opencode provider config, MCP server registry pattern. Two recipes
    (lean-ctx token management, Chrome DevTools MCP agent loop)

@@ -1,1 +1,0 @@
-Summarise this news article in 2-3 short sentences, in the terse style of a news wire summary. Output only the summary.

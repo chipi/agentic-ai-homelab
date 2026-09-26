@@ -36,7 +36,8 @@ deploy (with secrets stripped). Take what's useful, leave the rest.
    [`infra/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/README.md).
 3. [**Cloud AI workflow**](cloud-ai-workflow.md) — prompt-caching
    discipline, cost gates, three example skeletons
-   (`claude-api-with-caching/`, `mcp-tool-template/`, `eval-harness/`).
+   (`claude-api-with-caching/`, `mcp-tool-template/`), and the eval harness,
+   extracted to its own repo: [chipi/eval-harness](https://github.com/chipi/eval-harness).
 4. [**Agent harnesses**](agent-harnesses.md) — opencode global config
    drop-in (`templates/opencode/`), MCP server registry pattern, two
    recipes for the daily-driver tooling (token management, Chrome

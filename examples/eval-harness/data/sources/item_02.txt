@@ -1,5 +1,0 @@
-Sample item 02.
-
-This stands in for whatever your system consumes — a transcript, a
-ticket, a document, a diff. The skeleton does not care what it is; it
-cares that the bytes are frozen and hashed, so two runs are comparable.

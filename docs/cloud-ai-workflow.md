@@ -73,8 +73,8 @@ work. When to reach for it:
 - Anything where 24h turnaround is acceptable
 
 The shape: stage requests into batch jobs, poll for completion, persist
-outputs alongside their inputs. Pattern lives inline in the eval-harness
-example (below) rather than as its own example dir.
+outputs alongside their inputs. Pattern lives inline in the eval harness
+(below) rather than as its own example dir.
 
 ### Eval harness shape
 
@@ -87,10 +87,10 @@ returns scored outputs. The shape that works:
 - **Adversarial verification** — multiple independent judges; majority
   wins for high-stakes decisions
 
-Reference shape comes from podcast_scraper's `finale_runner.py`.
-Genericized form lands in
-[`examples/eval-harness/`](https://github.com/chipi/agentic-ai-homelab/tree/main/examples/eval-harness)
-once the operator points at the canonical source.
+Reference shape comes from podcast_scraper's `finale_runner.py`. The genericized
+form grew past being an example and now lives in its own repo:
+[chipi/eval-harness](https://github.com/chipi/eval-harness) — with a 24-model study of what it can and cannot
+conclude. The LiteLLM proxy it calls stays here, in `infra/litellm/`.
 
 ### Cost gates
 

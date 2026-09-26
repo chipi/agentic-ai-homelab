@@ -14,8 +14,9 @@ ONE pattern.
 - `multi-provider-router/` — generic shape: same interface over Claude /
   OpenAI / Gemini / local vLLM.
 - `mcp-tool-template/` — minimal FastMCP server example.
-- `eval-harness/` — provider-agnostic harness derived from
-  podcast_scraper's `finale_runner.py`.
+- `eval-harness/` — **moved to [chipi/eval-harness](https://github.com/chipi/eval-harness)**. It outgrew being an
+  example: it is the product, and the 24-model summarisation study is one example of
+  using it. The LiteLLM proxy it calls stays here, in `infra/litellm/`.
 
 ## Convention for new examples
 

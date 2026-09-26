@@ -1,1 +1,0 @@
-This placeholder item represents any input a system might consume, such as a transcript, ticket, document, or diff, and what matters is not its content but that its bytes are frozen and hashed so separate runs can be compared.
