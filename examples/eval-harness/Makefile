@@ -21,7 +21,7 @@ TIER ?= silver
 
 .PHONY: help demo env-check install venv-init \
         dataset-create dataset-materialize reference-create \
-        holdout pair-test \
+        holdout pair-test rank-stability \
         experiment-dry-run experiment-run sweep \
         runs-list baselines-list run-compare leaderboard run-promote \
         validate judge check ci test clean clean-cache
@@ -61,6 +61,8 @@ help:
 	@echo "ASK ONE QUESTION  (free — no API calls)"
 	@echo "  make pair-test DATASET_ID=my_v1 A=<arm> B=<arm> [FAMILY=n]"
 	@echo "      one pair you named BEFORE reading the table, sign-flip permutation"
+	@echo "  make rank-stability DATASET_ID=my_200"
+	@echo "      how many items before the ordering stops moving? measured, not assumed"
 	@echo "  make holdout DATASET_ID=my_200 EXCLUDE=my_20"
 	@echo "      the same significance block, minus the items the smaller set already had"
 	@echo ""
@@ -161,6 +163,13 @@ holdout:
 	$(PYTHON) scripts/holdout_significance.py --dataset-id $(DATASET_ID) \
 	  $(if $(EXCLUDE),--exclude-dataset $(EXCLUDE),) $(if $(METRIC),--metric $(METRIC),) \
 	  $(if $(MATCH),--match $(MATCH),)
+
+# How many items does a ranking actually need? Two DISJOINT halves of n items, ranked
+# independently, correlated against each other — neither treated as truth. Free: it reads
+# runs already on disk. The answer here was sobering, which is the point.
+rank-stability:
+	$(PYTHON) scripts/rank_stability.py --dataset-id $(DATASET_ID) \
+	  $(if $(METRIC),--metric $(METRIC),) $(if $(MATCH),--match $(MATCH),)
 
 # ONE pair, named before the table was read. The leaderboard's Nemenyi line prices in all
 # k(k-1)/2 comparisons; a decision you came in with is one comparison and should not pay

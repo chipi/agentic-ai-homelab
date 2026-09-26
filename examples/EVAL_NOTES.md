@@ -1503,3 +1503,93 @@ not comparable across datasets; ranks and paired deltas are.
 - `qwen_m` ran as the canary before the schema fix was committed, so it records commit
   `5790bb3` where the other seven record `d9def7c`. Its measurement is unaffected — the
   diff is a JSON schema, a `--help` branch and `.gitignore` — but the fingerprints differ.
+
+### 2026-09-26 · 46 — n=200 across all 24 arms. The n=20 ladder mostly did not survive.
+
+4,800 calls, **$4.9270**, r=1, zero arm failures. Entry 45 covered the first eight arms;
+this is the full field, and it changes what the report can claim.
+
+```
+arm            coverage   $/200    n20 -> n200        arm          coverage  $/200   n20 -> n200
+deepseek_m      0.3460   0.0296      1 ->  1          anthropic_m   0.3236  1.1218     4 -> 12
+llama_l         0.3387   0.0344      3 ->  2          gemma_l       0.3204  0.0173    17 -> 13
+llama_m         0.3382   0.0217      5 ->  3          openai_s      0.3171  0.0622    18 -> 14
+llama_s         0.3333   0.0162     16 ->  4          anthropic_l   0.3155  1.9652     9 -> 15
+deepseek_l      0.3325   0.0556     10 ->  5          glm_s         0.3139  0.0110    21 -> 16
+glm_m           0.3320   0.0300     13 ->  6          gemma_m       0.3136  0.0123    22 -> 17
+deepseek_s      0.3285   0.0198      2 ->  7          glm_l         0.3124  0.0750    14 -> 18
+openai_m        0.3268   0.2965     11 ->  8          gemma_s       0.3120  0.0126    20 -> 19
+openai_l        0.3268   0.5352     12 ->  9          qwen_l        0.3108  0.0842    15 -> 20
+mistral_s       0.3255   0.0099      6 -> 10          mistral_l     0.3080  0.1167    24 -> 21
+anthropic_s     0.3238   0.2611      8 -> 11          qwen_s        0.3068  0.0099     7 -> 22
+                                                      mistral_m     0.3043  0.0871    19 -> 23
+                                                      qwen_m        0.3030  0.0417    23 -> 24
+```
+
+**Spearman between the two orderings: +0.667.** Only `deepseek_m` kept its place. `qwen_s`
+fell 15, `llama_s` rose 12, `anthropic_m` fell 8, `anthropic_l` fell 6. Anyone who had
+shortlisted the n=20 top five would have carried two arms belonging in the bottom half and
+missed two belonging at the top. That is the cost of selecting on 20 articles, measured.
+
+**THE PRICE QUESTION IS ANSWERED, AND IT WAS NOT UNANSWERABLE — 20 ARTICLES COULD NOT
+ANSWER IT.** Four pairs, named before the last arm finished, Holm over the family:
+
+```
+                                     all 200                180 held out
+  deepseek_m > anthropic_l  (66x)   +0.0306 p=0.0000        +0.0308 p=0.0000
+  deepseek_m > anthropic_m  (38x)   +0.0224 p=0.0006        +0.0224 p=0.0010
+  deepseek_m > openai_l     (18x)   +0.0193 p=0.0032        +0.0171 p=0.0153
+  deepseek_s > qwen_m    (control)  +0.0255 p=0.0000        +0.0208 p=0.0003
+```
+
+All four separate on `coverage` in both cuts; three of four on `rougeLsum`, where
+`> openai_l` is nowhere (+0.0037, p=0.47). **CORRECTION to EVAL_REPORT section 3.1b**, which
+had `deepseek_m` vs `anthropic_l` at p=0.52, "not separated". $1.9652 buys 15th place;
+$0.0296 buys 1st.
+
+**Resolution, and its limit.** `coverage` goes from 1 of 276 separated pairs at n=20 to
+**34 of 276** (CD 8.13 -> 2.57), and 25 of 276 on the 180 held-out articles. The pairs that
+separate are not inside the top six. Per metric: summary_words 208, grounding 172,
+concision 146, rouge1 97, rougeLsum 95, coverage 34 — the same length-dependence ordering as
+at n=20, so that is a property of the metrics, not of the sample.
+
+**Ten times the data does not stabilise a ladder** (`rank_stability.py`, 24 arms, two
+disjoint halves per draw):
+
+```
+  n per half    rho(A,B)   P(same winner)   median rank move
+      10          0.224        0.11              4.68
+      20          0.346        0.15              3.75
+      50          0.579        0.27              2.55
+     100          0.753        0.58              1.56
+```
+
+At 20 articles two independent evals agree at 0.35 and crown the same arm 15% of the time
+(chance among 24 is 4%). At 100, still 0.753. What is stable is MEMBERSHIP: `deepseek_m`
+P(top 5) = 1.00, `llama_l` 0.95, `llama_m` 0.90, and everything from 13th down 0.00. The
+correct output is a set, not a podium.
+
+**The frontier shrank, and that is a warning about the statistics-free part too.** 7 of 24
+arms on coverage/cost/latency, against 10 at n=20. Three arms left it because more data
+moved their quality estimate — the elimination step has no p-value but it still depends on
+the sample.
+
+**Variance:** 67.8% between articles, 1.0% between arms, 31.2% residual. Which article you
+drew moves the number ~68x more than which model wrote the summary.
+
+**NOT ESTABLISHED.** r=1, so no within-arm variance here — the 9.8% determinism figure is
+still the r=3 sweep's and was not re-measured. Silver calibration was not re-run. All 24
+runs carry `harness.dirty: true` (untracked configs at launch; fixed procedurally for the
+last 16, not the first 8, so the two halves sit on different commits). And `coverage`'s
+arm-level rho(words) came out +0.07 here against +0.28 at n=20 — the earlier report called
+it "not the length-controlled facet" on that basis, which 24 points could not support
+either way.
+
+**An operational note.** The sweep stopped at 12 of 24 arms on a LiteLLM budget ceiling:
+`Budget has been exceeded! Key=eval-harness Current cost: 27.799276161852, Max budget:
+20.0`. Warm-up fails before the first billable call, so nothing was lost and nothing was
+spent on the failures. Worth recording because the harness's own `EVAL_MAX_COST_USD` is a
+PER-RUN cap and knows nothing about the proxy key's budget; the dry-run prints the former
+and reads as reassurance. `env_check` could query `/key/info` and print spend against
+budget. Also: the enforced figure (27.80) was exactly 2x what `/key/info` reported as spend
+(13.90), so raising the ceiling by the apparent headroom would have under-shot.
