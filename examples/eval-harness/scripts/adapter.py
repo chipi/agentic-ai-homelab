@@ -40,6 +40,13 @@ class Result:
     cost_usd: Optional[float] = None
     latency_ms: Optional[float] = None
     extra: Dict[str, float] = field(default_factory=dict)
+    # Raw provider metadata, kept verbatim and never averaged: the `usage` object,
+    # `finish_reason`, the model string the provider actually reports back. Anything
+    # numeric belongs in `extra` (it becomes a metric); anything you want preserved
+    # for forensics belongs here. Without this the harness could not answer "were
+    # reasoning tokens billed?" or "was this output cut off at max_tokens?" -- both
+    # of which silently corrupt a comparison.
+    meta: Dict[str, Any] = field(default_factory=dict)
 
 
 # ── 1. YOUR SYSTEM ───────────────────────────────────────────────────────────
@@ -82,7 +89,7 @@ def _with_retries(fn, text: str, params: Dict[str, Any]) -> "Result":
     raised immediately, because retrying those just spends time and money
     failing. Tune with EVAL_MAX_RETRIES.
     """
-    attempts = max(1, env_int("EVAL_MAX_RETRIES", 3))
+    attempts = max(1, env_int("EVAL_MAX_RETRIES", 8))
     transient = ("429", "500", "502", "503", "504", "overloaded", "timeout",
                  "rate limit", "connection", "temporarily")
     last: Optional[Exception] = None
@@ -133,12 +140,32 @@ def score(output: str, reference: Optional[str]) -> Dict[str, float]:
 def _echo(text: str, params: Dict[str, Any]) -> Result:
     """No network. Returns the first N sentences — a stand-in 'summary'.
 
-    Deterministic on purpose: `--repeat 3` on this provider reports spread
-    0.000000, which is the reading you want to contrast against a real model.
+    Deterministic BY DEFAULT: `--repeat 3` reports spread 0.000000, which is the
+    reading you want to contrast against a real model.
+
+    `noise` (0.0 default) makes it genuinely non-deterministic by dropping each word
+    with that probability, so repeats differ in both output_words and overlap_f1.
+
+    That parameter had to be added. `data/configs/demo_noisy.yaml` set `noise: 0.05`
+    and described itself as showing "a non-zero spread — and `make run-compare` can
+    flag a delta as noise", but nothing read the key: measured at REPEAT=3 it reported
+    overlap_f1 spread=0.000000, deterministic. The bundled example for the harness's
+    headline discipline — a delta below the arm's own jitter is not an improvement —
+    demonstrated the opposite, silently, to anyone who followed the README.
     """
     n = int(params.get("sentences", 3))
     parts = [s.strip() for s in text.replace("\n", " ").split(".") if s.strip()]
-    return Result(output=". ".join(parts[:n]) + ("." if parts else ""), cost_usd=0.0)
+    out = ". ".join(parts[:n]) + ("." if parts else "")
+
+    noise = float(params.get("noise", 0.0))
+    if noise > 0.0:
+        # Unseeded on purpose: a seeded "noisy" arm is just a slower deterministic one,
+        # and the whole point is that two repeats of the SAME input disagree.
+        kept = [w for w in out.split() if random.random() >= noise]
+        # Never return nothing — an empty output scores 0.0 and would read as a broken
+        # arm rather than a noisy one.
+        out = " ".join(kept) or out
+    return Result(output=out, cost_usd=0.0)
 
 
 def _anthropic(text: str, params: Dict[str, Any]) -> Result:

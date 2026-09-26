@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,7 +64,13 @@ SOURCES = DATA / "sources"
 DATASETS = DATA / "datasets"
 MATERIALIZED = DATA / "materialized"
 CONFIGS = DATA / "configs"
-RUNS = DATA / "runs"
+# Where run artifacts land. Redirectable via EVAL_RUNS_DIR so a throwaway pass -- a
+# smoke check after a harness change -- cannot add repeats to the arms of a real sweep
+# and silently move numbers that have already been reported. ONLY runs are redirected:
+# sources, datasets and references stay shared, so a smoke run is scored against the
+# same references as the real thing and is therefore actually a check of the real path.
+_runs_override = os.environ.get("EVAL_RUNS_DIR", "").strip()
+RUNS = Path(_runs_override).expanduser() if _runs_override else DATA / "runs"
 BASELINES = DATA / "baselines"
 REFERENCES = DATA / "references"
 
@@ -125,7 +132,13 @@ def build_info() -> Dict[str, Any]:
 
     declared = os.environ.get("EVAL_BUILD_REF")
     if declared:
-        return {"ref": declared, "dirty": False, "source": "EVAL_BUILD_REF"}
+        # `dirty` was hardcoded False here, which asserts "the thing under test was built
+        # from a clean tree" on zero evidence -- we are being handed a string by an
+        # environment variable and cannot see the tree it came from. None means unknown,
+        # and unknown is the truth. It also sat in the same run record as
+        # `instrument.harness.dirty: true`, two flags with the same name meaning different
+        # things and appearing to contradict each other.
+        return {"ref": declared, "dirty": None, "source": "EVAL_BUILD_REF"}
 
     def git(*args: str) -> Optional[str]:
         try:
@@ -164,3 +177,88 @@ def iter_runs() -> Iterable[Path]:
 
 def die(msg: str) -> "NoReturn":  # type: ignore[valid-type]
     raise SystemExit(f"ERROR: {msg}")
+
+
+# ── what a metric MEANS ──────────────────────────────────────────────────────
+# These lived in leaderboard.py, which used them to pick a sort key and to warn
+# when someone ranked on a descriptive metric. compare_runs.py had no idea they
+# existed and judged every metric with one hardcoded direction:
+#
+#     verdict = "better" if d > 0 else "worse"
+#
+# So a run that got FASTER was reported "worse", and one that got more EXPENSIVE
+# would have been reported "better". Two scripts in the same harness disagreed
+# about what a number means, which is worse than either being wrong alone —
+# whichever one you read last is the one you believe.
+
+#: Lower is better. Cost and token counts.
+COST_KEYS = (
+    "total_cost_usd",
+    "cost_usd",
+    "total_tokens_in",
+    "total_tokens_out",
+    "tokens_in",
+    "tokens_out",
+)
+#: Lower is better. Wall time.
+SPEED_KEYS = ("latency_ms",)
+#: Neither better nor worse: they say what the output WAS, not whether it was
+#: good. Ranking by one puts the most verbose arm on top — which is how a
+#: leaderboard ends up confidently answering the wrong question. Comparing two
+#: of them and calling the bigger one "better" is the same error, per-metric.
+DESCRIPTIVE_KEYS = ("output_words", "output_chars", "lines", "chars", "n_items")
+
+
+def lower_is_better(metric: str) -> bool:
+    """Whether a DECREASE in ``metric`` is an improvement (cost, tokens, latency)."""
+    return metric in COST_KEYS or metric in SPEED_KEYS or metric.startswith("total_tokens")
+
+
+def is_descriptive(metric: str) -> bool:
+    """Whether ``metric`` describes the output rather than judging it.
+
+    A direction cannot be assigned to these, so callers must say "changed"
+    rather than "better" or "worse".
+    """
+    return metric in DESCRIPTIVE_KEYS
+
+
+def verdict_for(metric: str, delta: float) -> str:
+    """"better" / "worse" / "changed" / "identical" for ``delta`` on ``metric``.
+
+    The one place that decides what a movement MEANS. Descriptive metrics get
+    "changed" on purpose: calling a longer output "better" is a claim the number
+    cannot support, and it is exactly the claim a reader will take away.
+    """
+    if delta == 0:
+        return "identical"
+    if is_descriptive(metric):
+        return "changed"
+    improved = delta < 0 if lower_is_better(metric) else delta > 0
+    return "better" if improved else "worse"
+
+
+def classify_metrics(extra_kinds: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """metric -> "cost" | "speed" | "descriptive" | "quality", with adapter overrides.
+
+    The built-in tuples only know the metrics the bundled adapter emits. An example that
+    brings its own scorer brings its own vocabulary — `compression`, `length_vs_reference`,
+    `summary_words` are descriptive; `grounding` and `rouge*` are quality — and the core
+    cannot know that.
+
+    It showed up as a wrong answer rather than a missing feature: the first real sweep
+    ranked ten models by `compression`, because the sort key defaults to the first metric
+    not otherwise classified and `compression` sorts before `grounding` and `rouge1`. The
+    leaderboard's own "you are ranking on a descriptive metric" warning stayed silent,
+    because by its tuples compression was a quality metric.
+    """
+    kinds: Dict[str, str] = {}
+    for k in COST_KEYS:
+        kinds[k] = "cost"
+    for k in SPEED_KEYS:
+        kinds[k] = "speed"
+    for k in DESCRIPTIVE_KEYS:
+        kinds[k] = "descriptive"
+    if extra_kinds:
+        kinds.update(extra_kinds)
+    return kinds

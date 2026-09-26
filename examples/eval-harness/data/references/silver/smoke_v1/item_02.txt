@@ -1,0 +1,1 @@
+Sample item 02 is a placeholder for any input a system consumes, and what matters is not its content but that its bytes are frozen and hashed so different runs can be compared.

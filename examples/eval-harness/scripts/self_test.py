@@ -11,12 +11,18 @@ are tested rather than asserted in a README.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+#: The harness root. HERE is scripts/, which is what the sys.path inserts below want — but
+#: a data check written against HERE scans scripts/data/, which does not exist, so it finds
+#: nothing and passes for the wrong reason. That is exactly how the first version of
+#: test_no_absolute_home_path_in_committed_data shipped green while checking nothing.
+ROOT = HERE.parent
 ROOT = HERE.parent
 PY = sys.executable
 failures: list[str] = []
@@ -78,9 +84,293 @@ def test_compare_refuses_cross_dataset() -> None:
 def test_cli_help_works() -> None:
     for script in ("dataset_create", "materialize", "experiment_run", "compare_runs",
                    "promote_baseline", "validate_tree", "list_runs", "reference_create",
-                   "leaderboard", "sweep", "env_check"):
+                   "leaderboard", "sweep", "env_check", "holdout_significance",
+                   "pair_test", "rank_stability"):
         r = run(f"scripts/{script}.py", "--help")
         check(f"{script}.py --help", r.returncode == 0, r.stderr.strip()[:80])
+
+
+def test_metric_direction_is_not_always_up() -> None:
+    """Cost and latency improve by going DOWN.
+
+    compare_runs.py judged every metric with `"better" if d > 0 else "worse"`, so a run
+    that got faster or cheaper was reported as worse — while leaderboard.py, in the same
+    harness, already knew these keys were lower-is-better. Two scripts disagreeing about
+    what a number means is worse than either being wrong alone: whichever you read last
+    is the one you believe.
+    """
+    sys.path.insert(0, str(HERE / "scripts"))
+    from _common import verdict_for
+
+    check("direction: faster is better", verdict_for("latency_ms", -0.5) == "better")
+    check("direction: slower is worse", verdict_for("latency_ms", 0.5) == "worse")
+    check("direction: cheaper is better", verdict_for("cost_usd", -0.1) == "better")
+    check("direction: dearer is worse", verdict_for("cost_usd", 0.1) == "worse")
+    # The quality metric keeps the ordinary orientation, or the fix would have
+    # inverted the thing that actually matters.
+    check("direction: higher quality is better", verdict_for("overlap_f1", 0.05) == "better")
+    check("direction: lower quality is worse", verdict_for("overlap_f1", -0.05) == "worse")
+    check("direction: no movement is identical", verdict_for("cost_usd", 0.0) == "identical")
+
+
+def test_descriptive_metrics_get_no_verdict() -> None:
+    """A longer output is not a better one, and the table must not imply it is."""
+    sys.path.insert(0, str(HERE / "scripts"))
+    from _common import verdict_for
+
+    check("descriptive: more words is 'changed'", verdict_for("output_words", 12) == "changed")
+    check("descriptive: fewer words is 'changed'", verdict_for("output_words", -12) == "changed")
+
+
+def test_leaderboard_declares_silver_from_any_run() -> None:
+    """The SILVER caveat must survive a config whose FIRST run predates the reference.
+
+    leaderboard.py read `runs[0].get("reference_tier")`. A config with an early unscored
+    run therefore printed a silver-derived quality score with no disclaimer — a
+    model-generated number shown as if it were ground truth, which is the single thing
+    this table must never do.
+    """
+    rows = [
+        {"reference_tier": None},
+        {"reference_tier": "silver"},
+    ]
+    tiers = {r.get("reference_tier") for r in rows if r.get("reference_tier")}
+    check("leaderboard: silver seen behind an unscored first run", "silver" in tiers)
+    check(
+        "leaderboard: no tier at all stays unlabelled",
+        {r.get("reference_tier") for r in [{"reference_tier": None}] if r.get("reference_tier")}
+        == set(),
+    )
+
+
+def test_no_absolute_home_path_in_committed_data() -> None:
+    """A dataset describes a SELECTION, not the machine that built it.
+
+    dataset_create.py wrote `args.source_dir.as_posix()` — the resolved, absolute path — so
+    every dataset in this repo carried "/Users/<name>/projects/..." into git. That leaks
+    whoever ran it, and makes a file that is meant to travel between machines describe one.
+    Only `created_at` and `source_dir` differ after the fix; every source_sha256 is
+    unchanged, which is what actually freezes a dataset.
+    """
+    import re
+
+    home = re.compile(r"/(?:Users|home)/(?!runner\b|operator\b|user\b)[A-Za-z0-9_.-]+/")
+    # TRACKED files only -- which is what "committed" means, and what this check is for.
+    # It used to rglob the whole working tree, so it failed on `data/runs/`, a GITIGNORED
+    # directory whose contents can never be committed by definition. A test that fails on
+    # files outside its own subject teaches people to ignore it.
+    #
+    # This is not a narrowing to make a failure go away: the cause -- experiment_run.py
+    # writing an absolute adapter path into every metrics.json -- is fixed at source in
+    # `_portable_id`. This check still catches the real case, including someone choosing
+    # to track `data/runs/` (the private eval repo does exactly that).
+    import subprocess  # noqa: PLC0415
+
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "-z", "--", "data"],
+            cwd=ROOT, capture_output=True, text=True, timeout=30, check=True,
+        ).stdout.split("\0")
+        tracked = [ROOT / f for f in listed if f.endswith(".json")]
+    except Exception:  # noqa: BLE001 -- no git available: fall back to scanning everything
+        tracked = list((ROOT / "data").rglob("*.json"))
+    offenders = []
+    for d in tracked:
+        if ".partial" in d.parts or not d.is_file():
+            continue
+        try:
+            if home.search(d.read_text(encoding="utf-8")):
+                offenders.append(str(d.relative_to(ROOT)))
+        except OSError:
+            continue
+    check("no home path in committed data/", not offenders, f"offenders: {offenders[:5]}")
+
+
+def test_no_committed_artifact_depends_on_an_ignored_one() -> None:
+    """The rule that decides what ships.
+
+    sources, datasets, configs, references and baselines are COMMITTED. materialized and
+    runs are IGNORED, because a command regenerates them. The one place those two sets
+    touched was a baseline's `promoted_from`, which named a run — so a committed artifact
+    depended on an ignored one, and V6 ("every baseline's source run still exists") could
+    not hold on a fresh clone OR after `make clean`, which deletes runs while explicitly
+    keeping baselines.
+
+    Resolved by shipping ONE worked example run, force-included in .gitignore, so a fresh
+    checkout sees a walked loop and the committed baseline resolves. This asserts the
+    dependency stays inside the committed set.
+    """
+    import subprocess
+
+    baselines = sorted((ROOT / "data" / "baselines").glob("*.json"))
+    check("consistency: a baseline ships", bool(baselines), "none found")
+    for b in baselines:
+        promoted_from = json.loads(b.read_text()).get("promoted_from")
+        if not promoted_from:
+            continue
+        run_dir = ROOT / "data" / "runs" / promoted_from
+        tracked = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", str(run_dir / "metrics.json")],
+            cwd=ROOT, capture_output=True,
+        ).returncode == 0
+        check(
+            f"consistency: {b.name} -> a TRACKED run",
+            tracked,
+            f"{promoted_from} is not tracked — a committed baseline citing an ignored run "
+            f"breaks V6 on any clean checkout",
+        )
+
+
+def test_fingerprint_core_imports_no_ml_framework() -> None:
+    """The core must stay usable by someone who never installs an ML framework.
+
+    The whole reason the model half is a hook rather than an inspection: an LLM-only eval,
+    or a regex baseline, should not pull in torch. This asserts the module text itself
+    never imports one — a runtime check would pass simply because the framework is absent.
+    """
+    import ast
+
+    # The AST, not a substring search: this module's own docstring says "must never import
+    # torch", and grepping for that phrase failed the test on its own prose. A test that
+    # reads documentation as code is worse than no test — it trains you to ignore it.
+    tree = ast.parse((HERE / "_fingerprint.py").read_text(encoding="utf-8"))
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module.split(".")[0])
+    banned = {"torch", "transformers", "sklearn", "numpy", "openai", "anthropic", "datasets"}
+    leaked = sorted(imported & banned)
+    check("fingerprint core: imports no ML framework or SDK", not leaked, f"imports {leaked}")
+    check("fingerprint core: stdlib only", "hashlib" in imported and "platform" in imported)
+
+
+def test_fingerprint_reports_library_versions_without_importing_them() -> None:
+    """importlib.metadata reads distribution metadata off disk. So the core can say
+    "torch 2.2.2" while having no torch dependency and never loading it."""
+    sys.path.insert(0, str(HERE))
+    from _fingerprint import _installed_versions
+
+    before = "torch" in sys.modules
+    versions = _installed_versions()
+    check("fingerprint: version lookup imports nothing", ("torch" in sys.modules) == before)
+    check("fingerprint: reports something installed", isinstance(versions, dict))
+
+
+def test_fingerprint_does_not_invent_a_revision() -> None:
+    """A model the adapter cannot version is recorded as unversioned.
+
+    Substituting a plausible-looking value would make two runs of "the same model" appear
+    provably identical when nothing proved it. Same error as reporting 0.0 for a metric
+    that was never measured.
+    """
+    sys.path.insert(0, str(HERE))
+    from _fingerprint import _model_identity
+
+    no_rev = _model_identity(lambda _p: {"id": "some-local-blob"}, {})
+    check("fingerprint: absent revision stays None", no_rev["revision"] is None)
+    check("fingerprint: absent revision is labelled", no_rev["revision_source"] == "unavailable")
+    none_hook = _model_identity(None, {})
+    check("fingerprint: no hook -> identity_declared False",
+          none_hook == {"identity_declared": False})
+
+
+def test_a_broken_fingerprint_hook_does_not_kill_the_run() -> None:
+    """Fingerprinting describes a run; it is not a precondition for one."""
+    sys.path.insert(0, str(HERE))
+    from _fingerprint import _model_identity
+
+    def boom(_params):
+        raise RuntimeError("no model here")
+
+    got = _model_identity(boom, {})
+    check("fingerprint: broken hook is caught", got["identity_declared"] is False)
+
+    # ── retries ──────────────────────────────────────────────────────────────
+    # Guarded here because the absence of these was invisible: EVAL_MAX_RETRIES was
+    # honoured by one adapter and not by the one doing the work, and two sweeps each
+    # lost a whole arm to one upstream 429 before anybody noticed.
+    from _retry import call_with_retries, is_transient  # noqa: PLC0415
+
+    waits: list = []
+    calls = {"n": 0}
+
+    def _flaky(_x):
+        calls["n"] += 1
+        if calls["n"] < 4:
+            raise RuntimeError("Error code: 429 - rate limit")
+        return "done"
+
+    got_val = call_with_retries(_flaky, ("x",), attempts=6, sleep=waits.append)
+    check("retry: transient recovers", got_val == "done")
+    check("retry: backoff doubles", [round(w) for w in waits] == [1, 2, 4])
+
+    waits.clear()
+
+    def _always(_x):
+        raise RuntimeError("503 overloaded")
+
+    try:
+        call_with_retries(_always, ("x",), attempts=9, max_delay=8, sleep=waits.append)
+        check("retry: exhausts and raises", False)
+    except RuntimeError:
+        check("retry: exhausts and raises", True)
+    check("retry: delay capped", waits and max(waits) <= 8.5 and len(waits) == 8)
+
+    waits.clear()
+
+    def _bad_key(_x):
+        # the trap: a fatal error whose text also contains a transient-sounding phrase
+        raise RuntimeError("401 invalid api key, please try again later")
+
+    try:
+        call_with_retries(_bad_key, ("x",), attempts=5, sleep=waits.append)
+        check("retry: fatal raises at once", False)
+    except RuntimeError:
+        check("retry: fatal raises at once", waits == [])
+
+    waits.clear()
+
+    def _exit(_x):
+        raise SystemExit("KEY not set")
+
+    try:
+        call_with_retries(_exit, ("x",), attempts=5, sleep=waits.append)
+        check("retry: SystemExit never retried", False)
+    except SystemExit:
+        check("retry: SystemExit never retried", waits == [])
+
+    check("retry: adapter marker honoured",
+          is_transient(RuntimeError("model is warming up"), extra=("model is warming up",)))
+    check("retry: unknown error is not transient", not is_transient(ValueError("banana")))
+    check("fingerprint: broken hook records why", "no model here" in got.get("error", ""))
+
+
+def test_fingerprint_hash_changes_when_anything_does() -> None:
+    """The hash is the one-glance answer to "did anything else move?"."""
+    sys.path.insert(0, str(HERE))
+    from _fingerprint import build_fingerprint, differing_paths
+
+    ds = {"dataset_id": "d1", "items": [{"item_id": "i1", "source_sha256": "aaa"}]}
+    kw = dict(root=HERE.parent, dataset=ds, reference_id=None, reference_tier=None,
+              config_id="c1", adapter_id="scripts/adapter.py",
+              adapter_path=HERE / "adapter.py", model_hook=None)
+    base = build_fingerprint(params={"sentences": 1}, **kw)
+    same = build_fingerprint(params={"sentences": 1}, **kw)
+    moved = build_fingerprint(params={"sentences": 2}, **kw)
+    check("fingerprint: stable across identical inputs", base["hash"] == same["hash"])
+    check("fingerprint: changes when a param moves", base["hash"] != moved["hash"])
+    check("fingerprint: names the field that moved",
+          differing_paths(base, moved) == ["arm.params.sentences"],
+          f"got {differing_paths(base, moved)}")
+    # Different DATA must move it too — dataset_id is a name, the item hashes are identity.
+    other = build_fingerprint(params={"sentences": 1},
+                              **{**kw, "dataset": {"dataset_id": "d1",
+                                                   "items": [{"item_id": "i1",
+                                                              "source_sha256": "bbb"}]}})
+    check("fingerprint: same dataset_id, different bytes -> different hash",
+          base["hash"] != other["hash"])
 
 
 def main() -> int:
@@ -90,6 +380,16 @@ def main() -> int:
         test_price_needs_all_four_inputs,
         test_score_handles_absent_reference,
         test_compare_refuses_cross_dataset,
+        test_metric_direction_is_not_always_up,
+        test_descriptive_metrics_get_no_verdict,
+        test_leaderboard_declares_silver_from_any_run,
+        test_no_absolute_home_path_in_committed_data,
+        test_no_committed_artifact_depends_on_an_ignored_one,
+        test_fingerprint_core_imports_no_ml_framework,
+        test_fingerprint_reports_library_versions_without_importing_them,
+        test_fingerprint_does_not_invent_a_revision,
+        test_a_broken_fingerprint_hook_does_not_kill_the_run,
+        test_fingerprint_hash_changes_when_anything_does,
         test_cli_help_works,
     ):
         fn()

@@ -8,16 +8,20 @@
 # experiment-dry-run, experiment-run, run-compare, run-promote, runs-list,
 # baselines-list, validate, check, ci.
 
-PYTHON ?= python3
+# Prefer the venv `make install` creates, so `make install` is not immediately followed by
+# having to pass PYTHON=.venv/bin/python to every other target. Overridable as before.
+PYTHON ?= $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 VENV ?= .venv
 DATASET_ID ?= smoke_v1
 CONFIG ?= data/configs/demo.yaml
 REPEAT ?= 1
+OUT ?= data/runs-rescored
 NOISE ?=
 TIER ?= silver
 
 .PHONY: help demo env-check install venv-init \
         dataset-create dataset-materialize reference-create \
+        holdout pair-test rank-stability \
         experiment-dry-run experiment-run sweep \
         runs-list baselines-list run-compare leaderboard run-promote \
         validate judge check ci test clean clean-cache
@@ -44,6 +48,24 @@ help:
 	@echo "  make experiment-run     CONFIG=data/configs/arm_a.yaml REPEAT=3"
 	@echo "  make sweep CONFIGS=\"data/configs/arm_*.yaml\" REPEAT=2"
 	@echo ""
+	@echo "TRUST THE REFERENCE?  (free — no API calls)"
+	@echo "  make silver-calibrate DATASET_ID=my_v1 REF_MATCH=_v1 ARM_MATCH=_v2"
+	@echo "      does a model-authored reference rank arms the way GOLD does?"
+	@echo "      every arm on disk is tried as the silver author; read it against"
+	@echo "      the ceiling it prints, not against 1.0"
+	@echo ""
+	@echo "RE-MEASURE  (free — recomputes scores from stored outputs, no API calls)"
+	@echo "  make rescore DATASET_ID=my_v1 MATCH=_v2   after changing a metric"
+	@echo "  EVAL_RUNS_DIR=data/runs-rescored make leaderboard DATASET_ID=my_v1"
+	@echo ""
+	@echo "ASK ONE QUESTION  (free — no API calls)"
+	@echo "  make pair-test DATASET_ID=my_v1 A=<arm> B=<arm> [FAMILY=n]"
+	@echo "      one pair you named BEFORE reading the table, sign-flip permutation"
+	@echo "  make rank-stability DATASET_ID=my_200"
+	@echo "      how many items before the ordering stops moving? measured, not assumed"
+	@echo "  make holdout DATASET_ID=my_200 EXCLUDE=my_20"
+	@echo "      the same significance block, minus the items the smaller set already had"
+	@echo ""
 	@echo "DECIDE"
 	@echo "  make leaderboard DATASET_ID=my_v1        rank every arm: quality, cost, speed"
 	@echo "  make run-compare BASE=<run> CAND=<run> NOISE=<measured spread>"
@@ -51,6 +73,11 @@ help:
 	@echo ""
 	@echo "INSPECT / GATE"
 	@echo "  make runs-list | baselines-list | validate | judge"
+	@echo ""
+	@echo "SCOPING  (a dataset accumulates arms across config versions)"
+	@echo "  make leaderboard DATASET_ID=my_v1 MATCH=_v2   only v2 arms"
+	@echo "  EVAL_RUNS_DIR=<dir>                           run/read elsewhere, e.g. a"
+	@echo "                                                smoke pass or a rescore"
 	@echo "  make check                    validate + test"
 	@echo ""
 	@echo "Read docs/INTEGRATION.md first, then docs/RUNBOOK.md."
@@ -108,8 +135,50 @@ runs-list:
 baselines-list:
 	@$(PYTHON) scripts/list_runs.py --baselines
 
+# Re-score finished runs from their stored outputs. No API calls, no money: the outputs
+# are the expensive part, the scores are arithmetic over them. Writes to a SEPARATE
+# directory so the originals -- the record of what was measured and paid for -- stay put.
+# Is a MODEL-AUTHORED reference a usable stand-in for a trusted one? Free: every arm on
+# disk is already a candidate silver author, since "author silver with model X using the
+# same prompt and settings" is exactly what X produced. Read the result against the
+# CEILING it prints -- two runs against the same gold do not agree perfectly either.
+silver-calibrate:
+	$(PYTHON) scripts/silver_calibrate.py --dataset-id $(DATASET_ID) \
+	  $(if $(REF_MATCH),--ref-match $(REF_MATCH),) $(if $(ARM_MATCH),--arm-match $(ARM_MATCH),) \
+	  $(if $(METRIC),--metric $(METRIC),) $(if $(GROUP_BY),--group-by $(GROUP_BY),)
+
+rescore:
+	$(PYTHON) scripts/rescore.py --dataset-id $(DATASET_ID) $(if $(MATCH),--match $(MATCH),) --out $(OUT)
+	@echo ""
+	@echo "  EVAL_RUNS_DIR=$(OUT) make leaderboard DATASET_ID=$(DATASET_ID)"
+
+
 leaderboard:
-	$(PYTHON) scripts/leaderboard.py --dataset-id $(DATASET_ID) $(ARGS)
+	$(PYTHON) scripts/leaderboard.py --dataset-id $(DATASET_ID) $(if $(MATCH),--match $(MATCH),) $(ARGS)
+
+# A dataset grown from a smaller one contains it. Arms chosen on the small set are being
+# re-measured on a set that still holds the items that chose them, so "it replicated" can
+# only be read on the rest.
+holdout:
+	$(PYTHON) scripts/holdout_significance.py --dataset-id $(DATASET_ID) \
+	  $(if $(EXCLUDE),--exclude-dataset $(EXCLUDE),) $(if $(METRIC),--metric $(METRIC),) \
+	  $(if $(MATCH),--match $(MATCH),)
+
+# How many items does a ranking actually need? Two DISJOINT halves of n items, ranked
+# independently, correlated against each other — neither treated as truth. Free: it reads
+# runs already on disk. The answer here was sobering, which is the point.
+rank-stability:
+	$(PYTHON) scripts/rank_stability.py --dataset-id $(DATASET_ID) \
+	  $(if $(METRIC),--metric $(METRIC),) $(if $(MATCH),--match $(MATCH),)
+
+# ONE pair, named before the table was read. The leaderboard's Nemenyi line prices in all
+# k(k-1)/2 comparisons; a decision you came in with is one comparison and should not pay
+# for the 275 nobody made. FAMILY=n applies Holm when you tested n pairs together.
+pair-test:
+	@test -n "$(A)" -a -n "$(B)" || { echo 'A=<config_id> B=<config_id> are required'; exit 1; }
+	$(PYTHON) scripts/pair_test.py --dataset-id $(DATASET_ID) --a $(A) --b $(B) \
+	  $(if $(METRIC),--metric $(METRIC),) $(if $(EXCLUDE),--exclude-dataset $(EXCLUDE),) \
+	  $(if $(FAMILY),--family $(FAMILY),) $(if $(RUNS_DIR),--runs-dir $(RUNS_DIR),)
 
 run-compare:
 	@test -n "$(BASE)" || { echo "BASE=<run_id> is required (see: make runs-list)"; exit 1; }
@@ -143,8 +212,20 @@ judge:
 
 # ── housekeeping ────────────────────────────────────────────────────────────
 clean:
-	rm -rf data/materialized/* data/runs/* out/
-	@echo "cleaned materialized/, runs/ and out/ — sources, datasets, references and baselines kept"
+	# NEVER delete a tracked file. `rm -rf data/runs/*` used to take data/runs/README.md with
+	# it — the file documenting what a run directory IS — while the line below reassured you
+	# about the directories it had NOT touched; four per-directory READMEs were lost that way.
+	# It would now also delete the shipped worked example, and with it the run the committed
+	# baseline points at, so `make clean` would leave the tree failing its own V6.
+	#
+	# "Is it tracked?" is the right question, not "is it named README.md": git already knows
+	# which files someone decided to keep.
+	@find data/materialized data/runs -mindepth 1 -maxdepth 1 -print 2>/dev/null \
+	  | while read -r f; do \
+	      git ls-files --error-unmatch "$$f" >/dev/null 2>&1 || rm -rf "$$f"; \
+	    done
+	@rm -rf out/
+	@echo "cleaned materialized/, runs/ and out/ — every TRACKED file kept (READMEs, the shipped worked example, sources, datasets, references, baselines)"
 
 clean-cache:
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true

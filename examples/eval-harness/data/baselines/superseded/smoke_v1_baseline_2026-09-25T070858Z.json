@@ -1,0 +1,20 @@
+{
+  "baseline_id": "smoke_v1_baseline",
+  "build": {
+    "dirty": false,
+    "ref": "eval-harness-scenario",
+    "source": "EVAL_BUILD_REF"
+  },
+  "dataset_id": "smoke_v1",
+  "promoted_at": "2026-09-25T07:08:58Z",
+  "promoted_from": "demo_v1_20260925T070849Z",
+  "reason": "The bundled worked example: the echo arm scored against the Opus silver reference for smoke_v1. Ships so a fresh checkout sees a complete loop \u2014 sources, dataset, config, reference, run, baseline \u2014 rather than an empty tree and a README describing one.",
+  "scores": {
+    "cost_usd": 0.0,
+    "latency_ms": 0.017,
+    "output_words": 34.8,
+    "overlap_f1": 0.415895,
+    "total_cost_usd": 0.0
+  },
+  "supersedes": null
+}

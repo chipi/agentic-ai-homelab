@@ -1,3 +1,6 @@
+# A second dataset_id, so `run-compare` has something to refuse across.
 config_id: tiny_v1
 dataset_id: tiny_v1
-params: {length_norm: 400, noise: 0.0}
+params:
+  provider: echo
+  sentences: 1

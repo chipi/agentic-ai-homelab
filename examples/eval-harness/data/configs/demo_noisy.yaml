@@ -1,7 +1,17 @@
-# The same arm with run-to-run variance, so `make experiment-run REPEAT=3`
-# shows a non-zero spread — and `make run-compare` can flag a delta as noise.
+# The NON-DETERMINISTIC arm. Run it with REPEAT=3 and compare against demo.yaml:
+#
+#   make experiment-run CONFIG=data/configs/demo.yaml       REPEAT=3   # spread 0.000000
+#   make experiment-run CONFIG=data/configs/demo_noisy.yaml REPEAT=3   # a real floor
+#
+# That contrast is the harness's central discipline — a delta smaller than the arm's own
+# run-to-run spread is not an improvement — and it did not work until `noise` became a
+# parameter the echo provider actually reads. Before that, this file set noise: 0.05,
+# described itself as showing "a non-zero spread", and measured 0.000000 on every quality
+# metric. The example for the rule demonstrated its opposite.
 config_id: demo_noisy_v1
 dataset_id: smoke_v1
 params:
-  length_norm: 400
+  provider: echo
+  sentences: 3
+  # Each word is dropped with this probability, so two repeats of the same input disagree.
   noise: 0.05

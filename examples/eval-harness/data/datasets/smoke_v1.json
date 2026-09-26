@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-09-24T08:24:53Z",
+  "created_at": "2026-09-25T06:13:39Z",
   "dataset_id": "smoke_v1",
   "description": "5 item(s) from sources/",
   "items": [
@@ -29,6 +29,6 @@
       "source_sha256": "d051e6d6435b9800cece2746423236ed1f7f94b788788de0c55292fe3046207f"
     }
   ],
-  "source_dir": "/Users/claude/projects/agentic-ai-homelab/examples/eval-harness/data/sources",
+  "source_dir": "data/sources",
   "version": "1.0"
 }

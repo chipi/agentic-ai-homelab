@@ -28,18 +28,61 @@ dataset — a 10-item golden pass is enough to rank four arms.
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import MATERIALIZED, REFERENCES, die, load_dataset, now, write_json  # noqa: E402
+from _common import (  # noqa: E402
+    MATERIALIZED,
+    REFERENCES,
+    ROOT,
+    die,
+    load_dataset,
+    now,
+    write_json,
+)
 
 try:
     import yaml
 except ImportError:  # pragma: no cover
     die("pyyaml is required — pip install -r requirements.txt")
 
-from adapter import call_system  # noqa: E402
+# NOT `from adapter import call_system`. That hard-wired the BUNDLED adapter and ignored the
+# config's `adapter:` key, which only experiment_run honoured — so a reference authored from
+# an example's config ran the example's MODEL through the core's CODE.
+#
+# It produced a wrong finding before it was noticed. The bundled adapter reads
+# `params.get("prompt", "Summarise:")`; the example declares `prompt_file:`, a key only the
+# example's adapter understands. So Opus was asked a bare "Summarise:" and wrote 207 words
+# against a 37-word human reference — which was read as "Opus ignores instructions" when it
+# had simply never been given one. A reference is the thing everything else is scored
+# against; authoring it with different code than the arms run is not a small inconsistency.
+from experiment_run import load_adapter  # noqa: E402
+
+
+
+def _repo_relative(path: object) -> str:
+    """Paths in a committed artifact are relative to the repo, never to a home directory.
+
+    An absolute path leaks the author's username into a public repo and is meaningless
+    on anybody else's machine. This manifest carried
+    `/Users/<name>/projects/.../adapter.py`, and the harness's own self-test flags it.
+    """
+    try:
+        return str(Path(str(path)).resolve().relative_to(ROOT))
+    except (ValueError, OSError):
+        return Path(str(path)).name
+
+
+def _identity(hook: object, params: dict) -> object:
+    """The adapter's own identity record, or a stated absence. Never a guess."""
+    if not callable(hook):
+        return {"identity_declared": False}
+    try:
+        return {"identity_declared": True, **(hook(params) or {})}
+    except Exception as exc:  # noqa: BLE001 - provenance must not kill authoring
+        return {"identity_declared": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
 def main() -> int:
@@ -59,6 +102,12 @@ def main() -> int:
     ds = load_dataset(args.dataset_id)
     cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
     params = dict(cfg.get("params") or {})
+    # Same adapter the arms would run, resolved the same way, relative to the same config.
+    call_system, _score, adapter_id, _path, warmup, fp_hook = load_adapter(
+        cfg.get("adapter"), args.config
+    )
+    if warmup is not None:
+        warmup(params)
     mat = MATERIALIZED / args.dataset_id
     if not mat.is_dir():
         die(f"materialize first:  make dataset-materialize DATASET_ID={args.dataset_id}")
@@ -70,6 +119,14 @@ def main() -> int:
             "  References are frozen — every score already reported was measured\n"
             "  against these. Use a new dataset version, or --force if nothing cites them."
         )
+    # Author into a sibling .partial/ and rename at the end, so a run that dies midway leaves
+    # NOTHING. It used to mkdir here and write per item: a crash on item 1 — a missing client
+    # library, a bad key — left an empty frozen directory, and the (correct) refusal above then
+    # blocked the retry. The first thing a new user hit was a freeze guard protecting nothing.
+    final_dir = out_dir
+    out_dir = out_dir.with_name(out_dir.name + ".partial")
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     items = ds["items"][: args.limit] if args.limit else ds["items"]
@@ -95,7 +152,23 @@ def main() -> int:
             "dataset_id": args.dataset_id,
             "tier": args.tier,
             "authored_by": cfg.get("config_id", str(args.config)),
+            # Which CODE produced it, not just which model. A reference authored by a
+            # different adapter than the arms use is a different measurement.
+            "authored_with": _repo_relative(adapter_id),
             "model": params.get("model", params.get("provider", "unknown")),
+            # THE SAME identity record a run writes, from the SAME hook. A reference whose
+            # provenance is just a model alias cannot be checked against anything: this
+            # manifest used to say `model: eval-claude-opus` and nothing else -- not the
+            # upstream model, not the temperature, not the prompt hash, not whether
+            # reasoning was on. A reference authored under different settings than the arms
+            # is a different measurement, and nobody could tell.
+            "system_under_test": _identity(fp_hook, params),
+            "params": {
+                k: params.get(k)
+                for k in ("temperature", "max_tokens", "reasoning", "reasoning_effort",
+                          "prompt_file", "provider")
+                if params.get(k) is not None
+            },
             "created_at": now(),
             "n_items": len(items),
             "cost_usd": round(total_cost, 6) if n_priced else None,
@@ -108,6 +181,13 @@ def main() -> int:
             ),
         },
     )
+    # Only now is it a reference set. Rename is atomic on the same filesystem, so the directory
+    # either does not exist or is complete — never half-authored.
+    if final_dir.exists():
+        shutil.rmtree(final_dir)
+    out_dir.rename(final_dir)
+    out_dir = final_dir
+
     print(f"\n{out_dir}  ({len(items)} item(s), tier={args.tier}"
           + (f", ${total_cost:.4f}" if n_priced else "") + ")")
     print("Runs against this dataset will now be scored against it automatically.")

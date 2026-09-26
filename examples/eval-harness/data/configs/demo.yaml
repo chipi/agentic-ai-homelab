@@ -1,12 +1,14 @@
 # An experiment config: WHAT is being run, against WHICH dataset.
 #
-# config_id and dataset_id are both required. A run records them alongside the
-# build that produced it — those three are what make a number attributable.
+# config_id and dataset_id are both required. A run records them alongside the build and
+# the params that produced it — those four are what make a number attributable.
+#
+# It used to set `length_norm: 400` and `noise: 0.0`, and nothing read either key:
+# length_norm is read by no code at all, and `noise` was dead until the echo provider
+# grew it. A config that advertises knobs its provider ignores teaches the reader a
+# control surface that does not exist.
 config_id: demo_v1
 dataset_id: smoke_v1
-
-# Anything under params is passed to run_item() untouched. Put your system's
-# knobs here — model, temperature, prompt version, thresholds.
 params:
-  length_norm: 400
-  noise: 0.0        # raise this to see the variance machinery do its job
+  provider: echo
+  sentences: 3

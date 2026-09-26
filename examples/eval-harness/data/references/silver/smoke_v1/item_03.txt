@@ -1,0 +1,1 @@
+Sample item 03 is a placeholder for any input your system consumes, and what matters is that its bytes are frozen and hashed so different runs can be compared.

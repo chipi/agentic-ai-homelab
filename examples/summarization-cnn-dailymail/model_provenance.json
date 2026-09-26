@@ -1,0 +1,38 @@
+{
+  "_comment": [
+    "What each configs/arm_*.yaml `model:` alias actually resolved to.",
+    "The runs' fingerprints record the ALIAS, not the upstream model, so without",
+    "this file a run cannot say which model answered. Captured from the proxy's",
+    "/model/info at the time of the sweep. Re-capture whenever the proxy changes.",
+    "NOT a version pin: OpenRouter can update an upstream id in place, and nothing",
+    "here would detect that."
+  ],
+  "captured_utc": "2026-09-25T11:39:46Z",
+  "sweep": "cnn_dailymail_20, 24 arms x 3 repeats, reference tier gold",
+  "aliases": {
+    "eval-claude-haiku": "openrouter/anthropic/claude-haiku-4.5",
+    "eval-claude-sonnet": "openrouter/anthropic/claude-sonnet-5",
+    "eval-deepseek-41flash": "openrouter/deepseek/deepseek-v4.1-flash",
+    "eval-deepseek-flash": "openrouter/deepseek/deepseek-v4-flash",
+    "eval-deepseek-pro": "openrouter/deepseek/deepseek-v4-pro",
+    "eval-gemma-26b": "openrouter/google/gemma-4-26b-a4b-it",
+    "eval-gemma-3-27b": "openrouter/google/gemma-3-27b-it",
+    "eval-gemma-31b": "openrouter/google/gemma-4-31b-it",
+    "eval-glm-45-air": "openrouter/z-ai/glm-4.5-air",
+    "eval-glm-46": "openrouter/z-ai/glm-4.6",
+    "eval-glm-5": "openrouter/z-ai/glm-5",
+    "eval-gpt-55": "openrouter/openai/gpt-5.5",
+    "eval-gpt-6sol": "openrouter/openai/gpt-6-sol",
+    "eval-gpt-mini": "openrouter/openai/gpt-5.4-mini",
+    "eval-llama-70b": "openrouter/meta-llama/llama-3.3-70b-instruct",
+    "eval-llama-maverick": "openrouter/meta-llama/llama-4-maverick",
+    "eval-llama-scout": "openrouter/meta-llama/llama-4-scout",
+    "eval-mistral-large": "openrouter/mistralai/mistral-large-2512",
+    "eval-mistral-medium": "openrouter/mistralai/mistral-medium-3.1",
+    "eval-mistral-small": "openrouter/mistralai/mistral-small-3.2-24b-instruct",
+    "eval-opus-5": "openrouter/anthropic/claude-opus-5",
+    "eval-qwen-37plus": "openrouter/qwen/qwen3.7-plus",
+    "eval-qwen-3max": "openrouter/qwen/qwen3-max",
+    "eval-qwen-flash": "openrouter/qwen/qwen3.8-flash"
+  }
+}

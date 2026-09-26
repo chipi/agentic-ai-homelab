@@ -126,21 +126,50 @@ def v4_materialized() -> None:
     check(not drifted, "V4 materialized copies match their frozen hashes", f"{len(drifted)} drifted")
 
 
+#: Excluded from the V5 duplicate key: wall-clock and spend are properties of the RUN, not
+#: of what the arm produced. Including them made the check unfireable — two arms agreeing to
+#: full precision on every measured metric still keyed differently because their latencies
+#: differed by microseconds. Measured on this tree: arm_a_v1 and arm_short_v1 both scored
+#: overlap_f1 0.135256 and output_words 3.6, and V5 reported OK.
+_V5_RUN_PROPERTIES = ("latency_ms", "cost_usd", "total_cost_usd", "tokens_in", "tokens_out",
+                      "total_tokens_in", "total_tokens_out")
+
+
 def v5_duplicate_scores() -> None:
     by_key = defaultdict(list)
     for run in (RUNS.iterdir() if RUNS.is_dir() else []):
         m = run / "metrics.json"
         if m.is_file():
             d = read_json(m)
-            key = (d.get("dataset_id"), json.dumps(d.get("scores"), sort_keys=True))
-            by_key[key].append((run.name, d.get("config_id")))
-    dupes = [v for v in by_key.values() if len({c for _, c in v}) > 1]
+            # Compare what the arm PRODUCED. A fabricated or copy-pasted result differs in
+            # latency like any other, so keying on it let exactly the case this check exists
+            # for slip through.
+            produced = {
+                k: v for k, v in (d.get("scores") or {}).items() if k not in _V5_RUN_PROPERTIES
+            }
+            key = (d.get("dataset_id"), json.dumps(produced, sort_keys=True))
+            # None (not {}) when the run predates params being recorded — kept distinct so
+            # those runs can be EXCLUDED below rather than compared. Treating a missing
+            # field as "different params" made every pre-existing run look suspicious
+            # against every new one, which is a false alarm I walked straight into.
+            params = json.dumps(d["params"], sort_keys=True) if "params" in d else None
+            by_key[key].append((run.name, d.get("config_id"), params))
+    # Identical scores from identical params is not suspicious — it is what a deterministic
+    # arm DOES, and two configs may legitimately request the same thing. What deserves a look
+    # is DIFFERENT params landing on byte-identical output: either a result was not measured,
+    # or the knobs that differ are inert.
+    dupes = []
+    for group in by_key.values():
+        known = [(n, c, p) for n, c, p in group if p is not None]
+        if len({c for _, c, _ in known}) > 1 and len({p for _, _, p in known}) > 1:
+            dupes.append(known)
     for group in dupes:
-        print(f"       identical scores: {', '.join(n for n, _ in group)}")
+        print(f"       identical scores from different params: "
+              f"{', '.join(n for n, _, _ in group)}")
     check(
         not dupes,
         "V5 no two configs report byte-identical scores",
-        f"{len(dupes)} suspicious group(s) — independent arms do not agree to full precision",
+        f"{len(dupes)} suspicious group(s) — differing params produced identical output",
     )
 
 
@@ -156,6 +185,13 @@ def v6_baselines() -> None:
 
 
 def main() -> int:
+    # `--help` prints help. It used to fall through and run the whole validation, which
+    # made self_test's `validate_tree.py --help` check assert "the tree is valid" instead
+    # of "the CLI responds" — so the one script whose failure matters most had a self-test
+    # that could only pass when it had nothing to report.
+    if "--help" in sys.argv[1:] or "-h" in sys.argv[1:]:
+        print(__doc__)
+        return 0
     print(f"eval tree: {ROOT / 'data'}\n")
     for fn in (v1_schemas, v2_dataset_ids, v3_provenance, v4_materialized, v5_duplicate_scores, v6_baselines):
         fn()

@@ -96,6 +96,100 @@ files sharing a `dataset_id`.
 
 ---
 
+## Is the ranking real?
+
+A table sorted by a mean always produces an ordering. Whether that ordering survives
+re-running the experiment is a different question, and `make leaderboard` answers it
+before it shows you anything else:
+
+```
+IS THE ORDERING REAL?   metric=coverage  k=24 arms  N=20 items
+  global test (permutation on within-item ranks): p = 0.0054 -> an arm effect exists
+  Nemenyi critical difference = 8.13 rank positions; observed span = 8.57
+  pairs distinguishable: 1 of 276
+```
+
+Three readings, all computed over the whole table at once:
+
+- **Global test** — rank every arm *within* each item, then ask whether the average ranks
+  are further apart than chance. On a real dataset most variance is "some items are hard
+  for everyone" (66% here, against 3% between arms), and ranking inside the item is what
+  removes it. If this fails, no ordering is supported and the output says so.
+- **Nemenyi critical difference** — from the number of arms and items alone, how far apart
+  two average ranks must be before that *pair* is distinguishable. Applied to every pair
+  simultaneously, so it accounts for the fact that 24 arms means 276 comparisons and ~14
+  of them will look significant by luck.
+- **Rank probabilities** — resample the items, re-rank everything from scratch, and report
+  how often each arm lands 1st / in the top 5 / in the bottom 5. This replaced a 95% rank
+  interval per arm: those were marginal, so two non-overlapping intervals read as "this
+  pair is separated" — exactly the claim they cannot make. Context, never a pairwise
+  verdict; the critical-difference line is the verdict.
+
+What this deliberately does **not** do is walk down the table comparing each arm to a
+running "leader". That is a sorting algorithm, not a comparison: walked bottom-up instead
+of top-down it partitions the same arms differently, and it once supported both a finding
+and its retraction from one dataset.
+
+## Re-measuring without re-running
+
+Scores are arithmetic over outputs, and outputs are the expensive part. So a metric change
+should not cost a sweep:
+
+```
+make rescore DATASET_ID=my_v1 MATCH=_v2
+EVAL_RUNS_DIR=data/runs-rescored make leaderboard DATASET_ID=my_v1
+```
+
+Rescored runs go to a separate directory carrying `rescored_from`, `rescored_at` and the
+scorer's sha256, so a recomputation can never be mistaken for a measurement. Latency, cost
+and token counts are carried across untouched — they describe the call that happened, not
+how it was later measured.
+
+This exists because a scorer bug survived two full sweeps: checking it would have cost a
+third. When verifying a measurement is expensive, it does not get verified.
+
+## Do you trust your reference?
+
+Most of the time there is no gold, so a strong model writes the references — "silver" — and
+you rank candidates against those. This asks whether that ranking matches the one real
+ground truth would have given:
+
+```
+make silver-calibrate DATASET_ID=my_v1 REF_MATCH=_v1 ARM_MATCH=_v2
+```
+
+It costs nothing, because "author silver with model X using the same prompt and settings as
+the arms" is exactly what X already produced — so every arm on disk is a candidate author
+and all of them are tried.
+
+Read the result against the **ceiling** it prints. Two runs of the same arms against the
+same gold do not rank identically either, so that retest correlation is the best any proxy
+could score. On the bundled example: ceiling 0.93, silver authors −0.01–0.69 (mean 0.35).
+
+The number that matters most is the last one. Grouping arms by `family`, a silver author
+**promotes models of its own kind by ~8 rank positions, for 22 of 24 authors** — and
+excluding the author's own row does not remove it, because the bias is not an author
+scoring itself, it is an author rewarding its own kind's style. A silver-ranked leaderboard
+is not merely noisier than a gold one; it is biased in a direction you can predict from who
+wrote it.
+
+## Scoping a dataset that has grown
+
+A dataset accumulates arms across config versions, and v1 and v2 of one arm are different
+measurements that must not share a row:
+
+```
+make leaderboard DATASET_ID=my_v1 MATCH=_v2     only the v2 arms
+EVAL_RUNS_DIR=<dir> make ...                    run or read somewhere else
+```
+
+`EVAL_RUNS_DIR` is how a smoke pass avoids adding repeats to a real sweep's arms and
+silently moving numbers you have already reported. Use it whenever you are validating a
+change rather than measuring something.
+
+**Deleting old runs to make a table shorter is not the alternative to scoping it.** That is
+how 18 arms of paid results were lost during this harness's own development.
+
 ## Docs
 
 | | |

@@ -23,8 +23,45 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import RUNS, die, read_json  # noqa: E402
+from _common import RUNS, die, is_descriptive, read_json, verdict_for  # noqa: E402
 
+
+
+def _report_fingerprint_delta(a: dict, b: dict) -> None:
+    """Say WHAT changed between the two runs, not just that something did.
+
+    "The fingerprints differ" is true and useless. A comparison is only an experiment if
+    exactly one thing moved, and this names which fields did — so a 3x latency win reads
+    as "you moved to the DGX" rather than "the model got faster".
+    """
+    fa, fb = a.get("fingerprint"), b.get("fingerprint")
+    if not (fa and fb):
+        print(
+            "\n  NOTE: at least one run predates fingerprinting, so what else changed"
+            "\n  between them cannot be checked — only asserted."
+        )
+        return
+    if fa.get("hash") == fb.get("hash"):
+        print(
+            "\n  Fingerprints MATCH: dataset, reference, adapter, model, host and harness"
+            "\n  are identical, so any delta above is the arm or its own noise."
+        )
+        return
+
+    from _fingerprint import differing_paths  # noqa: PLC0415
+
+    moved = differing_paths(fa, fb)
+    # arm.params differing is the POINT of a comparison; everything else is a confound.
+    confounds = [p for p in moved if not p.startswith("arm.")]
+    print("\n  Fingerprints DIFFER. Fields that moved:")
+    for path in moved:
+        marker = "   " if path.startswith("arm.") else " ! "
+        print(f"   {marker}{path}")
+    if confounds:
+        print(
+            f"\n  {len(confounds)} of those are NOT the arm (marked !). More than one thing"
+            "\n  changed, so this is not a controlled comparison — it is two observations."
+        )
 
 def load(run_id: str) -> dict:
     p = RUNS / run_id / "metrics.json"
@@ -67,6 +104,8 @@ def main() -> int:
     if a["build"].get("dirty") or b["build"].get("dirty"):
         print("\n  NOTE: a build was DIRTY — its ref does not identify what ran.")
 
+    _report_fingerprint_delta(a, b)
+
     keys = sorted(set(a["scores"]) | set(b["scores"]))
     w = max([len(k) for k in keys] + [6])
     print(f"\n  {'metric':{w}} {'baseline':>12} {'candidate':>12} {'delta':>12}   verdict")
@@ -82,11 +121,16 @@ def main() -> int:
         # doing exactly the right thing.
         if args.noise is not None and abs(d) <= args.noise:
             verdict = f"NOISE (<= {args.noise})"
-        elif d == 0:
-            verdict = "identical"
         else:
-            verdict = "better" if d > 0 else "worse"
-            worth += 1
+            # Direction comes from _common, the same place leaderboard.py gets it.
+            # This used to be `"better" if d > 0 else "worse"` for every metric, so a
+            # run that got FASTER or CHEAPER was reported as worse.
+            verdict = verdict_for(k, d)
+            # Only a real regression or improvement counts toward "moved beyond the
+            # noise floor". A descriptive metric moving is not a verdict, and counting
+            # it inflated the number a reader uses to decide whether to care.
+            if verdict in ("better", "worse"):
+                worth += 1
         print(f"  {k:{w}} {av:12.6f} {bv:12.6f} {d:+12.6f}   {verdict}")
 
     if args.noise is None:

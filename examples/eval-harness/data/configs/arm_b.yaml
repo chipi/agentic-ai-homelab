@@ -4,6 +4,3 @@ dataset_id: smoke_v1
 params:
   provider: echo
   sentences: 2
-  max_tokens: 300
-  usd_per_mtok_in: 0.8
-  usd_per_mtok_out: 4.0
