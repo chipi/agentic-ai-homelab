@@ -84,7 +84,7 @@ def test_compare_refuses_cross_dataset() -> None:
 def test_cli_help_works() -> None:
     for script in ("dataset_create", "materialize", "experiment_run", "compare_runs",
                    "promote_baseline", "validate_tree", "list_runs", "reference_create",
-                   "leaderboard", "sweep", "env_check"):
+                   "leaderboard", "sweep", "env_check", "holdout_significance", "pair_test"):
         r = run(f"scripts/{script}.py", "--help")
         check(f"{script}.py --help", r.returncode == 0, r.stderr.strip()[:80])
 

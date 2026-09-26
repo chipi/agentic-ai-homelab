@@ -21,6 +21,7 @@ TIER ?= silver
 
 .PHONY: help demo env-check install venv-init \
         dataset-create dataset-materialize reference-create \
+        holdout pair-test \
         experiment-dry-run experiment-run sweep \
         runs-list baselines-list run-compare leaderboard run-promote \
         validate judge check ci test clean clean-cache
@@ -56,6 +57,12 @@ help:
 	@echo "RE-MEASURE  (free — recomputes scores from stored outputs, no API calls)"
 	@echo "  make rescore DATASET_ID=my_v1 MATCH=_v2   after changing a metric"
 	@echo "  EVAL_RUNS_DIR=data/runs-rescored make leaderboard DATASET_ID=my_v1"
+	@echo ""
+	@echo "ASK ONE QUESTION  (free — no API calls)"
+	@echo "  make pair-test DATASET_ID=my_v1 A=<arm> B=<arm> [FAMILY=n]"
+	@echo "      one pair you named BEFORE reading the table, sign-flip permutation"
+	@echo "  make holdout DATASET_ID=my_200 EXCLUDE=my_20"
+	@echo "      the same significance block, minus the items the smaller set already had"
 	@echo ""
 	@echo "DECIDE"
 	@echo "  make leaderboard DATASET_ID=my_v1        rank every arm: quality, cost, speed"
@@ -146,6 +153,23 @@ rescore:
 
 leaderboard:
 	$(PYTHON) scripts/leaderboard.py --dataset-id $(DATASET_ID) $(if $(MATCH),--match $(MATCH),) $(ARGS)
+
+# A dataset grown from a smaller one contains it. Arms chosen on the small set are being
+# re-measured on a set that still holds the items that chose them, so "it replicated" can
+# only be read on the rest.
+holdout:
+	$(PYTHON) scripts/holdout_significance.py --dataset-id $(DATASET_ID) \
+	  $(if $(EXCLUDE),--exclude-dataset $(EXCLUDE),) $(if $(METRIC),--metric $(METRIC),) \
+	  $(if $(MATCH),--match $(MATCH),)
+
+# ONE pair, named before the table was read. The leaderboard's Nemenyi line prices in all
+# k(k-1)/2 comparisons; a decision you came in with is one comparison and should not pay
+# for the 275 nobody made. FAMILY=n applies Holm when you tested n pairs together.
+pair-test:
+	@test -n "$(A)" -a -n "$(B)" || { echo 'A=<config_id> B=<config_id> are required'; exit 1; }
+	$(PYTHON) scripts/pair_test.py --dataset-id $(DATASET_ID) --a $(A) --b $(B) \
+	  $(if $(METRIC),--metric $(METRIC),) $(if $(EXCLUDE),--exclude-dataset $(EXCLUDE),) \
+	  $(if $(FAMILY),--family $(FAMILY),) $(if $(RUNS_DIR),--runs-dir $(RUNS_DIR),)
 
 run-compare:
 	@test -n "$(BASE)" || { echo "BASE=<run_id> is required (see: make runs-list)"; exit 1; }

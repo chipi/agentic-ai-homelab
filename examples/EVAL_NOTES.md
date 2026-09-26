@@ -1355,3 +1355,151 @@ Located in `podcast-scraper-eval-data`, not in this repo:
 
 No judge is wired into `examples/summarization-cnn-dailymail`. The harness's own
 `runner.py` / `make judge` exists and is unused by this example.
+
+### 2026-09-26 · 44 — The gate was red on this machine and green on a clone
+
+`make ci` failed here on arrival:
+
+```
+  FAIL V1 schemas — 153 document(s) validated — 72 violation(s)
+       metrics.json: None is not of type 'boolean'
+```
+
+Entry 21 (A4) changed `build.dirty` to `None` when the ref is self-declared, because
+hardcoding `false` asserted a clean tree on no evidence. `metrics.schema.json` still
+required a boolean. Every run produced after A4 — all 72 of the v2 sweep, and everything
+in `data/runs-rescored/` — violated the contract it was written against.
+
+**Why it stayed invisible: `data/runs/*` is gitignored.** A fresh clone has one demo run
+and passes; the machine holding the measurements fails. A gate that is green exactly where
+there is nothing to check is worse than a red one.
+
+The data was right and the contract was stale, so the contract moved: `["boolean", null]`,
+with null documented as UNKNOWN rather than false. Mutation-tested, because widening a
+type is how you accidentally widen it to anything: null/true/false accepted, `"yes"` and
+`1` still rejected.
+
+**A self-test that could only pass when it had nothing to report.** `validate_tree.py`
+had no `--help` handling — it fell through and ran the whole validation — so
+`self_test`'s `validate_tree.py --help` check was really asserting "the tree is valid".
+Fixed, and verified by breaking: with a planted bad value, `--help` exits 0 while
+`validate` exits 1.
+
+**A corpus rule that named one slice.** `.gitignore` excluded
+`data/sources/cnn_dailymail_20/` literally. `fetch.py --n 200` writes
+`cnn_dailymail_200`, which nothing covered — 400 files of a licensed corpus, one
+`git add -A` from redistribution. Globbed by slice size.
+
+**Two analyses became make targets** rather than scratch scripts, per entry 35:
+`make pair-test` (one named pair, sign-flip permutation) and `make holdout` (the
+significance block minus items a smaller dataset already contained). Both validated
+against numbers already published here before being pointed at anything new:
+`pair_test` reproduces EVAL_REPORT §3.1b exactly (`deepseek_m` vs `anthropic_l`
++0.0308, 12/20, p=0.0428; `deepseek_m` vs `qwen_m` +0.0659, 16/20, p=0.0004), and
+`holdout_significance` reproduces `make leaderboard`'s own block digit for digit on the
+full item set. They are the same tests on a different item set, not second opinions.
+
+**`--family N` is BONFERRONI, and was mislabelled Holm in its first version.** One pair
+cannot do Holm: the step-down needs the whole family's p-values at once. Applying
+alpha/N to every member is Holm's strictest step applied throughout — conservative, never
+the reverse. The tables in entry 45 run the actual step-down over the family of four.
+
+**A trap, not fixed, because it changes what the gate means.** The two venvs are
+disjoint: `eval-harness/.venv` has `jsonschema` and no `rouge_score`; the example's has
+`rouge_score` and no `jsonschema`. So `make ci PYTHON=<example venv>` prints
+`-- V1 schemas (jsonschema not installed)` and then `ci: green`. A skipped check reporting
+green is entry 20's bug in another costume — *unreported* rendered as *measured*.
+
+### 2026-09-26 · 45 — n=200, eight arms. The dear arm is second-to-last.
+
+Eight arms × 200 articles × r=1 = 1600 calls, **$1.8598**, ~70 minutes. r=1 on entry 10's
+own argument: with articles available, repeats are the wrong place to spend.
+
+**Why these eight.** The union of the two defensible top-5 readings of the n=20 report —
+by `coverage` (the declared PRIMARY_METRIC) and by mean rank across four facets (entry
+41) — plus `qwen_m` as a CONTROL, being last at n=20 and half of the only pair that
+separated there. An experiment with no known-positive cannot fail visibly.
+
+`fetch.py` pages from offset 0, so **the original 20 items are nested inside the 200**
+(verified: 20 of 20). Every result below is reported twice: all 200, and the 180 that
+took no part in selecting these arms.
+
+```
+arm               cov      con     lsum       r1  wrds   $/200     ms  mean rk   n20 -> n200
+deepseek_m     0.3460   0.2539   0.3188   0.3612    57  0.0296   1595    3.00     1 -> 1
+llama_l        0.3387   0.2714   0.3221   0.3636    49  0.0344   3473    1.50     3 -> 2
+llama_m        0.3382   0.2616   0.3098   0.3477    49  0.0217   4045    4.50     5 -> 3
+deepseek_l     0.3325   0.2595   0.3116   0.3547    50  0.0556   2665    4.25     6 -> 4
+deepseek_s     0.3285   0.2628   0.3081   0.3504    48  0.0198   2753    4.75     2 -> 5
+openai_l       0.3268   0.2800   0.3151   0.3620    42  0.5352   1775    3.00     7 -> 6
+anthropic_m    0.3236   0.2207   0.2903   0.3347    64  1.1218   3034    7.00     4 -> 7
+qwen_m         0.3030   0.2206   0.2737   0.3164    57  0.0417   1534    8.00     8 -> 8
+```
+
+**The n=20 ordering did not survive.** Spearman between the two rankings of these same
+eight arms = **+0.667**. Only `deepseek_m` and the control held their place.
+`anthropic_m` went 4th to 7th, `deepseek_s` 2nd to 5th, `llama_m` 5th to 3rd. These arms
+were selected *because* they ranked high on 20 articles; this is what that selection was
+worth.
+
+**`anthropic_m` is 7th of 8 on every one of the four facets** — coverage, concision,
+rougeLsum, rouge1 — beaten only by the arm chosen for being worst, at **38x**
+`deepseek_m`'s price ($1.1218 vs $0.0296 per 200 articles).
+
+**The global picture, which n=20 could not produce:**
+
+```
+  metric=coverage  k=8  N=200 :  p=0.0002  CD 0.74  span 1.50   7 of 28 pairs separated
+  metric=coverage  k=8  N=180 :  p=0.0002  CD 0.78  span 1.41   6 of 28 pairs separated
+```
+
+against **1 of 276** on coverage at n=20. The gain is fewer arms and ten times the items,
+not a better test.
+
+**The four pairs, named before `anthropic_m`'s number existed**, Holm step-down over the
+family of four:
+
+```
+                                            all 200                 180 holdout
+  deepseek_m > anthropic_m  (38x dearer)   +0.0224 p=0.0006 SEP    +0.0224 p=0.0010 SEP
+  deepseek_m > openai_l     (18x dearer)   +0.0193 p=0.0032 SEP    +0.0171 p=0.0153 SEP
+  deepseek_s > qwen_m       (the control)  +0.0255 p=0.0000 SEP    +0.0208 p=0.0003 SEP
+  deepseek_m > deepseek_s                  +0.0176 p=0.0086 SEP    +0.0190 p=0.0097 SEP
+```
+
+All four separate on `coverage`, on both cuts. On `rougeLsum` only two do — `> anthropic_m`
+(p=0.0000 both cuts) and the control (p=0.0000) — while `> openai_l` is nowhere
+(+0.0037, p=0.47) and `> deepseek_s` fails Holm's third step (0.0430 against 0.025).
+The facets still disagree, and now they disagree about *which* comparisons are real.
+
+**CORRECTION to the n=20 report, section 3.1b.** It tested `deepseek_m` vs `anthropic_m`
+and got +0.0111, 12/20, **p=0.52, "not separated"**. At n=200: +0.0224, **p=0.0006**. The
+price question was not unanswerable; twenty articles could not answer it.
+
+**Entry 40's power analysis predicted `deepseek_m` vs `deepseek_s` needs n~2472. It
+separated at n=200** (p=0.0086). The arithmetic was fine; its *input* was not — it used
+the delta measured at n=20, 0.0048, where 200 articles show 0.0176. A power calculation
+fed a delta from the same small sample that motivated it inherits that sample's error, and
+here the error ran opposite to winner's curse. Treat entry 40's n's as order-of-magnitude.
+
+**Absolute scores fell for every arm** (`deepseek_m` coverage 0.3793 -> 0.3460). The gold
+references in the 200-slice average 34.7 words against 36.7 in the 20, and `coverage`
+clips each output to its own reference's length — a tighter budget scores lower. Levels are
+not comparable across datasets; ranks and paired deltas are.
+
+**NOT established here.**
+
+- Within-arm variance: r=1, so nothing in this run measures an arm's own spread. The 9.8%
+  determinism figure comes from the r=3 sweep and is not re-measured.
+- The 16 arms not run. This is 8 of 24, chosen from a table these 8 topped.
+- Any of it with reasoning on, a different prompt, or a different corpus.
+- **Provenance: all 8 runs record `harness.dirty: true`.** Cause, finally identified:
+  `_fingerprint.py:85` computes dirty from `git status --porcelain`, which counts
+  UNTRACKED files — and a new sweep's own configs and dataset definition are untracked at
+  the moment it starts. That is why all 72 runs of the earlier sweep carry the flag. The
+  fix is procedural: commit configs and the dataset before launching. Cost is limited
+  because the fingerprint stores content, not pointers (`arm.params` inline,
+  `items_sha256`, `adapter.sha256`, `prompt_sha256`, resolved upstream model id).
+- `qwen_m` ran as the canary before the schema fix was committed, so it records commit
+  `5790bb3` where the other seven record `d9def7c`. Its measurement is unaffected — the
+  diff is a JSON schema, a `--help` branch and `.gitignore` — but the fingerprints differ.
