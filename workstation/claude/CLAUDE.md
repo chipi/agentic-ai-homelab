@@ -211,18 +211,29 @@ There are no exceptions I can choose to make.
 @/Users/markodragoljevic/.config/AGENTS.md
 
 <!-- lean-ctx -->
-<!-- lean-ctx-claude-v3 -->
-## lean-ctx — Context Runtime
+<!-- lean-ctx-claude-v9 -->
+## lean-ctx — Replace Mode (native Grep/Glob denied by policy)
 
-Prefer lean-ctx `ctx_*` for READING/exploring (their real strength):
-- `ctx_read` instead of `Read` / `cat` (cached, 10 modes, re-reads ~13 tokens)
-- `ctx_shell` instead of `bash` / `Shell` (95+ compression patterns)
-- `ctx_search` instead of `Grep` / `rg` (compact results)
-- `ctx_tree` instead of `ls` / `find` (compact directory maps)
-- **Editing: use native `Read` then `Edit`.** `ctx_read` does NOT register for native Edit ("File has not been read yet") — read edit-targets natively. (`ctx_patch` works but is fiddly + in-repo only; skip it.)
-- **Scope:** lean-ctx is project-only — for `~/.claude`/`~/.config` and other out-of-repo paths, use native tools (`ctx_read` refuses them).
-- Write, Delete, Glob — use normally.
+Native Grep/Glob are denied by policy. Prefer `ctx_*` MCP tools for project work:
+- `ctx_read` for exploration reads (cached, 10 modes, unchanged full/auto re-reads ~13 tokens)
+- `ctx_shell` for shell commands (95+ compression patterns)
+- `ctx_search` instead of Grep/rg (compact results)
+- `ctx_tree` instead of ls/find (compact directory maps)
+- `ctx_glob` instead of Glob (file pattern matching)
+- Project edits: `ctx_read(mode="anchored")` → `ctx_patch` (line+hash anchors; `op=create` for new files).
 
-Read modes: full (edit), map (overview), signatures (API), diff (post-edit), lines:N-M (range), auto.
+Native `Read` is reserved for the edit gate (read-before-write) only.
+For exploration, orientation, and code understanding: ALWAYS use `ctx_read`.
+Claude auto memory (`~/.claude/projects/<slug>/memory/` — MEMORY.md and topic
+files) uses native Read/Edit internally; do NOT call MCP `resources/read` with
+file:// URIs (lean-ctx resources are `lean-ctx://context/*` only). Native Delete is fine.
+
+Read modes: anchored (edit), full (verbatim), map (overview), signatures (API), diff (post-edit), lines:N-M (range), auto.
 Details live in the `lean-ctx` skill (loads on demand — keep this file lean).
 <!-- /lean-ctx -->
+
+<!-- lean-ctx-solution -->
+SOLUTION EFFICIENCY: stop at first level that applies:
+skip (YAGNI) → reuse codebase → stdlib → native platform → installed dep → one-line → minimum code.
+Never skip: validation, security, error handling.
+<!-- /lean-ctx-solution -->
