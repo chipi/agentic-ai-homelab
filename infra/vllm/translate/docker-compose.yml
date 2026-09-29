@@ -91,6 +91,18 @@ services:
       # Translation units are turn-bounded sentence groups (~120 words), not long
       # documents, so 8k is generous. Smaller than prod-vllm's 64k on purpose:
       # KV cache scales with this and the memory is shared with the 30B.
+      # 8192 is the SERVER's window, and it is deliberately NOT lowered to the model's
+      # documented 2K input context. Two different limits:
+      #   * the model card documents a 2K TOTAL INPUT context. Measured 2026-09-29: a unit at
+      #     4,800 prompt tokens was ACCEPTED here and came back as a translation of its FIRST
+      #     SENTENCE with finish_reason: stop -- 32 completion tokens, ~99% of the content
+      #     silently gone, reported as success. The server will not protect you from this.
+      #   * max-model-len covers prompt PLUS completion, so setting it to 2048 would reject
+      #     legitimate work: a 2K input needs room for its ~2K translation.
+      # The guard therefore lives in the CLIENT, which refuses a unit over
+      # MODEL_INPUT_TOKEN_LIMIT (2048) before sending it -- see
+      # podcast_scraper/providers/vllm/translate_provider.py. Lowering this value without
+      # measuring what our real units need would trade a silent failure for a loud outage.
       - --max-model-len=8192
       # Served under a stable alias as well as the HF id, so the pipeline's
       # translation client can target `translate` and the model can be swapped
