@@ -21,6 +21,7 @@ from .tenant import TenantConfig
 from .transports import EmailTransport, PushTransport, Transport
 from .webpush import WebPushSender
 from .apns import ApnsSender, DispatchingPushSender
+from .fcm import FcmSender
 from .worker import DeliveryWorker
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,8 @@ def build_channel_workers(
                     use_sandbox=t.apns_sandbox,
                     timeout_sec=cfg.http_timeout_sec,
                 )
+            if t.has_fcm:
+                senders["fcm"] = FcmSender(t.fcm_service_account, timeout_sec=cfg.http_timeout_sec)
             transport = PushTransport(renderer, DispatchingPushSender(senders))
             sent_index = None  # push bounces (410/404) come back inline, not via the events poll
         workers.append(
