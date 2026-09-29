@@ -53,6 +53,10 @@ class TenantConfig:
     apns_team_id: str = ""
     apns_bundle_id: str = ""
     apns_sandbox: bool = False
+    # FCM (native Android push) — OPTIONAL, same contract as APNs above. ONE value, because a
+    # Google service-account JSON already carries the project id, the signing key and the token
+    # endpoint; splitting it into fields would only create ways for them to disagree.
+    fcm_service_account: str = ""
 
     @property
     def has_webpush(self) -> bool:
@@ -60,7 +64,13 @@ class TenantConfig:
 
     @property
     def has_apns(self) -> bool:
-        return bool(self.apns_key and self.apns_key_id and self.apns_team_id and self.apns_bundle_id)
+        return bool(
+            self.apns_key and self.apns_key_id and self.apns_team_id and self.apns_bundle_id
+        )
+
+    @property
+    def has_fcm(self) -> bool:
+        return bool(self.fcm_service_account)
 
     def missing_email_secrets(self) -> list[str]:
         return [] if self.internal_token else [f"{self.name}:internal_token"]
@@ -70,8 +80,8 @@ class TenantConfig:
         if not self.internal_token:
             m.append(f"{self.name}:internal_token")
         # The push worker serves web AND native subs, so at least ONE transport must be configured.
-        if not self.has_webpush and not self.has_apns:
-            m.append(f"{self.name}:vapid_private_key|apns_key")
+        if not self.has_webpush and not self.has_apns and not self.has_fcm:
+            m.append(f"{self.name}:vapid_private_key|apns_key|fcm_service_account")
         return m
 
 
@@ -117,6 +127,7 @@ def load_registry(
             apns_team_id=t.get("apns_team_id", ""),
             apns_bundle_id=t.get("apns_bundle_id", ""),
             apns_sandbox=bool(t.get("apns_sandbox", False)),
+            fcm_service_account=e.get(t.get("fcm_service_account_env", ""), ""),
             template_dir=base / "delivery" / "templates" / name,
             schema_dir=base / "schema" / name,
         )

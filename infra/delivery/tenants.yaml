@@ -21,6 +21,14 @@ tenants:
     apns_team_id: "3P3PX275ZM"
     apns_bundle_id: app.closelistening.player
     apns_sandbox: false
+    # FCM (native Android push, podcast_scraper #2157). ONE secret: the Google service-account
+    # JSON, by env name. It already carries the project id, the signing key and the token endpoint,
+    # so there is nothing non-secret to put here alongside it.
+    #
+    # Absent until the Firebase project exists — the tenant simply has no `fcm` sender and an
+    # Android envelope fails permanently with "no push sender configured for kind='fcm'", which is
+    # a legible state rather than a crash.
+    fcm_service_account_env: PODCAST_FCM_SERVICE_ACCOUNT
 
   # Dev/test twin of podcast — drains the LOCAL dev player-api outbox (:8092)
   # alongside prod, so dev and prod deliver at the same time (one worker per
