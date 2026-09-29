@@ -300,6 +300,25 @@ PRODVLLM_DIR="${GPU_MODE_PRODVLLM_DIR:-$REPO_ROOT/infra/vllm/prod-vllm}"
 PRODVLLM_PORT="${GPU_MODE_PRODVLLM_PORT:-8003}"
 PRODVLLM_SVC="${GPU_MODE_PRODVLLM_SVC:-vllm-prod-vllm}"
 
+# translate — the translation vLLM (infra/vllm/translate), TranslateGemma-12B.
+#
+# THE ONE STACK THAT IS NOT MUTUALLY EXCLUSIVE. Every other slot here shares :8003
+# and the single-owner rule; this one has its own port (:8005) and comes up
+# ALONGSIDE prod-vllm, because an episode needs translation AND summarization in the
+# same pipeline pass (translation runs immediately before summary inside
+# generate_episode_metadata). Swapping per episode would mean two model loads per
+# episode, which is not a usable shape.
+#
+# It is therefore brought up BY `prod` mode rather than being a mode of its own, and
+# stop_all_composes leaves it alone except when going to `free` (see there).
+TRANSLATE_DIR="${GPU_MODE_TRANSLATE_DIR:-$REPO_ROOT/infra/vllm/translate}"
+TRANSLATE_PORT="${GPU_MODE_TRANSLATE_PORT:-8005}"
+TRANSLATE_SVC="${GPU_MODE_TRANSLATE_SVC:-vllm-translate}"
+# 1 (default) = `prod` mode also brings the translation vLLM up. Set 0 to serve
+# summaries without translation (e.g. reproducing a pre-#2169 run, or freeing the
+# memory for a heavier prod model).
+TRANSLATE_WITH_PROD="${GPU_MODE_TRANSLATE_WITH_PROD:-1}"
+
 DOCKER_CMD="${GPU_MODE_DOCKER:-sudo docker}"
 SUDO="${GPU_MODE_SUDO-sudo}"                    # host-privilege prefix; "" if root
 START_TIMEOUT="${GPU_MODE_START_TIMEOUT:-120}"
@@ -341,6 +360,8 @@ while (( $# )); do
             ;;
         *)
             echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color] [--force]" >&2
+            echo "  prod = serving vLLM on :$PRODVLLM_PORT PLUS the co-resident translate vLLM on :$TRANSLATE_PORT" >&2
+            echo "         (GPU_MODE_TRANSLATE_WITH_PROD=0 brings up the serving vLLM only)" >&2
             exit 2
             ;;
     esac
@@ -552,6 +573,14 @@ stop_all_composes() {
     done
 }
 
+# Every :8003 slot PLUS the co-resident translate stack. Used by `free`, which must
+# leave nothing holding the GPU — stop_all_composes deliberately omits translate so a
+# swap INTO prod does not tear down the translator it is about to need.
+stop_all_composes_including_translate() {
+    stop_all_composes "${1:-}"
+    [[ -d "$TRANSLATE_DIR" ]] && compose_down "$TRANSLATE_DIR" || true
+}
+
 # Also flush Ollama before starting any vLLM — Ollama holds GPU memory for
 # recently-served models even when idle, which OOM-crashes a vLLM boot that
 # expects ~73 GB free. We unload every resident model via Ollama's own
@@ -692,13 +721,58 @@ action_status() {
         free)         dim "all vLLM composes are down" ;;
         BROKEN-BOTH)  warn "MULTIPLE listening — GPU-contention failure mode" ;;
     esac
+    # The co-resident translator, reported SEPARATELY from the mode. It is deliberately
+    # excluded from current_mode()'s single-owner count -- it is legitimately up alongside
+    # :8003, so counting it there would report BROKEN-BOTH for the correct state. But an
+    # operator still has to be able to see whether translation is available, so say so.
+    if grep -qx "$TRANSLATE_SVC" <<<"$(running_containers)"; then
+        ok "translate vLLM up on :$TRANSLATE_PORT (co-resident)"
+    else
+        dim "translate vLLM down (:$TRANSLATE_PORT) — translation unavailable"
+    fi
     dim "GPU: $(gpu_state_line)"
     ((JSON)) && emit_json "$mode" true || true
 }
 
 action_code()     { do_swap "code"     "$CODER_DIR"    "$CODER_PORT"; }
 action_research() { do_swap "research" "$RESEARCH_DIR" "$RESEARCH_PORT" "$RESEARCH_SVC"; }
-action_prodvllm() { do_swap "prod"      "$PRODVLLM_DIR" "$PRODVLLM_PORT" "$PRODVLLM_SVC"; }
+# prod = the serving vLLM on :8003 AND the co-resident translation vLLM on :8005.
+# do_swap enforces the single-owner rule over the :8003 slots and waits for health;
+# the translator is then started beside it, on its own port.
+action_prodvllm() {
+    do_swap "prod"      "$PRODVLLM_DIR" "$PRODVLLM_PORT" "$PRODVLLM_SVC"
+    if [[ "$TRANSLATE_WITH_PROD" == "1" ]]; then
+        start_translate
+    else
+        dim "translate vLLM skipped (GPU_MODE_TRANSLATE_WITH_PROD=0)"
+    fi
+}
+
+# Bring the translation vLLM up beside whatever owns :8003.
+#
+# A translator that fails to start must NOT fail the whole swap: the summary model is
+# already up and serving by this point, and reporting `prod` as failed would have the
+# caller believe summarization is down when it is not. So this WARNS and returns
+# non-zero without exiting, and the pipeline's own translation stage is what surfaces
+# a missing translator (it checks /health before sending units).
+start_translate() {
+    if [[ ! -d "$TRANSLATE_DIR" ]]; then
+        warn "translate stack dir missing: $TRANSLATE_DIR — skipping"
+        return 1
+    fi
+    log "starting translate vLLM (co-resident, :$TRANSLATE_PORT)"
+    compose_up "$TRANSLATE_DIR"
+    if ! wait_for_port "$TRANSLATE_PORT"; then
+        warn "translate vLLM did not bind :$TRANSLATE_PORT within ${START_TIMEOUT}s — summaries still serving on :$PRODVLLM_PORT"
+        return 1
+    fi
+    if wait_for_health "$TRANSLATE_PORT"; then
+        ok "translate vLLM ready on :$TRANSLATE_PORT"
+        return 0
+    fi
+    warn "translate vLLM bound :$TRANSLATE_PORT but /health not 200 within ${START_TIMEOUT}s — model still loading? check 'docker logs $TRANSLATE_SVC'"
+    return 1
+}
 action_judging_a() { do_swap "judging-a" "$JUDGE_A_DIR" "$JUDGE_A_PORT"; }
 action_judging_b() { do_swap "judging-b" "$JUDGE_B_DIR" "$JUDGE_B_PORT"; }
 action_judging_n() { do_swap "judging-qwen-next" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_QWEN_NEXT_PORT"; }
@@ -707,7 +781,9 @@ action_judging_x() { do_swap "judging-nemotron"  "$JUDGE_NEMOTRON_DIR"  "$JUDGE_
 action_free() {
     log "→ free (bringing all vLLM composes down)"
     local apps_before; apps_before=$(gpu_compute_app_count)
-    stop_all_composes
+    # ...INCLUDING the co-resident translator: `free` means nothing holds the GPU, and
+    # stop_all_composes omits it on purpose (a swap into prod must not kill it).
+    stop_all_composes_including_translate
     sleep 2
     local apps_after; apps_after=$(gpu_compute_app_count)
     ok "compute apps ${apps_before}→${apps_after}; now: $(gpu_state_line)"

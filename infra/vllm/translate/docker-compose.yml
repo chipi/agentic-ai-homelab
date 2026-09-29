@@ -1,0 +1,95 @@
+# vLLM translate — the dedicated translation model (podcast_scraper #2169, Gate V).
+#
+# A copy of prod-vllm's serving config with the model and port changed. Kept as its
+# OWN named stack so "prod-vllm" (summary/GI serving) and "translate" (source ->
+# English) are separate owners of their own slots rather than one folder doing
+# double duty — the same reasoning that split prod-vllm out of autoresearch.
+#
+# IT RUNS ALONGSIDE prod-vllm, NOT INSTEAD OF IT. Every other stack in this
+# directory is mutually exclusive on :8003 (gpu-mode-swap.sh enforces one owner).
+# This one is different by design: an episode needs translation AND summarization
+# in the same pipeline pass (translation runs immediately before summary inside
+# generate_episode_metadata), so swapping between them per episode is not a usable
+# shape. `gpu-mode-swap.sh prod` therefore brings BOTH up, and this stack listens
+# on its own port.
+#
+# Port 8005: 8000 (whisper), 8001 (diarize/embeddings), 8003 (the shared vLLM
+# slot), 8004 (moss) and 9000 (coder) are taken. Engine ZMQ base is VLLM_PORT+1,
+# so .env sets VLLM_PORT=8092 -> engine 8093, clear of prod-vllm's 8091.
+#
+# MEMORY. Measured on the DGX with prod-vllm loaded: MemTotal 121.7 GiB,
+# MemAvailable 74.6 GiB. TranslateGemma-12B at bf16 is ~24 GB of weights, so the
+# two co-reside with headroom. --gpu-memory-utilization is set LOW (0.20) rather
+# than the 0.75 prod-vllm uses, because that fraction is of TOTAL unified memory,
+# not of what is free: two stacks each claiming 0.75 would over-subscribe the GPU
+# and OOM the host. The GB10 hard ceiling for a single stack is 0.78 and 0.92
+# OOM-crashes the host (see ../AGENTS.md); the SUM across co-resident stacks is
+# what matters here. 0.20 + 0.75 = 0.95 of total is still too aggressive if both
+# peak — re-measure under real load and tune down, treating this as a first boot
+# value rather than a soak-validated one.
+
+services:
+  vllm-translate:
+    image: nvcr.io/nvidia/vllm:26.05-py3
+    container_name: vllm-translate
+    runtime: nvidia
+    network_mode: host
+    ipc: host                                # NCCL / large tensor moves
+    env_file:
+      - .env
+    environment:
+      - HF_HOME=${HF_HOME:-/opt/llm-models/huggingface}
+      - VLLM_CACHE_ROOT=${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    volumes:
+      - ${HF_HOME:-/opt/llm-models/huggingface}:${HF_HOME:-/opt/llm-models/huggingface}
+      - ${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}:${VLLM_CACHE_PATH:-/opt/llm-models/vllm-cache}
+    command:
+      # NVIDIA vllm:*-py3 entrypoint requires `vllm serve <model>` as the leading
+      # positional args (see autoresearch/docker-compose.yml for the `--model=`
+      # gotcha). Subcommand + model name positionally.
+      - vllm
+      - serve
+      # TranslateGemma-12B (podcast_scraper §6.1). Chosen over the 27B on measured
+      # WMT24++ numbers: MetricX 3.60 / Comet22 83.5 vs the 27B's 3.09 / 84.4 —
+      # and it beats BASE Gemma-3-27B (4.04), so the fine-tune is worth more than
+      # the size step. The 12B also co-resides with the 30B summary model, which
+      # the 27B would not at bf16.
+      # Pin the revision SHA after first verified boot.
+      - google/translategemma-12b-it
+      # Pinned to the revision verified against the HF API on 2026-09-29 (ADR-155: pin
+      # every checkpoint, so a run can say which weights produced it).
+      - --revision=d1b225e1caa17f1ddc7e62065d8637d0923f34e2
+      - --host=0.0.0.0
+      # Own port — see the header. NOT 8003: this stack is co-resident with
+      # prod-vllm rather than swapped against it.
+      - --port=8005
+      # EMPTY drop-in, matching prod-vllm / autoresearch. Consumers send
+      # `Bearer EMPTY`. Tailnet-only, so this is defence-in-depth.
+      # DEFERRED: tighten to `${VLLM_API_KEY:?…}` once consumers can rotate.
+      - --api-key=${VLLM_API_KEY:-EMPTY}
+      # LOW on purpose — see the MEMORY note in the header. This is a fraction of
+      # TOTAL memory, and prod-vllm already claims 0.75.
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.20}
+      # Translation units are turn-bounded sentence groups (~120 words), not long
+      # documents, so 8k is generous. Smaller than prod-vllm's 64k on purpose:
+      # KV cache scales with this and the memory is shared with the 30B.
+      - --max-model-len=8192
+      # Served under a stable alias as well as the HF id, so the pipeline's
+      # translation client can target `translate` and the model can be swapped
+      # without a consumer config change.
+      - --served-model-name
+      - google/translategemma-12b-it
+      - translate
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8005/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Cold boot is checkpoint load + torch.compile. 12B is well under the 30B's
+      # ~24 min observed, but the first run also DOWNLOADS the weights; 30m keeps
+      # a cold pull from flagging unhealthy.
+      start_period: 30m
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "3" }
+    restart: unless-stopped
