@@ -17,16 +17,34 @@
 # slot), 8004 (moss) and 9000 (coder) are taken. Engine ZMQ base is VLLM_PORT+1,
 # so .env sets VLLM_PORT=8092 -> engine 8093, clear of prod-vllm's 8091.
 #
-# MEMORY. Measured on the DGX with prod-vllm loaded: MemTotal 121.7 GiB,
-# MemAvailable 74.6 GiB. TranslateGemma-12B at bf16 is ~24 GB of weights, so the
-# two co-reside with headroom. --gpu-memory-utilization is set LOW (0.20) rather
-# than the 0.75 prod-vllm uses, because that fraction is of TOTAL unified memory,
-# not of what is free: two stacks each claiming 0.75 would over-subscribe the GPU
-# and OOM the host. The GB10 hard ceiling for a single stack is 0.78 and 0.92
-# OOM-crashes the host (see ../AGENTS.md); the SUM across co-resident stacks is
-# what matters here. 0.20 + 0.75 = 0.95 of total is still too aggressive if both
-# peak — re-measure under real load and tune down, treating this as a first boot
-# value rather than a soak-validated one.
+# MEMORY — sized from a FAILED boot, not from an estimate.
+#
+# --gpu-memory-utilization is a fraction of TOTAL unified memory (121.7 GiB), and it
+# must cover the WEIGHTS PLUS the KV cache. The first attempt used 0.20, reasoning
+# that prod-vllm's 0.75 left little room. That is 24.3 GiB, the weights measured
+# 23.31 GiB, and vLLM refused to start:
+#
+#     ValueError: No available memory for the cache blocks.
+#
+# ~1 GiB left for KV cache is not a tuning problem, it is an impossible config, and
+# the engine was right to refuse rather than serve something degenerate.
+#
+# MEASURED, with prod-vllm resident:
+#   total usable        121.7 GiB
+#   prod-vllm            29.1 GiB  (24% of total -- NOT the 0.75 it is allowed)
+#   other compute apps    5.1 GiB  (whisper/diarize python + speaches)
+#   translate weights    23.3 GiB
+#
+# Note prod-vllm's ACTUAL footprint is 29 GiB, not the 91 GiB its 0.75 permits --
+# the fraction is a ceiling vLLM may claim, not what it holds. That is what leaves
+# room for a second model at all.
+#
+# 0.32 = 38.9 GiB budget -> 15.6 GiB of KV cache, with combined usage at ~60% of
+# total. Generous for units that are turn-bounded sentence groups (~120 words) at
+# max-model-len 8192: the constraint here is CONCURRENCY, not one long request.
+# Still a first-boot value — re-measure under real translation load. If it needs to
+# go UP, check prod-vllm's real footprint first; the ceiling for the SUM is what
+# risks the host (../AGENTS.md: 0.78 single-stack, 0.92 crashes it).
 
 services:
   vllm-translate:
@@ -67,9 +85,9 @@ services:
       # `Bearer EMPTY`. Tailnet-only, so this is defence-in-depth.
       # DEFERRED: tighten to `${VLLM_API_KEY:?…}` once consumers can rotate.
       - --api-key=${VLLM_API_KEY:-EMPTY}
-      # LOW on purpose — see the MEMORY note in the header. This is a fraction of
-      # TOTAL memory, and prod-vllm already claims 0.75.
-      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.20}
+      # Sized from the failed 0.20 boot — see the MEMORY note in the header. This is a
+      # fraction of TOTAL memory and must cover weights (23.3 GiB) PLUS KV cache.
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.32}
       # Translation units are turn-bounded sentence groups (~120 words), not long
       # documents, so 8k is generous. Smaller than prod-vllm's 64k on purpose:
       # KV cache scales with this and the memory is shared with the 30B.
