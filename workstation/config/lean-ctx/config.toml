@@ -65,6 +65,12 @@ shell_allowlist_extra = [
     "true",
     "osascript",
     "xcodegen",
+    "sdkmanager",
+    "gradlew",
+    "yes",
+    "aapt2",
+    "keytool",
+    "jarsigner",
 ]
 
 [cloud]
