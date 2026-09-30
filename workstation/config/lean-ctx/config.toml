@@ -71,6 +71,11 @@ shell_allowlist_extra = [
     "aapt2",
     "keytool",
     "jarsigner",
+    "strings",
+    "security",
+    "openssl",
+    "adb",
+    "codesign",
 ]
 
 [cloud]
