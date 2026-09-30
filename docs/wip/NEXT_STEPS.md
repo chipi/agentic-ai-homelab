@@ -38,6 +38,8 @@ drafted, but they haven't been run for real yet.
       [`colima-vcpu-8-to-4-runbook.md`](colima-vcpu-8-to-4-runbook.md):
       one `colima stop && start --cpu 4 --memory 12` (~2–5 min stack gap)
       + the same-window Spotlight disable (`mdutil -a -i off`, instant).
+      **Still not done (checked 2026-09-30):** colima is at `cpu: 8`, `memory: 20`, and
+      `mdutil -s /` → `Indexing enabled.` Needs an operator-chosen window.
 - [x] ~~**Step 2:** desktop-software pruning per
       [`mini-box-pruning.md`](mini-box-pruning.md).~~ **Done 2026-08-30**,
       all 12 vendors, ~8.7G freed, health green throughout. Left behind:
@@ -64,14 +66,16 @@ drafted, but they haven't been run for real yet.
 
 ## Dated checks (open on/after the date — we WILL forget otherwise)
 
-- [ ] **2026-08-31+ (any day next week):** verify the docker-prune LaunchAgent
+- [x] ~~**2026-08-31+ (any day next week):** verify the docker-prune LaunchAgent
       self-fired Sunday 04:00 on the mini (installed + hand-verified 2026-08-30,
       but the calendar trigger itself has never fired).
       Check: `tail /tmp/docker-prune.log` on the mini shows a `=== docker-prune
       2026-08-31…` header, and the `docker-prune-stale` Grafana alert is still
       inactive. If the run is missing, the dead-man alert fires by ~2026-09-07
-      anyway — but check before it has to.
-- [ ] **After the prod_dgx_full run completes:** apply the widened cadvisor
+      anyway — but check before it has to.~~ **Verified 2026-09-30:** now a system
+      LaunchDaemon (since 567bd21); `launchctl print` → `runs = 3`, `last exit code
+      = 0` (three Sundays since 09-10); last log header `2026-09-27T02:00:04Z`.
+- [x] ~~**After the prod_dgx_full run completes:** apply the widened cadvisor
       keep-list on the DGX. It's already in `infra/observability/config.alloy`
       (PSI, cpu_user/system, scrape_error, and the `container_memory_rss` fix)
       but deliberately NOT deployed — the box was mid-run and changing collection
@@ -82,23 +86,36 @@ drafted, but they haven't been run for real yet.
       *Optional, low priority:* align the DGX cadvisor pin v0.52.1 → v0.55.1. It is
       NOT affected by the containerd-snapshotter bug (it uses overlay2 with a real
       layerdb), so this is consistency only — validate with a throwaway container
-      on a spare port first, as the podcast agent did on prod.
-- [ ] **2026-09-15+ (first data older than 30d):** verify the Langfuse 30-day
+      on a spare port first, as the podcast agent did on prod.~~ **Found applied
+      2026-09-30:** `count(container_pressure_io_waiting_seconds_total{instance="dgx-llm-1",name!=""})`
+      → 12 series. The optional cadvisor v0.52.1 → v0.55.1 alignment was not checked.
+- [x] ~~**2026-09-15+ (first data older than 30d):** verify the Langfuse 30-day
       caps actually delete. Set 2026-08-30; nothing was old enough to delete yet,
       so neither has been observed working end-to-end.
       (a) ClickHouse: `select toDate(min(timestamp)) from traces` should stop
       going further back than 30d. (b) MinIO: `mc ls lf/langfuse/events` oldest
-      object <30d. Details + commands: [`infra/langfuse/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/langfuse/README.md).
-- [ ] **~2026-09-27 (a month out):** colima datadisk regrowth check —
+      object <30d. Details + commands: [`infra/langfuse/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/langfuse/README.md).~~
+      **Verified 2026-09-30 (ClickHouse):** oldest `traces` and `observations` are both
+      2026-08-31 = today − 30 d; the worker logs `[Data Retention] Deleted ClickHouse
+      and S3 data older than 30 days` daily at 03:15. **MinIO not verified:** listing
+      `events/agents` inside `langfuse-minio-1` returned nothing, although the directory
+      exists — use `mc ls` with credentials to confirm the oldest object.
+- [x] ~~**~2026-09-27 (a month out):** colima datadisk regrowth check —
       `sudo du -sh /private/var/_dockerhost/.colima/_lima/_disks/colima/datadisk`
       on the mini. Was 23G after the 2026-08-30 trim (19G live data); if it's
       drifting far above ~30G, the weekly `fstrim -av` isn't holding and the
-      job needs a look.
+      job needs a look.~~ **Checked 2026-09-30 — the trim holds:** the 09-27 run
+      trimmed 76 GiB and logged `datadisk allocated: 22G`. The file then regrew to 52G
+      in three days of image churn, while the guest used 25G (`df` in the VM).
+      Sawtooth: weekly growth, reclaimed each Sunday. Read the size *after* a Sunday
+      run, not mid-week.
 - [ ] **~2026-09-13:** check the two handed-off podcast_scraper issues moved:
       [#1877](https://github.com/chipi/podcast_scraper/issues/1877) (prod-ops-health
       cron → on-VPS systemd timer) and
       [#1879](https://github.com/chipi/podcast_scraper/issues/1879) (63 batched
       signal-fleet proposals, 18 families). If untouched, ping/reassign.
+      **Overdue — checked 2026-09-30:** both OPEN, last updated 2026-08-30 (untouched
+      for a month). Operator call: ping, reassign, or close.
 ## Active subprojects
 
 - [ ] **Agentic coding fleet** — multi-agent setup across opencode + Pi,
