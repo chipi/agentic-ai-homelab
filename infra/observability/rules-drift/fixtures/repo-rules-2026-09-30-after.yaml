@@ -750,61 +750,6 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
-      # --- Alert rules drifted from the repo ----------------------------------------
-      # Grafana runs THIS file only after an alerting-provisioning reload. On 2026-09-30
-      # two committed changes had never loaded for 12 days: a fixed rule kept firing a
-      # false critical (#58) and four delivery rules never ran. The mini-metrics loop
-      # runs infra/observability/rules-drift/drift.py every ~15 min (missing / extra /
-      # changed per uid). 30m of drift = someone committed a rule and did not reload.
-      # meta=true: this is the alerting substrate itself — operator-terminated.
-      - uid: grafana-alert-rules-drift
-        title: "Grafana alert rules differ from the repo (reload needed)"
-        condition: threshold
-        for: 30m
-        noDataState: OK
-        labels: { severity: warning, kind: infra, meta: "true" }
-        annotations:
-          summary: "{{ $value }} alert rule(s) in rules.yaml are missing, extra or changed in live Grafana — a committed change is not in effect. Details: python3 infra/observability/rules-drift/drift.py --repo <rules.yaml> --grafana http://localhost:3000 --env infra/observability/backend/.env. Fix: POST /api/admin/provisioning/alerting/reload."
-        data:
-          - refId: q
-            relativeTimeRange: { from: 1800, to: 0 }
-            datasourceUid: victoriametrics
-            model:
-              expr: 'sum(last_over_time(grafana_alert_rules_drift[30m]))'
-              instant: true
-              queryType: instant
-          - refId: threshold
-            datasourceUid: __expr__
-            model:
-              type: threshold
-              expression: q
-              conditions: [{ evaluator: { type: gt, params: [0] } }]
-
-      # Dead-man for the drift check: a check that stopped running reads as "no drift".
-      # Pushed only when the check itself ran (drift.py), every ~15 min.
-      - uid: grafana-alert-rules-drift-check-stale
-        title: "Alert-rule drift check has not run for 1h"
-        condition: threshold
-        for: 0s
-        noDataState: Alerting
-        labels: { severity: warning, kind: infra, meta: "true" }
-        annotations:
-          summary: "grafana_alert_rules_drift_last_check_timestamp is older than 1h (or absent) — the mini-metrics loop is not running drift.py, or it cannot reach Grafana. Check: launchctl print system/com.homelab.mini-metrics; run drift.py by hand."
-        data:
-          - refId: q
-            relativeTimeRange: { from: 7200, to: 0 }
-            datasourceUid: victoriametrics
-            model:
-              expr: 'time() - max(last_over_time(grafana_alert_rules_drift_last_check_timestamp[2h]))'
-              instant: true
-              queryType: instant
-          - refId: threshold
-            datasourceUid: __expr__
-            model:
-              type: threshold
-              expression: q
-              conditions: [{ evaluator: { type: gt, params: [3600] } }]
-
       # --- LiteLLM gateway down ----------------------------------------------------
       # The production LLM gateway (infra/litellm). LiteLLM's own /metrics is
       # enterprise-gated, so the probe is the stack's postgres-exporter: if it

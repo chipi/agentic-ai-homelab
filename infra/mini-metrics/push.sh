@@ -18,7 +18,21 @@ if [ ! -x "$TBIN" ] && command -v git >/dev/null 2>&1 && command -v make >/dev/n
   _t=$(mktemp -d) && git clone --depth 1 -q https://github.com/lavoiesl/osx-cpu-temp "$_t" 2>/dev/null \
     && make -C "$_t" >/dev/null 2>&1 && cp "$_t/osx-cpu-temp" "$TBIN" && chmod +x "$TBIN"; rm -rf "$_t"
 fi
+# Alert-rule drift (infra/observability/rules-drift): does Grafana run the rules
+# rules.yaml says? A committed rule is live only after a provisioning reload; on
+# 2026-09-30 two committed changes had silently never loaded for 12 days (#58). Every
+# 45th loop (~15 min). Non-fatal: a failed check pushes check_ok=0 and the loop goes on.
+HOMELAB="$(cd "$(dirname "$0")/../.." && pwd)"
+DRIFT_EVERY=45
+loop=0
 while true; do
+  loop=$((loop + 1))
+  if [ $(( (loop - 1) % DRIFT_EVERY )) -eq 0 ]; then
+    /usr/bin/python3 "$HOMELAB/infra/observability/rules-drift/drift.py" \
+      --repo "$HOMELAB/infra/observability/backend/grafana/provisioning/alerting/rules.yaml" \
+      --grafana http://localhost:3000 --env "$HOMELAB/infra/observability/backend/.env" \
+      --push "$VM" >/dev/null 2>&1 || true
+  fi
   curl -s -m5 http://localhost:9100/metrics | curl -s -o /dev/null --data-binary @- "$VM?extra_label=instance=homelab"
   IDLE=$(top -l2 -n0 | grep "CPU usage" | tail -1 | sed "s/.*, \([0-9.]*\)% idle.*/\1/")
   CPU=$(echo "100 - ${IDLE:-100}" | bc -l 2>/dev/null)
