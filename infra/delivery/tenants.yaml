@@ -15,7 +15,11 @@ tenants:
     # APNs (native iOS push). The .p8 auth key rides in .env by name; the rest are non-secret ids.
     # A prod build ships via TestFlight/App Store, so its device tokens are PRODUCTION → apns_sandbox
     # stays false here. (A worker draining a dev outbox of development-signed / devicectl tokens would
-    # set apns_sandbox: true.) Fill apns_key_id with the .p8's Key ID from the Apple Developer portal.
+    # set apns_sandbox: true.) apns_key_id is the .p8's Key ID from the Apple Developer portal —
+    # Keys, NOT App Store Connect -> Users and Access -> Integrations. The two look identical
+    # (both ES256 .p8 files with a 10-char id) and the wrong one fails only at send time, as
+    # `403 InvalidProviderToken`: this field held an App Store Connect key until 2026-09-30 and
+    # every iOS notification silently failed for months (podcast_scraper #2068).
     apns_key_env: PODCAST_APNS_AUTH_KEY
     apns_key_id: "ZNFZS6CY6K"
     apns_team_id: "3P3PX275ZM"
