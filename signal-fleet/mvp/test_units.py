@@ -618,5 +618,53 @@ class TestAlertKeyDedup(unittest.TestCase):
         self.assertEqual(rows["9"].get("alert_key", ""), "")
 
 
+class TestStaleNudge(unittest.TestCase):
+    """#10: pure rule — quiet for 7 days, no human comment, never while firing."""
+
+    def setUp(self):
+        import stale
+        self.s = stale
+        self.now = stale._ts("2026-09-30T08:00:00Z")
+        self.repo = "chipi/agentic-ai-homelab"
+        self.names = {"fpA": ("grafana", "Enrichment/job drain paused")}
+        self.ledger = [{"fingerprint": "fpA", "repo": self.repo, "issue": "48"}]
+
+    def _seen(self, occ, firing=()):
+        fps, aks = self.s.issue_signals(self.ledger, self.repo, 48, self.names)
+        return self.s.last_seen(fps, aks, self.repo, occ, set(firing), self.now)
+
+    def test_quiet_for_a_week_is_stale(self):
+        seen = self._seen([("2026-09-20T00:00:00Z", "fpA", "grafana", "Enrichment/job drain paused")])
+        self.assertTrue(self.s.is_stale(seen, [], self.now))
+
+    def test_recent_occurrence_is_not_stale(self):
+        seen = self._seen([("2026-09-28T00:00:00Z", "fpA", "grafana", "Enrichment/job drain paused")])
+        self.assertFalse(self.s.is_stale(seen, [], self.now))
+
+    def test_new_fingerprint_same_alert_counts_as_seen(self):
+        # the #48 -> #72 case: a recurrence under a new fingerprint still refreshes last_seen
+        seen = self._seen([("2026-09-01T00:00:00Z", "fpA", "grafana", "Enrichment/job drain paused"),
+                           ("2026-09-29T00:00:00Z", "fpNEW", "grafana", "Enrichment/job drain paused")])
+        self.assertFalse(self.s.is_stale(seen, [], self.now))
+
+    def test_firing_now_is_never_stale(self):
+        # a continuously firing alert records one occurrence at its start (#71)
+        seen = self._seen([("2026-09-01T00:00:00Z", "fpA", "grafana", "Enrichment/job drain paused")],
+                          firing=["Enrichment/job drain paused"])
+        self.assertEqual(seen, self.now)
+        self.assertFalse(self.s.is_stale(seen, [], self.now))
+
+    def test_recent_human_comment_blocks_the_nudge(self):
+        seen = self._seen([("2026-09-01T00:00:00Z", "fpA", "grafana", "Enrichment/job drain paused")])
+        self.assertFalse(self.s.is_stale(seen, ["2026-09-29T12:00:00Z"], self.now))
+
+    def test_no_evidence_never_nudges(self):
+        self.assertFalse(self.s.is_stale(None, [], self.now))
+
+    def test_opt_in_flag_forces_dry_run(self):
+        os.environ.pop("SF_STALE_NUDGE", None)
+        self.assertFalse(self.s.enabled())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

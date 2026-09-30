@@ -202,6 +202,12 @@ def run_poll(limit=10, dry_run=True):
         inbox.push_inbox()
     except Exception as e:  # noqa: BLE001
         print("  inbox push error:", e)
+    # #10 "looks resolved" nudge — once per UTC day; shadow logs only (dry_run)
+    try:
+        import stale
+        print("  " + stale.run_pass(dry_run=dry_run))
+    except Exception as e:  # noqa: BLE001
+        print("  stale pass error:", e)
     spend = _spent(disps)
     try:
         with open(config.SPEND_FILE, "w") as f:
