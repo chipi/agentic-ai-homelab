@@ -17,7 +17,7 @@ tenants:
     # stays false here. (A worker draining a dev outbox of development-signed / devicectl tokens would
     # set apns_sandbox: true.) Fill apns_key_id with the .p8's Key ID from the Apple Developer portal.
     apns_key_env: PODCAST_APNS_AUTH_KEY
-    apns_key_id: "38KC9BBJM4"
+    apns_key_id: "ZNFZS6CY6K"
     apns_team_id: "3P3PX275ZM"
     apns_bundle_id: app.closelistening.player
     apns_sandbox: false
@@ -61,7 +61,7 @@ tenants:
     # whose tokens are sandbox-scoped. Same .p8 key as prod (env-agnostic); only the
     # host differs. This is why a dev build can't hit the prod `podcast` tenant.
     apns_key_env: PODCAST_APNS_AUTH_KEY
-    apns_key_id: "38KC9BBJM4"
+    apns_key_id: "ZNFZS6CY6K"
     apns_team_id: "3P3PX275ZM"
     apns_bundle_id: app.closelistening.player
     apns_sandbox: true
