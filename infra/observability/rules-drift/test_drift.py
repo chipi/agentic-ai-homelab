@@ -88,5 +88,35 @@ class TestNormalisation(unittest.TestCase):
         self.assertNotIn("last_check_timestamp", failed)
 
 
+class TestNoDataPolicy(unittest.TestCase):
+    """Fix #4 (2026-09-30): every rule states what "no data" means. Replaying 30 days of
+    Grafana NoData history, 24 of 71 NoData notifications were pure noise and the
+    other 47 duplicated an outage a dead-man rule had already alerted. So: OK
+    unless the rule IS a dead-man, and a dead-man must be shaped like one."""
+
+    RULES = os.path.join(os.path.dirname(__file__), "..", "backend", "grafana",
+                         "provisioning", "alerting", "rules.yaml")
+    # a dead-man's query must still produce a value when its source is silent
+    DEADMAN_SHAPES = ("count_over_time", "or vector(", "time() -", "stats count()")
+
+    def _rules(self):
+        with open(self.RULES) as f:
+            return drift.repo_rules(f.read())
+
+    def test_every_rule_declares_nodata_state(self):
+        missing = [u for u, r in self._rules().items() if "noDataState" not in r]
+        self.assertEqual(missing, [], "state what no-data means (OK, or Alerting for a dead-man)")
+
+    def test_alerting_on_nodata_only_for_deadman_shaped_rules(self):
+        bad = []
+        for uid, r in self._rules().items():
+            if r.get("noDataState") != "Alerting":
+                continue
+            exprs = " ".join((q.get("model") or {}).get("expr") or "" for q in r.get("data") or [])
+            if not any(s in exprs for s in self.DEADMAN_SHAPES):
+                bad.append(uid)
+        self.assertEqual(bad, [])
+
+
 if __name__ == "__main__":
     unittest.main()

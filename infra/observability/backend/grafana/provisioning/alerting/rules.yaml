@@ -42,6 +42,10 @@ groups:
         title: "Scrape target down (up==0)"
         condition: threshold
         for: 5m
+        # No data = this series is briefly absent (restart, push gap), not an outage:
+        # 2026-09-30 NoData replay — every real outage was already alerted by
+        # dgx-silent / prod-silent / mini-forward-down (host or pipeline dark).
+        noDataState: OK
         labels: { severity: critical, kind: infra }
         annotations:
           summary: "Target down (up==0) for 5m — {{ $labels.job }} / {{ $labels.instance }}."
@@ -69,6 +73,10 @@ groups:
         title: "Host disk low (<10% free)"
         condition: threshold
         for: 10m
+        # No data = this series is briefly absent (restart, push gap), not an outage:
+        # 2026-09-30 NoData replay — every real outage was already alerted by
+        # dgx-silent / prod-silent / mini-forward-down (host or pipeline dark).
+        noDataState: OK
         labels: { severity: warning, kind: infra }
         annotations:
           summary: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} below 10% free."
@@ -92,6 +100,10 @@ groups:
         title: "Host disk critical (<5% free)"
         condition: threshold
         for: 5m
+        # No data = this series is briefly absent (restart, push gap), not an outage:
+        # 2026-09-30 NoData replay — every real outage was already alerted by
+        # dgx-silent / prod-silent / mini-forward-down (host or pipeline dark).
+        noDataState: OK
         labels: { severity: critical, kind: infra }
         annotations:
           summary: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} below 5% free — imminent fill."
@@ -428,6 +440,10 @@ groups:
         title: "Mac mini CPU temp high (>85°C)"
         condition: threshold
         for: 5m
+        # No data = this series is briefly absent (restart, push gap), not an outage:
+        # 2026-09-30 NoData replay — every real outage was already alerted by
+        # mini-forward-down (the mini metrics pipeline dark).
+        noDataState: OK
         labels: { severity: warning, kind: infra }
         annotations:
           summary: "Mac mini CPU die temp above 85°C for 5m — running hot."
@@ -449,6 +465,10 @@ groups:
         title: "Mac mini CPU temp critical (>95°C)"
         condition: threshold
         for: 2m
+        # No data = this series is briefly absent (restart, push gap), not an outage:
+        # 2026-09-30 NoData replay — every real outage was already alerted by
+        # mini-forward-down (the mini metrics pipeline dark).
+        noDataState: OK
         labels: { severity: critical, kind: infra }
         annotations:
           summary: "Mac mini CPU die temp above 95°C — near thermal throttle."
@@ -813,6 +833,10 @@ groups:
         title: "LiteLLM gateway down (stack exporter gone)"
         condition: threshold
         for: 5m
+        # No data = this series is briefly absent (restart, push gap), not an outage:
+        # 2026-09-30 NoData replay — every real outage was already alerted by
+        # mini-forward-down (the mini metrics pipeline dark).
+        noDataState: OK
         labels: { severity: critical, kind: infra }
         annotations:
           summary: "LiteLLM gateway stack down for 5m — production LLM routing (fleets + consumers on homelab:4001) is dead. cd ~/agentic-ai-homelab/infra/litellm && docker compose up -d."
@@ -844,6 +868,10 @@ groups:
         title: "Langfuse trace-export down (LiteLLM keys rejected)"
         condition: threshold
         for: 15m
+        # No data = this series is briefly absent (restart, push gap), not an outage:
+        # 2026-09-30 NoData replay — every real outage was already alerted by
+        # mini-forward-down (the mini metrics pipeline dark).
+        noDataState: OK
         labels: { severity: warning, kind: langfuse }
         annotations:
           summary: "LiteLLM->Langfuse trace export failing for gateway={{ $labels.gateway }} — keys rejected (401); silent LLM-observability loss. Fix: infra/litellm/.env LANGFUSE_* must equal infra/langfuse/.env LANGFUSE_INIT_PROJECT_*."
@@ -870,6 +898,10 @@ groups:
         title: "Delivery worker down (up==0)"
         condition: threshold
         for: 5m
+        # No data = this series is briefly absent (restart, push gap), not an outage:
+        # 2026-09-30 NoData replay — every real outage was already alerted by
+        # mini-forward-down (the mini metrics pipeline dark).
+        noDataState: OK
         labels: { severity: critical, kind: delivery }
         annotations:
           summary: "Delivery worker down 5m — {{ $labels.channel }}. Digests/pushes are not going out. cd ~/agentic-ai-homelab/infra/delivery && docker compose up -d."
@@ -938,6 +970,10 @@ groups:
         title: "Delivery events poller stalled (cursor age >1h)"
         condition: threshold
         for: 10m
+        # No data = this series is briefly absent (restart, push gap), not an outage:
+        # 2026-09-30 NoData replay — every real outage was already alerted by
+        # delivery-worker-down (worker gone) / mini-forward-down.
+        noDataState: OK
         labels: { severity: warning, kind: delivery }
         annotations:
           summary: "Resend events cursor age >1h — bounce/complaint suppression may be stalled."
