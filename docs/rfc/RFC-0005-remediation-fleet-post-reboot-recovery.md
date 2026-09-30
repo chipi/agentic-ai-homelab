@@ -794,16 +794,20 @@ own config (`RF_LIVE_CLASSES` in `.env`) — a class not listed there behaves as
 
 **Gate to MVP** (start shadow when all are ticked):
 
-- **Prereqs in podcast_scraper** — status from the prod-side session, 2026-09-30:
+- **Prereqs in podcast_scraper** — status from the prod-side session, 2026-09-30. The concurrency group
+  and the stale run-id comment are tracked in
+  [chipi/podcast_scraper#2203](https://github.com/chipi/podcast_scraper/issues/2203):
   - [x] shared rules library `scripts/ops/prod_health_lib.sh`, sourced by both the check and
     `restage_prod_recreate.sh`, with the parity test (`b9c07ff8f`);
   - [x] `scripts/ops/prod_recovery_check.sh` plus `tests/unit/scripts/ops/test_prod_recovery_check.py`
     (`b9c07ff8f`);
   - [x] `request_id` input and `run-name` on `restage-prod-secrets.yml`; the workflow copies
     `prod_health_lib.sh` to `/tmp` beside the recreate script (`b9c07ff8f`);
-  - [ ] CI green on `b9c07ff8f` (partly still running on 2026-09-30), and **a deploy that includes it
-    reaches prod** — until then `/srv/podcast-scraper/scripts/ops/prod_recovery_check.sh` does not
-    exist on the box;
+  - [ ] CI green on `b9c07ff8f`, and **a deploy that includes it reaches prod** — until then
+    `/srv/podcast-scraper/scripts/ops/prod_recovery_check.sh` does not exist on the box. Checked later
+    on 2026-09-30: `b9c07ff8f` had `coverage-unified` failing and `docs` / `test-e2e` cancelled;
+    `main` (`3f2a9f43b`) had `gate` failing; and the last prod deploys (`9949699df`, `6f5bfd5a4`) were
+    both behind `b9c07ff8f`;
   - [ ] **one concurrency group for every prod-mutating workflow** — the 11 in Open question 2 (the 10
     that match the rule, plus `infra-apply`; the corpus data jobs stay out) — set at **job** level on
     the leaf jobs, tested on the drill box first; the fleet's pre-flight guard list made identical to
@@ -824,10 +828,11 @@ own config (`RF_LIVE_CLASSES` in `.env`) — a class not listed there behaves as
   pending invitee cannot be a reviewer); added as a reviewer on `lever-restage` only; its notification
   settings muted for deployment reviews, so its inbox does not fill. Its token is **not** issued yet —
   that happens at Stage C3.
-- [ ] **`fleetd` kills whole process groups on timeout**: start each cycle with `Setpgid` and kill the
-  group, ideally SIGTERM then SIGKILL after a grace period (`cmd.Cancel` + `WaitDelay`). Today a timeout
-  SIGKILLs the cycle and orphans its children (see "Placement"). A small change that benefits every
-  fleet; `cycle.py`'s own deadline and lock make this fleet safe even before it lands.
+- [x] **`fleetd` kills whole process groups on timeout** — done 2026-09-30, `61e1886` (#77): each cycle
+  runs in its own process group; on timeout or shutdown the group gets SIGTERM, then SIGKILL after 10 s,
+  and `WaitDelay` stops fleetd from waiting on children still holding the output. Deployed to the mini,
+  and verified live with a probe fleet: a child that ignored SIGTERM was gone at +15 s (5 s timeout
+  + 10 s grace), and nothing was left in the group. The triage fleet was unaffected.
 - [ ] **Fleet code** with `test_units.py` faking SSH and the GitHub API. Cover:
   - a clean box does nothing, but still verifies each GitHub token issued for the stage;
   - a broken box dispatches, finds its run by `request_id`, and approves (live) or stops at the
