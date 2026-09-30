@@ -521,5 +521,102 @@ class TestSourceGuards(unittest.TestCase):
         self.assertTrue(out.startswith("FILED"), f"promotion must beat mute, got: {out}")
 
 
+class TestAlertKeyDedup(unittest.TestCase):
+    """#9 alert_key: the same alert with a new fingerprint and no norm_key comments on
+    the OPEN issue already tracking it (the #48 -> #72 case). `_gh`/`issue_state` mocked."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+        self._tmp.close()
+        self._orig = (filing.FILED, filing._gh, filing.issue_state)
+        self._env = os.environ.get("SF_ALERT_KEY_DEDUP")
+        os.environ.pop("SF_ALERT_KEY_DEDUP", None)
+        filing.FILED = self._tmp.name
+        self.gh = []
+        filing._gh = lambda m, p, payload=None: (self.gh.append((m, p, payload))
+                                                 or {"number": 99, "html_url": "u/99"})
+        self.open = {"48"}
+        filing.issue_state = lambda repo, num: {
+            "state": "open" if str(num) in self.open else "closed",
+            "labels": ["triage-fleet/muted"] if str(num) == "77" else [],
+            "closed_at": None, "url": ""}
+        self.repo = "chipi/agentic-ai-homelab"
+        self.ak = filing.alert_key(self.repo, "grafana", "Enrichment/job drain paused")
+
+    def tearDown(self):
+        filing.FILED, filing._gh, filing.issue_state = self._orig
+        if self._env is None:
+            os.environ.pop("SF_ALERT_KEY_DEDUP", None)
+        else:
+            os.environ["SF_ALERT_KEY_DEDUP"] = self._env
+        os.unlink(self._tmp.name)
+
+    def _signal(self, fp="grafana:57cf073a75e944ec"):
+        return {"fingerprint": fp, "source": "grafana", "alertname": "Enrichment/job drain paused",
+                "labels": {"instance": "homelab"}}
+
+    def _seed_48(self, issue="48"):
+        filing._ledger_write([{"fingerprint": "grafana:ab6d6d8f8b808627", "repo": self.repo,
+                               "issue": issue, "group_key": "", "norm_key": "",
+                               "alert_key": self.ak}])
+
+    def test_key_ignores_volatile_tokens_but_not_repo(self):
+        a = filing.alert_key("r", "glitchtip", "GI INVARIANT VIOLATED [3da68c36-8ac2-11f1-b9f0-57c51db071f6]")
+        b = filing.alert_key("r", "glitchtip", "GI INVARIANT VIOLATED [bcfa4532-6f5a-11f1-8bb5-c3355609e72d]")
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, filing.alert_key("other/repo", "glitchtip", "GI INVARIANT VIOLATED [x]"))
+        self.assertEqual(filing.alert_key("r", "grafana", ""), "")
+
+    def test_different_messages_do_not_share_a_key(self):
+        a = filing.alert_key("r", "glitchtip", 'BadRequestError: {"message":"Expected temperature')
+        b = filing.alert_key("r", "glitchtip", 'BadRequestError: {"message":"Expected max_tokens')
+        self.assertNotEqual(a, b)
+
+    def test_same_alert_new_fingerprint_comments_on_open_issue(self):
+        self._seed_48()
+        out = filing.file_or_update(self._signal(), {"title": "Enrichment drain paused", "body": "b"}, "bug")
+        self.assertTrue(out.startswith("COMMENTED") and "#48" in out and "alert_key" in out, out)
+        self.assertFalse([p for m, p, _ in self.gh if m == "POST" and p.endswith("/issues")])
+        body = [pl for m, p, pl in self.gh if p.endswith("/comments")][0]["body"]
+        self.assertIn("instance `homelab`", body)
+
+    def test_closed_issue_is_not_matched_on_alert_key(self):
+        self._seed_48()
+        self.open = set()
+        out = filing.file_or_update(self._signal(), {"title": "Enrichment drain paused", "body": "b"}, "bug")
+        self.assertTrue(out.startswith("FILED"), out)
+
+    def test_flag_off_restores_old_behaviour(self):
+        self._seed_48()
+        os.environ["SF_ALERT_KEY_DEDUP"] = "0"
+        out = filing.file_or_update(self._signal(), {"title": "Enrichment drain paused", "body": "b"}, "bug")
+        self.assertTrue(out.startswith("FILED"), out)
+
+    def test_alert_key_hit_never_inherits_mute(self):
+        self._seed_48(issue="77")
+        self.open = {"77"}
+        out = filing.file_or_update(self._signal(), {"title": "Enrichment drain paused", "body": "b"}, "bug")
+        self.assertTrue(out.startswith("FILED"), out)
+
+    def test_backfill_from_dispositions(self):
+        import tempfile
+        filing._ledger_write([
+            {"fingerprint": "grafana:ab6d", "repo": self.repo, "issue": "48", "group_key": "", "norm_key": ""},
+            {"fingerprint": "grafana:none", "repo": self.repo, "issue": "9", "group_key": "", "norm_key": ""}])
+        d = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+        d.write("ts\tfingerprint\tsource\talertname\n"
+                "2026-08-27\tgrafana:ab6d\tgrafana\tEnrichment/job drain paused\n")
+        d.close()
+        try:
+            res = filing.backfill_alert_keys(d.name)
+        finally:
+            os.unlink(d.name)
+        self.assertEqual((res["backfilled"], res["no_history"]), (1, 1))
+        rows = {r["issue"]: r for r in filing._ledger_rows()}
+        self.assertEqual(rows["48"]["alert_key"], self.ak)
+        self.assertEqual(rows["9"].get("alert_key", ""), "")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

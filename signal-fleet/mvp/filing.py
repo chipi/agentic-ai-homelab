@@ -3,6 +3,8 @@
 The contract (operator-reviewed 2026-07-29):
 - fingerprint → filed-ledger (results/filed.tsv) → never a duplicate issue:
     * ledger hit + issue OPEN      → rolling recurrence comment (≤1/day)
+    * same ALERT already open in the target repo (alert_key, #9) → recurrence
+      comment on that issue, never a second issue for the same alert
     * ledger hit + CLOSED <7 days  → reopen + "recurred after close" comment
     * ledger hit + CLOSED ≥7 days  → new issue linking the old (regression)
     * issue carries `triage-fleet/muted` label → do nothing, forever
@@ -35,7 +37,35 @@ FILED = os.path.expanduser(os.environ.get("SF_FILED_LEDGER",
 # every read is `.get("norm_key","")`. This is `filed.tsv`, a SEPARATE ledger from
 # config.LEDGER (dispositions.tsv, migrated by actions._ensure_ledger_schema).
 FILED_COLS = ["fingerprint", "repo", "issue", "group_key", "filed_at",
-              "last_comment_day", "norm_key"]
+              "last_comment_day", "norm_key", "alert_key"]
+
+# ── #9 alert-level dedup key ─────────────────────────────────────────────────
+# The fingerprint and norm_key dimensions miss the same alert when (a) Grafana mints
+# a new fingerprint because the rule's labels changed (#48 → #72, 2026-09-22), or
+# (b) the prior row predates norm_key (306 of 433 rows on 2026-09-30). Both filed a
+# second issue for an alert that already had an OPEN one. alert_key is deliberately
+# coarse — repo + source + the volatile-free alert name — and so it only ever
+# matches an OPEN issue (see file_or_update): recurrences land as comments on the
+# issue already tracking that alert (operator, 2026-09-30: "we deduplicate rather
+# than opening a new one"; the comment trail doubles as a priority signal).
+# Alert names reach us already cut at 100 chars (GlitchTip titles), and the
+# dispositions ledger stores the same cut, so a key backfilled from history equals
+# the key of a live signal. SF_ALERT_KEY_DEDUP=0 turns the dimension off (rollback,
+# and the baseline arm of eval_filing_replay.py).
+ALERT_KEY_VERSION = "a1"
+
+
+def alert_key_dedup_enabled():
+    return os.environ.get("SF_ALERT_KEY_DEDUP", "1") != "0"
+
+
+def alert_key(repo, source, alertname):
+    """Stable per-alert key within one repo. "" (never matches) without a name."""
+    skeleton = _normalize_skeleton(alertname or "")
+    if not (repo and skeleton):
+        return ""
+    basis = f"{repo}|{source or ''}|{skeleton}"
+    return f"{ALERT_KEY_VERSION}:" + hashlib.sha1(basis.encode()).hexdigest()[:12]
 
 # ── #1 normalized dedup key ──────────────────────────────────────────────────
 # GlitchTip mints a new shortId per unique event fingerprint, and its fingerprint
@@ -257,9 +287,10 @@ def _ledger_write(rows):
             f.write("\t".join(str(r.get(c, "")) for c in FILED_COLS) + "\n")
 
 
-def ledger_lookup(fingerprint, group_key="", norm_key=""):
+def ledger_lookup(fingerprint, group_key="", norm_key="", alert_key="", is_open=None):
     """Newest matching row, strongest dimension first: exact fingerprint → group_key
-    (storm) → norm_key (normalized dedup #1). Returns the row with an added `_dim`
+    (storm) → norm_key (normalized dedup #1) → alert_key (#9, only rows whose issue
+    `is_open(repo, issue)` reports open). Returns the row with an added `_dim`
     naming which dimension matched, or None.
 
     NEWEST-row (not first): multiple rows can share a group_key/norm_key (upsert
@@ -289,7 +320,39 @@ def ledger_lookup(fingerprint, group_key="", norm_key=""):
         if r:
             r["_dim"] = "norm_key"
             return r
+    if alert_key and is_open is not None and alert_key_dedup_enabled():
+        # newest OPEN issue for this alert; closed ones are left to the stronger
+        # dimensions (reopen / regression), a coarse key must not resurrect them
+        for r in reversed(rows):
+            if r.get("alert_key", "") == alert_key and is_open(r["repo"], r["issue"]):
+                r = dict(r)
+                r["_dim"] = "alert_key"
+                return r
     return None
+
+
+def backfill_alert_keys(dispositions_path, dry_run=False):
+    """One-time: give every ledger row without an alert_key one, from the alert name
+    and source the dispositions ledger recorded for its fingerprint. Rows whose
+    fingerprint never appears there stay keyless (they can never match on #9)."""
+    import csv
+    names = {}
+    with open(dispositions_path) as f:
+        for d in csv.DictReader(f, delimiter="\t"):
+            names.setdefault(d.get("fingerprint", ""), (d.get("source", ""), d.get("alertname", "")))
+    rows, done, missing = _ledger_rows(), 0, 0
+    for r in rows:
+        if r.get("alert_key"):
+            continue
+        src_name = names.get(r.get("fingerprint", ""))
+        if not src_name:
+            missing += 1
+            continue
+        r["alert_key"] = alert_key(r.get("repo", ""), *src_name)
+        done += 1
+    if not dry_run:
+        _ledger_write(rows)
+    return {"rows": len(rows), "backfilled": done, "no_history": missing}
 
 
 def ledger_upsert(entry):
@@ -445,8 +508,10 @@ def file_or_update(signal, issue, kind):
     repo = repo_for(signal)
     if not repo:
         return f"REFUSED: no repo mapping for {fp} and SF_OPS_REPO unset"
+    ak = alert_key(repo, signal.get("source", ""), signal.get("alertname", ""))
     issue = sanitize_issue(signal, issue)
-    prior = ledger_lookup(fp, gk, nk)
+    prior = ledger_lookup(fp, gk, nk, ak,
+                          is_open=lambda rp, n: issue_state(rp, n)["state"] == "open")
 
     # #4 promotion (review R6) — checked BEFORE the mute gate (Fable pre-deploy
     # review) so a signal that has crossed the threshold escapes a MUTED rollup
@@ -464,10 +529,10 @@ def file_or_update(signal, issue, kind):
     if prior:
         st = issue_state(prior["repo"], prior["issue"])
         if MUTE_LABEL in st["labels"]:
-            # A norm_key hit is a FUZZY match; inheriting a mute across it would
-            # silently bury a DIFFERENT bug the operator never muted (review R3).
-            # Exact fp / group_key hits honor mute; norm_key hits file fresh.
-            if prior.get("_dim") == "norm_key":
+            # A norm_key / alert_key hit is a FUZZY match; inheriting a mute across
+            # it would silently bury a DIFFERENT bug the operator never muted (review
+            # R3). Exact fp / group_key hits honor mute; fuzzy hits file fresh.
+            if prior.get("_dim") in ("norm_key", "alert_key"):
                 prior = None
             else:
                 return f"MUTED: {fp} → {prior['repo']}#{prior['issue']} (operator muted)"
@@ -477,15 +542,20 @@ def file_or_update(signal, issue, kind):
         # occurrences dedup on it too; never clobber a different bug's key
         if prior.get("_dim") == "fingerprint" and not prior.get("norm_key"):
             prior["norm_key"] = nk
+        if prior.get("_dim") == "fingerprint" and not prior.get("alert_key"):
+            prior["alert_key"] = ak
         if st["state"] == "open":
             if prior.get("last_comment_day") == _today():
                 return f"DEDUP: {fp} already commented today on {prior['repo']}#{prior['issue']}"
+            inst = (signal.get("labels") or {}).get("instance", "")
             _gh("POST", f"/repos/{prior['repo']}/issues/{prior['issue']}/comments",
                 {"body": f"Recurred {_today()}: `{signal.get('alertname', '')[:140]}` "
-                         f"(fp `{fp}`). _signal-fleet recurrence tracking._"})
+                         f"(fp `{fp}`{', instance `' + inst + '`' if inst else ''}; "
+                         f"matched on {prior.get('_dim', '?')}). "
+                         f"_signal-fleet recurrence tracking._"})
             prior["last_comment_day"] = _today()
             ledger_upsert(prior)
-            return f"COMMENTED: recurrence on {prior['repo']}#{prior['issue']}"
+            return f"COMMENTED: recurrence on {prior['repo']}#{prior['issue']} (via {prior.get('_dim', '?')})"
         # closed
         age = (_now() - st["closed_at"]).days if st["closed_at"] else 999
         if age < REOPEN_WINDOW_DAYS:
@@ -534,7 +604,7 @@ def file_or_update(signal, issue, kind):
     d = _gh("POST", f"/repos/{repo}/issues", payload)
     ledger_upsert({"fingerprint": fp, "repo": repo, "issue": d["number"],
                    "group_key": gk, "filed_at": _now().isoformat(),
-                   "last_comment_day": _today(), "norm_key": nk})
+                   "last_comment_day": _today(), "norm_key": nk, "alert_key": ak})
     _glitchtip_note(signal, f"Tracked in GitHub: {d.get('html_url', repo + '#' + str(d['number']))} "
                             f"(filed by signal-fleet{', group ' + gk if gk else ''})")
     _grafana_annotation(f"filed {repo}#{d['number']}: {issue['title'][:80]}",
@@ -566,7 +636,12 @@ if __name__ == "__main__":
     ap.add_argument("--flush-queue", action="store_true",
                     help="file the shadow queue through the dedup/grouping tree")
     ap.add_argument("--dry-run", action="store_true", help="print decisions only")
+    ap.add_argument("--backfill-alert-keys", metavar="DISPOSITIONS_TSV",
+                    help="one-time #9 backfill of alert_key onto existing ledger rows")
     args = ap.parse_args()
+    if args.backfill_alert_keys:
+        print(backfill_alert_keys(args.backfill_alert_keys, dry_run=args.dry_run))
+        raise SystemExit(0)
     if args.flush_queue:
         qd = os.path.expanduser("~/signal-fleet/queue")
         seen_fp, seen_gk, seen_nk = set(), set(), set()   # dry-run sim, never the real ledger
