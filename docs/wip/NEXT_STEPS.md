@@ -54,10 +54,13 @@ drafted, but they haven't been run for real yet.
       `--advertise-exit-node` on the mini, one manual approval in the admin
       console, and a one-rule ACL grant in **podcast_scraper**'s
       `tailscale/policy.hujson` (no `autogroup:internet` rule exists today —
-      verified 0). Blocked on reaching the box: TCP to the tailnet would not
-      establish from the preparing network. **Known risk:** the mini's tunnel
-      only lives while the operator is logged in (paused headless swap), so a
-      reboot while abroad kills both the exit node and the remote lifeline.
+      verified 0). **Known risk (corrected 2026-09-30):** the mini's tunnel is
+      login-independent since 2026-09-10 (`tailscale-up` LaunchDaemon), so a
+      reboot abroad is survivable — *unless* the exit-node flag is added without
+      also restating it in `infra/tailscale/tailscale-up.sh`, in which case the
+      boot-time `tailscale up` is refused and the mini stays off the tailnet.
+      The runbook now does both in one step. The earlier "tunnel only lives while
+      logged in" warning here was wrong.
 
 ## Dated checks (open on/after the date — we WILL forget otherwise)
 
