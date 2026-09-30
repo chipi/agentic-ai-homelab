@@ -363,7 +363,7 @@ groups:
         condition: threshold
         for: 0s
         noDataState: Alerting
-        labels: { severity: critical, kind: infra }
+        labels: { severity: critical, kind: infra, host: dgx-llm-1, service: host-metrics, environment: operations }
         annotations:
           summary: "No node samples from dgx-llm-1 for 10m. OOM-wedge signature if infra-oom-kill fired just before; otherwise power/network. ssh ops@dgx-llm-1; worst case power-cycle."
         data:
@@ -385,7 +385,7 @@ groups:
         condition: threshold
         for: 0s
         noDataState: Alerting
-        labels: { severity: critical, kind: infra }
+        labels: { severity: critical, kind: infra, host: prod-podcast, service: host-metrics, environment: prod }
         annotations:
           summary: "No node samples from prod-podcast for 10m — the production box is dark (wedge/power/network), not just an app failure."
         data:
@@ -414,7 +414,7 @@ groups:
         condition: threshold
         for: 0s
         noDataState: Alerting
-        labels: { severity: warning, kind: infra }
+        labels: { severity: warning, kind: infra, host: homelab, service: host-metrics, environment: operations }
         annotations:
           summary: "The mini stopped heart-beating mini_forward_up for 5m — lima's host↔VM forward likely broke on a network transition (docker socket + loopback ports dead), or the VM/watchdog is down. Containers + tailnet TLS nodes may be fine; the host CLI, loopback ports, and host metric collectors are blind. This is NOT a service outage — recover with a graceful `colima restart`. Runbook: recipes/colima-lima-forwarding-recovery.md."
         data:
@@ -1001,7 +1001,7 @@ groups:
         for: 0s
         noDataState: Alerting
         execErrState: Alerting
-        labels: { severity: warning, kind: delivery }
+        labels: { severity: warning, kind: delivery, instance: prod-podcast, service: podcast-player, environment: prod }
         annotations:
           summary: "No digest-scheduler ticks in 2h — the player sidecar is dark; 'Your Week' digests are not being enqueued. On prod: docker logs player-digest-scheduler-1; the compose sidecar (restart:unless-stopped) should recover it."
         data:
@@ -1057,7 +1057,7 @@ groups:
         for: 0s
         noDataState: OK
         execErrState: OK
-        labels: { severity: warning, kind: delivery }
+        labels: { severity: warning, kind: delivery, instance: prod-podcast, service: podcast-player, environment: prod }
         annotations:
           summary: "'Your Week' has enqueued nothing for >8d (cadence is weekly, so one missed slot). Check podcast_digest_last_run_age_seconds{cadence=\"weekly\"} — if THAT is fresh the enqueuer ran and nobody was due; if it is also stale the sidecar is not calling it. On prod: docker logs player-digest-scheduler-1 | tail."
         data:
@@ -1081,7 +1081,7 @@ groups:
         for: 0s
         noDataState: OK
         execErrState: OK
-        labels: { severity: warning, kind: delivery }
+        labels: { severity: warning, kind: delivery, instance: prod-podcast, service: podcast-player, environment: prod }
         annotations:
           summary: "Daily recap has enqueued nothing for >36h (cadence is daily). This is the exact alert that would have caught #2119, where daily_recap was never called at all for its entire life. Check podcast_digest_last_run_age_seconds{cadence=\"daily_recap\"}: fresh = ran with nobody due; stale/absent = not being called."
         data:
@@ -1105,7 +1105,7 @@ groups:
         for: 0s
         noDataState: OK
         execErrState: OK
-        labels: { severity: warning, kind: delivery }
+        labels: { severity: warning, kind: delivery, instance: prod-podcast, service: podcast-player, environment: prod }
         annotations:
           summary: "The monthly recommendations digest has enqueued nothing for >40d (fires on the 1st, so 40d is one missed month plus slack). Also shipped dead in #2119."
         data:
@@ -1132,7 +1132,7 @@ groups:
         for: 0s
         noDataState: OK
         execErrState: OK
-        labels: { severity: warning, kind: delivery }
+        labels: { severity: warning, kind: delivery, instance: prod-podcast, service: podcast-player, environment: prod }
         annotations:
           summary: "Cadence {{ $labels.cadence }} has raised within the last 3h. Per-enqueuer isolation keeps the other cadences running, so this is the ONLY signal for a single broken assembler. On prod: docker logs player-digest-scheduler-1 | grep 'enqueuer .* failed'."
         data:
@@ -1171,7 +1171,7 @@ groups:
         for: 15m
         noDataState: Alerting
         execErrState: Alerting
-        labels: { severity: warning, kind: app }
+        labels: { severity: warning, kind: app, instance: prod-podcast, service: podcast-ops-health, environment: prod }
         annotations:
           summary: "prod_ops_health for app={{ $labels.app }} last ran >27h ago — the daily health pusher is dead (GH cron disabled? runner or VPS broken?). The home page shows STALE; check the app repo's prod-ops-health workflow."
         data:
@@ -1315,7 +1315,7 @@ groups:
         for: 30m
         noDataState: Alerting
         execErrState: Alerting
-        labels: { severity: critical, kind: podcast }
+        labels: { severity: critical, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
         annotations:
           summary: "No successful full_incremental_pipeline job on prod-podcast for 36h — the nightly (cron 0 3 * * *) is not completing. Check the scheduler is registered (`scheduler: started with N enabled job(s)` in the api logs) and the job ledger at corpus/.viewer/jobs.jsonl. If the value is 99999999 the gauge is absent entirely: either the nightly has never succeeded, or the api is not exporting podcast_pipeline_last_success_age_seconds (check PODCAST_METRICS_ENABLED and that /metrics is being scraped)."
         data:
@@ -1341,7 +1341,7 @@ groups:
         # Counters are created lazily and reset with the process: after a prod restart there
         # is no series until the first increment, and absence means "nothing failed".
         noDataState: OK
-        labels: { severity: warning, kind: podcast }
+        labels: { severity: warning, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
         annotations:
           summary: "{{ $value }} pipeline job(s) ended non-succeeded on prod-podcast in 6h."
         data:
@@ -1369,7 +1369,7 @@ groups:
         # Counters are created lazily and reset with the process: after a prod restart there
         # is no series until the first increment, and absence means "nothing failed".
         noDataState: OK
-        labels: { severity: warning, kind: podcast }
+        labels: { severity: warning, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
         annotations:
           summary: "Enricher {{ $labels.enricher_id }} recorded {{ $value }} {{ $labels.outcome }} run(s) in 6h."
         data:
@@ -1509,7 +1509,7 @@ groups:
         for: 0m
         noDataState: Alerting
         execErrState: Alerting
-        labels: { severity: critical, kind: telemetry }
+        labels: { severity: critical, kind: telemetry, host: prod-podcast, service: telemetry, environment: prod }
         annotations:
           # NO Go-template syntax in this text. Grafana expands annotations as templates, so the
           # `docker inspect --format '{{index .Config.Labels ...}}'` recipe that used to live here
@@ -1552,7 +1552,7 @@ groups:
         for: 0m
         noDataState: Alerting
         execErrState: Alerting
-        labels: { severity: critical, kind: telemetry }
+        labels: { severity: critical, kind: telemetry, host: homelab, service: telemetry, environment: operations }
         annotations:
           summary: "No log lines from homelab for 15m (normally ~9k/15m). Check the local Alloy/collector on the mini before assuming a host problem."
         data:
@@ -1587,7 +1587,7 @@ groups:
         for: 0m
         noDataState: Alerting
         execErrState: Alerting
-        labels: { severity: warning, kind: telemetry }
+        labels: { severity: warning, kind: telemetry, host: dgx-llm-1, service: telemetry, environment: operations }
         annotations:
           summary: "No log lines from dgx-llm-1 for 15m (normally ~530/15m). If `DGX dark` is also firing the box is off/wedged; if NOT, the box is alive and only log shipping is broken."
         data:
@@ -1637,7 +1637,7 @@ groups:
         for: 5m
         noDataState: OK
         execErrState: Alerting
-        labels: { severity: critical, kind: telemetry }
+        labels: { severity: critical, kind: telemetry, host: prod-podcast, service: telemetry, environment: prod }
         annotations:
           summary: "Alloy on prod-podcast dropped log entries in the last 15m — the sink is rejecting or unreachable. Check `reason` (queue_is_full / ingester_error / rate_limited). Most likely cause: alloy was recreated without its endpoints override and reverted to the raw, ACL-revoked homelab:9428 — verify `docker inspect alloy` lists .vps-observability-endpoints.override.yml in config_files, and re-run deploy-vps-observability-endpoints.yml if not."
         data:
@@ -1661,7 +1661,7 @@ groups:
         for: 5m
         noDataState: OK
         execErrState: Alerting
-        labels: { severity: warning, kind: telemetry }
+        labels: { severity: warning, kind: telemetry, host: dgx-llm-1, service: telemetry, environment: operations }
         annotations:
           summary: "Alloy on dgx-llm-1 dropped log entries in the last 15m — the sink is rejecting or unreachable. Check `reason` (queue_is_full / ingester_error / rate_limited) and whether the logs endpoint is still permitted by the tailnet ACL."
         data:
@@ -1713,7 +1713,7 @@ groups:
         for: 1d
         noDataState: Alerting
         execErrState: Alerting
-        labels: { app: podcast, kind: enrichment, severity: warning }
+        labels: { app: podcast, kind: enrichment, severity: warning, instance: prod-podcast, service: podcast-pipeline, environment: prod }
         annotations:
           summary: "No corpus_enrichment run has completed in ~2 days — the enrichment chain may be stalled (paused drain, orphaned enqueue, or a crashing run)."
         data:
@@ -1742,7 +1742,7 @@ groups:
         for: 5m
         noDataState: OK
         execErrState: Alerting
-        labels: { app: podcast, kind: enrichment, severity: warning }
+        labels: { app: podcast, kind: enrichment, severity: warning, instance: prod-podcast, service: podcast-pipeline, environment: prod }
         annotations:
           summary: "The job queue drain has been paused for several minutes — queued enrichment (and pipeline) jobs are not being promoted."
         data:
@@ -1770,7 +1770,7 @@ groups:
         for: 0s
         noDataState: OK
         execErrState: Alerting
-        labels: { app: podcast, kind: enrichment, severity: warning }
+        labels: { app: podcast, kind: enrichment, severity: warning, instance: prod-podcast, service: podcast-pipeline, environment: prod }
         annotations:
           summary: "A corpus enrichment run finished with status=failed or status=partial — at least one enricher did not produce its envelope. Check /api/enrichment/status."
         data:
