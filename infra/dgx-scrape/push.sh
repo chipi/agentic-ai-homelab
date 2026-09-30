@@ -45,6 +45,11 @@ SPLIT='@@dgx-scrape-split@@'
 # openai-whisper (:8002) retired — speaches (:8000) won the #952 transcription
 # bake-off; its files stay on the DGX but it's no longer a monitored service.
 SVCS="ollama:11434 whisper:8000 diarization:8001 moss:8004 cadvisor:8080 dcgm:9400"
+# The TCP health checks need no SSH and run every 20 s. Only the container inventory
+# SSHes in, and a container table does not need 20 s freshness: run it every 6th loop
+# (~120 s), cutting DGX login sessions from ~180/h to ~30/h (#66). The first loop runs it.
+INVENTORY_EVERY=6
+loop=0
 while true; do
   {
     for s in $SVCS; do
@@ -53,6 +58,8 @@ while true; do
       printf 'dgx_service_up{service="%s"} %s\n' "$n" "$up"
     done
   } | curl -s -m8 -o /dev/null --data-binary @- "$VM"
+  loop=$((loop + 1))
+  if [ $(( (loop - 1) % INVENTORY_EVERY )) -ne 0 ]; then sleep 20; continue; fi
   # Compose-app inventory, mirroring the mini's compose_app_* metrics. The DGX's
   # cadvisor only exposes cgroup ids (no container names), so read `docker ps`
   # over keyless Tailscale SSH (mini -> dgx, ACL tag:homelab-host -> :22). Emits
