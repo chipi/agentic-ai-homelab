@@ -13,20 +13,27 @@ deliberately stdlib-only.
 
 ```sh
 cd fleetd
-go vet ./... && go build -o fleetd .
+make vet test build                    # every target ends in PASS / FAIL
 ./fleetd -config fleetd.json -once     # one cycle per enabled fleet (smoke)
-# deploy to the mini (arm64 mac -> same arch, plain build works; explicit:)
-GOOS=darwin GOARCH=arm64 go build -o fleetd . && scp fleetd homelab:~/fleetd/
+make deploy                            # vet + test, amd64 build, swap binary, restart
+make rollback | status | stop | start | logs
 ```
 
-Run under launchd on the mini (plist lands with the Track A shadow
-deployment; until then: `nohup ~/fleetd/fleetd -config ~/fleetd/fleetd.json &`).
+On the mini fleetd runs as the **system LaunchDaemon**
+`system/com.homelab.fleetd` (`/Library/LaunchDaemons/com.homelab.fleetd.plist`,
+installed by `infra/mini-setup.sh`), so it runs with nobody logged in. Never
+install it as a LaunchAgent as well: that would start a second supervisor. The
+mini is an **Intel** Mac (x86_64); `make deploy` cross-compiles
+`GOOS=darwin GOARCH=amd64`. It keeps the previous binary as `fleetd.prev` for
+`make rollback`, and never overwrites the live `fleetd.json`; a difference from
+`deploy/fleetd.json` is printed instead.
 
 ## Controls
 
 - **Kill switch:** `touch <stop_flag>` (per fleet) — next cycle is skipped;
-  remove to resume. Hard stop: `launchctl unload` / SIGTERM (drains the
-  in-flight cycle).
+  remove to resume. Hard stop: `make stop` (STOP flags + `launchctl bootout`).
+  On SIGTERM, fleetd sends SIGTERM to each in-flight cycle's process group,
+  then SIGKILL after 10 s — under launchd's 20 s exit timeout.
 - **Budget:** per-fleet `budget_day_usd`; the cycle reports its spend into
   `spend_file` (one number, USD), fleetd accumulates per local day and
   pauses the fleet at the cap. Layer 2 of 3 (per-item caps in the cores,
@@ -39,5 +46,10 @@ deployment; until then: `nohup ~/fleetd/fleetd -config ~/fleetd/fleetd.json &`).
 - Idempotent per tick (the cores' ledgers own dedup).
 - Exit 0 on success; nonzero/timeout is logged with output tail and counted
   in `fleetd_cycle{outcome}`.
+- Runs in its own process group. On timeout, the **whole group** (every child
+  the cycle started) gets SIGTERM, then SIGKILL 10 s later. A cycle that must
+  not be killed mid-write should keep its own deadline under `cycle_timeout`.
+- Do not leave background children behind. fleetd stops waiting for a child
+  still holding the output 10 s after the cycle exits, and logs it.
 - Respect `FLEETD_STAGE`; in `shadow` take NO actions.
 - Optionally write cycle spend (USD, plain number) to `spend_file`.

@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -171,24 +172,16 @@ func (s *supervisor) runCycle(ctx context.Context, f FleetConfig) {
 
 	// cycle id: joins fleetd log lines to the fleet's own ledger rows
 	cycleID := fmt.Sprintf("%s-%s-%04d", f.Name, time.Now().Format("20060102T150405"), rand.Intn(10000))
-	cmd := exec.CommandContext(cctx, "sh", "-c", f.CycleCmd)
-	cmd.Dir = f.Workdir
-	cmd.Env = append(os.Environ(),
+	env := append(os.Environ(),
 		"FLEETD_STAGE="+f.Stage,
 		"FLEETD_CYCLE_ID="+cycleID,
 		fmt.Sprintf("FLEETD_BUDGET_LEFT=%.4f", f.BudgetDayUSD-s.daySpend(f.Name)),
 	)
-	cmd.Env = append(cmd.Env, readEnvFile(f.EnvFile)...)
+	env = append(env, readEnvFile(f.EnvFile)...)
 
 	start := time.Now()
-	out, err := cmd.CombinedOutput()
+	out, outcome := execCycle(cctx, f, env)
 	dur := time.Since(start)
-	outcome := "ok"
-	if cctx.Err() == context.DeadlineExceeded {
-		outcome = "timeout"
-	} else if err != nil {
-		outcome = "error"
-	}
 	log.Printf("[%s] cycle %s: %s in %s (%d bytes output)", f.Name, cycleID, outcome, dur.Round(time.Second), len(out))
 	if outcome != "ok" {
 		// keep the tail for forensics — cycles log their own detail in their ledgers
@@ -204,6 +197,45 @@ func (s *supervisor) runCycle(ctx context.Context, f FleetConfig) {
 		log.Printf("[%s] cycle spend $%.4f (day total $%.4f)", f.Name, spend, s.daySpend(f.Name))
 	}
 	s.pushMetric(f, outcome, dur.Seconds())
+}
+
+// cycleKillGrace is how long a cancelled cycle gets between SIGTERM and
+// SIGKILL. Kept under launchd's default 20 s ExitTimeOut, so a daemon
+// restart still lets the in-flight cycle clean up before launchd kills fleetd.
+var cycleKillGrace = 10 * time.Second
+
+// execCycle runs one cycle command in its own process group. On timeout or
+// shutdown the whole group gets SIGTERM, then SIGKILL after cycleKillGrace.
+// Without the group, `sh -c` replaces itself with the cycle (macOS), so
+// only the cycle was SIGKILLed while its children (ssh, curl) lived on and
+// held the output pipe open, blocking this call until they exited.
+func execCycle(ctx context.Context, f FleetConfig, env []string) ([]byte, string) {
+	cmd := exec.CommandContext(ctx, "sh", "-c", f.CycleCmd)
+	cmd.Dir = f.Workdir
+	cmd.Env = env
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+	}
+	// After cancel (or after a normal exit), stop waiting on children that
+	// still hold the output pipe; Go then SIGKILLs the leader if still alive.
+	cmd.WaitDelay = cycleKillGrace
+
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() != nil && cmd.Process != nil {
+		// stragglers that ignored SIGTERM; ESRCH (group already gone) is fine
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+	switch {
+	case ctx.Err() == context.DeadlineExceeded:
+		return out, "timeout"
+	case errors.Is(err, exec.ErrWaitDelay) && ctx.Err() == nil && cmd.ProcessState.Success():
+		log.Printf("[%s] cycle exited 0 but left a child holding its output — stopped waiting after %s", f.Name, cycleKillGrace)
+		return out, "ok"
+	case err != nil:
+		return out, "error"
+	}
+	return out, "ok"
 }
 
 // readSpend consumes (and truncates) the cycle's spend report, if configured.
