@@ -89,8 +89,8 @@ on the drill box if it can reproduce the failure, then a controlled prod reboot 
 | --- | --- |
 | Detect "prod is up but needs its secrets restaged / containers recreated" | Box unreachable (VPS down): nothing to do until it is back; the existing "prod dark" alert covers it |
 | Dispatch `restage-prod-secrets.yml` with fixed inputs | Any deploy, image change, rollback |
-| Approve the `lever-restage` deployment of **that run only**, as the bot identity (see "The lever environment") | Approving anything else, ever — and the bot is a reviewer nowhere else, so GitHub refuses it too |
-| Dispatch the read-only `prod-ops-health.yml` to verify (never approved — it has no gate) | Dispatching any other workflow |
+| Approve the `lever-restage` deployment of **that run only**, as the bot identity (see "The lever environment") | Approving anything else, ever — and the bot is a reviewer on no environment outside the lever registry, so GitHub refuses it too |
+| Dispatch `prod-ops-health.yml` to verify (never approved — it has no gate). It reads prod and pushes results; its only write is its own auto-managed GitHub failure issue (`issues: write`, #1999), which a red run opens or updates | Dispatching any other workflow |
 | Verify the outcome through observability, and report | Restarting `alloy`, fixing the boot unit, any host change |
 
 The fleet never holds a prod secret, never SSHes to prod with write capability, and never changes
@@ -124,13 +124,13 @@ on no part of the never-list.
 | field | this lever |
 | --- | --- |
 | trigger | `prod_recovery_check/v1` over a forced-command SSH key: `needs_recovery=true`, re-derived by the fleet from the fields (see "The signal") |
-| preconditions | stage allows it; not latched; outside cooldown; under the caps; no prod-mutating workflow queued or running (step 1) |
-| action | `restage-prod-secrets.yml` on `main`, inputs fixed: `confirm=RESTAGE_SECRETS`, `surfaces=all`, `recreate=true`, plus a `request_id` |
+| preconditions | stage allows it; not latched; containment check green; box up ≥ 10 min and `needs_recovery` on two consecutive cycles; outside cooldown; under the rate cap; no prod-mutating workflow queued or running (step 1) |
+| action | `restage-prod-secrets.yml` on `main`, inputs fixed: `confirm=RESTAGE_SECRETS`, `surfaces=all`, `recreate=true`, plus a `request_id` — a correlation id that only names the run and selects nothing done on prod (the never-list's "free-form inputs" test) |
 | blast radius | writes the secrets GitHub already holds into prod's `/dev/shm`, and recreates the containers the shared rules library reports broken, on their current image. Touches no code, config, data or image version |
 | verify | layered outcome verify, step 6: structure, user-facing probes, secret-dependent `prod-ops-health` checks, observability |
-| on failure | latch and page (critical); never retry past a guard |
-| rate cap | 15 min cooldown; 3 failed attempts per 24 h → latch; a cap on successes is Open question 9 |
-| environment + identity | `lever-restage`, approved by the bot machine account, which is a reviewer on no other environment (see "The lever environment") |
+| on failure | by failure class (see Guardrails): a **failed run** retries after the cooldown, within the rate cap; a **green run whose verify fails**, or any **guard breach**, latches at once and pages (critical). Never retries past a guard |
+| rate cap | 15 min cooldown; **at most 3 runs per rolling 24 h, successes included** — a 4th need latches and pages, because a box that keeps needing recovery is an incident, not a recovery |
+| environment + identity | `lever-restage`, approved by the shared fleet bot machine account; the per-lever environment is the unit the operator revokes (see "The lever environment") |
 | stages | shadow → propose → live, classes A and B promoted separately on `reference-remediation/` (see "Eval", "Rollout") |
 | owner | this RFC |
 
@@ -174,8 +174,9 @@ and run exactly like Fleets 1 and 2, so a reviewer can check it line by line:
   This is ADR-0008's split: `fleetd` (Go) supervises, the fleet's logic stays Python.
 - **Supervisor:** a block in `fleetd.json`. `fleetd` gives us the scheduler, the STOP-file kill
   switch, the no-overlap rule, the cycle timeout, the `stage` ladder and its own
-  `fleetd_cycle{fleet=…}` metric. It does **not** give a per-fleet dead-man (see Reporting). **No new
-  LaunchDaemon plist** and no change to `infra/mini-setup.sh`.
+  `fleetd_cycle{fleet=…}` metric. It does **not** give a per-fleet dead-man (see Reporting), and its
+  timeout is a blunt kill (below). **No new LaunchDaemon plist** and no change to
+  `infra/mini-setup.sh`.
 - **Code vs state — the Fleet 1/2 split.** Code runs from the git checkout; state and secrets live
   outside it, in `~/remediation-fleet/`, never inside the repo directory. Fleet 2 does exactly this
   (`~/signal-fleet/{results,queue,logs}` + its `.env`, all paths absolute and env-overridable as
@@ -200,7 +201,8 @@ remediation-fleet/                   (in the repo — code only)
   known_hosts          pinned prod host key
   STOP                 kill switch (fleetd stop_flag)
   results/actions.tsv  append-only decision ledger (see "Ledger")
-  results/state.json   cooldown, attempt counters, latch — derived, rebuildable from the ledger
+  results/state.json   in-flight run, cooldown, counters, latch — derived, rebuildable from the ledger
+  cycle.lock           exclusive flock held for the whole cycle
 ```
 
 `fleetd.json` block:
@@ -223,11 +225,31 @@ remediation-fleet/                   (in the repo — code only)
 (Same shape as the live triage block in `~/fleetd/fleetd.json`: `workdir` is the checkout,
 `env_file` and `stop_flag` sit in the fleet's state directory.)
 
-`cycle_timeout` must exceed the longest legitimate cycle: dispatch and approve (≈ 1 min) + wait for
-the restage (≤ 25 min, see step 5) + verify (step 6: the SSH check, up to 3 min of user-facing
-probes, and a `prod-ops-health` run, measured at 33–59 s but allowed 5 min with queueing) ≈ 35 min.
-The 2026-09-30 restage job itself took 1m30s (05:59:12 → 06:00:42), but its `timeout-minutes` is 20
-and a cold image pull is slow. 40m covers the worst case with margin. `fleetd` never overlaps cycles, so a long cycle simply skips ticks.
+**A cycle is bounded, and a run outlives it.** A cycle does one bounded pass — resume any run in flight,
+check, decide, dispatch + approve (≤ 3 min), wait inline for the run (≤ 12 min), verify (≤ 11 min: layers
+a and b up to 3 min each, layer c up to 5 min) — and has its own **30-minute deadline**. A run that has
+not finished inside the inline wait is not a failure: its `request_id` and `run_id` are already in
+`state.json`, and the next cycle **resumes** it (step 5). The 2026-09-30 restage job took 1m30s
+(05:59:12 → 06:00:42), so the inline wait normally covers it; the job's own `timeout-minutes` is 20.
+
+**Why the cycle keeps its own deadline under `cycle_timeout: 40m`** (checked 2026-09-30):
+`fleetd` starts the cycle with `exec.CommandContext(cctx, "sh", "-c", f.CycleCmd)` (`fleetd/main.go:174`)
+and sets no process group, `Cancel` or `WaitDelay`. On macOS `sh -c '<one command>'` replaces itself
+with that command (tested: the `sh` pid became the child's), so on timeout the Python cycle itself gets
+**SIGKILL** — no cleanup, possibly between "dispatched" and "recorded". Anything the cycle started (an
+`ssh`, a `curl`) is **orphaned** and keeps running (tested: a child survived its parent's SIGKILL).
+Therefore:
+
+- `cycle.py` finishes before `fleetd` would kill it: 30-minute own deadline, 10 minutes of margin;
+- it writes its intent to `state.json` **before** each external write (the `request_id` before
+  dispatching), so a killed cycle leaves a resumable record, never an unknown run;
+- it holds an exclusive `flock` on `~/remediation-fleet/cycle.lock`, so no second copy can run even if
+  one is orphaned;
+- `fleetd` should start cycles in their own process group and kill the group on timeout — a small
+  `fleetd` change that benefits every fleet (Gate to MVP).
+
+`fleetd` never starts a cycle while the previous one is running. Go's ticker buffers one tick, so after
+a long cycle one follow-up cycle starts at once, then the normal interval resumes — harmless here.
 
 `budget_day_usd: 0` disables the budget guard (`fleetd` only enforces it when `> 0`); this fleet
 spends nothing. `fleetd` passes the stage to the cycle as the environment variable `FLEETD_STAGE` —
@@ -264,7 +286,7 @@ itself ran. All read-only:
 | `secrets_dirs` | count of **non-empty** files in `/dev/shm/{podcast,operator,player}-secrets` (`prod_secret_file_count`) | any count is 0 — dir missing or empty |
 | `down_containers` | `prod_broken_containers`: status `Exited*` / `Restarting*` / `Created*` in the `compose`, `operator`, `player` projects, **plus** `compose-api-1` when it is Up but has no `/run/secrets/*` mount | non-empty |
 | `keyless_control_plane` | that `compose` `api` container is Up with no secrets mounts (`prod_has_secret_mounts`) | true (it is also listed in `down_containers`) |
-| `boot_time` | `/proc/stat` `btime` | never — informational (lets the fleet say "rebooted at …") |
+| `boot_time` | `/proc/stat` `btime` | never by itself — but the fleet does not act until the box has been up ≥ 10 min (the settle precondition, step 1) |
 | `alloy_running` | `docker ps --filter name=^alloy$ --filter status=running` | **never** — a restage does not start `alloy`, so it must not trigger one |
 
 There is **no** `deploy_in_progress` field: whether a deploy is running is a GitHub fact, and the
@@ -301,24 +323,47 @@ that `down_containers` equals the set of containers the recovery recreates. The 
 owned by `deploy`, that the control-plane deploy resets to the deployed sha — so the script exists on
 the box only **after a deploy that includes `b9c07ff8f`**. Until then the key would run a missing file.
 
-**If SSH fails** (timeout, refused, host key mismatch): the fleet records `prod_reachable=0` and does
-nothing. A host-key **mismatch** is a hard error (alert, latch), never auto-accepted — a rebuilt VPS
-gets a new host key, and accepting it is an operator decision.
+**If SSH fails** (timeout, refused): the fleet records `prod_reachable=0` and does nothing. A host-key
+**mismatch** is a hard error (alert, latch), never auto-accepted — a rebuilt VPS gets a new host key,
+and accepting it is an operator decision.
+
+**If SSH works but the check does not** — the script is missing (before the deploy that ships it), exits
+non-zero, or prints something that is not a valid `prod_recovery_check/v1` object: the fleet records
+`remediation_fleet_check_ok=0`, does nothing, and `remediation-check-broken` (warning) fires. It is
+never silently folded into `prod_reachable=0`: "prod is down" and "our eyes are broken" need different
+responses.
+
+**Parity holds per sha.** The check runs the `prod_health_lib.sh` in prod's checkout, which is reset to
+the **deployed** sha; the recovery copies `prod_health_lib.sh` from the workflow's **`main`** checkout.
+The parity test proves the two agree at the same sha. If `main` changes the library and prod has not
+been deployed since, the two could disagree. Accepted for v1 — the fleet re-derives `needs_recovery`
+and verify re-checks the outcome. v2 of the check should report the library's sha, so the fleet can see
+a mismatch.
 
 ### The action — dispatch, find, approve exactly one run
 
+0. **Resume first.** If `state.json` holds a run in flight, the cycle handles it (step 5) before
+   anything else, and starts nothing new while it is unresolved.
 1. **Pre-flight guards** (any failure → do nothing this cycle, report why):
    - the stage allows it: in `shadow` the fleet logs "would act" and stops here; in `propose`, and in
      `live` for a class not listed in `RF_LIVE_CLASSES`, it dispatches (step 2) but never approves
-     (step 4 is skipped) and still waits and verifies once the operator approves;
-   - not latched, not inside the cooldown, under the daily cap (see Guardrails);
-   - no run of `deploy-all-prod.yml`, `deploy-prod.yml`, `deploy-player.yml`,
-     `deploy-operator.yml` or `restage-prod-secrets.yml` is `queued` / `in_progress` / `waiting`.
-     A deploy that is running will restage anyway.
+     (step 4 is skipped), and later cycles resume the run once the operator has approved it;
+   - not latched, not inside the cooldown, under the rate cap (see Guardrails);
+   - **containment check green** — GitHub's settings still match what the design relies on (see "The
+     lever environment" → containment check);
+   - **settled:** the box has been up ≥ 10 minutes (`now − boot_time`), and `needs_recovery` was also
+     true on the previous cycle. At boot, `podcast-scraper.service` is still running its own
+     `docker compose up`, and the rules library counts a `Created` container as broken. Acting on the
+     first tick could recreate containers the boot unit is still starting, on the same compose
+     project. The cost is ~10 minutes of recovery time. v2 of the check could report whether the boot
+     unit is still active, so the fleet can wait exactly as long as needed;
+   - no run of any workflow in the prod-mutating set is `queued` / `in_progress` / `waiting` — the
+     same set that shares the single concurrency group (Open question 2). A deploy that is running will
+     restage anyway.
 
      **Until the single concurrency group lands, this guard is the only thing preventing a restage
-     from racing a deploy.** Only
-     `deploy-prod.yml` shares the restage's `deploy-prod` concurrency group. The others each have
+     from racing a deploy.** Only `deploy-prod.yml` and `recreate-operator-api.yml` share the
+     restage's `deploy-prod` concurrency group. The others each have
      their own — `deploy-all-prod`, `deploy-player`, `deploy-operator` (checked 2026-09-30) — and
      `deploy-all-prod` calls the player and operator deploys as reusable workflows. So a restage
      dispatched during a player or operator deploy would **not** queue behind it; both would act on
@@ -326,42 +371,52 @@ gets a new host key, and accepting it is an operator decision.
      dispatch is not caught. Putting every prod-mutating workflow in one concurrency group closes both
      holes at the GitHub level — decided, and now a Gate-to-MVP prereq (Open question 2). The guard
      stays afterwards as belt-and-braces.
-2. **Dispatch** `POST /repos/chipi/podcast_scraper/actions/workflows/restage-prod-secrets.yml/dispatches`
-   with `ref: main`, inputs `confirm=RESTAGE_SECRETS`, `surfaces=all`, `recreate=true`,
-   `request_id=<uuid4>`, and `return_run_details: true`.
-3. **Find the run — by `request_id`, cross-checked by run id.** Built in podcast_scraper `b9c07ff8f`:
+2. **Dispatch.** First write the new `request_id=<uuid4>` to `state.json` and a `dispatching` row to the
+   ledger. Then `POST /repos/chipi/podcast_scraper/actions/workflows/restage-prod-secrets.yml/dispatches`
+   with `ref: main`, inputs `confirm=RESTAGE_SECRETS`, `surfaces=all`, `recreate=true`, `request_id`,
+   and `return_run_details: true`.
+3. **Find the run — by `request_id`.** Built in podcast_scraper `b9c07ff8f`:
    the workflow has an optional `request_id` input and
    `run-name: Restage prod tmpfs secrets ${{ inputs.request_id }}` (empty for a human dispatch). The
    fleet polls `GET …/actions/workflows/restage-prod-secrets.yml/runs?event=workflow_dispatch&branch=main`
    (every 5 s, up to 2 min) for the run whose `display_title` contains its `request_id`. Not found →
    report and stop. It **never** guesses by time or picks "the newest run".
 
-   Cross-check: since
-   [2026-02-19](https://github.blog/changelog/2026-02-19-workflow-dispatch-api-now-returns-run-ids/)
-   the dispatch endpoint can return `200` with `workflow_run_id` when `return_run_details: true` is
-   sent (otherwise `204 No Content`). When the fleet gets an id back, it must equal the run found by
-   `request_id`; a mismatch → do not approve, alert, latch. A `204` is not an error — the
-   `request_id` lookup alone is enough. (GitHub's REST reference and changelog describe that opt-in
-   slightly differently, which is why `request_id` is the primary mechanism, not the response.)
+   The dispatch response's run id is **recorded, not relied on.** GitHub's
+   [2026-02-19 changelog](https://github.blog/changelog/2026-02-19-workflow-dispatch-api-now-returns-run-ids/)
+   (re-read 2026-09-30): passing the optional boolean `return_run_details` returns `200 OK` with the
+   run's id and URLs; without it the endpoint still returns `204 No Content`. The fleet stores the id in
+   the ledger. If it differs from the run found by `request_id`, the fleet logs a warning. It does not
+   latch: `request_id` is authoritative, and step 4 re-checks the run anyway. A `204` is fine. (The
+   comment at `restage-prod-secrets.yml:33` still says "the dispatch API returns no run id". That is
+   stale since the changelog, and harmless, because the design does not depend on it.)
 4. **Approve that run only.**
    - `GET …/actions/runs/{run_id}/pending_deployments`.
    - Approve only if **all** of these hold, re-read from `GET …/actions/runs/{run_id}` rather than
      trusted from the dispatch response:
-     - `display_title` contains this cycle's `request_id`, and `run.id` equals the dispatch's
-       `workflow_run_id` when one was returned;
+     - `display_title` contains this cycle's `request_id`;
      - `run.path == ".github/workflows/restage-prod-secrets.yml"`;
      - `run.head_branch == "main"` and `run.event == "workflow_dispatch"`;
      - exactly one pending environment, named `lever-restage`.
    - Then `POST …/actions/runs/{run_id}/pending_deployments` **with the bot's approval token** (never
      the dispatch token) and
-     `{"environment_ids":[<id>],"state":"approved","comment":"remediation-fleet <request_id>: <check summary>"}`.
-     GitHub records the approval as the bot account.
+     `{"environment_ids":[<id>],"state":"approved","comment":"remediation-fleet <request_id>"}`.
+     GitHub records the approval as the bot account. The comment carries **only** the `request_id`:
+     `podcast_scraper` is public, and container names and boot times do not belong in it. The evidence
+     stays in the ledger row with that `request_id`.
    - Any mismatch → do not approve, alert, latch. These checks are layer 1 of containment; GitHub
      refusing the bot anywhere but `lever-restage` is layer 3 (see "The lever environment").
-5. **Wait** for the run to complete (poll every 15 s, up to 25 min). Record the conclusion and the
-   run URL. The wait must exceed the job's own `timeout-minutes: 20`, because it also covers queueing
-   and the time from dispatch to approval; a 20-minute wait could abandon a slow run that was about to
-   succeed and count it as a failure.
+5. **Wait, or resume.** Poll the run every 15 s for up to 12 minutes inside this cycle; if it is still
+   going, return and let later cycles resume it from `state.json`. On every resume:
+   - run `waiting` for approval — in `propose`, or a class not yet live: nothing to do, outcome
+     `proposed` (never `failed`; nothing has failed while a human has not looked). The operator
+     approves or rejects in GitHub, whenever they choose; the fleet never cancels the run;
+   - run `queued` / `in_progress`: keep waiting. If it has not completed **30 minutes after approval**
+     (queueing plus the job's own `timeout-minutes: 20`), it counts as a failed run;
+   - run completed: record conclusion and URL, then verify (step 6) and write the outcome row. This is
+     how a propose-stage run the operator approved at 07:00 still gets its verify, which is the
+     promotion criterion;
+   - run rejected or cancelled by a human: outcome `rejected`, no retry, no alert beyond the ledger.
 6. **Verify that the product works — closing the loop through observability.** "The workflow went
    green" is not the outcome that matters; on 2026-09-30 a green run recovered one surface of three.
    The fleet proves recovery the way a user and the observability stack would see it, in layers, and
@@ -369,7 +424,7 @@ gets a new host key, and accepting it is an operator decision.
 
    | layer | how | required? |
    | --- | --- | --- |
-   | a. structure | re-run the SSH check: `needs_recovery=false` | yes |
+   | a. structure | re-run the SSH check until `needs_recovery=false`, for up to 3 min. The recreate goes in `docker ps` order with `--no-deps`, so an nginx surface can restart-loop until its `api` is up (as `player-learning-app-1` and `operator-viewer-1` did in the incident); one early read would call a working recovery failed | yes |
    | b. user-facing | from the mini, `GET https://prod-podcast.tail6d0ed4.ts.net/api/health` → `200`, plus the player and operator surfaces' health endpoints (the exact URLs to be taken from the deploy workflows' own post-deploy probes — not yet identified here), retried for up to 3 min (the first request after a recreate took ~70 s on 2026-09-30). Reachable today: `tag:homelab-host → tag:prod:443` is granted, and the probe returned `200` on 2026-09-30. | yes |
    | c. secret-dependent paths | dispatch `prod-ops-health.yml` (no approval: its `prod-ops-health` environment has no protection rules by design), wait for it, then read the **fresh** `prod_ops_health_check{check=…}` from VictoriaMetrics — `last_run_timestamp` newer than the recovery. Its `gateway` check exercises the provider keys through the LLM gateway; `o11y_glitchtip` exercises the Sentry DSN. Those are exactly the paths a missing secret breaks. Runs took 33–59 s (12/12 green, 2026-09-18 → 29). | `gateway`, `o11y_glitchtip`: yes |
    | d. observability flowing | `o11y_metrics` / `o11y_logs` / `o11y_traces` from the same run, plus fresh `node_*{instance="prod-podcast"}` samples in VictoriaMetrics | reported, not required |
@@ -377,10 +432,12 @@ gets a new host key, and accepting it is an operator decision.
    Layer d is reported rather than required because it depends on `alloy`, which this lever does not
    fix (Open question 5). Failing it after a/b/c pass is a distinct outcome — **"product recovered,
    observability dark"** — recorded in the ledger and raised by `prod-alloy-down`, not counted as a
-   failed attempt that would trigger a retry the retry cannot fix.
+   failure that would trigger a retry the retry cannot fix.
 
-   Anything short of a + b + c green counts as a failed attempt → latch + critical alert, so the
-   operator is woken exactly when automation did not work. **This is how the recreate path gets proven
+   A **green run** followed by anything short of a + b + c green after their windows **latches at once**
+   and pages (critical). The workflow reported success but the product is not working, so the fleet's
+   model of the problem is wrong and a retry would repeat it. The operator is woken exactly when
+   automation did not work. **This is how the recreate path gets proven
    in production:** not only by a one-off drill, but on every real recovery, by the outcome, with a human
    paged the first time it does not hold (see Rollout, and Open question 3).
 
@@ -389,12 +446,15 @@ gets a new host key, and accepting it is an operator decision.
 | guard | value | why |
 | --- | --- | --- |
 | Allowlist | two workflow paths, one ref: `restage-prod-secrets.yml` (dispatch + approve its `lever-restage` run) and `prod-ops-health.yml` (dispatch only; nothing to approve). One environment ever approved: `lever-restage` | the dispatch token can do more than this (see Credentials); the code must not. Approval is additionally bounded by GitHub, not only by this code |
-| Cooldown | 15 min between attempts | a restage takes ~2 min; a second try inside 15 min means the first did not work |
-| Daily cap | 3 failed attempts per rolling 24 h → **latch** | a loop that keeps "fixing" is worse than an outage we know about |
+| Cooldown | 15 min between runs | a restage takes ~2 min; a second try inside 15 min means the first did not work |
+| Rate cap | **3 runs per rolling 24 h, whatever their outcome**; a 4th need → **latch** + critical | a loop that keeps "fixing" is worse than an outage we know about, and a box that reboots repeatedly is an incident even when each recovery works |
+| Failure classes | **failed run** (conclusion `failure` / `timed_out`, or not completed 30 min after approval) → retry after the cooldown, within the rate cap. **Green run, failed verify** (a, b or c red after their windows) → latch at once. **Guard breach** (wrong run, containment check red, host-key mismatch, approval refused 4xx) → latch at once. `success_o11y_dark` and `rejected` are not failures | retry only what a retry can fix |
+| Settle | box up ≥ 10 min, and `needs_recovery` on two consecutive cycles | never race the boot unit's own `compose up` |
+| Containment check | every cycle, before acting (see "The lever environment") | "enforced by GitHub" is verified, not assumed |
 | Latch | `state.json` `latched=true`; cleared only by the operator (`cycle.py --unlatch`) | autonomy is revocable and does not re-grant itself |
 | Kill switch | `fleetd` STOP flag | the standard fleet off switch |
 | Stages | `shadow` → `propose` → `live` per class | `shadow` detects and reports "would act"; `propose` dispatches but leaves the approval to the operator; `live` approves, one class at a time — the ladder every fleet climbs |
-| No overlap | `fleetd` never runs two cycles at once | one attempt in flight, ever |
+| No overlap | `fleetd` never starts a cycle while one runs; `cycle.py` holds `cycle.lock` and its own 30-min deadline; one run in flight, tracked in `state.json` | one attempt in flight, ever — even across a killed cycle |
 | No LLM | none | invariant 1 of the fleet architecture |
 
 ### Ledger — append-only, like the other fleets
@@ -406,15 +466,22 @@ fleet writes `~/remediation-fleet/results/actions.tsv`, one row per cycle that d
 fine":
 
 `ts · cycle_id · stage · code_version · check_schema · class · decision · reason · gates ·
-request_id · run_id · run_url · conclusion · verify_a · verify_b · verify_c · verify_d · outcome`
+request_id · run_id · dispatch_run_id · run_url · conclusion · verify_a · verify_b · verify_c ·
+verify_d · outcome`
+
+`outcome` is one of `would_act` (shadow), `dispatching` (written *before* the dispatch call), `proposed`,
+`success`, `success_o11y_dark`, `failed_run`, `failed_verify`, `guard_breach`, `rejected`. A run spans
+several rows — `dispatching`, then its outcome, possibly cycles apart — joined by `request_id`.
+`dispatch_run_id` is the id from the dispatch response, when GitHub returned one (step 3).
 
 There is no model or prompt to stamp (no LLM), so `code_version` (the checkout's git sha) and
 `check_schema` (`prod_recovery_check/v1`) take that role: they say which logic made the call. The
 full check JSON is kept with the row — it is the evidence invariant 2 asks every action to cite, and
 the approval comment on GitHub points back to it by `request_id`.
 
-`results/state.json` (cooldown, counters, latch) is a **derived cache**, rebuildable from the ledger.
-If they disagree, the ledger wins.
+`results/state.json` (the run in flight, cooldown, counters, latch) is a **derived cache**, rebuildable
+from the ledger: a `dispatching` row with no outcome row after it *is* the run in flight. If they
+disagree, the ledger wins.
 
 ### Eval — autonomy earned on frozen replay
 
@@ -429,8 +496,13 @@ of real, scrubbed signals. This fleet does the same with its decision function:
   "The signal"). The set must also cover: a healthy box; secrets missing but
   nothing down; containers down; keyless control plane only; `alloy` down only (must **not** act); a
   deploy in flight; SSH unreachable; a host-key mismatch; a check whose `needs_recovery` disagrees with
-  its fields; and each "wrong run" shape the approval step must refuse.
-- `eval_decisions.py` replays them through `decide.py` (pure, no I/O) and enforces the bar:
+  its fields; a broken check (missing script, non-JSON); a box up for less than 10 minutes, and a
+  `needs_recovery` seen on only one cycle (must **not** act yet); a red containment check (must **not**
+  act); a fourth need inside 24 h (must latch); and each "wrong run" shape the approval step must
+  refuse.
+- `eval_decisions.py` replays them through `decide.py` (pure, no I/O) and enforces the bar. It is a
+  thin runner, kept separate from `test_units.py` on purpose: it mirrors Fleet 2's
+  `eval_hardening.py`, so "the eval bar" means the same kind of artifact in every fleet:
   **0 actions on any must-not-act case, every must-act case acted on, 0 approvals of a mismatched
   run.** One run suffices: the logic is deterministic, so Fleet 2's k≥3 (which exists to average out
   LLM variance) does not apply.
@@ -460,13 +532,39 @@ API on 2026-09-30), including `infra-apply.yml`, `prod-restore-corpus.yml` and
 - `lever-restage` has two required reviewers: the **bot machine account** and the operator (`chipi`).
   GitHub: *"Only one of the required reviewers needs to approve the job for it to proceed"* — so the bot
   alone can approve at `live`, and the operator can approve in `propose` or by hand.
-- The bot is a reviewer on **no other environment**, and a **read-only** collaborator on the repo. A
-  stolen bot token can therefore approve a waiting `lever-restage` run and nothing else. It cannot
-  dispatch, push, or approve in `prod`.
+- The bot is a reviewer on **no environment that is not a lever's**, and a **read-only** collaborator
+  on the repo. Today that means `lever-restage` only, so a stolen bot token can approve a waiting
+  `lever-restage` run and nothing else. It cannot dispatch, push, or approve in `prod`.
+- **One bot for all levers.** GitHub's terms allow one free machine account, so lever #2 (e.g.
+  `lever-scale-out`) will reuse this bot, and its reviewer seats will grow to one per live lever. The
+  bot's blast radius is then the **union of the live levers**, each still bounded by its own
+  purpose-built workflow and fixed inputs. Each lever's environment is the unit the operator
+  **revokes**: removing the bot from `lever-restage` takes that lever's autonomy away, and only that
+  lever's. The fleet architecture states this for every lever. When lever #2 arrives, the per-lever
+  identity route — a GitHub App as a custom deployment protection rule — is to be re-evaluated (see
+  Alternatives).
 - Deployment branches: protected branches only, like `prod`.
 - A CI check in podcast_scraper asserts that **exactly one workflow file** names `lever-restage`. Without
   it, a later workflow could quietly declare that environment and inherit the bot's approval. Any such
   workflow still has to be merged to `main` by the operator; the check makes the change visible and red.
+
+**Containment check — every cycle, before acting.** The environment settings are the containment, and
+they are one admin API call away from changing. `gh` on the operator's machines is authenticated as
+`chipi`, the repo admin (checked 2026-09-30), and agent sessions run there. A settings change is as much
+a threat as a stolen token, and the CI check above does not watch settings. So each cycle the fleet
+reads `GET /repos/chipi/podcast_scraper/environments`. The repo is public, so this needs **no
+permission at all** (checked 2026-09-30: unauthenticated, it returns every environment with its
+reviewers, `prevent_self_review` and branch policy). The fleet refuses to act, latches, and pages if any
+of these fails:
+
+- the bot is a reviewer only on environments in the fleet architecture's lever registry — today
+  `lever-restage`;
+- `lever-restage` reviewers are exactly {bot, `chipi`}, `prevent_self_review` is `false`, and
+  `deployment_branch_policy.protected_branches` is `true`;
+- `prod` reviewers are exactly {`chipi`}.
+
+It pushes `remediation_fleet_containment_ok` (1/0). This makes "enforced by GitHub" something the fleet
+verifies every five minutes, not something it assumes.
 
 **Why a machine account and not a GitHub App.** Approving a required-reviewer gate needs a user or team
 (*"up to six users or teams"*). An App can gate a deployment only as a custom deployment protection
@@ -482,18 +580,26 @@ environment unchanged. Of those 10, the restage reads **6**:
 - `PROD_DEEPSEEK_API_KEY`, `PROD_SENTRY_DSN_API`, `PROD_SENTRY_DSN_PIPELINE` — defined at **both**
   environment and repo level.
 
-The last three are the trap. If one is left out of `lever-restage`, the run does not fail. The workflow
-receives the **repo-level** value instead, which may not be the one prod runs on. (Which level wins when
-both exist was not confirmed in GitHub's docs here. The design does not depend on it: `lever-restage`
-must define all six.) Two guards:
+The last three are the trap. GitHub: *"the secret at the lowest level takes precedence"* — an
+environment secret overrides a repository secret of the same name (Secrets reference, re-read
+2026-09-30). So in `prod` the environment values win. If one of the three is left out of
+`lever-restage`, the run does not fail: it silently receives the **repo-level** value, which may not be
+the one prod runs on. Guards, deliberately cheap:
 
-- **A drift check.** For each of the six, the `updated_at` metadata in `lever-restage` must be no older
-  than in `prod`. Secret values are write-only in GitHub and can never be compared or copied, so rotating
-  a prod key means setting it in both environments, from the operator's source. Which credential runs
-  this check is still open. It must **not** be one of the fleet's tokens: listing secret metadata needs
-  a permission neither token has.
-- **Verify layer c catches a wrong provider key** after the fact: the `prod-ops-health` `gateway` check
-  exercises the keys. A wrong Sentry DSN surfaces only through `o11y_glitchtip`.
+- **At setup:** the operator sets all six in `lever-restage` from the same source as `prod`, and
+  confirms with `gh secret list --env lever-restage` that all six names are present (Gate to MVP).
+- **At rotation:** a rotated prod key is set in **both** environments. This is a line in the
+  podcast_scraper runbook, next to the rotation steps. Secret values are write-only in GitHub, so the
+  two can never be compared or copied — only set twice.
+- **After every run:** verify layer c catches a wrong provider key (the `prod-ops-health` `gateway`
+  check exercises the keys) and a wrong Sentry DSN (`o11y_glitchtip`).
+
+An automated drift check comparing `updated_at` metadata was considered and dropped: equal timestamps
+do not prove equal values, and it would need a fourth credential with secrets-read permission.
+
+**Variables.** `prod` has one environment-scoped variable, `PROD_LITELLM_API_BASE`, which the restage
+does not use. `PROD_TAILNET_FQDN`, which it does use, is repo-level (both checked 2026-09-30). So
+`lever-restage` needs no variables.
 
 **Self-review.** In `propose` the operator (`chipi`) approves runs that were dispatched with the
 operator's own token, so `prevent_self_review` must stay **off** on `lever-restage`. It stays off on
@@ -502,19 +608,27 @@ operator's own token, so `prevent_self_review` must stay **off** on `lever-resta
 
 ### Credentials
 
-Three credentials, all on the mini only, all in the fleet's gitignored `.env` (mode `0600`), the
+Four credentials, all on the mini only, all in the fleet's gitignored `.env` (mode `0600`), the
 same pattern as the other daemons. A LaunchDaemon has no login Keychain, so Keychain is not an
 option. The rule behind the split: **each credential gets the power its stage needs, no earlier.**
 
 1. **SSH key** `~/.ssh/remediation_fleet_prod` (ed25519, no passphrase). Its only power is running
    the check script, via the forced command. `.env`: `PROD_CHECK_SSH_KEY`, `PROD_CHECK_SSH_TARGET`
    (`deploy@prod-podcast`), `PROD_CHECK_KNOWN_HOSTS` (a pinned `known_hosts` file).
-2. **Dispatch token** — the operator's fine-grained personal access token, `.env`:
-   `GITHUB_DISPATCH_TOKEN`. Used from `shadow` on (in shadow only for the per-cycle token check).
+2. **Read token** — a fine-grained personal access token with **public repositories, read-only**
+   access and no permissions, `.env`: `GITHUB_READ_TOKEN`. Present **from `shadow`**. Every read goes
+   through it: run lists for the pre-flight guard, run state on resume, the containment check. The
+   repo is public, so these reads would work without any token. The token exists only for the
+   authenticated rate limit, because the mini's unauthenticated budget (60 requests an hour, shared by
+   everything on that IP) is too small for a 5-minute cycle. It can write nothing.
+3. **Dispatch token** — the operator's fine-grained personal access token, `.env`:
+   `GITHUB_DISPATCH_TOKEN`. Present **only from `propose`**: shadow never dispatches, so it gets no
+   write credential at all.
    - Resource owner: `chipi`. Repository access: **only** `chipi/podcast_scraper`.
-   - Permissions: **Actions: read and write** (dispatch, read runs), **Metadata: read** (mandatory).
-     **No Deployments permission, at any stage** — this token never approves anything.
-3. **Approval token** — the bot machine account's token, `.env`: `GITHUB_APPROVE_TOKEN`. Present
+   - Permissions: **Actions: read and write** (dispatch), **Metadata: read** (mandatory). **No
+     Deployments permission, at any stage** — this token never approves anything.
+   - Used for exactly two calls: dispatching `restage-prod-secrets.yml` and `prod-ops-health.yml`.
+4. **Approval token** — the bot machine account's token, `.env`: `GITHUB_APPROVE_TOKEN`. Present
    **only from `live`**; in `shadow` and `propose` the variable is unset and the approve code path
    refuses to run.
    - A **classic** token: fine-grained tokens do not work for a collaborator on another user's personal
@@ -522,7 +636,7 @@ option. The rule behind the split: **each credential gets the power its stage ne
      the bot's **read-only collaborator role** plus its reviewer seat on `lever-restage` alone, not the
      scope.
 
-**Both GitHub tokens, the same hygiene:**
+**All three GitHub tokens, the same hygiene:**
 
 - **An explicit expiry, never "No expiration" — 90 days.** `chipi` is a personal account, so no org
   policy caps the lifetime, and personal tokens may be created with no expiry at all. A non-expiring
@@ -532,34 +646,56 @@ option. The rule behind the split: **each credential gets the power its stage ne
 - **Checked every cycle, not only when acting.** On a healthy box the cycle would otherwise never call
   GitHub, so a revoked or expired token would first be discovered at 4 a.m., in the middle of the outage
   it was meant to fix. Every cycle makes one cheap authenticated read per token (e.g.
-  `GET /repos/chipi/podcast_scraper`), pushes `remediation_fleet_github_token_ok{token="dispatch|approve"}`
+  `GET /repos/chipi/podcast_scraper`), pushes `remediation_fleet_github_token_ok{token="read|dispatch|approve"}`
   (1/0), and parses the expiry header into
   `remediation_fleet_github_token_expiry_days{token=…}`. An absent header, or one in the past, means
   "unknown" and sets `…_token_ok=0`, never "0 days left". (That header has misbehaved before: for a
   period in 2025 it returned the current server time for fine-grained tokens, see google/go-github#3708,
-  fixed server-side around 2025-09-12.) The approval token is checked only once it exists (`live`).
-  Daily use also keeps both tokens out of GitHub's automatic removal of tokens unused for a year.
+  fixed server-side around 2025-09-12.) Each token is checked from the stage it is issued in.
+  Daily use also keeps every token out of GitHub's automatic removal of tokens unused for a year.
 
-**Blast radius, stated plainly** (checked 2026-09-30 against all 60 workflow files and the environments
-API):
+**Blast radius, stated plainly** (checked 2026-09-30 against all 60 workflow files in
+podcast_scraper `main` `3f2a9f43b` and the environments API; `drill`, `prod-backup` and
+`prod-ops-health` have no protection rules, and only `prod` has a reviewer):
 
-- **Dispatch token, all stages.** It can start any `workflow_dispatch` workflow. Of those:
-  - the **prod-gated** ones — including `restage-prod-secrets.yml` once it moves to `lever-restage` —
-    then **wait for a reviewer** (the operator; the bot is a reviewer only on `lever-restage`);
-  - these **ungated** ones run **immediately**:
-    - `stop-prod-pipeline.yml` — kills running prod pipeline containers. It is the emergency brake, left
-      ungated on purpose; the typed `STOP` is its only guard;
-    - `backup-corpus-prod.yml`, `backup-operator-appdata-prod.yml`, `backup-player-appdata-prod.yml` —
-      SSH to prod with the repo-level `PROD_SSH_PRIVATE_KEY`; their environment `prod-backup` has no
-      protection rules;
-    - `prod-ops-health.yml` — read-only.
-  - Worst case for a leaked dispatch token: interrupt prod batch work, run backups. It **cannot change
-    prod state or code** — no Contents permission, and every workflow that writes prod state waits for a
-    reviewer.
-- **Approval token, `live` only.** It can approve a waiting `lever-restage` run, which only ever
-  restages and recreates onto current images. It cannot dispatch, so it can approve only runs something
-  else started. Worst case for a leaked approval token plus a leaked dispatch token: extra restages of
-  prod. That is the lever's own blast radius, by construction.
+- **Read token, all stages:** nothing. It reads a public repo.
+- **Dispatch token, from `propose`.** GitHub offers nothing finer than repo-wide **Actions: write**
+  for dispatch. So the *lever* is GitHub-contained, but the *dispatch credential* is not; the fleet's
+  allowlist is the only thing holding it to two workflows. What a leaked dispatch token can do:
+  - start any of the **20** `prod`-gated workflows — which then **wait for the operator**, the only
+    `prod` reviewer. Harmless unless approved;
+  - start `restage-prod-secrets.yml`, which waits in `lever-restage`. At `live` the fleet does not
+    approve a run it did not dispatch itself (step 4 matches its own `request_id`);
+  - start these **ungated** workflows, which run **at once**. The typed confirm inputs are no guard
+    against a token holder, who can type them:
+
+    | workflow | effect |
+    | --- | --- |
+    | `stop-prod-pipeline.yml` | kills running prod pipeline containers (the emergency brake; ungated by design) |
+    | `backup-corpus-prod.yml`, `backup-operator-appdata-prod.yml`, `backup-player-appdata-prod.yml` | SSH to prod and take backups |
+    | `drill-infra-apply.yml` | `tofu apply` of the drill stack on Hetzner — **spends money** |
+    | `drill-infra-destroy.yml` | destroys the drill stack — **including a prod failover spare**, if one is standing on the drill row |
+    | `prod-failover-stand-up.yml` | provisions a spare, deploys it, and **restores the prod corpus onto it** |
+    | `ghcr-retention.yml` (`dry_run=false`, `confirm_apply=APPLY`) | **deletes container images** outside its keep-set (last 20, release tags, `:main`, recent deploy SHAs) |
+    | `tailscale-cleanup.yml` | **deletes tailnet devices** of ephemeral runners idle longer than `min_hours`, an input the caller sets |
+    | `tailscale-acl.yml` (`mode=apply`) | re-applies `tailscale/policy.hujson` from `main` to the tailnet — can overwrite an admin-console change |
+    | `drill-exercise.yml`, `drill-deploy.yml`, `drill-restore-corpus.yml`, `drill-corpus-upgrade.yml`, `drill-e2e.yml`, `drill-stack-playwright.yml`, `drill-infra-plan.yml` | act on the drill host: `drill-exercise` builds **and destroys** the stack (spend); deploy/restore would **overwrite a failover spare** standing there |
+    | `deploy-all-prod.yml` | its coordinator job is ungated, but it calls the `prod`-gated deploys, which wait for the operator |
+    | `litellm-smoke.yml`, `nightly.yml`, `stack-test.yml`, `docker.yml`, `snyk.yml`, `secret-scan.yml`, `smoke-player.yml`, `smoke-operator.yml`, `post-deploy-smoke.yml`, `verify-backup-restore.yml`, `backup-corpus.yml`, `infra-drift.yml`, `docs.yml`, `release.yml` (draft release only), `deploy-codespace.yml` (pre-prod codespace) | CI minutes and small provider spend (`litellm-smoke`); no prod effect |
+
+  - use the rest of **Actions: write**: **cancel** any running workflow — a `deploy-prod.yml` cancelled
+    mid-`compose up` "leaves the stack in an unknown state", in that workflow's own words, so this is a
+    prod-state effect; **re-run** jobs; **disable** workflows, e.g. the scheduled backups or the weekly
+    drill, silently; **delete** workflow runs, logs and artifacts, which is part of the audit trail.
+
+  So a leaked dispatch token **can** change prod state indirectly (cancelling a deploy, killing the
+  pipeline), spend money, delete images and tailnet devices, and hide its tracks in the run history.
+  It cannot push code or approve anything. Mitigations beyond this RFC are Open question 11.
+- **Approval token, `live` only.** It can approve a waiting run in a lever environment — today only
+  `lever-restage`, which only ever restages and recreates onto current images. It cannot dispatch, so
+  it can approve only runs something else started. Worst case for a leaked approval token plus a
+  leaked dispatch token: extra restages of prod, which is the lever's own blast radius, by construction,
+  plus everything the dispatch token can do alone.
 
 **Where the tokens sit** — mitigations as they actually stand (checked on the mini 2026-09-30):
 
@@ -580,19 +716,26 @@ Two things a reviewer might assume are **not** true:
   auth still applies). Restricting `sshd` to the tailnet interface is a cheap hardening the operator
   may take separately.
 
-The operator re-confirmed the trade on these corrected facts on 2026-09-30, with the staged split
-(dispatch-only until `live`; approval only as the contained bot) as the condition.
+**The trade, re-confirmed on the full list (2026-09-30).** The operator first re-confirmed it on a
+blast-radius list that named only `stop-prod-pipeline.yml` and the three backups. That list was
+incomplete: it came from scanning only for workflows that use the prod SSH key. On the full list above
+(cloud spend, image and tailnet-device deletion, run cancellation/disabling/deletion) the operator
+decided: **accept it during `propose`, and before `live` gate the destructive ungated workflows behind
+a manual-dispatch-only approval** (Open question 11, option B).
 
 ### Reporting
 
 Same channels as the other daemons.
 
 - **VictoriaMetrics** (`:8428/api/v1/import/prometheus`), pushed at the end of every cycle:
-  - `remediation_fleet_last_cycle_timestamp{fleet="remediation"}` — pushed **last**, only if the cycle
-    itself ran cleanly (the dead-man pattern);
-  - `remediation_fleet_prod_reachable`, `remediation_fleet_prod_needs_recovery`, `remediation_fleet_alloy_running`;
-  - `remediation_fleet_actions_total{result="success|success_o11y_dark|failed|skipped_guard|shadow|proposed"}`;
-  - `remediation_fleet_latched`, `remediation_fleet_github_token_ok{token="dispatch|approve"}`,
+  - `remediation_fleet_last_cycle_timestamp{fleet="remediation"}` — pushed **last**, whenever the cycle's
+    code ran to completion (the dead-man pattern). "Ran to completion" includes a cycle that recorded a
+    failed run, a latch or a refusal. Only a crash, a hang or a kill skips it. Otherwise
+    `remediation-silent` would fire alongside `remediation-failed` for the same event;
+  - `remediation_fleet_prod_reachable`, `remediation_fleet_check_ok`, `remediation_fleet_prod_needs_recovery`,
+    `remediation_fleet_alloy_running`, `remediation_fleet_containment_ok`, `remediation_fleet_run_in_flight`;
+  - `remediation_fleet_actions_total{result="success|success_o11y_dark|failed_run|failed_verify|guard_breach|rejected|skipped_guard|shadow|proposed"}`;
+  - `remediation_fleet_latched`, `remediation_fleet_github_token_ok{token="read|dispatch|approve"}`,
     `remediation_fleet_github_token_expiry_days{token=…}`.
 
   `fleetd` also pushes its own `fleetd_cycle{fleet="remediation",outcome=…}` every cycle. That is
@@ -609,8 +752,10 @@ Same channels as the other daemons.
   | --- | --- | --- | --- | --- |
   | `remediation-silent` | `remediation_fleet_last_cycle_timestamp` older than **50 m** | Alerting (dead-man) | warning | `meta: "true"` |
   | `remediation-acted` | `increase(remediation_fleet_actions_total{result=~"success\|success_o11y_dark"}[10m]) > 0` | OK | info — so the operator sees in the morning that prod was fixed overnight | `meta: "true"` |
-  | `remediation-proposed` | `increase(remediation_fleet_actions_total{result="proposed"}[10m]) > 0` | OK | info — propose stage: a restage is waiting for the operator's approval in GitHub | `meta: "true"` |
-  | `remediation-failed` | `increase(remediation_fleet_actions_total{result="failed"}[30m]) > 0` | OK | critical | `meta: "true"` |
+  | `remediation-proposed` | `increase(remediation_fleet_actions_total{result="proposed"}[10m]) > 0` | OK | info — propose stage: a restage is waiting for the operator's approval in GitHub. `proposed` is counted once per run, when it is dispatched, not on every resume | `meta: "true"` |
+  | `remediation-failed` | `increase(remediation_fleet_actions_total{result=~"failed_run\|failed_verify\|guard_breach"}[30m]) > 0` | OK | critical | `meta: "true"` |
+  | `remediation-check-broken` | `remediation_fleet_check_ok == 0` for 15 m while `remediation_fleet_prod_reachable == 1` | OK | warning — prod answers SSH but the check does not work (missing script, bad output) | `meta: "true"` |
+  | `remediation-containment-broken` | `remediation_fleet_containment_ok == 0` | OK | critical — GitHub's environment settings no longer match the containment the lever relies on; the fleet has latched | `meta: "true"` |
   | `remediation-latched` | `remediation_fleet_latched == 1` | OK | critical | `meta: "true"` |
   | `remediation-token-invalid` | `remediation_fleet_github_token_ok == 0` for 15 m, per `token` | OK | critical | `meta: "true"` |
   | `remediation-token-expiring` | `remediation_fleet_github_token_expiry_days < 14`, per `token` | OK | warning | `meta: "true"` |
@@ -618,9 +763,10 @@ Same channels as the other daemons.
 
   Why these settings, which an earlier draft left out or got wrong:
 
-  - **50 m, not 15 m, for `remediation-silent`.** A legitimate recovery cycle runs up to 40 m
-    (`cycle_timeout`) and pushes its timestamp only at the end, so the gap between two timestamps can
-    reach ~45 m (40 m + the 5 m interval). A 15 m threshold would fire on **every real recovery**.
+  - **50 m, not 15 m, for `remediation-silent`.** A recovery cycle runs up to 30 m (its own deadline)
+    and pushes its timestamp only at the end, so the gap between two timestamps normally reaches ~35 m
+    (30 m + the 5 m interval), and ~45 m if `fleetd` ever has to kill a cycle at `cycle_timeout`. A 15 m
+    threshold would fire on **every real recovery**.
     For comparison, `fleetd-silent` uses 35 m for 10-minute fleets.
   - **`meta: "true"` on the fleet's own rules** — invariant 7 of the fleet architecture: *"the fleet
     never triages its own substrate."* Fleet 2's Grafana pass polls firing alerts and skips only
@@ -628,7 +774,7 @@ Same channels as the other daemons.
     policy also routes `meta` alerts to the operator only. `prod-alloy-down` is the exception: it is a
     genuine prod symptom, so it is fleet-consumable and must follow the "truthful symptom" contract
     (stable `alertname`, `service` + `environment` labels, a symptom-stating summary).
-  - **`noDataState: OK` on the counter and gauge rules.** `remediation_fleet_actions_total{result="failed"}`
+  - **`noDataState: OK` on the counter and gauge rules.** `remediation_fleet_actions_total{result="failed_run"}`
     does not exist until the first failure, so absence is the healthy state; the architecture records
     6 days of false `DatasourceNoData` from exactly this mistake on `fleetd`. Only the dead-man rule
     treats absence as an alarm.
@@ -658,9 +804,10 @@ own config (`RF_LIVE_CLASSES` in `.env`) — a class not listed there behaves as
   - [ ] CI green on `b9c07ff8f` (partly still running on 2026-09-30), and **a deploy that includes it
     reaches prod** — until then `/srv/podcast-scraper/scripts/ops/prod_recovery_check.sh` does not
     exist on the box;
-  - [ ] **one concurrency group for every prod-mutating workflow** — `restage-prod-secrets`,
-    `deploy-prod`, `deploy-player`, `deploy-operator`, `deploy-all-prod` (decided 2026-09-30, see Open
-    question 2);
+  - [ ] **one concurrency group for every prod-mutating workflow** — the 11 in Open question 2 (the 10
+    that match the rule, plus `infra-apply`; the corpus data jobs stay out) — set at **job** level on
+    the leaf jobs, tested on the drill box first; the fleet's pre-flight guard list made identical to
+    that set;
   - [ ] the forced-command `authorized_keys` entry for `deploy`, in `infra/cloud-init/prod.user-data`
     **and** applied once to the live box (operator-approved host change). The public key is generated on
     the mini, so this step follows key creation there;
@@ -668,26 +815,51 @@ own config (`RF_LIVE_CLASSES` in `.env`) — a class not listed there behaves as
     machine account + `chipi`, `prevent_self_review` off, protected branches only, the six
     environment-scoped secrets set from the operator's source; `restage-prod-secrets.yml` switched from
     `environment: prod` to `environment: lever-restage`; the CI check that exactly one workflow names
-    `lever-restage`; the secret drift check, with its credential chosen. Done before shadow, so that
-    `propose` already exercises the real environment (with the operator approving there);
+    `lever-restage`; `gh secret list --env lever-restage` showing all six names; the rotation runbook
+    line ("set a rotated prod key in both environments"). Done before shadow, so that `propose` already
+    exercises the real environment (with the operator approving there);
   - [ ] a DEPLOY_GOTCHAS §1b note that recovery is automatic and how to stop it — once the fleet is live.
-- [ ] **The bot machine account** created, added as a **read-only** collaborator on
-  `chipi/podcast_scraper` and as a reviewer on `lever-restage` only. Its token is **not** issued yet —
+- [ ] **The bot machine account** created, with two-factor authentication on and its own email;
+  invited as a **read-only** collaborator on `chipi/podcast_scraper` and the invitation **accepted** (a
+  pending invitee cannot be a reviewer); added as a reviewer on `lever-restage` only; its notification
+  settings muted for deployment reviews, so its inbox does not fill. Its token is **not** issued yet —
   that happens at Stage C3.
+- [ ] **`fleetd` kills whole process groups on timeout**: start each cycle with `Setpgid` and kill the
+  group, ideally SIGTERM then SIGKILL after a grace period (`cmd.Cancel` + `WaitDelay`). Today a timeout
+  SIGKILLs the cycle and orphans its children (see "Placement"). A small change that benefits every
+  fleet; `cycle.py`'s own deadline and lock make this fleet safe even before it lands.
 - [ ] **Fleet code** with `test_units.py` faking SSH and the GitHub API. Cover:
-  - a clean box does nothing, but still verifies the GitHub token;
+  - a clean box does nothing, but still verifies each GitHub token issued for the stage;
   - a broken box dispatches, finds its run by `request_id`, and approves (live) or stops at the
     approval (propose);
+  - `state.json` and a `dispatching` row are written **before** the dispatch call; a cycle killed right
+    after dispatching is resumed by the next one, which finds the run by `request_id`;
+  - **resume:** a run approved by the operator hours after dispatch is verified by the first cycle after
+    it completes, and gets its outcome row; a run still `waiting` is `proposed`, never `failed`; a run
+    rejected in GitHub is `rejected`, with no retry;
+  - a second `cycle.py` started while one holds `cycle.lock` exits at once; the cycle stops before its
+    own 30-minute deadline;
   - a dispatch that returns `204` still proceeds via the `request_id` lookup; a returned
-    `workflow_run_id` that differs from the `request_id` run does **not** approve, and latches;
+    `workflow_run_id` that differs from the `request_id` run is logged as a warning and does **not**
+    latch;
+  - settle: a box up for less than 10 minutes, or `needs_recovery` on only one cycle, does not act;
+  - containment check: each drifted setting (bot reviewer on `prod`, extra reviewer on
+    `lever-restage`, `prevent_self_review` on, branch policy off) refuses, latches and sets
+    `remediation_fleet_containment_ok=0`;
+  - a broken check (missing script, non-zero exit, non-JSON) sets `remediation_fleet_check_ok=0` and does
+    nothing;
+  - the approval comment contains only `remediation-fleet <request_id>`;
   - no run with its `request_id` within 2 min → report and stop, never "the newest run";
   - a run with the wrong id, workflow, branch or environment is **not** approved;
-  - cooldown, daily cap and latch;
+  - cooldown, the 3-runs-per-24-h cap (successes included) and latch;
   - a host-key mismatch latches;
   - an unreachable prod does nothing;
-  - each verify layer failing (a, b, c) counts as a failed attempt; layer d alone failing records
-    "product recovered, observability dark" and is **not** a failed attempt;
-  - a run still in progress at 25 min counts as failed, and is not re-dispatched inside the cooldown;
+  - failure classes: a red run retries after the cooldown; a green run whose verify a, b or c stays red
+    after its window latches at once; layer a turning green within its 3-minute window is **not** a
+    failure; layer d alone failing records "product recovered, observability dark" and is **not** a
+    failure;
+  - a run not completed 30 minutes after approval counts as a failed run, and is not re-dispatched
+    inside the cooldown;
   - an invalid token, or a missing / past-dated expiry header, sets
     `remediation_fleet_github_token_ok=0`;
   - an approval rejected with 4xx (e.g. `prevent_self_review` turned on) latches instead of retrying;
@@ -701,15 +873,16 @@ own config (`RF_LIVE_CLASSES` in `.env`) — a class not listed there behaves as
   on the homelab home page next to "Triage fleet" and "Bug-fix fleet"; a Fleet Workforce dashboard
   alongside `signal-fleet-disp` and `bugfix-fleet-work`.
 
-**Stage C1 — Shadow (1–2 weeks).** `stage: "shadow"`. The fleet detects, decides, checks the token and
+**Stage C1 — Shadow (1–2 weeks).** `stage: "shadow"`. The fleet detects, decides, runs the containment check, checks the read token and
 writes "would act" rows to the ledger; it dispatches nothing and approves nothing. Weekly ritual, as for
 Fleet 2: review the ledger — zero "would act" on a healthy box, and every "would act" has a reason
 traceable to its check JSON.
 
 **Stage C2 — Propose.** `stage: "propose"`. The fleet detects and **dispatches** the restage, then
 **stops at the approval**: the run waits in GitHub for the required reviewer, as it does today — except
-that detection and dispatch have already happened, so the operator's part shrinks to one tap. When the
-operator approves, the fleet waits, runs the full verify (step 6) and records the outcome.
+that detection and dispatch have already happened, so the operator's part shrinks to one tap. The
+dispatch token is issued at this promotion. Whenever the operator approves — minutes or hours later —
+the next cycle resumes the run, runs the full verify (step 6) and records the outcome (step 5).
 
 - Notification: GitHub notifies required reviewers of a waiting deployment; whether that reaches the
   operator's phone depends on their GitHub notification settings (not verified here). A
@@ -730,32 +903,39 @@ operator approves, the fleet waits, runs the full verify (step 6) and records th
      unit (Open question 6).
 
 **Stage C3 — Live, per class.** `stage: "live"` with `RF_LIVE_CLASSES` listing the promoted classes.
-Promotion to `live` is when the bot's approval token is issued (90-day expiry) and set as
+**Prerequisite (Open question 11, option B):** in podcast_scraper, the ungated workflows that spend,
+destroy or delete — `drill-infra-apply`, `drill-infra-destroy`, `drill-exercise`,
+`prod-failover-stand-up`, `ghcr-retention`, `tailscale-cleanup` — require the operator's approval when
+dispatched by hand, while their scheduled runs stay unattended. Promotion to `live` is when the bot's approval token is issued (90-day expiry) and set as
 `GITHUB_APPROVE_TOKEN`. The first bot approval is a **supervised class-A drill**, with the operator
 watching. It proves, on the real system, the two mechanics this RFC takes from the docs: that a classic
 token of a read-only collaborator can call the approve endpoint, and that the bot's approval alone
 releases the run. Promote class A after one verified propose-stage success plus that supervised bot
 approval; class B after its verified propose-stage success in production (the controlled prod
-reboot above). The registry row in `fleet-architecture.md` moves to `live` for the promoted class in
-the same change. Each promotion is operator-gated, reversible (drop the class, or set the stage
+reboot above). The registry row in `fleet-architecture.md` records each class's stage, and moves to
+`live` for the promoted class in the same change. Each promotion is operator-gated, reversible (drop the class, or set the stage
 back), and recorded in `docs/history/0002-decisions.md` — as are the invariant-6 amendment and the
 credential acceptance (Open question 1).
 
 ### Recovery time
 
 - Worst case for a reboot:
-  - prod back → next tick: ≤ 5 min;
+  - settle: the box must be up ≥ 10 min and `needs_recovery` must hold on two consecutive cycles, so
+    the first action comes 10–15 min after boot;
   - dispatch → run starts: seconds to ~1 min, depending on the GitHub queue;
   - restage + recreate: ~1.5–3 min, longer on a cold image pull.
-- **Expected total: about 5–10 minutes after the box is back**, instead of "when the operator wakes
-  up".
+- **Expected total: about 15–20 minutes after the box is back**, instead of "when the operator wakes
+  up". The settle costs ~10 of those minutes on purpose: it keeps the fleet from racing prod's own
+  boot unit.
 - The first request to the operator API after a recreate took ~70 s on 2026-09-30 (a cold cache).
   That is a separate, known issue.
 
 ## Open questions
 
-Questions 1–4 were settled with the operator on 2026-09-30 (recorded below and in Discussion). The
-rest can be settled during implementation.
+Questions 1–4 were settled with the operator on 2026-09-30 (recorded below and in Discussion), and 9
+was settled by the review that followed; the concurrency set in 2 and the dispatch token's blast
+radius in 11 were decided after it. No question blocks acceptance; the rest can be settled during
+implementation.
 
 1. **Invariant 6 and the credential trade — decided.**
    - *Invariant:* amended into the lever model, rather than a one-off exception for this RFC. Other
@@ -763,20 +943,45 @@ rest can be settled during implementation.
      GitHub-enforced containment, and a registry in which this RFC is lever #1. Landed in
      [fleet-architecture.md](../fleet-architecture.md#prod-levers-how-a-fleet-may-act-on-prod) with
      this RFC. See "Fit with the fleet architecture".
-   - *Credentials:* re-confirmed on the corrected facts (FileVault off, LAN-reachable `sshd`, and the
-     real blast radius: 20 `prod`-gated workflows plus 4 ungated ones that touch prod). The condition is
-     the staged split. The operator's personal token only ever dispatches and never holds a Deployments
+   - *Credentials:* re-confirmed on corrected facts (FileVault off, LAN-reachable `sshd`, 20
+     `prod`-gated workflows) — but on an ungated-workflow list that was incomplete. Re-confirmed on
+     the full list the same day (question 11). The condition is the staged split. The operator's personal token only ever dispatches and never holds a Deployments
      permission. Approval happens only at `live`, as the bot, in `lever-restage`. See "Credentials" and
      "The lever environment".
    - *Accepted cost:* a second environment holding six duplicated secrets, with a drift check. This
      reverses the earlier rejection of a separate environment (see Alternatives). The difference: this
      one has a bot reviewer and a CI-enforced single workflow, where the rejected one was reviewer-less.
-2. **One concurrency group for every prod-mutating workflow — decided: yes.** The operator, 2026-09-30:
-   a post-reboot restage is a special case; nothing else should run while it does, and it should wait
-   for anything already running. All five workflows (`restage-prod-secrets`, `deploy-prod`,
-   `deploy-player`, `deploy-operator`, `deploy-all-prod`) move into one group — now a Gate-to-MVP
-   prereq. Accepted cost: player and operator deploys, which may run in parallel today, serialise. The
-   fleet's pre-flight guard stays as belt-and-braces; it is no longer the only protection.
+2. **One concurrency group for every prod-mutating workflow — decided: yes, 11 workflows.**
+   The operator, 2026-09-30: a post-reboot restage is a special case; nothing else should run while it
+   does, and it should wait for anything already running. The fleet's pre-flight guard stays as
+   belt-and-braces, checking the same set.
+   - *Defined by rule, not by list:* a workflow is in the group if it writes `/dev/shm/*-secrets`,
+     creates or recreates a prod container, or restarts a prod service. Checked against podcast_scraper
+     `main` on 2026-09-30, that is 10 workflows: `restage-prod-secrets`, `deploy-prod`,
+     `recreate-operator-api` (these three already share `deploy-prod`); `deploy-player`,
+     `deploy-operator`, `mint-prod-gateway-key` (writes secrets, force-recreates), `prod-restore-corpus`
+     (recreates), `deploy-litellm` (writes `/dev/shm`, `compose up`), `deploy-vps-observability-endpoints`
+     (`compose up -d alloy`), `deploy-config` (`systemctl restart caddy`). An earlier draft named only
+     five.
+   - *At job level, on the leaf jobs.* `deploy-all-prod.yml` calls `deploy-prod`, `deploy-player` and
+     `deploy-operator` as reusable workflows. If the coordinator and the workflows it calls held the same
+     group, a called workflow could queue behind its own caller. How GitHub treats a workflow-level
+     `concurrency:` in a called workflow was not confirmed in its docs. So the group goes on the jobs
+     that touch the box, the coordinator job stays out, and the setup is tested on the drill box before
+     prod.
+   - *Two borderline groups — decided by the operator on 2026-09-30, as recommended:*
+     - **the corpus data jobs** (`reprocess-prod`, `reenrich-prod`, `reindex-prod`, `gi-repair-prod`,
+       `backfill-audio-prod`, `scope-bare-names-prod`, `sweep-prod-audio`, `inspect-prod-corpus`,
+       `backup-corpus-prod`; today in their own `prod-corpus` group). They `docker compose run` one-off
+       pipeline containers that read the secrets; they do not recreate the services. Some run for hours.
+       In the group, a restage would wait behind a multi-hour job. Out of it, a job and a restage could
+       overlap; the restage rewrites the same secret values underneath it.
+     - **`infra-apply.yml`** (OpenTofu on prod infrastructure; its own group today). It is rare and
+       manual, and can replace the VPS itself.
+     - *Decision:* data jobs **out** of the group; `infra-apply` **in**, which makes the set 11. After
+       a reboot, any data job that was running is already dead, and making a recovery wait hours behind
+       a batch job defeats the lever. `infra-apply` can change the box the restage is acting on, and it
+       runs rarely enough that waiting costs nothing.
 3. **How is the recreate path proven? — decided: by outcome on every run, first on the drill box, then
    by a controlled reboot of prod.** Every run proves itself through step 6's layered verify (the
    operator: close the loop through observability). For class B's *first* run, the operator chose, in
@@ -828,12 +1033,35 @@ rest can be settled during implementation.
    dead-man that expects a periodic ping from the mini.
 8. **GitHub outage during a reboot.** Recovery waits for GitHub. This is accepted for v1; the
    secrets' only source of truth is GitHub.
-9. **Should successful attempts be capped too?** The daily cap counts only *failed* attempts. A box
-   that reboots repeatedly would be restaged every time, each one an unattended `prod` approval,
-   visible only as repeated `remediation-acted` emails. A cap on total approvals per 24 h (e.g. 5) would
-   turn a reboot loop into a latch and a page.
+9. **Should successful attempts be capped too? — decided: yes.** The fleet architecture's lever
+   contract requires a rate cap that includes successes, so leaving this open would leave the lever
+   inadmissible. Cap: **3 runs per rolling 24 h, whatever their outcome**; a fourth need latches and
+   pages. A box that needs recovering three times in a day is an incident for a human (see Guardrails).
 10. **Notification channel for `remediation-acted`.** Email is the default contact point. Decide
     whether it should reach a phone.
+11. **The dispatch token's real blast radius — decided: A during `propose`, B before `live`.** See Credentials
+    → "Blast radius, stated plainly". The ungated list the operator confirmed on 2026-09-30 named four
+    workflows; the full scan finds more that a leaked `Actions: write` token can run at once — cloud
+    spend (`drill-infra-apply`, `drill-exercise`, `prod-failover-stand-up`), destroying a failover spare
+    (`drill-infra-destroy`), deleting images (`ghcr-retention`) and tailnet devices
+    (`tailscale-cleanup`) — plus cancelling a running deploy, disabling scheduled workflows, and deleting
+    run history. GitHub has no finer permission for dispatch. The token exists only from `propose`.
+    Options:
+    - **A — accept** as stated, for the `propose` and `live` stages;
+    - **B — gate the dangerous ungated workflows** in podcast_scraper: give the spend / destroy / delete
+      workflows an environment with the operator as reviewer, **for manual dispatch only**, so their
+      scheduled runs are not stalled (a reviewer on a scheduled job stalls it forever — see
+      `prod-ops-health.yml`'s header). Whether a job's environment can be chosen by an expression on
+      `github.event_name` has not been verified;
+    - **C — narrow the holder, not the token:** keep the dispatch token off the always-on fleet, and have
+      `propose` only *notify* while the operator dispatches. This undoes "the operator's part shrinks to
+      one tap", and `live` needs dispatch anyway.
+    - *Decision (operator, 2026-09-30):* **A for `propose`, B before `live`.** In `propose` the operator
+      is watching every run, and the token is only a few weeks old. By `live` the token sits on the mini
+      for good, so the workflows that spend money or destroy things get the same one-tap gate as prod
+      deploys — for manual dispatches only, so the scheduled runs keep working. B is a Stage C3
+      prerequisite. If a job's environment cannot be chosen by trigger, the fallback is to be decided
+      then, before `live`, not skipped.
 
 ## Alternatives considered
 
@@ -857,7 +1085,10 @@ rest can be settled during implementation.
 - **A GitHub App as a custom deployment protection rule**, so approvals show as `<app>[bot]` —
   rejected for now. GitHub drives it by webhook, so the mini would need an endpoint reachable from the
   internet (e.g. Tailscale Funnel), and how it combines with a required-reviewer rule was not
-  confirmed. The machine account gives the same attribution with neither.
+  confirmed. The machine account gives the same attribution with neither. **To be re-evaluated when
+  lever #2 arrives:** GitHub allows one machine account, so every lever shares one bot. An App rule is
+  the route to a separate identity per lever, and it could also dispatch as `<app>[bot]` (Open
+  question 4).
 - **The mini keeps a copy of the secrets and pushes them to prod** — rejected. It adds a second
   secrets store to keep in sync with GitHub.
 - **Trigger from the Grafana "prod dark" alert via webhook** — not for v1. In the incident the dark
@@ -957,3 +1188,51 @@ rest can be settled during implementation.
   - *Proving the recreate path:* class B's first run goes to the drill box first, if it can be made to
     reproduce the failure — today it stages no tmpfs secrets, deploys no player/operator surfaces and
     has no drill restage. Then comes a controlled prod reboot when prod is not busy, done in any case.
+- **2026-09-30 (independent review, then processed)** — An independent design review (a Fable-model
+  advisor, read-only, checking claims against both repos and GitHub) returned 15 findings and 3
+  proposed cuts. Each finding was checked before being folded in. All were taken, except one cut:
+  - *Blast radius (blocker, confirmed):* the dispatch token's ungated list was incomplete. The earlier
+    scan looked only for workflows using the prod SSH key. The full list is now under Credentials; the
+    operator's re-confirmation is Open question 11. A read-only token now covers every read, so the
+    dispatch token exists only from `propose`.
+  - *Timeout (blocker, corrected on test):* the review said a timeout orphans the Python cycle. Tested
+    on macOS: `sh -c` replaces itself with the command, so the cycle itself is SIGKILLed, and its
+    **children** are orphaned. Response: the cycle's own 30-minute deadline, intent written before
+    dispatch, a `flock`, and a `fleetd` process-group fix in the Gate to MVP.
+  - *No resume in propose (major):* runs are now tracked in `state.json` and resumed by later cycles.
+    A `waiting` run is `proposed`, never `failed`. The inline wait is 12 minutes, and a run fails only
+    if it has not finished 30 minutes after approval.
+  - *Settle after boot (major):* the fleet acts only once the box has been up ≥ 10 min and
+    `needs_recovery` has held for two cycles. Expected recovery is now 15–20 min.
+  - *Verify layer a (major):* polled for up to 3 min, like layer b.
+  - *One bot for all levers (major):* GitHub's terms allow one machine account. The architecture now
+    says the bot's blast radius is the union of live levers, and the per-lever environment is the unit
+    the operator revokes.
+  - *Contract consistency (major):* successes are capped (3 runs per 24 h, Open question 9 closed);
+    failure classes defined; the never-list's "free-form inputs" narrowed to inputs that select what is
+    done on prod (`request_id` is a correlation id); registry status recorded per class.
+  - *Containment drift (major):* a containment check runs every cycle, over the public environments API
+    with no permission needed. It refuses, latches and pages on drift.
+  - *Concurrency set (major):* defined by rule — 10 workflows, not 5 — set at job level. The data jobs
+    and `infra-apply` are for the operator (Open question 2).
+  - *Minor:* `prod-ops-health` can open a GitHub issue, so it is no longer called read-only; the
+    approval comment carries only the `request_id` (public repo); detection/recovery parity is per sha,
+    and v2 of the check should report the library's sha; a broken check has its own metric and alert;
+    the dead-man timestamp is pushed whenever the cycle's code completes; the fleet does not wait on
+    the dispatch run id (the changelog is verified, and `restage-prod-secrets.yml:33` is stale); secret
+    precedence is now quoted from GitHub's docs (environment wins); environment variables checked (none
+    needed); bot hygiene (2FA, accepted invitation, muted notifications) is in the Gate; `fleetd`'s
+    ticker behaviour is described accurately.
+  - *Cuts:* the `updated_at` drift check was **dropped** (it proves nothing about values and needs a
+    fourth credential); a run-id mismatch **no longer latches**. **Kept**, against the review:
+    `eval_decisions.py` as a runner separate from `test_units.py`. It mirrors Fleet 2's
+    `eval_hardening.py`, and matching the other fleets' patterns is a stated goal of this RFC.
+  - *Correction to the fact-check entry above (append-only, so corrected here, not there):* it gives
+    `remediation-silent` 45 m and `cycle_timeout` 35 m. The body has since settled on 50 m and 40 m
+    (Reporting, Placement), with the cycle's own deadline at 30 m.
+- **2026-09-30 (concurrency set)** — The operator took the recommendation on Open question 2: the corpus
+  data jobs stay out of the single group, and `infra-apply` goes in, giving 11 workflows.
+- **2026-09-30 (dispatch token)** — On the full blast-radius list, the operator took the recommendation
+  on Open question 11: accept the dispatch token's reach during `propose`; before `live`, gate the
+  spend / destroy / delete workflows behind a manual-dispatch-only approval. That gate is now a Stage C3
+  prerequisite.

@@ -85,13 +85,15 @@ outside the fleet.
 
 | tier | what | gate |
 |---|---|---|
-| **Never a lever** | deletes (including scale-in: it deletes a node); restores over prod data; schema or data migrations; minting or rotating secrets; generic infrastructure applies (`infra-apply`-style); merges; **any action that takes free-form inputs** | the operator, every run, permanently |
+| **Never a lever** | deletes (including scale-in: it deletes a node); restores over prod data; schema or data migrations; minting or rotating secrets; generic infrastructure applies (`infra-apply`-style); merges; **any action whose inputs choose what is done on prod** | the operator, every run, permanently |
 | **Lever-eligible** | returns prod to a **known prior state** (e.g. restage secrets after a reboot), or makes a **bounded, reversible** change (e.g. add one node, with a spend cap) | the operator approves the lever once, through its RFC; its runs climb the ladder |
 | **Everything else** | ad-hoc prod work | the operator, per run |
 
 A lever is always a **purpose-built workflow** with fixed or bounded
-inputs — never a generic tool invoked with the right arguments. Changing
-the never-list means amending this invariant.
+inputs — never a generic tool invoked with the right arguments. Inputs
+that only *name* a run (a correlation id) or confirm intent (a typed
+confirm string) select nothing on prod and are allowed. Changing the
+never-list means amending this invariant.
 
 ### The lever contract
 
@@ -104,9 +106,9 @@ Every lever's RFC fills this in; a lever without all of it is not admitted:
 | action | exactly one workflow path, with fixed or bounded inputs |
 | blast radius | what it can touch, written down |
 | verify | the observability probe that proves the outcome — the loop is closed by evidence, not by "the workflow went green" |
-| on failure | latch and page; never retry past a guard |
+| on failure | by failure class: a **failed run** may retry after a cooldown, within the rate cap; a **run that succeeded but whose verify failed**, and any **guard breach**, latch at once and page. Never retry past a guard |
 | rate cap | e.g. at most N runs per 24 h, successes included |
-| environment + identity | a dedicated GitHub environment for this lever, approved by a bot identity that is a reviewer **only** there (below) |
+| environment + identity | a dedicated GitHub environment for this lever, approved by the fleet bot, which is a reviewer only on lever environments (below) |
 | stages | shadow → propose → live, per class, on a frozen-replay eval |
 | owner | the RFC that admitted it |
 
@@ -121,13 +123,37 @@ layers, weakest first:
 2. **The purpose-built workflow** — it refuses inputs outside its purpose.
 3. **A dedicated environment per lever, approved by a bot.** The lever's
    workflow deploys to its own environment (e.g. `lever-restage`), whose
-   required reviewers are a bot machine account plus the operator. The bot
-   is a reviewer on **no other environment** — in particular not on `prod`
-   — so GitHub itself refuses any other approval, even with a stolen bot
-   token. This is the only per-workflow boundary GitHub offers: tokens
-   cannot be scoped to one workflow; environments can. A CI check in the
-   target repo asserts that exactly one workflow file names each lever
+   required reviewers are the fleet bot (a machine account) plus the
+   operator. The bot is a reviewer on **lever environments only** — never
+   on `prod` — so GitHub itself refuses any other approval, even with a
+   stolen bot token. This is the only per-workflow boundary GitHub offers:
+   tokens cannot be scoped to one workflow; environments can. A CI check in
+   the target repo asserts that exactly one workflow file names each lever
    environment.
+
+**One bot for all levers.** GitHub's terms allow one free machine account,
+so every lever shares the same bot. A stolen bot token can therefore
+approve any **live** lever: the blast radius is the union of the live
+levers, each still bounded by its own purpose-built workflow and inputs.
+Each lever's environment is the unit the operator **revokes**: removing the
+bot from one lever environment takes away that lever's autonomy and no
+other's. A separate identity per lever (a GitHub App as a custom deployment
+protection rule) is to be re-evaluated whenever a new lever is admitted.
+
+**Containment is verified, not assumed.** Environment settings are one
+admin API call away from changing, and admin credentials live on the
+machines where agent sessions run. So every lever's fleet reads the
+environment settings each cycle, before acting, and refuses, latches and
+pages if they drift: the bot a reviewer anywhere outside the lever
+environments, a lever environment's reviewers changed, `prod`'s reviewers
+changed. For a public repo this read needs no permission at all.
+
+**What GitHub does not contain: the dispatch credential.** Starting a
+workflow needs repo-wide `Actions: write`, which also reaches every other
+dispatchable workflow, and can cancel, disable, and delete runs. Only the
+fleet's own allowlist holds it to the lever's workflow. Each lever's RFC
+must list what its dispatch credential can reach, and issue it no earlier
+than the stage that dispatches.
 
 The cost is that a lever environment duplicates the environment-scoped
 secrets its workflow uses. Values can't be copied between environments
@@ -145,9 +171,12 @@ both, and a drift check compares the secrets' `updated_at` metadata.
 
 ### Registry
 
-| lever | action | environment | owner | status |
+Autonomy is promoted per class, so status is recorded per class. No lever
+approves anything until one of its classes says `live`.
+
+| lever | action | environment | owner | status per class |
 |---|---|---|---|---|
-| post-reboot restage | `restage-prod-secrets.yml` (`surfaces=all`, `recreate=true`) in `chipi/podcast_scraper` | `lever-restage` | [RFC-0005](rfc/RFC-0005-remediation-fleet-post-reboot-recovery.md) | proposed — **not in force**; no lever approves anything until its row says `live` |
+| post-reboot restage | `restage-prod-secrets.yml` (`surfaces=all`, `recreate=true`) in `chipi/podcast_scraper` | `lever-restage` | [RFC-0005](rfc/RFC-0005-remediation-fleet-post-reboot-recovery.md) | A (secrets missing): proposed · B (containers down): proposed — **not in force** |
 
 ## The measurement machinery (why we trust any of this)
 
