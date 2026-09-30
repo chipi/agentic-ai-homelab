@@ -45,6 +45,17 @@
 # Still a first-boot value — re-measure under real translation load. If it needs to
 # go UP, check prod-vllm's real footprint first; the ceiling for the SUM is what
 # risks the host (../AGENTS.md: 0.78 single-stack, 0.92 crashes it).
+#
+# RE-SIZED 2026-09-30 to 0.26 + max-model-len 4096 (agentic-ai-homelab #81, agreed
+# with the service owner). 0.32 had put the DGX back in its pre-wedge memory zone:
+# MemFree ~44 GB -> ~2 GB, the regime that preceded the September freezes (#63, #71).
+# MEASURED workload (podcast_scraper docs/wip/2169-TRANSLATE-MEASUREMENT.jsonl, 141
+# production units): concurrency 1 (the loop is serial), total tokens p95 141, max 433;
+# hard ceiling 4,096 (2,048 in, ADR-157 §5, + 2,048 out). 0.32 held ~500x the p95.
+# 0.26 = ~31.6 GiB -> ~8 GiB KV, still ~3.6x one worst-case 4,096 request.
+# 4096 is also a CORRECTNESS limit: a 4,800-token prompt at 8192 returned HTTP 200 with
+# only its first sentence (99.3% silently dropped); at 4096 the server rejects it (400),
+# which the pipeline's completeness gate already handles as an untranslated unit.
 
 services:
   vllm-translate:
@@ -87,11 +98,11 @@ services:
       - --api-key=${VLLM_API_KEY:-EMPTY}
       # Sized from the failed 0.20 boot — see the MEMORY note in the header. This is a
       # fraction of TOTAL memory and must cover weights (23.3 GiB) PLUS KV cache.
-      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.32}
-      # Translation units are turn-bounded sentence groups (~120 words), not long
-      # documents, so 8k is generous. Smaller than prod-vllm's 64k on purpose:
-      # KV cache scales with this and the memory is shared with the 30B.
-      - --max-model-len=8192
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.26}
+      # 2,048 in + 2,048 out — the measured ceiling (see RE-SIZED in the header). Not
+      # 8192: it cost KV on a shared host AND let a too-long prompt come back 200 with
+      # 99% of its content silently truncated; at 4096 the server refuses it instead.
+      - --max-model-len=4096
       # Served under a stable alias as well as the HF id, so the pipeline's
       # translation client can target `translate` and the model can be swapped
       # without a consumer config change.
