@@ -64,10 +64,17 @@ tenants:
     # APNs (native iOS) — SANDBOX, for dev-signed device builds (Xcode/devicectl),
     # whose tokens are sandbox-scoped. Same .p8 key as prod (env-agnostic); only the
     # host differs. This is why a dev build can't hit the prod `podcast` tenant.
+    #
+    # The bundle id is `.dev`, NOT the shipped one. The debug configuration was given its own
+    # identity (podcast_scraper, 2026-09-30) so a local build stops evicting the TestFlight app
+    # from the phone — iOS keys on bundle id alone. `apns-topic` must equal the bundle id the
+    # device token belongs to, so leaving the shipped id here sends every dev notification to
+    # Apple with the wrong topic: 400 `TopicDisallowed`, which `apns.py` classifies as a dead
+    # token and BOUNCES, suppressing the subscription rather than reporting a config error.
     apns_key_env: PODCAST_APNS_AUTH_KEY
     apns_key_id: "ZNFZS6CY6K"
     apns_team_id: "3P3PX275ZM"
-    apns_bundle_id: app.closelistening.player
+    apns_bundle_id: app.closelistening.player.dev
     apns_sandbox: true
 
   # Example second tenant — orrery. Enable by verifying mail.orrerylearn.com in Resend,
