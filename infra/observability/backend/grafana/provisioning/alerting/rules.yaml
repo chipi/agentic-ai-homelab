@@ -1621,6 +1621,9 @@ groups:
       # one preceded freeze 1 by 6h38m, and freeze 2 logged none. The free-memory floor
       # (vm.min_free_kbytes, #81) is the wedge-side fix; this is the "it is failing" alarm.
       # Lines containing "alert-drill" are excluded so an end-to-end drill never pages.
+      # Matches the error CODE, not "NVRM": journald moves a kernel line's "NVRM:" prefix
+      # into SYSLOG_IDENTIFIER, so the shipped message starts at "nvCheckOkFailedNoLog:"
+      # (found by the 2026-10-01 /dev/kmsg drill — an "NVRM" filter matched nothing).
       - uid: dgx-gpu-driver-oom
         title: "DGX GPU driver failing allocations (NVRM out of memory)"
         condition: threshold
@@ -1629,13 +1632,13 @@ groups:
         execErrState: Alerting
         labels: { severity: warning, kind: infra, host: dgx-llm-1, service: gpu-driver, environment: operations }
         annotations:
-          summary: "The NVIDIA driver on dgx-llm-1 logged {{ $value }} failed allocation(s) (NV_ERR_NO_MEMORY) in 15m — a GPU service just failed to get memory. Check which model loaded (vLLM/ollama/whisper), MemFree, and GPU in use. VictoriaLogs: instance:dgx-llm-1 job:kernel NVRM."
+          summary: "The NVIDIA driver on dgx-llm-1 logged {{ $value }} failed allocation(s) (NV_ERR_NO_MEMORY) in 15m — a GPU service just failed to get memory. Check which model loaded (vLLM/ollama/whisper), MemFree, and GPU in use. VictoriaLogs: instance:dgx-llm-1 job:kernel NV_ERR_NO_MEMORY."
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }
             datasourceUid: victorialogs
             model:
-              expr: 'instance:dgx-llm-1 job:kernel "NVRM" ("Out of memory" OR "NV_ERR_NO_MEMORY") -"alert-drill" | stats count() as value'
+              expr: 'instance:dgx-llm-1 job:kernel "NV_ERR_NO_MEMORY" -"alert-drill" | stats count() as value'
               queryType: stats
           - refId: reduced
             datasourceUid: __expr__
