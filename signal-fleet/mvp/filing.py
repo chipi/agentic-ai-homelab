@@ -52,7 +52,45 @@ FILED_COLS = ["fingerprint", "repo", "issue", "group_key", "filed_at",
 # dispositions ledger stores the same cut, so a key backfilled from history equals
 # the key of a live signal. SF_ALERT_KEY_DEDUP=0 turns the dimension off (rollback,
 # and the baseline arm of eval_filing_replay.py).
-ALERT_KEY_VERSION = "a1"
+ALERT_KEY_VERSION = "a2"
+
+# a2 (2026-10-01): on top of _normalize_skeleton, mask the per-occurrence numbers that
+# _VOLATILE deliberately leaves (small integers) but that only COUNT or MEASURE, never
+# identify. Measured on the dispositions ledger: 19 alert families split into 281
+# distinct names only by these — e.g. provider_retries_exhausted ... attempts=4
+# total_retry_sleep_s=6.449 (94 variants), "deadline exceeded ... for episode 10" (27
+# across 3 shapes), "attribution produced nothing: 13 groups". A split family made the
+# stale check (#10) call a live class quiet (#1935: 102 events) and could file it anew.
+# Kept narrow on purpose: HTTP codes, ports, limits ("1200s", "of 300 seconds") and
+# versions keep their numbers — those distinguish real problems.
+_ALERT_COUNTERS = [
+    (re.compile(r"\b([a-z_]+)=-?\d+(?:\.\d+)?\b"), r"\1=<n>"),            # key=value measurements
+    (re.compile(r"\b(episodes?|ep)\s+#?\d+\b"), r"\1 <n>"),              # episode 7
+    (re.compile(r"\b\d+\s+(groups?|insights?|quotes?|items?|episodes|units?|events?|"
+                r"chunks?|segments?|candidates?|retries)\b"), r"<n> \1"),   # 13 groups
+]
+
+
+_ALERT_COUNTERS += [
+    (re.compile(r"\(?\d+(?:\.\d+)?%\)?"), "<pct>"),                          # (23.9%)
+    (re.compile(r"\b\d+\s+of\b"), "<n> of"),                                  # 10 of 20
+    (re.compile(r"\b\d+s\s*>\s*(\d+)s\b"), r"<n>s > \1s"),                   # measured > limit (limit kept)
+    (re.compile(r"\babandoning\s+\d+\b"), "abandoning <n>"),
+]
+
+
+def _alert_skeleton(text):
+    s = _normalize_skeleton(text)
+    # names arrive cut at 100 chars ("…"); where the cut lands moves with the length of
+    # the numbers before it ("13 grou…" vs "4 groun…"), so drop the partial last word —
+    # but ONLY when something variable precedes the cut. Otherwise the cut word may be
+    # the one that tells two errors apart ("Expected tempe…" vs "Expected max_t…", #10/#11).
+    if s.endswith("…") and ("<" in s or re.search(r"\d", s)):
+        s = s[:-1].rsplit(" ", 1)[0] if " " in s else s[:-1]
+        s = re.sub(r"(?<=\s)\d+$", "<n>", s)        # a count left dangling at the cut
+    for rx, repl in _ALERT_COUNTERS:
+        s = rx.sub(repl, s)
+    return s
 
 
 def alert_key_dedup_enabled():
@@ -61,7 +99,7 @@ def alert_key_dedup_enabled():
 
 def alert_key(repo, source, alertname):
     """Stable per-alert key within one repo. "" (never matches) without a name."""
-    skeleton = _normalize_skeleton(alertname or "")
+    skeleton = _alert_skeleton(alertname or "")
     if not (repo and skeleton):
         return ""
     basis = f"{repo}|{source or ''}|{skeleton}"
@@ -331,7 +369,7 @@ def ledger_lookup(fingerprint, group_key="", norm_key="", alert_key="", is_open=
     return None
 
 
-def backfill_alert_keys(dispositions_path, dry_run=False):
+def backfill_alert_keys(dispositions_path, dry_run=False, rekey=False):
     """One-time: give every ledger row without an alert_key one, from the alert name
     and source the dispositions ledger recorded for its fingerprint. Rows whose
     fingerprint never appears there stay keyless (they can never match on #9)."""
@@ -342,7 +380,7 @@ def backfill_alert_keys(dispositions_path, dry_run=False):
             names.setdefault(d.get("fingerprint", ""), (d.get("source", ""), d.get("alertname", "")))
     rows, done, missing = _ledger_rows(), 0, 0
     for r in rows:
-        if r.get("alert_key"):
+        if r.get("alert_key") and not (rekey and not r["alert_key"].startswith(ALERT_KEY_VERSION + ":")):
             continue
         src_name = names.get(r.get("fingerprint", ""))
         if not src_name:
@@ -638,9 +676,11 @@ if __name__ == "__main__":
     ap.add_argument("--dry-run", action="store_true", help="print decisions only")
     ap.add_argument("--backfill-alert-keys", metavar="DISPOSITIONS_TSV",
                     help="one-time #9 backfill of alert_key onto existing ledger rows")
+    ap.add_argument("--rekey", action="store_true",
+                    help="with --backfill-alert-keys: also recompute rows keyed by an older version")
     args = ap.parse_args()
     if args.backfill_alert_keys:
-        print(backfill_alert_keys(args.backfill_alert_keys, dry_run=args.dry_run))
+        print(backfill_alert_keys(args.backfill_alert_keys, dry_run=args.dry_run, rekey=args.rekey))
         raise SystemExit(0)
     if args.flush_queue:
         qd = os.path.expanduser("~/signal-fleet/queue")

@@ -68,6 +68,10 @@ CASES = [
     (76, "FILED", "digest scheduler silent — a different alert, same incident"),
     # known limit, kept visible: #50 was written by hand, so it is not in the ledger
     (55, "FILED", "KNOWN MISS: #50 (same symptom) was filed by hand, not by the fleet, so no ledger row exists to match"),
+    # alert_key a2 (2026-10-01): counters and measurements no longer split one alert
+    ("chipi/podcast_scraper", 2040, "COMMENTED", "a2: DEADLINE EXCEEDED for episode 3 = the episode-9 alert #2037 (the stale-check gap)"),
+    ("chipi/podcast_scraper", 1642, "COMMENTED", "a2: cleaning destroyed the transcript (1.5%) = the (26.4%) alert #1395"),
+    ("chipi/podcast_scraper", 2026, "COMMENTED", "a2: wall-clock budget 14400s > 14400s = 14401s > 14400s, #1998"),
 ]
 CASE_REPO = "chipi/agentic-ai-homelab"
 
@@ -174,8 +178,9 @@ def run_cases(corpus):
     print("Acceptance cases — real filings replayed (baseline = today's code, fix = #9 on)\n")
     print(f"  {'issue':>6}  {'baseline':<10} {'fix':<22} {'expect':<10} ok  why")
     fails = unfaithful = 0
-    for num, expect, why in CASES:
-        row = _row_for(corpus, CASE_REPO, num)
+    for case in CASES:
+        repo, num, expect, why = case if len(case) == 4 else (CASE_REPO, *case)
+        row = _row_for(corpus, repo, num)
         if not row:
             print(f"  #{num:<5}  (not in ledger — cannot replay)            ✗   {why}")
             fails += 1
@@ -187,7 +192,7 @@ def run_cases(corpus):
         unfaithful += not faithful
         ok = faithful and (f_word == expect)
         if expect == "COMMENTED" and ok:
-            t = corpus["issues"].get(f"{CASE_REPO}#{f_target}", {})
+            t = corpus["issues"].get(f"{repo}#{f_target}", {})
             ok = bool(t) and t["created"] < row["filed_at"]   # an EARLIER issue
         fails += not ok
         flag = "✓" if ok else "✗"

@@ -618,6 +618,43 @@ class TestAlertKeyDedup(unittest.TestCase):
         self.assertEqual(rows["9"].get("alert_key", ""), "")
 
 
+class TestAlertKeyA2(unittest.TestCase):
+    """a2 (2026-10-01): counters/measurements must not split one alert; the words and
+    codes that tell two alerts apart must survive."""
+
+    def k(self, name):
+        return filing.alert_key("r", "glitchtip", name)
+
+    def test_merges(self):
+        same = [
+            ("DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 9 has been running",
+             "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 3 has been running"),
+            ("provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.400 last_error=x",
+             "provider_retries_exhausted: provider=openai attempts=3 total_retry_sleep_s=6.449 last_error=x"),
+            ("[1] CLEANING DESTROYED THE TRANSCRIPT: 36347 chars -> 9586 (26.4%). A cleaner removes",
+             "[2] CLEANING DESTROYED THE TRANSCRIPT: 87533 chars -> 1274 (1.5%). A cleaner removes"),
+            ("GI INVARIANT VIOLATED [774dd005-8b31-4ba1-9549-b474011e8753]: attribution produced nothing: 13 grou…",
+             "GI INVARIANT VIOLATED [0aa74076-8b31-4ba1-9549-b474011e8753]: attribution produced nothing: 4 groun…"),
+        ]
+        for a, b in same:
+            self.assertEqual(self.k(a), self.k(b), (a, b))
+
+    def test_keeps_apart(self):
+        apart = [
+            ("HttpClientError: Http client error with status code: 502",
+             "HttpClientError: Http client error with status code: 504"),
+            ('BadRequestError: OpenrouterException - {"error":{"message":"Expected tempe…',
+             'BadRequestError: OpenrouterException - {"error":{"message":"Expected max_t…'),
+            ("deadline exceeded: summarization for episode 1 has been running longer than 1200s",
+             "deadline exceeded: summarization for episode 1 has been running longer than 600s"),
+        ]
+        for a, b in apart:
+            self.assertNotEqual(self.k(a), self.k(b), (a, b))
+
+    def test_version_prefix(self):
+        self.assertTrue(self.k("x").startswith("a2:"))
+
+
 class TestStaleNudge(unittest.TestCase):
     """#10: pure rule — quiet for 7 days, no human comment, never while firing."""
 
