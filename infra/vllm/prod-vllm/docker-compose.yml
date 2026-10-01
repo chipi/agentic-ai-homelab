@@ -57,7 +57,15 @@ services:
       # Consumers send `Bearer EMPTY`; defaults to EMPTY if .env omits it.
       # DEFERRED: tighten to `${VLLM_API_KEY:?…}` once consumers can rotate.
       - --api-key=${VLLM_API_KEY:-EMPTY}
-      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.75}
+      # 0.22 (2026-10-01, agentic-ai-homelab #81, agreed with the service owner). The live
+      # value was 0.25 in the DGX .env while this default still said 0.75 — the default
+      # now states what actually runs. Measured over 30 days at 0.25 (9.59 GiB KV =
+      # 209,536 tokens): KV peak 40%, p99 18%, 0 preemptions, waiting in 6 of 43,200
+      # minutes. 0.22 (~130k tokens) puts that peak at ~65% and keeps ~2x 64k
+      # concurrency, freeing ~3.65 GB so the DGX leaves its pre-wedge zone with
+      # vllm-translate co-resident. If preemptions appear (e.g. the ~1,450-episode
+      # backfill), 0.23 is the step back; not 0.21 (~82% at the measured peak).
+      - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.22}
       # Context window — 64k, matching autoresearch. Model is 256k-native
       # (max_position_embeddings 262144, rope_scaling null) so 64k needs no
       # RoPE/YaRN scaling; KV cache fp8_e4m3, MoE (~3B active) ≈ 48 KB/token →
