@@ -762,5 +762,70 @@ class TestTriagerFailureDeferral(unittest.TestCase):
             t.post_json, t.config.OPENROUTER_KEY = orig, orig_key
 
 
+class TestRetireGlitchtipProject(unittest.TestCase):
+    """A recreated GlitchTip project restarts its shortIds; the dead project's ledger
+    rows must stop matching (LITELLM-5 reopened #14, 2026-10-01)."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+        self._tmp.close()
+        self._orig = filing.FILED
+        filing.FILED = self._tmp.name
+        filing._ledger_write([
+            {"fingerprint": "glitchtip:LITELLM-5", "repo": "r", "issue": "14", "filed_at": "2026-08-04"},
+            {"fingerprint": "glitchtip:LITELLM-VPS-3", "repo": "r", "issue": "10", "filed_at": "2026-08-02"},
+            {"fingerprint": "glitchtip:LITELLM-K", "repo": "r", "issue": "50", "filed_at": "2026-10-02"},
+            {"fingerprint": "glitchtip:PODCAST-5", "repo": "p", "issue": "7", "filed_at": "2026-08-01"},
+        ])
+
+    def tearDown(self):
+        filing.FILED = self._orig
+        os.unlink(self._tmp.name)
+
+    def test_retires_only_old_rows_of_that_project(self):
+        res = filing.retire_glitchtip_project("litellm", "2026-09-30")
+        self.assertEqual(res["retired"], 1)
+        self.assertIsNone(filing.ledger_lookup("glitchtip:LITELLM-5"))
+        for fp in ("glitchtip:LITELLM-VPS-3", "glitchtip:LITELLM-K", "glitchtip:PODCAST-5"):
+            self.assertIsNotNone(filing.ledger_lookup(fp), fp)
+        row = [r for r in filing._ledger_rows() if r["issue"] == "14"][0]
+        self.assertEqual(row["fingerprint"], "glitchtip-retired:LITELLM-5")
+
+    def test_dry_run_writes_nothing(self):
+        filing.retire_glitchtip_project("litellm", "2026-09-30", dry_run=True)
+        self.assertIsNotNone(filing.ledger_lookup("glitchtip:LITELLM-5"))
+
+
+class TestUpstreamRateLimit(unittest.TestCase):
+    """#17: an upstream shared-pool 429 is dismissed without a ticket; our own 429 is not."""
+
+    VALUE = ('litellm.RateLimitError: RateLimitError: OpenrouterException - {"error":{"code":429,'
+             '"metadata":{"provider_name":"Mistral","limit_source":"%s"}}}')
+
+    def _sig(self, limit_source):
+        return {"fingerprint": "glitchtip:LITELLM-5", "source": "glitchtip",
+                "alertname": "RateLimitError: litellm.RateLimitError: RateLimitError: OpenrouterExce…",
+                "summary": "", "labels": {},
+                "raw": {"metadata": {"value": self.VALUE % limit_source}}}
+
+    def test_shared_pool_is_operational(self):
+        import triage as t
+        self.assertEqual(t.operational_class(self._sig("upstream_provider_shared_pool")),
+                         "upstream-rate-limit")
+        orig = t.observ.finalize
+        t.observ.finalize = lambda *a, **k: None
+        try:
+            d = t.triage(self._sig("upstream_provider_shared_pool"))
+        finally:
+            t.observ.finalize = orig
+        self.assertEqual(d["disposition"], "dismiss")
+        self.assertIn("#17", d["reason"])
+
+    def test_own_quota_429_still_triaged(self):
+        import triage as t
+        self.assertIsNone(t.operational_class(self._sig("key")))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

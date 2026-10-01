@@ -393,6 +393,34 @@ def backfill_alert_keys(dispositions_path, dry_run=False, rekey=False):
     return {"rows": len(rows), "backfilled": done, "no_history": missing}
 
 
+RETIRED_PREFIX = "glitchtip-retired:"
+
+
+def retire_glitchtip_project(project, filed_before, dry_run=False):
+    """Retire the ledger rows of a DELETED GlitchTip project.
+
+    A GlitchTip shortId is `<SLUG>-<counter>`, and a project recreated under the same
+    slug restarts the counter — so its new errors collide with the dead project's
+    fingerprints and land on unrelated old issues (2026-10-01: the recreated
+    `litellm` project's LITELLM-5, a rate limit, reopened #14, a
+    ProxyModelNotFoundError). The dead project can never send another event, so its
+    rows can only ever match wrongly. Rewrite their fingerprint out of the
+    `glitchtip:` namespace; repo/issue/keys stay, so the paper trail survives.
+
+    Matches `glitchtip:<PROJECT>-<counter>` exactly (not `<PROJECT>-VPS-3`, a
+    different project) filed strictly before `filed_before` (ISO)."""
+    pat = re.compile(r"^glitchtip:" + re.escape(project.upper()) + r"-([0-9A-Z]+)$")
+    rows, retired = _ledger_rows(), []
+    for r in rows:
+        m = pat.match(r.get("fingerprint", ""))
+        if m and r.get("filed_at", "") < filed_before:
+            retired.append(f"{r['fingerprint']} -> #{r.get('issue')}")
+            r["fingerprint"] = f"{RETIRED_PREFIX}{project.upper()}-{m.group(1)}"
+    if retired and not dry_run:
+        _ledger_write(rows)
+    return {"rows": len(rows), "retired": len(retired), "detail": retired}
+
+
 def ledger_upsert(entry):
     rows = [r for r in _ledger_rows() if r["fingerprint"] != entry["fingerprint"]]
     rows.append(entry)
@@ -678,7 +706,12 @@ if __name__ == "__main__":
                     help="one-time #9 backfill of alert_key onto existing ledger rows")
     ap.add_argument("--rekey", action="store_true",
                     help="with --backfill-alert-keys: also recompute rows keyed by an older version")
+    ap.add_argument("--retire-glitchtip-project", nargs=2, metavar=("SLUG", "FILED_BEFORE"),
+                    help="retire ledger rows of a deleted GlitchTip project filed before an ISO time")
     args = ap.parse_args()
+    if args.retire_glitchtip_project:
+        print(retire_glitchtip_project(*args.retire_glitchtip_project, dry_run=args.dry_run))
+        raise SystemExit(0)
     if args.backfill_alert_keys:
         print(backfill_alert_keys(args.backfill_alert_keys, dry_run=args.dry_run, rekey=args.rekey))
         raise SystemExit(0)

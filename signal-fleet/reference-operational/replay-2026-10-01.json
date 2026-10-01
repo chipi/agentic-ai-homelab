@@ -1,0 +1,4232 @@
+{
+ "captured": "2026-10-01",
+ "litellm_project_issues": [
+  {
+   "shortId": "LITELLM-5",
+   "title": "RateLimitError: litellm.RateLimitError: RateLimitError: OpenrouterException - {\"error\":{\"message\":\"\u2026",
+   "culprit": "",
+   "level": "error",
+   "count": "104",
+   "firstSeen": "2026-10-01T13:07:43.319Z",
+   "project": {
+    "slug": "litellm"
+   },
+   "metadata": {
+    "type": "RateLimitError",
+    "value": "litellm.RateLimitError: RateLimitError: OpenrouterException - {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"mistralai/mistral-large-2512 is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\",\"provider_name\":\"Mistral\",\"is_byok\":false,\"limit_source\":\"upstream_provider_shared_pool\",\"remedy_hint\":\"Retry shortly, add your own provider key (https://openrouter.ai/settings/integrations), or route to another provider with provider routing: https://openrouter.ai/docs/features/provider-routing\"}},\"user_id\":\"<redacted>\"}",
+    "filename": "litellm/litellm_core_utils/exception_mapping_utils.py",
+    "function": "_map_openrouter_exception"
+   }
+  },
+  {
+   "shortId": "LITELLM-4",
+   "title": "KeyNotFoundError: Authentication Error, Invalid proxy server token passed. Received API Key = sk-..\u2026",
+   "culprit": "",
+   "level": "error",
+   "count": "2",
+   "firstSeen": "2026-10-01T13:07:16.817Z",
+   "project": {
+    "slug": "litellm"
+   },
+   "metadata": {
+    "type": "KeyNotFoundError",
+    "value": "Authentication Error, Invalid proxy server token passed. Received API Key = sk-..., Key Hash (Token) =88dc28d0f030c55ed4ab77ed8faf098196cb1c05df778539800c9f1243fe6b4b. Unable to find token in cache or `LiteLLM_VerificationTokenTable`",
+    "filename": "litellm/proxy/auth/resolvers/store.py",
+    "function": "_resolve_key"
+   }
+  },
+  {
+   "shortId": "LITELLM-3",
+   "title": "Exception: No api key passed in.",
+   "culprit": "",
+   "level": "error",
+   "count": "2",
+   "firstSeen": "2026-10-01T06:21:06.005Z",
+   "project": {
+    "slug": "litellm"
+   },
+   "metadata": {
+    "type": "Exception",
+    "value": "No api key passed in.",
+    "filename": "litellm/proxy/auth/user_api_key_auth.py",
+    "function": "_user_api_key_auth_builder"
+   }
+  },
+  {
+   "shortId": "LITELLM-2",
+   "title": "HTTPException: LiteLLM Virtual Key expected. Received=MISS****_KEY, expected to start with 'sk-'.",
+   "culprit": "",
+   "level": "error",
+   "count": "8",
+   "firstSeen": "2026-09-30T14:49:31.919Z",
+   "project": {
+    "slug": "litellm"
+   },
+   "metadata": {
+    "type": "HTTPException",
+    "value": "LiteLLM Virtual Key expected. Received=MISS****_KEY, expected to start with 'sk-'.",
+    "filename": "litellm/proxy/auth/user_api_key_auth.py",
+    "function": "_user_api_key_auth_builder"
+   }
+  },
+  {
+   "shortId": "LITELLM-1",
+   "title": "litellm glitchtip wiring test 2026-09-30 (safe to resolve)",
+   "culprit": "",
+   "level": "info",
+   "count": "1",
+   "firstSeen": "2026-09-30T14:05:54.594Z",
+   "project": {
+    "slug": "litellm"
+   },
+   "metadata": {}
+  }
+ ],
+ "triaged_signals": [
+  {
+   "source": "glitchtip",
+   "alertname": "    Whisper transcription failed: deepgram: no budget/credit left on this key \u2014 this is NOT retryab\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "    Whisper transcription failed: dgx-whisper: endpoint did not recover within 900s of pause-and-pr\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "APIError: litellm.APIError: APIError: OpenrouterException - {\"error\":{\"message\":\"Budget limit excee\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "APIError: litellm.APIError: APIError: OpenrouterException - {\"error\":{\"message\":\"Insufficient credi\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "APIError: litellm.APIError: APIError: OpenrouterException - {\"error\":{\"message\":\"Key limit exceeded\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "APIStatusError: Error code: 402 - {'error': {'message': 'litellm.APIError: APIError: OpenrouterExce\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "APITimeoutError: Request timed out.",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "AuthenticationError: Error code: 401 - {'error': {'message': 'Authentication Error, Invalid proxy s\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "AuthenticationError: litellm.AuthenticationError: AuthenticationError: DeepseekException - Authenti\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "BadRequestError: Error code: 400 - {'error': {'code': 'data_inspection_failed', 'param': None, 'mes\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "BadRequestError: Error code: 400 - {'error': {'message': \"This model's maximum context length is 32\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'me\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "BadRequestError: litellm.BadRequestError: OpenrouterException - {\"error\":{\"message\":\"Expected max_t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "BadRequestError: litellm.BadRequestError: OpenrouterException - {\"error\":{\"message\":\"Expected tempe\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "BudgetExceededError: Budget has been exceeded! Key=budget-wall-test (sk-...7rng) Current cost: 1.90\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CANARY-2026-08-24-fix1: pipeline DSN probe",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ClientError: Budget 0 is invalid. This model only works in thinking mode.",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ConnectTimeout: HTTPConnectionPool(host='homelab', port=4000): Max retries exceeded with url: /api/\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Corpus directory is locked by PID 1 on f0c5969c4647 (started 2026-09-22T21:43:39.397257+00:00). Wai\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $10.2775 > $10.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $10.3261 > $10.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $10.4494 > $10.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $10.6577 > $10.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $10.7429 > $10.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $11.2349 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $11.3680 > $10.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $16.8946 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $5.6425 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $5.7582 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $6.4991 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $9.0260 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "CostCapExceeded: cost soft cap exceeded: $9.2569 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 1 has been running longer than 1\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 10 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 11 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 13 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 14 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 17 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 19 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 2 has been running longer than 1\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 22 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 26 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 3 has been running longer than 1\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 32 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 38 has been running longer than \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 4 has been running longer than 1\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 5 has been running longer than 1\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 6 has been running longer than 1\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 7 has been running longer than 1\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 8 has been running longer than 1\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: metadata generation (summary+GI+KG) for episode 9 has been running longer than 1\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 1 has been running longer than 1200s and is STILL RUNN\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 10 has been running longer than 1200s and is STILL RUN\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 3 has been running longer than 1200s and is STILL RUNN\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 4 has been running longer than 1200s and is STILL RUNN\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 5 has been running longer than 1200s and is STILL RUNN\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 6 has been running longer than 1200s and is STILL RUNN\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 7 has been running longer than 1200s and is STILL RUNN\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 8 has been running longer than 1200s and is STILL RUNN\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DEADLINE EXCEEDED: summarization for episode 9 has been running longer than 1200s and is STILL RUNN\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DGX Whisper endpoint did not recover after 900s of pause-and-probe (reprocess mode, ADR-122) \u2014 aler\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Deepgram transcription failed: The write operation timed out",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Deepgram transcription failed: deepgram: no budget/credit left on this key \u2014 this is NOT retryable,\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "DsnProbe: claude dsn validation probe \u2014 player web DSN (#2089)",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Episode 5 has been running 3600s (ceiling 3.6e+03s) with no result \u2014 ABANDONING the wait so this fe\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: AbortError: Failed to update a ServiceWorker for scope ('https://chipi.github.io/orrery/') w\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Cannot call replaceState(...) before router is initialized",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Error invoking postMessage: Java object is gone",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Invalid configuration: 1 validation error for Config   Value error, Deepgram API key require\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: InvalidStateError: Failed to update a ServiceWorker for scope ('https://chipi.github.io/orre\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: InvalidStateError: Failed to update a ServiceWorker for scope ('https://orrerylearn.com/') w\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: InvalidStateError: Failed to update a ServiceWorker for scope ('https://www.orrerylearn.com/\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: NotSupportedError: The specified session configuration is not supported.",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: RSS URL is required (positional rss, repeatable --rss, --rss-file, --feeds-spec, or config r\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: THREE.WebGLRenderer: Error creating WebGL context.",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for http://127.0.0.1:32797/orrery/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for http://127.0.0.1:34773/orrery/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for http://127.0.0.1:38535/orrery/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for http://127.0.0.1:44677/orrery/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for http://127.0.0.1:47305/orrery/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for http://127.0.0.1:48829/orrery/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for http://127.0.0.1:54981/orrery/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for http://127.0.0.1:60651/orrery/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for https://chipi.github.io/orrery/_app/immutable/assets/1.DmnIBRp4.css",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for https://chipi.github.io/orrery/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for https://orrerylearn.com/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: Unable to preload CSS for https://www.orrerylearn.com/_app/immutable/assets/1.DmuzdJ89.css",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: https://svelte.dev/e/each_key_duplicate",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: https://svelte.dev/e/lifecycle_outside_component",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: o11y-validation-1785003088995",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Error: orrery-ios-verify-STAGING 1784931518177",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Exception: Malformed API Key passed in. Ensure Key has `Bearer ` prefix.",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Exception: No api key passed in.",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Exception: Only proxy admin can be used to generate, delete, update info for new keys/users/teams. \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "FFmpeg preprocessing timed out after 300s",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Failed to export span batch code: None, reason: HTTPConnectionPool(host='host.docker.internal', por\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Failed to export span batch due to timeout, max retries or shutdown.",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Failed to initialize speaker detector: LiteLLM gateway at http://homelab:4001/v1 advertises ['homel\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'deepseek' also failed on clean_transcript: OpenAIProvider not initialized. Call init\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'deepseek' also failed on extract_kg_graph: OpenAIProvider summarization not initiali\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'deepseek' also failed on extract_quotes_bundled: empty content; trying next tier",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'deepseek' also failed on extract_quotes_bundled: invalid JSON: Unterminated string s\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'deepseek' also failed on summarize: OpenAIProvider summarization not initialized. Ca\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'deepseek' also failed on summarize: guardrail violation: service=deepseek reason=fin\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'ollama' also failed on extract_kg_graph:  Ollama server is not running. Please start\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'ollama' also failed on extract_quotes_bundled: Request timed out.; trying next tier",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'ollama' also failed on extract_quotes_bundled: invalid JSON: Expecting ',' delimiter\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Fallback tier 'ollama' also failed on summarize:  Ollama server is not running. Please start it wit\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.megaphone.fm/investlikethebest detail=LiteLLM gateway at http://home\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.megaphone.fm/investlikethebest detail=reprocess_existing_only is set\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.megaphone.fm/nopriors detail=LiteLLM gateway at http://homelab:4001/\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.megaphone.fm/nopriors detail=[GeminiProvider/SpeakerDetection] Gemin\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.megaphone.fm/nopriors detail=reprocess_existing_only is set but no o\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.megaphone.fm/nvidiaaipodcast detail=LiteLLM gateway at http://homela\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.megaphone.fm/nvidiaaipodcast detail=[GeminiProvider/SpeakerDetection\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.megaphone.fm/nvidiaaipodcast detail=reprocess_existing_only is set b\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.npr.org/510289/podcast.xml detail=LiteLLM gateway at http://homelab:\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.npr.org/510289/podcast.xml detail=[GeminiProvider/SpeakerDetection] \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.npr.org/510289/podcast.xml detail=reprocess_existing_only is set but\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.simplecast.com/54nAGcIl detail=LiteLLM gateway at http://homelab:400\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.simplecast.com/54nAGcIl detail=[GeminiProvider/SpeakerDetection] Gem\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.simplecast.com/54nAGcIl detail=reprocess_existing_only is set but no\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.simplecast.com/l2i9YnTd detail=LiteLLM gateway at http://homelab:400\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.simplecast.com/l2i9YnTd detail=[GeminiProvider/SpeakerDetection] Gem\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://feeds.simplecast.com/l2i9YnTd detail=reprocess_existing_only is set but no\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://rss.flightcast.com/vgnxzgiwwzwke85ym53fjnzu.xml detail=LiteLLM gateway at \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://rss.flightcast.com/vgnxzgiwwzwke85ym53fjnzu.xml detail=[GeminiProvider/Spe\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://rss.flightcast.com/vgnxzgiwwzwke85ym53fjnzu.xml detail=reprocess_existing_\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://video-api.wsj.com/podcast/rss/wsj/the-journal detail=LiteLLM gateway at ht\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://video-api.wsj.com/podcast/rss/wsj/the-journal detail=[GeminiProvider/Speak\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Feed failed: rss=https://video-api.wsj.com/podcast/rss/wsj/the-journal detail=reprocess_existing_on\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/lib/python3.11/site-packages/te\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [0442bfa7-6dca-486f-ad7b-a23c37686d8b]: grounding produced NOTHING: 1 insight\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [0aa74076-9ba6-46f1-93d1-9f494a537859]: grounding produced NOTHING: 72 insigh\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [114d32ca-0f46-4a42-b717-ff63f75bec77]: grounding produced NOTHING: 1 insight\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [17b96322-915c-11f1-aad7-53d361bc6996]: attribution produced NOTHING: 13 grou\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [253af1b0-6485-46c3-b506-b49e01625633]: grounding produced NOTHING: 5 insight\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [280e6dec-8223-11f0-97fc-afb1d278310c]: grounding produced NOTHING: 13 insigh\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [3da68c36-8ac2-11f1-b9f0-57c51db071f6]: grounding produced NOTHING: 1 insight\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [670ca1cd-b585-486b-b03a-b0caebbee694]: attribution produced NOTHING: 14 grou\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [670ca1cd-b585-486b-b03a-b0caebbee694]: attribution produced NOTHING: 17 grou\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [670ca1cd-b585-486b-b03a-b0caebbee694]: attribution produced NOTHING: 23 grou\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [67540c92-8640-11f1-8f2a-e322343e668d]: grounding produced NOTHING: 1 insight\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [6a68f8580ee147a124a67c53]: grounding produced NOTHING: 1 insights, 0 quotes.\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [6a6b99250bf0e6212ffe57da]: attribution produced NOTHING: 20 grounded insight\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [6a73452056644b678ee1688a]: attribution produced NOTHING: 9 grounded insights\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [6ea24954-06b5-4daa-a250-b4980120947f]: attribution produced NOTHING: 21 grou\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [774dd005-8b31-4ba1-9549-b474011e8753]: grounding produced NOTHING: 6 insight\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [9c8d07cc-929a-11f1-afac-138170f27545]: attribution produced NOTHING: 4 groun\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [bcfa4532-6f5a-11f1-8bb5-c3355609e72d]: attribution produced NOTHING: 6 groun\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [c8fca7de-8f77-11f1-ae96-ab857574605f]: attribution produced NOTHING: 24 grou\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [c8fefeb8-8aaa-4b93-b648-2eb72051cce3]: attribution produced NOTHING: 5 groun\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [c8fefeb8-8aaa-4b93-b648-2eb72051cce3]: attribution produced NOTHING: 6 groun\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [f2a8f88f-35f7-4417-82d9-d4f57f343ce9]: attribution produced NOTHING: 8 groun\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [substack:post:208716574]: grounding produced NOTHING: 3 insights, 0 quotes. \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GI INVARIANT VIOLATED [substack:post:209198968]: attribution produced NOTHING: 69 grounded insights\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Gemini API error in cleaning: 504 DEADLINE_EXCEEDED. {'error': {'code': 504, 'message': 'The reques\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Gemini API error in cleaning: The read operation timed out",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Gemini API error in speaker detection: 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'Bu\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GuardrailViolation: guardrail violation: service=deepseek reason=finish_reason_length summary=\"fini\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GuardrailViolation: guardrail violation: service=gemini reason=finish_reason_length summary=\"finish\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GuardrailViolation: guardrail violation: service=gemini reason=finish_reason_length summary='finish\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GuardrailViolation: guardrail violation: service=litellm reason=empty_content summary=''",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "GuardrailViolation: guardrail violation: service=litellm reason=finish_reason_length summary='finis\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.2775 > $10.0000). 10 of\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.3261 > $10.0000). 10 of\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.4494 > $10.0000). 5 of \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.6577 > $10.0000). 5 of \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $10.7429 > $10.0000). 5 of \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HALTING THE BATCH: the run budget is exhausted (cost soft cap exceeded: $11.3680 > $10.0000). 14 of\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HTTPClientError: HTTP Client Error with status code: 502",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HTTPClientError: HTTP Client Error with status code: 504",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HTTPException",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "HTTPException: LiteLLM Virtual Key expected. Received=MISS****_KEY, expected to start with 'sk-'.",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "InvalidStateError: An attempt was made to use an object that is not, or is no longer, usable",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "InvalidStateError: Failed to execute 'drawImage' on 'CanvasRenderingContext2D': The image source is\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "InvalidStateError: newestWorker is null",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "KeyNotFoundError: Authentication Error, Invalid proxy server token passed. Received API Key = sk-..\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "LLM circuit breaker tripped: provider=gemini (overload burst; cooldown=60s)",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Live smoke FAILED \u2014 player prod (sha 90183eb) \u2014 https://github.com/chipi/podcast_scraper/actions/ru\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Live smoke FAILED \u2014 player prod (sha e65d6da) \u2014 https://github.com/chipi/podcast_scraper/actions/ru\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Multi-feed run finished with 1 feed failure(s): https://api.substack.com/feed/podcast/458709.rss (h\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Multi-feed run finished with 1 feed failure(s): https://rss.libsyn.com/shows/288629/destinations/22\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Multi-feed run finished with one or more feed failures",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "No index at /app/output/search/lance_index",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in cleaning: litellm: a terminal account condition \u2014 this is NOT retryable, so the\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in cleaning: litellm: no budget/credit left on this key \u2014 this is NOT retryable, s\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in cleaning: litellm: the key is invalid or lacks access \u2014 this is NOT retryable, \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in cleaning: openai: a terminal account condition \u2014 this is NOT retryable, so the \u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in speaker detection: Error code: 400 - {'error': {'message': \"This model's maximu\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in speaker detection: unknown: no budget/credit left on this key \u2014 this is NOT ret\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in summarization: Error code: 400 - {'error': {'message': \"This model's maximum co\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in summarization: litellm: a terminal account condition \u2014 this is NOT retryable, s\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in summarization: litellm: no budget/credit left on this key \u2014 this is NOT retryab\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in summarization: litellm: the key is invalid or lacks access \u2014 this is NOT retrya\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "OpenAI API error in summarization: openai: a terminal account condition \u2014 this is NOT retryable, so\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Output directory does not exist or is not a directory: /Users/markodragoljevic/Projects/podcast_scr\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "PermissionDeniedError: Error code: 403 - {'error': {'message': 'litellm.APIError: APIError: Openrou\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "PermissionError: [Errno 13] Permission denied: '/app/appdata/outbox/43ab05b5f62537cc50a2b299b2ba5df\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "PermissionError: [Errno 13] Permission denied: '/app/appdata/users/u_ced9cc974b7e03dc6924235b/.mcp_\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "PermissionError: [Errno 13] Permission denied: '/app/appdata/users/u_d1fcd94843b41dd6b1525839/.coll\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "PermissionError: [Errno 13] Permission denied: '/app/appdata/users/u_d1fcd94843b41dd6b1525839/ranki\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED \u2014 operator prod (sha 5a3da32) \u2014 https://github.com/chipi/podcast_scra\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED \u2014 operator prod (sha 9949699) \u2014 https://github.com/chipi/podcast_scra\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED \u2014 operator prod (sha c49b30e) \u2014 https://github.com/chipi/podcast_scra\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED \u2014 operator prod (sha d67492c) \u2014 https://github.com/chipi/podcast_scra\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED \u2014 operator prod (sha e2dedbd) \u2014 https://github.com/chipi/podcast_scra\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED \u2014 player prod (sha 584968b) \u2014 https://github.com/chipi/podcast_scrape\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED \u2014 player prod (sha d64284a) \u2014 https://github.com/chipi/podcast_scrape\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED \u2014 player prod (sha ed4b266) \u2014 https://github.com/chipi/podcast_scrape\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Post-deploy live smoke FAILED \u2014 player prod (sha fb6989f) \u2014 https://github.com/chipi/podcast_scrape\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Processing loop stopping: wall-clock budget exceeded (14400s > 14400s). Abandoning 1 in-flight epis\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Processing loop stopping: wall-clock budget exceeded (14401s > 14400s). Abandoning 1 in-flight epis\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Processing loop stopping: wall-clock budget exceeded (14401s > 14400s). Abandoning 2 in-flight epis\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProviderAuthError: OpenAI authentication failed: litellm: the key is invalid or lacks access \u2014 this\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProviderRuntimeError: Gemini cleaning failed: 504 DEADLINE_EXCEEDED. {'error': {'code': 504, 'messa\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProviderRuntimeError: Gemini cleaning failed: The read operation timed out",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProviderRuntimeError: OpenAI cleaning failed: litellm: a terminal account condition \u2014 this is NOT r\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProviderRuntimeError: OpenAI cleaning failed: litellm: no budget/credit left on this key \u2014 this is \u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProviderRuntimeError: OpenAI cleaning failed: openai: a terminal account condition \u2014 this is NOT re\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProviderRuntimeError: OpenAI speaker detection failed: unknown: no budget/credit left on this key \u2014\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProviderRuntimeError: OpenAI summarization failed: openai: a terminal account condition \u2014 this is N\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProxyException: Key not found in database",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ProxyModelNotFoundError",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "REFUSING TO START: selection of 10 episode(s) is estimated at $2.01, which exceeds the $10.00 per-r\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "REFUSING TO START: selection of 10 episode(s) is estimated at $4.73, which exceeds the $10.00 per-r\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "REFUSING TO START: selection of 10 episode(s) is estimated at $5.52, which exceeds the $10.00 per-r\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RateLimitError: Error code: 429 - {'error': {'message': 'litellm.RateLimitError: RateLimitError: Op\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RateLimitError: litellm.RateLimitError: RateLimitError: OpenrouterException - {\"error\":{\"message\":\"\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ReadTimeout: HTTPConnectionPool(host='homelab', port=4000): Read timed out. (read timeout=4.9999959\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ReadTimeout: The read operation timed out",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [10] Summarization failed (recoverable): Summary schema parsing fail\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [11] Summarization failed (recoverable): Summary schema parsing fail\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [13] Summarization failed (recoverable): Summary schema parsing fail\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [14] Summarization failed (recoverable): Summary schema parsing fail\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [15] Summarization failed (recoverable): Summary schema parsing fail\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [1] Summarization failed (recoverable): Summary schema parsing faile\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [2] Summarization failed (recoverable): Summary schema parsing faile\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [3] Summarization failed (recoverable): Summary schema parsing faile\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [4] Summarization failed (recoverable): Summary schema parsing faile\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [5] Summarization failed (recoverable): Summary schema parsing faile\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [5] Summarization failed (recoverable): guardrail violation (termina\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [6] Summarization failed (recoverable): Summary schema parsing faile\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [7] Summarization failed (recoverable): Summary schema parsing faile\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [8] Summarization failed (recoverable): Summary schema parsing faile\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RecoverableSummarizationError: [9] Summarization failed (recoverable): Summary schema parsing faile\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ReferenceError: Can't find variable: __firefox__",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ReferenceError: TRAJ_TUBE_RADIUS_PER_CAMDIST is not defined",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ReferenceError: stopLensWatch is not defined",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Resilience fuse open (no recovery): dgx-whisper held for 900s in reprocess mode and did not recover\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Resilience fuse tripped: dgx-diarize (hard timeout)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Resilience fuse tripped: dgx-whisper (hard timeout)",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ResilienceFuseOpenError: dgx-whisper: endpoint did not recover within 900s of pause-and-probe; aler\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RuntimeError: CANARY-2026-08-24-fix1: glitchtip transport probe (operator api)",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RuntimeError: OpenAIProvider not initialized. Call initialize() first.",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RuntimeError: OpenAIProvider summarization not initialized. Call initialize() first.",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RuntimeError: [1] Summary schema parsing failed. Error: Structured summary JSON was incomplete or i\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RuntimeError: cannot schedule new futures after interpreter shutdown",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "RuntimeError: lance error: LanceError(IO): Permission denied (os error 13), /root/.cargo/registry/s\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "SIGABRT: %{public}s > NSCameraUsageDescription > problem_key > This app has crashed because it atte\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "SIGABRT: Signal 6, Code 0",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "SUMMARY POISONED: the model copied the prompt's style examples verbatim ('braking earlier'). This s\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ServerError: The request timed out. Please try again.",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ServerError: The service is currently unavailable.",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ServerError: This model is currently experiencing high demand. Spikes in demand are usually tempora\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Svelte error: each_key_duplicate",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "SyntaxError: Invalid regular expression: invalid group specifier name",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "SyntaxError: Unexpected token '{'",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ToolError: Error executing tool episode_detail: 1 validation error for episode_detailArguments",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ToolError: Error executing tool episode_enrichment_signals: 1 validation error for episode_enrichme\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ToolError: Error executing tool episode_speaker_roster: 1 validation error for episode_speaker_rost\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ToolError: Error executing tool resolve_entity: 1 validation error for resolve_entityArguments",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ToolError: Error executing tool show_episodes: 1 validation error for show_episodesArguments",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "ToolError: Error executing tool topic_clusters: 1 validation error for topic_clustersArguments",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Transcription loop stopping: wall-clock budget exceeded (21701s > 21600s). 26 job(s) processed; any\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Transcription loop stopping: wall-clock budget exceeded (21835s > 21600s). 38 job(s) processed; any\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Cannot read properties of null (reading 'tagName')",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Cannot read properties of undefined (reading 'default')",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Cannot read properties of undefined (reading 'universal')",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to fetch",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to fetch dynamically imported module: https://chipi.github.io/orrery/_app/immutab\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to fetch dynamically imported module: https://orrerylearn.com/_app/immutable/node\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to fetch dynamically imported module: https://www.orrerylearn.com/_app/immutable/\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to update a ServiceWorker for scope ('https://chipi.github.io/orrery/') with scri\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to update a ServiceWorker for scope ('https://orrerylearn.com/') with script ('ht\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Failed to update a ServiceWorker for scope ('https://www.orrerylearn.com/') with script \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: Importing a module script failed.",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: error loading dynamically imported module: https://chipi.github.io/orrery/_app/immutable\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: undefined is not an object (evaluating 'l.universal')",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: undefined is not an object (evaluating 'window.__firefox__.playlistLongPressed_0A3315ECA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: undefined is not an object (evaluating 'window.__firefox__.reader')",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "TypeError: undefined is not an object (evaluating 'window.ethereum.selectedAddress = undefined')",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Unexpected failure: Deepgram API key required",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Unexpected failure: Failed to fetch RSS feed.",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "Unexpected failure: RSS URL is required",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "WatchdogTermination: The OS watchdog terminated your app, possibly because it overused RAM.",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "WebGLUnavailableError: WebGL is unavailable on this device",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] CLEANING DESTROYED THE TRANSCRIPT: 113979 chars -> 1893 (1.7%) by HybridCleaner. A cleaner rem\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] CLEANING DESTROYED THE TRANSCRIPT: 115422 chars -> 1917 (1.7%). A cleaner removes ads, not the\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] METADATA GENERATION (summary+GI+KG) OVERRAN its 1200s deadline but COMPLETED; keeping the epis\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] Summarization timeout after 300s: summarization for episode 10 exceeded timeout of 300 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $11.9259 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $5.6256 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $5.7979 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $6.5346 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $7.8518 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $8.3055 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] processing future raised error: cost soft cap exceeded: $9.8284 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[10] processing raised an unexpected error: [10] Failed to generate summary using provider: [OpenAI\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[11] Summarization timeout after 300s: summarization for episode 11 exceeded timeout of 300 seconds",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $11.1191 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $13.6583 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $6.2485 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $6.7058 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $8.0245 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $8.6483 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[11] processing future raised error: cost soft cap exceeded: $8.7653 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[11] processing raised an unexpected error: [11] Failed to generate summary using provider: [OpenAI\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[12] METADATA GENERATION (summary+GI+KG) OVERRAN its 1200s deadline but COMPLETED; keeping the epis\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[12] Summarization timeout after 300s: summarization for episode 12 exceeded timeout of 300 seconds",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[12] processing future raised error: cost soft cap exceeded: $14.7861 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[12] processing future raised error: cost soft cap exceeded: $7.2510 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[12] processing future raised error: cost soft cap exceeded: $7.3981 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[12] processing future raised error: cost soft cap exceeded: $9.0328 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[12] processing future raised error: cost soft cap exceeded: $9.1188 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[12] processing raised an unexpected error: [12] Failed to generate summary using provider: OpenAIP\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $12.7906 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $15.3166 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $5.1135 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $6.7706 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $8.0418 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $8.6354 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[13] processing future raised error: cost soft cap exceeded: $9.2641 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[13] processing raised an unexpected error: [13] Failed to generate summary using provider: OpenAIP\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $12.7997 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $16.2215 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $5.0654 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $5.7245 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $7.2802 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $8.0576 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $9.0260 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[14] processing future raised error: cost soft cap exceeded: $9.7299 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $11.2762 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $11.4773 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $16.8967 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $5.4475 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $6.4027 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $8.0077 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[15] processing future raised error: cost soft cap exceeded: $8.4817 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[16] processing future raised error: cost soft cap exceeded: $10.7809 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[16] processing future raised error: cost soft cap exceeded: $8.6590 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[17] processing future raised error: cost soft cap exceeded: $11.8522 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[17] processing future raised error: cost soft cap exceeded: $8.9874 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[18] processing future raised error: cost soft cap exceeded: $13.0894 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[18] processing future raised error: cost soft cap exceeded: $8.0013 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[19] processing future raised error: cost soft cap exceeded: $10.1227 > $5.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[19] processing future raised error: cost soft cap exceeded: $18.2937 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] CLEANING DESTROYED THE TRANSCRIPT: 35459 chars -> 9417 (26.6%) by HybridCleaner. A cleaner remo\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] CLEANING DESTROYED THE TRANSCRIPT: 36347 chars -> 9586 (26.4%). A cleaner removes ads, not the \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] CLEANING DESTROYED THE TRANSCRIPT: 3722 chars -> 656 (17.6%). A cleaner removes ads, not the ep\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] METADATA GENERATION (summary+GI+KG) OVERRAN its 1200s deadline but COMPLETED; keeping the episo\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] Summarization timeout after 1200s: summarization for episode 1 exceeded timeout of 1200 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] Summarization timeout after 180s: summarization for episode 1 exceeded timeout of 180 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] Summarization timeout after 300s: summarization for episode 1 exceeded timeout of 300 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] Summarization timeout after 600s: summarization for episode 1 exceeded timeout of 600 seconds",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] Summary schema parsing failed. Error: Structured summary JSON was incomplete or invalid (e.g. t\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] processing raised an unexpected error: [1] Failed to generate summary using provider: [1] Summa\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] processing raised an unexpected error: [1] Failed to generate summary using provider: guardrail\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[1] transcription raised an unexpected error: The write operation timed out",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[20] processing future raised error: cost soft cap exceeded: $10.1278 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[20] processing future raised error: cost soft cap exceeded: $13.9788 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[21] processing future raised error: cost soft cap exceeded: $12.1682 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[21] processing future raised error: cost soft cap exceeded: $9.4098 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[22] processing raised an unexpected error: [22] Failed to generate summary using provider: OpenAIP\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[23] processing future raised error: cost soft cap exceeded: $15.4309 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[24] processing raised an unexpected error: [24] Failed to generate summary using provider: OpenAIP\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[25] processing future raised error: cost soft cap exceeded: $16.2651 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[26] processing future raised error: cost soft cap exceeded: $13.4546 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[27] processing future raised error: cost soft cap exceeded: $12.4899 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[27] processing future raised error: cost soft cap exceeded: $16.9382 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[28] processing future raised error: cost soft cap exceeded: $12.5202 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[29] processing future raised error: cost soft cap exceeded: $16.2634 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[2] CLEANING DESTROYED THE TRANSCRIPT: 33147 chars -> 8027 (24.2%) by HybridCleaner. A cleaner remo\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[2] CLEANING DESTROYED THE TRANSCRIPT: 87533 chars -> 1274 (1.5%). A cleaner removes ads, not the e\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[2] METADATA GENERATION (summary+GI+KG) OVERRAN its 1200s deadline but COMPLETED; keeping the episo\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[2] Summarization timeout after 300s: summarization for episode 2 exceeded timeout of 300 seconds",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[30] processing future raised error: cost soft cap exceeded: $12.5328 > $5.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[31] processing future raised error: cost soft cap exceeded: $12.4960 > $5.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[31] processing future raised error: cost soft cap exceeded: $17.7889 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[32] processing future raised error: cost soft cap exceeded: $12.5202 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[32] processing future raised error: cost soft cap exceeded: $20.1944 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[33] processing future raised error: cost soft cap exceeded: $12.5461 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[34] processing future raised error: cost soft cap exceeded: $12.5264 > $5.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[34] processing raised an unexpected error: [34] Failed to generate summary using provider: OpenAIP\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[35] processing future raised error: cost soft cap exceeded: $12.5389 > $5.0000",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[36] processing future raised error: cost soft cap exceeded: $12.5551 > $5.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[3] CLEANING DESTROYED THE TRANSCRIPT: 75735 chars -> 1479 (2.0%). A cleaner removes ads, not the e\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[3] METADATA GENERATION (summary+GI+KG) OVERRAN its 1200s deadline but COMPLETED; keeping the episo\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[3] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is \u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[3] Summarization timeout after 300s: summarization for episode 3 exceeded timeout of 300 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[4] CLEANING DESTROYED THE TRANSCRIPT: 113300 chars -> 1490 (1.3%). A cleaner removes ads, not the \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[4] CLEANING DESTROYED THE TRANSCRIPT: 23995 chars -> 6543 (27.3%). A cleaner removes ads, not the \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[4] CLEANING DESTROYED THE TRANSCRIPT: 36591 chars -> 8737 (23.9%) by HybridCleaner. A cleaner remo\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[4] METADATA GENERATION (summary+GI+KG) OVERRAN its 1200s deadline but COMPLETED; keeping the episo\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[4] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[4] Summarization timeout after 300s: summarization for episode 4 exceeded timeout of 300 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[5] METADATA GENERATION (summary+GI+KG) OVERRAN its 1200s deadline but COMPLETED; keeping the episo\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[5] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[5] Summarization timeout after 300s: summarization for episode 5 exceeded timeout of 300 seconds",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[6] METADATA GENERATION (summary+GI+KG) OVERRAN its 1200s deadline but COMPLETED; keeping the episo\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[6] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[6] Summarization timeout after 300s: summarization for episode 6 exceeded timeout of 300 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[6] processing future raised error: cost soft cap exceeded: $6.4723 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[6] processing future raised error: cost soft cap exceeded: $7.3183 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[7] CLEANING DESTROYED THE TRANSCRIPT: 98716 chars -> 2745 (2.8%). A cleaner removes ads, not the e\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[7] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[7] Summarization timeout after 300s: summarization for episode 7 exceeded timeout of 300 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[7] processing future raised error: cost soft cap exceeded: $5.2098 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[7] processing future raised error: cost soft cap exceeded: $5.3762 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[7] processing future raised error: cost soft cap exceeded: $5.5002 > $5.0000",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[7] processing future raised error: cost soft cap exceeded: $6.8473 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[7] processing future raised error: cost soft cap exceeded: $7.6084 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[8] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is \u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[8] Summarization timeout after 300s: summarization for episode 8 exceeded timeout of 300 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[8] processing future raised error: cost soft cap exceeded: $5.1064 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[8] processing future raised error: cost soft cap exceeded: $6.0831 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[8] processing future raised error: cost soft cap exceeded: $6.8632 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[8] processing future raised error: cost soft cap exceeded: $8.4330 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[8] processing future raised error: cost soft cap exceeded: $9.9106 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[9] Summarization OVERRAN its 1200s deadline but COMPLETED; keeping the episode's results. This is \u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[9] Summarization timeout after 300s: summarization for episode 9 exceeded timeout of 300 seconds",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $11.0554 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $5.0179 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $5.4390 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $6.9490 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $7.5152 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[9] processing future raised error: cost soft cap exceeded: $8.9815 > $5.0000",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[9] processing raised an unexpected error: [9] Failed to generate summary using provider: [OpenAIPr\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "[ALERT-PATH TEST] Live smoke FAILED \u2014 player prod (sha fb6989f) \u2014 https://github.com/chipi/podcast_\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "_ZN7android6Looper8pollOnceEiPiS1_PPv",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "agentE2E1786873043-player",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "agentE2E1786873043-viewer",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_api.substack.com_8c774140/run_20260825-024254_285e51f2/m\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_3581c092/run_20260818-232834_285e51f2\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_3581c092/run_944b3422-6fe1-4ea6-a1c0-\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_370fb395/run_20260819-030507_285e51f2\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_370fb395/run_9f35cd75-fc3a-4714-8558-\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_755f5437/run_49981cea-3988-4863-be46-\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.megaphone.fm_755f5437/run_57093ff3-129b-403f-b9c2-\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.npr.org_7ce5b183/run_20260819-043606_285e51f2/medi\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.npr.org_7ce5b183/run_2e8dd80f-a73f-4111-8669-95204\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.simplecast.com_2e104dc7/run_a6064369-b804-400b-821\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_feeds.simplecast.com_999571cd/run_20260819-060035_285e51\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "audio eviction: KEEP /app/output/feeds/rss_rss.flightcast.com_c63dc3c0/run_97180b23-e8e5-4714-8475-\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~32893 tokens, leaving -125 for th\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~34230 tokens, leaving -1462 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~34232 tokens, leaving -1464 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~34233 tokens, leaving -1465 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~34234 tokens, leaving -1466 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~34236 tokens, leaving -1468 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~34237 tokens, leaving -1469 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~34240 tokens, leaving -1472 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35327 tokens, leaving -2559 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35446 tokens, leaving -2678 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35714 tokens, leaving -2946 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35717 tokens, leaving -2949 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35720 tokens, leaving -2952 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35721 tokens, leaving -2953 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35722 tokens, leaving -2954 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35723 tokens, leaving -2955 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35724 tokens, leaving -2956 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35725 tokens, leaving -2957 for t\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35732 tokens, leaving -2964 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35739 tokens, leaving -2971 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35762 tokens, leaving -2994 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35766 tokens, leaving -2998 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35875 tokens, leaving -3107 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35876 tokens, leaving -3108 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35877 tokens, leaving -3109 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35879 tokens, leaving -3111 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35883 tokens, leaving -3115 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35885 tokens, leaving -3117 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35888 tokens, leaving -3120 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35889 tokens, leaving -3121 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35891 tokens, leaving -3123 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35893 tokens, leaving -3125 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35897 tokens, leaving -3129 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35899 tokens, leaving -3131 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35902 tokens, leaving -3134 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35906 tokens, leaving -3138 for t\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35910 tokens, leaving -3142 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35912 tokens, leaving -3144 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~35916 tokens, leaving -3148 for t\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~36164 tokens, leaving -3396 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~36166 tokens, leaving -3398 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~36167 tokens, leaving -3399 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~36168 tokens, leaving -3400 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~36169 tokens, leaving -3401 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~36172 tokens, leaving -3404 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~36173 tokens, leaving -3405 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~36177 tokens, leaving -3409 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~36179 tokens, leaving -3411 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~37868 tokens, leaving -5100 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~37880 tokens, leaving -5112 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~37885 tokens, leaving -5117 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~37891 tokens, leaving -5123 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~37910 tokens, leaving -5142 for t\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~37921 tokens, leaving -5153 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~37926 tokens, leaving -5158 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~37932 tokens, leaving -5164 for t\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~39914 tokens, leaving -7146 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40133 tokens, leaving -7365 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40135 tokens, leaving -7367 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40136 tokens, leaving -7368 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40150 tokens, leaving -7382 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40167 tokens, leaving -7399 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40174 tokens, leaving -7406 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40176 tokens, leaving -7408 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40177 tokens, leaving -7409 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40192 tokens, leaving -7424 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40221 tokens, leaving -7453 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40234 tokens, leaving -7466 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40235 tokens, leaving -7467 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40236 tokens, leaving -7468 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40240 tokens, leaving -7472 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40248 tokens, leaving -7480 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40249 tokens, leaving -7481 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40275 tokens, leaving -7507 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40276 tokens, leaving -7508 for t\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40277 tokens, leaving -7509 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40281 tokens, leaving -7513 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40289 tokens, leaving -7521 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40290 tokens, leaving -7522 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~40294 tokens, leaving -7526 for t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43204 tokens, leaving -10436 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43293 tokens, leaving -10525 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43296 tokens, leaving -10528 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43298 tokens, leaving -10530 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43299 tokens, leaving -10531 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43300 tokens, leaving -10532 for \u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43303 tokens, leaving -10535 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43307 tokens, leaving -10539 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43308 tokens, leaving -10540 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43309 tokens, leaving -10541 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43312 tokens, leaving -10544 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43315 tokens, leaving -10547 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43319 tokens, leaving -10551 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43334 tokens, leaving -10566 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43337 tokens, leaving -10569 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43338 tokens, leaving -10570 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43339 tokens, leaving -10571 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43340 tokens, leaving -10572 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43341 tokens, leaving -10573 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43344 tokens, leaving -10576 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43348 tokens, leaving -10580 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43349 tokens, leaving -10581 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43350 tokens, leaving -10582 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43353 tokens, leaving -10585 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43356 tokens, leaving -10588 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43360 tokens, leaving -10592 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "context limit 32768 cannot fit this request: the prompt alone is ~43364 tokens, leaving -10596 for \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "dead-lettering e2e-deadletter-1 after 2 attempts: [Errno 61] Connection refused",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "deepgram: no budget/credit left on this key \u2014 this is NOT retryable, so the run is hard-stopping (t\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "delivery dead-letter [podcast/email] e2e-deadletter-1 after 2 attempts: [Errno 61] Connection refus\u2026",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "deployed container->glitchtip reachability test [podcast/email]",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "dev-obs smoke test (relabel arc)",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "enrichment: --output-dir does not exist: /Users/markodragoljevic/preprod-local-out/sessions/session\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "litellm glitchtip wiring test 2026-09-30 (safe to resolve)",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "litellm: a terminal account condition \u2014 this is NOT retryable, so the run is hard-stopping (the res\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "litellm: no budget/credit left on this key \u2014 this is NOT retryable, so the run is hard-stopping (th\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "litellm: the key is invalid or lacks access \u2014 this is NOT retryable, so the run is hard-stopping (t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "openai: a terminal account condition \u2014 this is NOT retryable, so the run is hard-stopping (the resi\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "orrery ladder-verify (delete me)",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "orrery post-closure check",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "orrery tls-node migration FINAL verify",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "orrery tls-node migration probe",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "orrery-403-probe",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "orrery-prod-project-18-verify",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=deepgram attempts=4 total_retry_sleep_s=7.160 last_error=The w\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=deepgram attempts=4 total_retry_sleep_s=7.185 last_error=The w\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=deepgram attempts=4 total_retry_sleep_s=7.449 last_error=The w\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.582 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.741 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.745 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.757 last_error=504 DEA\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.759 last_error=504 DEA\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.763 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.804 last_error=504 DEA\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.812 last_error=504 DEA\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.848 last_error=504 DEA\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.880 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.905 last_error=504 DEA\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=6.923 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=7.067 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=7.074 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=7.166 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=7.177 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=7.231 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=7.241 last_error=504 DEA\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=7.359 last_error=504 DEA\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=4 total_retry_sleep_s=7.450 last_error=504 DEA\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=7 total_retry_sleep_s=120.802 last_error=504 D\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=7 total_retry_sleep_s=123.057 last_error=503 U\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=7 total_retry_sleep_s=123.162 last_error=504 D\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=gemini attempts=7 total_retry_sleep_s=124.871 last_error=504 D\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.449 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.454 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.489 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.506 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.552 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.557 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.581 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.613 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.616 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.618 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.624 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.626 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.628 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.665 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.672 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.684 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.701 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.704 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.712 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.731 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.747 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.750 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.753 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.762 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.768 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.782 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.787 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.789 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.811 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.820 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.823 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.836 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.842 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.847 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.853 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.855 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.859 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.863 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.892 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.896 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.927 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.928 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.931 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.934 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.941 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.954 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.963 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.976 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.988 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.989 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=6.991 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.015 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.025 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.044 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.046 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.048 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.058 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.065 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.075 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.076 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.082 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.090 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.091 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.099 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.102 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.110 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.112 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.127 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.153 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.164 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.174 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.185 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.187 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.190 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.204 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.216 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.227 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.262 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.274 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.291 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.306 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.313 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.316 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.326 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.328 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.359 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.379 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.398 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.400 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.411 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.478 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=ollama attempts=4 total_retry_sleep_s=7.598 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.400 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.466 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.486 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.533 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.536 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.552 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.587 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.592 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.643 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.654 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.658 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.676 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.688 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.691 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.707 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.709 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.744 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.747 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.750 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.791 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.805 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.810 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.816 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.818 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.840 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.842 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.851 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.864 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.899 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.918 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.938 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.946 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.954 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.957 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.966 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.980 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.985 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.986 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.990 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.993 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=6.995 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.005 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.008 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.010 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.016 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.018 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.041 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.046 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.051 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.061 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.063 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.074 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.078 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.092 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.094 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.098 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.099 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.116 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.117 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.133 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.159 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.167 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.168 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.176 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.180 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.182 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.188 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.190 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.193 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.196 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.202 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.210 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.211 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.237 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.248 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.251 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.260 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.278 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.280 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.289 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.291 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.292 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.324 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.342 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.360 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.368 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.379 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.392 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.408 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.425 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.438 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.442 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.488 last_error=Request\u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "provider_retries_exhausted: provider=openai attempts=4 total_retry_sleep_s=7.600 last_error=Request\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "run budget: projected spend $10.2775 would exceed the $10.0000 per-run cap (already spent $4.7592) \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "run budget: projected spend $10.4494 would exceed the $10.0000 per-run cap (already spent $8.4370) \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "run budget: projected spend $10.6577 would exceed the $10.0000 per-run cap (already spent $8.6453) \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "run budget: projected spend $10.7429 would exceed the $10.0000 per-run cap (already spent $8.7305) \u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "run budget: projected spend $11.3680 would exceed the $10.0000 per-run cap (already spent $6.6393) \u2026",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "tailnet-serve probe",
+   "last_disposition": "cleanup"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "unknown: a terminal account condition \u2014 this is NOT retryable, so the run is hard-stopping (the res\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "unknown: no budget/credit left on this key \u2014 this is NOT retryable, so the run is hard-stopping (th\u2026",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "unknown: the key is invalid or lacks access \u2014 this is NOT retryable, so the run is hard-stopping (t\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "work-list: repaired 164/284 \u00b7 108 NOT FOUND in any feed's corpus: [02fa3854-2581-418c-aaad-0a96ae29\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "work-list: repaired 18/19 \u00b7 1 NOT FOUND in any feed's corpus: [6eb845ef-3075-4858-9dbf-4dda8eca28fd]",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "work-list: repaired 44/49 \u00b7 5 selected but did NOT finish: [3da68c36-8ac2-11f1-b9f0-57c51db071f6, 5\u2026",
+   "last_disposition": "file"
+  },
+  {
+   "source": "glitchtip",
+   "alertname": "x",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Corpus enrichment has stopped completing",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "DGX GPU allocation overcommitted (>75GB of the 130GB unified pool)",
+   "last_disposition": "escalate"
+  },
+  {
+   "source": "grafana",
+   "alertname": "DGX dark (no samples 10m \u2014 wedged, powered off, or network)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "DGX free memory critically low (<8GB) \u2014 host wedge risk",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "DGX logs dark (no lines 15m)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "DGX per-process GPU metrics stale (no push in 10m)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Daily recap has not been enqueued in 36 hours",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Digest scheduler silent (no ticks 2h)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Enricher failing on prod",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Enrichment run completed FAILED or PARTIAL",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Enrichment/job drain paused",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "FastAPI 5xx errors elevated",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Host disk critical (<5% free)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Host disk low (<10% free)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Mac mini host\u2194VM forward down (colima socket unreachable 5m)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Monthly recommendations digest has not been enqueued in 40 days",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Podcast ingestion has not run in 36h",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Podcast pipeline jobs failing",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Prod ops health check stale (no run in 27h)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "Scrape target down (up==0)",
+   "last_disposition": "dismiss"
+  },
+  {
+   "source": "grafana",
+   "alertname": "homelab logs dark (no lines 15m)",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "prod logs dark (no lines 15m) \u2014 shipping broken, box may be fine",
+   "last_disposition": "file"
+  },
+  {
+   "source": "grafana",
+   "alertname": "prod-podcast dark (no samples 10m)",
+   "last_disposition": "file"
+  }
+ ]
+}

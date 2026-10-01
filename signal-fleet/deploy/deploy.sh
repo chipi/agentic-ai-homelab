@@ -37,10 +37,10 @@ NOW="$(git -C "$CHECKOUT" rev-parse --short HEAD)"
 say "pulled : $NOW$([ "$PREV" = "$NOW" ] && echo '  (no new commits — re-verifying anyway)')"
 
 # verify the deployed code with the deterministic gates (no LLM, no network, no cost)
-say "verifying: eval_hardening · eval_dedup · eval_filing_replay · eval_stale_replay · eval_routing_replay · eval_triager_failure_replay · test_units"
+say "verifying: eval_hardening · eval_dedup · eval_filing_replay · eval_stale_replay · eval_routing_replay · eval_triager_failure_replay · eval_glitchtip_litellm_replay · test_units"
 cd "$SF/mvp"
 ok=1
-for g in eval_hardening.py eval_dedup.py eval_filing_replay.py eval_stale_replay.py eval_routing_replay.py eval_triager_failure_replay.py test_units.py; do
+for g in eval_hardening.py eval_dedup.py eval_filing_replay.py eval_stale_replay.py eval_routing_replay.py eval_triager_failure_replay.py eval_glitchtip_litellm_replay.py test_units.py; do
   # eval_filing_replay: the 2026-09-30 duplicate cases must stay comments (#9)
   args=""; [ "$g" = eval_filing_replay.py ] && args="--cases-only"
   if SF_OBSERV_DISABLED=1 python3 "$g" $args >"/tmp/sf-deploy-$g.log" 2>&1; then

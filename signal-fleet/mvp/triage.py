@@ -73,15 +73,35 @@ OPERATIONAL_MARKERS = [
      "provider-fallback"),
 ]
 
+# An upstream provider's SHARED pool refused (OpenRouter 429, limit_source=
+# upstream_provider_shared_pool): not our key, not our quota, not our code, and LiteLLM
+# already retried (num_retries). Operator call 2026-10-01 (homelab #17): not actionable,
+# never ticketed. A 429 against OUR key/quota carries a different limit_source and still
+# reaches the triager. GlitchTip cuts the title before limit_source, so this marker also
+# reads the full exception value (raw.metadata.value) — only this marker does, so the
+# markers above keep their exact pre-existing reach.
+UPSTREAM_LIMIT_MARKER = re.compile(
+    r"limit_source\W+upstream_provider_shared_pool|temporarily rate-limited upstream", re.I)
+
+_OPERATIONAL_REASON = {
+    "upstream-rate-limit": ("operational state (upstream-rate-limit) — the provider's shared "
+                            "pool refused upstream of us; nothing in our code or config to fix "
+                            "(homelab #17). Acknowledged, not ticketed."),
+}
+
 
 def operational_class(signal):
-    """Return the operational class (cost-cap/provider-budget/provider-fallback) if
-    the signal is an operational state, else None. Deterministic, no LLM."""
+    """Return the operational class (cost-cap/provider-budget/provider-fallback/
+    upstream-rate-limit) if the signal is an operational state, else None.
+    Deterministic, no LLM."""
     hay = " ".join(str(signal.get(k, "")) for k in ("alertname", "summary")) + \
         " " + json.dumps(signal.get("labels", {}))
     for rx, cls in OPERATIONAL_MARKERS:
         if rx.search(hay):
             return cls
+    meta = ((signal.get("raw") or {}).get("metadata") or {}).get("value", "")
+    if UPSTREAM_LIMIT_MARKER.search(hay + " " + str(meta)):
+        return "upstream-rate-limit"
     return None
 
 
@@ -438,9 +458,10 @@ def triage(signal, evidence=None, attempts=3):
     if cls:
         disp = {
             "disposition": "dismiss",
-            "reason": (f"operational state ({cls}) — a guardrail/billing state or its "
-                       f"downstream, not a code bug; the alert already fired. "
-                       f"Acknowledged, not ticketed."),
+            "reason": _OPERATIONAL_REASON.get(cls, (
+                f"operational state ({cls}) — a guardrail/billing state or its "
+                f"downstream, not a code bug; the alert already fired. "
+                f"Acknowledged, not ticketed.")),
             "dismissal_evidence": f"deterministic operational classifier matched '{cls}'",
             "certainty": "high",
             "_meta": {"model": "none(operational-gate)",
