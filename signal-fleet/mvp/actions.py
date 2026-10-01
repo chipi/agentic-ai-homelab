@@ -67,25 +67,30 @@ def ledger_append(signal, disp, followup=""):
 
 def last_for_fingerprint(fp):
     """Most recent NON-recurrence ledger row for a fingerprint: the baseline a
-    recurrence check compares against. Returns {ts, disposition, count} or None."""
+    recurrence check compares against. Returns {ts, disposition, count,
+    latest_count} or None — latest_count is the count on the newest row of ANY kind
+    (recurrence rows included), i.e. the last count the ledger already recorded."""
     if not os.path.exists(config.LEDGER):
         return None
     fi = LEDGER_COLS.index("fingerprint")
     di = LEDGER_COLS.index("disposition")
     ti = LEDGER_COLS.index("ts")
     ci = LEDGER_COLS.index("signal_count")
-    last = None
+    last, latest_count = None, 0
     with open(config.LEDGER) as f:
         for n, line in enumerate(f):
             if n == 0:
                 continue
             p = line.rstrip("\n").split("\t")
-            if len(p) > fi and p[fi] == fp and (len(p) <= di or p[di] != "recurrence"):
-                cnt = 0
-                if len(p) > ci and p[ci].isdigit():
-                    cnt = int(p[ci])
+            if len(p) <= fi or p[fi] != fp:
+                continue
+            cnt = int(p[ci]) if len(p) > ci and p[ci].isdigit() else 0
+            latest_count = cnt
+            if len(p) <= di or p[di] != "recurrence":
                 last = {"ts": p[ti], "disposition": p[di] if len(p) > di else "",
                         "count": cnt}
+    if last:
+        last["latest_count"] = latest_count
     return last
 
 

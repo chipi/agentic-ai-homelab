@@ -165,7 +165,11 @@ def run_glitchtip(limit=5, dry_run=True):
         if prior_occ:
             if base and cur_count > base["count"] > 0:
                 if _hours_since(base["ts"]) < config.RETRIAGE_HOURS:
-                    actions.record_recurrence(sig, base)
+                    # one row per count CHANGE, not per cycle: the count stays above the
+                    # baseline until re-triage, which wrote ~140 identical rows per bump
+                    # (10,764 of 11,700 GlitchTip recurrence rows by 2026-10-01)
+                    if cur_count > base.get("latest_count", 0):
+                        actions.record_recurrence(sig, base)
                     continue
                 print(f"  re-triage due (recurred, last look {base['ts']})")
             else:

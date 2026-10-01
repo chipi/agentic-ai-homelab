@@ -827,5 +827,62 @@ class TestUpstreamRateLimit(unittest.TestCase):
         self.assertIsNone(t.operational_class(self._sig("key")))
 
 
+class TestRecurrenceOncePerCountChange(unittest.TestCase):
+    """A GlitchTip count bump writes ONE recurrence row, not one per cycle."""
+
+    def setUp(self):
+        import tempfile
+        import observ
+        import orchestrator
+        self.o = orchestrator
+        self._tmp = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+        self._tmp.close()
+        os.unlink(self._tmp.name)
+        self._orig = (actions.config.LEDGER, orchestrator.sources.glitchtip_unresolved,
+                      orchestrator.sources.to_error_signal, orchestrator._hours_since,
+                      observ.push_disposition_metric)
+        actions.config.LEDGER = self._tmp.name
+        orchestrator.sources.to_error_signal = lambda issue: issue
+        orchestrator._hours_since = lambda ts: 1.0           # inside the re-triage window
+        observ.push_disposition_metric = lambda *a, **k: None
+        actions.ledger_append({"fingerprint": "glitchtip:X-1", "occurrence_id": "glitchtip:X-1@t0",
+                               "source": "glitchtip", "labels": {"count": 4}},
+                              {"disposition": "file", "_meta": {}})
+
+    def tearDown(self):
+        import observ
+        (actions.config.LEDGER, self.o.sources.glitchtip_unresolved,
+         self.o.sources.to_error_signal, self.o._hours_since,
+         observ.push_disposition_metric) = self._orig
+        if os.path.exists(self._tmp.name):
+            os.unlink(self._tmp.name)
+
+    def _cycle(self, count):
+        sig = {"fingerprint": "glitchtip:X-1", "occurrence_id": "glitchtip:X-1@t0",
+               "source": "glitchtip", "alertname": "x", "labels": {"count": count}}
+        self.o.sources.glitchtip_unresolved = lambda limit: [sig]
+        self.o.run_glitchtip(limit=1, dry_run=True)
+
+    def _recurrences(self):
+        with open(self._tmp.name) as f:
+            return [ln for ln in f if "\trecurrence\t" in ln]
+
+    def test_same_count_records_once(self):
+        for _ in range(5):
+            self._cycle(8)
+        self.assertEqual(len(self._recurrences()), 1)
+
+    def test_each_new_count_records(self):
+        self._cycle(8)
+        self._cycle(8)
+        self._cycle(9)
+        self.assertEqual(len(self._recurrences()), 2)
+
+    def test_latest_count_includes_recurrence_rows(self):
+        self._cycle(8)
+        b = actions.last_for_fingerprint("glitchtip:X-1")
+        self.assertEqual((b["count"], b["latest_count"], b["disposition"]), (4, 8, "file"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
