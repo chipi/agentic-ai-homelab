@@ -249,14 +249,19 @@ loki.process "homelab_std" {
   forward_to = [loki.write.logs_sink.receiver]
 }
 
-// ---------- LOGS: host journal (optional) ----------
-// Uncomment to also ship systemd/journald host logs. Needs the journal dir
-// visible to the container (it is, via the /rootfs mount).
-// loki.source.journal "host" {
-//   path       = "/rootfs/var/log/journal"
-//   forward_to = [loki.write.logs_sink.receiver]
-//   labels     = { job = "systemd-journal" }
-// }
+// ---------- LOGS: kernel messages (journal, _TRANSPORT=kernel only) ----------
+// The NVIDIA driver reports GPU allocation failures ONLY in the kernel log
+// ("NVRM: ... Out of memory [NV_ERR_NO_MEMORY] ... _memdescAllocInternal"). The
+// 09-14 burst of 70 of them (#63) was visible only by reading journalctl on the box:
+// nothing shipped the kernel log, so no alert could see it (#81 §8). Kernel-only keeps
+// the volume small; the full host journal stays off. The journal dir is visible via
+// the /rootfs mount; Alloy runs as root, so it can read it.
+loki.source.journal "kernel" {
+  path       = "/rootfs/var/log/journal"
+  matches    = "_TRANSPORT=kernel"
+  labels     = { job = "kernel" }
+  forward_to = [loki.write.logs_sink.receiver]
+}
 
 // ---------- PUSH logs to VictoriaLogs (Loki push protocol) ----------
 // VictoriaLogs accepts the Loki push API at /insert/loki/api/v1/push. Target is

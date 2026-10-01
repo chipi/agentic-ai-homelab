@@ -1610,6 +1610,46 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+      # --- DGX GPU driver failing allocations (NVRM out of memory) ------------------
+      # The NVIDIA driver logs a failed GPU allocation to the kernel log only:
+      #   kernel: NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY]
+      #   (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+      # 70 of these on 2026-09-14 (#63) were invisible until someone read journalctl.
+      # Shipped since 2026-10-01 (config.alloy, job=kernel). What it means, per #63: the
+      # driver could not get real pages (it cannot use page cache) — an allocation is
+      # FAILING now. It is NOT a wedge predictor: the 09-14 burst was survived, the last
+      # one preceded freeze 1 by 6h38m, and freeze 2 logged none. The free-memory floor
+      # (vm.min_free_kbytes, #81) is the wedge-side fix; this is the "it is failing" alarm.
+      # Lines containing "alert-drill" are excluded so an end-to-end drill never pages.
+      - uid: dgx-gpu-driver-oom
+        title: "DGX GPU driver failing allocations (NVRM out of memory)"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra, host: dgx-llm-1, service: gpu-driver, environment: operations }
+        annotations:
+          summary: "The NVIDIA driver on dgx-llm-1 logged {{ $value }} failed allocation(s) (NV_ERR_NO_MEMORY) in 15m — a GPU service just failed to get memory. Check which model loaded (vLLM/ollama/whisper), MemFree, and GPU in use. VictoriaLogs: instance:dgx-llm-1 job:kernel NVRM."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:dgx-llm-1 job:kernel "NVRM" ("Out of memory" OR "NV_ERR_NO_MEMORY") -"alert-drill" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
       # --- DGX Alloy is dropping log entries at the sender -------------------------
       # Catches the failure at the SOURCE, before the sink goes quiet: Alloy counts
       # what it throws away. Fires while logs are still partially flowing, so it beats
