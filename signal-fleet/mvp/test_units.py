@@ -666,5 +666,64 @@ class TestStaleNudge(unittest.TestCase):
         self.assertFalse(self.s.enabled())
 
 
+class TestTriagerFailureDeferral(unittest.TestCase):
+    """#11: transient triager failures defer (retry next cycle); 402 fails closed;
+    a signal deferred DEFER_LIMIT times escalates; an all-deferred cycle is an outage."""
+
+    def setUp(self):
+        import tempfile
+        import orchestrator
+        self.o = orchestrator
+        self._tmp = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+        self._tmp.close()
+        os.unlink(self._tmp.name)
+        self._orig = (orchestrator.DEFER_STATE, orchestrator.triage.triage)
+        orchestrator.DEFER_STATE = self._tmp.name
+        orchestrator._cycle.update(deferred=0, triaged=0, last_error="")
+        self.sig = {"occurrence_id": "occ-1", "fingerprint": "grafana:x", "alertname": "a"}
+
+    def tearDown(self):
+        self.o.DEFER_STATE, self.o.triage.triage = self._orig
+        if os.path.exists(self._tmp.name):
+            os.unlink(self._tmp.name)
+
+    def _flaky(self, *a, **k):
+        raise self.o.triage.TriageDeferred("triager call failed: timed out")
+
+    def test_transient_failure_defers_without_a_disposition(self):
+        self.o.triage.triage = self._flaky
+        self.assertIsNone(self.o._triage_or_defer(self.sig))
+        self.assertEqual(self.o._cycle["deferred"], 1)
+
+    def test_persistent_failure_escalates_after_the_limit(self):
+        self.o.triage.triage = self._flaky
+        for _ in range(self.o.DEFER_LIMIT - 1):
+            self.assertIsNone(self.o._triage_or_defer(self.sig))
+        d = self.o._triage_or_defer(self.sig)
+        self.assertEqual(d["disposition"], "escalate")
+        self.assertIn("cycles in a row", d["reason"])
+
+    def test_success_clears_the_defer_count(self):
+        self.o.triage.triage = self._flaky
+        self.o._triage_or_defer(self.sig)
+        self.o.triage.triage = lambda sig: {"disposition": "dismiss"}
+        self.assertEqual(self.o._triage_or_defer(self.sig)["disposition"], "dismiss")
+        self.assertEqual(self.o._defer_counts(), {})
+
+    def test_402_fails_closed(self):
+        import urllib.error
+        import triage as t
+        orig = t.post_json
+        def boom(*a, **k):
+            raise urllib.error.HTTPError("u", 402, "Payment Required", {}, None)
+        t.post_json = boom
+        orig_key, t.config.OPENROUTER_KEY = t.config.OPENROUTER_KEY, "test-key"
+        try:
+            with self.assertRaises(t.TriagerDown):
+                t._call([{"role": "user", "content": "x"}])
+        finally:
+            t.post_json, t.config.OPENROUTER_KEY = orig, orig_key
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

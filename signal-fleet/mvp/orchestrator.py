@@ -9,6 +9,8 @@ No LLM in the control flow; the model lives only behind triage.triage().
 """
 import argparse
 import datetime
+import json
+import os
 import sys
 
 import actions
@@ -44,7 +46,9 @@ def run_once(use_synthetic=False, dry_run=True):
         return []
 
     print(f"signal: {sig['alertname']} | fp: {sig['fingerprint']}")
-    disp = triage.triage(sig)   # investigation self-probes (§7.3)
+    disp = _triage_or_defer(sig)   # investigation self-probes (§7.3)
+    if disp is None:
+        return []
     actions.act(sig, disp, dry_run=dry_run)
     m = disp.get("_meta", {})
     print(f"=> {disp['disposition']} (gates {m.get('gates')} · probes {m.get('n_probes')} · "
@@ -73,12 +77,66 @@ def run_grafana(limit=5, dry_run=True):
             actions.record_recurrence(sig, base)
             continue
         print(f"--- {sig['alertname'][:60]} (fp {sig['fingerprint']}) ---")
-        disp = triage.triage(sig)   # investigation self-probes (§7.3)
+        disp = _triage_or_defer(sig)   # investigation self-probes (§7.3)
+        if disp is None:
+            continue
         actions.act(sig, disp, dry_run=dry_run)
         disps.append(disp)
         m = disp.get("_meta", {})
         print(f"  => {disp['disposition']} (gates {m.get('gates')} · probes {m.get('n_probes')})")
     return disps
+
+
+# #11 (2026-10-01): a transient triager failure defers the signal to the next cycle
+# instead of escalating it. Two guards keep that from hiding anything:
+#   - a signal deferred DEFER_LIMIT cycles in a row escalates as before (persistent);
+#   - a cycle where every triage call deferred (>= 2, none succeeded) is an outage,
+#     handled by the fail-closed aggregate path like TriagerDown (run_poll).
+DEFER_LIMIT = int(config.env("SF_DEFER_LIMIT", "6"))            # ~1 h at 10-min cycles
+DEFER_STATE = config.env("SF_DEFER_STATE", os.path.expanduser("~/signal-fleet/results/.deferred.json"))
+_cycle = {"deferred": 0, "triaged": 0, "last_error": ""}
+
+
+def _defer_counts():
+    try:
+        with open(DEFER_STATE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_defer_counts(d):
+    try:
+        with open(DEFER_STATE, "w") as f:
+            json.dump(d, f)
+    except OSError as e:
+        print("  defer state write failed:", e)
+
+
+def _triage_or_defer(sig):
+    """triage.triage(), except a transient failure returns None (retry next cycle)
+    until the same occurrence has deferred DEFER_LIMIT times in a row."""
+    counts = _defer_counts()
+    key = sig.get("occurrence_id") or sig.get("fingerprint", "")
+    try:
+        disp = triage.triage(sig)
+    except triage.TriageDeferred as e:
+        counts[key] = counts.get(key, 0) + 1
+        _cycle["deferred"] += 1
+        _cycle["last_error"] = str(e)
+        if counts[key] < DEFER_LIMIT:
+            _save_defer_counts(counts)
+            print(f"  deferred ({counts[key]}/{DEFER_LIMIT}): {e}")
+            return None
+        counts.pop(key, None)
+        _save_defer_counts(counts)
+        return {"disposition": "escalate",
+                "reason": f"{e} — failed {DEFER_LIMIT} cycles in a row",
+                "question": "the triager keeps failing on this one signal — look at it directly?"}
+    _cycle["triaged"] += 1
+    if counts.pop(key, None) is not None:
+        _save_defer_counts(counts)
+    return disp
 
 
 def _hours_since(ts_iso):
@@ -114,7 +172,9 @@ def run_glitchtip(limit=5, dry_run=True):
                 print(f"  idempotent: {sig['occurrence_id']} -> {prior_occ}; skip")
                 continue
         print(f"--- {sig['alertname'][:60]} (fp {sig['fingerprint']}) ---")
-        disp = triage.triage(sig)   # investigation self-probes (§7.3)
+        disp = _triage_or_defer(sig)   # investigation self-probes (§7.3)
+        if disp is None:
+            continue
         actions.act(sig, disp, dry_run=dry_run)
         disps.append(disp)
         m = disp.get("_meta", {})
@@ -177,6 +237,7 @@ def run_poll(limit=10, dry_run=True):
           f"{datetime.datetime.now(datetime.timezone.utc).isoformat()} ==")
     disps, failures = [], 0
     triager_down = None
+    _cycle.update(deferred=0, triaged=0, last_error="")
     try:
         disps += run_grafana(limit=limit, dry_run=dry_run)   # ALL non-meta Grafana alerts
     except triage.TriagerDown as e:
@@ -192,6 +253,10 @@ def run_poll(limit=10, dry_run=True):
         except Exception as e:  # noqa: BLE001
             failures += 1
             print("  glitchtip pass error:", e)
+    if triager_down is None and _cycle["deferred"] >= 2 and _cycle["triaged"] == 0:
+        # every call this cycle failed transiently: an outage, not N one-off flakes
+        triager_down = (f"all {_cycle['deferred']} triage calls this cycle failed transiently "
+                        f"(last: {_cycle['last_error']})")
     if triager_down:
         failures += 2   # force a non-zero cycle so the daemon's health flags it too
         _file_triager_down(triager_down, dry_run)

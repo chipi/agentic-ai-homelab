@@ -31,6 +31,14 @@ class TriagerDown(Exception):
     This is the 2026-08-13→19 flood's core fix (a wiped litellm key 401'd every
     call and the fleet fail-open escalated ~90 signals)."""
 
+class TriageDeferred(Exception):
+    """A one-off transport failure (timeout, dropped connection, 429, 5xx) calling the
+    triager. Not a disposition: the orchestrator records nothing, so the same signal is
+    simply triaged again next cycle (#11, 2026-10-01). Before, each such failure became
+    a per-signal "[escalation] … triager call failed — retry?" issue for a REAL signal
+    that never got triaged (#73 on 09-29, #80 on 09-30)."""
+
+
 ALLOWED_INTENT = {"reporter", "spec", "repo-data", "code-invariant", "baseline",
                   "operator-rule", "slo"}
 MAX_PROBES = int(config.env("SF_MAX_PROBES", "3"))
@@ -234,6 +242,11 @@ def _call(messages):
             raise TriagerDown(f"HTTP {e.code} auth failure to the triager gateway "
                               f"({config.OPENROUTER_URL}) — litellm virtual key rejected "
                               f"(recreate: infra/litellm/README.md)") from e
+        # 402 = out of credit — as persistent as a rejected key, and the same per-signal
+        # flood without this (11 escalation issues on 2026-08-13). Fail closed too.
+        if e.code == 402:
+            raise TriagerDown(f"HTTP 402 Payment Required from the triager gateway "
+                              f"({config.OPENROUTER_URL}) — provider credit exhausted") from e
         raise
     return resp["choices"][0]["message"]["content"], resp.get("usage", {})
 
@@ -371,9 +384,8 @@ def investigate(signal, max_probes=None, probe_table=None):
             raise
         except TriagerDown:
             raise   # persistent auth outage — fail CLOSED at the orchestrator, not per-signal
-        except Exception as e:  # transport (one-off flake) — keep the per-signal escalate
-            return _finish(signal, {"disposition": "escalate", "reason": f"triager call failed: {e}",
-                                    "question": "transient failure — retry?"}, trace, "n/a", usage, t0)
+        except Exception as e:  # transport (one-off flake) — retry next cycle, never escalate
+            raise TriageDeferred(f"triager call failed: {e}") from e
         if not isinstance(raw, str) or not raw.strip():
             # contentless completion = provider flake (measured 2026-07-24:
             # billing/provider issues present as empty responses) — retry the
