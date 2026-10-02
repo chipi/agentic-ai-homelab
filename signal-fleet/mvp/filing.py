@@ -361,9 +361,11 @@ def ledger_lookup(fingerprint, group_key="", norm_key="", alert_key="", is_open=
     #   1. newest norm_key row whose issue is open (not a low-signal rollup)
     #   2. newest norm_key row, open or not (reopen / regression path)
     #   3. newest alert_key row whose issue is open (#9)
-    # Only norm_key earns the open preference. alert_key is coarser: given the same
-    # preference, the 2026-10-02 replay sent closed bugs to OPEN but DIFFERENT bugs
-    # (orrery #560 regex SyntaxError -> #557 CSS preload). Rollup rows are skipped in
+    # Only norm_key earns the open preference. Given the same preference, alert_key
+    # mostly re-derived what GitHub's duplicate links already say, and where it
+    # differed it was the less exact of the two (#2037, #1935 -> #1958; their
+    # duplicateOf is #2040). Duplicates are followed explicitly in file_or_update
+    # instead. Rollup rows are skipped in
     # step 1: a rollup is a bucket of minor errors, not the issue for this bug.
     nk_rows = [r for r in rows if norm_key and r.get("norm_key", "") == norm_key]
     if is_open is not None:
@@ -499,10 +501,29 @@ def issue_state(repo, number):
     d = _gh("GET", f"/repos/{repo}/issues/{number}")
     labels = [l["name"] for l in d.get("labels", [])]
     closed_at = d.get("closed_at")
-    return {"state": d.get("state"), "labels": labels,
+    return {"state": d.get("state"), "labels": labels, "reason": d.get("state_reason") or "",
             "closed_at": datetime.fromisoformat(closed_at.replace("Z", "+00:00"))
             if closed_at else None,
             "url": d.get("html_url", "")}
+
+
+DUPLICATE_HOPS = 3
+
+
+def duplicate_of(repo, number):
+    """(repo, number) of the issue this one was closed as a duplicate of, or None.
+    Only GitHub's GraphQL close event carries it; REST gives the reason alone."""
+    owner, name = repo.split("/", 1)
+    q = ('query($o:String!,$n:String!,$i:Int!){repository(owner:$o,name:$n){issue(number:$i){'
+         'timelineItems(itemTypes:[CLOSED_EVENT],last:1){nodes{... on ClosedEvent{'
+         'duplicateOf{... on Issue{number repository{nameWithOwner}}}}}}}}}')
+    d = _gh("POST", "/graphql", {"query": q, "variables": {"o": owner, "n": name, "i": int(number)}})
+    nodes = ((((d.get("data") or {}).get("repository") or {}).get("issue") or {})
+             .get("timelineItems") or {}).get("nodes") or []
+    dup = (nodes[-1].get("duplicateOf") if nodes else None) or {}
+    if not dup.get("number"):
+        return None
+    return dup["repository"]["nameWithOwner"], dup["number"]
 
 
 def _file_rollup(signal, issue, repo, fp, nk):
@@ -609,8 +630,21 @@ def file_or_update(signal, issue, kind):
         prior = None
 
     st = None
+    via = ""
     if prior:
         st = issue_state(prior["repo"], prior["issue"])
+        # An issue closed as a duplicate is not the bug's issue: its canonical one is.
+        # Reopening the duplicate split one bug across two issues again (2026-10-01:
+        # one disk alert reopened #42 and #44-#46, all closed as duplicates of #43).
+        for _ in range(DUPLICATE_HOPS):
+            if st["state"] != "closed" or st.get("reason") != "duplicate":
+                break
+            canon = duplicate_of(prior["repo"], prior["issue"])
+            if not canon:
+                break
+            via = f"{prior['repo']}#{prior['issue']}"
+            prior = dict(prior, repo=canon[0], issue=str(canon[1]))
+            st = issue_state(prior["repo"], prior["issue"])
         if MUTE_LABEL in st["labels"]:
             # A norm_key / alert_key hit is a FUZZY match; inheriting a mute across
             # it would silently bury a DIFFERENT bug the operator never muted (review
@@ -634,25 +668,29 @@ def file_or_update(signal, issue, kind):
             _gh("POST", f"/repos/{prior['repo']}/issues/{prior['issue']}/comments",
                 {"body": f"Recurred {_today()}: `{signal.get('alertname', '')[:140]}` "
                          f"(fp `{fp}`{', instance `' + inst + '`' if inst else ''}; "
-                         f"matched on {prior.get('_dim', '?')}). "
+                         f"matched on {prior.get('_dim', '?')}"
+                         f"{'; via duplicate ' + via if via else ''}). "
                          f"_signal-fleet recurrence tracking._"})
             prior["last_comment_day"] = _today()
             ledger_upsert(prior)
-            return f"COMMENTED: recurrence on {prior['repo']}#{prior['issue']} (via {prior.get('_dim', '?')})"
+            return (f"COMMENTED: recurrence on {prior['repo']}#{prior['issue']} (via {prior.get('_dim', '?')}"
+                    f"{', duplicate ' + via if via else ''})")
         # closed
         age = (_now() - st["closed_at"]).days if st["closed_at"] else 999
         if age < REOPEN_WINDOW_DAYS:
             _gh("PATCH", f"/repos/{prior['repo']}/issues/{prior['issue']}", {"state": "open"})
             _gh("POST", f"/repos/{prior['repo']}/issues/{prior['issue']}/comments",
                 {"body": f"Recurred {_today()} after close ({age}d) — reopening. "
-                         f"`{signal.get('alertname', '')[:140]}`"})
+                         f"`{signal.get('alertname', '')[:140]}`"
+                         f"{' (via duplicate ' + via + ')' if via else ''}"})
             prior["last_comment_day"] = _today()
             ledger_upsert(prior)
             _glitchtip_note(signal, f"Recurred after close — reopened GitHub issue "
                                     f"{prior['repo']}#{prior['issue']}")
             _grafana_annotation(f"reopened {prior['repo']}#{prior['issue']} (recurrence after close)",
                                 ["signal-fleet", "reopened"])
-            return f"REOPENED: {prior['repo']}#{prior['issue']} (closed {age}d ago)"
+            return (f"REOPENED: {prior['repo']}#{prior['issue']} (closed {age}d ago"
+                    f"{', via duplicate ' + via if via else ''})")
         issue = dict(issue)
         issue["body"] = (f"Regression of {prior['repo']}#{prior['issue']} "
                          f"(closed {age}d ago).\n\n" + issue.get("body", ""))

@@ -867,6 +867,47 @@ class TestNormKeyPrefersOpenIssue(unittest.TestCase):
         self.assertEqual(filing.ledger_lookup("new", "", "nk", "", is_open=self._is_open)["issue"], "47")
 
 
+class TestFollowDuplicate(unittest.TestCase):
+    """A recurrence matched to an issue closed as a duplicate acts on the canonical
+    issue (GitHub duplicateOf), never on the duplicate."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+        self._tmp.close()
+        self._orig = (filing.FILED, filing._gh, filing.issue_state, filing.duplicate_of,
+                      filing._glitchtip_note, filing._grafana_annotation)
+        filing.FILED = self._tmp.name
+        filing._ledger_write([{"fingerprint": "grafana:disk", "repo": "r/x", "issue": "42", "group_key": ""}])
+        self.writes = []
+        filing._gh = lambda m, p, payload=None: (self.writes.append((m, p)) or {"number": 1})
+        filing._glitchtip_note = lambda *a, **k: None
+        filing._grafana_annotation = lambda *a, **k: None
+        self.states = {"42": ("closed", "duplicate"), "43": ("open", "reopened")}
+        filing.issue_state = lambda repo, n: {"state": self.states[str(n)][0], "reason": self.states[str(n)][1],
+                                              "labels": [], "closed_at": filing._now(), "url": ""}
+        filing.duplicate_of = lambda repo, n: ("r/x", 43) if str(n) == "42" else None
+
+    def tearDown(self):
+        (filing.FILED, filing._gh, filing.issue_state, filing.duplicate_of,
+         filing._glitchtip_note, filing._grafana_annotation) = self._orig
+        os.unlink(self._tmp.name)
+
+    def _run(self):
+        return filing.file_or_update({"fingerprint": "grafana:disk", "source": "grafana", "alertname": "disk",
+                                      "labels": {}}, {"title": "disk", "body": "", "labels": []}, "bug")
+
+    def test_comments_on_open_canonical(self):
+        res = self._run()
+        self.assertTrue(res.startswith("COMMENTED: recurrence on r/x#43"), res)
+        self.assertEqual({p for _, p in self.writes}, {"/repos/r/x/issues/43/comments"})
+        self.assertEqual(filing.ledger_lookup("grafana:disk")["issue"], "43")   # remapped
+
+    def test_not_a_duplicate_is_untouched(self):
+        self.states["42"] = ("closed", "completed")
+        self.assertTrue(self._run().startswith("REOPENED: r/x#42"))
+
+
 class TestRecurrenceOncePerCountChange(unittest.TestCase):
     """A GlitchTip count bump writes ONE recurrence row, not one per cycle."""
 

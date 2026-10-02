@@ -75,29 +75,33 @@ The paths can be overridden with `SF_LEDGER`, `SF_FILED_LEDGER`, `SF_QUEUE`, `SF
 Do it in this order. The ledgers are the part you can't recreate. Without them the fleet re-files every old problem as new.
 
 1. **Freeze the old host** **[old host]**:
-   - `touch ~/signal-fleet/STOP` and wait for the current cycle to end (`tail ~/fleetd/fleetd.log`);
-   - then `sudo launchctl bootout system/com.homelab.fleetd`.
+    - `touch ~/signal-fleet/STOP` and wait for the current cycle to end (`tail ~/fleetd/fleetd.log`);
+    - then `sudo launchctl bootout system/com.homelab.fleetd`.
+
 2. **Copy the state:** `rsync -a ~/signal-fleet/ newhost:~/signal-fleet/`. That covers `results/` (both ledgers and the state files), `queue/` and `fleet-gateway.env`. Check that the row counts match: `wc -l results/*.tsv` on both hosts.
 3. **Clone the repo** **[new host]**: `git clone https://github.com/chipi/agentic-ai-homelab ~/agentic-ai-homelab`.
 4. **Point the env file at the new environment:** set `SF_HOST` and `SF_OPENROUTER_URL` if the observability stack or LiteLLM live elsewhere. Then check that each credential works before going further:
-   - `curl -s -H "Authorization: Bearer $GLITCHTIP_TOKEN" http://$SF_HOST:8090/api/0/projects/` returns a JSON list;
-   - `gh api user` with `GITHUB_TOKEN` returns the account;
-   - a `chat/completions` call to the gateway with the virtual key returns 200;
-   - Grafana `GET /api/alertmanager/grafana/api/v2/alerts` returns 200.
+    - `curl -s -H "Authorization: Bearer $GLITCHTIP_TOKEN" http://$SF_HOST:8090/api/0/projects/` returns a JSON list;
+    - `gh api user` with `GITHUB_TOKEN` returns the account;
+    - a `chat/completions` call to the gateway with the virtual key returns 200;
+    - Grafana `GET /api/alertmanager/grafana/api/v2/alerts` returns 200.
+
 5. **Prove the code on this host:** `cd ~/agentic-ai-homelab && bash signal-fleet/deploy/deploy.sh`. Every gate must say PASS. The gates read frozen corpora and git history only: no LLM, no network beyond the pull.
 6. **Build and install fleetd** **[build machine]**:
-   - `cd fleetd && make vet test build`;
-   - for an Intel mini, `GOOS=darwin GOARCH=amd64` (see `make deploy`);
-   - copy the binary to `~/fleetd/fleetd` and write `fleetd.json` (block above) with `"stage": "shadow"` first;
-   - install the LaunchDaemon plist (same shape as today's: `/bin/bash -lc 'export PATH=/usr/local/bin:$PATH HOME=<home>; exec <home>/fleetd/fleetd -config <home>/fleetd/fleetd.json'`, `UserName` = the fleet user, `RunAtLoad`, `KeepAlive`, stdout/stderr → `~/fleetd/fleetd.log`);
-   - `sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.fleetd.plist`.
+    - `cd fleetd && make vet test build`;
+    - for an Intel mini, `GOOS=darwin GOARCH=amd64` (see `make deploy`);
+    - copy the binary to `~/fleetd/fleetd` and write `fleetd.json` (block above) with `"stage": "shadow"` first;
+    - install the LaunchDaemon plist (same shape as today's: `/bin/bash -lc 'export PATH=/usr/local/bin:$PATH HOME=<home>; exec <home>/fleetd/fleetd -config <home>/fleetd/fleetd.json'`, `UserName` = the fleet user, `RunAtLoad`, `KeepAlive`, stdout/stderr → `~/fleetd/fleetd.log`);
+    - `sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.fleetd.plist`.
    
-   On Linux, the equivalent is a systemd service with `Restart=always`.
+    On Linux, the equivalent is a systemd service with `Restart=always`.
+
 7. **Remove the STOP flag** (`rm ~/signal-fleet/STOP`). Watch two cycles in `~/fleetd/fleetd.log`: `cycle triage-…: ok`. Check that new ledger rows say `stage` = `shadow`.
 8. **Promote to `propose`** once a shadow day looks right (§4 checks): edit `stage` in `fleetd.json`, then `sudo launchctl kickstart -k system/com.homelab.fleetd`.
 9. **Surfaces:**
-   - Grafana alert rules and dashboards are provisioned from [`infra/observability/backend/grafana/provisioning`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/observability/backend/grafana/provisioning);
-   - after any rule change: `POST /api/admin/provisioning/alerting/reload`, then [`rules-drift/drift.py`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/observability/rules-drift/README.md) must report `drift: 0 rule(s)`.
+    - Grafana alert rules and dashboards are provisioned from [`infra/observability/backend/grafana/provisioning`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/observability/backend/grafana/provisioning);
+    - after any rule change: `POST /api/admin/provisioning/alerting/reload`, then [`rules-drift/drift.py`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/observability/rules-drift/README.md) must report `drift: 0 rule(s)`.
+
 10. **Retire the old host's daemon** for good. Remove its plist so two fleets never file at once: they would race on GitHub and each would have its own ledger.
 
 ## 3. Day-to-day operation
@@ -130,36 +134,41 @@ The new project's short ids restart at 1 and collide with the dead project's led
 Run these read-only checks, then report in four parts: what it did, what went wrong, what it missed, what to improve. Each check states what "healthy" looks like.
 
 1. **Is it alive?**
-   - **Check:** the last cycle lines: `tail -20 ~/fleetd/fleetd.log`, plus alerts `fleetd-cycle-failing` / `fleetd-silent` in Grafana.
-   - **Healthy:** `ok` every 10 min; daily spend well under $2 (`fleetd_spend_day`).
+    - **Check:** the last cycle lines: `tail -20 ~/fleetd/fleetd.log`, plus alerts `fleetd-cycle-failing` / `fleetd-silent` in Grafana.
+    - **Healthy:** `ok` every 10 min; daily spend well under $2 (`fleetd_spend_day`).
+
 2. **What did it decide?**
-   - **Check:** disposition counts for the week:
-     ```sh
-     awk -F'\t' -v s="$(date -u -v-7d +%F)" '$1>=s {print $4, $6}' \
-       ~/signal-fleet/results/dispositions.tsv | sort | uniq -c
-     ```
-   - **Healthy:** escalations rare. Many `recurrence` rows for one fingerprint is now a bug: since `b3c4c5f` it writes one per count change, not one per cycle.
+    - **Check:** disposition counts for the week:
+        ```sh
+        awk -F'\t' -v s="$(date -u -v-7d +%F)" '$1>=s {print $4, $6}' \
+          ~/signal-fleet/results/dispositions.tsv | sort | uniq -c
+        ```
+    - **Healthy:** escalations rare. Many `recurrence` rows for one fingerprint is now a bug: since `b3c4c5f` it writes one per count change, not one per cycle.
+
 3. **What did it do on GitHub?**
-   - **Check:** issues touched and fleet comments:
-     ```sh
-     gh api "repos/chipi/<repo>/issues?since=<7 days ago>&state=all"
-     gh api "repos/chipi/<repo>/issues/comments?since=<7 days ago>"
-     ```
-     Filter comments for `Recurred` / `signal-fleet`.
-   - **Look for:**
-     - **fan-out:** several issues reopened at once for one condition (2026-10-01: six disk issues);
-     - **wrong target:** a recurrence landing on a closed duplicate or on a different bug;
-     - **burying:** a real bug as one line in a `[low-signal] aggregate`.
+    - **Check:** issues touched and fleet comments:
+        ```sh
+        gh api "repos/chipi/<repo>/issues?since=<7 days ago>&state=all"
+        gh api "repos/chipi/<repo>/issues/comments?since=<7 days ago>"
+        ```
+        Filter comments for `Recurred` / `signal-fleet`.
+    - **Look for:**
+        - **fan-out:** several issues reopened at once for one condition (2026-10-01: six disk issues);
+        - **wrong target:** a recurrence landing on a closed duplicate or on a different bug;
+        - **burying:** a real bug as one line in a `[low-signal] aggregate`.
+
 4. **False dismissals** (the one thing no dashboard checks): sample 3–5 recent `dismiss` rows (`awk -F'\t' '$6=="dismiss"' … | tail`). Check each one's cited evidence against GlitchTip or Grafana.
 5. **What it cannot see:**
-   - recurring WARNING patterns in VictoriaLogs (`_time:7d level:warning`) — warnings never reach the fleet;
-   - new GlitchTip projects missing from `filing.REPO_MAP`.
+    - recurring WARNING patterns in VictoriaLogs (`_time:7d level:warning`) — warnings never reach the fleet;
+    - new GlitchTip projects missing from `filing.REPO_MAP`.
+
 6. **Ledger health:**
-   - row counts and growth (`wc -l results/*.tsv`);
-   - `.deferred.json` present = something is being deferred;
-   - the open `triage-fleet/stale-candidate` issues waiting for the operator.
+    - row counts and growth (`wc -l results/*.tsv`);
+    - `.deferred.json` present = something is being deferred;
+    - the open `triage-fleet/stale-candidate` issues waiting for the operator.
 
 Turn each finding into one of three things:
+
 - an issue action for the operator (close, mute, route);
 - a fleet fix through §5;
 - a known gap in the guide.
@@ -172,13 +181,18 @@ Since 2026-09-30 every behaviour change has gone through the same loop, and the 
 2. **Freeze the evidence** as a corpus under `signal-fleet/reference-*/`: ledger snapshots, GitHub issue states, GlitchTip payloads. Scrub secrets and user ids, and commit it. History moves on; a frozen corpus keeps the replay reproducible.
 3. **Write the fix.** Prefer a deterministic rule over a prompt change.
 4. **Write the replay** `mvp/eval_<thing>_replay.py`:
-   - the **baseline** is the code at the commit before the fix, loaded with `git show <BASE_REV>:signal-fleet/mvp/<file>.py`, so the "before" is real, not re-implemented;
-   - first assert that **the baseline reproduces history** (the replay is faithful);
-   - then compare against the fix, with explicit pass criteria and exit 1 on failure.
+    - the **baseline** is the code at the commit before the fix, loaded with `git show <BASE_REV>:signal-fleet/mvp/<file>.py`, so the "before" is real, not re-implemented;
+    - first assert that **the baseline reproduces history** (the replay is faithful);
+    - then compare against the fix, with explicit pass criteria and exit 1 on failure.
+
 5. **Mutation-check the replay:** break the fix in plausible ways and confirm each broken version fails the replay. A replay that passes broken code proves nothing. Two lessons:
-   - 2026-10-02: a first disk replay passed a version that still fanned out, until a fan-out check was added;
-   - a mutant can "fail" for the wrong reason (a syntax error from a bad `sed`), so read why it failed.
-6. **Look at the changed cases themselves**, not only the totals. On 2026-10-02 a replay passed, but its changes included closed bugs routed to *different* open bugs. Reading the issue titles caught it, and the rule was narrowed twice.
+    - 2026-10-02: a first disk replay passed a version that still fanned out, until a fan-out check was added;
+    - a mutant can "fail" for the wrong reason (a syntax error from a bad `sed`), so read why it failed.
+
+6. **Look at the changed cases themselves**, not only the totals, and judge them against **explicit links**, not titles. On 2026-10-02:
+    - **a real catch:** a passing replay sent 13 recurrences into a low-signal bucket, so the rule was narrowed;
+    - **a false alarm:** judging by titles, a later change looked like it routed closed bugs to *different* open bugs. GitHub's `duplicateOf` links showed most of those moves were correct, and one apparent mismatch was a GlitchTip short id reused by a different error. Check GitHub's duplicate links and the ledger row's own signal before calling a move wrong.
+
 7. **Gate it:** add the replay to the gate list in [`signal-fleet/deploy/deploy.sh`](https://github.com/chipi/agentic-ai-homelab/blob/main/signal-fleet/deploy/deploy.sh), add unit tests to `mvp/test_units.py`, and run every gate locally.
 8. **Commit with the numbers** in the message (input, before, after, mutation result). Push and deploy only with the operator's go.
 9. **Verify live:** after deploying, prove the new behaviour on the real system. Either push one real signal through by hand (§3), or run the decision read-only against the live ledger and GitHub. "The replay passed" is not "it works in production".
@@ -197,9 +211,11 @@ Since 2026-09-30 every behaviour change has gone through the same loop, and the 
 | `eval_glitchtip_litellm_replay.py` | retired GlitchTip rows stop colliding; upstream 429s are dismissed |
 | `eval_recurrence_replay.py` | one recurrence row per count change (about 6 min on the mini) |
 | `eval_open_preference_replay.py` | a norm_key match prefers the bug's open issue, never a rollup bucket |
-| `test_units.py` | unit tests (84 on 2026-10-02) |
+| `eval_duplicate_follow_replay.py` | a recurrence on an issue closed as a duplicate goes to its canonical issue |
+| `test_units.py` | unit tests (86 on 2026-10-02) |
 
 Alert-rule changes have their own checks under [`infra/observability/rules-drift/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/observability/rules-drift):
+
 - `test_drift.py`;
 - `drift.py` (repo vs. live Grafana);
 - replays such as `disk_pool_replay.py`, which runs both rule versions against VictoriaMetrics history.

@@ -64,21 +64,23 @@ Test and synthetic signals are suppressed at this stage.
 `triage.triage()`:
 
 1. **Operational states → `dismiss`, no LLM** (`OPERATIONAL_MARKERS`):
-   - cost cap;
-   - provider budget / HTTP 402;
-   - failed fallbacks;
-   - upstream shared-pool rate limits (`upstream-rate-limit`: OpenRouter 429 with `limit_source=upstream_provider_shared_pool`, operator call on homelab #17).
-   
-   These are states, not bugs, and they hold even while the triager is down.
+    - cost cap;
+    - provider budget / HTTP 402;
+    - failed fallbacks;
+    - upstream shared-pool rate limits (`upstream-rate-limit`: OpenRouter 429 with `limit_source=upstream_provider_shared_pool`, operator call on homelab #17).
+
+    These are states, not bugs, and they hold even while the triager is down.
+
 2. **Investigation by the LLM:** up to `SF_MAX_PROBES` (3) probes — logs, metrics, traces, source state, occurrence history — then one terminal decision:
-   - `file`: a real problem; becomes an issue with `work_type` `bug` or `config-enhancement`;
-   - `dismiss`: benign, **with independent probe evidence** (the intent gate);
-   - `cleanup`: test or synthetic noise;
-   - `escalate`: a specific question only a human can answer.
+    - `file`: a real problem; becomes an issue with `work_type` `bug` or `config-enhancement`;
+    - `dismiss`: benign, **with independent probe evidence** (the intent gate);
+    - `cleanup`: test or synthetic noise;
+    - `escalate`: a specific question only a human can answer.
+
 3. **Triager failures:**
-   - a 401/402/403 means the triager is down: one aggregate issue for the fleet, not one per signal;
-   - a timeout or 5xx defers the signal to the next cycle (`.deferred.json`, at most 6 deferrals, then escalate);
-   - a cycle where every call deferred counts as triager-down (#11).
+    - a 401/402/403 means the triager is down: one aggregate issue for the fleet, not one per signal;
+    - a timeout or 5xx defers the signal to the next cycle (`.deferred.json`, at most 6 deferrals, then escalate);
+    - a cycle where every call deferred counts as triager-down (#11).
 
 ### 4. Act and file
 
@@ -147,6 +149,7 @@ It is upserted by fingerprint, so a fingerprint has exactly one row.
 |---|---|
 | issue has label `triage-fleet/muted` and the match is exact (fingerprint/group) | nothing, forever |
 | muted, but the match is fuzzy (norm/alert key) | ignores the mute and files fresh: a fuzzy match must never bury a different bug |
+| issue closed **as a duplicate** | follows GitHub's `duplicateOf` (up to 3 hops) to the canonical issue, then applies the rows below to *that* issue; the ledger row is remapped to it |
 | issue **open** | one comment per day: `Recurred <date>… (matched on <key>)` |
 | issue closed **< 7 days** (`REOPEN_WINDOW_DAYS`) | reopens it with a comment |
 | issue closed **≥ 7 days** | files a new issue linking the old one (regression) |
@@ -192,16 +195,16 @@ These rules came from incidents. Keep them unless the evidence changes.
 2. **Fail closed, in one place.** When the triager is down, the fleet files one aggregate issue, not one per signal. The August 2026 flood turned a 401 into about 90 escalation issues.
 3. **GitHub is the source of truth for state.** The fleet reads issue state at filing time and never acts on a cached copy.
 4. **A fuzzy match never inherits a mute.** Muting is exact (fingerprint / group key). Otherwise one mute could silence a different bug forever.
-5. **Prefer the bug's open issue, through the precise key only.** Norm-key matches prefer an open issue, but alert-key matches don't override them: in the 2026-10-02 replay, the alert key sent closed bugs to open but *different* bugs.
-6. **A rollup bucket is not a bug's issue.** Never route a specific bug's recurrence to `[low-signal] aggregate`.
-7. **One condition, one alert.** Fan-out has to be fixed at the source rule, not deduplicated afterwards. Example: per-mountpoint disk alerts gave six issues for one disk; the fix groups by disk (`0702aee`).
-8. **Every behaviour change is proven on real history before it ships.** The runbook's improvement loop requires a replay against a frozen corpus, a baseline-reproduces-history check, and a mutation check.
+5. **Prefer the bug's open issue, through the precise key only.** Norm-key matches prefer an open issue; alert-key matches don't override them. Tried on 2026-10-02: the alert key's moves mostly re-derived GitHub's duplicate links, and where they differed the link was more exact (#2037 → #1958 by alert key; its `duplicateOf` is #2040). Explicit links beat inferred ones, so duplicates are followed directly (rule 6).
+6. **A duplicate is not the bug's issue; its canonical is.** When the operator closes an issue as a duplicate, a recurrence goes to the issue it duplicates. The link comes from GitHub (GraphQL `ClosedEvent.duplicateOf`; REST only carries the reason). Before this, one disk alert reopened four duplicates of #43.
+7. **A rollup bucket is not a bug's issue.** Never route a specific bug's recurrence to `[low-signal] aggregate`.
+8. **One condition, one alert.** Fan-out has to be fixed at the source rule, not deduplicated afterwards. Example: per-mountpoint disk alerts gave six issues for one disk; the fix groups by disk (`0702aee`).
+9. **Every behaviour change is proven on real history before it ships.** The runbook's improvement loop requires a replay against a frozen corpus, a baseline-reproduces-history check, and a mutation check.
 
 ## Known gaps (as of 2026-10-02)
 
 | Gap | Effect | Status |
 |---|---|---|
-| Issues closed as **duplicate** are not followed to their canonical issue | a recurrence matched by fingerprint reopens the duplicate | open. Partly covered by fix 3 of the lookup (norm-key prefers open). Needs GitHub's duplicate-of link, not yet verified. |
 | **Warnings never reach the fleet** | systematic warnings (e.g. speaker-attribution loss in 26 of 28 runs on 2026-10-01) are invisible to it | by design today: the sources are GlitchTip errors and Grafana alerts |
 | A one-event GlitchTip error with no culprit is **low-signal by rule** | a real bug can be buried as one line in the rollup (2026-10-01: `[Errno 36] File name too long` → podcast_scraper #1871) | open |
 | GlitchTip project **recreated under the same slug** | fingerprint collisions with retired rows | procedure in the runbook. A permanent fix would key GlitchTip fingerprints on the project id. |

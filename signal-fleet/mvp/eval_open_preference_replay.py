@@ -18,8 +18,9 @@ Pass:
   - no match ever moves TO a low-signal rollup bucket (a bucket is not the bug's
     issue; the first version of this fix sent 13 of 32 moves to rollup #1871);
   - every move comes through norm_key (a second version also let alert_key prefer
-    open issues, and sent closed bugs to open DIFFERENT bugs, e.g. orrery #560 regex
-    SyntaxError -> #557 CSS preload).
+    open issues; its moves mostly matched GitHub's duplicate links, and where they
+    differed the link was the more exact answer, e.g. #2037 -> #1958 vs duplicateOf
+    #2040; duplicates are followed explicitly instead, eval_duplicate_follow_replay).
 
   python3 eval_open_preference_replay.py     # exit 1 on any failure
 """
