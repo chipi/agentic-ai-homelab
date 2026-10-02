@@ -208,7 +208,7 @@ There are no exceptions I can choose to make.
 
 ---
 
-@/Users/markodragoljevic/.config/AGENTS.md
+@~/.config/AGENTS.md
 
 <!-- lean-ctx -->
 <!-- lean-ctx-claude-v9 -->

@@ -4,6 +4,8 @@
 # Idempotent. Any existing real file is backed up before it is replaced.
 # Secret-bearing config is NOT symlinked — see the printed template list.
 # Full bootstrap sequence: ./setup-new-computer.md
+# Cross-platform: macOS and Linux share every agent-config link; only the
+# OS-specific block (install_macos / install_linux below) differs.
 set -euo pipefail
 
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"     # workstation/ dir
@@ -15,11 +17,23 @@ WS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"     # workstation/ dir
 DRY="${DRY:-0}"                       # honour `DRY=1 ./install.sh` too
 [ "${1:-}" = "--dry-run" ] && DRY=1
 TS="$(date +%Y%m%d-%H%M%S)"
+# Platform: detected from uname. WS_OS=macos|linux overrides it, so either
+# platform's plan can be previewed from the other (pair it with --dry-run).
+case "$(uname -s)" in
+  Darwin) _os=macos ;;
+  Linux)  _os=linux ;;
+  *)      _os=unknown ;;
+esac
+OS="${WS_OS:-$_os}"
+case "$OS" in
+  macos|linux) ;;
+  *) echo "unsupported platform: $OS (set WS_OS=macos|linux)" >&2; exit 1 ;;
+esac
 
 link() {  # link <workstation-relative-src> <absolute-home-target>
   local src="$WS/$1" dst="$2"
   if [ ! -e "$src" ]; then echo "SKIP (missing in repo): $1"; return; fi
-  mkdir -p "$(dirname "$dst")"
+  if [ "$DRY" = 0 ]; then mkdir -p "$(dirname "$dst")"; fi
   if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
     echo "OK    already linked: $dst"; return
   fi
@@ -32,7 +46,26 @@ link() {  # link <workstation-relative-src> <absolute-home-target>
   return 0
 }
 
+install_macos() {
+  # workbench — persistent tmux session for phone/SSH access (workbench/README.md).
+  # The LaunchAgent still needs a one-off bootstrap after linking:
+  #   launchctl bootstrap user/$(id -u) ~/Library/LaunchAgents/com.chipi.workbench.plist
+  link workbench/wb                  "$HOME/bin/wb"
+  link workbench/wb-session.sh       "$HOME/bin/wb-session.sh"
+  link workbench/tmux.conf           "$HOME/.tmux.conf"
+  link workbench/com.chipi.workbench.plist "$HOME/Library/LaunchAgents/com.chipi.workbench.plist"
+}
+
+install_linux() {
+  # Nothing OS-specific yet. The Mac workbench (one session, a window per
+  # project) is deliberately not installed: Linux uses one tmux session per
+  # project, and a ~/.tmux.conf link would shadow the distro's
+  # ~/.config/tmux/tmux.conf (tmux reads ~/.tmux.conf first).
+  :
+}
+
 echo "workstation: $WS"
+echo "platform:    $OS"
 if [ "$DRY" = 1 ]; then
   echo "== DRY-RUN — preview only, nothing is changed (BACK/LINK lines are hypothetical) =="
 else
@@ -46,13 +79,7 @@ link config/AGENTS.md              "$HOME/.config/AGENTS.md"
 link config/lean-ctx/config.toml   "$HOME/.config/lean-ctx/config.toml"
 link config/ponytail/config.json   "$HOME/.config/ponytail/config.json"
 link claude/CLAUDE.md              "$HOME/.claude/CLAUDE.md"
-# workbench — persistent tmux session for phone/SSH access (workbench/README.md).
-# The LaunchAgent still needs a one-off bootstrap after linking:
-#   launchctl bootstrap user/$(id -u) ~/Library/LaunchAgents/com.chipi.workbench.plist
-link workbench/wb                  "$HOME/bin/wb"
-link workbench/wb-session.sh       "$HOME/bin/wb-session.sh"
-link workbench/tmux.conf           "$HOME/.tmux.conf"
-link workbench/com.chipi.workbench.plist "$HOME/Library/LaunchAgents/com.chipi.workbench.plist"
+"install_$OS"
 for _sk in "$WS"/claude/skills/*/; do
   [ -d "$_sk" ] || continue
   _n="$(basename "$_sk")"

@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/lean-ctx hook rewrite"
+            "command": "lean-ctx hook rewrite"
           }
         ]
       },
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/lean-ctx hook observe"
+            "command": "lean-ctx hook observe"
           }
         ]
       }
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/lean-ctx hook observe"
+            "command": "lean-ctx hook observe"
           }
         ]
       }
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/lean-ctx hook observe"
+            "command": "lean-ctx hook observe"
           }
         ]
       }
@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/lean-ctx hook observe"
+            "command": "lean-ctx hook observe"
           }
         ]
       },
@@ -84,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/lean-ctx hook observe"
+            "command": "lean-ctx hook observe"
           },
           {
             "type": "command",
@@ -99,7 +99,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/lean-ctx hook observe"
+            "command": "lean-ctx hook observe"
           }
         ]
       }

@@ -7,7 +7,7 @@
 
   "mcp": {
     "lean-ctx": {
-      "command": ["/opt/homebrew/bin/lean-ctx"],
+      "command": ["lean-ctx"],
       "enabled": true,
       "environment": {
         "LEAN_CTX_DATA_DIR": "${HOME}/.lean-ctx"

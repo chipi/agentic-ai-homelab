@@ -10,6 +10,11 @@ client can attach and drive an agent without rebuilding anything.
 | `tmux.conf` | `~/.tmux.conf` | Phone-friendly: mouse on, status bar doubles as the key-chord cheatsheet, OSC 52 clipboard. |
 | `com.chipi.workbench.plist` | `~/Library/LaunchAgents/` | Runs `wb-session.sh` on session start so the windows are already there. |
 
+**macOS only.** `workstation/install.sh` links all four on macOS and none on
+Linux, where each project gets its own tmux session instead. `wb` and
+`wb-session.sh` use `/usr/local/bin/tmux` when it exists and otherwise the
+`tmux` on `PATH`.
+
 Install via `workstation/install.sh` (symlinks all four). Then:
 
     launchctl bootstrap user/$(id -u) ~/Library/LaunchAgents/com.chipi.workbench.plist

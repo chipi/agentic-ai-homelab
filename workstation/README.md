@@ -19,24 +19,44 @@ git clone <this repo>
 > skills — after you've confirmed the symlinks resolve, delete the
 > `~/.claude/skills/*.bak.*` dirs so they don't show up as duplicate skills.
 
-Full step-by-step for a clean Mac: [`setup-new-computer.md`](setup-new-computer.md).
-After every full **restart** (not sleep), validate the machine came back with
-[`post-reboot-checklist.md`](post-reboot-checklist.md).
+Full step-by-step for a clean machine (macOS or Omarchy/Arch Linux):
+[`setup-new-computer.md`](setup-new-computer.md). On the Mac laptop, after every
+full **restart** (not sleep), validate the machine came back with
+[`post-reboot-checklist.md`](post-reboot-checklist.md) (macOS-only).
+
+## Platforms
+
+`install.sh` detects the platform from `uname` (override with
+`WS_OS=macos|linux`, e.g. to dry-run the other platform's plan). Everything in
+the map below marked **both** is shared agent config and links identically on
+each. Only the OS-specific block differs:
+
+- **macOS** — also installs the [workbench](workbench/README.md): one
+  persistent tmux session with a window per project, started by a LaunchAgent.
+- **Linux** — nothing extra. One tmux session per project; no `~/.tmux.conf`,
+  which would shadow Omarchy's `~/.config/tmux/tmux.conf`.
 
 ## Home ↔ repo map
 
-| Home location | Tracked here | How install.sh handles it |
-|---|---|---|
-| `~/.config/AGENTS.md` | `config/AGENTS.md` | symlink |
-| `~/.config/lean-ctx/config.toml` | `config/lean-ctx/config.toml` | symlink |
-| `~/.config/ponytail/config.json` | `config/ponytail/config.json` | symlink |
-| `~/.claude/CLAUDE.md` | `claude/CLAUDE.md` | symlink |
-| `~/.claude/skills/*/` | `claude/skills/*/` | symlink per skill (dir) |
-| `~/.claude/agents/*.md` | `claude/agents/*.md` | symlink per subagent |
-| `~/.claude/hooks/*` | `claude/hooks/*` | symlink per hook script |
-| `~/.claude/workflows/*` | `claude/workflows/*` | symlink per workflow |
-| `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | **template** — copy + fill |
-| `~/.claude/settings.json` | `claude/settings.json.example` | **template** — copy + fill |
+| Home location | Tracked here | OS | How install.sh handles it |
+|---|---|---|---|
+| `~/.config/AGENTS.md` | `config/AGENTS.md` | both | symlink |
+| `~/.config/lean-ctx/config.toml` | `config/lean-ctx/config.toml` | both | symlink |
+| `~/.config/ponytail/config.json` | `config/ponytail/config.json` | both | symlink |
+| `~/.claude/CLAUDE.md` | `claude/CLAUDE.md` | both | symlink |
+| `~/.claude/skills/*/` | `claude/skills/*/` | both | symlink per skill (dir) |
+| `~/.claude/agents/*.md` | `claude/agents/*.md` | both | symlink per subagent |
+| `~/.claude/hooks/*` | `claude/hooks/*` | both | symlink per hook script |
+| `~/.claude/workflows/*` | `claude/workflows/*` | both | symlink per workflow |
+| `~/bin/wb`, `~/bin/wb-session.sh` | `workbench/wb`, `workbench/wb-session.sh` | macOS | symlink |
+| `~/.tmux.conf` | `workbench/tmux.conf` | macOS | symlink |
+| `~/Library/LaunchAgents/com.chipi.workbench.plist` | `workbench/com.chipi.workbench.plist` | macOS | symlink + one-off `launchctl bootstrap` |
+| `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | both | **template** — copy + fill |
+| `~/.claude/settings.json` | `claude/settings.json.example` | both | **template** — copy + fill |
+
+Both templates call `lean-ctx` by bare name, resolved through the agent's
+`PATH` (`/opt/homebrew/bin` on macOS, `~/.local/bin` on Linux), so the same
+template works on either platform.
 
 `~/.config/opencode/AGENTS.md` is already a symlink to `~/.config/AGENTS.md`, so it
 follows the canonical rules through the chain automatically — nothing to install.
@@ -72,7 +92,8 @@ only points at the local DGX vLLM (whose `apiKey` is a throwaway).
 
 ## Prerequisites the config assumes
 
-Installed and on `PATH`: `claude` (Homebrew), `opencode`, `lean-ctx`
-(`/opt/homebrew/bin`), `rtk` (optional — manual-only per D-0010), `gh`, `node`, the `ponytail` and `oh-my-openagent`
+Installed and on `PATH`: `claude` (Homebrew on macOS, mise on Linux),
+`opencode`, `lean-ctx` (`/opt/homebrew/bin` on macOS, `~/.local/bin` on Linux),
+`lsof` (Linux: `pacman -S lsof`; the session hooks need it), `rtk` (optional — manual-only per D-0010), `gh`, `node`, the `ponytail` and `oh-my-openagent`
 plugins. Versions and install commands are in
 [`setup-new-computer.md`](setup-new-computer.md).

@@ -1,4 +1,5 @@
 #!/bin/zsh
 # Attach to the workbench, rebuilding the full layout first if it's gone.
 ~/bin/wb-session.sh
-exec /usr/local/bin/tmux attach -t main
+TM=/usr/local/bin/tmux; [ -x "$TM" ] || TM="$(command -v tmux)"   # Mac path first, else PATH
+exec "$TM" attach -t main

@@ -1,9 +1,18 @@
 # Set up a new computer
 
-Bootstrap a fresh Mac to the operator's global agent-config baseline. Ordered;
-each step is safe to re-run. Assumes macOS (Apple Silicon, `/opt/homebrew`).
+Bootstrap a fresh machine to the operator's global agent-config baseline.
+Ordered; each step is safe to re-run. Two supported platforms:
+
+- **macOS** — Apple Silicon, Homebrew under `/opt/homebrew`.
+- **Linux** — Omarchy (Arch), tools from `pacman` and [mise](https://mise.jdx.dev).
+
+Steps 1–2 are per-platform. Steps 3–7 are shared, apart from the platform notes
+marked inline: the agent config itself (`AGENTS.md`, `CLAUDE.md`, skills,
+subagents, hooks, workflows) is identical on both.
 
 ## 1. System prerequisites
+
+### macOS
 
 ```bash
 xcode-select --install                       # Command Line Tools
@@ -11,7 +20,20 @@ xcode-select --install                       # Command Line Tools
 brew install git gh node
 ```
 
+### Linux (Omarchy / Arch)
+
+Omarchy ships `git`, `tmux` and `mise`. Add `lsof`: the `session-reap` and
+`session-orphan-report` hooks use it to read a process's working directory, and
+without it they silently do nothing.
+
+```bash
+sudo pacman -S --needed git lsof
+mise use -g node gh                          # global toolchain in ~/.config/mise/config.toml
+```
+
 ## 2. Agent toolchain
+
+### macOS
 
 ```bash
 brew install --cask claude                   # Claude Code CLI (Homebrew is canonical)
@@ -22,9 +44,23 @@ curl -fsSL https://raw.githubusercontent.com/yvgude/lean-ctx/main/skills/lean-ct
 lean-ctx setup
 ```
 
-Confirm each is on `PATH` (the hooks call `/opt/homebrew/bin/lean-ctx` by
-absolute path): `claude --version`, `opencode --version`, `lean-ctx --version`
-(and `rtk --version` only if you opted into the manual rtk tool above).
+### Linux (Omarchy / Arch)
+
+```bash
+mise use -g claude opencode                  # Claude Code CLI + opencode
+# lean-ctx: installs to ~/.local/bin/lean-ctx
+curl -fsSL https://raw.githubusercontent.com/yvgude/lean-ctx/main/skills/lean-ctx/scripts/install.sh | bash
+lean-ctx setup
+```
+
+### Both
+
+Confirm each is on `PATH`: `claude --version`, `opencode --version`,
+`lean-ctx --version` (and `rtk --version` only if you opted into the manual rtk
+tool above). The Claude Code hooks and the opencode MCP entry call bare
+`lean-ctx`, resolved through the `PATH` the agent was started with
+(`/opt/homebrew/bin` on macOS, `~/.local/bin` on Linux). An agent started
+without it on `PATH` loses the lean-ctx hooks.
 
 ## 3. Clone this repo and symlink the config
 
@@ -35,9 +71,19 @@ cd ~/Projects/agentic-ai-homelab
 ./workstation/install.sh                     # symlink ~/.config + ~/.claude into the repo
 ```
 
+The clone location is free; on Linux the repo usually lives under `/work/`.
+`install.sh` detects the platform (the `platform:` line of its output).
+
 This links the **non-secret** files (`AGENTS.md`, `CLAUDE.md`,
-lean-ctx/ponytail config, the `docs-preflight` skill). Existing files are backed
-up as `*.bak.<timestamp>`.
+lean-ctx/ponytail config, every skill/subagent/hook/workflow). Existing files
+are backed up as `*.bak.<timestamp>`. `--dry-run` changes nothing on disk.
+
+- **macOS only:** also links the [workbench](workbench/README.md) (`~/bin/wb`,
+  `~/bin/wb-session.sh`, `~/.tmux.conf`, the `com.chipi.workbench` LaunchAgent),
+  which needs a one-off `launchctl bootstrap` afterwards (see that README).
+- **Linux:** no workbench and no `~/.tmux.conf`: one tmux session per project,
+  and Omarchy's `~/.config/tmux/tmux.conf` stays in charge. To preview the Mac
+  plan from Linux (or the reverse): `WS_OS=macos ./workstation/install.sh --dry-run`.
 
 ## 4. Fill the secret-bearing templates
 
@@ -76,9 +122,10 @@ opencode from `opencode.json`.
 ## 7. Verify
 
 ```bash
-claude --version                              # matches the standardized Homebrew build
+claude --version                              # macOS: the standardized Homebrew build; Linux: mise
 ls -l ~/.config/AGENTS.md                     # → symlink into workstation/config/
 ls -l ~/.claude/CLAUDE.md                     # → symlink into workstation/claude/
+command -v lean-ctx lsof                      # Linux: both must resolve (hooks need them)
 ```
 
 - Open Claude Code: the ponytail statusline renders, and `/docs-preflight` shows
