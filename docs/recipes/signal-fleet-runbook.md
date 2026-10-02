@@ -131,6 +131,8 @@ The new project's short ids restart at 1 and collide with the dead project's led
 
 ## 4. The weekly review — "how is the fleet doing?"
 
+Automated by the **`triage-fleet-review`** skill (`python3 ~/.claude/skills/triage-fleet-review/scripts/review.py --days 7`), which runs every check below read-only and flags fan-out, reopens and rollup burials for you to judge. For what never reaches the fleet (warnings, logs), add the **`o11y-review`** skill for the same window. Both skills live in [`workstation/claude/skills/`](https://github.com/chipi/agentic-ai-homelab/tree/main/workstation/claude/skills).
+
 Run these read-only checks, then report in four parts: what it did, what went wrong, what it missed, what to improve. Each check states what "healthy" looks like.
 
 1. **Is it alive?**
@@ -174,6 +176,8 @@ Turn each finding into one of three things:
 - a known gap in the guide.
 
 ## 5. Improving the fleet — the loop every change follows
+
+The generic version of this loop, with a replay scaffold, a mutation runner (`mutate.py`) and a baseline git worktree for non-Python projects, is the **`replay-proven-fix`** skill.
 
 Since 2026-09-30 every behaviour change has gone through the same loop, and the next one should too. The operator's requirement is: *for each fix, a replayed test case with the input, today's output, the problem, and the output after the fix.*
 
