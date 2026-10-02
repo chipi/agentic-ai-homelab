@@ -7,9 +7,15 @@ RFC-0002). It never touches production and never fixes code; its `File` output
 chains to Fleet 1 as a labelled GitHub issue. This is RFC-0002's own Phase-3
 ("o11y-reactive agents"), promoted to its own project.
 
+**Start here (2026-10-02):** [Triage fleet guide](../docs/signal-fleet-guide.md) — the parts,
+one signal's path, the two ledgers and the reasoning behind each rule — and the
+[runbook](../docs/recipes/signal-fleet-runbook.md): install on a new host, operate, the weekly
+review, and the replay-proven loop every fleet change goes through. The notes below are older
+context.
+
 ## ⚡ Current state — read first (2026-08-19, saves you the archaeology)
 
-- **This IS live** — runs continuously as `fleetd` (LaunchAgent) on the mini, not a
+- **This IS live** — runs continuously under `fleetd` (system LaunchDaemon `com.homelab.fleetd`) on the mini, not a
   one-shot. Cycle = `python3 mvp/orchestrator.py --cycle` over Grafana + GlitchTip.
 - **Deploy reality (2026-08-20): runs from the GIT CHECKOUT** — `fleetd` runs the
   triage cycle from `~/agentic-ai-homelab/signal-fleet/mvp` (the checkout), so a

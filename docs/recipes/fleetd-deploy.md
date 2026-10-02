@@ -11,19 +11,26 @@ one-liners with explicit PASS/FAIL, no Go knowledge needed.
 |---|---|
 | `make vet build` | vet + build with the git sha stamped into the binary (`fleetd <sha>` in logs + a `version` label on metrics — "what runs on the mini" is always answerable) |
 | `make smoke` | end-to-end local check: cycle-run, spend accounting, STOP flag, budget pause (deploy/smoke.sh) |
-| `make deploy` | keeps the previous binary as `fleetd.prev`, ships binary+config+plist, (re)loads launchd. **Ask the operator before running — deploys are shared-state.** |
+| `make deploy` | vet + test, builds an amd64 binary, keeps the previous one as `fleetd.prev`, ships the new binary, compares (never overwrites) the live `fleetd.json`, then `launchctl kickstart -k` the LaunchDaemon. **Ask the operator before running — deploys are shared-state.** |
 | `make rollback` | swaps `fleetd.prev` back and reloads — the 30-second undo |
 | `make status` / `make logs` | launchd state + log tail from the mini |
 | `make stop` / `make start` | stop = STOP flags for both fleets **and** unload; start = flags removed + load |
 
 ## Config & secrets
 
-- `fleetd/deploy/fleetd.json` is the deployed config — **secrets-free by
-  construction**; each fleet block points at a mini-local `env_file`
-  (`~/signal-fleet/fleet.env`, sops-managed per ADR-0006 conventions).
-- Both fleet blocks ship `enabled: false` — deploying the daemon is safe
-  and separate from enabling a fleet. Enabling = config edit + `make deploy`
-  (a deliberate, auditable act per rollout-plan stage).
+- `fleetd/deploy/fleetd.json` is the reference config — **secrets-free by
+  construction**; each fleet block points at a host-local `env_file`. The triage
+  fleet's is `~/signal-fleet/fleet-gateway.env` (`fleet.env` beside it is a stale
+  leftover). `make deploy` never overwrites the live `~/fleetd/fleetd.json`; it
+  reports when the two differ.
+- As of 2026-10-02 the triage block is `enabled: true` at stage `propose`; the
+  bug-fix block is `enabled: false`. Enabling a fleet = config edit + daemon
+  restart (`sudo launchctl kickstart -k system/com.homelab.fleetd`), a deliberate,
+  auditable act per rollout-plan stage.
+- fleetd runs as a **system LaunchDaemon** (`/Library/LaunchDaemons/com.homelab.fleetd.plist`),
+  never a LaunchAgent: an agent copy would start a second supervisor.
+- Operating the triage fleet itself (ledgers, deploys, weekly review):
+  [Triage fleet runbook](signal-fleet-runbook.md).
 - `stage` (`shadow | propose | live`) is passed to cycles as `FLEETD_STAGE`;
   cycles in `shadow` must take no actions (the cycle contract in
   `fleetd/README.md`).
