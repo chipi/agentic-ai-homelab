@@ -69,6 +69,13 @@ groups:
       # fill trips it. Critical tier below at 5%. CoreSimulator volumes excluded:
       # iOS runtime images are fixed-size and permanently ~full by design
       # (2026-08-05: iOS_23D8133 at 2% free false-fired the critical tier).
+      # One alert per DISK, not per mountpoint (both tiers): macOS mounts one APFS
+      # container as several volumes (/dev/disk1s1, disk1s2, ... disk1s7s1) that all
+      # report the container's free space, so per-mountpoint grouping turned one full
+      # disk on the mini into 6 alerts -> 6 fleet issues (#42-#47, 2026-08-25 and
+      # 2026-10-01). `disk` = the APFS container (disk1) on macOS, else the device
+      # (a Linux partition is its own filesystem, so it stays separate).
+      # Replay: infra/observability/rules-drift/disk_pool_replay.py.
       - uid: infra-disk-low
         title: "Host disk low (<10% free)"
         condition: threshold
@@ -79,13 +86,13 @@ groups:
         noDataState: OK
         labels: { severity: warning, kind: infra }
         annotations:
-          summary: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} below 10% free."
+          summary: "Disk {{ $labels.disk }} on {{ $labels.instance }} below 10% free."
         data:
           - refId: q
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min by (instance, mountpoint) (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/Library/Developer/CoreSimulator/.*"} / node_filesystem_size_bytes)'
+              expr: 'min by (instance, disk) (label_replace(label_replace(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/Library/Developer/CoreSimulator/.*"} / node_filesystem_size_bytes, "disk", "$1", "device", "(.+)"), "disk", "$1", "device", "/dev/(disk[0-9]+)s[0-9]+.*"))'
               instant: true
               queryType: instant
           - refId: threshold
@@ -106,13 +113,13 @@ groups:
         noDataState: OK
         labels: { severity: critical, kind: infra }
         annotations:
-          summary: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} below 5% free — imminent fill."
+          summary: "Disk {{ $labels.disk }} on {{ $labels.instance }} below 5% free — imminent fill."
         data:
           - refId: q
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min by (instance, mountpoint) (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/Library/Developer/CoreSimulator/.*"} / node_filesystem_size_bytes)'
+              expr: 'min by (instance, disk) (label_replace(label_replace(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/Library/Developer/CoreSimulator/.*"} / node_filesystem_size_bytes, "disk", "$1", "device", "(.+)"), "disk", "$1", "device", "/dev/(disk[0-9]+)s[0-9]+.*"))'
               instant: true
               queryType: instant
           - refId: threshold
