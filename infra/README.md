@@ -39,7 +39,7 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 | **node-exporter** | Prometheus host exporter for the mini (`node_*`), scraped by mini-metrics | mini | `:9100` loopback | — | [node-exporter/](node-exporter/README.md) |
 | **tailscale** | Keeps the mini's OWN tailnet node up with no login session (macsys CLI) | mini | — | — | [tailscale/](tailscale/README.md) |
 | **caffeinate** | Holds off display/idle/disk/system sleep on a 24/7 host | mini | — | — | [caffeinate/](caffeinate/README.md) |
-| **dgx-scrape** | Pulls DGX GPU/app metrics + TCP health over tailnet → VM | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
+| **dgx-scrape** | TCP health of each DGX service (`dgx_service_up`) + a container inventory → VM. DGX *metrics and logs* come from Alloy on the DGX (observability collector), not from here | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
 | **ci-ops-poller** | Pulls GitHub Actions runs (CI / drift / drill) → VictoriaLogs for CI health + DORA | mini | pushes to VLogs `:9428` | `ci-ops-poller/.env` | [ci-ops-poller/](ci-ops-poller/README.md) |
 | **dgx** | DGX-host operator scripts (`gpu-mode-swap`) + service map | DGX | Tailscale SSH (see above) | — | [dgx/](dgx/README.md) |
 | **vllm** | Local vLLM inference stacks (coder / autoresearch) | DGX | `:8003` / `:9000` `/v1` (GPU-mode gated) | — | [vllm/](vllm/README.md) |
@@ -52,9 +52,12 @@ Per-folder rules layer on top of the repo-root [`AGENTS.md`](../AGENTS.md); see
 
 ```
   DGX (dgx-llm-1, 100.69.49.126)      Mac mini (homelab / 100.87.33.61)
-  ├─ Ollama/MOSS/Whisper/…    ─TS─→   ├─ dgx-scrape ─┐
-  ├─ DCGM :9400, cAdvisor :8080 ─TS─→ ├─ mini-metrics ┤→ VictoriaMetrics :8428
-  └─ gpu-mode-swap                    │                ├→ VictoriaLogs   :9428  ← Alloy
+  ├─ Alloy: host, DCGM, cAdvisor,  ─TS─→ VictoriaMetrics :8428 + VictoriaLogs :9428
+  │   vLLM/Ollama/app metrics;
+  │   container + kernel logs
+  ├─ service ports (TCP)      ─TS─→   ├─ dgx-scrape ─┐   (dgx_service_up)
+  └─ gpu-mode-swap                    ├─ mini-metrics ┤→ VictoriaMetrics :8428
+                                      │                ├→ VictoriaLogs   :9428  ← Alloy (mini, prod)
                                       │                └→ VictoriaTraces :10428 ← OTel
   prod-podcast (VPS)                  ├─ Grafana :3000  (reads all three)
   ├─ operator API + player  ─OTel/logs→ ├─ GlitchTip :8090, Umami :3001, Langfuse :4000

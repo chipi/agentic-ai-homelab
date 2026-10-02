@@ -10,18 +10,23 @@ The storage + viz half (VictoriaMetrics + VictoriaLogs + VictoriaTraces +
 Grafana) lives in [`backend/`](backend/) and runs on the **Mac mini**
 (`homelab`) — not the DGX.
 
-> **Current reality (2026-07-29):** the DGX has no working collector on it yet
-> (SSH now unblocked, but push-collector not deployed). So instead of this
-> compose running *on* the DGX, the mini's [`../dgx-scrape/`](../dgx-scrape/README.md)
-> launchd loop **pulls** the DGX's DCGM (:9400) and cAdvisor (:8080) exporters
-> over the LAN and pushes them into VictoriaMetrics. The mini runs the
-> [`hosts/homelab/`](hosts/homelab/) variant of this collector for its own host
-> metrics. See the [host map](../README.md) for who runs what.
+> **Current reality (checked live 2026-10-02):** this compose runs **on the DGX**
+> (`alloy` grafana/alloy:v1.17.0 with `dcgm-exporter` and `cadvisor`) and pushes all
+> DGX metrics to the mini: host (`integrations/unix`), `dcgm`, `cadvisor`, `vllm`,
+> `vllm-autoresearch`, `ollama`, `pyannote-app`, `moss-app`. The mini's
+> [`../dgx-scrape/`](../dgx-scrape/README.md) loop no longer scrapes exporters; it
+> only pushes `dgx_service_up` (TCP reachability of each DGX service) plus a
+> container inventory. The mini runs the [`hosts/homelab/`](hosts/homelab/) variant
+> of this collector for its own host, and prod runs [`hosts/prod-podcast/`](hosts/prod-podcast/).
+> See the [host map](../README.md) for who runs what. To check all of it in one go:
+> the `obs-boot` skill (`workstation/claude/skills/obs-boot/scripts/check.sh`).
 
 Besides metrics, Alloy also ships **Docker container logs** (`loki.source.docker`
 via the mounted Docker socket) to VictoriaLogs — set `LOGS_WRITE_URL` to the
-backend's `http://<ip>:9428/insert/loki/api/v1/push`. Host journald is available
-but commented out in `config.alloy`.
+backend's `http://<ip>:9428/insert/loki/api/v1/push`. From the host journal, only
+**kernel** messages are shipped (`loki.source.journal "kernel"`, `_TRANSPORT=kernel`,
+job `kernel`; about 960 lines an hour on 2026-10-02) — the DGX GPU-driver alert
+reads them. The rest of the host journal stays off.
 
 ## What gets scraped
 

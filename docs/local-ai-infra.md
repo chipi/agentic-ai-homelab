@@ -153,12 +153,12 @@ Cloud. Two layers:
   - The **mini** runs a containerized Alloy (`hosts/homelab/`) for its own
     host metrics, plus two launchd loops: `mini-metrics/` (native macOS
     signals) and `dgx-scrape/`.
-  - The **DGX** has no working collector on it yet (SSH now available, but
-    push-collector not deployed). So `dgx-scrape/` on the mini **pulls**
-    the DGX's DCGM (:9400) and cAdvisor (:8080) exporters over the LAN every
-    20s and pushes them into VictoriaMetrics, labelled `instance=dgx-llm-1`.
-    This is the interim model; a DGX push-collector (node-exporter + Alloy)
-    is now possible but not yet deployed. The DGX ships no logs yet.
+  - The **DGX** runs this collector itself (Alloy with `dcgm-exporter` and
+    `cadvisor`, checked live 2026-10-02). It pushes the DGX's host, GPU, container
+    and vLLM/Ollama/app metrics plus its container logs and kernel journal to the
+    mini, labelled `instance=dgx-llm-1`. `dgx-scrape/` on the mini now only adds
+    `dgx_service_up` (TCP reachability of each DGX service) and a container
+    inventory.
   - The **prod-podcast VPS** runs its own Alloy that ships metrics/logs to
     the mini over the tailnet.
 
@@ -173,9 +173,9 @@ Bring-up walkthrough: **[`recipes/mac-mini-observability.md`](recipes/mac-mini-o
 [`recipes/observability-endpoints.md`](recipes/observability-endpoints.md).
 Config-layer details: [`infra/observability/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/observability/README.md).
 
-> The older [`recipes/observability-boot.md`](recipes/observability-boot.md)
-> describes the retired Grafana-Cloud-on-the-DGX design and is **superseded**
-> — don't follow it.
+> The older observability-boot recipe described the retired Grafana-Cloud-on-the-DGX
+> design. It was removed from these docs on 2026-10-02; the historical copy is at
+> [observability-boot.md @ 613e465](https://github.com/chipi/agentic-ai-homelab/blob/613e465/docs/recipes/observability-boot.md). Don't follow it.
 
 ### Ollama — supporting role *(not deployed by this repo)*
 

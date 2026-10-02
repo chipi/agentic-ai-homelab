@@ -2,10 +2,10 @@
 # Scrapes: host (CPU/mem/disk/net), GPU (DCGM), all containers (cAdvisor),
 #          vLLM + Ollama /metrics endpoints on localhost.
 # Pushes via prometheus.remote_write to the self-hosted backend on the Mac mini
-# (`homelab`, REMOTE_WRITE_URL). NOTE: the DGX can't run this yet (no SSH), so
-# today the mini's ../dgx-scrape/ pulls the DGX exporters over the LAN instead;
-# this compose is the GPU-host collector template + what the mini's hosts/homelab/
-# variant is based on.
+# (`homelab`, REMOTE_WRITE_URL). This compose runs ON the DGX (checked live
+# 2026-10-02: alloy v1.17.0 + dcgm-exporter + cadvisor); it is also what the mini's
+# hosts/homelab/ variant is based on. The mini's ../dgx-scrape/ no longer scrapes
+# these exporters — it only pushes dgx_service_up (TCP reachability).
 #
 # Prereqs: NVIDIA Container Toolkit installed; ./vllm-cache directory pre-created
 # if you want to share with other vLLM composes (see infra/vllm/).

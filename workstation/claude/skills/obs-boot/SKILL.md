@@ -7,12 +7,12 @@ description: Check or (re)boot the self-hosted homelab observability stack — V
 
 The homelab observability stack, as it actually runs (checked live 2026-10-02).
 There is no Grafana Cloud any more; the old DGX + Grafana Cloud recipe
-(`docs/recipes/observability-boot.md`) is superseded. Don't follow it.
+was removed from the docs on 2026-10-02 (historical copy: https://github.com/chipi/agentic-ai-homelab/blob/613e465/docs/recipes/observability-boot.md). Don't follow it.
 
 | Where | What runs |
 |---|---|
-| Mac mini (`homelab`) | `victoriametrics` :8428, `victorialogs` :9428, `victoriatraces` :10428, `grafana` :3000, GlitchTip :8090, Langfuse, `caddy` (tailnet TLS), `alloy-homelab` (its own host metrics + logs); launchd loops `com.homelab.dgx-scrape` (pulls DGX exporters), `mini-metrics`, `forward-watchdog` |
-| DGX (`dgx-llm-1`) | `alloy` (metrics + kernel journal → the mini), `dcgm-exporter`, `cadvisor` |
+| Mac mini (`homelab`) | `victoriametrics` :8428, `victorialogs` :9428, `victoriatraces` :10428, `grafana` :3000, GlitchTip :8090, Langfuse, `caddy` (tailnet TLS), `alloy-homelab` (its own host metrics + logs); launchd loops `com.homelab.dgx-scrape` (TCP health of each DGX service, `dgx_service_up`), `mini-metrics`, `forward-watchdog` |
+| DGX (`dgx-llm-1`) | `alloy` (all DGX metrics + container logs + kernel journal → the mini), `dcgm-exporter`, `cadvisor` |
 | prod (`prod-podcast`) | Alloy collector (`infra/observability/hosts/prod-podcast/`) pushing to the mini |
 
 The backend ports are loopback- or tailnet-only. Query them on the mini, or through the tailnet names (`https://grafana.tail6d0ed4.ts.net`, …).

@@ -19,7 +19,7 @@ drafted, but they haven't been run for real yet.
 - [x] ~~Fill in `infra/observability/.env` with Grafana Cloud creds →
       `docker compose up -d` → verify in Grafana Cloud Explore.~~
       *Done 2026-06-12; all four dashboards (Node, DCGM, vLLM, cAdvisor)
-      confirmed live. Recipe: [`recipes/observability-boot.md`](../recipes/observability-boot.md).*
+      confirmed live. Recipe (historical, removed 2026-10-02): [observability-boot.md @ 613e465](https://github.com/chipi/agentic-ai-homelab/blob/613e465/docs/recipes/observability-boot.md).*
 - [x] ~~Pin the Alloy / DCGM exporter / cAdvisor / ollama-metrics image
       tags after first successful boot (currently `:latest`).~~
       *Done — versions captured after the verified boot.*

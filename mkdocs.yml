@@ -94,7 +94,6 @@ nav:
     - Chrome DevTools MCP agent loop: recipes/chrome-devtools-mcp-agent-loop.md
     - fleetd — build, deploy, operate: recipes/fleetd-deploy.md
     - Triage fleet — install, run, review, improve: recipes/signal-fleet-runbook.md
-    - Observability boot (superseded): recipes/observability-boot.md
   - Reading:
     - Overview: reading/README.md
     - LLM stack — end-to-end: reading/llm-end-to-end.md
