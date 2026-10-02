@@ -327,7 +327,8 @@ def _ledger_write(rows):
 
 def ledger_lookup(fingerprint, group_key="", norm_key="", alert_key="", is_open=None):
     """Newest matching row, strongest dimension first: exact fingerprint → group_key
-    (storm) → norm_key (normalized dedup #1) → alert_key (#9, only rows whose issue
+    (storm) → norm_key (normalized dedup #1; among its rows an OPEN, non-rollup issue
+    wins over the newest closed one) → alert_key (#9, only rows whose issue
     `is_open(repo, issue)` reports open). Returns the row with an added `_dim`
     naming which dimension matched, or None.
 
@@ -353,19 +354,35 @@ def ledger_lookup(fingerprint, group_key="", norm_key="", alert_key="", is_open=
         if r:
             r["_dim"] = "group_key"
             return r
-    if norm_key:  # truthy-only → empty norm_key can never match
-        r = newest(lambda r: r.get("norm_key", "") == norm_key)
-        if r:
-            r["_dim"] = "norm_key"
-            return r
+    # Fuzzy dimensions: an OPEN issue for the same bug or alert beats reopening a
+    # closed one. Newest-row alone picked a closed sibling: on 2026-10-02 the
+    # per-disk mini alert (new fingerprint) matched #47 (closed) on norm_key while
+    # #43, the open issue for the same disk, sat one row earlier.
+    #   1. newest norm_key row whose issue is open (not a low-signal rollup)
+    #   2. newest norm_key row, open or not (reopen / regression path)
+    #   3. newest alert_key row whose issue is open (#9)
+    # Only norm_key earns the open preference. alert_key is coarser: given the same
+    # preference, the 2026-10-02 replay sent closed bugs to OPEN but DIFFERENT bugs
+    # (orrery #560 regex SyntaxError -> #557 CSS preload). Rollup rows are skipped in
+    # step 1: a rollup is a bucket of minor errors, not the issue for this bug.
+    nk_rows = [r for r in rows if norm_key and r.get("norm_key", "") == norm_key]
+    if is_open is not None:
+        checked = set()
+        for r in reversed(nk_rows):
+            k = (r["repo"], r["issue"])
+            if k in checked or str(r.get("group_key", "")).startswith(ROLLUP_PREFIX):
+                continue
+            checked.add(k)
+            if is_open(*k):
+                return dict(r, _dim="norm_key")
+    if nk_rows:
+        return dict(nk_rows[-1], _dim="norm_key")
     if alert_key and is_open is not None and alert_key_dedup_enabled():
         # newest OPEN issue for this alert; closed ones are left to the stronger
         # dimensions (reopen / regression), a coarse key must not resurrect them
         for r in reversed(rows):
             if r.get("alert_key", "") == alert_key and is_open(r["repo"], r["issue"]):
-                r = dict(r)
-                r["_dim"] = "alert_key"
-                return r
+                return dict(r, _dim="alert_key")
     return None
 
 

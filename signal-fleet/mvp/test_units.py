@@ -827,6 +827,46 @@ class TestUpstreamRateLimit(unittest.TestCase):
         self.assertIsNone(t.operational_class(self._sig("key")))
 
 
+class TestNormKeyPrefersOpenIssue(unittest.TestCase):
+    """A norm_key match goes to an OPEN issue for the bug before the newest closed
+    one; a low-signal rollup bucket never counts as that open issue."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+        self._tmp.close()
+        self._orig = filing.FILED
+        filing.FILED = self._tmp.name
+        self.open = {"43", "99"}
+
+    def tearDown(self):
+        filing.FILED = self._orig
+        os.unlink(self._tmp.name)
+
+    def _seed(self, rows):
+        filing._ledger_write([dict({"repo": "r", "group_key": "", "alert_key": ""}, **r) for r in rows])
+
+    def _is_open(self, repo, issue):
+        return issue in self.open
+
+    def test_open_beats_newer_closed(self):
+        self._seed([{"fingerprint": "a", "issue": "43", "norm_key": "nk"},
+                    {"fingerprint": "b", "issue": "47", "norm_key": "nk"}])
+        r = filing.ledger_lookup("new", "", "nk", "", is_open=self._is_open)
+        self.assertEqual((r["issue"], r["_dim"]), ("43", "norm_key"))
+
+    def test_all_closed_keeps_newest(self):
+        self.open = set()
+        self._seed([{"fingerprint": "a", "issue": "43", "norm_key": "nk"},
+                    {"fingerprint": "b", "issue": "47", "norm_key": "nk"}])
+        self.assertEqual(filing.ledger_lookup("new", "", "nk", "", is_open=self._is_open)["issue"], "47")
+
+    def test_rollup_bucket_is_not_the_open_issue(self):
+        self._seed([{"fingerprint": "a", "issue": "99", "norm_key": "nk", "group_key": filing.ROLLUP_PREFIX + "x"},
+                    {"fingerprint": "b", "issue": "47", "norm_key": "nk"}])
+        self.assertEqual(filing.ledger_lookup("new", "", "nk", "", is_open=self._is_open)["issue"], "47")
+
+
 class TestRecurrenceOncePerCountChange(unittest.TestCase):
     """A GlitchTip count bump writes ONE recurrence row, not one per cycle."""
 
