@@ -760,7 +760,7 @@ context.
 <!-- version: 9 -->
 
 lean-ctx shadow mode: native read/search/shell calls auto-route to ctx_* — no tool-mapping needed.
-File editing → native Edit/StrReplace (lean-ctx only handles reads).
+File editing → native Edit/StrReplace (lean-ctx only handles reads); if denied, use ctx_patch.
 Exclusive tools (no native trigger): ctx_compose (understand code, call first), ctx_search(action=symbol) (exact symbol), ctx_search(action=semantic) (by meaning), ctx_callgraph (callers), ctx_knowledge / ctx_session (memory).
 <!-- lean-ctx-compression -->
 OUTPUT STYLE: expert-terse

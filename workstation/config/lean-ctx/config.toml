@@ -19,6 +19,7 @@ minimal_overhead = false
 shell_hook_disabled = false
 shell_activation = "always"
 update_check_disabled = true
+rules_scope = "global"  # never write lean-ctx rules into project repos (AGENTS.md/LEAN-CTX.md) — global files carry them
 bm25_max_cache_mb = 128
 memory_profile = "balanced"
 memory_cleanup = "aggressive"
@@ -71,6 +72,7 @@ shell_allowlist_extra = [
     "aapt2",
     "keytool",
     "jarsigner",
+    "mise",
 ]
 
 [cloud]
