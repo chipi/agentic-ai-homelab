@@ -1,0 +1,34 @@
+# Fail when the skills index in the global AGENTS.md is stale.
+#
+# The index is generated from every workstation/claude/skills/*/SKILL.md frontmatter by
+# workstation/claude/skills/index.py. Agents read it to decide which skill to load, so a
+# skill added or changed without regenerating it would be invisible or described wrong.
+# Fix a red run with:  python3 workstation/claude/skills/index.py --write
+# (Only the repo-skills block is checked; the third-party block is laptop-specific.)
+
+name: skills-index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workstation/claude/skills/**'
+      - 'workstation/config/AGENTS.md'
+      - '.github/workflows/skills-index.yml'
+  pull_request:
+    paths:
+      - 'workstation/claude/skills/**'
+      - 'workstation/config/AGENTS.md'
+      - '.github/workflows/skills-index.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skills index is up to date
+        run: python3 workstation/claude/skills/index.py --check
