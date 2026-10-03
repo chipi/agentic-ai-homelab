@@ -176,3 +176,29 @@ def test_magic_link_email_renders_and_carries_no_unsubscribe() -> None:
     assert "unsubscribe" not in rendered.html.lower()
     # The one line that tells a person who did NOT request it that ignoring it is safe.
     assert "was not you" in rendered.html
+
+
+def test_new_episodes_email_renders_without_podcast_title() -> None:
+    """The app's new-episodes payload carries no `podcast_title` (the seam schema does not
+    define it). The renderer is StrictUndefined, so `{% if ep.podcast_title %}` raised on every
+    real envelope: from 2026-10-02 06:02Z every drain aborted on it and no email went out.
+    The episode shape here is the one the live outbox served on 2026-10-03."""
+    from delivery.render import Renderer
+
+    from conftest import make_envelope
+
+    root = Path(__file__).resolve().parents[1]
+    episodes = [
+        {"episode_slug": f"ep-{i}", "episode_title": f"Episode {i}", "deep_link": f"/episode/ep-{i}",
+         "graph_refs": []}
+        for i in range(1, 4)
+    ]
+    env = make_envelope(id="newep_test", template="new-episodes.v1",
+                        payload={"count": 3, "episodes": episodes, "slugs": [e["episode_slug"] for e in episodes]})
+    rendered = Renderer(
+        root / "delivery/templates/podcast", app_origin="https://closelistening.app"
+    ).render_email(env)
+    assert "3 new episodes are out" in rendered.html
+    for e in episodes:
+        assert e["episode_title"] in rendered.html
+        assert "https://closelistening.app" + e["deep_link"] in rendered.html

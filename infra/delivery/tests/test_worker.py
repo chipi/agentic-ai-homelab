@@ -130,3 +130,24 @@ def test_ledger_marks_sending_before_send(tmp_path):
     w = _worker(tmp_path, outbox, Peek())
     w.drain_once()
     assert seen["status"] == SENDING
+
+
+def test_unexpected_error_dead_letters_that_envelope_and_drain_continues(tmp_path, caplog):
+    """One envelope that cannot be rendered (any exception that is neither Permanent nor
+    Transient) must not block the queue. Before: it escaped _process, drain_once aborted,
+    the next tick fetched the same envelope first again, and nothing behind it was ever sent
+    (2026-10-02 -> 10-03), logged only as a WARNING so GlitchTip never saw it."""
+    import logging
+
+    outbox = FakeOutbox([make_envelope(id="e_bad"), make_envelope(id="e_good")])
+    t = ScriptedTransport([KeyError("podcast_title"), DeliveryOutcome(status=TerminalStatus.DELIVERED)])
+    with caplog.at_level(logging.ERROR, logger="delivery.worker"):
+        stats = _worker(tmp_path, outbox, t).drain_once()
+    assert stats.dead_lettered == 1 and stats.delivered == 1
+    assert [r[:2] for r in outbox.reported] == [
+        ("e_bad", TerminalStatus.DEAD_LETTERED),
+        ("e_good", TerminalStatus.DELIVERED),
+    ]
+    assert t.calls == 2, "a deterministic failure must not be retried"
+    assert any(r.levelno >= logging.ERROR and r.exc_info for r in caplog.records), \
+        "the failure must be logged at ERROR with its traceback, so GlitchTip receives it"

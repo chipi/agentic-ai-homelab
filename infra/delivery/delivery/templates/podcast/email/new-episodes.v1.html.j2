@@ -25,7 +25,8 @@
 
         {% for ep in payload.episodes %}
         <div style="border-top:1px solid #1c2636;padding:18px 0;">
-          {% if ep.podcast_title %}
+          {# optional: the seam schema does not define it, and the renderer is StrictUndefined #}
+          {% if ep.podcast_title is defined and ep.podcast_title %}
           <div style="letter-spacing:.08em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">{{ ep.podcast_title }}</div>
           {% endif %}
           <a href="{{ ep.deep_link | abslink }}" style="display:block;color:#e7ecf3;text-decoration:none;font-size:19px;font-weight:600;margin:4px 0 12px;">{{ ep.episode_title }}</a>

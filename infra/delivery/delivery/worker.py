@@ -151,6 +151,18 @@ class DeliveryWorker:
                 last_detail = str(exc)
                 if attempt < self._cfg.max_attempts - 1:
                     self._sleep(self._backoff_for(attempt))
+            except Exception as exc:  # noqa: BLE001 — anything else is deterministic (e.g. a
+                # template that cannot render this payload): retrying cannot help, and letting it
+                # escape aborted the whole drain, so one bad envelope blocked every email behind it
+                # (2026-10-02 -> 10-03). Dead-letter it, log at ERROR with the traceback (GlitchTip
+                # receives it), and move on to the next envelope.
+                ATTEMPTS_TOTAL.labels(
+                    tenant=self._tenant, channel=self._channel.value, result="error"
+                ).inc()
+                logger.exception("cannot deliver %s (%s): dead-lettering it", env.id, env.template)
+                self._dead_letter(env, f"{type(exc).__name__}: {exc}"[:500])
+                stats.dead_lettered += 1
+                return
         self._dead_letter(env, last_detail)
         stats.dead_lettered += 1
 
