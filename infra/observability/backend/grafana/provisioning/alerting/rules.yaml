@@ -953,6 +953,31 @@ groups:
       # Any envelope dead-lettered in the last hour (retries exhausted → not delivered).
       # dead_lettered series absent until the first dead-letter ever → noDataState: OK
       # (see delivery-high-bounce above).
+      # A delivery queue is stuck: envelopes are pending but nothing reached a terminal
+      # state (delivered / bounced / dead-lettered) for an hour. 2026-10-02 06:02Z ->
+      # 10-03 15:47Z one envelope that could not render aborted every drain, no email
+      # went out for 33 h, and it was only a WARNING log line (no GlitchTip, no alert).
+      # `unless` also fires when sent_total has no series at all (nothing sent since start).
+      # Replay: rules-drift/rule_history_replay.py --uid delivery-queue-stuck.
+      - uid: delivery-queue-stuck
+        title: "Delivery queue stuck (pending, nothing sent for 1h)"
+        condition: threshold
+        for: 15m
+        noDataState: OK
+        labels: { severity: warning, kind: delivery }
+        annotations:
+          summary: "{{ $labels.channel }} queue (tenant {{ $labels.tenant }}): {{ $values.q }} envelope(s) pending and none delivered, bounced or dead-lettered in 1h — a poison envelope or a dead transport; read delivery-{{ $labels.channel }} logs in VictoriaLogs."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model: { expr: 'max by (tenant, channel) (delivery_batch_pending{job="delivery"}) > 0 unless on (tenant, channel) sum by (tenant, channel) (increase(delivery_sent_total{job="delivery"}[1h])) > 0', instant: true, queryType: instant }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
       - uid: delivery-dead-letter
         title: "Delivery dead-letter in the last hour"
         condition: threshold
