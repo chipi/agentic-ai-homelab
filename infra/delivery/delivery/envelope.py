@@ -77,7 +77,13 @@ class DeliveryEnvelope:
     channel: Channel
     template: str
     recipient: Recipient
-    consent_snapshot: ConsentSnapshot
+    #: ABSENT for transactional envelopes (`auth_link`), present for every notification.
+    #:
+    #: A sign-in link goes to an address that may have no account, so there is no consent record to
+    #: snapshot — and it must carry no `unsubscribe_ref`, because you cannot unsubscribe from being
+    #: able to log in. Optional here rather than filled with placeholder values, which would read as
+    #: consent decisions nobody made.
+    consent_snapshot: Optional[ConsentSnapshot]
     payload: dict[str, Any] = field(default_factory=dict)
     # Notification TYPE (wave-I matrix). Drives the type-aware one-click unsubscribe link so an
     # unsub hits the right list (e.g. daily_recap vs the weekly digest). Optional for back-compat;
@@ -97,7 +103,14 @@ class DeliveryEnvelope:
             channel=Channel(d["channel"]),
             template=str(d["template"]),
             recipient=Recipient.from_dict(d.get("recipient", {})),
-            consent_snapshot=ConsentSnapshot.from_dict(d.get("consent_snapshot", {})),
+            # Built ONLY when present. The previous form passed `{}` for an absent snapshot, which
+            # reached `d["unsubscribe_ref"]` and raised KeyError — so a transactional envelope would
+            # have failed to parse at all, before any template could be chosen.
+            consent_snapshot=(
+                ConsentSnapshot.from_dict(d["consent_snapshot"])
+                if isinstance(d.get("consent_snapshot"), dict)
+                else None
+            ),
             payload=d.get("payload", {}) or {},
             type=str(d.get("type", "digest")),
             schema_version=str(d.get("schema_version", "1")),

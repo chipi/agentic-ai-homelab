@@ -1,0 +1,58 @@
+{# magic-link.v1 — TRANSACTIONAL sign-in link (#2272).
+   payload = { link, expires_minutes }
+
+   Three ways this message differs from every other template here, each deliberate:
+
+   1. NO UNSUBSCRIBE FOOTER. Every notification template ends with one; this must not. You cannot
+      unsubscribe from being able to log in, and an auth envelope carries no `consent_snapshot` and
+      therefore no `unsubscribe_ref` — so a footer here would render a dead link into a real inbox.
+   2. NO GRAPH CHIPS. The other templates carry corpus content and the moat rule applies to them.
+      This message is about the recipient's own session, not about the corpus.
+   3. ONE ACTION, AND IT IS A SECRET. The link is the credential while it lives. The copy says how
+      long that is, and says plainly what to do if they did not ask for it — because an unexpected
+      sign-in email is the one signal a person gets that someone typed their address.
+
+   Email-client-SAFE, like its siblings: dark background on a wrapper table rather than <body>. #}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#0b0e14;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="background-color:#0b0e14;">
+  <tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="width:600px;max-width:600px;background-color:#0b0e14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <tr><td style="padding:0 8px;">
+        <div style="letter-spacing:.14em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">Close Listening</div>
+
+        <p style="color:#e7ecf3;font-size:22px;font-weight:600;margin:14px 0 6px;">Sign in to Close Listening</p>
+        <p style="color:#c3ccd9;font-size:15px;line-height:1.5;margin:0 0 24px;">
+          Tap the button below and you are in. No password to remember.
+        </p>
+
+        {# The button is a table so Outlook renders it; the bare <a> underneath is the fallback for
+           clients that strip button styling, and for anyone who prefers to see the URL. #}
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+          <tr><td bgcolor="#e7ecf3" style="border-radius:999px;">
+            <a href="{{ payload.link }}" style="display:inline-block;padding:13px 28px;font-size:16px;font-weight:600;color:#0b0e14;text-decoration:none;border-radius:999px;">Sign in</a>
+          </td></tr>
+        </table>
+
+        <p style="color:#8aa0bd;font-size:13px;line-height:1.5;margin:0 0 6px;">
+          This link works once and expires in {{ payload.expires_minutes | default(15) }} minutes.
+        </p>
+        <p style="color:#6b7a90;font-size:12px;line-height:1.5;margin:0 0 24px;word-break:break-all;">
+          If the button does not work, paste this into your browser:<br>
+          <a href="{{ payload.link }}" style="color:#8aa0bd;">{{ payload.link }}</a>
+        </p>
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;margin-top:8px;"><tr><td style="padding-top:20px;color:#6b7a90;font-size:12px;">
+          <p style="margin:0;color:#6b7a90;">
+            You are receiving this because someone asked to sign in with this address.
+            If that was not you, ignore this email — the link expires on its own and nothing happens.
+          </p>
+        </td></tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

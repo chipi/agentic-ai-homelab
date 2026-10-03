@@ -126,3 +126,53 @@ def test_recommendations_fixture_renders_email():
     assert "https://closelistening.app/episode/" in rendered.html
     assert "Semiconductors" in rendered.html  # a graph_ref chip
     assert "September 2026" in rendered.subject  # monthly period label
+
+
+# --- transactional envelopes (app-side #2272) -------------------------------------------------
+
+
+def test_auth_link_envelope_parses_without_a_consent_snapshot() -> None:
+    """A sign-in link has no account behind it, so it carries no consent snapshot.
+
+    This used to raise KeyError before it could reach a template: `ConsentSnapshot.from_dict` read
+    `d["unsubscribe_ref"]` directly while its two siblings used `.get` with defaults, so an absent
+    snapshot was a hard parse failure rather than an absent snapshot.
+    """
+    import json
+    from pathlib import Path
+
+    from delivery.envelope import DeliveryEnvelope
+
+    fixture = Path(__file__).resolve().parents[1] / "schema/podcast/fixtures/magic-link.v1.golden.json"
+    env = DeliveryEnvelope.from_dict(json.loads(fixture.read_text()))
+    assert env.consent_snapshot is None
+    assert env.type == "auth_link"
+    assert env.user_id == ""  # the schema requires exactly this for auth
+
+
+def test_magic_link_email_renders_and_carries_no_unsubscribe() -> None:
+    """The one template that must NOT offer an unsubscribe link.
+
+    Every notification template ends with one. You cannot unsubscribe from being able to log in, and
+    an auth envelope has no `unsubscribe_ref` to build the link from — so a footer here would render
+    a dead URL into a real inbox.
+    """
+    import json
+    from pathlib import Path
+
+    from delivery.envelope import DeliveryEnvelope
+    from delivery.render import Renderer
+
+    root = Path(__file__).resolve().parents[1]
+    env = DeliveryEnvelope.from_dict(
+        json.loads((root / "schema/podcast/fixtures/magic-link.v1.golden.json").read_text())
+    )
+    rendered = Renderer(
+        root / "delivery/templates/podcast", app_origin="https://closelistening.app"
+    ).render_email(env)
+
+    assert rendered.subject
+    assert env.payload["link"] in rendered.html, "the sign-in link must reach the body"
+    assert "unsubscribe" not in rendered.html.lower()
+    # The one line that tells a person who did NOT request it that ignoring it is safe.
+    assert "was not you" in rendered.html

@@ -112,13 +112,18 @@ class Renderer:
         from a ``daily_recap`` email must not silence the weekly ``digest``. Defaults to ``digest``
         (the app's own default), so existing digest emails are unchanged.
         """
+        if env.consent_snapshot is None:
+            # Transactional envelope: there is nothing to unsubscribe FROM. Returning an empty
+            # string rather than a half-built link, so a template that wrongly references it renders
+            # visibly broken instead of shipping a dead unsubscribe URL to a real inbox.
+            return ""
         ref = env.consent_snapshot.unsubscribe_ref
         return f"{self._app_origin}{self._unsubscribe_path}?ref={ref}&type={env.type}"
 
     def _context(self, env: DeliveryEnvelope) -> dict[str, Any]:
         return {
             "payload": env.payload,
-            "cadence": env.consent_snapshot.cadence,
+            "cadence": getattr(env.consent_snapshot, "cadence", "weekly"),
             "period_label": _period_label(env),
             "unsubscribe_url": self.unsubscribe_url(env),
             "app_origin": self._app_origin,
