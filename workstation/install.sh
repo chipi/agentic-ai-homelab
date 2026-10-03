@@ -97,12 +97,53 @@ install_macos() {
   link workbench/com.chipi.workbench.plist "$HOME/Library/LaunchAgents/com.chipi.workbench.plist"
 }
 
+# Persistent per-user ssh-agent (README.md → SSH agent): the distro's systemd
+# user socket, plus a stable SSH_AUTH_SOCK for interactive bash. Never starts
+# an agent by hand and never touches keys; `ssh-add` stays a manual step.
+SSH_SOCK_LINE='export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"'
+
+ssh_agent_socket() {
+  if ! command -v systemctl >/dev/null 2>&1 \
+     || ! systemctl --user cat ssh-agent.socket >/dev/null 2>&1; then
+    echo "WARN  ssh-agent: no systemd user ssh-agent.socket available; skipped"
+    return 1
+  fi
+  if [ "$(systemctl --user is-enabled ssh-agent.socket 2>/dev/null)" = enabled ] \
+     && systemctl --user is-active --quiet ssh-agent.socket; then
+    echo "OK    ssh-agent.socket enabled and active"; return 0
+  fi
+  echo "UNIT  systemctl --user enable --now ssh-agent.socket"
+  if [ "$DRY" = 0 ] && ! systemctl --user enable --now ssh-agent.socket; then
+    echo "ERROR could not enable ssh-agent.socket; fix and re-run (earlier steps are already applied)" >&2
+    exit 1
+  fi
+  return 0
+}
+
+ssh_agent_shell() {
+  local rc="$HOME/.bashrc"
+  if [ ! -f "$rc" ]; then echo "WARN  ssh-agent: no $rc; SSH_AUTH_SOCK not configured"; return 0; fi
+  if grep -Eq '^[[:space:]]*export SSH_AUTH_SOCK="\$XDG_RUNTIME_DIR/ssh-agent\.socket"[[:space:]]*$' "$rc"; then
+    echo "OK    SSH_AUTH_SOCK already set in $rc"; return 0
+  fi
+  if grep -Eq '^[^#]*SSH_AUTH_SOCK=' "$rc"; then
+    echo "WARN  ssh-agent: $rc sets SSH_AUTH_SOCK differently; left unchanged"; return 0
+  fi
+  echo "BACK  $rc -> $rc.bak.$TS"
+  echo "SHELL append SSH_AUTH_SOCK block to $rc"
+  if [ "$DRY" = 0 ]; then
+    cp -p "$rc" "$rc.bak.$TS"
+    printf '\n# >>> workstation ssh-agent >>>\n# systemd user ssh-agent.socket; unlock once per boot: ssh-add ~/.ssh/id_ed25519\n%s\n# <<< workstation ssh-agent <<<\n' \
+      "$SSH_SOCK_LINE" >> "$rc"
+  fi
+  return 0
+}
+
 install_linux() {
-  # Nothing OS-specific yet. The Mac workbench (one session, a window per
-  # project) is deliberately not installed: Linux uses one tmux session per
-  # project, and a ~/.tmux.conf link would shadow the distro's
-  # ~/.config/tmux/tmux.conf (tmux reads ~/.tmux.conf first).
-  :
+  # The Mac workbench (one session, a window per project) is deliberately not
+  # installed: Linux uses one tmux session per project, and a ~/.tmux.conf link
+  # would shadow the distro's ~/.config/tmux/tmux.conf (tmux reads ~/.tmux.conf first).
+  if ssh_agent_socket; then ssh_agent_shell; fi
 }
 
 preflight

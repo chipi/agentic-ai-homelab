@@ -33,8 +33,9 @@ each. Only the OS-specific block differs:
 
 - **macOS** — also installs the [workbench](workbench/README.md): one
   persistent tmux session with a window per project, started by a LaunchAgent.
-- **Linux** — nothing extra. One tmux session per project; no `~/.tmux.conf`,
-  which would shadow Omarchy's `~/.config/tmux/tmux.conf`.
+- **Linux** — enables the persistent [SSH agent](#ssh-agent-linux). No
+  workbench: one tmux session per project; no `~/.tmux.conf`, which would
+  shadow Omarchy's `~/.config/tmux/tmux.conf`.
 
 ## Home ↔ repo map
 
@@ -51,6 +52,8 @@ each. Only the OS-specific block differs:
 | `~/bin/wb`, `~/bin/wb-session.sh` | `workbench/wb`, `workbench/wb-session.sh` | macOS | symlink |
 | `~/.tmux.conf` | `workbench/tmux.conf` | macOS | symlink |
 | `~/Library/LaunchAgents/com.chipi.workbench.plist` | `workbench/com.chipi.workbench.plist` | macOS | symlink + one-off `launchctl bootstrap` |
+| systemd user `ssh-agent.socket` | — (distro unit) | Linux | `systemctl --user enable --now` if not already |
+| `~/.bashrc` | — | Linux | appends an `SSH_AUTH_SOCK` block once, unless already set |
 | `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | both | **template** — copy + fill |
 | `~/.claude/settings.json` | `claude/settings.json.example` | both | **template** — copy + fill |
 
@@ -67,6 +70,36 @@ symlink it to `~/.config/AGENTS.md`, or lean-ctx's rule sync writes into this
 repo. OpenCode 2.0.22 accepts `instructions[]` in `opencode.json` but doesn't
 load those files (checked 2026-10-02); revisit `instructions[]` when our OpenCode
 version supports it.
+
+## SSH agent (Linux)
+
+One agent per user, run by systemd, at a stable socket. Keys are never unlocked
+automatically.
+
+- **Agent.** `install.sh` enables the distro's `ssh-agent.socket` user unit
+  (`systemctl --user enable --now ssh-agent.socket`). systemd listens on
+  `$XDG_RUNTIME_DIR/ssh-agent.socket` and starts `ssh-agent.service` on first
+  use. The installer never starts an agent itself (`ssh-agent -s`).
+- **Shells.** `install.sh` appends one marked block to `~/.bashrc`, after
+  Omarchy's interactive-only guard: `export
+  SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"`. Login shells, including
+  SSH sessions, get it through `~/.bash_profile`, which sources `~/.bashrc`. If
+  that exact line is already there (marked or not), nothing changes. If
+  `~/.bashrc` sets `SSH_AUTH_SOCK` to something else, the installer warns and
+  leaves it alone.
+- **Unlocking.** After each boot the agent is empty, by design. Unlock once:
+  `ssh-add ~/.ssh/id_ed25519` (it asks for the passphrase). Every process that
+  uses the socket can then use the key until logout or reboot. The installer
+  never runs `ssh-add`, stores a passphrase, or touches key files, and doesn't
+  enable agent forwarding.
+- **tmux.** tmux's default `update-environment` includes `SSH_AUTH_SOCK` and
+  Omarchy's `tmux.conf` keeps it, so new windows get the configured socket.
+  Shells that were already open before `SSH_AUTH_SOCK` was configured keep
+  their old environment: open a new window, or run
+  `export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"` in them.
+- **Check:** `ssh-add -l` lists the unlocked key (or "The agent has no
+  identities." before `ssh-add`); `ssh -T git@github.com` authenticates.
+- **macOS:** unchanged; the system's launchd agent provides `SSH_AUTH_SOCK`.
 
 ## Secrets policy — this repo is public
 

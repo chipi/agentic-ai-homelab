@@ -81,9 +81,14 @@ are backed up as `*.bak.<timestamp>`. `--dry-run` changes nothing on disk.
 - **macOS only:** also links the [workbench](workbench/README.md) (`~/bin/wb`,
   `~/bin/wb-session.sh`, `~/.tmux.conf`, the `com.chipi.workbench` LaunchAgent),
   which needs a one-off `launchctl bootstrap` afterwards (see that README).
-- **Linux:** no workbench and no `~/.tmux.conf`: one tmux session per project,
-  and Omarchy's `~/.config/tmux/tmux.conf` stays in charge. To preview the Mac
-  plan from Linux (or the reverse): `WS_OS=macos ./workstation/install.sh --dry-run`.
+- **Linux:** enables the persistent SSH agent (`ssh-agent.socket` plus an
+  `SSH_AUTH_SOCK` line in `~/.bashrc`; see
+  [README → SSH agent](README.md#ssh-agent-linux)). No workbench and no
+  `~/.tmux.conf`: one tmux session per project, and Omarchy's
+  `~/.config/tmux/tmux.conf` stays in charge. To preview the Mac plan from
+  Linux (or the reverse): `WS_OS=macos ./workstation/install.sh --dry-run`.
+  Open a new shell afterwards, then unlock the key once per boot:
+  `ssh-add ~/.ssh/id_ed25519`.
 
 ## 4. Fill the secret-bearing templates
 
@@ -135,6 +140,8 @@ claude --version                              # macOS: the standardized Homebrew
 ls -l ~/.config/AGENTS.md                     # → symlink into workstation/config/
 ls -l ~/.claude/CLAUDE.md                     # → symlink into workstation/claude/
 command -v lean-ctx lsof                      # Linux: both must resolve (hooks need them)
+systemctl --user is-enabled ssh-agent.socket  # Linux: enabled
+ssh-add -l && ssh -T git@github.com           # Linux, after ssh-add: key listed, GitHub greets you
 ```
 
 - Open Claude Code: the ponytail statusline renders, and `/docs-preflight` shows
