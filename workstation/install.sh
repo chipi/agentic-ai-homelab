@@ -46,6 +46,47 @@ link() {  # link <workstation-relative-src> <absolute-home-target>
   return 0
 }
 
+# Add the template's ~/.claude/hooks/* entries to an existing settings.json
+# (e.g. one written by `lean-ctx setup`). A hook whose command is already
+# present is left alone; nothing else in the file changes.
+HOOK_MERGE='reduce ($t[0].hooks | to_entries[] | .key as $e | .value[] | .matcher as $m
+                   | .hooks[] | select(.command | contains("/.claude/hooks/"))
+                   | {e: $e, m: $m, h: .}) as $x (.;
+  if any(.hooks[$x.e][]?.hooks[]?; .command == $x.h.command) then .
+  else .hooks[$x.e] += [{matcher: $x.m, hooks: [$x.h]}] end)'
+
+SETTINGS="$HOME/.claude/settings.json"
+SETTINGS_MERGED=""
+
+die() { echo "ERROR $*" >&2; echo "nothing was changed." >&2; exit 1; }
+
+# Everything that can fail runs here, before the first mutation (and under
+# --dry-run too), so a failing run leaves the machine untouched.
+preflight() {
+  command -v jq >/dev/null 2>&1 \
+    || die "jq is required (wires the Claude hooks into $SETTINGS); install it and re-run"
+  [ -f "$SETTINGS" ] || return 0   # fresh machine: the template copy brings the hooks
+  jq -e 'type == "object"' "$SETTINGS" >/dev/null 2>&1 \
+    || die "$SETTINGS is not valid settings JSON (expected an object); fix it and re-run"
+  SETTINGS_MERGED="$(jq --slurpfile t "$WS/claude/settings.json.example" "$HOOK_MERGE" "$SETTINGS" 2>/dev/null)" \
+    || die "$SETTINGS is not valid settings JSON; fix it and re-run"
+}
+
+wire_hooks() {
+  local s="$SETTINGS"
+  if [ ! -f "$s" ]; then echo "WARN  hooks: no $s yet (copy the template below)"; return 0; fi
+  if [ "$(jq -cS . "$s")" = "$(printf '%s\n' "$SETTINGS_MERGED" | jq -cS .)" ]; then
+    echo "OK    hooks already wired: $s"; return 0
+  fi
+  echo "BACK  $s -> $s.bak.$TS"
+  echo "HOOK  wire workstation hooks into $s"
+  if [ "$DRY" = 0 ]; then
+    cp -p "$s" "$s.bak.$TS"
+    printf '%s\n' "$SETTINGS_MERGED" > "$s"    # in-place write keeps the file's mode and owner
+  fi
+  return 0
+}
+
 install_macos() {
   # workbench — persistent tmux session for phone/SSH access (workbench/README.md).
   # The LaunchAgent still needs a one-off bootstrap after linking:
@@ -63,6 +104,8 @@ install_linux() {
   # ~/.config/tmux/tmux.conf (tmux reads ~/.tmux.conf first).
   :
 }
+
+preflight
 
 echo "workstation: $WS"
 echo "platform:    $OS"
@@ -100,6 +143,7 @@ for _wf in "$WS"/claude/workflows/*; do
   _n="$(basename "$_wf")"
   link "claude/workflows/$_n" "$HOME/.claude/workflows/$_n"
 done
+wire_hooks
 
 echo
 echo "== secret-bearing templates — copy + fill by hand (NOT symlinked) =="

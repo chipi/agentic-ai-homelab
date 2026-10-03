@@ -58,8 +58,15 @@ Both templates call `lean-ctx` by bare name, resolved through the agent's
 `PATH` (`/opt/homebrew/bin` on macOS, `~/.local/bin` on Linux), so the same
 template works on either platform.
 
-`~/.config/opencode/AGENTS.md` is already a symlink to `~/.config/AGENTS.md`, so it
-follows the canonical rules through the chain automatically — nothing to install.
+**OpenCode (current limitation, OpenCode 2.0.22).** OpenCode loads its own
+global `~/.config/opencode/AGENTS.md` plus project `AGENTS.md` files, but does
+not currently load the workstation `~/.config/AGENTS.md`. `~/.config/opencode/AGENTS.md`
+is a regular file owned by lean-ctx (shared `rules_injection` mode, its default),
+which is the setup that currently delivers lean-ctx's rules to OpenCode; don't
+symlink it to `~/.config/AGENTS.md`, or lean-ctx's rule sync writes into this
+repo. OpenCode 2.0.22 accepts `instructions[]` in `opencode.json` but doesn't
+load those files (checked 2026-10-02); revisit `instructions[]` when our OpenCode
+version supports it.
 
 ## Secrets policy — this repo is public
 
@@ -75,6 +82,13 @@ only points at the local DGX vLLM (whose `apiKey` is a throwaway).
 
 ## Known reconciliations / open items
 
+- **TODO — symlinked agent rule files let lean-ctx edit this repo (Mac).** On
+  the Mac, `~/.config/opencode/AGENTS.md` is a symlink to `~/.config/AGENTS.md`
+  (→ `config/AGENTS.md`), and `~/.claude/CLAUDE.md` links to `claude/CLAUDE.md`.
+  In shared mode lean-ctx keeps marked rule blocks in both files, so its updates
+  modify tracked source (e.g. `6f8cd66`). Needs a separate migration once agents
+  reliably load dedicated instruction files (lean-ctx `rules_injection =
+  "dedicated"`).
 - **`permissions.defaultMode` must be `auto`.** Setting it to `delegate`
   prevents Claude Code from starting on the current CLI build (tried
   2026-07-01, reverted). The template ships `auto` — do not "fix" it.
@@ -94,6 +108,7 @@ only points at the local DGX vLLM (whose `apiKey` is a throwaway).
 
 Installed and on `PATH`: `claude` (Homebrew on macOS, mise on Linux),
 `opencode`, `lean-ctx` (`/opt/homebrew/bin` on macOS, `~/.local/bin` on Linux),
-`lsof` (Linux: `pacman -S lsof`; the session hooks need it), `rtk` (optional — manual-only per D-0010), `gh`, `node`, the `ponytail` and `oh-my-openagent`
+`lsof` (Linux: `pacman -S lsof`; the session hooks need it), `jq`
+(`install.sh` uses it to wire the Claude hooks into `settings.json`), `rtk` (optional — manual-only per D-0010), `gh`, `node`, the `ponytail` and `oh-my-openagent`
 plugins. Versions and install commands are in
 [`setup-new-computer.md`](setup-new-computer.md).

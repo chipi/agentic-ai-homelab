@@ -17,17 +17,17 @@ subagents, hooks, workflows) is identical on both.
 ```bash
 xcode-select --install                       # Command Line Tools
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install git gh node
+brew install git gh node jq
 ```
 
 ### Linux (Omarchy / Arch)
 
-Omarchy ships `git`, `tmux` and `mise`. Add `lsof`: the `session-reap` and
+Omarchy ships `git`, `tmux`, `jq` and `mise`. Add `lsof`: the `session-reap` and
 `session-orphan-report` hooks use it to read a process's working directory, and
 without it they silently do nothing.
 
 ```bash
-sudo pacman -S --needed git lsof
+sudo pacman -S --needed git jq lsof
 mise use -g node gh                          # global toolchain in ~/.config/mise/config.toml
 ```
 
@@ -95,6 +95,15 @@ cp workstation/config/opencode/opencode.json.example ~/.config/opencode/opencode
 cp workstation/claude/settings.json.example ~/.claude/settings.json
 #   → set the ponytail <VERSION> path; permissions.allow starts empty and re-accrues
 ```
+
+If `~/.claude/settings.json` already exists (e.g. `lean-ctx setup` in step 2
+wrote it), don't overwrite it: `install.sh` (step 3) already merged the
+workstation hooks (`secrets-guard`, `session-orphan-report`, `session-reap`)
+into it — see
+[`claude/hooks/README.md` → Wiring into settings.json](claude/hooks/README.md#wiring-into-settingsjson).
+If you copy the template instead, they come with it. Either way, check they are wired:
+`jq -r '.. | .command? // empty' ~/.claude/settings.json | grep .claude/hooks/`
+should list all three.
 
 Secrets that live in the **environment**, not in any tracked file — add to your
 shell profile:

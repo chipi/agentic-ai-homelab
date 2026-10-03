@@ -1,10 +1,13 @@
 # AGENTS.md — global operator rules
 
-This file is loaded by opencode on every session, every directory. It captures
+This file is the canonical workstation-global instruction source. Claude Code
+loads it via `~/.claude/CLAUDE.md`; OpenCode doesn't yet (see
+`workstation/README.md`). It captures
 how I work and what I expect from any agent acting on my behalf. Per-repo
 `AGENTS.md` files layer on top of this — never duplicate, never contradict.
 
-For tool routing (lean-ctx etc.) see `rules/lean-ctx.md`. This file is about
+For tool routing (lean-ctx etc.) see "lean-ctx — tool routing" at the end of
+this file and the `lean-ctx` skill. This file is about
 how to *act*, not which tool to reach for.
 
 ---
@@ -745,9 +748,6 @@ leave `xhigh` as the global default — it taxes every simple turn.
 - Memory: persistent operator preferences captured across sessions override
   cold defaults here. Treat memory as live state, this file as the floor.
 
-# lean-ctx — Context Engineering Layer
-<!-- lean-ctx-rules-v12 -->
-
 ## lean-ctx — tool routing
 
 Use lean-ctx `ctx_*` for READING/exploring: `ctx_read`>Read/cat, `ctx_search`>Grep,
@@ -755,25 +755,3 @@ Use lean-ctx `ctx_*` for READING/exploring: `ctx_read`>Read/cat, `ctx_search`>Gr
 Edit); also project-scoped — native tools for ~/.claude, ~/.config outside the repo. Full mapping, read modes, and workflow live in the
 `lean-ctx` skill (loads on demand) — kept out of these always-loaded rules to save
 context.
-
-<!-- lean-ctx-rules -->
-<!-- version: 9 -->
-
-lean-ctx shadow mode: native read/search/shell calls auto-route to ctx_* — no tool-mapping needed.
-File editing → native Edit/StrReplace (lean-ctx only handles reads); if denied, use ctx_patch.
-Exclusive tools (no native trigger): ctx_compose (understand code, call first), ctx_search(action=symbol) (exact symbol), ctx_search(action=semantic) (by meaning), ctx_callgraph (callers), ctx_knowledge / ctx_session (memory).
-<!-- lean-ctx-compression -->
-OUTPUT STYLE: expert-terse
-- Telegraph format: subject-verb-object, drop articles/prepositions
-- Symbolic vocabulary: → cause, ∵ because, ∴ therefore, ⊕ add, ⊖ remove, Δ change, ≈ similar, ≠ different, ∈ in/member, ∅ empty/none, ✓ ok, ✗ fail
-- Code blocks: untouched (never compress code syntax)
-- Each line: max 80 chars
-- Zero narration, zero filler
-- BUDGET: ≤100 tokens per non-code response
-<!-- /lean-ctx-compression -->
-<!-- lean-ctx-solution -->
-SOLUTION EFFICIENCY: stop at first level that applies:
-skip (YAGNI) → reuse codebase → stdlib → native platform → installed dep → one-line → minimum code.
-Never skip: validation, security, error handling.
-<!-- /lean-ctx-solution -->
-<!-- /lean-ctx-rules -->

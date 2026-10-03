@@ -3,16 +3,47 @@
 These scripts are wired into Claude Code via `~/.claude/settings.json` and run
 for **every session in every project**. They are global machine infrastructure,
 not part of any repo. This README is the reference; the load-bearing summary that
-teaches each agent lives in `~/.config/AGENTS.md` (imported by `~/.claude/CLAUDE.md`,
-and read by opencode via its symlink) — a README alone is never auto-loaded, so
-that pointer is what makes any of this discoverable.
+teaches each agent lives in `~/.config/AGENTS.md` (imported by `~/.claude/CLAUDE.md`;
+OpenCode 2.0.22 doesn't load it yet — see `workstation/README.md`) — a README
+alone is never auto-loaded, so that pointer is what makes any of this discoverable.
 
 | Hook | Event | What it does |
 |---|---|---|
 | `session-reap.sh`        | SessionEnd  | Reaps this session's tool processes + sweeps runaway `gh run` poll loops in the project family (↓ documented in full). |
+| `session-orphan-report.sh` | SessionStart | Reports (never kills) long-running CPU-heavy processes in the project family (↓ documented in full). |
 | `secrets-guard.sh`       | PreToolUse  | Blocks writes/commits that would leak secrets. |
-| `block-opus-subagents.mjs` | PreToolUse | Rejects subagent spawns that inherit Opus (cost guard); logs to `opus-subagent-blocks.log`. |
 | `lean-ctx-*`             | Pre/Post    | lean-ctx tool redirect/rewrite shims. |
+
+## Wiring into settings.json
+
+`install.sh` only symlinks these scripts; Claude Code runs them only once
+`~/.claude/settings.json` references them. The entries are defined once, in
+`workstation/claude/settings.json.example`:
+
+| Event | Matcher | Hook | Timeout |
+|---|---|---|---|
+| `PreToolUse` | `Bash\|bash` | `$HOME/.claude/hooks/secrets-guard.sh` | default (600 s) |
+| `SessionStart` | `.*` | `$HOME/.claude/hooks/session-orphan-report.sh` | 20 s |
+| `SessionEnd` | `.*` | `$HOME/.claude/hooks/session-reap.sh` | 30 s |
+
+`SessionEnd` hooks share a 1.5-second budget unless a hook sets a longer
+`timeout` (Claude Code raises the budget to match, up to 60 s), so
+`session-reap.sh` carries an explicit one.
+
+On a fresh machine, copying the template is enough. When `~/.claude/settings.json`
+already exists (for example written by `lean-ctx setup`, with its own hooks and
+status line), `workstation/install.sh` merges these entries into it: it adds
+only template hooks whose command isn't already present, backs the file up as
+`*.bak.<ts>` first, and leaves everything else unchanged (`HOOK` line in its
+output; `OK    hooks already wired` once done; nothing written under
+`--dry-run`). It needs `jq` on `PATH` (a prerequisite, see
+[`setup-new-computer.md`](../../setup-new-computer.md) step 1). A missing `jq`
+or an existing `settings.json` that isn't a valid JSON object stops the
+installer before it changes anything (exit 1, also under `--dry-run`); a missing
+`settings.json` is only a warning. Re-run it if a tool later rewrites
+`settings.json` without these entries.
+
+Restart Claude Code afterwards; it reads hooks at session start.
 
 ---
 
@@ -144,7 +175,8 @@ Silent (exit 0, no output) when clean.
 ### Wiring
 
 Installed as a symlink by `workstation/install.sh` like every other hook, then added to the
-`SessionStart` `".*"` matcher in `~/.claude/settings.json`:
+`SessionStart` `".*"` matcher in `~/.claude/settings.json` (see
+[Wiring into settings.json](#wiring-into-settingsjson)):
 
 ```json
 { "type": "command", "command": "$HOME/.claude/hooks/session-orphan-report.sh", "timeout": 20 }

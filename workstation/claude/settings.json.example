@@ -64,6 +64,11 @@
           {
             "type": "command",
             "command": "lean-ctx hook observe"
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/session-orphan-report.sh",
+            "timeout": 20
           }
         ]
       },
@@ -88,7 +93,8 @@
           },
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/session-reap.sh"
+            "command": "$HOME/.claude/hooks/session-reap.sh",
+            "timeout": 30
           }
         ]
       }
