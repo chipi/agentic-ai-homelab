@@ -33,9 +33,10 @@ each. Only the OS-specific block differs:
 
 - **macOS** — also installs the [workbench](workbench/README.md): one
   persistent tmux session with a window per project, started by a LaunchAgent.
-- **Linux** — enables the persistent [SSH agent](#ssh-agent-linux). No
-  workbench: one tmux session per project; no `~/.tmux.conf`, which would
-  shadow Omarchy's `~/.config/tmux/tmux.conf`.
+- **Linux** — enables the persistent [SSH agent](#ssh-agent-linux) and sets up
+  [Worktrunk streams](#worktrunk-streams-linux). No workbench: one tmux session
+  per project; no `~/.tmux.conf`, which would shadow Omarchy's
+  `~/.config/tmux/tmux.conf`.
 
 ## Home ↔ repo map
 
@@ -53,7 +54,9 @@ each. Only the OS-specific block differs:
 | `~/.tmux.conf` | `workbench/tmux.conf` | macOS | symlink |
 | `~/Library/LaunchAgents/com.chipi.workbench.plist` | `workbench/com.chipi.workbench.plist` | macOS | symlink + one-off `launchctl bootstrap` |
 | systemd user `ssh-agent.socket` | — (distro unit) | Linux | `systemctl --user enable --now` if not already |
-| `~/.bashrc` | — | Linux | appends an `SSH_AUTH_SOCK` block once, unless already set |
+| `~/.bashrc` | — | Linux | appends an `SSH_AUTH_SOCK` block and a Worktrunk shell-integration block, each once, unless already set |
+| `~/.config/worktrunk/config.toml` | `config/worktrunk/config.toml` | Linux | symlink |
+| `~/.local/bin/wb-stream` | `streams/wb-stream` | Linux | symlink |
 | `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | both | **template** — copy + fill |
 | `~/.claude/settings.json` | `claude/settings.json.example` | both | **template** — copy + fill |
 
@@ -100,6 +103,29 @@ automatically.
 - **Check:** `ssh-add -l` lists the unlocked key (or "The agent has no
   identities." before `ssh-add`); `ssh -T git@github.com` authenticates.
 - **macOS:** unchanged; the system's launchd agent provides `SSH_AUTH_SOCK`.
+
+## Worktrunk streams (Linux)
+
+Parallel implementation streams use [Worktrunk](https://worktrunk.dev) (`wt`).
+Full layout, lifecycle, assumptions and command reference:
+[`streams/README.md`](streams/README.md).
+
+- **Layout (Model-B):** `/work/<project>/main` is the permanent primary
+  checkout, on any branch; streams live in `/work/<project>/worktrees/<stream>`.
+  Other repos keep Worktrunk's default layout.
+- **tmux:** one session per project. `wb-stream <name>`, run from the primary
+  checkout, creates the stream and opens a window for it in that session.
+  Agents use plain `wt` and don't touch tmux.
+- **⚠️ Model-B safety rule: explicit base on create, explicit target on
+  merge.** Worktrunk defaults both to the repository's default branch:
+  - create with `wt switch --create <stream> --base @` (from the primary
+    checkout) or `--base <primary-branch>`;
+  - integrate with `wt merge <primary-branch>`, never bare `wt merge`.
+- **Provisioning:** `sudo pacman -S --needed worktrunk` by hand. `install.sh`
+  links the config and `wb-stream`, and adds Worktrunk's bash integration to
+  `~/.bashrc` once.
+- **Tests:** `bash workstation/install.test.sh` and
+  `bash workstation/streams/wb-stream.test.sh` (scratch dirs only).
 
 ## Secrets policy — this repo is public
 

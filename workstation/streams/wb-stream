@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# wb-stream <name> — open a parallel implementation stream for this project.
+#
+# Run from the project's primary checkout, /work/<project>/main (on any branch).
+# Worktrunk creates branch <name> from the current primary branch, with its
+# worktree at /work/<project>/worktrees/<name>; then a tmux window <name>
+# opens in the project's existing tmux session, rooted in that worktree.
+# Everything that could make the request ambiguous is checked before anything
+# is created. Contract and lifecycle: workstation/streams/README.md.
+set -euo pipefail
+
+# /work is the intentional Model-B root, matching the template in
+# config/worktrunk/config.toml. WB_WORK_ROOT exists only for the tests.
+WORK_ROOT="${WB_WORK_ROOT:-/work}"
+
+die() { echo "wb-stream: $*" >&2; exit 1; }
+
+# After Worktrunk has been invoked, a failure may leave a branch and/or worktree
+# behind. Never roll back automatically (hooks may already have run and the
+# stream is valid work): report what actually exists and how to recover.
+fail_after() {
+  local wt_path="" cur="" line q_top q_name
+  echo "wb-stream: $*" >&2
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*) cur=${line#worktree } ;;
+      "branch refs/heads/$name") wt_path=$cur ;;
+    esac
+  done < <(git -C "$top" worktree list --porcelain)
+  printf -v q_top '%q' "$top"; printf -v q_name '%q' "$name"
+  if [ -n "$wt_path" ]; then
+    echo "  state: branch $name exists, with a worktree at $wt_path" >&2
+    [ "$wt_path" = "$dest" ] || echo "  note:  that is not the Model-B location $dest" >&2
+    echo "  open it in the project session:" >&2
+    printf '    tmux new-window -t %q -n %q -c %q\n' "=$project:" "$stream" "$wt_path" >&2
+    echo "  or discard it through Worktrunk (keeps the branch if it has unmerged work):" >&2
+    printf '    wt -C %s remove %s\n' "$q_top" "$q_name" >&2
+  elif git -C "$top" show-ref --verify --quiet "refs/heads/$name"; then
+    echo "  state: branch $name exists, but no worktree" >&2
+    echo "  create its worktree:  wt -C $q_top switch $q_name --no-cd" >&2
+    echo "  or delete the branch: git -C $q_top branch -d $q_name   (refuses if it has unmerged work)" >&2
+  else
+    echo "  state: nothing was created (no branch $name, no worktree)" >&2
+  fi
+  exit 1
+}
+
+if [ $# -ne 1 ] || [ -z "$1" ] || [ "${1#-}" != "$1" ]; then
+  echo "usage: wb-stream <name>   (run from /work/<project>/main)" >&2
+  exit 2
+fi
+name=$1
+
+for c in git wt tmux jq realpath; do
+  command -v "$c" >/dev/null 2>&1 || die "$c is required"
+done
+
+# --- where are we: the primary Model-B checkout, nothing else -----------------
+top=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a Git repository"
+common=$(git rev-parse --path-format=absolute --git-common-dir)
+[ "$common" = "$top/.git" ] \
+  || die "run from the project's primary checkout, not a linked worktree ($top)"
+root=$(realpath "$WORK_ROOT") || die "work root $WORK_ROOT does not exist"
+top=$(realpath "$top")
+project=${top#"$root"/}
+project=${project%/main}
+case "$top" in
+  "$root"/*/main) [ -n "$project" ] && [ "${project#*/}" = "$project" ] ;;
+  *) false ;;
+esac || die "not a Model-B primary checkout ($top is not $root/<project>/main)"
+
+branch=$(git -C "$top" symbolic-ref --quiet --short HEAD) \
+  || die "primary checkout has a detached HEAD; check out the branch to base the stream on"
+
+# --- the requested stream must be new and unambiguous -------------------------
+git check-ref-format --branch "$name" >/dev/null 2>&1 || die "invalid branch name: $name"
+[ "$name" != "$branch" ] || die "$name is the primary checkout's current branch"
+! git -C "$top" show-ref --verify --quiet "refs/heads/$name" || die "branch $name already exists"
+stream=${name//\//-}   # Worktrunk's `sanitize` (/ → -; git already forbids \)
+dest="$root/$project/worktrees/$stream"
+[ -d "$root/$project/worktrees" ] || die "missing $root/$project/worktrees (Model-B layout)"
+[ ! -e "$dest" ] || die "$dest already exists"
+worktrees=$(git -C "$top" worktree list --porcelain)
+! grep -qxF "worktree $dest" <<<"$worktrees" || die "a worktree is already registered at $dest"
+
+# --- the project's tmux session must exist; the window name must be free ------
+tmux has-session -t "=$project" 2>/dev/null \
+  || die "no tmux session '$project'; start the project session first (one session per project)"
+windows=$(tmux list-windows -t "=$project" -F '#{window_name}')
+! grep -qxF "$stream" <<<"$windows" || die "tmux session '$project' already has a window named '$stream'"
+
+# --- create: Worktrunk owns the worktree lifecycle ----------------------------
+# --base @ = the primary checkout's current branch ($branch). --no-cd keeps the
+# invoking (primary) shell where it is; the stream gets its own window instead.
+out=$(command wt -C "$top" switch --create "$name" --base @ --no-cd --format json) \
+  || fail_after "wt switch failed; no tmux window opened"
+# The expected-path check guards against Worktrunk or config drift: fail closed.
+path=$(printf '%s\n' "$out" | jq -r 'select(type == "object") | .path // empty' | tail -1)
+[ -n "$path" ] && [ "$(realpath "$path")" = "$dest" ] \
+  || fail_after "Worktrunk reported the worktree at '${path:-?}', expected $dest (check ~/.config/worktrunk/config.toml); no tmux window opened"
+
+# --- orchestrate: one window in the existing project session ------------------
+detach=(-d)
+if [ -n "${TMUX:-}" ] && [ "$(tmux display-message -p '#{session_name}')" = "$project" ]; then
+  detach=()                          # we are in the project session: focus the new window
+fi
+tmux new-window "${detach[@]}" -t "=$project:" -n "$stream" -c "$dest" \
+  || fail_after "the stream was created, but opening its tmux window failed"
+
+echo "stream $name: branch from $branch, worktree $dest, tmux window $project:$stream"
+[ ${#detach[@]} -eq 0 ] || echo "  (window opened in the background; cd $dest)"
+echo "  integrate with an explicit target, e.g.: wt merge $branch   (bare 'wt merge' targets the default branch)"

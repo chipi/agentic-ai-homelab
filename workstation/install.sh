@@ -120,23 +120,54 @@ ssh_agent_socket() {
   return 0
 }
 
-ssh_agent_shell() {
-  local rc="$HOME/.bashrc"
-  if [ ! -f "$rc" ]; then echo "WARN  ssh-agent: no $rc; SSH_AUTH_SOCK not configured"; return 0; fi
-  if grep -Eq '^[[:space:]]*export SSH_AUTH_SOCK="\$XDG_RUNTIME_DIR/ssh-agent\.socket"[[:space:]]*$' "$rc"; then
-    echo "OK    SSH_AUTH_SOCK already set in $rc"; return 0
+# bashrc_block <tag> <what> <line> <conflict-ERE> <comment>
+# Ensure <line> is in ~/.bashrc exactly once. Already there (marked or not,
+# surrounding whitespace ignored): nothing changes. Another uncommented line
+# matching <conflict-ERE>: warn and leave the file alone. Otherwise append a
+# marked block, backing the file up once per run (BASHRC_BACKED_UP).
+BASHRC_BACKED_UP=0
+bashrc_block() {
+  local tag=$1 what=$2 line=$3 conflict=$4 comment=$5 rc="$HOME/.bashrc" trimmed
+  if [ ! -f "$rc" ]; then echo "WARN  $tag: no $rc; $what not configured"; return 0; fi
+  trimmed=$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//' "$rc")
+  if grep -qxF -- "$line" <<<"$trimmed"; then
+    echo "OK    $what already set in $rc"; return 0
   fi
-  if grep -Eq '^[^#]*SSH_AUTH_SOCK=' "$rc"; then
-    echo "WARN  ssh-agent: $rc sets SSH_AUTH_SOCK differently; left unchanged"; return 0
+  if grep -Eq -- "$conflict" "$rc"; then
+    echo "WARN  $tag: $rc sets $what differently; left unchanged"; return 0
   fi
-  echo "BACK  $rc -> $rc.bak.$TS"
-  echo "SHELL append SSH_AUTH_SOCK block to $rc"
+  if [ "$BASHRC_BACKED_UP" = 0 ]; then
+    echo "BACK  $rc -> $rc.bak.$TS"
+    if [ "$DRY" = 0 ]; then cp -p "$rc" "$rc.bak.$TS"; fi
+    BASHRC_BACKED_UP=1
+  fi
+  echo "SHELL append $what block to $rc"
   if [ "$DRY" = 0 ]; then
-    cp -p "$rc" "$rc.bak.$TS"
-    printf '\n# >>> workstation ssh-agent >>>\n# systemd user ssh-agent.socket; unlock once per boot: ssh-add ~/.ssh/id_ed25519\n%s\n# <<< workstation ssh-agent <<<\n' \
-      "$SSH_SOCK_LINE" >> "$rc"
+    printf '\n# >>> workstation %s >>>\n# %s\n%s\n# <<< workstation %s <<<\n' \
+      "$tag" "$comment" "$line" "$tag" >> "$rc"
   fi
   return 0
+}
+
+ssh_agent_shell() {
+  bashrc_block ssh-agent SSH_AUTH_SOCK "$SSH_SOCK_LINE" '^[^#]*SSH_AUTH_SOCK=' \
+    'systemd user ssh-agent.socket; unlock once per boot: ssh-add ~/.ssh/id_ed25519'
+}
+
+# Worktrunk (streams/README.md): Model-B worktree layout, the wb-stream
+# command, and wt's bash integration (lets `wt switch` cd the calling shell).
+# The package itself is a documented manual step (setup-new-computer.md).
+WT_INIT_LINE='if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init bash)"; fi'
+
+worktrunk() {
+  link config/worktrunk/config.toml  "$HOME/.config/worktrunk/config.toml"
+  link streams/wb-stream             "$HOME/.local/bin/wb-stream"
+  if ! command -v wt >/dev/null 2>&1; then
+    echo "WARN  worktrunk: wt not installed (sudo pacman -S --needed worktrunk); shell integration skipped"
+    return 0
+  fi
+  bashrc_block worktrunk "Worktrunk shell integration" "$WT_INIT_LINE" '^[^#]*wt config shell init' \
+    'Worktrunk: lets `wt switch` change this shell'"'"'s directory'
 }
 
 install_linux() {
@@ -144,6 +175,7 @@ install_linux() {
   # installed: Linux uses one tmux session per project, and a ~/.tmux.conf link
   # would shadow the distro's ~/.config/tmux/tmux.conf (tmux reads ~/.tmux.conf first).
   if ssh_agent_socket; then ssh_agent_shell; fi
+  worktrunk
 }
 
 preflight

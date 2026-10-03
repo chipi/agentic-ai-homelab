@@ -48,6 +48,7 @@ lean-ctx setup
 
 ```bash
 mise use -g claude opencode                  # Claude Code CLI + opencode
+sudo pacman -S --needed worktrunk            # wt — parallel streams (README → Worktrunk streams)
 # lean-ctx: installs to ~/.local/bin/lean-ctx
 curl -fsSL https://raw.githubusercontent.com/yvgude/lean-ctx/main/skills/lean-ctx/scripts/install.sh | bash
 lean-ctx setup
@@ -83,7 +84,9 @@ are backed up as `*.bak.<timestamp>`. `--dry-run` changes nothing on disk.
   which needs a one-off `launchctl bootstrap` afterwards (see that README).
 - **Linux:** enables the persistent SSH agent (`ssh-agent.socket` plus an
   `SSH_AUTH_SOCK` line in `~/.bashrc`; see
-  [README → SSH agent](README.md#ssh-agent-linux)). No workbench and no
+  [README → SSH agent](README.md#ssh-agent-linux)). Sets up Worktrunk: the
+  Model-B config, the `wb-stream` command in `~/.local/bin`, and the `wt` bash
+  integration in `~/.bashrc` (see [`streams/README.md`](streams/README.md)). No workbench and no
   `~/.tmux.conf`: one tmux session per project, and Omarchy's
   `~/.config/tmux/tmux.conf` stays in charge. To preview the Mac plan from
   Linux (or the reverse): `WS_OS=macos ./workstation/install.sh --dry-run`.

@@ -1,0 +1,21 @@
+# Worktrunk user config — linked to ~/.config/worktrunk/config.toml by
+# workstation/install.sh (Linux). Layout and lifecycle: workstation/streams/README.md.
+#
+# Model-B layout: a repo whose root is exactly /work/<project>/main (the
+# primary checkout, on any branch) gets its worktrees in
+# /work/<project>/worktrees/<branch>. /work is the intentional Model-B root
+# (also hard-coded in streams/wb-stream). `repo_path` is the primary checkout
+# even when wt runs inside a linked worktree, so streams never nest.
+#
+# Every other repo gets the `else` branch, a copy of Worktrunk 0.68's default
+# layout (<repo>.<branch> beside the repo); a later upstream default change
+# won't reach it. If a Worktrunk upgrade breaks this template, wt refuses to
+# create anything (fails closed), and wb-stream checks the created path anyway.
+#
+# This file is tracked: an explicit `wt config update` or `wt config create`
+# would rewrite it in the repo. Normal use doesn't write it (approvals go to
+# approvals.toml).
+#
+# Deliberately absent: [commit.generation] (no LLM commit messages) and hooks
+# (environment/runtime lifecycle is a later slice).
+worktree-path = "{% if repo_path is startingwith('/work/') and repo_path is endingwith('/main') and (repo_path | split('/') | list | length) == 4 %}{{ repo_path }}/../worktrees/{{ branch | sanitize }}{% else %}{{ repo_path }}/../{{ repo }}.{{ branch | sanitize }}{% endif %}"
