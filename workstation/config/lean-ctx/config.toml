@@ -80,6 +80,7 @@ shell_allowlist_extra = [
     "codesign",
     "wt",
     "wb-stream",
+    "wb-workspace",
 ]
 
 [cloud]

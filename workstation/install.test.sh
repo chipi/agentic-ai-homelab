@@ -54,13 +54,15 @@ sig()  { find "$H" -maxdepth 1 -name '.bashrc*' -printf '%p|%s|%m|%T@\n' | sort 
 same_as() { cmp -s "$1" <(printf '%s' "$2"); }                                 # file == string, byte for byte
 links_ok() {
   [ "$(readlink "$H/.config/worktrunk/config.toml")" = "$HERE/config/worktrunk/config.toml" ] &&
-  [ "$(readlink "$H/.local/bin/wb-stream")" = "$HERE/streams/wb-stream" ]
+  [ "$(readlink "$H/.local/bin/wb-stream")" = "$HERE/streams/wb-stream" ] &&
+  [ "$(readlink "$H/.local/bin/wb-workspace")" = "$HERE/streams/wb-workspace" ]
 }
 
-echo "== tracked Worktrunk config (its rendering is tested in streams/wb-stream.test.sh)"
+echo "== tracked Worktrunk config (rendering and hooks are tested in streams/wb-stream.test.sh and wb-workspace.test.sh)"
 CFG="$HERE/config/worktrunk/config.toml"
 chk "no commit generation configured (no commit keys outside comments)" "! grep -v '^[[:space:]]*#' '$CFG' | grep -q 'commit'"
-chk "only setting is worktree-path" "[ \"\$(grep -v '^[[:space:]]*#' '$CFG' | grep -c '=')\" = 1 ] && grep -q '^worktree-path = ' '$CFG'"
+chk "only worktree-path plus the two workspace hooks" \
+  "[ \"\$(grep -v '^[[:space:]]*#' '$CFG' | grep -v '^[[:space:]]*\$' | grep -v '^worktree-path = ' | tr '\n' '|')\" = '[pre-start]|workspace = \"wb-workspace setup\"|[pre-remove]|workspace = \"wb-workspace teardown\"|' ] && grep -q '^worktree-path = ' '$CFG'"
 chk "installer sets no WORKTRUNK_COMMIT__* override and installs no wt plugins" "! grep -q -e 'WORKTRUNK_COMMIT' -e 'wt config plugins' '$INST'"
 
 echo "== SSH agent: fresh (unit disabled, no SSH_AUTH_SOCK line)"

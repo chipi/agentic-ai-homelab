@@ -16,6 +16,18 @@
 # would rewrite it in the repo. Normal use doesn't write it (approvals go to
 # approvals.toml).
 #
-# Deliberately absent: [commit.generation] (no LLM commit messages) and hooks
-# (environment/runtime lifecycle is a later slice).
+# Deliberately absent: [commit.generation] (no LLM commit messages), project
+# hooks, and any hook beyond the two workspace hooks below.
 worktree-path = "{% if repo_path is startingwith('/work/') and repo_path is endingwith('/main') and (repo_path | split('/') | list | length) == 4 %}{{ repo_path }}/../worktrees/{{ branch | sanitize }}{% else %}{{ repo_path }}/../{{ repo }}.{{ branch | sanitize }}{% endif %}"
+
+# Workspace lifecycle (streams/README.md, "Workspaces"). User hooks run in every
+# repo, before project hooks; wb-workspace does nothing outside Model-B and runs
+# the project's own .config/workspace/{setup,teardown} only when present.
+# pre-start blocks until setup is done; if it fails, the worktree stays and wt
+# exits non-zero. pre-remove runs while the worktree still exists; if it fails,
+# the removal stops (bypass: wt remove --no-hooks <branch>).
+[pre-start]
+workspace = "wb-workspace setup"
+
+[pre-remove]
+workspace = "wb-workspace teardown"

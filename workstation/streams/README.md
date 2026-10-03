@@ -9,9 +9,11 @@ for humans.
 |---|---|---|
 | `wb-stream` | `~/.local/bin/wb-stream` | Open a stream: Worktrunk worktree + a tmux window in the project session. |
 | `wb-stream.test.sh` | — | Tests (scratch repos, isolated tmux server; never touches `/work`). |
-| `../config/worktrunk/config.toml` | `~/.config/worktrunk/config.toml` | Model-B worktree path template. |
+| `wb-workspace` | `~/.local/bin/wb-workspace` | Workspace identity, deterministic ports, and dispatch to a project's own setup/teardown. |
+| `wb-workspace.test.sh` | — | Tests (scratch repos and Worktrunk config; never touches `/work`). |
+| `../config/worktrunk/config.toml` | `~/.config/worktrunk/config.toml` | Model-B worktree path template + the two workspace hooks. |
 
-`workstation/install.sh` links both and adds Worktrunk's bash integration to
+`workstation/install.sh` links all three and adds Worktrunk's bash integration to
 `~/.bashrc`. The `worktrunk` package itself is a manual step
 (`sudo pacman -S --needed worktrunk`; validated with 0.68.0).
 
@@ -79,8 +81,8 @@ window. A `/` in the name becomes `-` in the directory and window name
 (`fix/map` → `worktrees/fix-map`), exactly like Worktrunk's `sanitize`.
 
 It doesn't use `--execute` (moving to a program-plus-arguments model in
-Worktrunk 0.68) or Worktrunk hooks. Hooks stay free for the environment,
-dependency, runtime, test and cleanup lifecycle.
+Worktrunk 0.68). The workspace hooks (below) run as part of its
+`wt switch --create`, like for any other worktree.
 
 **If a step fails after Worktrunk ran**, `wb-stream` never rolls back. Hooks may
 already have run, and the stream is valid work. Instead it reports what
@@ -99,6 +101,75 @@ wt list
 wt merge <primary-branch>
 ```
 
+## Workspaces: identity, ports, project setup/teardown
+
+Worktrunk owns the lifecycle; `wb-workspace` adds a **stateless** workspace
+identity and hands everything runtime-specific to the project. The user config
+carries exactly two hooks:
+
+```toml
+[pre-start]
+workspace = "wb-workspace setup"      # blocking, in the new worktree
+[pre-remove]
+workspace = "wb-workspace teardown"   # blocking, while the worktree still exists
+```
+
+| Command | Does |
+|---|---|
+| `wb-workspace env` | Print the identity below (fails outside Model-B). |
+| `wb-workspace setup [args]` | Export the identity, then `exec` the project's `.config/workspace/setup` (from the worktree root, stdin passed through). |
+| `wb-workspace teardown [args]` | Same for `.config/workspace/teardown`. |
+| `wb-workspace port [--require-free] <slot>...` | One port per slot, in order. |
+
+**Identity** (exported to the project scripts), from the path alone:
+
+| Variable | `/work/orrery/main` | `/work/orrery/worktrees/fix-map` |
+|---|---|---|
+| `WORKSPACE_PROJECT` | `orrery` | `orrery` |
+| `WORKSPACE_STREAM` | `main` | `fix-map` |
+| `WORKSPACE_ID` | `orrery-main` | `orrery-fix-map` |
+| `WORKSPACE_PRIMARY` | `/work/orrery/main` | `/work/orrery/main` |
+| `WORKSPACE_PATH` | `/work/orrery/main` | `/work/orrery/worktrees/fix-map` |
+| `COMPOSE_PROJECT_NAME` | `orrery-main` | `orrery-fix-map` |
+
+`COMPOSE_PROJECT_NAME` is `WORKSPACE_ID` lowercased, with anything outside
+`[a-z0-9_-]` turned into `-`. A worktree only counts if its Git common dir is
+the primary's. Project and stream names must match `^[A-Za-z0-9][A-Za-z0-9._-]*$`;
+anything else under `/work` fails closed. `setup` refuses when another checkout
+on the host would derive the same Compose name.
+
+**Ports**: `hash_port("<project>/<stream>/<slot>")`, evaluated by the installed
+Worktrunk (`wt step eval`), range 10000–19999. Nothing is recorded: collisions
+are checked on every call against the same slots of every Model-B checkout
+under `/work`. A collision exits 3 and names both owners; it never moves to
+another port (rename the stream). A port that already has a host listener is
+reported on stderr; with `--require-free` that exits 4. Collisions with a
+*different* project's slot names can't be seen statelessly; a dev server
+started with a strict port still fails fast there.
+
+**Outside Model-B** (Worktrunk runs user hooks in every repo) `setup` and
+`teardown` do nothing and exit 0. Inside, a missing project script is a no-op;
+one that exists but isn't executable fails; a project script's exit code is
+`wb-workspace`'s.
+
+**Failure behaviour (Worktrunk 0.68, verified):** a failing `setup` leaves the
+worktree in place and makes `wt` exit non-zero. A failing `teardown` stops
+`wt remove`; bypass with `wt remove --no-hooks <branch>` once the cause is
+understood. Project scripts should fail only when continuing is unsafe.
+
+**The primary checkout** is never created by Worktrunk, so no hook runs there:
+run `wb-workspace setup` once by hand in `/work/<project>/main`.
+
+**What `wb-workspace` never does:** install dependencies, copy `.env` files or
+secrets, run Docker or Compose, delete volumes, or touch tmux. Those belong to
+the project's scripts, each project deciding for itself.
+
+**Project scripts** (`.config/workspace/setup`, `.config/workspace/teardown`):
+executable, idempotent, run from the worktree root with the identity exported
+and Worktrunk's hook JSON on stdin (a terminal or nothing when run by hand).
+Worktrunk reads *project hooks* from the checkout `wt` runs in, but these
+scripts come from the new worktree itself.
+
 ## Assumptions and failure behaviour
 
 - `/work` is the intentional Model-B root, set in both the config template and
@@ -114,7 +185,7 @@ wt merge <primary-branch>
 
 ## Not covered yet
 
-Out of scope for this slice: per-stream Docker/Compose ports, databases,
-`.env` files, dependency seeding or copy-on-write, runtime cleanup, and
-project-specific hooks. No Worktrunk LLM commit generation and no
+Generic layer, deliberately: dependency seeding or copy-on-write, databases,
+`.env`/secret propagation, Worktrunk project hooks. Per-project runtime
+isolation lives in each project's `.config/workspace/` scripts. No Worktrunk LLM commit generation and no
 Claude/Codex/OpenCode Worktrunk plugins are configured.

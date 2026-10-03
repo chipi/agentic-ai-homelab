@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+# wb-workspace — generic Model-B workspace identity and primitives.
+#
+#   wb-workspace setup    [args...]   run the project's .config/workspace/setup, if any
+#   wb-workspace teardown [args...]   run the project's .config/workspace/teardown, if any
+#   wb-workspace port [--require-free] <slot>...   deterministic per-workspace ports
+#   wb-workspace env                  print the identity (KEY=value lines)
+#
+# Knows only the Model-B layout (/work/<project>/main, /work/<project>/worktrees/<stream>)
+# and nothing about any project's runtime: it never installs dependencies, copies
+# .env files or secrets, runs Docker, or touches tmux. Stateless: every answer is
+# derived from the checkout's path and Worktrunk's hash_port. Called from the
+# Worktrunk user hooks (config/worktrunk/config.toml); contract in streams/README.md.
+set -euo pipefail
+
+# /work is the intentional Model-B root (as in wb-stream and the Worktrunk
+# template). WB_WORK_ROOT and WB_WT exist only for the tests.
+WORK_ROOT="${WB_WORK_ROOT:-/work}"
+WT="${WB_WT:-wt}"
+
+die()  { echo "wb-workspace: $*" >&2; exit "${2:-1}"; }
+note() { echo "wb-workspace: $*" >&2; }
+
+usage() {
+  echo "usage: wb-workspace setup|teardown [args...] | port [--require-free] <slot>... | env" >&2
+  exit 2
+}
+
+# Names that end up in templates, Compose names and env files: keep them boring.
+NAME_RE='^[A-Za-z0-9][A-Za-z0-9._-]*$'
+SLOT_RE='^[a-z0-9][a-z0-9-]*$'
+
+# Docker Compose project names: lowercase letters, digits, '-' and '_', starting
+# with a letter or digit. Anything else becomes '-'.
+compose_name() {
+  local n
+  n=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9_-]/-/g' -e 's/^[^a-z0-9]*//')
+  [ -n "$n" ] || return 1
+  printf '%s' "$n"
+}
+
+# identify <dir>: set WS_* for a Model-B checkout. Returns 1 when <dir> is not
+# one (not a Git checkout, outside the root, wrong shape); dies on a Model-B
+# path whose names can't be used safely.
+identify() {
+  local top root rel project stream primary common
+  top=$(git -C "$1" rev-parse --show-toplevel 2>/dev/null) || return 1
+  top=$(realpath "$top")
+  root=$(realpath "$WORK_ROOT" 2>/dev/null) || return 1
+  case "$top" in "$root"/*) ;; *) return 1 ;; esac
+  rel=${top#"$root"/}
+  case "$rel" in
+    */*/*/*) return 1 ;;
+    */worktrees/*) project=${rel%%/*}; stream=${rel##*/} ;;
+    */main) project=${rel%/main}; stream=main ;;
+    *) return 1 ;;
+  esac
+  [ "${project#*/}" = "$project" ] || return 1
+  primary="$root/$project/main"
+  # The checkout must really belong to that primary: same Git common dir.
+  common=$(git -C "$top" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+  [ "$(realpath "$common")" = "$(realpath "$primary/.git" 2>/dev/null)" ] || return 1
+  [[ $project =~ $NAME_RE ]] || die "unsupported project name '$project' (allowed: $NAME_RE)"
+  [[ $stream =~ $NAME_RE ]] || die "unsupported stream name '$stream' (allowed: $NAME_RE)"
+  WS_PROJECT=$project; WS_STREAM=$stream; WS_PRIMARY=$primary; WS_PATH=$top
+  WS_ID="$project-$stream"
+  WS_COMPOSE=$(compose_name "$WS_ID") || die "cannot derive a Compose project name from '$WS_ID'"
+}
+
+export_identity() {
+  export WORKSPACE_PROJECT="$WS_PROJECT" WORKSPACE_STREAM="$WS_STREAM" WORKSPACE_ID="$WS_ID"
+  export WORKSPACE_PRIMARY="$WS_PRIMARY" WORKSPACE_PATH="$WS_PATH" COMPOSE_PROJECT_NAME="$WS_COMPOSE"
+}
+
+# Every Model-B checkout on this host, one per line: "<project> <stream> <path>".
+# Derived from the filesystem each time; nothing is recorded anywhere.
+checkouts() {
+  local d p s
+  for d in "$WORK_ROOT"/*/main "$WORK_ROOT"/*/worktrees/*; do
+    [ -e "$d/.git" ] || continue
+    case "$d" in
+      */worktrees/*) s=${d##*/}; p=${d%/worktrees/*}; p=${p##*/} ;;
+      *) s=main; p=${d%/main}; p=${p##*/} ;;
+    esac
+    [[ $p =~ $NAME_RE && $s =~ $NAME_RE ]] || continue
+    printf '%s %s %s\n' "$p" "$s" "$d"
+  done
+}
+
+cmd_env() {
+  identify "$PWD" || die "not a Model-B checkout ($PWD); expected $WORK_ROOT/<project>/main or $WORK_ROOT/<project>/worktrees/<stream>"
+  printf 'WORKSPACE_PROJECT=%s\nWORKSPACE_STREAM=%s\nWORKSPACE_ID=%s\n' "$WS_PROJECT" "$WS_STREAM" "$WS_ID"
+  printf 'WORKSPACE_PRIMARY=%s\nWORKSPACE_PATH=%s\nCOMPOSE_PROJECT_NAME=%s\n' "$WS_PRIMARY" "$WS_PATH" "$WS_COMPOSE"
+}
+
+# dispatch setup|teardown: run the project's script for this checkout, if it has
+# one. Outside Model-B (Worktrunk runs user hooks in every repo) it does nothing.
+dispatch() {
+  local action=$1 script p s d other; shift
+  if ! identify "$PWD"; then
+    note "not a Model-B checkout; no workspace $action"
+    return 0
+  fi
+  # Two checkouts must never share a Compose project name.
+  while read -r p s d; do
+    [ "$d" -ef "$WS_PATH" ] && continue
+    other=$(compose_name "$p-$s") || continue
+    [ "$other" != "$WS_COMPOSE" ] || die "Compose project name '$WS_COMPOSE' is also derived for $d; rename one stream"
+  done < <(checkouts)
+  export_identity
+  script="$WS_PATH/.config/workspace/$action"
+  if [ ! -e "$script" ]; then
+    note "$WS_PROJECT has no .config/workspace/$action; nothing to do"
+    return 0
+  fi
+  [ -x "$script" ] || die "$script exists but is not executable"
+  cd "$WS_PATH"
+  # exec: the project script inherits stdin (Worktrunk's hook JSON) and its exit code is ours.
+  exec "$script" "$@"
+}
+
+# port [--require-free] <slot>...: one port per slot, in order, from
+# hash_port("<project>/<stream>/<slot>"). Fails (3) when two of the requested
+# ports coincide, or when one equals a port the same slots give any other
+# Model-B checkout; never picks another port. A port that already has a host
+# listener is reported, and fails (4) with --require-free.
+cmd_port() {
+  local require_free=0 slot i j p s d key tpl out n
+  local -a slots=() keys=() owners=() ports=()
+  [ "${1:-}" = --require-free ] && { require_free=1; shift; }
+  [ $# -ge 1 ] || usage
+  for slot in "$@"; do
+    [[ $slot =~ $SLOT_RE ]] || die "invalid slot name '$slot' (allowed: $SLOT_RE)" 2
+    for i in "${slots[@]}"; do [ "$i" != "$slot" ] || die "slot '$slot' requested twice" 2; done
+    slots+=("$slot")
+  done
+  identify "$PWD" || die "not a Model-B checkout ($PWD); no workspace ports outside $WORK_ROOT/<project>/{main,worktrees/<stream>}"
+  n=${#slots[@]}
+  # This checkout's keys first, then the same slots for every other checkout.
+  for slot in "${slots[@]}"; do keys+=("$WS_PROJECT/$WS_STREAM/$slot"); owners+=("this checkout"); done
+  while read -r p s d; do
+    [ "$d" -ef "$WS_PATH" ] && continue
+    for slot in "${slots[@]}"; do keys+=("$p/$s/$slot"); owners+=("$d ($slot)"); done
+  done < <(checkouts)
+  # One Worktrunk call renders every key (names were validated: safe in a literal).
+  tpl=""
+  for key in "${keys[@]}"; do tpl+="{{ \"$key\" | hash_port }}"$'\n'; done
+  out=$("$WT" -C "$WS_PATH" step eval "$tpl") || die "Worktrunk could not evaluate hash_port ($WT step eval failed)"
+  mapfile -t ports < <(printf '%s\n' "$out" | grep -E '^[0-9]+$')
+  [ "${#ports[@]}" = "${#keys[@]}" ] || die "unexpected output from $WT step eval (${#ports[@]} ports for ${#keys[@]} keys)"
+  for ((i = 0; i < n; i++)); do
+    for ((j = i + 1; j < ${#keys[@]}; j++)); do
+      [ "${ports[i]}" != "${ports[j]}" ] && continue
+      if [ "$j" -lt "$n" ]; then
+        die "port collision: slots '${slots[i]}' and '${slots[j]}' both hash to ${ports[i]} in $WS_ID" 3
+      fi
+      die "port collision: slot '${slots[i]}' of $WS_ID hashes to ${ports[i]}, as does ${owners[j]}; rename one stream" 3
+    done
+  done
+  local busy=""
+  if command -v ss >/dev/null 2>&1; then
+    busy=$(ss -Hltn 2>/dev/null | awk '{print $4}' | sed -E 's/.*:([0-9]+)$/\1/' | sort -u)
+  elif [ "$require_free" = 1 ]; then
+    die "--require-free needs ss (iproute2) to check host listeners" 4
+  fi
+  for ((i = 0; i < n; i++)); do
+    if [ -n "$busy" ] && grep -qx "${ports[i]}" <<<"$busy"; then
+      [ "$require_free" = 1 ] && die "port ${ports[i]} (slot '${slots[i]}' of $WS_ID) already has a listener on this host" 4
+      note "port ${ports[i]} (slot '${slots[i]}' of $WS_ID) already has a listener on this host"
+    fi
+  done
+  for ((i = 0; i < n; i++)); do echo "${ports[i]}"; done
+}
+
+[ $# -ge 1 ] || usage
+cmd=$1; shift
+case "$cmd" in
+  setup|teardown) dispatch "$cmd" "$@" ;;
+  port) cmd_port "$@" ;;
+  env) [ $# = 0 ] || usage; cmd_env ;;
+  *) usage ;;
+esac

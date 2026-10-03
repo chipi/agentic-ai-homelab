@@ -32,6 +32,7 @@ REAL_BEFORE="$(real_state)"
 # --- isolation -----------------------------------------------------------------
 export HOME="$T/home" GIT_CONFIG_GLOBAL="$T/home/.gitconfig" TMUX_TMPDIR="$T/tmux"
 export WORKTRUNK_APPROVALS_PATH="$T/approvals.toml" WORKTRUNK_CONFIG_PATH="$T/wt.toml" WB_WORK_ROOT="$ROOT"
+export PATH="$HERE:$PATH"            # the config's workspace hooks resolve wb-workspace to this repo's copy
 unset TMUX WORKTRUNK_DIRECTIVE_CD_FILE WORKTRUNK_DIRECTIVE_EXEC_FILE
 mkdir -p "$HOME" "$TMUX_TMPDIR"; trap cleanup EXIT
 git config --global user.name test; git config --global user.email test@example.invalid
