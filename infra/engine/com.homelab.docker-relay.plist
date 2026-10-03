@@ -17,11 +17,20 @@
   "Connection refused" is NORMAL background from the metric collectors; a jump
   to ~9-10k/hour means the upstream colima socket is gone. The log has no
   rotation (see the follow-up in issue #50).
+
+  -t 86400: socat's default half-close timeout is 0.5 s — once one side sends EOF,
+  it waits half a second for the other, then drops the connection. `docker exec`
+  without -i closes its write side right after starting the command, so every
+  non-interactive exec was cut at 0.5 s: output truncated, CLI returning while the
+  command kept running (found 2026-10-03; `-i`, or the colima socket directly, were
+  unaffected). The daemon closes its side when the command ends, so connections do
+  not linger.
 -->
 <plist version="1.0"><dict>
   <key>Label</key><string>com.homelab.docker-relay</string>
   <key>ProgramArguments</key><array>
     <string>/usr/local/bin/socat</string>
+    <string>-t</string><string>86400</string>
     <string>UNIX-LISTEN:/var/run/docker.sock,fork,mode=0666</string>
     <string>UNIX-CONNECT:/var/_dockerhost/.colima/default/docker.sock</string>
   </array>
