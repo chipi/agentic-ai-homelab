@@ -12,7 +12,16 @@
       long that is, and says plainly what to do if they did not ask for it — because an unexpected
       sign-in email is the one signal a person gets that someone typed their address.
 
-   Email-client-SAFE, like its siblings: dark background on a wrapper table rather than <body>. #}
+   Everything else follows the standard shell (your-week-digest.v1): the same wrapper table, the
+   same <h1> and subtitle, the same palette. The button uses the shell's chip/border colour
+   #2b3a52 with light text; the first version had a light pill with dark text that appeared in no
+   other email.
+
+   Every text block sits in a table cell with the colour set on the CELL as well as the text. The
+   fallback-link line was a bare <p> and showed near-black on the dark card in Gmail (iOS) in
+   later messages of a thread, while the identically coloured footer, already in a coloured cell,
+   stayed readable (2026-10-03). The cause inside Gmail is not verified; this removes the one
+   structural difference between the line that broke and the lines that did not. #}
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
@@ -22,27 +31,21 @@
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="width:600px;max-width:600px;background-color:#0b0e14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr><td style="padding:0 8px;">
         <div style="letter-spacing:.14em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">Close Listening</div>
+        <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#e7ecf3;">Sign in to Close Listening</h1>
+        <div style="font-size:14px;color:#8aa0bd;margin:0 0 20px;">Tap the button below and you are in. No password to remember.</div>
 
-        <p style="color:#e7ecf3;font-size:22px;font-weight:600;margin:14px 0 6px;">Sign in to Close Listening</p>
-        <p style="color:#c3ccd9;font-size:15px;line-height:1.5;margin:0 0 24px;">
-          Tap the button below and you are in. No password to remember.
-        </p>
-
-        {# The button is a table so Outlook renders it; the bare <a> underneath is the fallback for
-           clients that strip button styling, and for anyone who prefers to see the URL. #}
+        {# A table so Outlook renders the button; the plain link below is the fallback. #}
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
-          <tr><td bgcolor="#e7ecf3" style="border-radius:999px;">
-            <a href="{{ payload.link }}" style="display:inline-block;padding:13px 28px;font-size:16px;font-weight:600;color:#0b0e14;text-decoration:none;border-radius:999px;">Sign in</a>
+          <tr><td bgcolor="#2b3a52" style="background-color:#2b3a52;border-radius:6px;">
+            <a href="{{ payload.link }}" style="display:inline-block;padding:11px 24px;font-size:15px;font-weight:600;color:#e7ecf3;text-decoration:none;border-radius:6px;">Sign in</a>
           </td></tr>
         </table>
 
-        <p style="color:#8aa0bd;font-size:13px;line-height:1.5;margin:0 0 6px;">
-          This link works once and expires in {{ payload.expires_minutes | default(15) }} minutes.
-        </p>
-        <p style="color:#6b7a90;font-size:12px;line-height:1.5;margin:0 0 24px;word-break:break-all;">
-          If the button does not work, paste this into your browser:<br>
-          <a href="{{ payload.link }}" style="color:#8aa0bd;">{{ payload.link }}</a>
-        </p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;"><tr><td style="padding:18px 0;color:#8aa0bd;font-size:13px;line-height:1.5;">
+          <p style="margin:0 0 10px;color:#8aa0bd;">This link works once and expires in {{ payload.expires_minutes | default(15) }} minutes.</p>
+          <p style="margin:0 0 4px;color:#8aa0bd;">If the button does not work, paste this into your browser:</p>
+          <a href="{{ payload.link }}" style="color:#9fb2cc;word-break:break-all;">{{ payload.link }}</a>
+        </td></tr></table>
 
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;margin-top:8px;"><tr><td style="padding-top:20px;color:#6b7a90;font-size:12px;">
           <p style="margin:0;color:#6b7a90;">
