@@ -78,6 +78,8 @@ shell_allowlist_extra = [
     "openssl",
     "adb",
     "codesign",
+    "wt",
+    "wb-stream",
 ]
 
 [cloud]
