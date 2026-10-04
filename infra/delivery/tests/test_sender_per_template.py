@@ -93,3 +93,6 @@ def test_the_shipped_registry_sends_sign_in_links_from_signin(tmp_path: Path) ->
         if name in shipped:
             assert shipped[name].sender_for("magic-link.v1").endswith("<signin@mail.closelistening.app>")
             assert shipped[name].sender_for("new-episodes.v1").endswith("<digest@mail.closelistening.app>")
+            assert shipped[name].sender_for("resurface-nudge.v1").endswith(
+                "<noreply@mail.closelistening.app>"
+            )

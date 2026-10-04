@@ -14,6 +14,7 @@ tenants:
     # Apple "Hide My Email" users.
     mail_from_by_template:
       magic-link.v1: "Close Listening <signin@mail.closelistening.app>"
+      resurface-nudge.v1: "Close Listening <noreply@mail.closelistening.app>"
     app_origin: https://closelistening.app
     unsubscribe_path: /api/app/comms/unsubscribe
     vapid_subject: mailto:info@closelistening.app
@@ -68,6 +69,7 @@ tenants:
     # Apple "Hide My Email" users.
     mail_from_by_template:
       magic-link.v1: "Close Listening <signin@mail.closelistening.app>"
+      resurface-nudge.v1: "Close Listening <noreply@mail.closelistening.app>"
     app_origin: https://closelistening.app
     unsubscribe_path: /api/app/comms/unsubscribe
     vapid_subject: mailto:info@closelistening.app
