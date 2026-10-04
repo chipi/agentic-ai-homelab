@@ -68,7 +68,7 @@ chk "window map-fix added to session proj, rooted in the worktree" \
   "[ \"\$(windows proj)\" = 'editor map-fix ' ] && [ \"\$(tmux display-message -p -t '=proj:map-fix' '#{pane_current_path}')\" = '$ROOT/proj/worktrees/map-fix' ]"
 chk "no new tmux session; other session untouched" "[ \"\$(sessions)\" = '$s0' ] && [ \"\$(windows other)\" = '$o0' ]"
 chk "primary checkout still on primary-line and clean" "[ \"\$(git -C '$P' branch --show-current)\" = primary-line ] && [ -z \"\$(git -C '$P' status --porcelain)\" ]"
-chk "prints the explicit-target merge hint" "grep -q 'wt merge primary-line' '$T/out'"
+chk "prints the wb-integrate hint (no raw wt merge)" "grep -q 'integrate later with: wb-integrate' '$T/out' && grep -q 'primary-line here' '$T/out' && ! grep -q 'wt merge' '$T/out'"
 
 echo "== slash in the name: fix/map → worktrees/fix-map, window fix-map"
 rc=$(run "$P" fix/map)

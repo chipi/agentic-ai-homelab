@@ -16,8 +16,8 @@ one project
 
 - One primary line of work.
 - Open a stream only for genuinely parallel code changes.
-- **Streams start from the current primary checkout and integrate back into
-  the primary branch, always named explicitly.**
+- **Streams start from the current primary checkout (`wb-stream`) and
+  integrate back into the primary branch (`wb-integrate`).**
 
 ## Start work on a project
 
@@ -132,18 +132,32 @@ grep PORT .env.workspace                  # Orrery: the ports this checkout actu
 
 ## Integrate side work
 
-**⚠️ Never use bare `wt merge` here. It merges into the repository's default
-branch, which is not necessarily the branch the primary checkout is on.**
-Always name the intended primary working branch:
-
 ```bash
-git -C /work/orrery/main branch --show-current   # the primary branch, e.g. map-redesign
 cd /work/orrery/worktrees/feature-x
-wt merge map-redesign                            # explicit target = the primary branch
+wb-integrate          # no arguments: the target is the branch checked out in /work/orrery/main
+cd /work/orrery/main  # the stream's directory is gone afterwards
 ```
 
-By default `wt merge` squashes, rebases, and removes the worktree afterwards.
-`wt merge --help` lists `--no-squash`, `--no-remove`, and the others.
+Before it starts:
+- **The primary checkout must be clean**: commit, move or discard its changes
+  yourself. `wb-integrate` never stashes them.
+- **Untracked files in the stream block it**: commit, delete or git-ignore
+  them. Uncommitted tracked edits are included.
+
+What it does: `wt merge <primary-branch> --stage tracked` (squash, rebase,
+fast-forward, project teardown, remove worktree and branch), then reports the
+real outcome:
+
+| Exit | Meaning | Do |
+|---|---|---|
+| 0 | Complete | Close the stream's tmux window (it stays open). |
+| 3 | Integrated, cleanup failed (e.g. teardown) | **Don't rerun.** Follow the printed commands: fix the cause, `wt remove`, then the ancestry-checked `git branch -d`. |
+| 4 | Conflict, not integrated | `git rebase --abort`, or resolve, `git add`, `git rebase --continue`, rerun `wb-integrate`. |
+| 2 | Refused | Fix what it names; nothing was touched. |
+| 5 | Unknown | Inspect by hand; nothing was touched by `wb-integrate`. |
+
+**⚠️ Never use bare `wt merge`.** It merges into the repository's default
+branch, not necessarily the branch the primary checkout is on.
 
 ## Remove a side stream
 
@@ -191,6 +205,8 @@ The prefix is **Ctrl+Space** (Omarchy).
 | `wb-stream` created the worktree but tmux failed | Keep it. Run the recovery command `wb-stream` printed (open the window, or `wt remove` it). |
 | Setup hook failed | The worktree is kept on purpose. Fix the cause and rerun `wb-workspace setup` in it, or remove it with `wt remove`. |
 | Teardown hook failed | Removal is blocked on purpose. Fix the teardown. Use `wt remove --no-hooks <branch>` only when you understand what runtime state is left behind. |
+| `wb-integrate` exit 3 | The code is already in the primary branch. Don't rerun; follow its printed cleanup commands. |
+| `wb-integrate` exit 4 after aborting a multi-commit stream | The abort returns to Worktrunk's squash commit; the original commits are in `git reflog show <branch>`. |
 | Port in use / collision | Stale or unwanted host listener: stop it. Genuine allocation collision: stop and resolve it explicitly. Don't pick a different port behind `wb-workspace`'s back; it never does that itself, and no further resolution policy is defined yet. |
 | Long-lived process shows an unexpected Node version | Compare `node --version` with `mise current node`; the process may have a fixed `PATH` from elsewhere. |
 | Orrery Docker `web`: bind source path does not exist | Build that checkout first: `npm run build`. |

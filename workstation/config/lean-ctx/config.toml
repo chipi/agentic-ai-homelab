@@ -81,6 +81,7 @@ shell_allowlist_extra = [
     "wt",
     "wb-stream",
     "wb-workspace",
+    "wb-integrate",
 ]
 
 [cloud]

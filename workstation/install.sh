@@ -154,9 +154,9 @@ ssh_agent_shell() {
     'systemd user ssh-agent.socket; unlock once per boot: ssh-add ~/.ssh/id_ed25519'
 }
 
-# Worktrunk (streams/README.md): Model-B worktree layout, the wb-stream and
-# wb-workspace commands (the config's workspace hooks call wb-workspace),
-# and wt's bash integration (lets `wt switch` cd the calling shell).
+# Worktrunk (streams/README.md): Model-B worktree layout, the wb-stream,
+# wb-workspace and wb-integrate commands (the config's workspace hooks call
+# wb-workspace), and wt's bash integration (lets `wt switch` cd the calling shell).
 # The package itself is a documented manual step (setup-new-computer.md).
 WT_INIT_LINE='if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init bash)"; fi'
 
@@ -164,6 +164,7 @@ worktrunk() {
   link config/worktrunk/config.toml  "$HOME/.config/worktrunk/config.toml"
   link streams/wb-stream             "$HOME/.local/bin/wb-stream"
   link streams/wb-workspace          "$HOME/.local/bin/wb-workspace"
+  link streams/wb-integrate          "$HOME/.local/bin/wb-integrate"
   if ! command -v wt >/dev/null 2>&1; then
     echo "WARN  worktrunk: wt not installed (sudo pacman -S --needed worktrunk); shell integration skipped"
     return 0

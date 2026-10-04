@@ -2,8 +2,8 @@
 
 How the Linux workstation runs parallel implementation streams next to a
 project's primary work. [Worktrunk](https://worktrunk.dev) (`wt`) owns the Git
-worktree lifecycle; this directory only adds the layout and one thin command
-for humans.
+worktree lifecycle; this directory only adds the layout and thin wrappers
+around it.
 
 | File | Installed to | Purpose |
 |---|---|---|
@@ -11,9 +11,11 @@ for humans.
 | `wb-stream.test.sh` | — | Tests (scratch repos, isolated tmux server; never touches `/work`). |
 | `wb-workspace` | `~/.local/bin/wb-workspace` | Workspace identity, deterministic ports, and dispatch to a project's own setup/teardown. |
 | `wb-workspace.test.sh` | — | Tests (scratch repos and Worktrunk config; never touches `/work`). |
+| `wb-integrate` | `~/.local/bin/wb-integrate` | Integrate a stream into the primary branch (`wt merge <primary-branch> --stage tracked`, with preconditions and outcome classification). |
+| `wb-integrate.test.sh` | — | Tests (scratch repos, real Worktrunk + stub; never touches `/work`). |
 | `../config/worktrunk/config.toml` | `~/.config/worktrunk/config.toml` | Model-B worktree path template + the two workspace hooks. |
 
-`workstation/install.sh` links all three and adds Worktrunk's bash integration to
+`workstation/install.sh` links the config and the three commands, and adds Worktrunk's bash integration to
 `~/.bashrc`. The `worktrunk` package itself is a manual step
 (`sudo pacman -S --needed worktrunk`; validated with 0.68.0).
 
@@ -43,17 +45,13 @@ defaults are unsafe here:
 
 | Step | Worktrunk default | Model-B rule |
 |---|---|---|
-| **Create** | `wt switch --create <stream>` branches from the default branch | Always pass a base: `--base @` from the primary checkout, or `--base <primary-branch>` |
-| **Merge** | `wt merge` merges into the default branch (and removes the worktree) | Always name the target: `wt merge <primary-branch>` |
+| **Create** | `wt switch --create <stream>` branches from the default branch | Always pass a base: `--base @` from the primary checkout (`wb-stream` does this), or `--base <primary-branch>` |
+| **Integrate** | bare `wt merge` merges into the default branch (and removes the worktree) | Use `wb-integrate`: it derives the target from the primary checkout and runs `wt merge <primary-branch> --stage tracked`. Never bare `wt merge`. |
 
-```bash
-git -C /work/<project>/main branch --show-current            # the primary branch, e.g. map-redesign
-wt switch --create <stream> --base map-redesign --no-cd      # create (agents, or by hand)
-wt merge map-redesign                                        # integrate, from the stream's worktree
-```
-
-`wb-stream` always creates with `--base @` and prints the matching
-`wt merge <primary-branch>` line.
+Bare `wt merge` from a stream rebases onto the default branch and
+fast-forwards it with a squash that includes the primary branch's own
+unmerged work, and it exits 0 (verified with 0.68.0). `wb-integrate`
+removes that footgun because no target can be passed to it.
 
 ## Opening a stream (humans): `wb-stream`
 
@@ -90,15 +88,67 @@ actually exists (branch, worktree, location) and prints the exact commands to
 open the worktree in the project session, or to discard it with
 `wt remove <name>`. That command keeps a branch with unmerged work.
 
+## Integrating a stream: `wb-integrate`
+
+From the stream's worktree (no arguments):
+
+```bash
+cd /work/orrery/worktrees/map-fix
+wb-integrate
+```
+
+**Refuses before invoking Worktrunk** (exit 2) unless all of these hold:
+- it runs in an exact Model-B side worktree `/work/<project>/worktrees/<stream>`;
+- `/work/<project>/main` exists and is the same repository's primary checkout;
+- the primary checkout is on a branch (not detached). That branch is the
+  target, from `git -C /work/<project>/main branch --show-current`;
+- neither checkout is in an interrupted rebase, merge, cherry-pick, revert or
+  bisect;
+- **the primary checkout is completely clean**: no tracked changes and no
+  untracked, unignored files. Worktrunk could stash and restore
+  non-overlapping changes there, but `wb-integrate` never touches a human's or
+  another agent's working state;
+- **the stream has no untracked, unignored files.** They're listed, and you
+  commit, delete or ignore them. Uncommitted *tracked* edits are fine:
+  `--stage tracked` includes them. Ignored files never block and are never
+  committed;
+- there is something to integrate (commits or tracked edits beyond the target).
+
+Then it runs `wt merge <primary-branch> --stage tracked`. Worktrunk does
+everything else:
+- squash (when more than one commit or there are tracked edits; a squash with
+  edits leaves `refs/wt-backup/<branch>`);
+- rebase onto the target if needed;
+- fast-forward the target and update the primary checkout;
+- `pre-remove` (`wb-workspace teardown`, while the worktree still exists);
+- remove the worktree and branch.
+
+**Outcome, classified from Git state, not from Worktrunk's exit code.**
+"Integrated" means the target branch advanced as a fast-forward of its old
+tip:
+
+| Exit | Outcome | What you see |
+|---|---|---|
+| 0 | **Complete** | Target advanced; worktree and branch removed (it waits for Worktrunk's background removal) |
+| 3 | **Integrated, cleanup failed** | Target advanced, but the worktree or branch is still there; typically teardown failed (Worktrunk exits 1 here even though the merge landed). **Don't rerun.** Fix the cause, then `wt -C /work/<project>/main remove <branch>`. If Worktrunk keeps the branch as "unmerged" (it compares against the repository default branch), use `git -C /work/<project>/main merge-base --is-ancestor <branch> <target> && git -C /work/<project>/main branch -d <branch>`. |
+| 4 | **Conflict** | The rebase stopped in the stream; the target was **not** integrated. Abort with `git -C <stream> rebase --abort`, or resolve, `git add`, `git rebase --continue`, and rerun `wb-integrate`. For a multi-commit stream, Worktrunk squashes before rebasing, so an abort returns to the squash commit; the original commits stay in `git reflog show <branch>`. |
+| 2 | **Refused** | A precondition failed; Worktrunk wasn't invoked. The message says what to fix. |
+| 5 | **Unknown** | Anything else. It reports Worktrunk's exit code and the observable state, and changes nothing; inspect by hand. |
+
+It never stashes, force-deletes branches (`-D`), cleans `refs/wt-backup`, or
+touches tmux. The stream's tmux window stays open; close it yourself. Run from
+inside the stream, your shell is left in a removed directory afterwards:
+`cd /work/<project>/main`.
+
 ## Agents: plain Worktrunk
 
 Autonomous agents use `wt` directly (with the rule above) and never touch
-tmux. The same layout applies:
+tmux. They integrate with `wb-integrate` too. The same layout applies:
 
 ```bash
 wt switch --create <stream> --base <primary-branch> --no-cd   # → /work/<project>/worktrees/<stream>
 wt list
-wt merge <primary-branch>
+wb-integrate                                                  # from the stream's worktree
 ```
 
 ## Workspaces: identity, ports, project setup/teardown

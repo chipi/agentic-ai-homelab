@@ -109,4 +109,4 @@ tmux new-window "${detach[@]}" -t "=$project:" -n "$stream" -c "$dest" \
 
 echo "stream $name: branch from $branch, worktree $dest, tmux window $project:$stream"
 [ ${#detach[@]} -eq 0 ] || echo "  (window opened in the background; cd $dest)"
-echo "  integrate with an explicit target, e.g.: wt merge $branch   (bare 'wt merge' targets the default branch)"
+echo "  integrate later with: wb-integrate   (run in $dest; merges into the primary branch, $branch here)"

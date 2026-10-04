@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# wb-integrate — integrate this Model-B side stream into the primary branch.
+#
+# Run from /work/<project>/worktrees/<stream>. The target is always the branch
+# checked out in /work/<project>/main (never an argument, never the repository
+# default branch). Worktrunk does all the work:
+#
+#     wt merge <primary-branch> --stage tracked
+#
+# This wrapper only checks preconditions first and, afterwards, classifies the
+# outcome from observable Git state instead of trusting the exit code. It never
+# merges, rebases, stashes, force-deletes, cleans refs/wt-backup or touches tmux.
+# Contract and recovery: workstation/streams/README.md.
+#
+# Exit codes:
+#   0  complete: target advanced, side worktree and branch removed
+#   2  refused before invoking Worktrunk (precondition)
+#   3  integrated, but cleanup/teardown failed (stream left in place)
+#   4  conflict: rebase stopped in the side worktree, target NOT integrated
+#   5  unknown state after Worktrunk returned (nothing touched; inspect by hand)
+set -uo pipefail
+
+# /work is the intentional Model-B root (as in wb-stream and wb-workspace).
+# WB_WORK_ROOT, WB_WT and WB_INTEGRATE_WAIT exist only for the tests.
+WORK_ROOT="${WB_WORK_ROOT:-/work}"
+WT="${WB_WT:-wt}"
+WAIT="${WB_INTEGRATE_WAIT:-60}"   # seconds to wait for Worktrunk's background removal
+
+say()    { echo "wb-integrate: $*" >&2; }
+# refuse <reason> [<detail line>...] [-- <multi-line block>]: Worktrunk is never invoked.
+refuse() {
+  say "refused (Worktrunk not invoked): $1"; shift
+  while [ $# -gt 0 ]; do
+    if [ "$1" = -- ]; then shift; while IFS= read -r l; do echo "    $l" >&2; done <<<"$1"
+    else echo "  $1" >&2; fi
+    shift
+  done
+  exit 2
+}
+
+if [ $# -ne 0 ]; then
+  echo "usage: wb-integrate   (no arguments; run from /work/<project>/worktrees/<stream>)" >&2
+  exit 2
+fi
+for c in git realpath "$WT"; do
+  command -v "$c" >/dev/null 2>&1 || refuse "$c is required"
+done
+
+# git_op <dir>: name of an interrupted Git operation in that checkout, if any.
+git_op() {
+  local d=$1 p
+  for p in rebase-merge rebase-apply; do
+    [ -e "$(git -C "$d" rev-parse --git-path "$p")" ] && { echo rebase; return; }
+  done
+  for p in MERGE_HEAD:merge CHERRY_PICK_HEAD:cherry-pick REVERT_HEAD:revert BISECT_LOG:bisect; do
+    [ -e "$(git -C "$d" rev-parse --git-path "${p%%:*}")" ] && { echo "${p#*:}"; return; }
+  done
+}
+
+# --- 1-3. an exact Model-B side worktree, and its permanent primary -----------
+side=$(git rev-parse --show-toplevel 2>/dev/null) || refuse "not inside a Git checkout"
+side=$(realpath "$side")
+root=$(realpath "$WORK_ROOT" 2>/dev/null) || refuse "work root $WORK_ROOT does not exist"
+rel=${side#"$root"/}
+if [ "$rel" = "$side" ]; then
+  refuse "$side is not under $root"
+elif [[ $rel =~ ^[^/]+/main$ ]]; then
+  refuse "this is the primary checkout; run wb-integrate from a side worktree ($root/<project>/worktrees/<stream>)"
+elif [[ $rel =~ ^([^/]+)/worktrees/([^/]+)$ ]]; then
+  project=${BASH_REMATCH[1]}
+else
+  refuse "$side is not a Model-B side worktree ($root/<project>/worktrees/<stream>)"
+fi
+primary="$root/$project/main"
+[ -d "$primary" ] || refuse "primary checkout $primary does not exist"
+p_top=$(git -C "$primary" rev-parse --show-toplevel 2>/dev/null) || refuse "$primary is not a Git checkout"
+[ "$(realpath "$p_top")" = "$primary" ] || refuse "$primary is not the root of a Git checkout"
+p_common=$(realpath "$(git -C "$primary" rev-parse --path-format=absolute --git-common-dir)")
+s_common=$(realpath "$(git -C "$side" rev-parse --path-format=absolute --git-common-dir)")
+[ "$p_common" = "$(realpath "$primary/.git")" ] || refuse "$primary is not the repository's primary checkout"
+[ "$s_common" = "$p_common" ] || refuse "$side does not belong to the same repository as $primary"
+
+# --- 4-6. target from the primary; no interrupted operations ------------------
+op=$(git_op "$side"); [ -z "$op" ] || refuse "a $op is in progress in $side" "finish or abort it first (git -C $side status shows how)"
+op=$(git_op "$primary"); [ -z "$op" ] || refuse "a $op is in progress in the primary checkout $primary"
+target=$(git -C "$primary" branch --show-current)
+[ -n "$target" ] || refuse "the primary checkout $primary has a detached HEAD; check out the primary branch there"
+branch=$(git -C "$side" branch --show-current)
+[ -n "$branch" ] || refuse "the side worktree $side has a detached HEAD"
+[ "$branch" != "$target" ] || refuse "the side worktree is on the primary branch '$target' itself"
+
+# --- 7. the primary checkout must be completely clean (ignored files are fine) -
+p_dirty=$(git -C "$primary" status --porcelain --untracked-files=all)
+[ -z "$p_dirty" ] || refuse "the primary checkout $primary has uncommitted changes (wb-integrate never stashes them):" \
+  -- "$p_dirty" "commit, move or discard them in $primary yourself, then rerun"
+
+# --- 8. side: tracked edits ride along (--stage tracked); untracked files block -
+s_untracked=$(git -C "$side" ls-files --others --exclude-standard)
+[ -z "$s_untracked" ] || refuse "untracked files in $side would be left out of the integration:" \
+  -- "$s_untracked" "add and commit them, delete them, or git-ignore them, then rerun"
+t_before=$(git -C "$primary" rev-parse "refs/heads/$target")
+b_before=$(git -C "$side" rev-parse HEAD)
+if git -C "$side" merge-base --is-ancestor "$b_before" "$t_before" && [ -z "$(git -C "$side" status --porcelain --untracked-files=no)" ]; then
+  refuse "nothing to integrate: $branch has no commits or tracked changes beyond $target"
+fi
+
+# --- merge: Worktrunk owns squash/rebase/fast-forward/teardown/removal --------
+say "integrating $branch into $target (the branch checked out in $primary)"
+"$WT" -C "$side" merge "$target" --stage tracked
+rc=$?
+
+# --- classify from observable state, not from rc ------------------------------
+wt_registered() { git -C "$primary" worktree list --porcelain | grep -qxF "worktree $side"; }
+branch_exists() { git -C "$primary" show-ref --verify --quiet "refs/heads/$branch"; }
+t_after=$(git -C "$primary" rev-parse "refs/heads/$target")
+advanced=0
+if [ "$t_after" != "$t_before" ] && git -C "$primary" merge-base --is-ancestor "$t_before" "$t_after"; then
+  advanced=1
+fi
+rebase=0
+if [ -d "$side" ] && [ "$(git_op "$side" 2>/dev/null)" = rebase ]; then rebase=1; fi
+if [ "$advanced" = 1 ] && [ "$rebase" = 0 ] && [ "$rc" = 0 ]; then
+  # Worktrunk removes the worktree and branch in the background after a merge.
+  for ((i = 0; i < WAIT * 2; i++)); do
+    { [ -d "$side" ] || wt_registered || branch_exists; } || break
+    sleep 0.5
+  done
+fi
+wt_left=0; { [ -d "$side" ] || wt_registered; } && wt_left=1
+br_left=0; branch_exists && br_left=1
+state() {
+  echo "  state: Worktrunk exit $rc; $target ${t_before:0:9} -> ${t_after:0:9}; side worktree $([ $wt_left = 1 ] && echo present || echo removed); branch $branch $([ $br_left = 1 ] && echo "present ($(git -C "$primary" rev-parse --short "refs/heads/$branch"))" || echo removed); rebase $([ $rebase = 1 ] && echo active || echo none)" >&2
+}
+
+if [ "$rebase" = 1 ] && [ "$advanced" = 0 ]; then
+  say "CONFLICT: the rebase onto $target stopped in $side; $target was NOT integrated"
+  state
+  cat >&2 <<EOF
+  abort:   git -C $side rebase --abort
+  resolve: fix the conflicts, then
+             git -C $side add <files>
+             git -C $side rebase --continue
+             wb-integrate        (rerun from $side)
+  note: for a multi-commit stream Worktrunk squashes before rebasing, so
+        'rebase --abort' returns to the squash commit, not the original commits.
+        Those stay reachable in the reflog: git -C $side reflog show $branch
+EOF
+  exit 4
+fi
+
+if [ "$advanced" = 1 ] && [ "$rebase" = 0 ] && [ "$wt_left" = 0 ] && [ "$br_left" = 0 ]; then
+  [ "$rc" = 0 ] || say "note: Worktrunk exited $rc, but the observable state is complete"
+  say "COMPLETE: $branch integrated into $target (${t_after:0:9}); side worktree and branch removed"
+  echo "  the tmux window for this stream (if any) stays open; close it yourself." >&2
+  echo "  your shell's directory was removed: cd $primary" >&2
+  exit 0
+fi
+
+if [ "$advanced" = 1 ] && [ "$rebase" = 0 ]; then
+  say "INTEGRATED, CLEANUP FAILED: $branch is in $target (${t_after:0:9}), but the stream was not fully removed"
+  state
+  echo "  do NOT rerun wb-integrate: the code is already integrated." >&2
+  if [ "$wt_left" = 1 ]; then
+    echo "  fix what made cleanup fail (e.g. the project teardown above), then remove the stream:" >&2
+    echo "    wt -C $primary remove $branch" >&2
+  fi
+  echo "  if Worktrunk then keeps the branch as 'unmerged' (it compares against the repository default branch):" >&2
+  echo "    git -C $primary merge-base --is-ancestor $branch $target && git -C $primary branch -d $branch" >&2
+  exit 3
+fi
+
+say "UNKNOWN: Worktrunk exited $rc and the result doesn't match a known outcome; nothing was changed by wb-integrate"
+state
+echo "  branch $branch was ${b_before:0:9} before; inspect: git -C $primary log --oneline -3 $target; git -C $primary worktree list" >&2
+exit 5

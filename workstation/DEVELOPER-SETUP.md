@@ -23,6 +23,7 @@ several coding agents working at once. Each concern has exactly one owner:
 | Persistent interactive project sessions | tmux, one session per project |
 | Code isolation and worktree lifecycle | Git worktrees, managed by [Worktrunk](https://worktrunk.dev) (`wt`) |
 | Creating a Model-B side stream plus its tmux window | `wb-stream` (workstation orchestration) |
+| Integrating a side stream into the primary branch | `wb-integrate` (thin safety wrapper around `wt merge`) |
 | Workspace identity, deterministic ports, project lifecycle delegation | `wb-workspace` (generic) |
 | Project runtime and tool versions | mise |
 | Runtime and service isolation | Docker Compose project namespaces, on one shared daemon |
@@ -116,10 +117,11 @@ both defaults are wrong here:
 | Step | Worktrunk default | Model-B rule |
 |---|---|---|
 | Create | `wt switch --create <stream>` branches from the default branch | Base the stream on the **current primary checkout**: `--base @` run from `main/` (`wb-stream` does this), or `--base <primary-branch>` |
-| Integrate | bare `wt merge` merges into the default branch (and removes the worktree) | Name the **intended primary working branch** explicitly: `wt merge <primary-branch>`. Never bare `wt merge`. |
+| Integrate | bare `wt merge` merges into the default branch (and removes the worktree) | Integrate into the **intended primary working branch** with [`wb-integrate`](#wb-integrate), which derives it from `main/` and runs `wt merge <primary-branch> --stage tracked`. Never bare `wt merge`. |
 
 The repository's default branch is not assumed to be the integration target.
-Agents may use plain `wt`, but must follow the same rule.
+Agents may use plain `wt` to create and inspect streams, but integrate with
+`wb-integrate`.
 
 ## wb-stream
 
@@ -155,6 +157,56 @@ The Git branch keeps its slash.
 Created Git state is preserved. It reports what actually exists (branch,
 worktree, location) and prints the exact commands to open the worktree in the
 project session or to discard it with `wt remove`.
+
+## wb-integrate
+
+The safe Model-B integration path ([`streams/wb-integrate`](streams/wb-integrate)),
+run from the stream's worktree with no arguments:
+
+```bash
+cd /work/orrery/worktrees/feature-x
+wb-integrate
+```
+
+**The target is never an argument.** It's always the branch checked out in
+`/work/<project>/main`, so the default-branch footgun can't happen. All the work
+is Worktrunk's: `wt merge <primary-branch> --stage tracked` squashes, rebases,
+fast-forwards the target, runs the pre-remove teardown, and removes the
+worktree and branch. `wb-integrate` adds three things.
+
+**1. Conservative preconditions** (refuses before invoking Worktrunk):
+- the primary checkout is on a branch and **completely clean**. Worktrunk could
+  stash and restore non-overlapping changes there, but `wb-integrate` won't
+  touch a human's or another agent's working state;
+- the stream has **no untracked, unignored files**. `--stage all`, Worktrunk's
+  default, would silently commit them. Uncommitted tracked edits are included
+  through `--stage tracked`;
+- no interrupted Git operation in either checkout.
+
+**2. Outcome classification from Git state.** "Integrated" means the target
+branch advanced as a fast-forward of its old tip, so Worktrunk's exit code
+alone is never trusted:
+
+| Exit | Outcome |
+|---|---|
+| 0 | Complete: target advanced, worktree and branch removed |
+| 3 | Integrated, but cleanup failed: target advanced, stream left in place. Typically teardown failed. Worktrunk itself exits 1 here, even though the merge landed. |
+| 4 | Conflict: rebase stopped in the stream, target not integrated |
+| 2 | Refused: a precondition failed, Worktrunk not invoked |
+| 5 | Unknown: reported as observed, nothing touched |
+
+**3. Verified recovery guidance:**
+- **Conflict:** `git rebase --abort`, or resolve, `git add`,
+  `git rebase --continue`, and rerun. For a multi-commit stream, Worktrunk
+  squashes *before* rebasing, so an abort returns to the squash commit; the
+  original commits stay in the reflog.
+- **Cleanup failed:** don't rerun. Fix the cause, run `wt remove`, then delete
+  the branch with an ancestry check against the primary branch
+  (`git branch -d`). Worktrunk judges "merged" against the repository default
+  branch and may keep it.
+
+It never stashes, force-deletes (`-D`), cleans `refs/wt-backup`, or touches
+tmux. The stream's tmux window stays open and is closed by hand.
 
 ## wb-workspace
 
@@ -383,8 +435,8 @@ process, compare `node --version` with `mise current node`.
 - The agent policy and context layer, shared across projects; workstation
   configuration, not product source code. Its config is tracked here
   (`config/lean-ctx/config.toml`).
-- Its executable allowlist includes the workstation helpers `wt`, `wb-stream`
-  and `wb-workspace`.
+- Its executable allowlist includes the workstation helpers `wt`, `wb-stream`,
+  `wb-workspace` and `wb-integrate`.
 - Don't put LeanCTX-specific state into product repositories unless it's
   intentionally required.
 
@@ -392,7 +444,7 @@ process, compare `node --version` with `mise current node`.
 
 | Place | Owns |
 |---|---|
-| `agentic-ai-homelab/workstation` | Generic workstation policy, installer, Worktrunk config, `wb-stream`, `wb-workspace`, shared agent configuration |
+| `agentic-ai-homelab/workstation` | Generic workstation policy, installer, Worktrunk config, `wb-stream`, `wb-workspace`, `wb-integrate`, shared agent configuration |
 | Project repository | Runtime declaration (e.g. `mise.toml`), package dependencies, `.config/workspace/{setup,teardown}`, project-specific Compose accommodations, rules for generated runtime config |
 | tmux | Interactive sessions and UI organisation only |
 | Docker (Compose) | Service runtime only, namespaced per checkout |
@@ -401,7 +453,9 @@ process, compare `node --version` with `mise current node`.
 
 ## Known limitations and follow-ups
 
-- **`wt remove` doesn't close the stream's tmux window.**
+- **`wt remove` and `wb-integrate` don't close the stream's tmux window.**
+- **`refs/wt-backup/<branch>` refs** that Worktrunk leaves after squashing
+  tracked edits are kept; nothing cleans them yet.
 - **Port allocation is deterministic and stateless.** A detected collision
   stops the operation and must be resolved explicitly (see
   [wb-workspace](#wb-workspace)); ports are never changed silently. No

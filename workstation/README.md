@@ -62,6 +62,8 @@ each. Only the OS-specific block differs:
 | `~/.bashrc` | — | Linux | appends an `SSH_AUTH_SOCK` block and a Worktrunk shell-integration block, each once, unless already set |
 | `~/.config/worktrunk/config.toml` | `config/worktrunk/config.toml` | Linux | symlink |
 | `~/.local/bin/wb-stream` | `streams/wb-stream` | Linux | symlink |
+| `~/.local/bin/wb-workspace` | `streams/wb-workspace` | Linux | symlink |
+| `~/.local/bin/wb-integrate` | `streams/wb-integrate` | Linux | symlink |
 | `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | both | **template** — copy + fill |
 | `~/.claude/settings.json` | `claude/settings.json.example` | both | **template** — copy + fill |
 
@@ -125,12 +127,15 @@ Full layout, lifecycle, assumptions and command reference:
   merge.** Worktrunk defaults both to the repository's default branch:
   - create with `wt switch --create <stream> --base @` (from the primary
     checkout) or `--base <primary-branch>`;
-  - integrate with `wt merge <primary-branch>`, never bare `wt merge`.
+  - integrate with `wb-integrate` from the stream's worktree. It derives the
+    primary branch and runs `wt merge <primary-branch> --stage tracked`.
+    Never bare `wt merge`.
 - **Provisioning:** `sudo pacman -S --needed worktrunk` by hand. `install.sh`
-  links the config and `wb-stream`, and adds Worktrunk's bash integration to
-  `~/.bashrc` once.
+  links the config, `wb-stream`, `wb-workspace` and `wb-integrate`, and adds
+  Worktrunk's bash integration to `~/.bashrc` once.
 - **Tests:** `bash workstation/install.test.sh` and
-  `bash workstation/streams/wb-stream.test.sh` (scratch dirs only).
+  `bash workstation/streams/wb-{stream,workspace,integrate}.test.sh` (scratch
+  dirs only).
 
 ## Secrets policy — this repo is public
 
