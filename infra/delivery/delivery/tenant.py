@@ -14,6 +14,8 @@ Registry file (``tenants.yaml``) references secrets by ENV NAME, never inline, e
         internal_token_env: PODCAST_INTERNAL_OUTBOX_TOKEN
         vapid_private_key_env: PODCAST_VAPID_PRIVATE_KEY
         mail_from: "Close Listening <digest@mail.closelistening.app>"
+        mail_from_by_template:              # optional: a different sender per email template
+          magic-link.v1: "Close Listening <signin@mail.closelistening.app>"
         app_origin: https://closelistening.app
         unsubscribe_path: /api/app/comms/unsubscribe
         vapid_subject: mailto:info@closelistening.app
@@ -24,7 +26,7 @@ Onboarding a new tenant = a new entry + its templates/schema dir + its secrets. 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -57,6 +59,15 @@ class TenantConfig:
     # Google service-account JSON already carries the project id, the signing key and the token
     # endpoint; splitting it into fields would only create ways for them to disagree.
     fcm_service_account: str = ""
+    # Sender per email TEMPLATE — OPTIONAL; `mail_from` is the default. A sign-in link from
+    # `digest@` reads as a newsletter and gets filtered like one, so transactional mail can carry
+    # its own address. Every address must be on a domain verified in Resend (and, for Sign in with
+    # Apple relay addresses, registered with Apple's Private Email Relay).
+    mail_from_by_template: dict[str, str] = field(default_factory=dict)
+
+    def sender_for(self, template: str) -> str:
+        """The From address for one email template: its override, else the tenant default."""
+        return self.mail_from_by_template.get(template, self.mail_from)
 
     @property
     def has_webpush(self) -> bool:
@@ -118,6 +129,9 @@ def load_registry(
             outbox_base_url=outbox_url,
             internal_token=e.get(t.get("internal_token_env", ""), ""),
             mail_from=t["mail_from"],
+            mail_from_by_template={
+                str(k): str(v) for k, v in (t.get("mail_from_by_template") or {}).items()
+            },
             app_origin=t["app_origin"].rstrip("/"),
             unsubscribe_path=t.get("unsubscribe_path", "/api/app/comms/unsubscribe"),
             vapid_private_key=e.get(t.get("vapid_private_key_env", ""), ""),

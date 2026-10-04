@@ -41,10 +41,17 @@ class Transport(Protocol):
 
 
 class EmailTransport:
-    def __init__(self, renderer: Renderer, resend: ResendClient, mail_from: str) -> None:
+    def __init__(
+        self,
+        renderer: Renderer,
+        resend: ResendClient,
+        mail_from: str,
+        mail_from_by_template: dict[str, str] | None = None,
+    ) -> None:
         self._renderer = renderer
         self._resend = resend
         self._mail_from = mail_from
+        self._by_template = dict(mail_from_by_template or {})
 
     def deliver(self, env: DeliveryEnvelope) -> DeliveryOutcome:
         to = env.recipient.email
@@ -61,7 +68,7 @@ class EmailTransport:
         }
         try:
             result = self._resend.send_email(
-                sender=self._mail_from,
+                sender=self._by_template.get(env.template, self._mail_from),
                 to=to,
                 subject=rendered.subject,
                 html=rendered.html,
