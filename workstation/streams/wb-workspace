@@ -154,7 +154,7 @@ cmd_port() {
       if [ "$j" -lt "$n" ]; then
         die "port collision: slots '${slots[i]}' and '${slots[j]}' both hash to ${ports[i]} in $WS_ID" 3
       fi
-      die "port collision: slot '${slots[i]}' of $WS_ID hashes to ${ports[i]}, as does ${owners[j]}; rename one stream" 3
+      die "port collision: slot '${slots[i]}' of $WS_ID hashes to ${ports[i]}, as does ${owners[j]}; resolve the collision explicitly (wb-workspace never picks another port)" 3
     done
   done
   local busy=""

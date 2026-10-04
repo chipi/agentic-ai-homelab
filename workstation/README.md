@@ -24,6 +24,11 @@ Full step-by-step for a clean machine (macOS or Omarchy/Arch Linux):
 full **restart** (not sleep), validate the machine came back with
 [`post-reboot-checklist.md`](post-reboot-checklist.md) (macOS-only).
 
+**Linux development workstation:** how it works,
+[`DEVELOPER-SETUP.md`](DEVELOPER-SETUP.md) (architecture and operating
+model); how to use it, [`DEVELOPER-GUIDE.md`](DEVELOPER-GUIDE.md)
+(day-to-day commands).
+
 ## Platforms
 
 `install.sh` detects the platform from `uname` (override with

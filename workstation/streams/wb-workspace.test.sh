@@ -115,7 +115,7 @@ rc=$( (cd "$W" && WB_WT="$T/stub/wt" "$CMD" port web e2e) > "$T/out" 2> "$T/err"
 chk "two slots of one checkout collide: exit 3, nothing printed, both slots named" "[ $rc = 3 ] && [ ! -s '$T/out' ] && grep -q \"slots 'web' and 'e2e' both hash to 15001\" '$T/err'"
 printf 'proj/s1/web 15002\nproj/s1/e2e 15003\nproj/main/e2e 15002\n' > "$STUB_MAP"
 rc=$( (cd "$W" && WB_WT="$T/stub/wt" "$CMD" port web e2e) > "$T/out" 2> "$T/err"; echo $?)
-chk "collides with another checkout's slot: exit 3, names that checkout, no other port picked" "[ $rc = 3 ] && [ ! -s '$T/out' ] && grep -q \"slot 'web' of proj-s1 hashes to 15002, as does $P (e2e)\" '$T/err'"
+chk "collides with another checkout's slot: exit 3, names that checkout, no other port picked" "[ $rc = 3 ] && [ ! -s '$T/out' ] && grep -q \"slot 'web' of proj-s1 hashes to 15002, as does $P (e2e); resolve the collision explicitly\" '$T/err' && ! grep -qi 'rename' '$T/err'"
 printf 'proj/s1/web 15004\n' > "$STUB_MAP"
 rc=$( (cd "$W" && WB_WT="$T/stub/wt" "$CMD" port web) > "$T/out" 2> "$T/err"; echo $?)
 chk "stub without collisions: exit 0, its port" "[ $rc = 0 ] && [ \"\$(cat '$T/out')\" = 15004 ]"

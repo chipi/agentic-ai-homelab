@@ -142,10 +142,18 @@ on the host would derive the same Compose name.
 Worktrunk (`wt step eval`), range 10000–19999. Nothing is recorded: collisions
 are checked on every call against the same slots of every Model-B checkout
 under `/work`. A collision exits 3 and names both owners; it never moves to
-another port (rename the stream). A port that already has a host listener is
-reported on stderr; with `--require-free` that exits 4. Collisions with a
-*different* project's slot names can't be seen statelessly; a dev server
-started with a strict port still fails fast there.
+another port. A port that already has a host listener is reported on stderr;
+with `--require-free` that exits 4. Collisions with a *different* project's
+slot names can't be seen statelessly; a dev server started with a strict port
+still fails fast there.
+
+**Resolving a conflict** (the whole policy today):
+- a stale or unwanted host listener: stop that listener;
+- a genuine deterministic allocation collision: stop and resolve it
+  explicitly.
+
+`wb-workspace` never silently selects a different port, and no more
+sophisticated collision-resolution policy is defined yet.
 
 **Outside Model-B** (Worktrunk runs user hooks in every repo) `setup` and
 `teardown` do nothing and exit 0. Inside, a missing project script is a no-op;
