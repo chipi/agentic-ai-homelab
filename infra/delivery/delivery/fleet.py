@@ -54,7 +54,7 @@ def build_channel_workers(
             resend = ResendClient(
                 cfg.resend_api_key, base_url=cfg.resend_base_url, timeout_sec=cfg.http_timeout_sec
             )
-            transport = EmailTransport(renderer, resend, t.mail_from)
+            transport = EmailTransport(renderer, resend, t.mail_from, t.mail_from_by_template)
             sent_index = SentIndex(_sent_index_path(cfg))
         else:
             # One push worker serves a user's web AND native subscriptions; build whichever
