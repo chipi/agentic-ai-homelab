@@ -1,3 +1,4 @@
+{% from "email/_macros.html.j2" import episode_head, play_from %}
 {# daily-recap.v1 — the end-of-day post-episode recap (RFC-122 #2039). Email-client-SAFE, same
    dark shell as your-week-digest.v1 (Gmail strips <body> styles → dark theme on a <table bgcolor>
    with per-cell colors). Adaptive:
@@ -14,6 +15,7 @@
   <tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#080d1b" style="width:600px;max-width:600px;background-color:#080d1b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr><td style="padding:0 8px;">
+        {% set preheader %}{% if payload.count == 1 and payload.episodes %}Notes on {{ payload.episodes[0].title }}{% else %}Notes on the {{ payload.count }} episodes you finished today{% endif %}{% endset %}
         {% include "email/_brand.html.j2" %}
         <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#f0eae0;">We took notes for you</h1>
         <div style="font-size:14px;color:#acb2c2;margin:0 0 20px;">
@@ -24,8 +26,7 @@
         {% set ep = payload.episodes[0] %}
         {# ---- FULL layout (single episode) ---- #}
         <div style="border-top:1px solid #1e2739;padding-top:18px;">
-          <div style="letter-spacing:.08em;font-size:12px;text-transform:uppercase;color:#acb2c2;">{{ ep.podcast_title }}</div>
-          <a href="{{ ep.deep_link | abslink }}" style="display:block;color:#f0eae0;text-decoration:none;font-size:19px;font-weight:600;margin:4px 0 0;">{{ ep.title }}</a>
+          {{ episode_head(ep.deep_link, ep.title, ep.get('podcast_title'), ep.get('artwork_url'), title_size=19) }}
 
           {% if ep.key_points %}
           <div style="margin-top:14px;margin-bottom:6px;color:#acb2c2;font-size:13px;text-transform:uppercase;letter-spacing:.08em;">Key points</div>
@@ -66,8 +67,7 @@
         {# ---- COMPACT layout (several episodes) ---- #}
         {% for ep in payload.episodes %}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1e2739;"><tr><td style="padding:18px 0;">
-          <div style="letter-spacing:.08em;font-size:11px;text-transform:uppercase;color:#acb2c2;">{{ ep.podcast_title }}</div>
-          <a href="{{ ep.deep_link | abslink }}" style="color:#f0eae0;text-decoration:none;font-size:17px;font-weight:600;">{{ ep.title }}</a>
+          {{ episode_head(ep.deep_link, ep.title, ep.get('podcast_title'), ep.get('artwork_url')) }}
           {% if ep.signature_quote %}<p style="color:#f0eae0;margin:10px 0 8px;font-style:italic;">“{{ ep.signature_quote.text }}”{% if ep.signature_quote.speaker %} <span style="font-style:normal;color:#6b7488;font-size:13px;">— {{ ep.signature_quote.speaker }}</span>{% endif %}</p>{% endif %}
           {% for point in ep.key_points[:2] %}
           <div style="color:#acb2c2;font-size:14px;line-height:1.5;">• {{ point }}</div>

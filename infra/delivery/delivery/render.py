@@ -76,6 +76,39 @@ _APP_PATHS = frozenset({"episode", "podcast", "topic", "person", "storyline", "t
 _HREF = re.compile(r'href="([^"]+)"')
 
 
+def _clock(seconds: Any) -> str:
+    """``725`` -> ``12:05``; ``3725`` -> ``1:02:05`` — a moment's position, as the app writes it."""
+    try:
+        s = max(0, int(seconds))
+    except (TypeError, ValueError):
+        return ""
+    h, rem = divmod(s, 3600)
+    m, sec = divmod(rem, 60)
+    return f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
+
+
+def _duration(seconds: Any) -> str:
+    """``2520`` -> ``42 min``; ``3900`` -> ``1 h 5 min``; nothing for an unknown length."""
+    try:
+        s = int(seconds)
+    except (TypeError, ValueError):
+        return ""
+    if s <= 0:
+        return ""
+    minutes = max(1, round(s / 60))
+    h, m = divmod(minutes, 60)
+    return f"{h} h {m} min" if h and m else (f"{h} h" if h else f"{m} min")
+
+
+def _pubdate(value: Any) -> str:
+    """``2026-09-12`` -> ``Sep 12, 2026``; anything unparsable is shown as nothing, not raw."""
+    try:
+        d = datetime.strptime(str(value)[:10], "%Y-%m-%d")
+    except ValueError:
+        return ""
+    return f"{d.strftime('%b')} {d.day}, {d.year}"
+
+
 def email_campaign(template: str) -> str:
     """``your-week-digest.v1`` -> ``your_week_digest``: which email a click came from."""
     return template.split(".", 1)[0].replace("-", "_")
@@ -104,6 +137,9 @@ class Renderer:
         )
         self._env.filters["abslink"] = self._abslink
         self._env.filters["section_label"] = lambda k: _SECTION_LABELS.get(k, k)
+        self._env.filters["clock"] = _clock
+        self._env.filters["duration"] = _duration
+        self._env.filters["pubdate"] = _pubdate
 
     @classmethod
     def for_tenant(cls, tenant: TenantConfig) -> "Renderer":

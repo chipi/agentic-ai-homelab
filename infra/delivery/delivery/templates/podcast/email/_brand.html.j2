@@ -8,6 +8,10 @@
    at `/brand/email-mark.png` (3x for retina) from the tenant's own origin — a static .png passes
    the pre-launch gate. `alt=""` because the wordmark beside it is REAL TEXT: a client that blocks
    images still shows "Close Listening", which an image-only logo would lose. #}
+{# The inbox preview line (operator 2026-10-05): what a mail list shows under the subject. Each
+   template sets `preheader`; hidden here, first in the body, padded so the rest of the email does
+   not leak into the preview after it. #}
+{% if preheader is defined and preheader %}<div style="display:none;max-height:0;max-width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#080d1b;opacity:0;">{{ preheader }}{% for _ in range(40) %}&#847;&zwnj;&nbsp;{% endfor %}</div>{% endif %}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-bottom:1px solid #1e2739;margin:0 0 24px;">
   <tr><td style="padding:0 0 16px;">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0">

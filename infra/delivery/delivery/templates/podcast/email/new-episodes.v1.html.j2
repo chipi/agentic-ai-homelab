@@ -1,3 +1,4 @@
+{% from "email/_macros.html.j2" import episode_head, play_from %}
 {# new-episodes.v1 — an ALERT that something dropped in a followed show (#2124). Email-client-SAFE,
    the same dark shell and the same item row as your-week-digest.v1 (Gmail strips <body> styles →
    dark theme on a <table bgcolor> with per-cell colors; rows are tables so Outlook keeps them).
@@ -19,6 +20,7 @@
   <tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#080d1b" style="width:600px;max-width:600px;background-color:#080d1b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr><td style="padding:0 8px;">
+        {% set first = payload.episodes[0] %}{% set preheader %}New from {{ first.get('podcast_title') or 'a show you follow' }}{% if payload.count > 1 %} and {{ payload.count - 1 }} more{% endif %}{% endset %}
         {% include "email/_brand.html.j2" %}
         <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#f0eae0;">
           {% if payload.count == 1 %}A new episode is out{% else %}{{ payload.count }} new episodes are out{% endif %}
@@ -27,10 +29,7 @@
 
         {% for ep in payload.episodes %}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1e2739;"><tr><td style="padding:18px 0;">
-          {% if ep.podcast_title is defined and ep.podcast_title %}
-          <div style="letter-spacing:.08em;font-size:11px;text-transform:uppercase;color:#acb2c2;">{{ ep.podcast_title }}</div>
-          {% endif %}
-          <a href="{{ ep.deep_link | abslink }}" style="color:#f0eae0;text-decoration:none;font-size:17px;font-weight:600;">{{ ep.episode_title }}</a>
+          {{ episode_head(ep.deep_link, ep.episode_title, ep.get('podcast_title'), ep.get('artwork_url'), ep.get('duration_seconds'), ep.get('publish_date')) }}
           {% if ep.graph_refs %}
           <div style="margin-top:10px;">
             {% for ref in ep.graph_refs %}

@@ -367,3 +367,54 @@ def test_every_email_carries_the_app_brand_lockup(name):
     transactional = name.startswith("magic-link")
     assert ("Manage notifications" in html) is not transactional
     assert ("Unsubscribe" in html) is not transactional
+
+
+# --- the app's episode header, Play from, and the inbox preview line (operator 2026-10-05) -------
+
+
+def test_display_filters():
+    from delivery.render import _clock, _duration, _pubdate
+
+    assert _clock(725) == "12:05" and _clock(3921) == "1:05:21" and _clock("x") == ""
+    assert _duration(2520) == "42 min" and _duration(3900) == "1 h 5 min" and _duration(7200) == "2 h"
+    assert _duration(None) == "" and _duration(0) == ""
+    assert _pubdate("2026-09-21") == "Sep 21, 2026" and _pubdate("garbage") == ""
+
+
+def test_an_episode_item_reads_like_the_app():
+    html = _renderer().render_email(
+        DeliveryEnvelope.from_dict(_fixture("your-week-digest.v1.golden.json"))
+    ).html
+    # artwork made absolute against the tenant origin (the edge serves it without a session)
+    assert 'src="https://closelistening.app/api/app/artwork?ref=acquired%2Fnvidia.jpg&amp;size=thumb"' in html
+    assert ">Acquired</div>" in html  # the show, above the title
+    assert "3 h 39 min · Sep 21, 2026" in html
+    # the saved moment plays from where it was saved — the app's PlayFrom control
+    assert "▶ Play from 1:05:21" in html
+
+
+@pytest.mark.parametrize(
+    "name,starts",
+    [
+        ("your-week-digest.v1.golden.json", "Your weekly Close Listening:"),
+        ("recommendations-digest.v1.golden.json", "Picked for you this month:"),
+        ("daily-recap.v1.golden.json", "Notes on "),
+        ("new-episodes.v1.golden.json", "New from Show fa and 1 more"),
+        ("magic-link.v1.golden.json", "Your sign-in link for Close Listening"),
+    ],
+)
+def test_every_email_sets_its_inbox_preview_line(name, starts):
+    import re
+
+    html = _renderer().render_email(DeliveryEnvelope.from_dict(_fixture(name))).html
+    hidden = re.search(r'<div style="display:none;[^"]*">([^<&]*)', html)
+    assert hidden, f"{name}: no hidden preview line"
+    assert hidden.group(1).startswith(starts), hidden.group(1)
+
+
+def test_a_topic_item_is_not_dressed_as_an_episode():
+    # Trending items link to the TOPIC; they get no artwork or episode meta line.
+    html = _renderer().render_email(
+        DeliveryEnvelope.from_dict(_fixture("recommendations-digest.v1.golden.json"))
+    ).html
+    assert "/api/app/artwork" not in html

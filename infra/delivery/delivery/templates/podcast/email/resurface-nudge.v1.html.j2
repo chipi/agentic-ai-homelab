@@ -1,3 +1,4 @@
+{% from "email/_macros.html.j2" import episode_head, play_from %}
 {# resurface-nudge.v1 — email-client-SAFE (dark bg on a wrapper table, not <body>).
    payload = { highlight_count, lead: digestItem } #}
 <!DOCTYPE html>
@@ -8,10 +9,12 @@
   <tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#080d1b" style="width:600px;max-width:600px;background-color:#080d1b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr><td style="padding:0 8px;">
+        {% set preheader %}A moment worth a second listen{% if payload.lead.get('episode_title') %}: {{ payload.lead.episode_title }}{% endif %}{% endset %}
         {% include "email/_brand.html.j2" %}
         <p style="color:#acb2c2;font-size:13px;margin:12px 0 4px;">A moment worth a second listen{% if payload.highlight_count %} · {{ payload.highlight_count }} highlights waiting{% endif %}.</p>
-        <a href="{{ payload.lead.deep_link | abslink }}" style="color:#f0eae0;text-decoration:none;font-size:22px;font-weight:600;display:block;margin:4px 0 8px;">{{ payload.lead.episode_title | default('Open in Close Listening') }}</a>
+        {{ episode_head(payload.lead.deep_link, payload.lead.get('episode_title') or 'Open in Close Listening', payload.lead.get('podcast_title'), payload.lead.get('artwork_url'), payload.lead.get('duration_seconds'), payload.lead.get('publish_date'), title_size=20) }}
         {% if payload.lead.quote is defined %}<p style="color:#f0eae0;margin:14px 0;font-style:italic;">“{{ payload.lead.quote }}”</p>{% endif %}
+        {{ play_from(payload.lead.deep_link, payload.lead.get('t_ms')) }}
         <div style="margin-top:6px;">
           {% for ref in payload.lead['graph_refs'] %}
           <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id | urlencode }}" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #1e2739;background-color:#0e1526;border-radius:999px;font-size:12px;color:#f0eae0;text-decoration:none;">{{ ref.label }}</a>

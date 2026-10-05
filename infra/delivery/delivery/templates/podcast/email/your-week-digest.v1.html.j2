@@ -1,3 +1,4 @@
+{% from "email/_macros.html.j2" import episode_head, play_from %}
 {# your-week-digest.v1 — email-client-SAFE layout. Gmail strips <body> styles, so the
    dark theme lives on a wrapper <table bgcolor> (kept by Gmail) with per-cell colors —
    never rely on body-level background, or light text lands on a white bg (invisible).
@@ -13,6 +14,7 @@
   <tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#080d1b" style="width:600px;max-width:600px;background-color:#080d1b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr><td style="padding:0 8px;">
+        {% set preheader %}Your {{ cadence }} Close Listening: {% for section in payload['sections'] %}{{ section.kind | section_label }}{% if not loop.last %} · {% endif %}{% endfor %}{% endset %}
         {% include "email/_brand.html.j2" %}
         <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#f0eae0;">Your week in close listening</h1>
         <div style="font-size:14px;color:#acb2c2;margin:0 0 20px;">{{ period_label }}</div>
@@ -21,9 +23,10 @@
         <div style="margin-bottom:8px;color:#acb2c2;font-size:13px;text-transform:uppercase;letter-spacing:.08em;">{{ section.kind | section_label }}</div>
         {% for item in section['items'] %}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1e2739;"><tr><td style="padding:18px 0;">
-          <a href="{{ item.deep_link | abslink }}" style="color:#f0eae0;text-decoration:none;font-size:17px;font-weight:600;">{{ item.episode_title | default('Open in Close Listening') }}</a>
-          {% if item.source is defined %}<span style="margin-left:8px;font-size:11px;color:#6b7488;">{{ 'you saved' if item.source == 'user' else 'editor’s pick' }}</span>{% endif %}
+          {{ episode_head(item.deep_link, item.get('episode_title') or 'Open in Close Listening', item.get('podcast_title'), item.get('artwork_url'), item.get('duration_seconds'), item.get('publish_date')) }}
+          {% if item.source is defined %}<span style="display:inline-block;margin:8px 0 0;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#6b7488;">{{ 'you saved' if item.source == 'user' else 'editor’s pick' }}</span>{% endif %}
           {% if item.quote is defined %}<p style="color:#f0eae0;margin:10px 0 12px;font-style:italic;">“{{ item.quote }}”</p>{% endif %}
+          {{ play_from(item.deep_link, item.get('t_ms')) }}
           <div>
             {% for ref in item['graph_refs'] %}
             <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id | urlencode }}" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #1e2739;background-color:#0e1526;border-radius:999px;font-size:12px;color:#f0eae0;text-decoration:none;">{{ ref.label }}</a>
