@@ -337,3 +337,27 @@ def test_tagging_keeps_the_moment_and_does_not_double_tag():
     ) in out
     other = '<a href="https://example.com/episode/x">x</a>'
     assert r.tag_links(other, "daily_recap") == other
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "your-week-digest.v1.golden.json",
+        "recommendations-digest.v1.golden.json",
+        "daily-recap.v1.golden.json",
+        "new-episodes.v1.golden.json",
+        "magic-link.v1.golden.json",
+    ],
+)
+def test_every_email_carries_the_app_brand_lockup(name):
+    # operator 2026-10-05: the emails looked unbranded next to the app. One partial
+    # (email/_brand.html.j2): the waveform mark (PNG — email clients do not render SVG) served from
+    # the tenant's own origin, the tagline, and the wordmark as REAL text, so a client that blocks
+    # images still shows the brand.
+    env = DeliveryEnvelope.from_dict(_fixture(name))
+    if env.channel is not Channel.EMAIL:
+        pytest.skip("push-only fixture")
+    html = _renderer().render_email(env).html
+    assert 'src="https://closelistening.app/brand/email-mark.png"' in html
+    assert "Listen. Understand. Remember." in html
+    assert ">Close Listening</div>" in html

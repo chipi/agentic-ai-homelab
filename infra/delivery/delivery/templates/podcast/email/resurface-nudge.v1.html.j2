@@ -8,7 +8,7 @@
   <tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="width:600px;max-width:600px;background-color:#0b0e14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr><td style="padding:0 8px;">
-        <div style="letter-spacing:.14em;font-size:12px;text-transform:uppercase;color:#8aa0bd;">Close Listening</div>
+        {% include "email/_brand.html.j2" %}
         <p style="color:#8aa0bd;font-size:13px;margin:12px 0 4px;">A moment worth a second listen{% if payload.highlight_count %} · {{ payload.highlight_count }} highlights waiting{% endif %}.</p>
         <a href="{{ payload.lead.deep_link | abslink }}" style="color:#e7ecf3;text-decoration:none;font-size:22px;font-weight:600;display:block;margin:4px 0 8px;">{{ payload.lead.episode_title | default('Open in Close Listening') }}</a>
         {% if payload.lead.quote is defined %}<p style="color:#c3ccd9;margin:14px 0;font-style:italic;">“{{ payload.lead.quote }}”</p>{% endif %}
