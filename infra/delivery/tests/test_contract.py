@@ -117,6 +117,7 @@ def test_daily_recap_fixture_renders_email():
     assert "The bottleneck was never compute" in html  # a key point
     assert "the real product" in html and "Jensen Huang" in html  # signature quote + speaker
     assert "Vertical integration" in html  # a top insight
+    assert "how NVIDIA built the full stack" in html  # the publisher's description
     assert "Scaling Laws" in html  # topic chip
     assert "semiconductor supply chain" in html  # storyline
     assert "https://closelistening.app/episode/acquired-nvidia" in html  # deep link absolutised
@@ -137,6 +138,7 @@ def test_daily_recap_many_renders_compact_stack():
     rendered = _renderer().render_email(DeliveryEnvelope.from_dict(base))
     assert rendered.subject == "Your day, recapped · 2 episodes"
     assert "TSMC (Part II)" in rendered.html
+    assert rendered.html.count("how NVIDIA built the full stack") == 2  # each episode's description
     # the compact-stack per-episode CTA opens the episode notes (operator 2026-10-05)
     assert ">Open episode notes</a>" in rendered.html and "panel=notes" in rendered.html
 

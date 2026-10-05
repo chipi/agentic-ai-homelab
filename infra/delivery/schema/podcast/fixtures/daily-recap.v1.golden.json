@@ -23,6 +23,7 @@
         "title": "NVIDIA: The Machine That Makes the Machine",
         "podcast_title": "Acquired",
         "artwork_url": null,
+        "description": "Ben and David tell the story of how NVIDIA built the full stack — chips, systems and the software developers already used.",
         "key_points": [
           "The bottleneck was never compute; it was willingness to throw away a working model.",
           "Owning the toolchain compounds into a durable moat."

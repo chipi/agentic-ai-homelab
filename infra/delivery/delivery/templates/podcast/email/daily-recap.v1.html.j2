@@ -4,7 +4,7 @@
    with per-cell colors). Adaptive:
      payload.count == 1 → the FULL recap (key points + quote + insights + topic/storyline chips)
      payload.count  > 1 → a COMPACT per-episode stack (title + show + quote + up to 2 key points)
-   Payload: payload.episodes[] = { slug, title, podcast_title, artwork_url?, key_points[],
+   Payload: payload.episodes[] = { slug, title, podcast_title, artwork_url?, description?, key_points[],
      signature_quote?{text,speaker?}, insights[], topics[]{id,label}, storylines[]{id,label},
      deep_link (relative) } ; payload.count ; payload.day #}
 <!DOCTYPE html>
@@ -26,7 +26,7 @@
         {% set ep = payload.episodes[0] %}
         {# ---- FULL layout (single episode) ---- #}
         <div style="border-top:1px solid #1e2739;padding-top:18px;">
-          {{ episode_head(ep.deep_link, ep.title, ep.get('podcast_title'), ep.get('artwork_url'), title_size=19) }}
+          {{ episode_head(ep.deep_link, ep.title, ep.get('podcast_title'), ep.get('artwork_url'), title_size=19, description=ep.get('description')) }}
 
           {% if ep.key_points %}
           <div style="margin-top:14px;margin-bottom:6px;color:#acb2c2;font-size:13px;text-transform:uppercase;letter-spacing:.08em;">Key points</div>
@@ -60,7 +60,7 @@
         {# ---- COMPACT layout (several episodes) ---- #}
         {% for ep in payload.episodes %}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1e2739;"><tr><td style="padding:18px 0;">
-          {{ episode_head(ep.deep_link, ep.title, ep.get('podcast_title'), ep.get('artwork_url')) }}
+          {{ episode_head(ep.deep_link, ep.title, ep.get('podcast_title'), ep.get('artwork_url'), description=ep.get('description')) }}
           {% if ep.signature_quote %}<p style="color:#f0eae0;margin:10px 0 8px;font-style:italic;">“{{ ep.signature_quote.text }}”{% if ep.signature_quote.speaker %} <span style="font-style:normal;color:#6b7488;font-size:13px;">— {{ ep.signature_quote.speaker }}</span>{% endif %}</p>{% endif %}
           {% for point in ep.key_points[:2] %}
           <div style="color:#acb2c2;font-size:14px;line-height:1.5;">• {{ point }}</div>
