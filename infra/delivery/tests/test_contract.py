@@ -317,7 +317,13 @@ def test_every_content_link_says_which_email_it_came_from(name, campaign):
         assert q.get("utm_source") == ["email"], href
         assert q.get("utm_campaign") == [campaign], href
         assert q.get("utm_content") == [kind], href
-        assert not any(k for k in q if k not in {"utm_source", "utm_campaign", "utm_content", "t", "revisit", "tab", "panel"}), href
+        # Only keys the app reads (podcast_scraper services/deepLinks.ts). `play` joined 2026-10-05:
+        # an emailed "▶ Play from" starts playback, as the app's own control does.
+        assert not any(
+            k
+            for k in q
+            if k not in {"utm_source", "utm_campaign", "utm_content", "t", "revisit", "tab", "panel", "play"}
+        ), href
     for href in hrefs:
         if "/api/" in href:
             assert "utm_" not in href, f"{href}: server links (unsubscribe) are not tagged"
@@ -394,6 +400,14 @@ def test_an_episode_item_reads_like_the_app():
     assert "3 h 39 min · Sep 21, 2026" in html
     # the saved moment plays from where it was saved — the app's PlayFrom control
     assert "▶ Play from 1:05:21" in html
+    # ...and it PLAYS: an explicit ▶ carries play=1, as in the app (operator 2026-10-05). Only the
+    # ▶ — the episode's own "Open in" link still just opens.
+    import re
+
+    play = re.search(r'<a href="([^"]+)"[^>]*>▶ Play from 1:05:21', html)
+    assert play and "t=3921" in play.group(1) and "play=1" in play.group(1), play
+    opens = re.findall(r'<a href="([^"]+)"[^>]*>Open in&nbsp;', html)
+    assert opens and not any("play=1" in h for h in opens)
 
 
 @pytest.mark.parametrize(

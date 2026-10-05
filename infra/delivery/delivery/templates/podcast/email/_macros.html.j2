@@ -32,9 +32,11 @@
 {%- endmacro %}
 
 {# "▶ Play from 12:03" — the app's one jump-to-a-moment control (PlayFrom.vue), amber because it is
-   something you can act on. Only when the item names a moment; the link already carries ?t=. #}
+   something you can act on. Only when the item names a moment; the link already carries ?t=.
+   It PLAYS: `play=1` is added, as the app's own control does (operator 2026-10-05: an explicit ▶
+   starts playback; every other link only opens). #}
 {% macro play_from(link, t_ms) -%}
-{% if t_ms is not none %}<div style="margin:10px 0 12px;"><a href="{{ link | abslink }}" style="font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;font-weight:700;color:#efa843;text-decoration:none;">▶ Play from {{ (t_ms // 1000) | clock }}</a></div>{% endif %}
+{% if t_ms is not none %}<div style="margin:10px 0 12px;"><a href="{{ (link ~ ('&' if '?' in link else '?') ~ 'play=1') | abslink }}" style="font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;font-weight:700;color:#efa843;text-decoration:none;">▶ Play from {{ (t_ms // 1000) | clock }}</a></div>{% endif %}
 {%- endmacro %}
 
 {# The clear call to action under an item (operator 2026-10-05): "Open in" + the brand mark — the
