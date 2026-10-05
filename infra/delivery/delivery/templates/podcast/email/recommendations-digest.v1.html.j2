@@ -19,7 +19,7 @@
         <div style="margin-bottom:8px;color:#acb2c2;font-size:13px;text-transform:uppercase;letter-spacing:.08em;">{{ section.kind | section_label }}</div>
         {% for item in section['items'] %}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1e2739;"><tr><td style="padding:18px 0;">
-          {{ episode_head(item.deep_link, item.get('episode_title') or 'Open in Close Listening', item.get('podcast_title'), item.get('artwork_url'), item.get('duration_seconds'), item.get('publish_date'), description=item.get('description'), summary=item.get('summary')) }}
+          {{ episode_head(item.deep_link, item.get('episode_title') or (item['graph_refs'][0]['label'] if item.get('graph_refs') else 'Open in Close Listening'), item.get('podcast_title'), item.get('artwork_url'), item.get('duration_seconds'), item.get('publish_date'), description=item.get('description'), summary=item.get('summary')) }}
           {% if item.quote is defined %}<p style="color:#f0eae0;margin:10px 0 12px;font-style:italic;">“{{ item.quote }}”</p>{% endif %}
           {{ chips(item.get('graph_refs'), item.get('themes'), item.get('storylines')) }}
           {% if item.deep_link.startswith('/episode/') %}{{ open_link(item.deep_link) }}{% endif %}

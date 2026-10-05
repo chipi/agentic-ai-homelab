@@ -66,7 +66,7 @@
           <div style="color:#acb2c2;font-size:14px;line-height:1.5;">• {{ point }}</div>
           {% endfor %}
           {{ chips(ep.topics, ep.get('themes'), ep.storylines) }}
-          <div style="margin-top:8px;"><a href="{{ notes_link(ep.deep_link) | abslink }}" style="color:#efa843;text-decoration:none;font-size:14px;font-weight:600;">Open episode notes →</a></div>
+          {{ button(notes_link(ep.deep_link), 'Open episode notes') }}
         </td></tr></table>
         {% endfor %}
         {% endif %}

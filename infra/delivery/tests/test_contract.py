@@ -138,7 +138,7 @@ def test_daily_recap_many_renders_compact_stack():
     assert rendered.subject == "Your day, recapped · 2 episodes"
     assert "TSMC (Part II)" in rendered.html
     # the compact-stack per-episode CTA opens the episode notes (operator 2026-10-05)
-    assert "Open episode notes →" in rendered.html and "panel=notes" in rendered.html
+    assert ">Open episode notes</a>" in rendered.html and "panel=notes" in rendered.html
 
 
 def test_recommendations_fixture_renders_email():
@@ -459,7 +459,7 @@ def test_every_episode_has_a_clear_call_to_action():
         items = [i for s in env.payload["sections"] for i in s["items"]]
         episodes = [i for i in items if i["deep_link"].startswith("/episode/")]
         html = _renderer().render_email(env).html
-        assert html.count("Open in Close Listening →") == len(episodes), name
+        assert html.count(">Open in Close Listening</a>") == len(episodes), name
     recap = _renderer().render_email(DeliveryEnvelope.from_dict(_fixture("daily-recap.v1.golden.json"))).html
     assert ">Open episode notes</a>" in recap and "panel=notes" in recap
 
@@ -478,3 +478,14 @@ def test_episodes_carry_topic_theme_and_storyline_chips():
         DeliveryEnvelope.from_dict(_fixture("daily-recap.v1.golden.json"))
     ).html
     assert ">Storyline</span> The semiconductor supply chain" in recap
+
+
+def test_a_topic_item_is_titled_with_the_topic_not_a_button_label():
+    # A trending item links to its TOPIC; it was titled "Open in Close Listening", which reads as a
+    # button label next to the real buttons. It now carries the topic's name.
+    html = _renderer().render_email(
+        DeliveryEnvelope.from_dict(_fixture("your-week-digest.v1.golden.json"))
+    ).html
+    trending = html.split("Trending in your corpus")[-1]
+    # the TITLE link (17px), not the chip of the same name
+    assert 'font-size:17px;font-weight:600;line-height:1.3;">AI Safety</a>' in trending

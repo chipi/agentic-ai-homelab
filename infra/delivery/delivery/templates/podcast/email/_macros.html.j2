@@ -38,9 +38,10 @@
 {%- endmacro %}
 
 {# The clear call to action under an item (operator 2026-10-05: "New for you" had none, unlike
-   "New episodes are out"). A text link in amber — something you can act on. #}
-{% macro open_link(link, label='Open in Close Listening →') -%}
-<div style="margin:12px 0 0;"><a href="{{ link | abslink }}" style="color:#efa843;text-decoration:none;font-size:14px;font-weight:600;">{{ label }}</a></div>
+   "New episodes are out"; then "make it a button like Open episode notes"). The same amber button
+   as the email's primary action, so every episode's way in looks the same. #}
+{% macro open_link(link, label='Open in Close Listening') -%}
+{{ button(link, label) }}
 {%- endmacro %}
 
 {# The primary button — the app's amber button with dark text — for the ONE action an email leads to. #}

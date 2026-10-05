@@ -1,4 +1,4 @@
-{% from "email/_macros.html.j2" import episode_head, play_from, chips with context %}
+{% from "email/_macros.html.j2" import episode_head, play_from, chips, open_link, button with context %}
 {# new-episodes.v1 — an ALERT that something dropped in a followed show (#2124). Email-client-SAFE,
    the same dark shell and the same item row as your-week-digest.v1 (Gmail strips <body> styles →
    dark theme on a <table bgcolor> with per-cell colors; rows are tables so Outlook keeps them).
@@ -33,7 +33,7 @@
           {% if ep.graph_refs %}
           {{ chips(ep.get('graph_refs'), ep.get('themes'), ep.get('storylines')) }}
           {% endif %}
-          <div style="margin-top:8px;"><a href="{{ ep.deep_link | abslink }}" style="color:#efa843;text-decoration:none;font-size:14px;font-weight:600;">Open in Close Listening →</a></div>
+          {{ open_link(ep.deep_link) }}
         </td></tr></table>
         {% endfor %}
 
