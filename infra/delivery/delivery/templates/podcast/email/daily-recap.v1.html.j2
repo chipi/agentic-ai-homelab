@@ -1,4 +1,4 @@
-{% from "email/_macros.html.j2" import episode_head, play_from with context %}
+{% from "email/_macros.html.j2" import episode_head, play_from, open_link, button, notes_link with context %}
 {# daily-recap.v1 — the end-of-day post-episode recap (RFC-122 #2039). Email-client-SAFE, same
    dark shell as your-week-digest.v1 (Gmail strips <body> styles → dark theme on a <table bgcolor>
    with per-cell colors). Adaptive:
@@ -62,6 +62,8 @@
           {% for storyline in ep.storylines %}
           <div style="margin-top:8px;"><a href="{{ app_origin }}/storyline/{{ storyline.id | urlencode }}" style="color:#efa843;text-decoration:none;font-size:14px;">↳ {{ storyline.label }}</a></div>
           {% endfor %}
+          {# The one action this email leads to (operator 2026-10-05): the episode's full notes. #}
+          {{ button(notes_link(ep.deep_link), 'Open episode notes') }}
         </div>
         {% else %}
         {# ---- COMPACT layout (several episodes) ---- #}
@@ -72,7 +74,7 @@
           {% for point in ep.key_points[:2] %}
           <div style="color:#acb2c2;font-size:14px;line-height:1.5;">• {{ point }}</div>
           {% endfor %}
-          <div style="margin-top:8px;"><a href="{{ ep.deep_link | abslink }}" style="color:#efa843;text-decoration:none;font-size:14px;font-weight:600;">Open in Close Listening →</a></div>
+          <div style="margin-top:8px;"><a href="{{ notes_link(ep.deep_link) | abslink }}" style="color:#efa843;text-decoration:none;font-size:14px;font-weight:600;">Open episode notes →</a></div>
         </td></tr></table>
         {% endfor %}
         {% endif %}

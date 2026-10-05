@@ -137,7 +137,8 @@ def test_daily_recap_many_renders_compact_stack():
     rendered = _renderer().render_email(DeliveryEnvelope.from_dict(base))
     assert rendered.subject == "Your day, recapped · 2 episodes"
     assert "TSMC (Part II)" in rendered.html
-    assert "Open in Close Listening" in rendered.html  # the compact-stack per-episode CTA
+    # the compact-stack per-episode CTA opens the episode notes (operator 2026-10-05)
+    assert "Open episode notes →" in rendered.html and "panel=notes" in rendered.html
 
 
 def test_recommendations_fixture_renders_email():
@@ -314,7 +315,7 @@ def test_every_content_link_says_which_email_it_came_from(name, campaign):
         assert q.get("utm_source") == ["email"], href
         assert q.get("utm_campaign") == [campaign], href
         assert q.get("utm_content") == [kind], href
-        assert not any(k for k in q if k not in {"utm_source", "utm_campaign", "utm_content", "t", "revisit", "tab"}), href
+        assert not any(k for k in q if k not in {"utm_source", "utm_campaign", "utm_content", "t", "revisit", "tab", "panel"}), href
     for href in hrefs:
         if "/api/" in href:
             assert "utm_" not in href, f"{href}: server links (unsubscribe) are not tagged"
@@ -448,3 +449,16 @@ def test_an_episode_shows_its_description_and_our_summary_marked_as_ours():
     label = html.index(">Summary</div>")
     ours = html.index("Why owning the toolchain")
     assert desc < label < ours
+
+
+def test_every_episode_has_a_clear_call_to_action():
+    # operator 2026-10-05: "New for you" had no link to open the episode, unlike "New episodes are
+    # out"; the recap leads to the episode notes.
+    for name in ("recommendations-digest.v1.golden.json", "your-week-digest.v1.golden.json"):
+        env = DeliveryEnvelope.from_dict(_fixture(name))
+        items = [i for s in env.payload["sections"] for i in s["items"]]
+        episodes = [i for i in items if i["deep_link"].startswith("/episode/")]
+        html = _renderer().render_email(env).html
+        assert html.count("Open in Close Listening →") == len(episodes), name
+    recap = _renderer().render_email(DeliveryEnvelope.from_dict(_fixture("daily-recap.v1.golden.json"))).html
+    assert ">Open episode notes</a>" in recap and "panel=notes" in recap

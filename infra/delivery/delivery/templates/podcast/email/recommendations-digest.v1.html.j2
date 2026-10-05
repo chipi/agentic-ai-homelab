@@ -1,4 +1,4 @@
-{% from "email/_macros.html.j2" import episode_head, play_from with context %}
+{% from "email/_macros.html.j2" import episode_head, play_from, open_link, button, notes_link with context %}
 {# recommendations-digest.v1 — the monthly "new for you" discovery digest (wave-H). Same
    committed digestPayload shape as your-week-digest.v1 (payload.sections[] of digestItems), same
    email-client-SAFE dark shell; only the framing differs (discovery, not your own captures). #}
@@ -26,6 +26,7 @@
             <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id | urlencode }}" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #1e2739;background-color:#0e1526;border-radius:999px;font-size:12px;color:#f0eae0;text-decoration:none;">{{ ref.label }}</a>
             {% endfor %}
           </div>
+          {% if item.deep_link.startswith('/episode/') %}{{ open_link(item.deep_link) }}{% endif %}
         </td></tr></table>
         {% endfor %}
         {% endfor %}

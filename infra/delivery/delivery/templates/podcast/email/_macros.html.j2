@@ -36,3 +36,17 @@
 {% macro play_from(link, t_ms) -%}
 {% if t_ms is not none %}<div style="margin:10px 0 12px;"><a href="{{ link | abslink }}" style="font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;font-weight:700;color:#efa843;text-decoration:none;">▶ Play from {{ (t_ms // 1000) | clock }}</a></div>{% endif %}
 {%- endmacro %}
+
+{# The clear call to action under an item (operator 2026-10-05: "New for you" had none, unlike
+   "New episodes are out"). A text link in amber — something you can act on. #}
+{% macro open_link(link, label='Open in Close Listening →') -%}
+<div style="margin:12px 0 0;"><a href="{{ link | abslink }}" style="color:#efa843;text-decoration:none;font-size:14px;font-weight:600;">{{ label }}</a></div>
+{%- endmacro %}
+
+{# The primary button — the app's amber button with dark text — for the ONE action an email leads to. #}
+{% macro button(link, label) -%}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 0;"><tr><td bgcolor="#efa843" style="background-color:#efa843;border-radius:6px;"><a href="{{ link | abslink }}" style="display:inline-block;padding:11px 22px;font-size:15px;font-weight:700;color:#080d1b;text-decoration:none;border-radius:6px;">{{ label }}</a></td></tr></table>
+{%- endmacro %}
+
+{# The episode's notes panel opened at its top (summary, key points) — the player's ?panel=notes. #}
+{% macro notes_link(link) -%}{{ link ~ ('&' if '?' in link else '?') ~ 'panel=notes' }}{%- endmacro %}
