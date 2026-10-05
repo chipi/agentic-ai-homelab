@@ -70,7 +70,13 @@ tenants:
     mail_from_by_template:
       magic-link.v1: "Close Listening <signin@mail.closelistening.app>"
       resurface-nudge.v1: "Close Listening <noreply@mail.closelistening.app>"
-    app_origin: https://closelistening.app
+    # Where this tenant's email links point — the DEV web app, not production (operator
+    # 2026-10-05). The click lands in that app, and its build's Umami website id decides the
+    # analytics site, so dev clicks go to "Player (dev)". No literal: today it is the developer's
+    # laptop over Tailscale Serve (https://<laptop>.ts.net:8443 -> the player dev server :5174),
+    # set by `dev-outbox laptop`; a hosted dev environment later is one env value. Unset -> this
+    # tenant is skipped rather than handed the production origin.
+    app_origin_env: PODCAST_DEV_APP_ORIGIN
     unsubscribe_path: /api/app/comms/unsubscribe
     vapid_subject: mailto:info@closelistening.app
     # APNs (native iOS) — SANDBOX, for dev-signed device builds (Xcode/devicectl),

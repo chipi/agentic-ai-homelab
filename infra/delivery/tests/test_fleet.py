@@ -285,3 +285,35 @@ def test_tenant_without_resolvable_outbox_is_skipped(tmp_path):
 
     with_env = load_registry(path=str(reg), env={"SOME_DEV_URL": "http://127.0.0.1:8123"})
     assert with_env["devonly"].outbox_base_url == "http://127.0.0.1:8123"
+
+
+def test_app_origin_env_points_dev_email_links_at_the_dev_app(tmp_path):
+    # operator 2026-10-05: a dev email's links open the DEV web app, so the click is counted in
+    # the dev analytics site — never production by default.
+    (tmp_path / "delivery" / "templates" / "podcast-dev" / "email").mkdir(parents=True)
+    reg = tmp_path / "tenants.yaml"
+    reg.write_text(
+        "tenants:\n"
+        "  podcast-dev:\n"
+        "    outbox_base_url_env: PODCAST_DEV_OUTBOX_URL\n"
+        "    internal_token_env: PODCAST_TOK\n"
+        '    mail_from: "CL <d@mail.closelistening.app>"\n'
+        "    app_origin_env: PODCAST_DEV_APP_ORIGIN\n"
+        "    vapid_subject: mailto:info@closelistening.app\n"
+    )
+    base = {"PODCAST_TOK": "t", "PODCAST_DEV_OUTBOX_URL": "http://lap.ts.net:8000"}
+    r = load_registry(
+        str(reg), env={**base, "PODCAST_DEV_APP_ORIGIN": "https://lap.ts.net:8443/"}, root=tmp_path
+    )
+    assert r["podcast-dev"].app_origin == "https://lap.ts.net:8443"
+    # an outbox but no origin -> skipped, NOT given the production address
+    assert "podcast-dev" not in load_registry(str(reg), env=base, root=tmp_path)
+
+
+def test_the_real_registry_has_no_production_origin_on_the_dev_tenant():
+    import yaml
+
+    reg = yaml.safe_load((Path(__file__).resolve().parents[1] / "tenants.yaml").read_text())
+    dev = reg["tenants"]["podcast-dev"]
+    assert "app_origin" not in dev, "the dev tenant must not default to the production origin"
+    assert dev["app_origin_env"] == "PODCAST_DEV_APP_ORIGIN"

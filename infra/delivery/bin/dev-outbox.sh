@@ -7,12 +7,19 @@
 # worktree on the mini itself. This flips the worker's PODCAST_DEV_OUTBOX_URL without you
 # hand-editing .env each time. The prod `podcast` tenant is never touched.
 #
+# It also sets PODCAST_DEV_APP_ORIGIN — where the dev emails' LINKS point (operator 2026-10-05).
+# A click lands in that app, and the app's build decides the Umami site, so a dev email's clicks
+# are counted in "Player (dev)", never in production. Without it the podcast-dev tenant is
+# skipped (tenant.py) rather than sending links to the production site.
+#
 # Modes:
 #   dev-outbox laptop [host] [port]  → point at the laptop over the tailnet (default host
-#                                      markos-macbook-pro-1.tail6d0ed4.ts.net, port 8000)
-#   dev-outbox mini [port]           → point at a dev API on the mini host (host.docker.internal)
-#   dev-outbox off                   → unset the override (revert to the tenants.yaml default)
-#   dev-outbox status                → show the current target + whether it answers
+#                                      markos-macbook-pro-1.tail6d0ed4.ts.net, port 8000); links
+#                                      → https://<host>:8443 (Tailscale Serve → player dev :5174)
+#   dev-outbox mini [port]           → point at a dev API on the mini host (host.docker.internal);
+#                                      needs DEV_APP_ORIGIN (there is no dev web app there by default)
+#   dev-outbox off                   → unset both overrides (the dev tenant goes idle)
+#   dev-outbox status                → show the current targets + whether the outbox answers
 #
 # The dev API must be reachable: on the laptop, `make serve-api` now binds 0.0.0.0 by default
 # (tailnet-ready, no flags). The shared INTERNAL_OUTBOX_TOKEN must already match on both sides.
@@ -22,6 +29,9 @@
 #   DEV_OUTBOX_LAPTOP    default laptop tailnet host
 #   DEV_OUTBOX_PORT      default dev API port (8000)
 #   DEV_OUTBOX_DOCKER    docker command (default: docker)
+#   DEV_APP_ORIGIN       the dev web app the email links open (default for `laptop`:
+#                        https://<laptop host>:8443). One-time on the laptop, expose the player
+#                        dev server there:  tailscale serve --bg --https=8443 http://127.0.0.1:5174
 #
 # Exit: 0 ok · 2 usage · 3 config (compose dir / .env missing)
 
@@ -34,32 +44,36 @@ LAPTOP_HOST="${DEV_OUTBOX_LAPTOP:-markos-macbook-pro-1.tail6d0ed4.ts.net}"
 PORT="${DEV_OUTBOX_PORT:-8000}"
 DOCKER="${DEV_OUTBOX_DOCKER:-docker}"
 KEY="PODCAST_DEV_OUTBOX_URL"
+ORIGIN_KEY="PODCAST_DEV_APP_ORIGIN"
+APP_PORT="${DEV_APP_PORT:-8443}"
 # email+push drain podcast-dev; events is cross-tenant and needs no restart for a URL change.
 SERVICES=(delivery-email delivery-push)
 
 log()  { printf '[dev-outbox] %s\n' "$*" >&2; }
-die()  { printf '[dev-outbox] ✗ %s\n' "$*" >&2; exit "${2:-2}"; }
+die()  { printf '[dev-outbox] ✗ %s\n' "$1" >&2; exit "${2:-2}"; }
 
 [[ -d "$DIR" ]]      || die "compose dir missing: $DIR" 3
 [[ -f "$ENV_FILE" ]] || die ".env missing: $ENV_FILE (this must run where the worker .env lives)" 3
 
-current_url() { grep -E "^${KEY}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-; }
+current_kv() { grep -E "^${1}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-; }
+current_url() { current_kv "$KEY"; }
 
-set_url() {
-  local url="$1"
+set_kv() {
+  local key="$1" val="$2"
   # replace-in-place if present, else append; never duplicate the key
-  if grep -qE "^${KEY}=" "$ENV_FILE"; then
+  if grep -qE "^${key}=" "$ENV_FILE"; then
     # portable in-place edit (BSD + GNU sed): write a temp then move, preserving perms
-    local tmp; tmp="$(mktemp)"; grep -vE "^${KEY}=" "$ENV_FILE" > "$tmp"
-    printf '%s=%s\n' "$KEY" "$url" >> "$tmp"
+    local tmp; tmp="$(mktemp)"; grep -vE "^${key}=" "$ENV_FILE" > "$tmp"
+    printf '%s=%s\n' "$key" "$val" >> "$tmp"
     cat "$tmp" > "$ENV_FILE"; rm -f "$tmp"
   else
-    printf '%s=%s\n' "$KEY" "$url" >> "$ENV_FILE"
+    printf '%s=%s\n' "$key" "$val" >> "$ENV_FILE"
   fi
 }
+set_url() { set_kv "$KEY" "$1"; }
 
-unset_url() {
-  local tmp; tmp="$(mktemp)"; grep -vE "^${KEY}=" "$ENV_FILE" > "$tmp" || true
+unset_kv() {
+  local tmp; tmp="$(mktemp)"; grep -vE "^${1}=" "$ENV_FILE" > "$tmp" || true
   cat "$tmp" > "$ENV_FILE"; rm -f "$tmp"
 }
 
@@ -81,6 +95,8 @@ show_status() {
   else
     log "target: $url   (reachability: HTTP $(probe "$url"))"
   fi
+  local origin; origin="$(current_kv "$ORIGIN_KEY")"
+  log "email links → ${origin:-UNSET (podcast-dev is skipped until it is set)}"
 }
 
 MODE="${1:-status}"
@@ -88,15 +104,20 @@ case "$MODE" in
   laptop)
     host="${2:-$LAPTOP_HOST}"; port="${3:-$PORT}"
     url="http://${host}:${port}"
-    set_url "$url"; log "→ laptop: $url"; restart; show_status
+    set_url "$url"; log "→ laptop: $url"
+    set_kv "$ORIGIN_KEY" "${DEV_APP_ORIGIN:-https://${host}:${APP_PORT}}"
+    restart; show_status
     ;;
   mini)
     port="${2:-$PORT}"
     url="http://host.docker.internal:${port}"
-    set_url "$url"; log "→ mini host: $url"; restart; show_status
+    [[ -n "${DEV_APP_ORIGIN:-}" ]] || die "mini: set DEV_APP_ORIGIN to the dev web app the email links should open" 2
+    set_url "$url"; log "→ mini host: $url"
+    set_kv "$ORIGIN_KEY" "$DEV_APP_ORIGIN"
+    restart; show_status
     ;;
   off)
-    unset_url; log "→ override removed (tenants.yaml default)"; restart; show_status
+    unset_kv "$KEY"; unset_kv "$ORIGIN_KEY"; log "→ overrides removed (podcast-dev idle)"; restart; show_status
     ;;
   status)
     show_status

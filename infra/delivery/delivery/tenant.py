@@ -25,12 +25,15 @@ Onboarding a new tenant = a new entry + its templates/schema dir + its secrets. 
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 import yaml
+
+log = logging.getLogger(__name__)
 
 _ROOT = Path(__file__).resolve().parent.parent  # infra/delivery/
 
@@ -124,6 +127,19 @@ def load_registry(
         # absent beats fail loud and useless.
         if not outbox_url:
             continue
+        # app_origin is env-overridable the same way (operator 2026-10-05): it is where every
+        # email link points, so it decides which app a click lands in — and so which analytics
+        # site counts it (each build carries its environment's Umami website id). The dev tenant
+        # sends for real, so with the prod origin a test email's click opened PRODUCTION and was
+        # counted there. podcast-dev now names no literal origin at all: it points at the dev web
+        # app wherever it runs (today the developer's laptop over Tailscale), and a dev tenant with
+        # an outbox but no origin is SKIPPED, never handed the prod address by default.
+        app_origin = e.get(t.get("app_origin_env", ""), "") or t.get("app_origin", "")
+        if not app_origin:
+            log.warning(
+                "tenant %s skipped: no app origin (set %s)", name, t.get("app_origin_env", "app_origin")
+            )
+            continue
         out[name] = TenantConfig(
             name=name,
             outbox_base_url=outbox_url,
@@ -132,10 +148,10 @@ def load_registry(
             mail_from_by_template={
                 str(k): str(v) for k, v in (t.get("mail_from_by_template") or {}).items()
             },
-            app_origin=t["app_origin"].rstrip("/"),
+            app_origin=app_origin.rstrip("/"),
             unsubscribe_path=t.get("unsubscribe_path", "/api/app/comms/unsubscribe"),
             vapid_private_key=e.get(t.get("vapid_private_key_env", ""), ""),
-            vapid_subject=t.get("vapid_subject", "mailto:info@" + t["app_origin"].split("//")[-1]),
+            vapid_subject=t.get("vapid_subject", "mailto:info@" + app_origin.split("//")[-1]),
             apns_key=e.get(t.get("apns_key_env", ""), ""),
             apns_key_id=t.get("apns_key_id", ""),
             apns_team_id=t.get("apns_team_id", ""),
