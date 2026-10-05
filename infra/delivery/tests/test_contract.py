@@ -459,7 +459,10 @@ def test_every_episode_has_a_clear_call_to_action():
         items = [i for s in env.payload["sections"] for i in s["items"]]
         episodes = [i for i in items if i["deep_link"].startswith("/episode/")]
         html = _renderer().render_email(env).html
-        assert html.count(">Open in Close Listening</a>") == len(episodes), name
+        # "Open in" + the dark brand mark, alt "Close Listening" so blocked images still read it
+        assert html.count('email-mark-dark.png" width="19" height="20" alt="Close Listening"') == len(
+            episodes
+        ), name
     recap = _renderer().render_email(DeliveryEnvelope.from_dict(_fixture("daily-recap.v1.golden.json"))).html
     assert ">Open episode notes</a>" in recap and "panel=notes" in recap
 
