@@ -1,4 +1,4 @@
-{% from "email/_macros.html.j2" import episode_head, play_from %}
+{% from "email/_macros.html.j2" import episode_head, play_from with context %}
 {# your-week-digest.v1 — email-client-SAFE layout. Gmail strips <body> styles, so the
    dark theme lives on a wrapper <table bgcolor> (kept by Gmail) with per-cell colors —
    never rely on body-level background, or light text lands on a white bg (invisible).

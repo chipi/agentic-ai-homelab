@@ -1,4 +1,4 @@
-{% from "email/_macros.html.j2" import episode_head, play_from %}
+{% from "email/_macros.html.j2" import episode_head, play_from with context %}
 {# daily-recap.v1 — the end-of-day post-episode recap (RFC-122 #2039). Email-client-SAFE, same
    dark shell as your-week-digest.v1 (Gmail strips <body> styles → dark theme on a <table bgcolor>
    with per-cell colors). Adaptive:

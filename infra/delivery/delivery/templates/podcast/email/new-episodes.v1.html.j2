@@ -1,4 +1,4 @@
-{% from "email/_macros.html.j2" import episode_head, play_from %}
+{% from "email/_macros.html.j2" import episode_head, play_from with context %}
 {# new-episodes.v1 — an ALERT that something dropped in a followed show (#2124). Email-client-SAFE,
    the same dark shell and the same item row as your-week-digest.v1 (Gmail strips <body> styles →
    dark theme on a <table bgcolor> with per-cell colors; rows are tables so Outlook keeps them).

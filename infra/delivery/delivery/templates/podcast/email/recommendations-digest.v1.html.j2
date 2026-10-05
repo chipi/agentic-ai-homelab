@@ -1,4 +1,4 @@
-{% from "email/_macros.html.j2" import episode_head, play_from %}
+{% from "email/_macros.html.j2" import episode_head, play_from with context %}
 {# recommendations-digest.v1 — the monthly "new for you" discovery digest (wave-H). Same
    committed digestPayload shape as your-week-digest.v1 (payload.sections[] of digestItems), same
    email-client-SAFE dark shell; only the framing differs (discovery, not your own captures). #}

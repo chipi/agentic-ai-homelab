@@ -418,3 +418,22 @@ def test_a_topic_item_is_not_dressed_as_an_episode():
         DeliveryEnvelope.from_dict(_fixture("recommendations-digest.v1.golden.json"))
     ).html
     assert "/api/app/artwork" not in html
+
+
+def test_an_episode_without_artwork_still_gets_its_artwork_column():
+    # operator 2026-10-05: artwork next to every episode name. With none anywhere, the app's
+    # placeholder tile (the brand mark on the raised panel) holds the column; a topic link gets none.
+    html = _renderer().render_email(
+        DeliveryEnvelope.from_dict(_fixture("new-episodes.v1.golden.json"))
+    ).html
+    episodes = html.count('href="https://closelistening.app/episode/')
+    tiles = html.count('width="23" height="24"')
+    assert tiles == 2, f"{tiles} placeholder tiles for 2 artwork-less episodes ({episodes} links)"
+    # Your Week mixes episode items (one with artwork) and a topic item (trending): a tile for each
+    # artwork-less EPISODE, none for the topic, the real image for the one that has it.
+    wk = _fixture("your-week-digest.v1.golden.json")
+    items = [i for sec in wk["payload"]["sections"] for i in sec["items"]]
+    bare = [i for i in items if i["deep_link"].startswith("/episode/") and not i.get("artwork_url")]
+    assert any(not i["deep_link"].startswith("/episode/") for i in items), "no topic item: vacuous"
+    wk_html = _renderer().render_email(DeliveryEnvelope.from_dict(wk)).html
+    assert wk_html.count('width="23" height="24"') == len(bare)
