@@ -14,38 +14,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-<body style="margin:0;padding:0;background-color:#0b0e14;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="background-color:#0b0e14;">
+<body style="margin:0;padding:0;background-color:#080d1b;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#080d1b" style="background-color:#080d1b;">
   <tr><td align="center" style="padding:32px 16px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="width:600px;max-width:600px;background-color:#0b0e14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#080d1b" style="width:600px;max-width:600px;background-color:#080d1b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr><td style="padding:0 8px;">
         {% include "email/_brand.html.j2" %}
-        <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#e7ecf3;">
+        <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#f0eae0;">
           {% if payload.count == 1 %}A new episode is out{% else %}{{ payload.count }} new episodes are out{% endif %}
         </h1>
-        <div style="font-size:14px;color:#8aa0bd;margin:0 0 20px;">In shows you follow</div>
+        <div style="font-size:14px;color:#acb2c2;margin:0 0 20px;">In shows you follow</div>
 
         {% for ep in payload.episodes %}
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;"><tr><td style="padding:18px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1e2739;"><tr><td style="padding:18px 0;">
           {% if ep.podcast_title is defined and ep.podcast_title %}
-          <div style="letter-spacing:.08em;font-size:11px;text-transform:uppercase;color:#8aa0bd;">{{ ep.podcast_title }}</div>
+          <div style="letter-spacing:.08em;font-size:11px;text-transform:uppercase;color:#acb2c2;">{{ ep.podcast_title }}</div>
           {% endif %}
-          <a href="{{ ep.deep_link | abslink }}" style="color:#e7ecf3;text-decoration:none;font-size:17px;font-weight:600;">{{ ep.episode_title }}</a>
+          <a href="{{ ep.deep_link | abslink }}" style="color:#f0eae0;text-decoration:none;font-size:17px;font-weight:600;">{{ ep.episode_title }}</a>
           {% if ep.graph_refs %}
           <div style="margin-top:10px;">
             {% for ref in ep.graph_refs %}
-            <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id | urlencode }}" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #2b3a52;border-radius:999px;font-size:12px;color:#9fb2cc;text-decoration:none;">{{ ref.label }}</a>
+            <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id | urlencode }}" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #1e2739;background-color:#0e1526;border-radius:999px;font-size:12px;color:#f0eae0;text-decoration:none;">{{ ref.label }}</a>
             {% endfor %}
           </div>
           {% endif %}
-          <div style="margin-top:8px;"><a href="{{ ep.deep_link | abslink }}" style="color:#8aa0bd;text-decoration:none;font-size:14px;font-weight:600;">Open in Close Listening →</a></div>
+          <div style="margin-top:8px;"><a href="{{ ep.deep_link | abslink }}" style="color:#efa843;text-decoration:none;font-size:14px;font-weight:600;">Open in Close Listening →</a></div>
         </td></tr></table>
         {% endfor %}
 
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;margin-top:8px;"><tr><td style="padding-top:20px;color:#6b7a90;font-size:12px;">
-          <p style="margin:0 0 6px;color:#6b7a90;">You're getting new-episode alerts because you turned them on in Close Listening.</p>
-          <p style="margin:0;color:#6b7a90;"><a href="{{ unsubscribe_url }}" style="color:#8aa0bd;">Unsubscribe</a> · one click, no sign-in needed.</p>
-        </td></tr></table>
+        {% set footer_reason %}You're getting new-episode alerts because you turned them on in Close Listening.{% endset %}
+        {% include "email/_footer.html.j2" %}
       </td></tr>
     </table>
   </td></tr>

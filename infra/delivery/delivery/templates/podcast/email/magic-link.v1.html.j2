@@ -14,7 +14,7 @@
 
    Everything else follows the standard shell (your-week-digest.v1): the same wrapper table, the
    same <h1> and subtitle, the same palette. The button uses the shell's chip/border colour
-   #2b3a52 with light text; the first version had a light pill with dark text that appeared in no
+   #1e2739 with light text; the first version had a light pill with dark text that appeared in no
    other email.
 
    Every text block sits in a table cell with the colour set on the CELL as well as the text. The
@@ -25,34 +25,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-<body style="margin:0;padding:0;background-color:#0b0e14;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="background-color:#0b0e14;">
+<body style="margin:0;padding:0;background-color:#080d1b;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#080d1b" style="background-color:#080d1b;">
   <tr><td align="center" style="padding:32px 16px;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#0b0e14" style="width:600px;max-width:600px;background-color:#0b0e14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" bgcolor="#080d1b" style="width:600px;max-width:600px;background-color:#080d1b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
       <tr><td style="padding:0 8px;">
         {% include "email/_brand.html.j2" %}
-        <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#e7ecf3;">Sign in to Close Listening</h1>
-        <div style="font-size:14px;color:#8aa0bd;margin:0 0 20px;">Tap the button below and you are in. No password to remember.</div>
+        <h1 style="font-size:24px;font-weight:600;margin:8px 0 4px;color:#f0eae0;">Sign in to Close Listening</h1>
+        <div style="font-size:14px;color:#acb2c2;margin:0 0 20px;">Tap the button below and you are in. No password to remember.</div>
 
         {# A table so Outlook renders the button; the plain link below is the fallback. #}
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
-          <tr><td bgcolor="#2b3a52" style="background-color:#2b3a52;border-radius:6px;">
-            <a href="{{ payload.link }}" style="display:inline-block;padding:11px 24px;font-size:15px;font-weight:600;color:#e7ecf3;text-decoration:none;border-radius:6px;">Sign in</a>
+          <tr><td bgcolor="#efa843" style="background-color:#efa843;border-radius:6px;">
+            <a href="{{ payload.link }}" style="display:inline-block;padding:11px 24px;font-size:15px;font-weight:700;color:#080d1b;text-decoration:none;border-radius:6px;">Sign in</a>
           </td></tr>
         </table>
 
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;"><tr><td style="padding:18px 0;color:#8aa0bd;font-size:13px;line-height:1.5;">
-          <p style="margin:0 0 10px;color:#8aa0bd;">This link works once and expires in {{ payload.expires_minutes | default(15) }} minutes.</p>
-          <p style="margin:0 0 4px;color:#8aa0bd;">If the button does not work, paste this into your browser:</p>
-          <a href="{{ payload.link }}" style="color:#9fb2cc;word-break:break-all;">{{ payload.link }}</a>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1e2739;"><tr><td style="padding:18px 0;color:#acb2c2;font-size:13px;line-height:1.5;">
+          <p style="margin:0 0 10px;color:#acb2c2;">This link works once and expires in {{ payload.expires_minutes | default(15) }} minutes.</p>
+          <p style="margin:0 0 4px;color:#acb2c2;">If the button does not work, paste this into your browser:</p>
+          <a href="{{ payload.link }}" style="color:#acb2c2;word-break:break-all;">{{ payload.link }}</a>
         </td></tr></table>
 
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1c2636;margin-top:8px;"><tr><td style="padding-top:20px;color:#6b7a90;font-size:12px;">
-          <p style="margin:0;color:#6b7a90;">
-            You are receiving this because someone asked to sign in with this address.
-            If that was not you, ignore this email — the link expires on its own and nothing happens.
-          </p>
-        </td></tr></table>
+        {% set footer_reason %}You are receiving this because someone asked to sign in with this address. If that was not you, ignore this email — the link expires on its own and nothing happens.{% endset %}
+        {% include "email/_footer.html.j2" %}
       </td></tr>
     </table>
   </td></tr>

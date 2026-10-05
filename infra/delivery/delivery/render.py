@@ -70,8 +70,9 @@ _SECTION_LABELS = {
 }
 
 
-# The app's content pages — the paths a tagged email link can open (and the installed app claims).
-_CONTENT_PATHS = frozenset({"episode", "podcast", "topic", "person", "storyline", "theme"})
+# The app's pages an email links to: the content pages (which the installed app also claims) and
+# the notification settings the footer's "Manage notifications" opens.
+_APP_PATHS = frozenset({"episode", "podcast", "topic", "person", "storyline", "theme", "profile"})
 _HREF = re.compile(r'href="([^"]+)"')
 
 
@@ -157,7 +158,7 @@ class Renderer:
         """Tag every content link so the app can report which email link was clicked.
 
         Operator 2026-10-05: ``utm_source=email&utm_campaign=<email>&utm_content=<page kind>`` on
-        each link to one of the app's content pages; the app reads them on arrival and reports
+        each link to one of the app's pages (content, and the footer's notification settings); the app reads them on arrival and reports
         ``email_link_opened`` to Umami. Done HERE, after rendering, so a new template is tagged
         without anyone remembering to. Our own tags, not Resend's click tracking: that rewrites
         links through another host, and a phone only opens the installed app for a link that goes
@@ -170,7 +171,7 @@ class Renderer:
             url = html_lib.unescape(m.group(1))
             parts = urlsplit(url)
             kind = parts.path.lstrip("/").split("/", 1)[0]
-            if parts.netloc != origin or kind not in _CONTENT_PATHS:
+            if parts.netloc != origin or kind not in _APP_PATHS:
                 return m.group(0)
             query = [(k, v) for k, v in parse_qsl(parts.query) if not k.startswith("utm_")]
             query += [("utm_source", "email"), ("utm_campaign", campaign), ("utm_content", kind)]

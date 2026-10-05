@@ -237,7 +237,7 @@ def test_new_episodes_email_renders_without_podcast_title() -> None:
 # which is also what the installed app claims (Universal Links / App Links) — so a tap opens the
 # app on that page, or the browser when the app is not installed.
 
-_APP_PATHS = ("episode", "podcast", "topic", "person", "storyline", "theme")
+_APP_PATHS = ("episode", "podcast", "topic", "person", "storyline", "theme", "profile")
 
 
 @pytest.mark.parametrize(
@@ -314,7 +314,7 @@ def test_every_content_link_says_which_email_it_came_from(name, campaign):
         assert q.get("utm_source") == ["email"], href
         assert q.get("utm_campaign") == [campaign], href
         assert q.get("utm_content") == [kind], href
-        assert not any(k for k in q if k not in {"utm_source", "utm_campaign", "utm_content", "t", "revisit"}), href
+        assert not any(k for k in q if k not in {"utm_source", "utm_campaign", "utm_content", "t", "revisit", "tab"}), href
     for href in hrefs:
         if "/api/" in href:
             assert "utm_" not in href, f"{href}: server links (unsubscribe) are not tagged"
@@ -361,3 +361,9 @@ def test_every_email_carries_the_app_brand_lockup(name):
     assert 'src="https://closelistening.app/brand/email-mark.png"' in html
     assert "Listen. Understand. Remember." in html
     assert ">Close Listening</div>" in html
+    # One footer for every email; the unsubscribe + settings links only where there is consent to
+    # withdraw — the sign-in email is transactional.
+    assert "Close Listening · Listen. Understand. Remember." in html
+    transactional = name.startswith("magic-link")
+    assert ("Manage notifications" in html) is not transactional
+    assert ("Unsubscribe" in html) is not transactional
