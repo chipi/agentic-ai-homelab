@@ -12,7 +12,7 @@
         {% set preheader %}A moment worth a second listen{% if payload.lead.get('episode_title') %}: {{ payload.lead.episode_title }}{% endif %}{% endset %}
         {% include "email/_brand.html.j2" %}
         <p style="color:#acb2c2;font-size:13px;margin:12px 0 4px;">A moment worth a second listen{% if payload.highlight_count %} · {{ payload.highlight_count }} highlights waiting{% endif %}.</p>
-        {{ episode_head(payload.lead.deep_link, payload.lead.get('episode_title') or 'Open in Close Listening', payload.lead.get('podcast_title'), payload.lead.get('artwork_url'), payload.lead.get('duration_seconds'), payload.lead.get('publish_date'), title_size=20) }}
+        {{ episode_head(payload.lead.deep_link, payload.lead.get('episode_title') or 'Open in Close Listening', payload.lead.get('podcast_title'), payload.lead.get('artwork_url'), payload.lead.get('duration_seconds'), payload.lead.get('publish_date'), description=payload.lead.get('description'), summary=payload.lead.get('summary'), title_size=20) }}
         {% if payload.lead.quote is defined %}<p style="color:#f0eae0;margin:14px 0;font-style:italic;">“{{ payload.lead.quote }}”</p>{% endif %}
         {{ play_from(payload.lead.deep_link, payload.lead.get('t_ms')) }}
         <div style="margin-top:6px;">

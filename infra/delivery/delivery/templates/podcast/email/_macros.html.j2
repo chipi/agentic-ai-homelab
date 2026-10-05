@@ -8,7 +8,7 @@
 
 {# The episode header: 64px artwork (or the placeholder tile for an episode that has none), the SHOW in mono small caps above the
    title, then a muted "42 min · Sep 12, 2026" line — the app's EpisodeGroupCard, in a table. #}
-{% macro episode_head(link, title, show=None, art=None, duration=None, date=None, title_size=17) -%}
+{% macro episode_head(link, title, show=None, art=None, duration=None, date=None, title_size=17, description=None, summary=None) -%}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
   {% if art %}
   <td valign="top" width="64" style="width:64px;padding:2px 14px 0 0;"><a href="{{ link | abslink }}" style="text-decoration:none;"><img src="{{ art | abslink }}" width="64" height="64" alt="" style="display:block;width:64px;height:64px;border:0;border-radius:8px;object-fit:cover;background-color:#0e1526;"></a></td>
@@ -24,6 +24,11 @@
     {% if meta %}<div style="font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;color:#6b7488;margin:4px 0 0;">{{ meta | join(' · ') }}</div>{% endif %}
   </td>
 </tr></table>
+{# Under the header, full width (operator 2026-10-05): the publisher's own description, muted and
+   unlabelled, then OUR summary under a "Summary" label in the app's kicker style — so a reader can
+   tell the show's words from ours. Both arrive cut at a word; either may be absent. #}
+{% if description %}<p style="margin:12px 0 0;font-size:14px;line-height:1.5;color:#acb2c2;">{{ description }}</p>{% endif %}
+{% if summary %}<div style="margin:12px 0 0;"><div style="font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#acb2c2;margin:0 0 3px;">Summary</div><p style="margin:0;font-size:14px;line-height:1.5;color:#f0eae0;">{{ summary }}</p></div>{% endif %}
 {%- endmacro %}
 
 {# "▶ Play from 12:03" — the app's one jump-to-a-moment control (PlayFrom.vue), amber because it is

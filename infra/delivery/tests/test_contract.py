@@ -437,3 +437,14 @@ def test_an_episode_without_artwork_still_gets_its_artwork_column():
     assert any(not i["deep_link"].startswith("/episode/") for i in items), "no topic item: vacuous"
     wk_html = _renderer().render_email(DeliveryEnvelope.from_dict(wk)).html
     assert wk_html.count('width="23" height="24"') == len(bare)
+
+
+def test_an_episode_shows_its_description_and_our_summary_marked_as_ours():
+    # operator 2026-10-05: the publisher's description, then OUR summary under a "Summary" label.
+    html = _renderer().render_email(
+        DeliveryEnvelope.from_dict(_fixture("your-week-digest.v1.golden.json"))
+    ).html
+    desc = html.index("Ben and David tell the story")
+    label = html.index(">Summary</div>")
+    ours = html.index("Why owning the toolchain")
+    assert desc < label < ours
