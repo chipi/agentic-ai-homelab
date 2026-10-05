@@ -2,6 +2,6 @@
 {
   "title": {{ (payload.lead.episode_title | default('Worth revisiting')) | tojson }},
   "body": {{ (payload.lead.quote | default('Something you saved is worth a second listen.')) | tojson }},
-  "url": {{ (payload.lead.deep_link | default('/revisit')) | tojson }},
+  "url": {{ (payload.lead.deep_link | default('/library?tab=revisit')) | tojson }},
   "tag": "resurface-nudge"
 }

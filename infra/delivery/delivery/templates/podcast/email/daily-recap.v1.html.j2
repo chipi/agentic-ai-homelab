@@ -54,12 +54,12 @@
           {% if ep.topics %}
           <div style="margin-top:12px;">
             {% for topic in ep.topics %}
-            <a href="{{ app_origin }}/topic/{{ topic.id.split(':')[1] }}?scope=mine" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #2b3a52;border-radius:999px;font-size:12px;color:#9fb2cc;text-decoration:none;">{{ topic.label }}</a>
+            <a href="{{ app_origin }}/topic/{{ topic.id | urlencode }}" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #2b3a52;border-radius:999px;font-size:12px;color:#9fb2cc;text-decoration:none;">{{ topic.label }}</a>
             {% endfor %}
           </div>
           {% endif %}
           {% for storyline in ep.storylines %}
-          <div style="margin-top:8px;"><a href="{{ app_origin }}/storyline/{{ storyline.id.split(':')[1] }}" style="color:#8aa0bd;text-decoration:none;font-size:14px;">↳ {{ storyline.label }}</a></div>
+          <div style="margin-top:8px;"><a href="{{ app_origin }}/storyline/{{ storyline.id | urlencode }}" style="color:#8aa0bd;text-decoration:none;font-size:14px;">↳ {{ storyline.label }}</a></div>
           {% endfor %}
         </div>
         {% else %}

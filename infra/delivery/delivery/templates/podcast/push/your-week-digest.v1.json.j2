@@ -3,6 +3,6 @@
 {
   "title": "Your week in close listening",
   "body": {{ (first.episode_title | default('New highlights from your listening are ready.')) | tojson }},
-  "url": {{ (first.deep_link | default('/revisit')) | tojson }},
+  "url": {{ (first.deep_link | default('/library?tab=revisit')) | tojson }},
   "tag": "your-week-digest"
 }

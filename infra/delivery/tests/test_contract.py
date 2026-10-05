@@ -227,3 +227,53 @@ def test_new_episodes_email_renders_without_podcast_title() -> None:
     for e in episodes:
         assert e["episode_title"] in rendered.html
         assert "https://closelistening.app" + e["deep_link"] in rendered.html
+
+
+# --- every link in an email opens the same thing the app's own links do (operator 2026-10-05) ---
+#
+# The chips stripped the graph id's prefix — /topic/ai-safety?scope=mine for topic:ai-safety — and
+# the app's topic/person pages resolve `topic:x`, never a bare `x`, so every chip opened an empty
+# page. They now carry the full id, percent-encoded: the exact link the app's "Copy link" builds,
+# which is also what the installed app claims (Universal Links / App Links) — so a tap opens the
+# app on that page, or the browser when the app is not installed.
+
+_APP_PATHS = ("episode", "podcast", "topic", "person", "storyline", "theme")
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "your-week-digest.v1.golden.json",
+        "recommendations-digest.v1.golden.json",
+        "resurface-nudge.v1.golden.json",
+        "daily-recap.v1.golden.json",
+    ],
+)
+def test_email_links_are_app_links_with_full_graph_ids(name):
+    import re
+    from urllib.parse import unquote, urlsplit
+
+    env = DeliveryEnvelope.from_dict(_fixture(name))
+    if env.channel is not Channel.EMAIL:
+        pytest.skip("push-only fixture")
+    html = _renderer().render_email(env).html
+    hrefs = [h.replace("&amp;", "&") for h in re.findall(r'href="([^"]+)"', html)]
+    content = [h for h in hrefs if "/api/" not in h]  # unsubscribe is a server route
+    assert content, f"{name}: no content links rendered — the check would pass vacuously"
+    for href in content:
+        parts = urlsplit(href)
+        assert parts.netloc == "closelistening.app", href
+        kind, _, ident = parts.path.lstrip("/").partition("/")
+        assert kind in _APP_PATHS, f"{href}: /{kind} is not a page the app opens"
+        assert "scope=" not in parts.query, f"{href}: the app ignores ?scope="
+        if kind in ("topic", "person"):
+            assert unquote(ident).startswith(f"{kind}:"), f"{href}: stripped graph id"
+        if kind == "storyline":
+            assert unquote(ident).startswith("topic:"), f"{href}: a storyline link takes its anchor topic"
+
+
+def test_push_fallback_url_is_the_revisit_screen():
+    # `/revisit` is not an app route; the app sends unknown paths to Home.
+    for name in ("resurface-nudge.v1.json.j2", "your-week-digest.v1.json.j2"):
+        src = (Path(__file__).resolve().parents[1] / "delivery" / "templates" / "podcast" / "push" / name).read_text()
+        assert "default('/revisit')" not in src and "/library?tab=revisit" in src, name

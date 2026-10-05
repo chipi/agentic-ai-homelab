@@ -21,7 +21,7 @@
           {% if item.quote is defined %}<p style="color:#c3ccd9;margin:10px 0 12px;font-style:italic;">“{{ item.quote }}”</p>{% endif %}
           <div>
             {% for ref in item['graph_refs'] %}
-            <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id.split(':')[1] }}?scope=mine" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #2b3a52;border-radius:999px;font-size:12px;color:#9fb2cc;text-decoration:none;">{{ ref.label }}</a>
+            <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id | urlencode }}" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #2b3a52;border-radius:999px;font-size:12px;color:#9fb2cc;text-decoration:none;">{{ ref.label }}</a>
             {% endfor %}
           </div>
         </td></tr></table>
