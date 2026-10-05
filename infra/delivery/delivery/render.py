@@ -11,11 +11,14 @@ Aligned to the committed contract:
 
 from __future__ import annotations
 
+import html as html_lib
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from jinja2.exceptions import TemplateNotFound
@@ -65,6 +68,16 @@ _SECTION_LABELS = {
     "new_in_interests": "New in what you follow",
     "trending_in_your_corpus": "Trending in your corpus",
 }
+
+
+# The app's content pages — the paths a tagged email link can open (and the installed app claims).
+_CONTENT_PATHS = frozenset({"episode", "podcast", "topic", "person", "storyline", "theme"})
+_HREF = re.compile(r'href="([^"]+)"')
+
+
+def email_campaign(template: str) -> str:
+    """``your-week-digest.v1`` -> ``your_week_digest``: which email a click came from."""
+    return template.split(".", 1)[0].replace("-", "_")
 
 
 class Renderer:
@@ -136,7 +149,35 @@ class Renderer:
             html = self._env.get_template(f"email/{env.template}.html.j2").render(ctx)
         except TemplateNotFound as exc:
             raise RenderError(f"no email template for {env.template!r}: {exc}") from exc
-        return RenderedEmail(subject=subject.strip(), html=html)
+        return RenderedEmail(
+            subject=subject.strip(), html=self.tag_links(html, email_campaign(env.template))
+        )
+
+    def tag_links(self, html: str, campaign: str) -> str:
+        """Tag every content link so the app can report which email link was clicked.
+
+        Operator 2026-10-05: ``utm_source=email&utm_campaign=<email>&utm_content=<page kind>`` on
+        each link to one of the app's content pages; the app reads them on arrival and reports
+        ``email_link_opened`` to Umami. Done HERE, after rendering, so a new template is tagged
+        without anyone remembering to. Our own tags, not Resend's click tracking: that rewrites
+        links through another host, and a phone only opens the installed app for a link that goes
+        straight to the app's domain. Sign-in and unsubscribe links (``/api/…``) are left alone.
+        No user id is added — emails get forwarded.
+        """
+        origin = urlsplit(self._app_origin).netloc
+
+        def tag(m: re.Match[str]) -> str:
+            url = html_lib.unescape(m.group(1))
+            parts = urlsplit(url)
+            kind = parts.path.lstrip("/").split("/", 1)[0]
+            if parts.netloc != origin or kind not in _CONTENT_PATHS:
+                return m.group(0)
+            query = [(k, v) for k, v in parse_qsl(parts.query) if not k.startswith("utm_")]
+            query += [("utm_source", "email"), ("utm_campaign", campaign), ("utm_content", kind)]
+            tagged = urlunsplit(parts._replace(query=urlencode(query)))
+            return f'href="{html_lib.escape(tagged, quote=True)}"'
+
+        return _HREF.sub(tag, html)
 
     def render_push(self, env: DeliveryEnvelope) -> RenderedPush:
         try:

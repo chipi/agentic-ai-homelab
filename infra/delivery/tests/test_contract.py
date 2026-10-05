@@ -277,3 +277,61 @@ def test_push_fallback_url_is_the_revisit_screen():
     for name in ("resurface-nudge.v1.json.j2", "your-week-digest.v1.json.j2"):
         src = (Path(__file__).resolve().parents[1] / "delivery" / "templates" / "podcast" / "push" / name).read_text()
         assert "default('/revisit')" not in src and "/library?tab=revisit" in src, name
+
+
+# --- which links people click in our emails (operator 2026-10-05) ---------------------------------
+#
+# Every content link carries utm_source=email, which email, and what kind of page; the app reports
+# `email_link_opened` to Umami on arrival. Our own tags rather than Resend's click tracking, which
+# would bounce the tap through another host and stop the phone opening the installed app.
+
+_EMAILS = {
+    "your-week-digest.v1.golden.json": "your_week_digest",
+    "recommendations-digest.v1.golden.json": "recommendations_digest",
+    "resurface-nudge.v1.golden.json": "resurface_nudge",
+    "daily-recap.v1.golden.json": "daily_recap",
+}
+
+
+@pytest.mark.parametrize("name,campaign", sorted(_EMAILS.items()))
+def test_every_content_link_says_which_email_it_came_from(name, campaign):
+    import re
+    from urllib.parse import parse_qs, urlsplit
+
+    env = DeliveryEnvelope.from_dict(_fixture(name))
+    if env.channel is not Channel.EMAIL:
+        pytest.skip("push-only fixture")
+    html = _renderer().render_email(env).html
+    hrefs = [h.replace("&amp;", "&") for h in re.findall(r'href="([^"]+)"', html)]
+    content = [h for h in hrefs if "/api/" not in h]
+    assert content
+    for href in content:
+        parts = urlsplit(href)
+        q = parse_qs(parts.query)
+        kind = parts.path.lstrip("/").split("/", 1)[0]
+        assert q.get("utm_source") == ["email"], href
+        assert q.get("utm_campaign") == [campaign], href
+        assert q.get("utm_content") == [kind], href
+        assert not any(k for k in q if k not in {"utm_source", "utm_campaign", "utm_content", "t", "revisit"}), href
+    for href in hrefs:
+        if "/api/" in href:
+            assert "utm_" not in href, f"{href}: server links (unsubscribe) are not tagged"
+
+
+def test_the_sign_in_email_is_not_tagged():
+    env = DeliveryEnvelope.from_dict(_fixture("magic-link.v1.golden.json"))
+    html = _renderer().render_email(env).html
+    assert "utm_" not in html
+
+
+def test_tagging_keeps_the_moment_and_does_not_double_tag():
+    r = _renderer()
+    out = r.tag_links(
+        '<a href="https://closelistening.app/episode/x?t=65&amp;utm_source=old">x</a>', "daily_recap"
+    )
+    assert (
+        'href="https://closelistening.app/episode/x?t=65&amp;utm_source=email'
+        '&amp;utm_campaign=daily_recap&amp;utm_content=episode"'
+    ) in out
+    other = '<a href="https://example.com/episode/x">x</a>'
+    assert r.tag_links(other, "daily_recap") == other
