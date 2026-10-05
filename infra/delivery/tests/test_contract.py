@@ -247,6 +247,7 @@ _APP_PATHS = ("episode", "podcast", "topic", "person", "storyline", "theme")
         "recommendations-digest.v1.golden.json",
         "resurface-nudge.v1.golden.json",
         "daily-recap.v1.golden.json",
+        "new-episodes.v1.golden.json",
     ],
 )
 def test_email_links_are_app_links_with_full_graph_ids(name):
@@ -290,6 +291,7 @@ _EMAILS = {
     "recommendations-digest.v1.golden.json": "recommendations_digest",
     "resurface-nudge.v1.golden.json": "resurface_nudge",
     "daily-recap.v1.golden.json": "daily_recap",
+    "new-episodes.v1.golden.json": "new_episodes",
 }
 
 
