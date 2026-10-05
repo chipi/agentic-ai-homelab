@@ -462,3 +462,19 @@ def test_every_episode_has_a_clear_call_to_action():
         assert html.count("Open in Close Listening →") == len(episodes), name
     recap = _renderer().render_email(DeliveryEnvelope.from_dict(_fixture("daily-recap.v1.golden.json"))).html
     assert ">Open episode notes</a>" in recap and "panel=notes" in recap
+
+
+def test_episodes_carry_topic_theme_and_storyline_chips():
+    # operator 2026-10-05: wherever an email shows an episode.
+    html = _renderer().render_email(
+        DeliveryEnvelope.from_dict(_fixture("your-week-digest.v1.golden.json"))
+    ).html.replace("&amp;", "&")
+    assert 'href="https://closelistening.app/topic/topic%3Ascaling-laws?' in html
+    assert 'href="https://closelistening.app/theme/tc%3Acompute-economics?' in html
+    assert 'href="https://closelistening.app/storyline/topic%3Asemiconductors?' in html
+    assert ">Theme</span> Compute economics" in html
+    assert ">Storyline</span> The semiconductor supply chain" in html
+    recap = _renderer().render_email(
+        DeliveryEnvelope.from_dict(_fixture("daily-recap.v1.golden.json"))
+    ).html
+    assert ">Storyline</span> The semiconductor supply chain" in recap

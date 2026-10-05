@@ -49,3 +49,5 @@ Then run the worker's contract test. If it fails, the contract changed — align
 - Re-vendored **2026-10-05** again from app commit `dedf1d04c`: optional `description` (the
   publisher's episode blurb) and `summary` (ours) on `digestItem` / `newEpisodesItem`;
   new-episodes golden regenerated; the your-week golden's first item carries both, in both copies.
+- Re-vendored **2026-10-05** again from app commit `4871f8ce2`: optional `themes` / `storylines`
+  ([{id,label}]) on `digestItem` / `newEpisodesItem`; the your-week golden's first item carries both.

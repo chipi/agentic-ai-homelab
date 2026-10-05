@@ -1,4 +1,4 @@
-{% from "email/_macros.html.j2" import episode_head, play_from with context %}
+{% from "email/_macros.html.j2" import episode_head, play_from, chips with context %}
 {# resurface-nudge.v1 — email-client-SAFE (dark bg on a wrapper table, not <body>).
    payload = { highlight_count, lead: digestItem } #}
 <!DOCTYPE html>
@@ -15,11 +15,7 @@
         {{ episode_head(payload.lead.deep_link, payload.lead.get('episode_title') or 'Open in Close Listening', payload.lead.get('podcast_title'), payload.lead.get('artwork_url'), payload.lead.get('duration_seconds'), payload.lead.get('publish_date'), description=payload.lead.get('description'), summary=payload.lead.get('summary'), title_size=20) }}
         {% if payload.lead.quote is defined %}<p style="color:#f0eae0;margin:14px 0;font-style:italic;">“{{ payload.lead.quote }}”</p>{% endif %}
         {{ play_from(payload.lead.deep_link, payload.lead.get('t_ms')) }}
-        <div style="margin-top:6px;">
-          {% for ref in payload.lead['graph_refs'] %}
-          <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id | urlencode }}" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #1e2739;background-color:#0e1526;border-radius:999px;font-size:12px;color:#f0eae0;text-decoration:none;">{{ ref.label }}</a>
-          {% endfor %}
-        </div>
+        {{ chips(payload.lead.get('graph_refs'), payload.lead.get('themes'), payload.lead.get('storylines')) }}
         {% set footer_reason %}You're getting revisit nudges because you turned them on in Close Listening.{% endset %}
         {% include "email/_footer.html.j2" %}
       </td></tr>

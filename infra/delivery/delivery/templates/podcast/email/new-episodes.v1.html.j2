@@ -1,4 +1,4 @@
-{% from "email/_macros.html.j2" import episode_head, play_from with context %}
+{% from "email/_macros.html.j2" import episode_head, play_from, chips with context %}
 {# new-episodes.v1 — an ALERT that something dropped in a followed show (#2124). Email-client-SAFE,
    the same dark shell and the same item row as your-week-digest.v1 (Gmail strips <body> styles →
    dark theme on a <table bgcolor> with per-cell colors; rows are tables so Outlook keeps them).
@@ -31,11 +31,7 @@
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1e2739;"><tr><td style="padding:18px 0;">
           {{ episode_head(ep.deep_link, ep.episode_title, ep.get('podcast_title'), ep.get('artwork_url'), ep.get('duration_seconds'), ep.get('publish_date'), description=ep.get('description'), summary=ep.get('summary')) }}
           {% if ep.graph_refs %}
-          <div style="margin-top:10px;">
-            {% for ref in ep.graph_refs %}
-            <a href="{{ app_origin }}/{{ ref.kind }}/{{ ref.id | urlencode }}" style="display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border:1px solid #1e2739;background-color:#0e1526;border-radius:999px;font-size:12px;color:#f0eae0;text-decoration:none;">{{ ref.label }}</a>
-            {% endfor %}
-          </div>
+          {{ chips(ep.get('graph_refs'), ep.get('themes'), ep.get('storylines')) }}
           {% endif %}
           <div style="margin-top:8px;"><a href="{{ ep.deep_link | abslink }}" style="color:#efa843;text-decoration:none;font-size:14px;font-weight:600;">Open in Close Listening →</a></div>
         </td></tr></table>
