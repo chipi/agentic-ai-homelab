@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import sys
+import time
 import urllib.request
 from dataclasses import replace
 from pathlib import Path
@@ -108,7 +109,9 @@ def _digest_envelope(to: str) -> DeliveryEnvelope:
     play_at_s = 60  # inside any episode: durations are not always known
     return DeliveryEnvelope.from_dict({
         "schema_version": "1",
-        "id": "e2e-newinfra-1",
+        # A fresh id per run: it is Resend's idempotency key, and a fixed one made every send after
+        # the first within 24 h fail with 409 (2026-10-07).
+        "id": f"e2e-{int(time.time())}",
         "user_id": "u_000000000000000000000001",
         "channel": "email",
         "template": "your-week-digest.v1",
