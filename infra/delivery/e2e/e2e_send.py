@@ -11,6 +11,11 @@ send time — so every link in it opens a real page. Hard-coded sample slugs did
 opened "Episode not found".
 
     python e2e/e2e_send.py marko.dragoljevic@gmail.com      # from infra/delivery
+
+On the homelab, in the service image (its ENTRYPOINT is delivery-worker, so override it):
+
+    docker run --rm --entrypoint python -v "$PWD":/src -w /src -e PYTHONPATH=/src \\
+        closelistening-delivery:local e2e/e2e_send.py marko.dragoljevic@gmail.com
 """
 
 from __future__ import annotations

@@ -121,6 +121,14 @@ python -m pytest tests/     # contract (vs vendored golden fixtures) + webpush R
 confirms the o11y chain), `stub_outbox_host.py` (a tiny host-side stub outbox for the
 deployed worker to drain). These verify the running stack end-to-end after a change.
 
+Run them in the service image from `infra/delivery`. The image's ENTRYPOINT is
+`delivery-worker`, so `--entrypoint python` is required:
+
+```bash
+docker run --rm --entrypoint python -v "$PWD":/src -w /src -e PYTHONPATH=/src \
+  closelistening-delivery:local e2e/e2e_send.py <recipient-email>
+```
+
 ## Contract sync
 
 The seam schema + fixtures under `schema/` are vendored from the app repo. When the app
