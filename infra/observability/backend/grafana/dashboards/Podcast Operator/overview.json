@@ -552,7 +552,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(increase(podcast_pipeline_jobs_finished_total{instance=\"prod-podcast\",status!=\"succeeded\"}[24h]))",
+          "expr": "sum(increase(podcast_pipeline_jobs_finished_total{instance=\"prod-podcast\",status=~\"failed|stale\"}[24h]))",
           "refId": "A"
         }
       ],

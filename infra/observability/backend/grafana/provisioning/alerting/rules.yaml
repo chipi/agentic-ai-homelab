@@ -1375,13 +1375,16 @@ groups:
         noDataState: OK
         labels: { severity: warning, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
         annotations:
-          summary: "{{ $value }} pipeline job(s) ended non-succeeded on prod-podcast in 6h."
+          summary: "{{ $value }} pipeline job(s) failed or went stale on prod-podcast in 6h."
         data:
           - refId: q
             relativeTimeRange: { from: 21600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'sum(increase(podcast_pipeline_jobs_finished_total{instance="prod-podcast",status!="succeeded"}[6h]))'
+              # failed|stale only. The api emits succeeded/failed/cancelled/stale, and `!="succeeded"`
+              # also counted CANCELLED — an operator's own deliberate cancel. Over the 7 days to
+              # 2026-10-07 every firing was that: 107 succeeded, 5 cancelled, 0 failed (#2271).
+              expr: 'sum(increase(podcast_pipeline_jobs_finished_total{instance="prod-podcast",status=~"failed|stale"}[6h]))'
               instant: true
               queryType: instant
           - refId: threshold
