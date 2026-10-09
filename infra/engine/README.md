@@ -21,11 +21,12 @@ service account, the VM spec, the boot daemon or the socket relay. The
 |---|---|---|
 | `colima.yaml` | `/var/_dockerhost/.colima/default/colima.yaml` | VM spec — 8 cpu / 20 GB / 100 GB, qemu, sshfs `/Users` |
 | `com.homelab.colima.plist` | `/Library/LaunchDaemons/` | Boots the VM at system start as `_dockerhost`, no login needed |
-| `com.homelab.docker-relay.plist` | `/Library/LaunchDaemons/` | `socat` relay publishing the socket at `/var/run/docker.sock` mode 0666 |
+| `com.homelab.docker-relay.plist` | `/Library/LaunchDaemons/` | `socat` relay publishing the socket at `/var/run/docker.sock`, `root:admin` 0660 (operator + root only) |
 
 Plus, done by the script rather than a file: the **`_dockerhost` service
-account** (uid 504, gid 20 staff, home `/var/_dockerhost`, `IsHidden`) and the
-global `DOCKER_HOST` export in `/etc/zshenv`.
+account** (uid 504, gid 20 staff, home `/var/_dockerhost`, `IsHidden`), and
+removing any global `DOCKER_HOST` from `/etc/zshenv`: it overrode other
+accounts' docker contexts and sent them to this production engine (2026-10-09).
 
 ## How the pieces fit
 
@@ -35,9 +36,10 @@ global `DOCKER_HOST` export in `/etc/zshenv`.
                                               └─ lima forwards the guest socket
                                                  over an SSH ControlMaster to
                                                  /var/_dockerhost/.colima/default/docker.sock  (0600)
-  launchd ──> com.homelab.docker-relay ──> socat ──> /var/run/docker.sock       (0666)
+  launchd ──> com.homelab.docker-relay ──> socat ──> /var/run/docker.sock       (root:admin 0660)
                                                         ↑
-                          every user (markodragoljevic, claude, agents) talks here
+            the operator account + root talk here; other agents' accounts
+            run their own colima (e.g. claude: ~/.colima, its docker context)
 ```
 
 ## Known fragilities — read before changing anything

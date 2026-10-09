@@ -105,8 +105,8 @@ git clone <repo> ~/agentic-ai-homelab && cd ~/agentic-ai-homelab
 sudo ./infra/mini-engine-setup.sh    # LAYER 0 — the Docker engine itself: the _dockerhost
                                      #   service account, the colima VM spec (8 cpu / 20 GB /
                                      #   100 GB, qemu, sshfs /Users), the boot daemon, and the
-                                     #   socat relay that publishes /var/run/docker.sock 0666
-                                     #   to every user. NOTHING below works without this.
+                                     #   socat relay that publishes /var/run/docker.sock
+                                     #   (root:admin 0660, operator + root only). NOTHING below works without this.
 ./infra/observability/bootstrap.sh   # CONTAINERS — Grafana + Victoria* + GlitchTip + Langfuse + Umami
                                      #   (needs colima running, tailscale up, sops+age+age-key from above)
 ./infra/mini-setup.sh                # HOST bits — runs `brew bundle`, then installs node_exporter,

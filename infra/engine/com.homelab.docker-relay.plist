@@ -2,8 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
   Publishes the colima docker socket (owned by _dockerhost, mode 0600) at the
-  standard /var/run/docker.sock with mode 0666, so EVERY user on the box —
-  markodragoljevic, claude, future agents — shares one engine without sudo.
+  standard /var/run/docker.sock as root:admin 0660 — the operator account and
+  root only. This VM runs production (observability, delivery, LiteLLM); other
+  agents' accounts run their own colima. Until 2026-10-09 it was 0666 and shared
+  with every user: e2e containers from other agents publishing ports here
+  preceded two of the three forward breaks (2026-09-03, 2026-10-08; see
+  docs/recipes/colima-lima-forwarding-recovery.md).
   Installed to /Library/LaunchDaemons by infra/mini-engine-setup.sh.
 
   Runs as root (no UserName key) because it binds a path under /var/run and must
@@ -31,7 +35,7 @@
   <key>ProgramArguments</key><array>
     <string>/usr/local/bin/socat</string>
     <string>-t</string><string>86400</string>
-    <string>UNIX-LISTEN:/var/run/docker.sock,fork,mode=0666</string>
+    <string>UNIX-LISTEN:/var/run/docker.sock,fork,user=root,group=admin,mode=0660</string>
     <string>UNIX-CONNECT:/var/_dockerhost/.colima/default/docker.sock</string>
   </array>
   <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>

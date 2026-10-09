@@ -108,13 +108,18 @@ for d in com.homelab.colima com.homelab.docker-relay; do
   fi
 done
 
-echo "== 5. Global DOCKER_HOST (/etc/zshenv) =="
+echo "== 5. No global DOCKER_HOST (/etc/zshenv) =="
+# DOCKER_HOST overrides docker contexts, so a global one sent every user's docker
+# CLI to this production engine — including other agents' accounts that run their
+# own colima. Removed 2026-10-09; the operator account reaches the relay through
+# docker's default socket, /var/run/docker.sock.
 LINE='export DOCKER_HOST=unix:///var/run/docker.sock'
 if [ -f /etc/zshenv ] && grep -qF "$LINE" /etc/zshenv; then
-  echo "   already set"
+  cp /etc/zshenv "/etc/zshenv.bak-$(date +%Y%m%d)"
+  grep -vF "$LINE" "/etc/zshenv.bak-$(date +%Y%m%d)" > /etc/zshenv
+  echo "   removed from /etc/zshenv (backup /etc/zshenv.bak-$(date +%Y%m%d))"
 else
-  echo "$LINE" >> /etc/zshenv
-  echo "   appended to /etc/zshenv (every user now finds the shared engine)"
+  echo "   not set"
 fi
 
 echo "== 6. Verify =="
