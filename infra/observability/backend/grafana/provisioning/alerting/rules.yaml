@@ -1142,21 +1142,30 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [691200] } }]
 
+      # Daily recap watches RUN age, not success age (2026-10-09). A recap is sent only on a
+      # day the listener FINISHED an episode (zero finished -> no envelope, by design), so
+      # "no success in 36h" fired whenever the one subscriber didn't finish anything —
+      # #2212 fired for 2 weeks on a healthy scheduler. The scheduler stamps last_run for
+      # every cadence on every hourly pass, so run age still catches #2119 (daily_recap
+      # never called: series absent -> 99999999). Raising every hour is
+      # delivery-cadence-erroring's job. NOT covered: called, no error, but wrongly
+      # enqueues nothing while someone did finish — that needs an "episode finished"
+      # signal the app does not export.
       - uid: delivery-cadence-daily-recap-stale
-        title: "Daily recap has not been enqueued in 36 hours"
+        title: "Daily recap enqueuer not called in 3 hours"
         condition: threshold
         for: 0s
         noDataState: OK
         execErrState: OK
         labels: { severity: warning, kind: delivery, instance: prod-podcast, service: podcast-player, environment: prod }
         annotations:
-          summary: "Daily recap has enqueued nothing for >36h (cadence is daily). This is the exact alert that would have caught #2119, where daily_recap was never called at all for its entire life. Check podcast_digest_last_run_age_seconds{cadence=\"daily_recap\"}: fresh = ran with nobody due; stale/absent = not being called."
+          summary: "The digest scheduler has not called the daily-recap enqueuer for >3h (it runs every hourly pass), or never has while someone consents to recaps — the #2119 failure. A day with no recap is normal: one is sent only when the listener finished an episode that day. If the whole scheduler is down, delivery-scheduler-silent fires too. On prod: docker logs player-digest-scheduler-1 | tail."
         data:
           - refId: q
             relativeTimeRange: { from: 3600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'max(podcast_digest_last_success_age_seconds{cadence="daily_recap"}) or vector(99999999) and on() (max(podcast_digest_consenting_users{type="daily_recap"}) > 0)'
+              expr: 'max(podcast_digest_last_run_age_seconds{cadence="daily_recap"}) or vector(99999999) and on() (max(podcast_digest_consenting_users{type="daily_recap"}) > 0)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -1164,7 +1173,7 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [129600] } }]
+              conditions: [{ evaluator: { type: gt, params: [10800] } }]
 
       - uid: delivery-cadence-recommendations-stale
         title: "Monthly recommendations digest has not been enqueued in 40 days"
