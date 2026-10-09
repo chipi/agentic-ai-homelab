@@ -100,7 +100,9 @@ maybe_restart() {
     skip_logged=1; return 0; }
   echo "$now" > "$RESTART_TS"
   echo "$(date) auto-restart: ${#ok}/$WINDOW probes ok in 10 min — colima restart"
-  run_to 600 $DH colima restart >> /tmp/forward-autorestart.log 2>&1
+  # 900 s: a manual restart took ~4.3 min on 2026-10-09; killing one mid-start can
+  # leave the VM down, so the bound only guards against a truly hung colima.
+  run_to 900 $DH colima restart >> /tmp/forward-autorestart.log 2>&1
   echo "$(date) auto-restart finished (rc=$?)"
   recent=""; healthy_streak=0
 }
