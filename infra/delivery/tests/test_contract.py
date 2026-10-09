@@ -89,6 +89,33 @@ def test_digest_fixture_renders_email():
     assert "&lt;" not in html.split("<body")[0]  # sanity: head not double-escaped
 
 
+def _new_episodes_push(payload_change) -> str:
+    raw = _fixture("new-episodes.v1.golden.json")
+    payload_change(raw["payload"])
+    return _renderer().render_push(DeliveryEnvelope.from_dict(raw)).url
+
+
+def test_new_episodes_push_about_several_opens_whats_new():
+    """The golden announces 2: a tap opens Home's What's new, not just the first (2026-10-09)."""
+    assert _new_episodes_push(lambda p: None) == "https://closelistening.app/#whats-new"
+
+
+def test_new_episodes_push_about_one_opens_the_episode():
+    def one(p: dict) -> None:
+        p["episodes"] = p["episodes"][:1]
+        p["count"] = 1
+        p["open_url"] = p["episodes"][0]["deep_link"]
+
+    assert _new_episodes_push(one) == "https://closelistening.app/episode/fa-02d98a79c7"
+
+
+def test_new_episodes_push_queued_before_open_url_opens_the_first_episode():
+    """An envelope queued by an app older than open_url still renders, as before."""
+    assert _new_episodes_push(lambda p: p.pop("open_url")) == (
+        "https://closelistening.app/episode/fa-02d98a79c7"
+    )
+
+
 def test_nudge_fixture_renders_push():
     env = DeliveryEnvelope.from_dict(_fixture("resurface-nudge.v1.golden.json"))
     assert env.channel is Channel.PUSH

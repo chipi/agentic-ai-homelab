@@ -7,8 +7,10 @@
    Design notes:
    - `title` is the SHOW when we have it, so the notification is scannable on a lock screen
      without unlocking. Falling back to a generic string is worse than useless.
-   - `url` deep-links to the episode itself, not a generic rail — the whole point of an alert is
-     one tap to the thing.
+   - `url` is where a tap goes, and the APP decides it (`payload.open_url`, 2026-10-09): the episode
+     when the push announces one, Home's What's new (`/#whats-new`) when it announces several — a
+     tap on "+4 more" opening only the first episode hid the other four. Falls back to the first
+     episode for an envelope queued before the app sent `open_url`.
    - `tag` is per-episode so the OS COLLAPSES a repeat rather than stacking duplicates. A shared
      tag across episodes would hide the second alert entirely, which is the opposite failure. #}
 {% set first = payload.episodes[0] %}
@@ -18,6 +20,6 @@
       first.episode_title if payload.count == 1
       else (first.episode_title ~ ' · +' ~ (payload.count - 1) ~ ' more')
     ) | tojson }},
-  "url": {{ (first.deep_link | default('/')) | tojson }},
+  "url": {{ (payload.open_url | default(first.deep_link | default('/'))) | tojson }},
   "tag": {{ ('new-episodes:' ~ (first.episode_slug | default('unknown'))) | tojson }}
 }
