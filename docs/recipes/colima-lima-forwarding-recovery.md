@@ -225,7 +225,12 @@ rest reduce frequency or improve the signal.
      **Maintenance opt-out:** `touch ~/.forward-watchdog-no-autorestart` on the
      mini (operator account); remove it afterwards. Simulated before enabling over
      healthy, planned-restart, wedged, dead-past-cooldown, opt-out and stopped-VM
-     probe sequences.
+     probe sequences. **Live-tested 2026-10-09** by booting out the docker relay
+     (the watchdog's probe fails, colima stays healthy): capture 06:48:30Z, auto
+     `colima restart` 06:57:49Z -> done 07:00:08Z (rc=0, 2 m 19 s), all 31
+     containers back, `mini-forward-autorestarted` firing 07:02Z,
+     `mini-forward-down` only pending and cleared 07:03:50Z. To repeat: boot out
+     `com.homelab.docker-relay`, wait ~10 min, bootstrap it again.
 
 3. **Alert on the break itself, not on its shadow.** — ✅ **DONE (2026-08-18)**
    `mini-forward-down` in `infra/observability/backend/grafana/provisioning/alerting/rules.yaml`
