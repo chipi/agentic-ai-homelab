@@ -360,8 +360,30 @@ rest reduce frequency or improve the signal.
   `master_pid` matched any user's `ssh.sock [mux]` and had switched to another
   user's colima master after the restart.
 
-  **Trigger: still open.** The `:8013` forward churn and a second (another user's)
-  colima VM starting ~16:05Z are time-correlated; neither is proven.
+  **Root-cause analysis (2026-10-09, from the 18:01 capture + full `ha.stderr.log`):**
+  - *Trigger, evidenced:* at 15:59:10Z container `viewer-e2e-probe` started in
+    this VM (`Up 2 minutes` at 16:01:51Z; guest kernel `eth0: renamed from
+    veth8875f25` at the same second) and published `127.0.0.1:8013`. lima issued
+    `ssh -O forward -L 127.0.0.1:8013:…` at 15:59:10Z; it never returned, and no
+    mux command succeeded after it. The same shape preceded 2026-09-03 (dev e2e
+    container on `:8011`, ~68 s before). Two of three incidents.
+  - *Not sufficient alone:* the same VM ran 12 `-O forward`/`-O cancel` cycles
+    for `:8012` between 12:10Z and 13:39Z that day, all fine.
+  - *Load at the break:* guest dockerd logged health-check timeouts from 15:54Z;
+    host `load5` 5.4 -> 19.3 and swap 2.2 -> 5.5 GiB at 16:00Z; guest CPU pressure
+    `some avg300=57%` at 16:01Z. Load was back to ~7.6 by 16:10Z, but the master
+    stayed wedged for 7 h, so load is at most the precondition.
+  - *State:* the master (pid 1299) stayed alive in `Ss`; every later mux client
+    either hung (`-O forward` 15:59Z, `-O cancel` 16:07Z) or got `master hello
+    exchange failed`; data forwards succeeded only ~1 in 10. The guest journal
+    has no disconnect for the master's own session.
+  - *Upstream:* lima 2.2.0 (ours) starts the master with no
+    `ServerAliveInterval` and never reconciles a broken master
+    ([lima-vm/lima#5420](https://github.com/lima-vm/lima/issues/5420), dead
+    master; ours is the wedged variant).
+  - *Not established:* why OpenSSH's mux stops serving at that request. That
+    needs the master's own state at the break (`sample`/`lsof` on the master
+    pid), which the capture does not take yet.
 
 ## Related
 

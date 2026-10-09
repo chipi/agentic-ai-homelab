@@ -108,6 +108,15 @@ capture_break() {
       | grep -E '[s]sh|[l]imactl|[q]emu|[s]ocat' | head -25
     echo; echo "== master pid transition log =="
     tail -10 "$PIDLOG" 2>/dev/null
+    # A WEDGED master (2026-10-08) is alive but serves no mux client; its stack and
+    # sockets say what it is blocked on. Missing from every capture until then.
+    local mpid; mpid="$(master_pid)"
+    if [ -n "$mpid" ]; then
+      echo; echo "== master $mpid: stack sample (3s) + open files =="
+      run_to 20 sudo -n sample "$mpid" 3 -file "/tmp/forward-master-sample-$stamp.txt" >/dev/null 2>&1
+      grep -E -A25 '^Call graph' "/tmp/forward-master-sample-$stamp.txt" 2>&1 | head -40
+      run_to 10 sudo -n lsof -nP -p "$mpid" 2>&1 | head -60
+    fi
     echo; echo "== ssh -O check (single mux command, master is already gone) =="
     run_to 15 $DH ssh -O check -S "$LIMA/ssh.sock" 127.0.0.1 2>&1
 
