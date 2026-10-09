@@ -20,7 +20,8 @@
 # 2026-09-03 breaks the artifact that would identify the TRIGGER was gone before
 # anyone looked. On the FIRST failed probe of a break this dumps a forensic
 # snapshot to /tmp/forward-break-*.txt BEFORE any recovery. Once per break
-# (marker cleared when the forward returns); every guest probe timeout-bounded.
+# (marker cleared once the forward has held for 10 min); every guest probe
+# timeout-bounded.
 #
 # WHAT WE KNOW (2026-09-03 guest-journal analysis): the mux does not half-open or
 # time out. sshd logged `Received disconnect ... :11: disconnected by user` at the
@@ -55,11 +56,20 @@ run_to() {
 
 # Passive: the SSH ControlMaster's PID. The master detaches (PPID 1) and renames
 # itself to `ssh: <ControlPath> [mux]` — note "ssh:" not "ssh ", which is why the
-# match is on [mux] rather than the ssh binary. Its death IS the break.
+# match is on [mux] rather than the ssh binary. Its death IS the break. Matched on
+# the _dockerhost ControlPath: other users run their own colima on this box, and
+# their master would otherwise be tracked as ours (it was, 2026-10-09).
 master_pid() {
   ps -axo pid,command 2>/dev/null \
-    | grep 'ssh\.sock' | grep '\[mux\]' | grep -v grep | awk '{print $1}' | head -1
+    | grep '_dockerhost/\.colima/_lima/colima/ssh\.sock' | grep '\[mux\]' | grep -v grep \
+    | awk '{print $1}' | head -1
 }
+
+# Probes in a row that must succeed before a break counts as over. A wedged master
+# (2026-10-08) still let ~1 in 10 probes through for 7 h; re-arming on a single
+# success captured ~45 snapshots, each opening a fresh SSH session into the guest.
+REARM_AFTER=20   # x 30s = 10 min
+healthy_streak=0
 
 # Record master PID transitions — the tick it changes is the break second (30s res).
 track_master() {
@@ -153,9 +163,11 @@ while true; do
   if $D ps -q >/dev/null 2>&1; then
     printf 'mini_forward_up{box="mini"} 1\n' \
       | curl -s -m8 -o /dev/null --data-binary @- "$VM" || true
-    # Forward is healthy — re-arm capture for the next break.
-    rm -f "$MARKER" 2>/dev/null || true
+    # Re-arm capture for the next break only once the forward has held for 10 min.
+    healthy_streak=$((healthy_streak + 1))
+    [ "$healthy_streak" -ge "$REARM_AFTER" ] && rm -f "$MARKER" 2>/dev/null
   else
+    healthy_streak=0
     # Forward is down. Capture ONCE per break, immediately, before any recovery.
     [ -f "$MARKER" ] || capture_break || true
   fi

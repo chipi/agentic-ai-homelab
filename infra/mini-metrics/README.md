@@ -58,7 +58,9 @@ collector: every 30s it proves `docker ps` works, then heart-beats
 `mini_forward_up{box="mini"}=1` over the **forwarded** `:8428`. Because the
 heartbeat rides the same lima forward, it stops the instant colima's host↔VM
 forward breaks on a network transition — and the `mini-forward-down` alert
-(`rules.yaml`, a dead-man's switch) fires. Detect-only; recovery is a human
+(`rules.yaml`) fires once fewer than 5 heartbeats land per 10 min, for 10 min
+(healthy is 17-20). A rate, not a zero test, because a wedged master still lets a
+few probes through. Detect-only; recovery is a human
 `colima restart`. Full story + resilience roadmap:
 [colima/lima forwarding recovery](../../docs/recipes/colima-lima-forwarding-recovery.md).
 

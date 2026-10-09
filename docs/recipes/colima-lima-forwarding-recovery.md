@@ -210,7 +210,9 @@ rest reduce frequency or improve the signal.
      the trigger was unidentifiable after *both* the 2026-08-18 and 2026-09-03
      breaks. Captures once per break (marker file, cleared when the forward
      returns); every guest probe is timeout-bounded so a wedged guest cannot
-     stall the heartbeat loop.
+     stall the heartbeat loop. **Re-arm (2026-10-09):** the marker clears only after
+     10 min of unbroken healthy probes, not on the first success — a wedged master
+     let ~1 in 10 probes through on 2026-10-08 and the old re-arm took ~45 captures.
    - **2b (auto-restart — opt-in, NOT enabled):** upgrade the watchdog to run
      `colima restart` itself when the socket is dead > 5 min **and** the VM is up,
      with a cooldown so a flapping network can't restart-loop, logging each action.
@@ -220,9 +222,9 @@ rest reduce frequency or improve the signal.
 
 3. **Alert on the break itself, not on its shadow.** — ✅ **DONE (2026-08-18)**
    `mini-forward-down` in `infra/observability/backend/grafana/provisioning/alerting/rules.yaml`
-   is a dead-man's switch (same pattern as `dgx-silent`): fires `warning` when
-   `mini_forward_up` has no samples for 5m — `kind:infra`, routed to the operator
-   email surface. Replaces the misleading false "LiteLLM down" alert with a signal
+   fires `warning` when `mini_forward_up` lands fewer than 5 samples per 10m, for
+   10m (healthy is 17-20; changed from "no samples for 5m" on 2026-10-09, see the
+   2026-10-08 incident) — `kind:infra`, routed to the operator email surface. Replaces the misleading false "LiteLLM down" alert with a signal
    that names the real cause and links this runbook.
 
 4. **Reduce the triggering transitions.**
@@ -338,6 +340,28 @@ rest reduce frequency or improve the signal.
   **symptom, not a load problem** — a refused UNIX-socket connect costs
   microseconds and did not contribute to the qemu CPU. The real cost is that the
   log has no rotation (28 MB, ~10 MB per outage).
+
+- **2026-10-08** — **Third occurrence, ~7 h** (~15:59Z -> 23:13Z), a NEW mode: the
+  master did not close, it **wedged**. PID 1299 stayed alive, every mux client got
+  `muxclient: master hello exchange failed`, and two lima `-O forward`/`-O cancel`
+  calls for guest port `:8013` (15:59Z, 16:07Z) hung for 7 h. Host `docker`
+  returned `EOF`; loopback `:3000/:8428/:8090/:9428/:10428` returned nothing. Inside
+  the VM all 31 containers were `Up`, and DGX + prod ingest never stopped.
+  Killing the two hung clients did not free the master; a graceful
+  `colima restart` (23:08:54Z -> 23:13Z) restored everything.
+
+  **Detection half-worked.** The forward was not fully dead: `docker ps` still got
+  through 1-3 times per 10m (heartbeats per hour fell 110 -> 19 -> 9 -> ... -> 1),
+  and each lucky heartbeat resolved the `count[5m] < 1` rule — it changed state 38
+  times in 48 h instead of holding. The capture re-armed on each success too (~45
+  snapshots). Both fixed 2026-10-09 (rate-based rule, 10-min re-arm); the new rule
+  replays PASS over 2026-08-19..10-09 — catches 09-03, 09-08..10 and 10-08, quiet
+  through the 10-03 planned restart, where the old rule fired. Also fixed:
+  `master_pid` matched any user's `ssh.sock [mux]` and had switched to another
+  user's colima master after the restart.
+
+  **Trigger: still open.** The `:8013` forward churn and a second (another user's)
+  colima VM starting ~16:05Z are time-correlated; neither is proven.
 
 ## Related
 

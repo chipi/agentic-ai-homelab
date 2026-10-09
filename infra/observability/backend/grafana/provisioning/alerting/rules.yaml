@@ -416,20 +416,27 @@ groups:
       # loopback ports go dark while the VM + containers keep running). NOT meta —
       # like dgx/prod-silent the fleet can still corroborate (the VM-internal
       # backend keeps running). Recovery is a graceful `colima restart` (runbook).
+      #
+      # Fires on a LOW heartbeat RATE, not only on zero (2026-10-09). On 2026-10-08 the
+      # SSH master wedged instead of dying: `docker ps` still got through 1-3 times per
+      # 10m for 7 h, each lucky heartbeat resolved the old `count[5m] < 1` rule, and it
+      # flapped 38 times instead of holding. Healthy is 17-20 per 10m; an overloaded but
+      # working host (2026-08-24..26) dipped to 7. `< 5 for 10m` sits between them, and
+      # stays quiet through a ~4-min planned `colima restart`.
       - uid: mini-forward-down
-        title: "Mac mini host↔VM forward down (colima socket unreachable 5m)"
+        title: "Mac mini host↔VM forward down (colima socket failing 10m)"
         condition: threshold
-        for: 0s
+        for: 10m
         noDataState: Alerting
         labels: { severity: warning, kind: infra, host: homelab, service: host-metrics, environment: operations }
         annotations:
-          summary: "The mini stopped heart-beating mini_forward_up for 5m — lima's host↔VM forward likely broke on a network transition (docker socket + loopback ports dead), or the VM/watchdog is down. Containers + tailnet TLS nodes may be fine; the host CLI, loopback ports, and host metric collectors are blind. This is NOT a service outage — recover with a graceful `colima restart`. Runbook: recipes/colima-lima-forwarding-recovery.md."
+          summary: "The mini heart-beat mini_forward_up fewer than 5 times in 10m, for 10m (healthy is 17-20) — lima's host↔VM forward is broken or wedged (docker socket + loopback ports dead or mostly dead), or the VM/watchdog is down. Containers + tailnet TLS nodes may be fine; the host CLI, loopback ports, and host metric collectors are blind. This is NOT a service outage — recover with a graceful `colima restart`. Runbook: recipes/colima-lima-forwarding-recovery.md."
         data:
           - refId: q
             relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'sum(count_over_time(mini_forward_up{box="mini"}[5m])) or vector(0)'
+              expr: 'sum(count_over_time(mini_forward_up{box="mini"}[10m])) or vector(0)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -437,7 +444,7 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: lt, params: [1] } }]
+              conditions: [{ evaluator: { type: lt, params: [5] } }]
 
       # --- Mac mini CPU temperature (warning >85°C, critical >95°C) ---------------
       # The mini runs 24/7; healthy idle ~60°C, thermal-throttles ~100°C. 85 = warn
