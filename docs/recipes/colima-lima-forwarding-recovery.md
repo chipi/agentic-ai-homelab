@@ -248,9 +248,11 @@ rest reduce frequency or improve the signal.
 5. **No clean lighter recovery exists today.**
    lima has no supported "re-forward without restarting the VM"; cycling the SSH
    master did not rebuild the forwards (tested 2026-08-18). Until that changes,
-   `colima restart` is the recovery. (vz/virtiofs is more robust than
-   qemu+sshfs, but vz is Apple-Silicon-only — this mini is Intel x86_64, so QEMU
-   is the only path here.)
+   `colima restart` is the recovery. (vz/virtiofs takes the `/Users` mount off
+   the SSH master, which qemu+sshfs puts on it. An earlier note here said vz is
+   Apple-Silicon-only; that is false — the `claude` account's colima has run
+   `vmType: vz`, `mountType: virtiofs` on this Intel i7-8700B / macOS 15.7 since
+   2026-10-08. Moving the production VM to vz is untested.)
 
 ---
 

@@ -18,9 +18,11 @@
 #     the health-check-exec zombies. Revisit this number once dev workloads move
 #     off the box.
 #
-#   vmType qemu — NOT a preference. vz (Apple's Virtualization.framework, which
-#     brings virtiofs) is Apple-Silicon-only and this is an Intel mini, so QEMU
-#     is the only option here. Do not "upgrade" it to vz on this hardware.
+#   vmType qemu — the current choice. An earlier note here said vz (Apple's
+#     Virtualization.framework, which brings virtiofs) is Apple-Silicon-only;
+#     that is false: the `claude` account's colima runs vz + virtiofs on this
+#     Intel mini (macOS 15.7, since 2026-10-08). Switching THIS VM is untested —
+#     it recreates the VM, so plan it, don't flip it.
 #
 #   mountType sshfs + portForwarder ssh — both ride the SAME lima SSH
 #     ControlMaster. When that master goes away the host loses the docker socket

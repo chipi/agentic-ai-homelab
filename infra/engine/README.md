@@ -51,8 +51,10 @@ accounts' docker contexts and sent them to this production engine (2026-10-09).
   [`../mini-metrics/forward-watchdog.sh`](../mini-metrics/forward-watchdog.sh);
   the recovery and the full analysis are in
   [the recovery runbook](../../docs/recipes/colima-lima-forwarding-recovery.md).
-- **`vmType: qemu` is forced, not chosen.** vz/virtiofs would be more robust but
-  is Apple-Silicon-only; this is an Intel mini.
+- **`vmType: qemu` is the current choice, not a hardware limit.** An earlier note
+  said vz is Apple-Silicon-only; that is false — the `claude` account's colima
+  runs `vmType: vz`, `mountType: virtiofs` on this Intel mini (since 2026-10-08).
+  Moving the production VM to vz is untested.
 - **No `KeepAlive` on the colima daemon** — `colima start` is one-shot, so
   KeepAlive would restart-loop it. Nothing supervises the engine afterwards.
 - **The VM is oversubscribed** — a 20 GB guest on a 32 GB host that also runs dev
