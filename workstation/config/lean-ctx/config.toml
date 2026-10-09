@@ -82,6 +82,8 @@ shell_allowlist_extra = [
     "wb-stream",
     "wb-workspace",
     "wb-integrate",
+    "log",
+    "devengine",
 ]
 
 [cloud]
