@@ -195,7 +195,7 @@ capture_break() {
     # held only those and hid the container starts and copies before the break
     # (2026-10-08 capture).
     run_to 25 $DH colima ssh -- docker events --since 15m --until 0s 2>&1 \
-      | grep -v -E ' container exec_(create|start|die) ' | tail -60
+      | grep -v -E ' container exec_(create|start|die)' | tail -60
     echo "-- containers --"
     run_to 25 $DH colima ssh -- docker ps -a --format '{{.Names}}\t{{.Status}}\t{{.CreatedAt}}' 2>&1
 
