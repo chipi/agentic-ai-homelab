@@ -11,6 +11,7 @@
 #               prune week-old leftovers (never volumes) and stop
 set -uo pipefail
 export HOME=/var/_dockerdev PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+cd "$HOME" || exit 1   # the caller's cwd is usually unreadable to _dockerdev
 SOCK="$HOME/.colima/default/docker.sock"
 IDLE="$HOME/.idle-since"
 MIN_FREE_PCT=20      # macOS "System-wide memory free percentage" floor for a start
