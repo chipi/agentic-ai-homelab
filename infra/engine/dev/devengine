@@ -1,0 +1,24 @@
+#!/bin/bash
+# devengine — start, stop or check the shared DEV Docker engine on the mini (ADR-0009).
+#
+#   devengine start     start it (about a minute cold); creates your `dev` context
+#   devengine stop      stop it when you are done (it also stops itself after 30 min idle)
+#   devengine status    running or stopped, and what is in it
+#
+# Then use it with `docker --context dev …` (or `docker context use dev`).
+# The production engine (/var/run/docker.sock) is not for development.
+# Contract: docs/recipes/dev-docker-engine.md
+set -uo pipefail
+case "${1:-}" in
+  start|stop|status) ;;
+  *) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 64 ;;
+esac
+sudo -n -u _dockerdev /usr/local/libexec/devengine-colima "$1"
+rc=$?
+if [ "$1" = start ] && [ $rc -eq 0 ]; then
+  docker context inspect dev >/dev/null 2>&1 \
+    || docker context create dev --description "shared dev engine (ADR-0009)" \
+         --docker host=unix:///var/run/docker-dev.sock >/dev/null
+  echo "ready: docker --context dev ps   (or: docker context use dev)"
+fi
+exit $rc

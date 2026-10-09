@@ -1,0 +1,4 @@
+# Installed to /etc/sudoers.d/devengine by infra/mini-dev-engine-setup.sh (ADR-0009).
+# Any local account (staff) may run the dev engine's fixed control script as
+# _dockerdev, with exactly these verbs and nothing else. The script is root-owned.
+%staff ALL=(_dockerdev) NOPASSWD: /usr/local/libexec/devengine-colima start, /usr/local/libexec/devengine-colima stop, /usr/local/libexec/devengine-colima status

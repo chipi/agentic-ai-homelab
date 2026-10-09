@@ -38,9 +38,18 @@ accounts' docker contexts and sent them to this production engine (2026-10-09).
                                                  /var/_dockerhost/.colima/default/docker.sock  (0600)
   launchd ──> com.homelab.docker-relay ──> socat ──> /var/run/docker.sock       (root:admin 0660)
                                                         ↑
-            the operator account + root talk here; other agents' accounts
-            run their own colima (e.g. claude: ~/.colima, its docker context)
+            the operator account + root talk here; development (any
+            account) uses the separate dev engine below
 ```
+
+## The dev engine (`dev/`)
+
+A second, separate engine for development, off unless someone starts it
+([ADR-0009](../../docs/adr/ADR-0009-on-demand-dev-docker-engine.md)): `_dockerdev`,
+vz + virtiofs, 4 CPU / 6 GiB, socket `/var/run/docker-dev.sock` (`root:staff`).
+Installed by [`../mini-dev-engine-setup.sh`](../mini-dev-engine-setup.sh), never by
+this directory's setup. Usage and the agents' contract:
+[dev Docker engine](../../docs/recipes/dev-docker-engine.md).
 
 ## Known fragilities — read before changing anything
 

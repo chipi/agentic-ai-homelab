@@ -87,6 +87,7 @@ nav:
     - GPU mode-swap: recipes/gpu-mode-swap.md
     - Mac mini → observability host: recipes/mac-mini-observability.md
     - colima/lima forwarding — break & recovery: recipes/colima-lima-forwarding-recovery.md
+    - Dev Docker engine (on demand): recipes/dev-docker-engine.md
     - Observability endpoints (obs name): recipes/observability-endpoints.md
     - Observability dependency & blast-radius map: observability-dependency-map.md
     - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md
@@ -119,6 +120,7 @@ nav:
     - ADR-0006 — Mac mini observability provisioning: adr/ADR-0006-mac-mini-observability-provisioning.md
     - ADR-0007 — Umami self-hosted analytics: adr/ADR-0007-umami-self-host-analytics.md
     - ADR-0008 — Fleet daemon tech + framework non-adoption: adr/ADR-0008-fleet-daemon-tech-and-framework-non-adoption.md
+    - ADR-0009 — On-demand dev Docker engine: adr/ADR-0009-on-demand-dev-docker-engine.md
   - Proposals (RFC):
     - Overview: rfc/README.md
     - RFC-0001 — LiteLLM ↔ Langfuse capture: rfc/RFC-0001-litellm-langfuse-capture.md

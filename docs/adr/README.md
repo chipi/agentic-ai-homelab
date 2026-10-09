@@ -51,3 +51,4 @@ Keep it short. ADRs that grow past 200 lines usually need to be split.
 - [ADR-0006 — Mac mini observability host: fresh-start migration + bootstrap/sops provisioning](ADR-0006-mac-mini-observability-provisioning.md)
 - [ADR-0007 — Umami self-hosted analytics](ADR-0007-umami-self-host-analytics.md)
 - [ADR-0008 — Fleet daemon in Go; framework non-adoption (Temporal/LiteLLM tracks open)](ADR-0008-fleet-daemon-tech-and-framework-non-adoption.md)
+- [ADR-0009 — An on-demand dev Docker engine on the mini, separate from production](ADR-0009-on-demand-dev-docker-engine.md)

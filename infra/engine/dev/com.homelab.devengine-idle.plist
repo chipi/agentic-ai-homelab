@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Every 15 min: if the dev engine has had no running container for 30 min, prune
+  week-old leftovers (never volumes) and stop it, so a forgotten dev VM does not
+  hold 6 GiB beside production (ADR-0009). Installed by infra/mini-dev-engine-setup.sh.
+-->
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.homelab.devengine-idle</string>
+  <key>UserName</key><string>_dockerdev</string>
+  <key>ProgramArguments</key><array>
+    <string>/usr/local/libexec/devengine-colima</string>
+    <string>idle-check</string>
+  </array>
+  <key>StartInterval</key><integer>900</integer>
+  <key>StandardOutPath</key><string>/tmp/devengine-idle.log</string>
+  <key>StandardErrorPath</key><string>/tmp/devengine-idle.log</string>
+</dict></plist>

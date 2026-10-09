@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Publishes the DEV engine's socket (owned by _dockerdev, mode 0600) at
+  /var/run/docker-dev.sock, root:staff 0660, so any local account can use the dev
+  engine (ADR-0009). Production is the separate /var/run/docker.sock (root:admin).
+  Always loaded: while the dev VM is stopped, connections close immediately (docker
+  reports EOF); `devengine status` says why. -t 86400 for the same reason as the
+  production relay (non-interactive `docker exec` was cut at 0.5 s).
+  Installed by infra/mini-dev-engine-setup.sh.
+-->
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.homelab.docker-dev-relay</string>
+  <key>ProgramArguments</key><array>
+    <string>/usr/local/bin/socat</string>
+    <string>-t</string><string>86400</string>
+    <string>UNIX-LISTEN:/var/run/docker-dev.sock,fork,user=root,group=staff,mode=0660</string>
+    <string>UNIX-CONNECT:/var/_dockerdev/.colima/default/docker.sock</string>
+  </array>
+  <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/docker-dev-relay.log</string>
+  <key>StandardErrorPath</key><string>/tmp/docker-dev-relay.log</string>
+</dict></plist>

@@ -1,0 +1,63 @@
+#!/bin/bash
+# The dev Docker engine's privileged half (ADR-0009). Runs as _dockerdev, reached
+# through `devengine` via a sudoers rule that allows exactly this file with exactly
+# these verbs — so it must stay root-owned and must not pass anything else through.
+#
+#   start       start the VM (first start creates it from the spec below); refuses
+#               when the host is already short of memory
+#   stop        stop the VM (containers and volumes are kept)
+#   status      running / stopped, plus containers
+#   idle-check  launchd job (every 15 min): after 30 min with no running container,
+#               prune week-old leftovers (never volumes) and stop
+set -uo pipefail
+export HOME=/var/_dockerdev PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+SOCK="$HOME/.colima/default/docker.sock"
+IDLE="$HOME/.idle-since"
+MIN_FREE_PCT=20      # macOS "System-wide memory free percentage" floor for a start
+IDLE_STOP_S=1800
+
+# The VM spec. vz + virtiofs keep the /Users mount off lima's SSH master (the thing
+# that wedged in production); /Users is mounted so worktrees can be bind-mounted.
+SPEC=(--vm-type vz --mount-type virtiofs --cpu 4 --memory 6 --disk 60
+      --mount /Users:w --runtime docker)
+
+running() { colima status >/dev/null 2>&1; }
+dk() { docker --host "unix://$SOCK" "$@"; }
+
+case "${1:-}" in
+  start)
+    if running; then echo "dev engine: already running"; exit 0; fi
+    free=$(memory_pressure 2>/dev/null | awk -F': ' '/free percentage/{gsub("%","",$2); print int($2)}')
+    if [ -n "$free" ] && [ "$free" -lt "$MIN_FREE_PCT" ]; then
+      echo "dev engine: NOT started — host memory free is ${free}% (< ${MIN_FREE_PCT}%)."
+      echo "  Production shares this machine; try again later, or ask the operator."
+      exit 2
+    fi
+    rm -f "$IDLE"
+    if [ -f "$HOME/.colima/default/colima.yaml" ]; then colima start
+    else colima start "${SPEC[@]}"; fi
+    ;;
+  stop)
+    rm -f "$IDLE"
+    if running; then colima stop; else echo "dev engine: already stopped"; fi
+    ;;
+  status)
+    if running; then
+      echo "dev engine: RUNNING"; dk ps --format '  {{.Names}}\t{{.Status}}\t{{.Label "com.docker.compose.project"}}'
+    else echo "dev engine: stopped (start it with: devengine start)"; fi
+    ;;
+  idle-check)
+    running || { rm -f "$IDLE"; exit 0; }
+    if [ -n "$(dk ps -q 2>/dev/null)" ]; then rm -f "$IDLE"; exit 0; fi
+    now=$(date +%s)
+    [ -f "$IDLE" ] || { echo "$now" > "$IDLE"; exit 0; }
+    [ $((now - $(cat "$IDLE"))) -ge "$IDLE_STOP_S" ] || exit 0
+    echo "$(date) idle ${IDLE_STOP_S}s with no running container — pruning + stopping"
+    dk container prune -f --filter until=168h
+    dk image prune -af --filter until=168h
+    dk builder prune -f --filter until=168h
+    colima stop
+    rm -f "$IDLE"
+    ;;
+  *) echo "usage: devengine-colima start|stop|status|idle-check" >&2; exit 64 ;;
+esac
