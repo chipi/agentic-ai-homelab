@@ -430,7 +430,7 @@ groups:
         noDataState: Alerting
         labels: { severity: warning, kind: infra, host: homelab, service: host-metrics, environment: operations }
         annotations:
-          summary: "The mini heart-beat mini_forward_up fewer than 5 times in 10m, for 10m (healthy is 17-20) — lima's host↔VM forward is broken or wedged (docker socket + loopback ports dead or mostly dead), or the VM/watchdog is down. Containers + tailnet TLS nodes may be fine; the host CLI, loopback ports, and host metric collectors are blind. This is NOT a service outage — recover with a graceful `colima restart`. Runbook: recipes/colima-lima-forwarding-recovery.md."
+          summary: "The mini heart-beat mini_forward_up fewer than 5 times in 10m, for 10m (healthy is 17-20) — lima's host↔VM forward is broken or wedged (docker socket + loopback ports dead or mostly dead), or the VM/watchdog is down. Containers + tailnet TLS nodes may be fine; the host CLI, loopback ports, and host metric collectors are blind. This is NOT a service outage. The watchdog auto-restarts colima once per 2 h, so this firing means that restart did not help, or ran within the last 2 h, or was skipped (VM stopped, ~/.forward-watchdog-no-autorestart): check /tmp/forward-watchdog.log, then `colima restart` by hand. Runbook: recipes/colima-lima-forwarding-recovery.md."
         data:
           - refId: q
             relativeTimeRange: { from: 600, to: 0 }
@@ -445,6 +445,34 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: lt, params: [5] } }]
+
+      # The forward-watchdog auto-restarts colima (#2b, 2026-10-09) about 8-10 min into
+      # a break, before mini-forward-down's `for: 10m` can fire — so without this rule a
+      # recovered break would be silent. Fires for 1 h after each auto-restart. The
+      # watchdog re-pushes the restart time with every heartbeat, so the series is
+      # absent (noData = OK) until the first restart, and while the forward is dead.
+      - uid: mini-forward-autorestarted
+        title: "Mac mini colima auto-restarted (host↔VM forward broke and was recovered)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: infra, host: homelab, service: host-metrics, environment: operations }
+        annotations:
+          summary: "The forward-watchdog ran `colima restart` because the host↔VM forward broke (fewer than 5 of 20 probes ok). Every container restarted. Evidence is in /tmp/forward-break-*.txt (taken before the restart) and /tmp/forward-autorestart.log on the mini; add the incident to recipes/colima-lima-forwarding-recovery.md. Repeats more than every 2 h are blocked — mini-forward-down fires instead."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - max(last_over_time(mini_forward_autorestart_timestamp{box="mini"}[10m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [3600] } }]
 
       # --- Mac mini CPU temperature (warning >85°C, critical >95°C) ---------------
       # The mini runs 24/7; healthy idle ~60°C, thermal-throttles ~100°C. 85 = warn

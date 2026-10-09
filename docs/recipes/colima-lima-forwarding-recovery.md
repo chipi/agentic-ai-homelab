@@ -213,12 +213,19 @@ rest reduce frequency or improve the signal.
      stall the heartbeat loop. **Re-arm (2026-10-09):** the marker clears only after
      10 min of unbroken healthy probes, not on the first success — a wedged master
      let ~1 in 10 probes through on 2026-10-08 and the old re-arm took ~45 captures.
-   - **2b (auto-restart — opt-in, NOT enabled):** upgrade the watchdog to run
-     `colima restart` itself when the socket is dead > 5 min **and** the VM is up,
-     with a cooldown so a flapping network can't restart-loop, logging each action.
-     Left opt-in because auto-running a container-bouncing restart on shared infra
-     is a standing pre-authorization of a disruptive action — enable only once 2a's
-     signal has proven trustworthy in practice.
+   - **2b (auto-restart — ENABLED 2026-10-09, operator-approved):** the watchdog
+     runs `colima restart` itself when fewer than 5 of the last 20 probes (10 min)
+     succeeded, `colima status` says the VM is up (it never starts a VM someone
+     stopped), and no auto-restart ran in the last 2 h. The forensic capture runs
+     first (first failed probe). A full break restarts ~8 min in; a 4-min planned
+     restart does not trip it. One restart per 2 h: a break that survives it is
+     left to the human, and `mini-forward-down` fires. Every auto-restart fires
+     `mini-forward-autorestarted` for 1 h (otherwise a recovered break would be
+     silent). Output: `/tmp/forward-watchdog.log`, `/tmp/forward-autorestart.log`.
+     **Maintenance opt-out:** `touch ~/.forward-watchdog-no-autorestart` on the
+     mini (operator account); remove it afterwards. Simulated before enabling over
+     healthy, planned-restart, wedged, dead-past-cooldown, opt-out and stopped-VM
+     probe sequences.
 
 3. **Alert on the break itself, not on its shadow.** — ✅ **DONE (2026-08-18)**
    `mini-forward-down` in `infra/observability/backend/grafana/provisioning/alerting/rules.yaml`

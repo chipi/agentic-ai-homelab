@@ -7,13 +7,19 @@
 # every container keep running. It does NOT self-heal (see
 # docs/recipes/colima-lima-forwarding-recovery.md).
 #
-# This is a DEAD-MAN'S SWITCH, deliberately, and it does NOT restart anything
-# (that's the opt-in #2b). Every 30s it proves the host can reach the VM's docker
-# socket, and — only then — heart-beats mini_forward_up=1 to VictoriaMetrics over
-# the *forwarded* :8428. Both the probe and the publish ride the same lima
-# forward, so when the forward breaks the heartbeat STOPS. The absence is the
-# signal: the "mini-forward-down" alert fires after 5m of no samples -> email.
-# Recovery is a human `colima restart`.
+# Every 30s it proves the host can reach the VM's docker socket, and — only then —
+# heart-beats mini_forward_up=1 to VictoriaMetrics over the *forwarded* :8428. Both
+# the probe and the publish ride the same lima forward, so when the forward breaks
+# the heartbeat STOPS. The "mini-forward-down" alert fires on a low heartbeat rate.
+#
+# AUTO-RESTART (#2b, enabled 2026-10-09 on the operator's approval): when fewer than
+# 5 of the last 20 probes (10 min) succeeded, the VM is up, and the last auto-restart
+# was over 2 h ago, it runs `colima restart` itself — after the forensic capture,
+# which happens on the first failed probe. It restarts at most once per 2 h; a break
+# that survives one restart is left to the human (the alert keeps firing). Each
+# restart pushes mini_forward_autorestart_timestamp, which the
+# "mini-forward-autorestarted" alert reports. Opt out for maintenance by creating
+# ~/.forward-watchdog-no-autorestart.
 #
 # AUTO-CAPTURE (2026-09-03): the recovery action DESTROYS the evidence — a
 # `colima restart` recreates ha.stderr.log — so after both the 2026-08-18 and
@@ -70,6 +76,34 @@ master_pid() {
 # success captured ~45 snapshots, each opening a fresh SSH session into the guest.
 REARM_AFTER=20   # x 30s = 10 min
 healthy_streak=0
+
+# Auto-restart: the same rate the alert uses — fewer than 5 successes in the last 20
+# probes. A wedged master still passes ~1 in 10, so a zero test never trips.
+WINDOW=20
+MIN_OK=5
+COOLDOWN=7200
+RESTART_TS=/tmp/.forward-last-autorestart
+NO_RESTART="$HOME/.forward-watchdog-no-autorestart"
+recent=""        # last $WINDOW probe outcomes, one char each: 1 ok, 0 failed
+skip_logged=0    # log a skipped restart once per outage, not every 30 s
+
+maybe_restart() {
+  [ "${#recent}" -ge "$WINDOW" ] || return 0
+  local ok="${recent//0/}"
+  [ "${#ok}" -lt "$MIN_OK" ] || return 0
+  [ -f "$NO_RESTART" ] && return 0
+  local now last; now=$(date +%s); last=$(cat "$RESTART_TS" 2>/dev/null || echo 0)
+  [ $((now - last)) -ge "$COOLDOWN" ] || return 0
+  # Only a VM that is up and was left running; never start one someone stopped.
+  run_to 30 $DH colima status >/dev/null 2>&1 || {
+    [ "$skip_logged" = 1 ] || echo "$(date) auto-restart skipped: colima status says the VM is not running"
+    skip_logged=1; return 0; }
+  echo "$now" > "$RESTART_TS"
+  echo "$(date) auto-restart: ${#ok}/$WINDOW probes ok in 10 min — colima restart"
+  run_to 600 $DH colima restart >> /tmp/forward-autorestart.log 2>&1
+  echo "$(date) auto-restart finished (rc=$?)"
+  recent=""; healthy_streak=0
+}
 
 # Record master PID transitions — the tick it changes is the break second (30s res).
 track_master() {
@@ -170,15 +204,21 @@ while true; do
   # Canonical "host can talk to the VM" test — the exact path the operator's CLI
   # and the mini-metrics collector use. Fails the instant the forward breaks.
   if $D ps -q >/dev/null 2>&1; then
-    printf 'mini_forward_up{box="mini"} 1\n' \
-      | curl -s -m8 -o /dev/null --data-binary @- "$VM" || true
+    recent="${recent}1"; skip_logged=0
+    { printf 'mini_forward_up{box="mini"} 1\n'
+      [ -f "$RESTART_TS" ] && printf 'mini_forward_autorestart_timestamp{box="mini"} %s\n' "$(cat "$RESTART_TS")"
+    } | curl -s -m8 -o /dev/null --data-binary @- "$VM" || true
     # Re-arm capture for the next break only once the forward has held for 10 min.
     healthy_streak=$((healthy_streak + 1))
     [ "$healthy_streak" -ge "$REARM_AFTER" ] && rm -f "$MARKER" 2>/dev/null
   else
+    recent="${recent}0"
     healthy_streak=0
     # Forward is down. Capture ONCE per break, immediately, before any recovery.
     [ -f "$MARKER" ] || capture_break || true
   fi
+  # (bash's ${x: -N} is EMPTY while x is shorter than N, hence the length guard)
+  [ "${#recent}" -gt "$WINDOW" ] && recent="${recent: -$WINDOW}"
+  maybe_restart
   sleep 30
 done
