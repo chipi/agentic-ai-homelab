@@ -457,6 +457,17 @@ enforced surface. There are no exceptions I can choose to make.
     question if still blocked. "What tunnel?" → bad. "I see tunnels X and Y
     in the config — which one?" → good.
 
+**Docker on the Mac mini (homelab host) — machine-specific.** Development
+Docker work runs ONLY on the shared dev engine: `devengine start`, then
+`docker --context dev …`, then `devengine stop` (unset any
+`DOCKER_HOST=unix:///var/run/docker.sock` in your shell). The production engine
+(`/var/run/docker.sock`) is closed to development — never request access, never
+change its socket, groups or VM. A dev e2e container publishing ports in the
+production VM hung lima's port-forward connection for 7 h on 2026-10-08 (same
+shape on 2026-09-03). The contract (memory caps, one build at a time, no fixed
+shared host ports, teardown) is the source of truth:
+`agentic-ai-homelab/docs/recipes/dev-docker-engine.md` (ADR-0009).
+
 ---
 
 ## Communication style
