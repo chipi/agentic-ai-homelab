@@ -66,6 +66,17 @@ drafted, but they haven't been run for real yet.
 
 ## Dated checks (open on/after the date — we WILL forget otherwise)
 
+- [ ] **Monthly from 2026-11-01:** upgrade lima on the mini once
+      [lima-vm/lima#5420](https://github.com/lima-vm/lima/issues/5420) ships —
+      keepalives on the SSH ControlMaster plus a loop that re-creates forwards
+      when the master breaks (operator approved the upgrade 2026-10-09). As of
+      2026-10-09 the issue is open with no merged PR; the mini runs lima 2.2.0,
+      latest is v2.2.1 / v2.3.0-beta.1. Check: `gh api repos/lima-vm/lima/issues/5420
+      --jq .state` and the release notes. Caveat: #5420 covers a DEAD master; our
+      2026-10-08 break was a WEDGED one, so confirm the fix also detects that
+      before calling the forward-break class closed. Runbook:
+      [colima/lima forwarding recovery](../recipes/colima-lima-forwarding-recovery.md).
+
 - [x] ~~**2026-08-31+ (any day next week):** verify the docker-prune LaunchAgent
       self-fired Sunday 04:00 on the mini (installed + hand-verified 2026-08-30,
       but the calendar trigger itself has never fired).
