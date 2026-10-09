@@ -84,6 +84,8 @@ shell_allowlist_extra = [
     "wb-integrate",
     "log",
     "devengine",
+    "sips",
+    "say",
 ]
 
 [cloud]
