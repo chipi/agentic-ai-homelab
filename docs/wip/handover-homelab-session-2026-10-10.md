@@ -9,6 +9,7 @@ on 2026-10-10 unless it says otherwise.
 - Grafana: **no alerts firing**. DGX ~15% memory available. Mac mini forward healthy,
   dev engine stopped, all delivery workers healthy.
 - No work in flight, no background jobs, no temporary worktrees left.
+- podcast_scraper main is at `a6375152a` (DGX converge fix) — its CI was still running at handover.
 
 ## What this session did (so you don't redo it)
 
@@ -24,34 +25,61 @@ on 2026-10-10 unless it says otherwise.
 
 ## Open — needs the operator's decision
 
-### 1. Do not run a real full `make dgx-deploy` yet
+### 1. Run the real DGX deploy — in a window the operator picks
 
-A pyinfra dry run of podcast_scraper main against the DGX (2026-10-10) connected and
-loaded the fixed `deploy.py`, and listed what a **real** run would change beyond the fix:
+**Why it's worth doing:** the DGX's pyannote runs an `app.py` from 2026-07-11, without the
+#1397 guard (podcast_scraper `91f6f9bfd`, 2026-08-04) that keeps PyTorch off `/dev/shm`
+— the unbounded `/dev/shm` growth that hard-locked the DGX (INCIDENT-2026-08-04).
 
-| What | Effect of a real run | Status |
-|---|---|---|
-| `whisper-server` (retired OpenAI-whisper, no container today) | Dockerfile + `app.py` shipped, image built, **service started** — a new GPU/memory consumer | real surprise |
-| `/opt/observability` (absent on the DGX) | installs DCGM + node-exporter + cAdvisor with `container_name: dcgm-exporter` / `cadvisor` — the **homelab-managed containers with those names already run** → name clash, that step errors | real surprise |
-| `pyannote-server` | newer `app.py` from main shipped, image rebuilt, service restarted | expected? confirm with the operator |
-| faster-whisper, moss | compose files rewritten (identical to live, comments aside), images pulled/rebuilt, `up -d` | restart only if the rebuilt image differs |
-| `chown 1000:1000 /opt/llm-models/huggingface` | no-op: uid 1000 already owns it | fine |
+**Already fixed (2026-10-10):** a first dry run showed a real `make dgx-deploy` would also
+start the retired `whisper-server` and install an exporter stack clashing with the
+homelab-managed `dcgm-exporter` / `cadvisor`. podcast_scraper `a6375152a` made both
+blocks opt-in (`DGX_CONVERGE_WHISPER_SERVER`, `DGX_CONVERGE_OBSERVABILITY`, off by
+default) with a regression test. **Check that commit's CI is green first.**
 
-Reconcile the first two (retire `whisper-server` and the observability block in
-`deploy.py`, or make them opt-in) before anyone runs it for real.
+**What the real deploy does now** (validated by a dry run with the fix, nothing executed):
 
-**How to run the dry run without the operator** (their key has a passphrase; their
-plain `ssh dgx-llm-1` uses Tailscale SSH): from a podcast_scraper checkout with
-`infra/.env.dgx.local` and `infra/dgx/converge/.venv`:
+| Service | Change |
+|---|---|
+| pyannote | main's `app.py` shipped (the #1397 guard + identifier scrub), image rebuilt, **restart** (~1 min without diarization) |
+| faster-whisper, moss | compose files rewritten (identical to live, comments aside), images pulled/rebuilt, `up -d` — restart only if the rebuilt image differs |
+| `/opt/llm-models/huggingface` | `chown 1000:1000` — no-op (uid 1000 already owns it) |
+
+**The window:** the operator is actively using the DGX — **ask before running**. Right
+before, check nothing is in flight:
+
+```sh
+ssh deploy@prod-podcast 'docker ps -q --filter name=compose-pipeline | wc -l'     # 0 = no pipeline job
+ssh dgx-llm-1 'nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader;
+  docker logs --since 10m faster-whisper 2>&1 | grep -c "POST /v1/audio";
+  docker logs --since 10m pyannote 2>&1 | grep -c "POST "'                       # idle = 0 / 0
+```
+
+(GPU use alone doesn't block it — translation vLLM load is unaffected by this deploy.)
+
+**Run it** from a podcast_scraper checkout of main at `a6375152a` or later that has
+`infra/.env.dgx.local` and `infra/dgx/converge/.venv` (the operator's key has a passphrase;
+`--data ssh_config_file=/dev/null` makes pyinfra authenticate through the agent, the way
+plain `ssh dgx-llm-1` does via Tailscale SSH):
 
 ```sh
 set -a; . infra/.env.dgx.local; set +a; unset DGX_SSH_KEY
-cd infra/dgx/converge && .venv/bin/pyinfra --sudo --dry inventory.py deploy.py --data ssh_config_file=/dev/null < /dev/null
+cd infra/dgx/converge
+.venv/bin/pyinfra --sudo --dry inventory.py deploy.py --data ssh_config_file=/dev/null < /dev/null   # re-check the change list
+.venv/bin/pyinfra --sudo -y inventory.py deploy.py --data ssh_config_file=/dev/null < /dev/null      # the real run
 ```
 
-`--dry` executes nothing; without `-y` it prints "Detected changes" (with `-y` it skips
-detection). `--data ssh_config_file=/dev/null` stops pyinfra loading the
-passphrase-protected key from `~/.ssh/config` and lets it authenticate through the agent.
+**Verify afterwards:**
+
+```sh
+ssh dgx-llm-1 'docker logs pyannote 2>&1 | grep -c "sharing strategy: file_system";   # expect >= 1 (was 0)
+  for p in 8000 8001 8004; do curl -s -o /dev/null -w "$p %{http_code}\n" http://127.0.0.1:$p/health; done;
+  docker ps --format "{{.Names}} {{.Status}}" | grep -E "faster-whisper|pyannote|moss|whisper-openai|node-exporter"'
+```
+
+All three healthy, no `whisper-openai` or second exporter container, and the GPU-mode
+status unchanged (`~/bin/gpu-mode-swap.sh status 2>&1`). Rollback for pyannote: the previous
+image stays in Docker's cache; rebuild from the old `app.py` only if it misbehaves.
 
 ### 2. Parallel long-episode transcription — documented, deferred
 

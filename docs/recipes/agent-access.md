@@ -364,6 +364,21 @@ Both vLLMs need their API key (compose: `infra/vllm/{prod-vllm,translate}/` in t
 ssh dgx-llm-1 'K=$(docker exec vllm-prod-vllm printenv VLLM_API_KEY); curl -s -H "Authorization: Bearer $K" http://127.0.0.1:8003/v1/models'
 ```
 
+**Deploying DGX services** (faster-whisper, pyannote, moss) is podcast_scraper's
+pyinfra converge, `infra/dgx/converge/deploy.py` (`make dgx-deploy`). The retired
+openai-whisper server and the duplicate exporter stack are opt-in
+(`DGX_CONVERGE_WHISPER_SERVER=1`, `DGX_CONVERGE_OBSERVABILITY=1`); the DGX's exporters
+belong to this repo. The operator's key has a passphrase, so run pyinfra directly with
+`--data ssh_config_file=/dev/null` (agent auth through Tailscale SSH), and always
+`--dry` first (without `-y`, or it skips change detection):
+
+```sh
+set -a; . infra/.env.dgx.local; set +a; unset DGX_SSH_KEY
+cd infra/dgx/converge && .venv/bin/pyinfra --sudo --dry inventory.py deploy.py --data ssh_config_file=/dev/null < /dev/null
+```
+
+A real run restarts services: ask the operator for a window.
+
 **Careful:** switching GPU modes or restarting a model server interrupts the pipeline —
 use the `gpu-mode` skill and ask first. Never unload or kill a whisper request mid-flight:
 on 2026-10-09 an interrupted request plus an unload hung the server until a restart.
