@@ -468,10 +468,12 @@ shape on 2026-09-03). The contract (memory caps, one build at a time, no fixed
 shared host ports, teardown) is the source of truth:
 `agentic-ai-homelab/docs/recipes/dev-docker-engine.md` (ADR-0009).
 
-**Reaching the operator's hosts, databases, APIs and app files** (Mac mini, prod VPS,
-DGX): the access already exists through the operator's SSH keys — never request new
-logins, ports or groups. Commands, DB users and rules:
-`agentic-ai-homelab/docs/recipes/agent-access.md`.
+**Operating the operator's services** (Grafana, Victoria{Metrics,Logs,Traces}, Umami,
+GlitchTip, Langfuse, LiteLLM, delivery, Close Listening and Orrery data, the DGX): read
+the operations handbook first — `agentic-ai-homelab/docs/recipes/agent-access.md`. It has
+tested recipes for reading, creating, updating and deleting in each, using access that
+already exists (the operator's SSH keys, the services' own credential files). Never
+request new logins, ports or groups; if a task isn't covered, add the recipe after.
 
 ---
 
