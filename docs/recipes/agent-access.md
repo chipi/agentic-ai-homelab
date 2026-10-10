@@ -41,11 +41,13 @@ Do not create logins, publish ports or change groups to "get access".
 | Service | Load on the mini with | Gives you |
 |---|---|---|
 | Grafana | `set -a; . ~/agentic-ai-homelab/infra/observability/backend/.env; set +a` | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` |
+| Umami | `set -a; . ~/umami/.env; set +a` (note: `~/umami`, not the repo) | `UMAMI_ADMIN_PASSWORD` (user `admin`) |
 | GlitchTip (read) | `set -a; . ~/signal-fleet/fleet-gateway.env; set +a` | `GLITCHTIP_TOKEN` (read-only) |
 | GlitchTip (write) | `set -a; . ~/agentic-ai-homelab/infra/glitchtip/.env; set +a` | `DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_PASSWORD` |
 | Langfuse | `set -a; . ~/signal-fleet/fleet-gateway.env; set +a` | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` (project `agents`) |
 | LiteLLM (mini) | `set -a; . ~/agentic-ai-homelab/infra/litellm/.env; set +a` | `LITELLM_MASTER_KEY` |
 | LiteLLM (VPS) | inside the `litellm` container's env | `LITELLM_MASTER_KEY` |
+| DGX vLLM | `docker exec vllm-prod-vllm printenv VLLM_API_KEY` (or `vllm-translate`) | the server's API key |
 | Databases | none — `docker exec … psql` trusts local connections | — |
 
 ## 1. Grafana (`:3000` on the mini · `https://grafana.tail6d0ed4.ts.net`)
@@ -166,28 +168,36 @@ returns 200 and appears in VictoriaTraces.
 
 ## 6. Umami (`:3001` · `https://umami.tail6d0ed4.ts.net` · tracker `https://analytics.closelistening.app/script.js`)
 
-Work in SQL — there is **no Umami app login available to agents** (see Known gaps):
+**API** (run from a script file on the mini):
+
+```sh
+set -a; . ~/umami/.env; set +a
+U=http://127.0.0.1:3001
+TOK=$(curl -s -H 'Content-Type: application/json' -d "{\"username\":\"admin\",\"password\":\"$UMAMI_ADMIN_PASSWORD\"}" \
+  $U/api/auth/login | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+H="Authorization: Bearer $TOK"
+curl -s -H "$H" "$U/api/websites?pageSize=50"                              # id, name, domain of every site
+END=$(( $(date +%s)*1000 )); START=$(( END - 7*86400*1000 ))           # ms timestamps
+curl -s -H "$H" "$U/api/websites/<id>/stats?startAt=$START&endAt=$END"    # pageviews, visitors, visits, bounces, totaltime (+ comparison)
+curl -s -H "$H" "$U/api/websites/<id>/metrics?startAt=$START&endAt=$END&type=path&limit=20"  # also: referrer, browser, country, event
+curl -s -H "$H" "$U/api/websites/<id>/pageviews?startAt=$START&endAt=$END&unit=day&timezone=UTC"
+# New website → put its id in the app's VITE_UMAMI_WEBSITE_ID
+# (with VITE_UMAMI_SRC=https://analytics.closelistening.app/script.js):
+curl -s -H "$H" -H 'Content-Type: application/json' -d '{"name":"<name>","domain":"<domain>"}' $U/api/websites
+curl -s -H "$H" -X DELETE $U/api/websites/<id>                          # removes the site and its data
+```
+
+`metrics` takes `type=path` (older docs say `url`, which now returns 400).
+
+**SQL** for anything the API doesn't cover (event-level queries, bulk deletes):
 
 ```sh
 q(){ /usr/local/bin/docker exec -i umami-db psql -U umami -d umami -P pager=off; }
-echo "select website_id, name, domain from website where deleted_at is null;" | q
 # Page views per site per day (event_type 1 = page view, 2 = custom event):
 echo "select w.name, date_trunc('day', e.created_at)::date day, count(*) from website_event e join website w using (website_id)
       where e.event_type=1 and e.created_at > now()-interval '7 days' group by 1,2 order by 2 desc,1;" | q
-# Top pages / custom events for one site:
-echo "select url_path, count(*) from website_event e join website w using (website_id)
-      where w.name='Player' and event_type=1 and e.created_at > now()-interval '7 days' group by 1 order by 2 desc limit 20;" | q
 echo "select event_name, count(*) from website_event e join website w using (website_id)
       where w.name='Player' and event_type=2 group by 1 order by 2 desc;" | q
-```
-
-**Add a website** (then put its id in the app's `VITE_UMAMI_WEBSITE_ID`, with
-`VITE_UMAMI_SRC=https://analytics.closelistening.app/script.js`):
-
-```sh
-echo "insert into website (website_id, name, domain, user_id, created_by, created_at)
-      select gen_random_uuid(), '<name>', '<domain>', user_id, user_id, now() from \"user\" where username='admin'
-      returning website_id;" | q
 ```
 
 **Delete data (e.g. test traffic) — preview, delete in a transaction, check, then commit:**
@@ -344,9 +354,15 @@ ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh status 2>&1'     # which vLLMs own the GPU
 |---|---|---|
 | `:8000` | faster-whisper (speaches) | `/health`; transcription at `/v1/audio/transcriptions` |
 | `:8001` | pyannote | `/health` |
-| `:8003` | vLLM (prod serving) | API key required for `/v1/models` |
+| `:8003` | vLLM (prod serving) | models `NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4`, alias `autoresearch` |
 | `:8004` | moss | `/v1/models` |
-| `:8005` | vLLM (translate) | API key required |
+| `:8005` | vLLM (translate) | models `google/translategemma-12b-it`, alias `translate` |
+
+Both vLLMs need their API key (compose: `infra/vllm/{prod-vllm,translate}/` in the DGX's checkout):
+
+```sh
+ssh dgx-llm-1 'K=$(docker exec vllm-prod-vllm printenv VLLM_API_KEY); curl -s -H "Authorization: Bearer $K" http://127.0.0.1:8003/v1/models'
+```
 
 **Careful:** switching GPU modes or restarting a model server interrupts the pipeline —
 use the `gpu-mode` skill and ask first. Never unload or kill a whisper request mid-flight:
@@ -384,12 +400,8 @@ on 2026-10-09 an interrupted request plus an unload hung the server until a rest
 
 ## Known gaps (2026-10-10)
 
-- **No Umami app login for agents.** The `admin` password isn't stored where agents can
-  read it, and the fleet's `UMAMI_RO_USER` (`signal-fleet-ro`) exists neither as an Umami
-  user nor as a Postgres role. Use SQL (section 6); UI-only actions need the operator.
 - **GlitchTip's fleet token is read-only**; writes use the superuser session (section 7).
 - **VictoriaLogs deletion is disabled** (section 3).
-- **vLLM `/v1/models` on the DGX needs the API key**, which this page doesn't locate yet.
 
 ## Troubleshooting
 
