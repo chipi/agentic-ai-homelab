@@ -468,6 +468,11 @@ shape on 2026-09-03). The contract (memory caps, one build at a time, no fixed
 shared host ports, teardown) is the source of truth:
 `agentic-ai-homelab/docs/recipes/dev-docker-engine.md` (ADR-0009).
 
+**Reaching the operator's hosts, databases, APIs and app files** (Mac mini, prod VPS,
+DGX): the access already exists through the operator's SSH keys — never request new
+logins, ports or groups. Commands, DB users and rules:
+`agentic-ai-homelab/docs/recipes/agent-access.md`.
+
 ---
 
 ## Communication style

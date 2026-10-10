@@ -88,6 +88,7 @@ nav:
     - Mac mini → observability host: recipes/mac-mini-observability.md
     - colima/lima forwarding — break & recovery: recipes/colima-lima-forwarding-recovery.md
     - Dev Docker engine (on demand): recipes/dev-docker-engine.md
+    - Agent access — hosts, DBs, APIs, files: recipes/agent-access.md
     - Observability endpoints (obs name): recipes/observability-endpoints.md
     - Observability dependency & blast-radius map: observability-dependency-map.md
     - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md
