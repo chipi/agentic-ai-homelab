@@ -1409,6 +1409,58 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [129600] } }]
 
+      # --- Naming coverage (#2304 S8) -----------------------------------------------
+      # The batch finalize measures how many served episodes publish no named voice and the api
+      # serves it on /metrics (podcast_corpus_episodes_no_named_voice, from the nightly's
+      # naming_coverage.json). 274 of 2,619 English episodes on 2026-10-12 after migration 0029.
+      - uid: podcast-naming-coverage-rose
+        title: "Podcast: more episodes publish no named voice"
+        condition: threshold
+        for: 1h
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
+        annotations:
+          summary: "{{ $value }} more English episodes publish no named voice than the 3-day low. A naming regression, or a batch of new feeds nobody is named on. Measure with scripts/measure/naming_coverage.py and read docs/guides/NAMING_KNOWN_ISSUES.md."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 259200, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'last_over_time(podcast_corpus_episodes_no_named_voice{instance="prod-podcast",language="en"}[1h]) - min_over_time(podcast_corpus_episodes_no_named_voice{instance="prod-podcast",language="en"}[3d])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [10] } }]
+
+      - uid: podcast-naming-coverage-stale
+        title: "Podcast naming coverage not measured in 48h"
+        condition: threshold
+        for: 1h
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severity: warning, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
+        annotations:
+          summary: "The batch finalize has not written naming_coverage.json in 48h (or the api does not export podcast_corpus_naming_coverage_age_seconds; 99999999 = absent). The nightly is not finishing its batch, or the measurement fails: grep the api log for 'naming coverage'."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(podcast_corpus_naming_coverage_age_seconds{instance="prod-podcast"}) or vector(99999999)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [172800] } }]
+
       # --- Pipeline jobs failing --------------------------------------------------
       - uid: podcast-pipeline-jobs-failing
         title: "Podcast pipeline jobs failing"
