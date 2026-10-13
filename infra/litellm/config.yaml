@@ -97,6 +97,24 @@ model_list:
       model: openrouter/deepseek/deepseek-v4-flash-0731
       api_key: os.environ/OPENROUTER_API_KEY_PODCAST
 
+  # ── The DGX model (podcast_scraper#2342): the podcast DGX profiles reach the DGX vLLM through
+  # this gateway, so every call is metered and traced (Langfuse) like every other model. The
+  # served model is ours: $0, and NO fallback of any kind may ever be added to it — a fallback
+  # would turn a free local call into a paid cloud one (RFC-127 board summaries run at budget $0).
+  # The mini's container cannot resolve MagicDNS, so the DGX by its tailnet IP. The vLLM is served
+  # under the placeholder key EMPTY. The timeout covers long GI/quote calls the global 120 s cuts.
+  - model_name: dgx-qwen3-30b
+    litellm_params:
+      model: hosted_vllm/NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4
+      api_base: http://100.69.49.126:8003/v1
+      api_key: EMPTY
+      timeout: 900
+    model_info:
+      mode: chat
+      max_input_tokens: 65536
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
   # ── Orrery Physics Lab /ask (dev path — mirrors the prod gateway's alias;
   # same DEDICATED OpenRouter key on both, operator 2026-09-06) ──
   - model_name: orrery-ask
