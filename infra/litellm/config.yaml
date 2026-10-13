@@ -97,13 +97,15 @@ model_list:
       model: openrouter/deepseek/deepseek-v4-flash-0731
       api_key: os.environ/OPENROUTER_API_KEY_PODCAST
 
-  # ── The DGX model (podcast_scraper#2342): the podcast DGX profiles reach the DGX vLLM through
-  # this gateway, so every call is metered and traced (Langfuse) like every other model. The
-  # served model is ours: $0, and NO fallback of any kind may ever be added to it — a fallback
-  # would turn a free local call into a paid cloud one (RFC-127 board summaries run at budget $0).
-  # The mini's container cannot resolve MagicDNS, so the DGX by its tailnet IP. The vLLM is served
-  # under the placeholder key EMPTY. The timeout covers long GI/quote calls the global 120 s cuts.
-  - model_name: dgx-qwen3-30b
+  # ── The DGX model (podcast_scraper#2342): a TRANSPARENT proxy in front of the DGX vLLM. The
+  # podcast pipeline keeps its own vLLM provider unchanged and only points its base at this
+  # gateway, so every call is metered and traced (Langfuse) like every other model. The alias IS
+  # the real HF model id, so the provider's requests, its served-model check (GET /v1/models) and
+  # its telemetry are exactly what they were. Our hardware: $0, and NO fallback of any kind may ever
+  # be added (a fallback would turn a free local call into a paid cloud one; RFC-127 runs at $0).
+  # The mini's container cannot resolve MagicDNS, so the DGX by its tailnet IP; the vLLM is served
+  # under the placeholder key EMPTY. Timeout covers long GI/quote calls the global 120 s would cut.
+  - model_name: NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4
     litellm_params:
       model: hosted_vllm/NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4
       api_base: http://100.69.49.126:8003/v1
@@ -203,4 +205,15 @@ litellm_settings:
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
+  # The vLLM provider counts tokens exactly with vLLM's own POST /tokenize (#2050); through the
+  # gateway that path must reach the DGX unchanged, or the provider falls back to an estimate and
+  # clips more transcript. auth: false because per-key pass-through permission is LiteLLM
+  # Enterprise-only; /tokenize only counts tokens (no generation, no spend) and the DGX already
+  # answers it to the tailnet under the placeholder key EMPTY, so this exposes nothing new.
+  pass_through_endpoints:
+    - path: "/tokenize"
+      target: "http://100.69.49.126:8003/tokenize"
+      headers:
+        Authorization: "Bearer EMPTY"
+      auth: false
   # virtual keys + budgets live in postgres (DATABASE_URL from compose)
