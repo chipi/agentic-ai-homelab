@@ -216,4 +216,26 @@ general_settings:
       headers:
         Authorization: "Bearer EMPTY"
       auth: false
+    # Translation (podcast_scraper#2342): TranslateGemma on the DGX :8005, behind the gateway so
+    # its calls reach Langfuse too. The podcast translate provider's base is <gateway>/translate/v1,
+    # and it calls exactly three paths, each passed through to the DGX's own path unchanged — no
+    # alias, no code change. One EXACT route per path, because this LiteLLM (1.96) exempts only an
+    # exact path from auth: a subpath route's children need a virtual key and are then admin-only
+    # (Enterprise). Not under /v1, which LiteLLM treats as admin for unknown routes. auth: false
+    # as /tokenize above: the DGX already serves these to the tailnet under the key EMPTY.
+    - path: "/v1/translate/v1/completions"
+      target: "http://100.69.49.126:8005/v1/completions"
+      headers:
+        Authorization: "Bearer EMPTY"
+      auth: false
+    - path: "/v1/translate/v1/models"
+      target: "http://100.69.49.126:8005/v1/models"
+      headers:
+        Authorization: "Bearer EMPTY"
+      auth: false
+    - path: "/v1/translate/tokenize"
+      target: "http://100.69.49.126:8005/tokenize"
+      headers:
+        Authorization: "Bearer EMPTY"
+      auth: false
   # virtual keys + budgets live in postgres (DATABASE_URL from compose)
