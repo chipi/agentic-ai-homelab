@@ -47,9 +47,22 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyUSD"
+          "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cost"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -72,12 +85,12 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:prod-podcast AND job:podcast-pipeline AND event_type:llm_cost | stats sum(estimated_cost_usd) cost",
+          "expr": "instance:prod-podcast AND surface:pipeline AND \"llm_cost\" | extract \"]: <payload>\" | unpack_json from payload fields (event_type, estimated_cost_usd, prompt_tokens, completion_tokens) | filter event_type:llm_cost | stats sum(estimated_cost_usd) cost, count() calls, sum(prompt_tokens) prompt_tokens, sum(completion_tokens) completion_tokens",
           "queryType": "stats",
           "refId": "A"
         }
       ],
-      "title": "LLM cost (24h, pipeline)",
+      "title": "LLM calls, tokens, cost (pipeline + board summaries)",
       "type": "stat"
     },
     {
