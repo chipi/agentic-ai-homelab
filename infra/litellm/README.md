@@ -14,7 +14,10 @@ route behind an alias (OpenRouter today; direct DeepSeek / Moonshot / Z.ai /
 US providers tomorrow) is swapped in `config.yaml` without touching any
 consumer, eval stamp, or rate table. Adding a provider = add its key to
 `.env` + point the alias's `litellm_params.model` at it + `docker compose
-up -d` (recreates litellm only).
+up -d` (recreates litellm only). A change to `config.yaml` ALONE is not a compose
+change, so `up -d` leaves the running container on the old config: use
+`docker compose restart litellm`, then confirm with `GET /model/info`
+(2026-10-13: `up -d` reported nothing to do and the new alias was absent until the restart).
 
 **Config drift — the file is not the whole truth.** Two ways aliases land: (a)
 committed in `config.yaml` (the `homelab-*` / `fleet-*` set, reconciled to the
@@ -44,6 +47,7 @@ note). Current consumers:
 |---|---|---|---|
 | `fleet-triage` | `fleet-triage-flash`, `fleet-triage-pro` | $50 | signal-fleet triager (`OPENROUTER_API_KEY` in `~/signal-fleet/fleet-gateway.env`) |
 | `fleet-bugfix` | `fleet-bugfix-flash`, `fleet-bugfix-pro`, `fleet-bugfix-reviewer` | $100 | bugfix-fleet — routes via the gateway (`LLM_BASE_URL=http://localhost:4001/v1` + `LLM_API_KEY=LITELLM_FLEET_BUGFIX_KEY`), was OpenRouter-direct |
+| `proj-podcast-dev` | `dgx-qwen3-30b` | $1 (the alias is $0; the cap only stops a mispriced alias) | podcast_scraper dev on the DGX profiles (`dev_dgx_full`): laptop → this gateway → the DGX vLLM, so dev calls reach Langfuse like prod's (podcast_scraper#2342). Restricted to the DGX alias, so a dev run can never reach a paid model. Minted 2026-10-13: `-d '{"key_alias":"proj-podcast-dev","max_budget":1,"models":["dgx-qwen3-30b"]}'` |
 | `eval-harness` | `eval-claude-opus`, `eval-claude-sonnet`, `eval-claude-haiku`, `homelab-flash` | $35 / 30d | [chipi/eval-harness](https://github.com/chipi/eval-harness) — golden references + model sweeps (`LITELLM_BASE_URL` + `LITELLM_API_KEY` in its `.env`). The key name stays `eval-harness`; only the consumer moved. |
 
 Both route to `openrouter/deepseek-v4-pro` via `OPENROUTER_API_KEY` (the shared
