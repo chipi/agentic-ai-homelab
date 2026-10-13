@@ -1,7 +1,7 @@
 {# Push payload for a single revisit nudge (payload.lead). #}
 {
   "title": {{ (payload.lead.episode_title | default('Worth revisiting')) | tojson }},
-  "body": {{ (payload.lead.quote | default('Something you saved is worth a second listen.')) | tojson }},
+  "body": {{ ((payload.lead.quote ~ ' (' ~ payload.lead.quote_translated_label ~ ')') if (payload.lead.quote is defined and payload.lead.quote_translated_label is defined) else (payload.lead.quote | default('Something you saved is worth a second listen.'))) | tojson }},
   "url": {{ (payload.lead.deep_link | default('/library?tab=revisit')) | tojson }},
   "tag": "resurface-nudge"
 }

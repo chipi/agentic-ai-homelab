@@ -85,6 +85,8 @@ def test_digest_fixture_renders_email():
     # graph_refs carried as chips (moat rule); relative deep_links absolutised; ref unsubscribe.
     assert "Jensen Huang" in html and "AI Safety" in html
     assert "https://closelistening.app/episode/" in html
+    # D-36 slice b: the translated editor's pick says so, once; the native items do not.
+    assert html.count("Translated from Spanish") == 1
     assert "ref=example-unsubscribe-ref" in html
     assert "&lt;" not in html.split("<body")[0]  # sanity: head not double-escaped
 
@@ -123,13 +125,16 @@ def test_nudge_fixture_renders_push():
     assert push.title
     assert push.url.startswith("https://closelistening.app/")  # relative → absolutised
     assert push.tag == "resurface-nudge"
+    # The body IS the quote, so a translated one carries the label with it (D-36 slice b).
+    assert push.body.endswith("(Translated from Spanish)")
 
 
 def test_nudge_fixture_also_renders_email():
     # A nudge can go by email too; ensure the email template handles payload.lead.
     env = DeliveryEnvelope.from_dict(_fixture("resurface-nudge.v1.golden.json"))
     html = _renderer().render_email(env).html
-    assert "Jensen Huang" in html
+    assert "Trail building" in html
+    assert "Translated from Spanish" in html
     assert "ref=example-unsubscribe-ref" in html
 
 
