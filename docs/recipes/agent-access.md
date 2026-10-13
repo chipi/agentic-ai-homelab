@@ -44,7 +44,7 @@ Do not create logins, publish ports or change groups to "get access".
 | Umami | `set -a; . ~/umami/.env; set +a` (note: `~/umami`, not the repo) | `UMAMI_ADMIN_PASSWORD` (user `admin`) |
 | GlitchTip (read) | `set -a; . ~/signal-fleet/fleet-gateway.env; set +a` | `GLITCHTIP_TOKEN` (read-only) |
 | GlitchTip (write) | `set -a; . ~/agentic-ai-homelab/infra/glitchtip/.env; set +a` | `DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_PASSWORD` |
-| Langfuse | `set -a; . ~/signal-fleet/fleet-gateway.env; set +a` | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` (project `agents`) |
+| Langfuse | `set -a; . ~/signal-fleet/fleet-gateway.env; set +a` | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` (project `agents`; other projects in section 8) |
 | LiteLLM (mini) | `set -a; . ~/agentic-ai-homelab/infra/litellm/.env; set +a` | `LITELLM_MASTER_KEY` |
 | LiteLLM (VPS) | inside the `litellm` container's env | `LITELLM_MASTER_KEY` |
 | DGX vLLM | `docker exec vllm-prod-vllm printenv VLLM_API_KEY` (or `vllm-translate`) | the server's API key |
@@ -244,8 +244,8 @@ S(){ curl -s -c $CJ -b $CJ -H "X-CSRFToken: $CSRF" -H "Referer: $GT/" -H 'Conten
 
 S -X PUT -d '{"status":"resolved"}' "$GT/api/0/organizations/homelab/issues/?id=<id>"   # or "ignored" / "unresolved"
 S -X DELETE "$GT/api/0/organizations/homelab/issues/?id=<id>"
-# New project (projects live under a team; the org had none on 2026-10-10 — create one once):
-S -d '{"slug":"<team>"}' $GT/api/0/organizations/homelab/teams/
+# New project (projects live under a team; team `podcast` exists since 2026-10-13):
+S -d '{"slug":"<team>"}' $GT/api/0/organizations/homelab/teams/      # only if no fitting team exists
 S -d '{"name":"<project>","platform":"python"}' $GT/api/0/teams/homelab/<team>/projects/
 S $GT/api/0/projects/homelab/<project>/keys/            # → dsn.public for the app's SENTRY_DSN
 rm -f $CJ
@@ -260,6 +260,16 @@ Send a test error the way apps do (Sentry SDK, from inside the GlitchTip contain
 
 **Careful:** issue delete returns 200 but the issue stays readable for a while
 (deletion is deferred). Ids are numeric; short ids (`PLAYER-1D`) are for humans.
+
+Prod and dev projects (dev runs never report into a prod project):
+
+| App | Prod | Dev |
+|---|---|---|
+| Podcast pipeline | `podcast-pipeline` (16) | `podcast-pipeline-dev` (25, team `podcast`) |
+| Podcast API | `podcast-api` (17) | `podcast-api-dev` (26, team `podcast`) |
+| Player | `player` (5) | `player-dev` (20) |
+
+Dev DSNs for the podcast laptop runs: `~/podcast-dev-glitchtip.env` on the mini (mode 600).
 
 ## 8. Langfuse (`:4000` · `https://langfuse.tail6d0ed4.ts.net`)
 
@@ -285,6 +295,23 @@ echo "select count() from system.tables where database='default'" | /usr/local/b
 
 **Careful:** these keys only see project `agents`. Other projects need their own keys
 (Langfuse UI → project settings).
+
+Projects (org `homelab`):
+
+| Project | Used by | Keys on the mini (mode 600) |
+|---|---|---|
+| `agents` | homelab fleet, mini LiteLLM, **and** the prod podcast VPS's `litellm` | `~/signal-fleet/fleet-gateway.env` |
+| `podcast-dev` | podcast_scraper laptop dev runs | `~/podcast-langfuse-dev.env` |
+| `podcast-prod` | created 2026-10-13 for the prod podcast VPS; **not wired yet** — the VPS `litellm` still sends to `agents` | `~/podcast-langfuse-prod.env` |
+
+Create a project and key pair the way the UI does (tRPC, logged in as the
+`LANGFUSE_INIT_USER_*` admin from `~/agentic-ai-homelab/infra/langfuse/.env`):
+`GET /api/auth/csrf` → `POST /api/auth/callback/credentials` (form: email, password,
+csrfToken, `json=true`) → `POST /api/trpc/projects.create?batch=1` with
+`{"0":{"json":{"name":"<name>","orgId":"homelab"}}}` →
+`POST /api/trpc/projectApiKeys.create?batch=1` with `{"0":{"json":{"projectId":"<id>","note":"<name>"}}}`.
+The secret key is shown only in that response: write it straight to a 600 file.
+`projectApiKeys.delete` takes `{"projectId","id"}`.
 
 ## 9. LiteLLM (mini `:4001` · `https://litellm.tail6d0ed4.ts.net` · VPS `:4001`)
 
