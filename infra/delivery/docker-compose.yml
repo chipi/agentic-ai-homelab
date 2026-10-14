@@ -31,6 +31,8 @@ services:
       # as-is (VT's ingest path is /insert/opentelemetry/v1/traces).
       OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:10428
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:10428/insert/opentelemetry/v1/traces
+      OTEL_SERVICE_NAME: delivery-email
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${DELIVERY_ENV:-prod}
     # host.docker.internal does NOT resolve on Docker-for-Linux (this box runs the
     # engine in a colima VM), so the OTLP exporter above was throwing ConnectError
     # twice per poll cycle — ~5,500 tracebacks/day per worker, burying real errors.
@@ -65,6 +67,8 @@ services:
       DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:10428
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:10428/insert/opentelemetry/v1/traces
+      OTEL_SERVICE_NAME: delivery-push
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${DELIVERY_ENV:-prod}
     # host.docker.internal does NOT resolve on Docker-for-Linux (this box runs the
     # engine in a colima VM), so the OTLP exporter above was throwing ConnectError
     # twice per poll cycle — ~5,500 tracebacks/day per worker, burying real errors.
@@ -100,6 +104,8 @@ services:
       DELIVERY_SENTRY_DSN: ${DELIVERY_SENTRY_DSN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:10428
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://host.docker.internal:10428/insert/opentelemetry/v1/traces
+      OTEL_SERVICE_NAME: delivery-events
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${DELIVERY_ENV:-prod}
     # host.docker.internal does NOT resolve on Docker-for-Linux (this box runs the
     # engine in a colima VM), so the OTLP exporter above was throwing ConnectError
     # twice per poll cycle — ~5,500 tracebacks/day per worker, burying real errors.

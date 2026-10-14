@@ -100,10 +100,17 @@ def capture_error(message: str, **tags: Any) -> None:
 
 
 def init_tracing(service_name: str = "delivery-worker") -> bool:
-    """Set up an OTLP tracer if the OTEL extra + endpoint are present. Returns success."""
+    """Set up an OTLP tracer if the OTEL extra + endpoint are present. Returns success.
+
+    ``OTEL_SERVICE_NAME`` wins over the default: the three workers set delivery-email /
+    delivery-push / delivery-events, so their spans are not one indistinct service. A name
+    passed to ``Resource.create`` would override the env var, hence it is resolved here.
+    ``OTEL_RESOURCE_ATTRIBUTES`` (deployment.environment) is merged in by ``Resource.create``.
+    """
     global _TRACER
     if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
         return False
+    service_name = os.environ.get("OTEL_SERVICE_NAME", "").strip() or service_name
     try:
         from opentelemetry import trace
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
