@@ -71,11 +71,20 @@ services:
     restart: unless-stopped
 
   victoriatraces:
-    image: victoriametrics/victoria-traces:v0.9.4
+    # v0.10+ is distroless (no shell in the container: no `docker exec ... sh`).
+    image: victoriametrics/victoria-traces:v0.12.0
     container_name: victoriatraces
     command:
       - --httpListenAddr=:10428
       - --storageDataPath=/vtraces
+      # 30 days like VictoriaLogs, so a trace link from any log line still resolves (the
+      # default 7d left 3 weeks of log lines pointing at nothing). ~10 MB/day at ~80k
+      # spans/day (measured 2026-10-14), so ~300 MB; the disk cap is a guard, not a budget.
+      - --retentionPeriod=30d
+      - --retention.maxDiskSpaceUsageBytes=5GiB
+      # Grafana's service / attribute pickers read the fields APIs, which look back 2h by
+      # default — the nightly pipeline vanished from them most of the day. 3d is cheap here.
+      - --search.fieldsLookbehind=3d
     ports:
       # OTLP ingest + query to the TAILNET IP only (set VTRACES_LISTEN=100.x.y.z).
       # Defaults to 127.0.0.1 (local-only) until you wire Tailscale.
