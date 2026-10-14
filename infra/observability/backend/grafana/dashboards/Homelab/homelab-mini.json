@@ -477,44 +477,40 @@
      "legendFormat": "active"
     },
     {
-     "refId": "A",
+     "refId": "B",
      "datasource": {
       "type": "prometheus",
       "uid": "victoriametrics"
      },
      "expr": "node_memory_wired_bytes{instance=\"homelab\"}",
-     "legendFormat": "wired",
-     "instant": true
+     "legendFormat": "wired"
     },
     {
-     "refId": "A",
+     "refId": "C",
      "datasource": {
       "type": "prometheus",
       "uid": "victoriametrics"
      },
      "expr": "node_memory_compressed_bytes{instance=\"homelab\"}",
-     "legendFormat": "compressed",
-     "instant": true
+     "legendFormat": "compressed"
     },
     {
-     "refId": "A",
+     "refId": "D",
      "datasource": {
       "type": "prometheus",
       "uid": "victoriametrics"
      },
      "expr": "node_memory_inactive_bytes{instance=\"homelab\"}",
-     "legendFormat": "inactive",
-     "instant": true
+     "legendFormat": "inactive"
     },
     {
-     "refId": "A",
+     "refId": "E",
      "datasource": {
       "type": "prometheus",
       "uid": "victoriametrics"
      },
      "expr": "node_memory_free_bytes{instance=\"homelab\"}",
-     "legendFormat": "free",
-     "instant": true
+     "legendFormat": "free"
     }
    ],
    "options": {
@@ -627,14 +623,13 @@
      "legendFormat": "rx"
     },
     {
-     "refId": "A",
+     "refId": "B",
      "datasource": {
       "type": "prometheus",
       "uid": "victoriametrics"
      },
      "expr": "-sum(rate(node_network_transmit_bytes_total{instance=\"homelab\"}[$__rate_interval]))",
-     "legendFormat": "tx",
-     "instant": true
+     "legendFormat": "tx"
     }
    ],
    "options": {
