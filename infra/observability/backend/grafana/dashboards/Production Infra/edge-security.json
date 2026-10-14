@@ -145,7 +145,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:prod-podcast AND unit:~\"fail2ban\" AND _msg:~\"Ban \" | stats count() logs",
+          "expr": "instance:prod-podcast AND job:fail2ban AND _msg:~\"Ban \" | stats count() logs",
           "queryType": "stats",
           "refId": "A"
         }
@@ -252,7 +252,7 @@
             "fillOpacity": 60
           },
           "unit": "short",
-          "noValue": "No fail2ban lines (its log is not shipped)"
+          "noValue": "No fail2ban activity in range"
         },
         "overrides": []
       },
@@ -278,7 +278,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:prod-podcast AND unit:~\"fail2ban\" | stats count() actions",
+          "expr": "instance:prod-podcast AND job:fail2ban AND NOT \"rollover performed\" | stats count() actions",
           "queryType": "statsRange",
           "refId": "A"
         }
@@ -404,7 +404,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:prod-podcast AND (unit:~\"fail2ban\" OR _msg:~\"(?i)(failed password|invalid user|ban |break-in|authentication failure|accepted publickey)\")",
+          "expr": "instance:prod-podcast AND (job:fail2ban OR _msg:~\"(?i)(failed password|invalid user|ban |break-in|authentication failure|accepted publickey)\")",
           "queryType": "instant",
           "refId": "A"
         }
