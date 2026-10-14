@@ -303,9 +303,11 @@ loki.write "logs_sink" {
     instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"),
     cluster  = coalesce(sys.env("HOMELAB_CLUSTER"), "default"),
     env      = coalesce(sys.env("HOMELAB_ENV"), "prod"),
-    // LOG-STANDARD cross-signal key: prod | dev | ci. The DGX .env must say HOMELAB_ENV=prod
-    // (it said "production" until 2026-10-14; nothing filtered on that spelling).
-    environment = coalesce(sys.env("HOMELAB_ENV"), "prod"),
+    // LOG-STANDARD cross-signal key: prod | dev | ci. Its own variable, NOT HOMELAB_ENV: the DGX
+    // .env says HOMELAB_ENV=production, and changing an env var means recreating this container,
+    // which loses its read positions (they live in the container, not a volume) and re-reads
+    // every container's whole log. Unset here, so it is "prod".
+    environment = coalesce(sys.env("HOMELAB_ENVIRONMENT"), "prod"),
   }
 }
 
