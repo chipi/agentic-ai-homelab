@@ -84,7 +84,9 @@ def test_outbox_base_url_env_override(tmp_path):
     )
     base = {"PODCAST_TOK": "t", "PODCAST_VAPID": "v"}
     # env set -> override wins
-    r = load_registry(str(reg), env={**base, "PODCAST_DEV_OUTBOX_URL": "http://lap.ts.net:8092"}, root=tmp_path)
+    r = load_registry(
+        str(reg), env={**base, "PODCAST_DEV_OUTBOX_URL": "http://lap.ts.net:8092"}, root=tmp_path
+    )
     assert r["podcast"].outbox_base_url == "http://lap.ts.net:8092"
     # env unset -> literal default
     r2 = load_registry(str(reg), env=base, root=tmp_path)
