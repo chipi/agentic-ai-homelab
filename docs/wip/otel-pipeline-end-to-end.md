@@ -93,7 +93,7 @@ front-ends and sends trace headers cross-origin; listed so it isn't a silent gap
   OTel vocabulary (`namespace` / `service` / `environment`) declared once by each
   deployable; `environment=operations` stays for the fleets and self-monitoring (operator,
   2026-10-14). Phase A (add `service` + `environment` to every log source) done: mini live
-  (800ae69); DGX committed (1dd7e67, with the converge); prod base + drop-ins, orrery,
+  (800ae69); DGX deployed 18:15 UTC (config file only; ~74 duplicate lines from idle containers re-read on restart, left in place); prod base + drop-ins, orrery,
   ops events and dev naming are local commits for the next deploy; ci-ops-poller live
   from 17:55 UTC (its loop needed a restart to load 6dcf540), inbox live each cycle;
   orrery's drop-in pushed (8203ff4bb6b) and installed on prod: `service=orrery-web` verified. Phases B/C (identity from compose labels, consumers switch, old labels
@@ -101,8 +101,8 @@ front-ends and sends trace headers cross-origin; listed so it isn't a silent gap
   player/operator `deployment.environment` and metric `service` labels in podcast local
   commits.
 - [~] **S2 trace ⇄ log** — one regex for all five id shapes in Grafana + Alloy: Grafana and
-  the mini live; prod (all four Alloy files: checked on the box, 0 matches) and the DGX
-  only with their next deploys; trace → logs via a correlation
+  the mini and the DGX live; prod (all four Alloy files: checked on the box, 0 matches)
+  only with the next podcast deploy; trace → logs via a correlation
   (`backend/grafana/correlations/`); player-mcp gets OTel log correlation with the next
   deploy. Verified in the browser.
 - [~] **S3 errors / LLM calls** — GlitchTip: the triage fleet now follows `tags.trace_id`

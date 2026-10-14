@@ -196,7 +196,12 @@ them by `environment`).
    forwards to `loki.process "homelab_std"`. Never add labels on the source's targets.
 2. Ensure `loki.write` carries `instance` + `cluster` + `environment` (+ `env`) external_labels.
 3. Set `HOMELAB_INSTANCE` / `HOMELAB_CLUSTER` / `HOMELAB_ENV` in that Alloy's `.env`.
-4. Validate before deploying: `alloy validate <file>` (a `config.d` set is the union of
+4. **Restart, never recreate**, an Alloy container: it keeps its read positions inside the
+   container (`/var/lib/alloy/data`, no volume on the mini or the DGX), so a recreate
+   (`compose up` after an env change) re-reads every container's whole log. A restart
+   still re-sends the last few seconds and, observed on the DGX 2026-10-14, the full log of
+   containers idle since before the previous start (~60 lines there).
+5. Validate before deploying: `alloy validate <file>` (a `config.d` set is the union of
    its files, so validate them concatenated). Then restart and check **three** things —
    the fields, the volume, and that no old lines were replayed:
    ```sh
@@ -205,7 +210,7 @@ them by `environment`).
    curl -s $VL --data-urlencode 'query=_time:5m AND instance:<box> AND trace_id:* | stats count()'
    curl -s http://homelab:9428/metrics | grep ^vl_rows_ingested_total   # twice, 20 s apart: rate ≈ normal
    ```
-5. The Grafana correlation + `Logs — Overview` filters then work with no per-source
+6. The Grafana correlation + `Logs — Overview` filters then work with no per-source
    config — they key off these standard fields.
 
 ## Ownership & integration — who changes what, where
@@ -255,7 +260,7 @@ redefines the sink or touches another app's sources. Alloy hot-reloads on
 | Source | `service` + `environment` | Current trace_id regex |
 |---|---|---|
 | Mac mini | deployed, verified (800ae69) | deployed |
-| DGX | committed (1dd7e67), **not deployed** — with the DGX converge, plus `HOMELAB_ENV=prod` in its `.env` (says `production`) | committed, not deployed |
+| DGX | deployed 2026-10-14 18:15 UTC (only `config.alloy` checked out from main; rest of the checkout waits for the converge); `environment` from `HOMELAB_ENVIRONMENT` (unset → prod), `env` stays `production` until phase C | deployed |
 | prod `base.alloy` + podcast drop-ins | podcast_scraper local commit, ships with the next deploy; live prod has **no** environment key today | **not deployed** (checked on the box 2026-10-14) — next deploy |
 | prod `orrery.alloy` | orrery local commit, ships with orrery's next deploy | orrery keeps the traceparent-only pattern (it writes no trace ids) |
 | ops events (podcast `emit_ops_event.sh`) | podcast_scraper local commit | — |
