@@ -18,6 +18,26 @@ datasources:
     access: proxy
     url: http://victoriatraces:10428/select/tempo
     editable: false
+    jsonData:
+      # Trace -> metrics: "Explore metrics for this span" on every span, querying
+      # VictoriaMetrics for the span's service (Grafana 11.6 builds these for any
+      # datasource type). The api/mcp request metrics carry `service` = the OTel
+      # service.name since podcast_scraper's Alloy relabel (next prod deploy); $__tags
+      # expands to service="<name>". $$ escapes provisioning env-interpolation.
+      tracesToMetrics:
+        datasourceUid: victoriametrics
+        spanStartTimeShift: '-30m'
+        spanEndTimeShift: '30m'
+        tags:
+          - key: service.name
+            value: service
+        queries:
+          - name: Request rate (this service)
+            query: 'sum by (handler) (rate(http_requests_total{$$__tags}[5m]))'
+          - name: p95 latency (this service)
+            query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{$$__tags}[5m])))'
+          - name: 5xx rate (this service)
+            query: 'sum(rate(http_requests_total{$$__tags, status=~"5.."}[5m])) or vector(0)'
     # Trace -> logs (the reverse of the VictoriaLogs derived field). NOT tracesToLogsV2:
     # Grafana 11.6 builds that link only for loki / elasticsearch / opensearch / splunk /
     # falconlogscale / googlecloud-logging datasources (read in its bundle, 2026-10-14), so
