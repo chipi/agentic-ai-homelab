@@ -89,10 +89,41 @@ front-ends and sends trace headers cross-origin; listed so it isn't a silent gap
 ## 5. Status
 
 - [x] Map (live + code), 2026-10-14
-- [ ] S1 naming contract
-- [ ] S2 trace ⇄ log correlation
-- [ ] S3 errors / LLM calls
-- [ ] S4 VictoriaTraces
-- [ ] S5 VictoriaMetrics
+- [~] **S1 naming contract** — decided in [ADR-0010](../adr/ADR-0010-telemetry-naming-contract.md):
+  OTel vocabulary (`namespace` / `service` / `environment`) declared once by each
+  deployable; `environment=operations` stays for the fleets and self-monitoring (operator,
+  2026-10-14). Phase A (add `service` + `environment` to every log source) done: mini live
+  (800ae69); DGX committed (1dd7e67, with the converge); prod base + drop-ins, orrery,
+  ops events and dev naming are local commits for the next deploy; ci-ops-poller + inbox
+  live (6dcf540). Phases B/C (identity from compose labels, consumers switch, old labels
+  dropped) go with the deploy after. Traces: delivery workers named per worker (live),
+  player/operator `deployment.environment` and metric `service` labels in podcast local
+  commits.
+- [x] **S2 trace ⇄ log** — one regex for all five id shapes in Grafana + Alloy (mini live,
+  prod drop-ins live, prod base + DGX with their deploys); trace → logs via a correlation
+  (`backend/grafana/correlations/`); player-mcp gets OTel log correlation with the next
+  deploy. Verified in the browser.
+- [~] **S3 errors / LLM calls** — GlitchTip: the triage fleet now follows `tags.trace_id`
+  (06c07e0; replay on 13 real issues: trace found 0 → 4, the rest labelled "not found" /
+  "no trace_id", not errors). Langfuse: prod DGX calls reach Langfuse only after the
+  next deploy (#2342 routes them through the gateway); none carry a run id or trace id.
+  Operator chose "metadata to the gateway" — **not built yet**. Errors outside a span
+  have no trace id (`run_id` tag: open).
+- [x] **S4 VictoriaTraces** — v0.12.0, 30-day retention, 5 GiB cap, 72 h field lookbehind
+  (live 2026-10-14; `3d` crash-looped it for ~2 min, fixed in bd4dc79). Search verified
+  in Explore.
+- [x] **S5 VictoriaMetrics** — v1.154.0 live; scrape targets, 30-day-old data and every
+  host's freshness unchanged after the upgrade. No exemplars in VictoriaMetrics: metric →
+  trace is panel links (live). Trace → metrics live.
 - [ ] S6 end-to-end walkthroughs
-- [ ] S7 docs
+- [ ] S7 docs (LOG-STANDARD and the ops handbook's trace recipe already updated)
+
+### Found on the way (not yet fixed)
+
+- `delivery-events` has never produced a span: the poller opens none.
+- The operator API (`operator-api-1`) shipped no logs to VictoriaLogs in 7 days.
+- The obs MCP looked up pipeline traces as `pipeline`; prod is `podcast-pipeline`
+  (33.9k prod spans / 7 d vs 50 dev). Fixed in a podcast local commit.
+- Incident 2026-10-14 17:24–17:28: adding `service` on the mini's docker-source targets
+  replayed 97,450 old lines; fixed (800ae69), duplicates deleted (exact filter, originals
+  unchanged at 24,273,178). Rule now in LOG-STANDARD and ADR-0010.

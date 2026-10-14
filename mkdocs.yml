@@ -122,6 +122,7 @@ nav:
     - ADR-0007 — Umami self-hosted analytics: adr/ADR-0007-umami-self-host-analytics.md
     - ADR-0008 — Fleet daemon tech + framework non-adoption: adr/ADR-0008-fleet-daemon-tech-and-framework-non-adoption.md
     - ADR-0009 — On-demand dev Docker engine: adr/ADR-0009-on-demand-dev-docker-engine.md
+    - ADR-0010 — Telemetry naming contract: adr/ADR-0010-telemetry-naming-contract.md
   - Proposals (RFC):
     - Overview: rfc/README.md
     - RFC-0001 — LiteLLM ↔ Langfuse capture: rfc/RFC-0001-litellm-langfuse-capture.md
