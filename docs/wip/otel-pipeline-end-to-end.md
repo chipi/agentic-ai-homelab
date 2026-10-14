@@ -117,7 +117,13 @@ front-ends and sends trace headers cross-origin; listed so it isn't a silent gap
 - [x] **S5 VictoriaMetrics** — v1.154.0 live; scrape targets, 30-day-old data and every
   host's freshness unchanged after the upgrade. No exemplars in VictoriaMetrics: metric →
   trace is panel links (live). Trace → metrics live.
-- [ ] S6 end-to-end walkthroughs
+- [x] **S6 end-to-end walkthroughs** (2026-10-14, on live data): (a) player-mcp -> player-api
+  trace -> logs; (b) pipeline run -> 3 traces by `run_id` tag, 106 log lines (the new regex
+  extracts all 3 trace ids from them; prod gets it with the next deploy); (c) GlitchTip error ->
+  trace via `tags.trace_id`; (d) LLM call -> Langfuse by `session_id` (gateway, verified with a
+  probe); (e) digest scheduler -> outbox -> delivery by `correlation_id` in all three hops'
+  logs; delivery -> player-api is now one trace (traceparent, live) and the delivery event
+  names the episodes (slug -> episode_id via the corpus catalog).
 - [ ] S7 docs (LOG-STANDARD and the ops handbook's trace recipe already updated)
 
 ### Found on the way
@@ -133,8 +139,8 @@ front-ends and sends trace headers cross-origin; listed so it isn't a silent gap
   the TLS node in a podcast local commit (next deploy); player-obs reads through it verified.
 - player-mcp logs could never carry a trace id (uvicorn's access line runs after the span) —
   **fixed** in a podcast local commit (the api's access-log middleware, shared).
-- Alloy keeps read positions inside its container (mini and DGX): recreate = full replay.
-  Rule written into LOG-STANDARD; a volume for them is not done.
+- Alloy kept read positions inside its container: recreate = full replay. **Fixed**: named
+  volume on the mini and the DGX (d30f70a), migrated without replay, recreate verified.
 - The ci-ops-poller is one long-lived loop: a code change needs a restart (README now says so).
 - Incident 2026-10-14 17:24–17:28: adding `service` on the mini's docker-source targets
   replayed 97,450 old lines; fixed (800ae69), duplicates deleted (exact filter, originals

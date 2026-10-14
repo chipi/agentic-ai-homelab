@@ -196,11 +196,11 @@ them by `environment`).
    forwards to `loki.process "homelab_std"`. Never add labels on the source's targets.
 2. Ensure `loki.write` carries `instance` + `cluster` + `environment` (+ `env`) external_labels.
 3. Set `HOMELAB_INSTANCE` / `HOMELAB_CLUSTER` / `HOMELAB_ENV` in that Alloy's `.env`.
-4. **Restart, never recreate**, an Alloy container: it keeps its read positions inside the
-   container (`/var/lib/alloy/data`, no volume on the mini or the DGX), so a recreate
-   (`compose up` after an env change) re-reads every container's whole log. A restart
-   still re-sends the last few seconds and, observed on the DGX 2026-10-14, the full log of
-   containers idle since before the previous start (~60 lines there).
+4. **Read positions live on a volume** (`alloy-data` at `/var/lib/alloy/data`, mini and DGX
+   since 2026-10-14): a recreate keeps them (forced recreate on the mini re-sent 72 lines —
+   the last seconds — against 97,450 replayed without the volume). Any new Alloy needs the
+   same volume. A restart still re-sends the last few seconds and can re-send the log of
+   containers idle since before the previous start (~60 lines on the DGX).
 5. Validate before deploying: `alloy validate <file>` (a `config.d` set is the union of
    its files, so validate them concatenated). Then restart and check **three** things —
    the fields, the volume, and that no old lines were replayed:
