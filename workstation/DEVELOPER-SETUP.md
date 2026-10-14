@@ -1,11 +1,14 @@
 # Developer workstation — architecture and operating model
 
-> **Living document, work in progress.** It describes the operating model as
-> implemented today on the Linux development workstation (Omarchy/Arch). It
-> will change as the next stages land: Worktrunk Slice 3+, multi-agent stress
-> testing, generalizing to a second project, persistence and ops decisions,
-> and possibly a control plane if daily use proves one is needed. Anything not
-> implemented is labelled as such.
+> **Living document — the canonical description of the operating model** on the
+> Linux development workstation (Omarchy/Arch). Slices 1–4 are done and
+> validated with Orrery: layout, streams, workspace identity and ports, safe
+> integration, and two independent Claude workers running concurrently
+> ([evidence](#validation-evidence-slices-14)). Next: a second project
+> (Slice 5, see the [adoption contract](#second-project-adoption-contract)),
+> then multi-project concurrency, persistence and ops, and UX refinement.
+> Anything not implemented is labelled as such; known gaps are in
+> [Known limitations](#known-limitations-and-deferred-work).
 
 Day-to-day commands: [`DEVELOPER-GUIDE.md`](DEVELOPER-GUIDE.md). Command
 contracts and Worktrunk details: [`streams/README.md`](streams/README.md).
@@ -37,6 +40,17 @@ Keep these separate:
 - `wb-workspace` doesn't know any product;
 - Docker only runs services;
 - project behaviour lives in the project.
+
+**Isolation layers**, outermost concern first:
+
+| Layer | Isolates | Provided by |
+|---|---|---|
+| Git worktree | source, index, installed dependencies, build output | Worktrunk + `wb-stream` |
+| Workspace identity | project / stream / checkout name and its derived ports | `wb-workspace` (generic) |
+| Compose project + allocated ports | containers, networks, volumes, host ports | the project's Compose file + generated override |
+| tmux window | the persistent interactive session for a human or an independent agent | `wb-stream` (window), the human (starts the agent) |
+| systemd / Docker restart policy | machine-level persistent infrastructure | the host |
+| Project setup/teardown | project-specific runtime lifecycle (env files, ports, Compose cleanup) | `<project>/.config/workspace/*` |
 
 ## Workspace layout
 
@@ -73,6 +87,16 @@ Keep these separate:
 **Why:** concurrent agents must not step on each other's Git state, installed
 dependencies, generated files, running services, ports or other runtime
 resources.
+
+**Independent workers.** An implementation stream is owned by its **own
+`claude` process**, started by the human inside the stream's tmux window
+(`cd` is already the worktree) and given only that stream's brief. Nothing
+starts agents automatically: `wb-stream` opens the window, the human decides
+whether an agent runs in it. The primary checkout's agent coordinates and
+reviews; it doesn't implement the streams, and it doesn't hand them to
+background subagents (those share the parent's process and session, so they
+don't count as independent workers; Slice 4A vs 4B, see
+[evidence](#validation-evidence-slices-14)).
 
 ## tmux model
 
@@ -146,8 +170,9 @@ It:
 4. verifies the worktree is at the expected path, then opens window
    `feature-x` in the existing `orrery` session, rooted in the worktree.
 
-It doesn't create another tmux session and doesn't move your primary shell
-(`--no-cd`).
+It doesn't create another tmux session, doesn't move your primary shell
+(`--no-cd`), and **doesn't start any agent**: to run an independent worker,
+switch to the new window and start `claude` there yourself.
 
 **Names:** `/` becomes `-` for the directory and window name, exactly like
 Worktrunk's `sanitize` (`fix/map` → `worktrees/fix-map`, window `fix-map`).
@@ -187,13 +212,13 @@ worktree and branch. `wb-integrate` adds three things.
 branch advanced as a fast-forward of its old tip, so Worktrunk's exit code
 alone is never trusted:
 
-| Exit | Outcome |
-|---|---|
-| 0 | Complete: target advanced, worktree and branch removed |
-| 3 | Integrated, but cleanup failed: target advanced, stream left in place. Typically teardown failed. Worktrunk itself exits 1 here, even though the merge landed. |
-| 4 | Conflict: rebase stopped in the stream, target not integrated |
-| 2 | Refused: a precondition failed, Worktrunk not invoked |
-| 5 | Unknown: reported as observed, nothing touched |
+| Exit | Classification | Meaning |
+|---|---|---|
+| 0 | **COMPLETE** | Target advanced, worktree and branch removed |
+| 3 | **INTEGRATED, CLEANUP FAILED** | Target advanced, stream left in place. Typically teardown failed. Worktrunk itself exits 1 here, even though the merge landed. **Never rerun `wb-integrate`.** |
+| 4 | **CONFLICT** | Rebase stopped in the stream, target not integrated |
+| 2 | **REFUSED** | A precondition failed, Worktrunk not invoked |
+| 5 | **UNKNOWN** | Reported as observed, nothing touched; never retried automatically |
 
 **3. Verified recovery guidance:**
 - **Conflict:** `git rebase --abort`, or resolve, `git add`,
@@ -205,8 +230,15 @@ alone is never trusted:
   (`git branch -d`). Worktrunk judges "merged" against the repository default
   branch and may keep it.
 
-It never stashes, force-deletes (`-D`), cleans `refs/wt-backup`, or touches
-tmux. The stream's tmux window stays open and is closed by hand.
+It never stashes, force-deletes (`-D`), cleans `refs/wt-backup`, cleans
+anything globally, or touches tmux. The stream's tmux window stays open and is
+closed by hand.
+
+**Before running it, stop what runs in the stream:** exit the stream's agent
+and stop any dev server or other process started from the worktree.
+`wb-integrate` doesn't check for them (a [known limitation](#known-limitations-and-deferred-work)):
+it integrates and removes the worktree underneath a live process, which keeps
+running in Worktrunk's deleted trash path.
 
 ## wb-workspace
 
@@ -308,10 +340,22 @@ below are Orrery's own, not workstation behaviour. Its contract is
 **Secrets:** never copied. `wb-workspace setup --link-env` explicitly symlinks
 the primary's `.env` into a side stream when needed.
 
-**Build artifacts:** each checkout owns its own. Run `npm run build` in a
-checkout before starting its Docker `web` service. The Compose bind mount for
-`build/` uses `create_host_path: false`, so a missing build fails loudly
-instead of Docker silently creating an empty root-owned `build/`.
+**Generated client config:** `.env.workspace` `VITE_*` values (today only
+`VITE_LAB_API_URL`) configure Orrery's local Vite **dev server** only. Builds
+(including Docker and mobile) and Vitest never receive them. An Orrery
+decision, found when two workers hit opposite halves of it in Slice 4B; not a
+rule every project must share.
+
+**Lab API state:** per-checkout `.lab-api-state/` (never shared); the allowlist
+is read from the primary and is created by hand.
+
+**Build artifacts and Docker:** each checkout owns its `build/`. Its `web`
+container bind-mounts `build/`, and every build replaces that directory, so a
+container started earlier keeps serving a deleted, empty directory (HTTP 500)
+while still reporting healthy for a while. The canonical command is
+`npm run docker:e2e` (build, recreate this checkout's `web`, smoke and version
+check, Playwright); `npm run docker:e2e -- --skip-build --smoke-only` recovers
+without building. A missing `build/` fails loudly (`create_host_path: false`).
 
 **Teardown:**
 - stops only this checkout's Compose project (`docker compose -p <name> down --remove-orphans`);
@@ -333,31 +377,21 @@ compatibility question, not a workstation runtime gap.
 - A primary checkout and its side streams can run their services at the same
   time.
 
-**Recorded acceptance result** (Orrery):
+Primary and stream Compose projects running side by side, and a stream's
+teardown removing only its own containers and network, are validated (Orrery,
+Slices 2 and 4B; see [evidence](#validation-evidence-slices-14)).
 
-| Compose project | Service | Host port |
-|---|---|---|
-| `orrery-main` | web | 8080 (primary default) |
-| `orrery-x3-runtime-smoke` | web | 17573 (derived by `wb-workspace port` for that stream) |
-
-What it showed:
-- both ran simultaneously and both served HTTP 200;
-- recreating the primary didn't affect the side stream;
-- removing the side stream tore down only its Compose project and network,
-  while the primary kept serving.
-
-17573 was a generated value for that stream name, not a configured port.
-
-### Docker safety rules
-
-- **Never** run host-global destructive cleanup from project or agent
-  workflows, such as `docker system prune -a`, `docker volume prune`, or
-  anything equivalent that reaches other projects' resources.
-- Teardown is scoped to the current Compose project.
-- No fixed `container_name` for worktree-aware services.
-- No globally named volumes where Compose-scoped ones fit.
-- No generic `down -v`, unless the project explicitly defines that data as
+**Compose-file rules for worktree-aware projects:**
+- no fixed `container_name`;
+- no globally named volumes where Compose-scoped ones fit;
+- no fixed host ports in a stream: they come from the project's generated
+  override;
+- teardown is scoped to the current Compose project;
+- no generic `down -v`, unless the project explicitly defines that data as
   disposable and scoped to the checkout.
+
+Operational Docker rules (no global cleanup) are in
+[Multi-agent safety rules](#multi-agent-safety-rules).
 
 ## Worktrunk lifecycle hooks
 
@@ -439,6 +473,97 @@ process, compare `node --version` with `mise current node`.
   `wb-workspace` and `wb-integrate`.
 - Don't put LeanCTX-specific state into product repositories unless it's
   intentionally required.
+- **Observed friction (not fixed):**
+  - its file tools sometimes refuse paths outside a "project root"
+    ("path escapes project root"), and that root isn't reliably the checkout
+    an agent works in (see [limitations](#known-limitations-and-deferred-work));
+  - some commands and shell forms are blocked by policy: `node -e`,
+    `python3 -c`, some subshell groupings, and earlier `ss`.
+  The workaround is the agent's native read tool or a script file; never
+  widen the allowlist to get past a single block.
+
+## Multi-agent safety rules
+
+The workstation is shared by the human, several projects and several agents
+at once, all as the same highly privileged user. These rules are the
+isolation boundary the tooling can't enforce.
+
+**Git and worktrees**
+- Never let two implementation agents modify the same checkout. Independent
+  code change → its own worktree (`wb-stream`).
+- Research-only work (reading, review, subagents that don't edit code) needs
+  no worktree.
+- Never remove, reset or edit another worker's worktree. Streams end through
+  `wb-integrate` (or a deliberate `wt remove` by their owner), never `rm -rf`.
+
+**Processes**
+- Process ownership is an isolation boundary. Stop only processes you started,
+  by captured PID, by captured process group (`setsid` …; `kill -- -<pgid>`),
+  or through a project- or checkout-scoped mechanism (`docker compose` in that
+  checkout, a server's own stop command).
+- Never `pkill`, `killall` or `pkill -f <generic pattern>`: on this host a
+  pattern like `vite`, `node` or `playwright` matches other checkouts', other
+  projects' and other agents' processes.
+- Diagnostic trap: `pgrep -f <pattern>` also matches the command line of the
+  checking command itself. Before treating a hit as a leftover process,
+  confirm the PID still exists and is what you think (`ps -o pid,args -p <pid>`).
+
+**Docker**
+- Never run host-global destructive operations: `docker system prune -a`,
+  `docker volume prune`, `docker image prune -a`, or stopping or removing
+  containers across projects.
+- Use Compose operations scoped to the current checkout's project
+  (`docker compose …` inside the checkout, or `-p <COMPOSE_PROJECT_NAME>`).
+
+**Secrets**
+- Workspace setup never silently copies secret files into side worktrees.
+  A project may offer an explicit opt-in (Orrery: `wb-workspace setup --link-env`
+  creates a symlink, never a copy).
+
+## Validation evidence (Slices 1–4)
+
+What has actually been demonstrated on this machine (Orrery as the test
+project). Numbers are from the final runs, not targets.
+
+**Slices 1–3:** Model-B layout and `wb-stream`; deterministic per-stream ports
+and Compose project names (`wb-workspace`); scoped teardown; `wb-integrate`
+preconditions and outcome classification (its own test suite); a primary and a
+stream Compose stack serving at the same time.
+
+**Slice 4A** (two parallel streams; workers were **background subagents of one
+parent Claude**, so this did *not* prove independent workers):
+- two concurrent worktrees from the same primary, distinct identities and
+  ports, concurrent Node installs, tests and builds;
+- primary stayed clean; ample memory headroom; no port, cache or lock
+  collision;
+- `wb-integrate` fast-forward path, and the stale-base **rebase** path (the
+  second stream rebased onto the first);
+- scoped teardown;
+- found and fixed: per-checkout lab API state (it had defaulted to a shared,
+  unwritable `/srv` path); found: Vitest picking up a stream's generated
+  `VITE_*` values; LeanCTX root and path friction; the dependency duplication
+  cost.
+
+**Slice 4B** (the missing proof: two **independent `claude` processes**, each in
+its own tmux window and worktree):
+- independent `npm ci` bootstrap, concurrent implementation, concurrent
+  tests and builds;
+- a real Compose runtime in one stream next to the primary's (`orrery-main`
+  on 8080, the stream on its derived port);
+- human-approved scope expansion; the two workers independently found opposite
+  halves of one configuration bug (generated `VITE_*` values reaching builds vs
+  Vitest), reconciled into one design before integration;
+- stream B integrated while stream A stayed alive and untouched; B's teardown
+  scoped to B;
+- A integrated on top of the advanced primary; its teardown stopped and removed
+  only its own container and network;
+- the new Orrery Docker command accepted in the primary checkout;
+- normal pre-push hook and push; local `main` == `origin/main` at the end.
+
+Final numbers: stream A's full Docker E2E: 730 passed, 4 flaky, 38 skipped,
+exit 0 (the flakes are Orrery test issues, not workstation failures, and are
+not fixed). Primary preflight: 5,662 tests passed; coverage stayed above the
+repository's floors.
 
 ## What belongs where
 
@@ -451,20 +576,57 @@ process, compare `node --version` with `mise current node`.
 | Git + Worktrunk | Source checkout lifecycle |
 | systemd / Docker restart policy | Machine-level persistent infrastructure |
 
-## Known limitations and follow-ups
+## Known limitations and deferred work
 
-- **`wt remove` and `wb-integrate` don't close the stream's tmux window.**
-- **`refs/wt-backup/<branch>` refs** that Worktrunk leaves after squashing
-  tracked edits are kept; nothing cleans them yet.
-- **Port allocation is deterministic and stateless.** A detected collision
-  stops the operation and must be resolved explicitly (see
-  [wb-workspace](#wb-workspace)); ports are never changed silently. No
-  collision-resolution policy beyond that exists yet. Detection isn't
-  guaranteed across differently named slots of other projects.
-- **A reboot destroys all tmux sessions.**
-- **LUKS needs a manual unlock** before the machine and its remote services
-  are reachable.
-- **cmux remote-tmux integration** is optional and beta; nothing here depends
-  on it.
-- **No dashboard or control plane exists.** It's deferred, a possible later
-  layer only if real daily use proves the need.
+The one list of open workstation issues. Project-specific ones live in the
+project (Orrery: `.config/workspace/README.md`, "Known limitations").
+
+| Issue | Status | Notes |
+|---|---|---|
+| **Live process during `wb-integrate`** | Proven issue, open | `wb-integrate` integrates and removes a worktree while a `claude` process (or a dev server) still runs in it. The process survives in Worktrunk's deleted trash path; its later writes are lost and any ports it holds stay bound. Happened to both Slice 4B workers. Mitigation today: stop the stream's agent and processes first (see [wb-integrate](#wb-integrate)). |
+| Stream tmux windows stay open | Expected | `wt remove` / `wb-integrate` don't close windows; close them by hand. Not automated on purpose (closing a window could kill a live agent). |
+| LeanCTX project root | Inconsistent, open | Path-escape refusals rooted at the primary checkout appeared in 4A and for one 4B worker started *inside* its worktree, not for the other. "Start the agent in the worktree" is not an established fix. Plus command-policy friction (see [LeanCTX](#leanctx)). |
+| Dependency duplication | Deferred | Each fresh worktree runs its own install (Orrery: about 1.2 GB `node_modules` per stream, plus about 2 GB checkout). Correct, not storage-efficient. |
+| Compose image accumulation | Deferred | Scoped `docker compose down` removes containers and networks, not built images; per-stream images remain after teardown. Needs a scoped maintenance policy, never a global prune. |
+| `refs/wt-backup/<branch>` | Deferred | Left by Worktrunk after squashing tracked edits; nothing cleans them. |
+| Port allocation | By design | Deterministic and stateless; a collision stops the operation and is resolved explicitly; never changed silently. Collisions across differently named slots of other projects aren't detectable. |
+| `session-reap.sh` family sweep under `/work` | Unverified | Its main reap is checkout-scoped (cwd under the session's directory), which suits Model-B. Its cross-worktree `gh run` loop sweep keys on a `$HOME/<container>/<base>` family prefix from the older layout; not verified for `/work/<project>/…`. |
+| tmux sessions don't survive a reboot | Expected | Recreate the project session (`tmux new -s <project> -c /work/<project>/main`). |
+| LUKS manual unlock | Expected | Needed before the machine is reachable after a cold boot. |
+| Storage | Deferred | The 2 TB disk is enough for now. A second fast NVMe is the likely next step for `/work`, Docker data, package and build caches. |
+| cmux remote-tmux | Optional | Beta; nothing depends on it. |
+| Dashboard / control plane | Deferred | Only if daily use proves the need. |
+
+## Second-project adoption contract
+
+What a new project (next: OceanCanvas, Slice 5) needs to run in Model-B,
+ideally without changing any generic tooling. A generic change is justified
+only for a capability every project would need, never for one project's
+special case.
+
+**The workstation provides (generic, unchanged per project):**
+- the `/work/<project>/{main,worktrees/<stream>}` layout and Worktrunk lifecycle;
+- `wb-stream`: a stream from the current primary (`--base @`) plus its tmux
+  window in the project's session;
+- `wb-workspace`: identity (`WORKSPACE_*`, `COMPOSE_PROJECT_NAME`),
+  deterministic collision-checked ports (`wb-workspace port <slot>…`), and
+  dispatch to the project's setup/teardown from the Worktrunk hooks;
+- `wb-integrate`: safe integration into the primary branch with outcome
+  classification;
+- the safety rules above.
+
+**The project provides (as needed):**
+- a tracked runtime declaration (root `mise.toml`);
+- `.config/workspace/setup` and `.config/workspace/teardown` (executable,
+  idempotent, never overwriting user files): generate its own git-ignored
+  runtime/env files, ask `wb-workspace port` for the slots it needs, and keep
+  the primary's familiar defaults where practical;
+- a Compose file that names nothing globally, plus a generated override for
+  the project name and stream host ports;
+- dependency bootstrap and validation commands, documented;
+- its secrets policy (default: nothing copied into streams);
+- a short contract README next to its workspace scripts.
+
+**Done when:** the new project creates, runs, tests and integrates streams
+through these hooks alone, while Orrery keeps working on the same machine
+(the start of cross-project isolation testing).

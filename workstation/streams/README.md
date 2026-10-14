@@ -82,6 +82,9 @@ It doesn't use `--execute` (moving to a program-plus-arguments model in
 Worktrunk 0.68). The workspace hooks (below) run as part of its
 `wt switch --create`, like for any other worktree.
 
+It **doesn't start an agent**: for an independent worker, start `claude` in
+the new window yourself.
+
 **If a step fails after Worktrunk ran**, `wb-stream` never rolls back. Hooks may
 already have run, and the stream is valid work. Instead it reports what
 actually exists (branch, worktree, location) and prints the exact commands to
@@ -134,6 +137,10 @@ tip:
 | 4 | **Conflict** | The rebase stopped in the stream; the target was **not** integrated. Abort with `git -C <stream> rebase --abort`, or resolve, `git add`, `git rebase --continue`, and rerun `wb-integrate`. For a multi-commit stream, Worktrunk squashes before rebasing, so an abort returns to the squash commit; the original commits stay in `git reflog show <branch>`. |
 | 2 | **Refused** | A precondition failed; Worktrunk wasn't invoked. The message says what to fix. |
 | 5 | **Unknown** | Anything else. It reports Worktrunk's exit code and the observable state, and changes nothing; inspect by hand. |
+
+**It doesn't check for live processes in the stream**: stop the stream's agent
+and any server started there first, or they keep running in Worktrunk's deleted
+trash path (known limitation, `../DEVELOPER-SETUP.md`).
 
 It never stashes, force-deletes branches (`-D`), cleans `refs/wt-backup`, or
 touches tmux. The stream's tmux window stays open; close it yourself. Run from
@@ -242,6 +249,9 @@ scripts come from the new worktree itself.
   stop before opening a window.
 
 ## Not covered yet
+
+Open issues and deferred work are tracked in one place:
+`../DEVELOPER-SETUP.md` → "Known limitations and deferred work".
 
 Generic layer, deliberately: dependency seeding or copy-on-write, databases,
 `.env`/secret propagation, Worktrunk project hooks. Per-project runtime

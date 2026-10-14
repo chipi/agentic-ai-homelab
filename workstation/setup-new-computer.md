@@ -85,7 +85,8 @@ are backed up as `*.bak.<timestamp>`. `--dry-run` changes nothing on disk.
 - **Linux:** enables the persistent SSH agent (`ssh-agent.socket` plus an
   `SSH_AUTH_SOCK` line in `~/.bashrc`; see
   [README → SSH agent](README.md#ssh-agent-linux)). Sets up Worktrunk: the
-  Model-B config, the `wb-stream` command in `~/.local/bin`, and the `wt` bash
+  Model-B config, the `wb-stream`, `wb-workspace` and `wb-integrate` commands in
+  `~/.local/bin`, and the `wt` bash
   integration in `~/.bashrc` (see [`streams/README.md`](streams/README.md)). No workbench and no
   `~/.tmux.conf`: one tmux session per project, and Omarchy's
   `~/.config/tmux/tmux.conf` stays in charge. To preview the Mac plan from

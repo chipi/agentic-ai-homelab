@@ -63,6 +63,19 @@ Agents without tmux: `wt switch --create <stream> --base @ --no-cd`, run from
 `main/`. Never omit `--base`, which defaults to the repository's default
 branch.
 
+## Start an independent worker in a stream
+
+`wb-stream` never starts an agent. For an independent implementation worker:
+
+```bash
+# in the stream's tmux window (it is already in /work/orrery/worktrees/feature-x)
+claude
+```
+
+Give it only that stream's brief. One implementation agent per checkout; the
+primary checkout's agent coordinates and reviews. Research-only subagents
+don't need a stream.
+
 ## Inspect workspace identity
 
 ```bash
@@ -110,7 +123,10 @@ In an integrated project like Orrery, Compose picks up the generated project
 name and override from the checkout automatically. Don't set
 `COMPOSE_PROJECT_NAME` by hand.
 
-Orrery: run `npm run build` in this checkout before starting `web`.
+Orrery (project-specific): use `npm run docker:e2e` to build, recreate and
+check this checkout's `web`. A plain `npm run build` with `web` running leaves
+it serving a deleted directory (HTTP 500) until it's recreated:
+`npm run docker:e2e -- --skip-build --smoke-only`.
 
 ## Ports
 
@@ -139,6 +155,9 @@ cd /work/orrery/main  # the stream's directory is gone afterwards
 ```
 
 Before it starts:
+- **Stop what runs in the stream**: exit the stream's agent (`claude`) and
+  stop dev servers or other processes started there. `wb-integrate` doesn't
+  check for them and would remove the worktree underneath them.
 - **The primary checkout must be clean**: commit, move or discard its changes
   yourself. `wb-integrate` never stashes them.
 - **Untracked files in the stream block it**: commit, delete or git-ignore
@@ -178,6 +197,28 @@ Never `rm -rf` a worktree directory.
 | `docker compose up -d` | any global cleanup that reaches other projects or agents |
 | `docker compose down` | |
 
+## Process safety
+
+The machine is shared with other checkouts, projects and agents. Stop only
+what you started:
+
+```bash
+setsid npm run dev > /tmp/dev.log 2>&1 < /dev/null &   # start it in its own process group
+PID=$!
+ps -o pid,pgid,args -p "$PID"                           # record the PGID it actually got
+kill -- -<pgid>                                         # later: stop exactly that group
+```
+
+Read the PGID from `ps` rather than assuming it equals `$!`. A dev server
+(`npm` → `vite`) spawns children, so stopping the group is what actually
+frees its port. `setsid` may be blocked by LeanCTX in some sessions; then use
+the server's own stop mechanism.
+
+Never `pkill`, `killall` or `pkill -f <pattern>`. `pgrep -f <pattern>` also
+matches the checking command itself; confirm a PID with
+`ps -o pid,args -p <pid>` before treating it as a leftover. Full rules:
+[`DEVELOPER-SETUP.md` → Multi-agent safety rules](DEVELOPER-SETUP.md#multi-agent-safety-rules).
+
 ## SSH agent after a reboot
 
 Once after each boot, after the LUKS unlock and your first login:
@@ -209,4 +250,6 @@ The prefix is **Ctrl+Space** (Omarchy).
 | `wb-integrate` exit 4 after aborting a multi-commit stream | The abort returns to Worktrunk's squash commit; the original commits are in `git reflog show <branch>`. |
 | Port in use / collision | Stale or unwanted host listener: stop it. Genuine allocation collision: stop and resolve it explicitly. Don't pick a different port behind `wb-workspace`'s back; it never does that itself, and no further resolution policy is defined yet. |
 | Long-lived process shows an unexpected Node version | Compare `node --version` with `mise current node`; the process may have a fixed `PATH` from elsewhere. |
-| Orrery Docker `web`: bind source path does not exist | Build that checkout first: `npm run build`. |
+| A stream's agent or server still running after `wb-integrate` (cwd in `.git/wt/trash/…`) | The code is integrated. Exit that agent; stop the server by its own PID or process group. Then close the window. |
+| Orrery Docker `web`: bind source path does not exist | Build that checkout first: `npm run docker:e2e` (or `npm run build`). |
+| Orrery Docker `web` returns 500 (or `/data/*` 404) after a build, possibly still "healthy" | It's serving the deleted old `build/`. Recreate it without building: `npm run docker:e2e -- --skip-build --smoke-only`. |

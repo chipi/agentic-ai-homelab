@@ -436,6 +436,16 @@ enforced surface. There are no exceptions I can choose to make.
     leave zombie processes on macOS. After any abnormal termination, check
     for and clean up orphans before re-running.
 
+    **Only processes you own.** On a shared workstation other checkouts,
+    projects and agents run the same `node`/`vite`/`playwright` binaries.
+    Stop only what you started: a captured PID or process group, or a
+    checkout-scoped mechanism (`docker compose` in that checkout). Never
+    `pkill`, `killall` or `pkill -f <pattern>`. And `pgrep -f <pattern>` also
+    matches your own checking command: confirm a PID with `ps -o pid,args -p
+    <pid>` before calling it a leftover. Docker likewise: Compose-project
+    scoped only, never `docker system/volume/image prune`. Full rules:
+    `workstation/DEVELOPER-SETUP.md` → "Multi-agent safety rules".
+
     **Machine hygiene — the reaper + stale-loop sweep.** A global `SessionEnd`
     hook, `~/.claude/hooks/session-reap.sh`, auto-runs when any session ends: it
     reaps that session's tool processes and sweeps runaway `gh run` poll loops
