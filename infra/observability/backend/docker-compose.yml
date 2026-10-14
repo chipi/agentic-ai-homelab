@@ -97,7 +97,9 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
-      - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource,grafana-exploretraces-app
+      # Pinned: unpinned installs take the newest release on every recreate, and
+      # exploretraces 3.0.0 needs Grafana >= 13.1. 2.2.1 supports 11.6.11-11.x.
+      - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource 0.32.0,grafana-exploretraces-app 2.2.1
       # Grafana preinstalls Logs Drilldown (grafana-lokiexplore-app), which only works on
       # Loki datasources — we have none — and failed to load on every page.
       - GF_PLUGINS_PREINSTALL_DISABLED=true
