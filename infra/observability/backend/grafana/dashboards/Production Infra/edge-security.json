@@ -437,7 +437,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:prod-podcast AND job:caddy",
+          "expr": "instance:prod-podcast AND job:caddy | sort by (_time) desc limit 200",
           "queryType": "instant",
           "refId": "A"
         }
