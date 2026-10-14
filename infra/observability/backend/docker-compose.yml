@@ -90,7 +90,7 @@ services:
       - --retention.maxDiskSpaceUsageBytes=5GiB
       # Grafana's service / attribute pickers read the fields APIs, which look back 2h by
       # default — the nightly pipeline vanished from them most of the day. 3d is cheap here.
-      - --search.fieldsLookbehind=3d
+      - --search.fieldsLookbehind=72h
     ports:
       # OTLP ingest + query to the TAILNET IP only (set VTRACES_LISTEN=100.x.y.z).
       # Defaults to 127.0.0.1 (local-only) until you wire Tailscale.
