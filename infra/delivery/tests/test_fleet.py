@@ -317,3 +317,23 @@ def test_the_real_registry_has_no_production_origin_on_the_dev_tenant():
     dev = reg["tenants"]["podcast-dev"]
     assert "app_origin" not in dev, "the dev tenant must not default to the production origin"
     assert dev["app_origin_env"] == "PODCAST_DEV_APP_ORIGIN"
+
+
+def test_each_poll_runs_in_a_span(tmp_path, monkeypatch):
+    # delivery-events had no span at all, so the poller never reached VictoriaTraces.
+    import contextlib
+
+    import delivery.events_poller as ep
+
+    opened = []
+
+    @contextlib.contextmanager
+    def _span(name, **attrs):
+        opened.append((name, attrs))
+        yield
+
+    monkeypatch.setattr(ep, "span", _span)
+    poller, _ = _make_poller(tmp_path, {})
+    poller._sleep = lambda _: poller.stop()  # one cycle
+    poller.run_forever()
+    assert opened == [("delivery.events.poll", {"tenants": ""})]

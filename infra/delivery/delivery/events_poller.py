@@ -18,6 +18,7 @@ from typing import Callable, Mapping, Optional
 from .config import DeliveryConfig
 from .envelope import TerminalStatus
 from .metrics import POLL_CURSOR_LAG, SENT_TOTAL
+from .obs import span
 from .obs import emit_event
 from .outbox_client import OutboxClient
 from .resend_client import ResendClient
@@ -82,7 +83,8 @@ class EventsPoller:
         logger.info("resend status poller starting (tenants: %s)", ", ".join(self._outboxes))
         while not self._stopped:
             try:
-                self.poll_once()
+                with span("delivery.events.poll", tenants=",".join(self._outboxes)):
+                    self.poll_once()
             except Exception:  # noqa: BLE001
                 logger.warning("status poll failed; retrying next tick", exc_info=True)
             age = self._clock() - self._last_advance
