@@ -404,7 +404,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:prod-podcast AND (job:fail2ban OR _msg:~\"(?i)(failed password|invalid user|ban |break-in|authentication failure|accepted publickey)\")",
+          "expr": "instance:prod-podcast AND (job:fail2ban OR (unit:ssh.service AND _msg:~\"(failed password|Failed password|FAILED PASSWORD|invalid user|Invalid user|INVALID USER|ban |Ban |BAN |break-in|Break-in|BREAK-IN|authentication failure|Authentication failure|AUTHENTICATION FAILURE|accepted publickey|Accepted publickey|ACCEPTED PUBLICKEY)\"))",
           "queryType": "instant",
           "refId": "A"
         }
