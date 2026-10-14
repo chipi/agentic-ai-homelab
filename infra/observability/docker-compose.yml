@@ -22,6 +22,9 @@ services:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /:/rootfs:ro,rslave
       - /var/run/docker.sock:/var/run/docker.sock:ro   # container-log discovery
+      # Read positions on a volume: inside the container they were lost on every recreate, and
+      # Alloy then re-read every container's whole log as duplicates (LOG-STANDARD).
+      - alloy-data:/var/lib/alloy/data
     env_file:
       - .env
     command:
@@ -96,3 +99,6 @@ services:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
     restart: unless-stopped
+
+volumes:
+  alloy-data:

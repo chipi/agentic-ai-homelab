@@ -26,6 +26,9 @@ services:
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro    # container-log discovery
+      # Read positions on a volume: inside the container they were lost on every recreate, and
+      # Alloy then re-read every container's whole log as duplicates (LOG-STANDARD).
+      - alloy-data:/var/lib/alloy/data
     command:
       - run
       - --server.http.listen-addr=127.0.0.1:12345
@@ -62,3 +65,6 @@ networks:
   backend:
     external: true
     name: backend_default
+
+volumes:
+  alloy-data:
