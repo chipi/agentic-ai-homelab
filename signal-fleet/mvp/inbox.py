@@ -49,11 +49,14 @@ def _post(url, body, ctype):
 
 
 def _vl_ship(entries):
-    """One JSON line per entry; stream keyed by (fleet, event)."""
+    """One JSON line per entry; stream keyed by (fleet, event) plus the LOG-STANDARD
+    service/environment the fleet's metrics carry."""
     if not entries:
         return
-    lines = "\n".join(json.dumps(e, ensure_ascii=False) for e in entries)
-    _post(VL_URL + "/insert/jsonline?_stream_fields=fleet,event&_time_field=_time&_msg_field=_msg",
+    tag = {"service": config.SF_SERVICE, "environment": config.SF_ENV}
+    lines = "\n".join(json.dumps({**e, **tag}, ensure_ascii=False) for e in entries)
+    _post(VL_URL + "/insert/jsonline?_stream_fields=fleet,event,service,environment"
+          "&_time_field=_time&_msg_field=_msg",
           lines + "\n", "application/stream+json")
 
 

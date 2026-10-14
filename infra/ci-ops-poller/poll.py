@@ -61,6 +61,7 @@ OVERLAP_MIN = int(CFG.get("OVERLAP_MINUTES", "120"))     # re-scan window (late 
 SEEN_TTL_DAYS = int(CFG.get("SEEN_TTL_DAYS", "7"))       # prune dedup set
 APP = CFG.get("OPS_APP", "podcast_scraper")
 ENV = CFG.get("OPS_ENV", "ci")                           # stream field; Tier-1 deploys use "prod"
+SERVICE = CFG.get("OPS_SERVICE", "podcast-ci")            # LOG-STANDARD key; = the podcast emitter's
 STATE_FILE = CFG.get("STATE_FILE", os.path.join(HERE, "state.json"))
 ONCE = "--once" in sys.argv or CFG.get("POLL_ONCE") == "1"
 
@@ -127,6 +128,8 @@ def to_event(run, event_type):
         "event_type": event_type,
         "app": APP,
         "env": ENV,
+        "service": SERVICE,
+        "environment": ENV,
         "status": run.get("conclusion") or "unknown",
         "workflow": run.get("name"),
         "branch": run.get("head_branch"),
@@ -150,7 +153,7 @@ def emit(events):
         return
     body = "\n".join(json.dumps(e) for e in events).encode()
     url = (VLOGS + "/insert/jsonline"
-           "?_stream_fields=app,env,event_type&_time_field=_time&_msg_field=_msg")
+           "?_stream_fields=app,env,service,environment,event_type&_time_field=_time&_msg_field=_msg")
     req = urllib.request.Request(url, data=body, method="POST")
     req.add_header("Content-Type", "application/stream+json")
     with urllib.request.urlopen(req, timeout=30) as r:

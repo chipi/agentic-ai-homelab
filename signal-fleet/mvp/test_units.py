@@ -144,6 +144,28 @@ class TestTraceEvidence(unittest.TestCase):
         self.assertEqual(self._trace(), {"data": [{"spans": [{}]}]})
 
 
+class TestInboxShip(unittest.TestCase):
+    """Inbox events carry service + environment (LOG-STANDARD) as stream fields,
+    the values the fleet's metrics use. `_post` swapped — no network."""
+
+    def test_entries_and_stream_fields(self):
+        import json
+
+        import config
+        import inbox
+        sent = {}
+        orig = inbox._post
+        inbox._post = lambda url, body, ctype: sent.update(url=url, body=body)
+        try:
+            inbox._vl_ship([{"_msg": "m", "fleet": "triage", "event": "queued"}])
+        finally:
+            inbox._post = orig
+        line = json.loads(sent["body"].strip())
+        self.assertEqual(line["service"], config.SF_SERVICE)
+        self.assertEqual(line["environment"], config.SF_ENV)
+        self.assertIn("_stream_fields=fleet,event,service,environment", sent["url"])
+
+
 class TestCodeVersion(unittest.TestCase):
     """#6 — code_version stamped from the event and the signal."""
 

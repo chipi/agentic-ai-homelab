@@ -205,6 +205,12 @@ class TestToEvent:
         assert ev["app"] == poll.APP
         assert ev["env"] == poll.ENV
 
+    def test_service_and_environment_join_traces_and_metrics(self):
+        # LOG-STANDARD cross-signal keys; same service as the podcast deploy emitter.
+        ev = poll.to_event(_SAMPLE_RUN, "ci_run")
+        assert ev["service"] == poll.SERVICE == "podcast-ci"
+        assert ev["environment"] == poll.ENV
+
 
 # ---------------------------------------------------------------------------
 # poll_once() — mocked I/O
