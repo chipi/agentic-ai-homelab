@@ -12,6 +12,13 @@ sender cutover is **done**; it's stable now, and future host swaps are free
 
 **Sender paths (internal ingest):**
 
+> **Remote senders (prod VPS, DGX, laptops) use the TLS nodes below, not these ports.** On the
+> mini every published port is lima's `ssh` port forwarder into the colima VM. Probed from prod
+> on 2026-10-14 it hung 7 of 300 OTLP posts for the full timeout (no TCP connect; each a dropped
+> span batch), while `https://vtraces.tail6d0ed4.ts.net` lost 0 of 180 over the same window.
+> The prod Alloy already ships via `vm.` / `vlogs.`; app traces moved to `vtraces.` with the
+> podcast deploy after that date. The ports stay right for anything running on the mini itself.
+
 | Port | Service | Sender path |
 |---|---|---|
 | `8428` | VictoriaMetrics (metrics ingest) | `http://homelab:8428/api/v1/write` or `http://100.87.33.61:8428/api/v1/write` |

@@ -161,6 +161,10 @@ deleted; they expire after 30 days (`--retentionPeriod=30d`). New traces are que
 | Metrics | `http://homelab:8428/api/v1/write` | Prometheus remote-write (Alloy) |
 | Logs | `http://homelab:9428/insert/loki/api/v1/push` | Loki push (Alloy) |
 
+From another box, send to the TLS nodes instead (`https://vtraces.tail6d0ed4.ts.net/insert/opentelemetry/v1/traces`,
+`https://vm.…/api/v1/write`, `https://vlogs.…/insert/loki/api/v1/push`): the host ports go through
+lima's ssh forwarder, which drops a few percent of connections (see
+[observability endpoints](observability-endpoints.md)).
 Apps set `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` to the traces URL and a `service.name`;
 host logs and metrics go through the Alloy collector on each host (configs under
 `infra/observability/`). A minimal OTLP/JSON trace (fields: `resourceSpans` →

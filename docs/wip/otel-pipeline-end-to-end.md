@@ -120,12 +120,22 @@ front-ends and sends trace headers cross-origin; listed so it isn't a silent gap
 - [ ] S6 end-to-end walkthroughs
 - [ ] S7 docs (LOG-STANDARD and the ops handbook's trace recipe already updated)
 
-### Found on the way (not yet fixed)
+### Found on the way
 
-- `delivery-events` has never produced a span: the poller opens none.
-- The operator API (`operator-api-1`) shipped no logs to VictoriaLogs in 7 days.
-- The obs MCP looked up pipeline traces as `pipeline`; prod is `podcast-pipeline`
-  (33.9k prod spans / 7 d vs 50 dev). Fixed in a podcast local commit.
+- `delivery-events` never produced a span — **fixed** (dfe68d0, live: `delivery.events.poll`).
+- The public operator (`operator-api-1` / `operator-viewer-1`) shipped no logs — **fixed** in a
+  podcast local commit (own source in operator.alloy; next deploy), plus a drop rule for the
+  viewers' healthcheck lines (~99% of compose-viewer-1's volume).
+- The obs MCP looked up pipeline traces as `pipeline`; prod is `podcast-pipeline` (33.9k prod
+  spans / 7 d vs 50 dev) — **fixed** in a podcast local commit.
+- **Prod apps lost ~2.3% of span batches**: `homelab:10428` is lima's ssh forwarder; 7 of 300
+  probes hung 12 s (no TCP connect), the TLS node `vtraces.` 0 of 180. Apps' endpoint moved to
+  the TLS node in a podcast local commit (next deploy); player-obs reads through it verified.
+- player-mcp logs could never carry a trace id (uvicorn's access line runs after the span) —
+  **fixed** in a podcast local commit (the api's access-log middleware, shared).
+- Alloy keeps read positions inside its container (mini and DGX): recreate = full replay.
+  Rule written into LOG-STANDARD; a volume for them is not done.
+- The ci-ops-poller is one long-lived loop: a code change needs a restart (README now says so).
 - Incident 2026-10-14 17:24–17:28: adding `service` on the mini's docker-source targets
   replayed 97,450 old lines; fixed (800ae69), duplicates deleted (exact filter, originals
   unchanged at 24,273,178). Rule now in LOG-STANDARD and ADR-0010.
