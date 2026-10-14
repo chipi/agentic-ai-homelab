@@ -194,6 +194,7 @@ class DeliveryWorker:
             envelope_id=env.id,
             user_id=env.user_id,
             detail=detail,
+            episodes=_episode_slugs(env),
         )
 
     def _dead_letter(self, env: DeliveryEnvelope, detail: str) -> None:
@@ -215,3 +216,12 @@ class DeliveryWorker:
             tenant=self._tenant,
             correlation_id=env.id,
         )
+
+
+def _episode_slugs(env: DeliveryEnvelope) -> list[str] | None:
+    """The episode slugs an envelope announces (new-episodes payload), capped — the hop from a
+    delivered message back to its episodes (the envelope id is only a hash of the set)."""
+    slugs = (env.payload or {}).get("slugs")
+    if not isinstance(slugs, list):
+        return None
+    return [str(s) for s in slugs[:20]]

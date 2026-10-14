@@ -140,7 +140,9 @@ def test_unexpected_error_dead_letters_that_envelope_and_drain_continues(tmp_pat
     import logging
 
     outbox = FakeOutbox([make_envelope(id="e_bad"), make_envelope(id="e_good")])
-    t = ScriptedTransport([KeyError("podcast_title"), DeliveryOutcome(status=TerminalStatus.DELIVERED)])
+    t = ScriptedTransport(
+        [KeyError("podcast_title"), DeliveryOutcome(status=TerminalStatus.DELIVERED)]
+    )
     with caplog.at_level(logging.ERROR, logger="delivery.worker"):
         stats = _worker(tmp_path, outbox, t).drain_once()
     assert stats.dead_lettered == 1 and stats.delivered == 1
@@ -149,5 +151,24 @@ def test_unexpected_error_dead_letters_that_envelope_and_drain_continues(tmp_pat
         ("e_good", TerminalStatus.DELIVERED),
     ]
     assert t.calls == 2, "a deterministic failure must not be retried"
-    assert any(r.levelno >= logging.ERROR and r.exc_info for r in caplog.records), \
-        "the failure must be logged at ERROR with its traceback, so GlitchTip receives it"
+    assert any(
+        r.levelno >= logging.ERROR and r.exc_info for r in caplog.records
+    ), "the failure must be logged at ERROR with its traceback, so GlitchTip receives it"
+
+
+def test_delivery_event_names_the_episodes(tmp_path, monkeypatch):
+    # The new-episodes envelope id is a hash of the episode set; without the slugs on the event,
+    # a delivered email could not be walked back to its episodes (2026-10-14 walk).
+    import delivery.worker as worker_mod
+
+    events = []
+    monkeypatch.setattr(worker_mod, "emit_event", lambda name, **f: events.append((name, f)))
+    env = make_envelope(id="newep_abc_u1", payload={"slugs": ["ep-a", "ep-b"]})
+    w = _worker(
+        tmp_path,
+        FakeOutbox([env]),
+        ScriptedTransport([DeliveryOutcome(status=TerminalStatus.DELIVERED, message_id="m1")]),
+    )
+    w.drain_once()
+    delivered = [f for n, f in events if n == "delivery"]
+    assert delivered and delivered[0]["episodes"] == ["ep-a", "ep-b"]
