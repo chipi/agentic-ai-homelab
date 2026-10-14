@@ -26,7 +26,13 @@
 
 services:
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.102.1
+    # v1.102.1 -> v1.154.0 (2026-10-14). Update notes that touch single-node: per-partition
+    # index (first start re-registers active series — ~22k here, brief); admin delete_series
+    # needs POST (our recipe already POSTs); series over -maxLabelsPerTimeseries (40) are
+    # dropped, not truncated (widest here: 28, cAdvisor); the pure-Go block-read bug skips
+    # linux/amd64 (CGO). No exemplar support in VictoriaMetrics, so metric->trace links are
+    # panel data links, not exemplars.
+    image: victoriametrics/victoria-metrics:v1.154.0
     container_name: victoriametrics
     command:
       - --httpListenAddr=:8428
