@@ -184,7 +184,7 @@
           "refId": "A"
         }
       ],
-      "title": "CI runs by workflow × status",
+      "title": "CI runs by workflow × status", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
       "type": "table"
     },
     {
@@ -199,7 +199,7 @@
           "refId": "A"
         }
       ],
-      "title": "Drift / drill outcomes",
+      "title": "Drift / drill outcomes", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
       "type": "table"
     },
     {

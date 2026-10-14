@@ -136,17 +136,18 @@
     {
       "id": 3,
       "title": "Top containers by memory",
-      "type": {
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
         "h": 4,
         "w": 12,
         "x": 12,
         "y": 0
       },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "victoriametrics"
-      },
-      "gridPos": [
+      "targets": [
         {
           "refId": "A",
           "datasource": {
@@ -155,18 +156,33 @@
           },
           "expr": "topk(15, label_replace(sum by (id) (container_memory_working_set_bytes{id=~\".*docker-.*\"}), \"container\", \"$1\", \"id\", \".*docker-(.{12}).*\"))",
           "legendFormat": "{{container}}",
-          "instant": true
+          "instant": true,
+          "format": "table"
         }
       ],
-      "targets": {
+      "options": {
         "showHeader": true,
         "cellHeight": "sm"
       },
-      "options": {},
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "unit": "bytes"
+        },
         "overrides": []
-      }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "Value": "memory"
+            }
+          }
+        }
+      ]
     },
     {
       "id": 4,
@@ -392,12 +408,17 @@
         "type": "prometheus",
         "uid": "victoriametrics"
       },
-      "gridPos": [],
-      "targets": {
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [],
+      "options": {
         "mode": "markdown",
         "content": "Container names show as short Docker IDs because cAdvisor isn't resolving Docker metadata on this host \u2014 the `name` label is absent from the kept metrics. Friendly names would need a cAdvisor collector fix. For name-based views, use the **Logs \u2014 Overview** dashboard (VictoriaLogs has the `container` label)."
       },
-      "options": {},
       "fieldConfig": {
         "defaults": {},
         "overrides": []

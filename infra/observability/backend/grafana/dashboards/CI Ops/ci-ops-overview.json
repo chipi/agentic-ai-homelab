@@ -146,7 +146,7 @@
           "refId": "A"
         }
       ],
-      "title": "Event breakdown (type × surface × status)",
+      "title": "Event breakdown (type × surface × status)", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
       "type": "table"
     },
     {

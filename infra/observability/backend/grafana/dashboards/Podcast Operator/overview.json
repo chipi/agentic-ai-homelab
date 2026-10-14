@@ -127,7 +127,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(rate(http_requests_total{instance=\"prod-podcast\",job=\"api\",status=~\"5..\"}[$__rate_interval]))",
+          "expr": "(sum(rate(http_requests_total{instance=\"prod-podcast\",job=\"api\",status=~\"5..\"}[$__rate_interval]))) or vector(0)",
           "refId": "A"
         }
       ],
@@ -430,7 +430,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(delivery_sent_total{tenant=\"podcast\",status=\"dead_lettered\"}[24h]))"
+          "expr": "(sum(increase(delivery_sent_total{tenant=\"podcast\",status=\"dead_lettered\"}[24h]))) or vector(0)"
         }
       ]
     },
@@ -565,7 +565,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(increase(podcast_pipeline_jobs_finished_total{instance=\"prod-podcast\",status=~\"failed|stale\"}[24h]))",
+          "expr": "(sum(increase(podcast_pipeline_jobs_finished_total{instance=\"prod-podcast\",status=~\"failed|stale\"}[24h]))) or vector(0)",
           "refId": "A"
         }
       ],
@@ -719,7 +719,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:prod-podcast AND event_type:pipeline_stage",
+          "expr": "instance:prod-podcast AND (event_type:pipeline_stage OR \"\\\"event_type\\\": \\\"pipeline_stage\\\"\")",
           "refId": "A"
         }
       ],
@@ -790,7 +790,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(increase(podcast_enrichment_enricher_runs_total{instance=\"prod-podcast\",outcome=~\"failed|timeout|quarantined\"}[24h]))",
+          "expr": "(sum(increase(podcast_enrichment_enricher_runs_total{instance=\"prod-podcast\",outcome=~\"failed|timeout|quarantined\"}[24h]))) or vector(0)",
           "refId": "A"
         }
       ],
@@ -853,7 +853,8 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyUSD"
+          "unit": "currencyUSD",
+          "noValue": "$0 (not emitted)"
         },
         "overrides": []
       }
@@ -967,7 +968,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "instance:prod-podcast AND event_type:~\"enrichment.*\"",
+          "expr": "instance:prod-podcast AND (event_type:~\"enrichment.*\" OR \"\\\"event_type\\\": \\\"enrichment\")",
           "refId": "A"
         }
       ],

@@ -781,7 +781,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum (count_over_time(signal_fleet_disposition{followup=\"1\"}[$__range]))",
+          "expr": "(sum (count_over_time(signal_fleet_disposition{followup=\"1\"}[$__range]))) or vector(0)",
           "legendFormat": "follow-ups",
           "instant": true
         }

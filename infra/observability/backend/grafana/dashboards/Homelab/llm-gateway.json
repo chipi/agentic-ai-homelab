@@ -72,7 +72,7 @@
       "fieldConfig": { "defaults": { "unit": "currencyUSD",
         "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 70 } }, "overrides": [] },
       "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT to_timestamp(d.date, 'YYYY-MM-DD') AS time, COALESCE(v.key_alias, LEFT(d.api_key,8)) AS metric, SUM(d.spend) AS value FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE $__timeFilter(to_timestamp(d.date,'YYYY-MM-DD')) GROUP BY 1,2 ORDER BY 1;" }]
+        "rawSql": "SELECT to_timestamp(d.date, 'YYYY-MM-DD') AS time, COALESCE(v.key_alias, LEFT(d.api_key,8)) AS metric, SUM(d.spend) AS value FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE $__timeFilter(d.date::timestamptz) GROUP BY 1,2 ORDER BY 1;" }]
     },
     {
       "type": "timeseries",
@@ -82,7 +82,7 @@
       "fieldConfig": { "defaults": { "unit": "short",
         "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" }, "fillOpacity": 70 } }, "overrides": [] },
       "targets": [{ "refId": "A", "format": "time_series",
-        "rawSql": "SELECT to_timestamp(d.date, 'YYYY-MM-DD') AS time, COALESCE(v.key_alias, LEFT(d.api_key,8)) AS metric, SUM(d.prompt_tokens + d.completion_tokens) AS value FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE $__timeFilter(to_timestamp(d.date,'YYYY-MM-DD')) GROUP BY 1,2 ORDER BY 1;" }]
+        "rawSql": "SELECT to_timestamp(d.date, 'YYYY-MM-DD') AS time, COALESCE(v.key_alias, LEFT(d.api_key,8)) AS metric, SUM(d.prompt_tokens + d.completion_tokens) AS value FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE $__timeFilter(d.date::timestamptz) GROUP BY 1,2 ORDER BY 1;" }]
     },
     {
       "type": "table",
@@ -93,7 +93,7 @@
         { "matcher": { "id": "byName", "options": "spend_usd" }, "properties": [{ "id": "unit", "value": "currencyUSD" }, { "id": "decimals", "value": 4 }] } ] },
       "options": { "sortBy": [{ "displayName": "spend_usd", "desc": true }] },
       "targets": [{ "refId": "A", "format": "table",
-        "rawSql": "SELECT COALESCE(v.key_alias, LEFT(d.api_key,8)) AS key, SUM(d.spend) AS spend_usd, SUM(d.prompt_tokens) AS prompt_tok, SUM(d.completion_tokens) AS completion_tok, SUM(d.cache_read_input_tokens) AS cache_read_tok, SUM(d.api_requests) AS requests, SUM(d.failed_requests) AS failed FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE $__timeFilter(to_timestamp(d.date,'YYYY-MM-DD')) GROUP BY 1 ORDER BY 2 DESC;" }]
+        "rawSql": "SELECT COALESCE(v.key_alias, LEFT(d.api_key,8)) AS key, SUM(d.spend) AS spend_usd, SUM(d.prompt_tokens) AS prompt_tok, SUM(d.completion_tokens) AS completion_tok, SUM(d.cache_read_input_tokens) AS cache_read_tok, SUM(d.api_requests) AS requests, SUM(d.failed_requests) AS failed FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE $__timeFilter(d.date::timestamptz) GROUP BY 1 ORDER BY 2 DESC;" }]
     },
     {
       "type": "table",
@@ -104,7 +104,7 @@
         { "matcher": { "id": "byName", "options": "spend_usd" }, "properties": [{ "id": "unit", "value": "currencyUSD" }, { "id": "decimals", "value": 4 }] } ] },
       "options": { "sortBy": [{ "displayName": "spend_usd", "desc": true }] },
       "targets": [{ "refId": "A", "format": "table",
-        "rawSql": "SELECT COALESCE(model,'?') AS model, SUM(spend) AS spend_usd, SUM(prompt_tokens) AS prompt_tok, SUM(completion_tokens) AS completion_tok, SUM(api_requests) AS requests FROM \"LiteLLM_DailyUserSpend\" WHERE $__timeFilter(to_timestamp(date,'YYYY-MM-DD')) GROUP BY 1 ORDER BY 2 DESC;" }]
+        "rawSql": "SELECT COALESCE(model,'?') AS model, SUM(spend) AS spend_usd, SUM(prompt_tokens) AS prompt_tok, SUM(completion_tokens) AS completion_tok, SUM(api_requests) AS requests FROM \"LiteLLM_DailyUserSpend\" WHERE $__timeFilter(date::timestamptz) GROUP BY 1 ORDER BY 2 DESC;" }]
     }
   ]
 }

@@ -273,7 +273,7 @@
     },
     {
       "id": 3,
-      "title": "Top containers by volume",
+      "title": "Top containers by volume", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
       "type": "table",
       "datasource": {
         "type": "victoriametrics-logs-datasource",

@@ -205,7 +205,8 @@
             "drawStyle": "bars",
             "fillOpacity": 60
           },
-          "unit": "short"
+          "unit": "short",
+          "noValue": "0 failed SSH logins"
         },
         "overrides": []
       },
@@ -250,7 +251,8 @@
             "drawStyle": "bars",
             "fillOpacity": 60
           },
-          "unit": "short"
+          "unit": "short",
+          "noValue": "No fail2ban lines (its log is not shipped)"
         },
         "overrides": []
       },

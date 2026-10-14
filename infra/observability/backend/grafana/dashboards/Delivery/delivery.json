@@ -210,7 +210,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(delivery_sent_total{tenant=~\"$tenant\",status=\"dead_lettered\"}[24h]))",
+          "expr": "(sum(increase(delivery_sent_total{tenant=~\"$tenant\",status=\"dead_lettered\"}[24h]))) or vector(0)",
           "legendFormat": "dead-lettered"
         }
       ]
@@ -488,7 +488,8 @@
                 "value": 86400
               }
             ]
-          }
+          },
+          "noValue": "never"
         }
       },
       "options": {
