@@ -1,0 +1,16 @@
+[
+  {
+    "sourceUID": "victoriatraces-tempo",
+    "targetUID": "victorialogs",
+    "label": "Logs for this trace",
+    "description": "VictoriaLogs lines carrying this trace id (last 30 days)",
+    "type": "external",
+    "config": {
+      "type": "external",
+      "field": "traceID",
+      "target": {
+        "url": "/explore?orgId=1&schemaVersion=1&panes=%7B%22logs%22%3A%7B%22datasource%22%3A%22victorialogs%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22datasource%22%3A%7B%22type%22%3A%22victoriametrics-logs-datasource%22%2C%22uid%22%3A%22victorialogs%22%7D%2C%22expr%22%3A%22%5C%22${__value.raw}%5C%22%22%2C%22queryType%22%3A%22instant%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-30d%22%2C%22to%22%3A%22now%22%7D%7D%7D"
+      }
+    }
+  }
+]

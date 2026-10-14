@@ -18,24 +18,12 @@ datasources:
     access: proxy
     url: http://victoriatraces:10428/select/tempo
     editable: false
-    jsonData:
-      # Correlation click-through (ADR-119, G3a): from a trace span, jump to its
-      # correlated logs in VictoriaLogs — the reverse of the VictoriaLogs
-      # derivedField (log -> trace), completing the round-trip.
-      #
-      # The apps write the id as its own token (`trace=<id>`, `trace_id=<id>`,
-      # `"trace_id":"<id>"`), so a phrase search for the id finds every line of the
-      # trace — VictoriaLogs' token index makes it cheap. The old query only read a
-      # `trace_id` field (30 lines/day carried it) and request-header fields no log
-      # has, so it returned 0 for real traces (verified on two player-api traces
-      # 2026-10-14: old query 0 lines, phrase 1 — the line that served the request).
-      # $$ escapes Grafana's provisioning env-interpolation so the datasource receives
-      # the literal ${__trace.traceId} template (resolved at query time).
-      tracesToLogsV2:
-        datasourceUid: victorialogs
-        spanStartTimeShift: '-1h'
-        spanEndTimeShift: '1h'
-        filterByTraceID: false
-        filterBySpanID: false
-        customQuery: true
-        query: '(trace_id:"$${__trace.traceId}" OR "$${__trace.traceId}")'
+    # Trace -> logs (the reverse of the VictoriaLogs derived field). NOT tracesToLogsV2:
+    # Grafana 11.6 builds that link only for loki / elasticsearch / opensearch / splunk /
+    # falconlogscale / googlecloud-logging datasources (read in its bundle, 2026-10-14), so
+    # for VictoriaLogs it never rendered — the old setting did nothing.
+    #
+    # A correlation adds a "Logs for this trace" link to every span instead. It cannot
+    # be provisioned here on Grafana 11.6 (the provisioner panics on a top-level `type`
+    # and stores an empty config without it), so it is defined in git at
+    # ../../correlations/correlations.json and applied by ../../correlations/ensure.py.

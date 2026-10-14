@@ -233,15 +233,17 @@ loki.source.docker "containers" {
 }
 
 // ---------- homelab log standard: trace_id -> structured_metadata ----------
-// See infra/observability/LOG-STANDARD.md. Captures the 32-hex trace id from a
-// W3C traceparent (00-<trace>-<span>-flags) or Sentry sentry-trace
-// (<trace>-<span>-sampled); the trailing -<16hex span> makes it unambiguous, so
-// it does NOT match bare hashes, git shas, or Alloy's own `trace_id=<hex>` logs.
-// Stored as structured_metadata (a queryable field), NOT a stream label — trace
-// ids are per-request (high cardinality) and would otherwise explode streams.
+// See infra/observability/LOG-STANDARD.md. Captures the 32-hex trace id from every
+// shape the apps write: `trace_id=<id>` (OTel log correlation), `"trace_id":"<id>"`
+// (JSON events), `trace=<id>` (access log, pipeline), and W3C traceparent /
+// sentry-trace headers. A labelled prefix is required, so bare hashes and git shas
+// never match. (The old `<32hex>-<16hex>`-only pattern matched none of the app
+// shapes.) Same pattern as the Grafana VictoriaLogs derived field — keep them
+// identical. Stored as structured_metadata (a queryable field), NOT a stream label —
+// trace ids are per-request (high cardinality) and would otherwise explode streams.
 loki.process "homelab_std" {
   stage.regex {
-    expression = "(?:00-)?(?P<trace_id>[a-f0-9]{32})-[a-f0-9]{16}"
+    expression = "(?:trace_id[=\":\\s]+|trace=|00-|sentry-trace[=\":\\s]+)(?P<trace_id>[a-f0-9]{32})"
   }
   stage.structured_metadata {
     values = { trace_id = "" }
