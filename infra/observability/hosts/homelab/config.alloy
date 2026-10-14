@@ -119,6 +119,13 @@ discovery.relabel "containers" {
     regex         = "/(.*)"
     target_label  = "container"
   }
+  // service = the container name without compose's replica suffix (glitchtip-worker-1 ->
+  // glitchtip-worker); for the delivery workers it equals their OTel service.name.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.+?)(-[0-9]+)?"
+    target_label  = "service"
+  }
 }
 
 loki.source.docker "containers" {
@@ -170,5 +177,8 @@ loki.write "local" {
     instance = "homelab",
     cluster  = "homelab",
     env      = "prod",
+    // LOG-STANDARD: `environment` is the cross-signal key (traces' deployment.environment);
+    // `env` stays until the naming migration (ADR-0010) drops it.
+    environment = "prod",
   }
 }
