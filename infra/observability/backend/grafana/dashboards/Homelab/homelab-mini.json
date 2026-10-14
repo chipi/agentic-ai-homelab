@@ -692,14 +692,13 @@
      "legendFormat": "read"
     },
     {
-     "refId": "A",
+     "refId": "B",
      "datasource": {
       "type": "prometheus",
       "uid": "victoriametrics"
      },
      "expr": "-sum(rate(node_disk_write_bytes_total{instance=\"homelab\"}[$__rate_interval]))",
-     "legendFormat": "write",
-     "instant": true
+     "legendFormat": "write"
     }
    ],
    "options": {

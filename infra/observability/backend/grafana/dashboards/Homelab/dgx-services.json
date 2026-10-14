@@ -445,7 +445,7 @@
     },
     {
       "type": "timeseries",
-      "title": "SM clock / GPU temp",
+      "title": "SM clock / GPU temp", "datasource": {"type": "prometheus", "uid": "victoriametrics"},
       "description": "A sustained SM-clock drop at stable load is the observable proxy for throttling.",
       "gridPos": {
         "h": 8,
@@ -472,7 +472,7 @@
     },
     {
       "type": "timeseries",
-      "title": "GPU clock throttle reasons (0 = none)",
+      "title": "GPU clock throttle reasons (0 = none)", "datasource": {"type": "prometheus", "uid": "victoriametrics"},
       "description": "Bitmask from DCGM. Non-zero during sustained load means the GPU is clock-limited rather than merely hot \u2014 the #1886 A1 distinction. Pair with SM clock below.",
       "gridPos": {
         "h": 8,
@@ -499,7 +499,7 @@
     },
     {
       "type": "timeseries",
-      "title": "vLLM KV-cache usage",
+      "title": "vLLM KV-cache usage", "datasource": {"type": "prometheus", "uid": "victoriametrics"},
       "description": "vllm:kv_cache_usage_perc \u2014 renamed from gpu_cache_usage_perc in vLLM 0.20. This is the KV-pressure signal #1886 needs in place of unavailable VRAM metrics.",
       "gridPos": {
         "h": 8,
@@ -523,7 +523,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Sibling services \u2014 container memory (co-tenancy)",
+      "title": "Sibling services \u2014 container memory (co-tenancy)", "datasource": {"type": "prometheus", "uid": "victoriametrics"},
       "description": "Requires cadvisor >= v0.52.1 for the `name` label (v0.49.1's docker factory fails against modern daemons). Watch these while the LLM run saturates the GPU.",
       "gridPos": {
         "h": 8,
@@ -547,7 +547,7 @@
     },
     {
       "type": "timeseries",
-      "title": "GPU memory by container (per-process attribution)",
+      "title": "GPU memory by container (per-process attribution)", "datasource": {"type": "prometheus", "uid": "victoriametrics"},
       "description": "The ONLY per-container GPU memory view on this box. GB10 unified memory means DCGM_FI_DEV_FB_* never emit; this comes from `nvidia-smi --query-compute-apps` with each PID mapped to its docker cgroup (infra/dgx/bin/gpu-process-metrics.sh, 30s systemd timer). Use it to answer 'which service is eating the GPU' during a saturation event.",
       "gridPos": {
         "h": 8,
@@ -583,7 +583,7 @@
     },
     {
       "type": "stat",
-      "title": "GPU memory used / processes",
+      "title": "GPU memory used / processes", "datasource": {"type": "prometheus", "uid": "victoriametrics"},
       "description": "Aggregate across all GPU processes. Headroom = GB10 unified pool minus this.",
       "gridPos": {
         "h": 8,
