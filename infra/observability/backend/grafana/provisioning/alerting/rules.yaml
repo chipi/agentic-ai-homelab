@@ -1963,3 +1963,34 @@ groups:
               type: threshold
               expression: reduced
               conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      # Storyline registry unhealthy (RFC-128, podcast_scraper #2349). topic_theme_clusters
+      # logs one "storylines: registry health=ok|bad ..." line per run; bad = the registry
+      # came from its copy or started over, a topic sits in two storylines, or a storyline
+      # vanished with no successor. noDataState OK: no line means no run, which
+      # enrich-common-stale owns.
+      - uid: enrich-common-storyline-registry-bad
+        title: "Storyline registry unhealthy"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        execErrState: Alerting
+        labels: { app: podcast, kind: enrichment, severity: warning, instance: prod-podcast, service: podcast-pipeline, environment: prod }
+        annotations:
+          summary: "A storyline run logged health=bad: the registry came from its copy or started over, a topic is in two storylines, or a storyline vanished. Read the line's source= and vanished= fields; RFC-128."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast "storylines: registry health=bad" | stats count() as n'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model: { type: reduce, expression: q, reducer: last }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
