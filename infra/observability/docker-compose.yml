@@ -22,6 +22,9 @@ services:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /:/rootfs:ro,rslave
       - /var/run/docker.sock:/var/run/docker.sock:ro   # container-log discovery
+      # node exporter's diskstats reads device properties here; without it every start logged
+      # "Failed to open directory, disabling udev device properties" (since 2026-09-15).
+      - /run/udev:/run/udev:ro
       # Read positions on a volume: inside the container they were lost on every recreate, and
       # Alloy then re-read every container's whole log as duplicates (LOG-STANDARD).
       - alloy-data:/var/lib/alloy/data
