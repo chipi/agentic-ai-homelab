@@ -139,3 +139,18 @@ def span(name: str, **attrs: Any) -> Iterator[None]:
             with contextlib.suppress(Exception):
                 sp.set_attribute(k, v)
         yield
+
+
+def trace_headers() -> dict[str, str]:
+    """W3C ``traceparent`` for the active span, so a call to the app continues this trace.
+
+    Empty when tracing is off. Only for our own services (the app's outbox), never a third party.
+    """
+    if _TRACER is None:
+        return {}
+    carrier: dict[str, str] = {}
+    with contextlib.suppress(Exception):
+        from opentelemetry.propagate import inject
+
+        inject(carrier)
+    return carrier

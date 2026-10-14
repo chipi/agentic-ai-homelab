@@ -62,3 +62,54 @@ def test_default_name_without_env(monkeypatch, fake_otel):
 def test_no_endpoint_no_tracing(monkeypatch):
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
     assert obs.init_tracing() is False
+
+
+def test_trace_headers_empty_when_tracing_off(monkeypatch):
+    monkeypatch.setattr(obs, "_TRACER", None)
+    assert obs.trace_headers() == {}
+
+
+def test_trace_headers_carry_the_active_context(monkeypatch):
+    def _inject(carrier):
+        carrier["traceparent"] = "00-" + "a" * 32 + "-" + "b" * 16 + "-01"
+
+    monkeypatch.setattr(obs, "_TRACER", object())
+    monkeypatch.setitem(
+        sys.modules, "opentelemetry.propagate", types.SimpleNamespace(inject=_inject)
+    )
+    assert obs.trace_headers() == {"traceparent": "00-" + "a" * 32 + "-" + "b" * 16 + "-01"}
+
+
+def test_outbox_calls_continue_the_trace(monkeypatch):
+    # delivery.send and the app's /internal/outbox span were two traces (2026-10-14: the same
+    # envelope sat in trace d4c25b2f... on delivery and 9ce89186... on player-api).
+    import httpx
+
+    from delivery import outbox_client
+    from delivery.envelope import TerminalStatus
+
+    seen = []
+
+    def _handler(request):
+        seen.append(
+            (
+                request.method,
+                request.headers.get("traceparent"),
+                request.headers.get("x-internal-token"),
+            )
+        )
+        if request.method == "GET":
+            return httpx.Response(200, json={"envelopes": []})
+        return httpx.Response(200, json={})
+
+    tp = "00-" + "c" * 32 + "-" + "d" * 16 + "-01"
+    monkeypatch.setattr(outbox_client, "trace_headers", lambda: {"traceparent": tp})
+    client = httpx.Client(
+        base_url="http://app",
+        headers={"X-Internal-Token": "t"},
+        transport=httpx.MockTransport(_handler),
+    )
+    oc = outbox_client.OutboxClient("http://app", "t", client=client)
+    oc.fetch_pending("email", 5)
+    oc.report_status("env-1", TerminalStatus.DELIVERED)
+    assert seen == [("GET", tp, "t"), ("POST", tp, "t")]

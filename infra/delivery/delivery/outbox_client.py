@@ -15,6 +15,7 @@ from typing import Optional
 import httpx
 
 from .envelope import DeliveryEnvelope, TerminalStatus
+from .obs import trace_headers
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +38,12 @@ class OutboxClient:
         )
 
     def fetch_pending(self, channel: str, limit: int) -> list[DeliveryEnvelope]:
+        # traceparent: the app's /internal/outbox spans join this worker's trace (they were a
+        # separate trace per call before 2026-10-14).
         resp = self._client.get(
-            "/internal/outbox/pending", params={"channel": channel, "limit": limit}
+            "/internal/outbox/pending",
+            params={"channel": channel, "limit": limit},
+            headers=trace_headers(),
         )
         resp.raise_for_status()
         out: list[DeliveryEnvelope] = []
@@ -55,7 +60,9 @@ class OutboxClient:
         body: dict[str, str] = {"status": status.value}
         if detail:
             body["detail"] = detail
-        resp = self._client.post(f"/internal/outbox/{envelope_id}/status", json=body)
+        resp = self._client.post(
+            f"/internal/outbox/{envelope_id}/status", json=body, headers=trace_headers()
+        )
         resp.raise_for_status()
 
     def close(self) -> None:
