@@ -256,7 +256,7 @@ redefines the sink or touches another app's sources. Alloy hot-reloads on
 |---|---|---|
 | Mac mini | deployed, verified (800ae69) | deployed |
 | DGX | committed (1dd7e67), **not deployed** — with the DGX converge, plus `HOMELAB_ENV=prod` in its `.env` (says `production`) | committed, not deployed |
-| prod `base.alloy` + podcast drop-ins | podcast_scraper local commit, ships with the next deploy; live prod has **no** environment key today | deployed in the drop-ins; base with the next deploy |
+| prod `base.alloy` + podcast drop-ins | podcast_scraper local commit, ships with the next deploy; live prod has **no** environment key today | **not deployed** (checked on the box 2026-10-14) — next deploy |
 | prod `orrery.alloy` | orrery local commit, ships with orrery's next deploy | orrery keeps the traceparent-only pattern (it writes no trace ids) |
 | ops events (podcast `emit_ops_event.sh`) | podcast_scraper local commit | — |
 | `ci-ops-poller`, signal-fleet inbox | deployed (6dcf540) | — |

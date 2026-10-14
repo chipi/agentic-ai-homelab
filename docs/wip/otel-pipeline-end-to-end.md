@@ -99,8 +99,9 @@ front-ends and sends trace headers cross-origin; listed so it isn't a silent gap
   dropped) go with the deploy after. Traces: delivery workers named per worker (live),
   player/operator `deployment.environment` and metric `service` labels in podcast local
   commits.
-- [x] **S2 trace ⇄ log** — one regex for all five id shapes in Grafana + Alloy (mini live,
-  prod drop-ins live, prod base + DGX with their deploys); trace → logs via a correlation
+- [~] **S2 trace ⇄ log** — one regex for all five id shapes in Grafana + Alloy: Grafana and
+  the mini live; prod (all four Alloy files: checked on the box, 0 matches) and the DGX
+  only with their next deploys; trace → logs via a correlation
   (`backend/grafana/correlations/`); player-mcp gets OTel log correlation with the next
   deploy. Verified in the browser.
 - [~] **S3 errors / LLM calls** — GlitchTip: the triage fleet now follows `tags.trace_id`
