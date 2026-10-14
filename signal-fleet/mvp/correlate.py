@@ -5,6 +5,7 @@ For the first slice (orrery staleness), the correlated picture is:
 - VictoriaMetrics: the staleness metric the alert fired on.
 The evidence bundle is what the triager reasons over — never a single signal.
 """
+import urllib.error
 import urllib.parse
 
 import config
@@ -116,7 +117,8 @@ def _summarize_event(e):
         "exc_type": outer.get("type"), "top_frame": _top_app_frame(outer.get("stacktrace")),
         "environment": tags.get("environment"), "component": tags.get("component"),
         "release": tags.get("release"), "code_version": code_version,  # #6
-        "trace_id": trace.get("trace_id"),
+        # OTel id first: contexts.trace is the Sentry SDK's own trace, absent from VictoriaTraces
+        "trace_id": tags.get("trace_id") or trace.get("trace_id"),
         "tags": tags, "frames": frames[-6:],
     }
 
@@ -152,9 +154,15 @@ def evidence_for_glitchtip_error(signal, window="6h"):
     # Label the KIND of trace absence so a blank never reads as "recovered" (R5-2).
     if tid:
         def _trace():
-            r = vt_trace(tid)
+            missing = f"<trace {tid[:8]} expected but not found in VictoriaTraces>"
+            try:
+                r = vt_trace(tid)
+            except urllib.error.HTTPError as e:
+                if e.code == 404:  # VictoriaTraces' answer for an unknown trace id
+                    return missing
+                raise
             data = r.get("data") if isinstance(r, dict) else None
-            return r if data else f"<trace {tid[:8]} expected but not found in VictoriaTraces>"
+            return r if data else missing
         _try("trace", _trace)
     else:
         ev["queries"]["trace"] = ("<not expected: client-side platform, no server trace_id>"

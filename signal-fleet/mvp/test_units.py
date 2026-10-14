@@ -93,6 +93,57 @@ class TestCauseExtraction(unittest.TestCase):
         self.assertEqual(correlate._top_app_frame(stack), "app.py handler")
 
 
+class TestTraceId(unittest.TestCase):
+    """The OTel trace id lives in tags.trace_id (set by the app's before_send);
+    contexts.trace.trace_id is the Sentry SDK's own id and never exists in
+    VictoriaTraces (0/11 real GlitchTip events resolved, 2026-10-14)."""
+
+    def test_prefers_otel_tag_over_sentry_context(self):
+        ev = {"tags": [{"key": "trace_id", "value": "a" * 32}],
+              "contexts": {"trace": {"trace_id": "b" * 32}}}
+        self.assertEqual(correlate._summarize_event(ev)["trace_id"], "a" * 32)
+
+    def test_falls_back_to_sentry_context(self):
+        ev = {"tags": [], "contexts": {"trace": {"trace_id": "b" * 32}}}
+        self.assertEqual(correlate._summarize_event(ev)["trace_id"], "b" * 32)
+
+
+class TestTraceEvidence(unittest.TestCase):
+    """A trace VictoriaTraces doesn't have answers 404: that is "not found",
+    not a broken source. `_event_summary`/`vt_trace` swapped — no network."""
+
+    def setUp(self):
+        self._orig = (correlate._event_summary, correlate.vt_trace)
+        correlate._event_summary = lambda iid: {"trace_id": "c" * 32, "platform": "python"}
+
+    def tearDown(self):
+        correlate._event_summary, correlate.vt_trace = self._orig
+
+    def _trace(self):
+        sig = {"issue_id": "1", "labels": {}}
+        return correlate.evidence_for_glitchtip_error(sig)["queries"]["trace"]
+
+    def test_404_reads_as_not_found(self):
+        import urllib.error
+
+        def _404(tid):
+            raise urllib.error.HTTPError("u", 404, "Not Found", {}, None)
+        correlate.vt_trace = _404
+        self.assertEqual(self._trace(), "<trace cccccccc expected but not found in VictoriaTraces>")
+
+    def test_other_http_errors_stay_errors(self):
+        import urllib.error
+
+        def _503(tid):
+            raise urllib.error.HTTPError("u", 503, "Unavailable", {}, None)
+        correlate.vt_trace = _503
+        self.assertTrue(self._trace().startswith("<error:"))
+
+    def test_found_trace_returned(self):
+        correlate.vt_trace = lambda tid: {"data": [{"spans": [{}]}]}
+        self.assertEqual(self._trace(), {"data": [{"spans": [{}]}]})
+
+
 class TestCodeVersion(unittest.TestCase):
     """#6 — code_version stamped from the event and the signal."""
 
