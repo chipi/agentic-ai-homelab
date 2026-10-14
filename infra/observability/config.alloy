@@ -242,11 +242,17 @@ loki.source.docker "containers" {
 // identical. Stored as structured_metadata (a queryable field), NOT a stream label —
 // trace ids are per-request (high cardinality) and would otherwise explode streams.
 loki.process "homelab_std" {
-  stage.regex {
-    expression = "(?:trace_id[=\":\\s]+|trace=|00-|sentry-trace[=\":\\s]+)(?P<trace_id>[a-f0-9]{32})"
-  }
-  stage.structured_metadata {
-    values = { trace_id = "" }
+  // Alloy's own graph-evaluation logs carry a `trace_id=` for traces it never
+  // exports; skip its container so they don't get a dead trace_id field.
+  stage.match {
+    selector = "{container!~\"alloy.*\"}"
+
+    stage.regex {
+      expression = "(?:trace_id[=\":\\s]+|trace=|00-|sentry-trace[=\":\\s]+)(?P<trace_id>[a-f0-9]{32})"
+    }
+    stage.structured_metadata {
+      values = { trace_id = "" }
+    }
   }
   forward_to = [loki.write.logs_sink.receiver]
 }

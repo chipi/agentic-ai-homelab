@@ -23,12 +23,13 @@ datasources:
       #   00-<32hex>-<16hex>-<flags>                 traceparent header, if ever logged
       #   sentry-trace: <32hex>-<16hex>              Sentry header, if ever logged
       # The old `<32hex>-<16hex>`-only regex matched none of the first three, so app logs
-      # never showed the link. Alloy's own `trace_id=` graph logs (the reason for the old
-      # restriction) are not in VictoriaLogs (0 lines in 6h, 2026-10-14).
+      # never showed the link. Alloy's own graph-evaluation lines also carry a bare
+      # `controller_id="" trace_id=<hex>` (~150 a week, at startup; those traces are never
+      # exported), so the lookbehind skips exactly that shape — no dead "View trace" links.
       derivedFields:
         - name: trace_id
           matcherType: regex
-          matcherRegex: '(?:trace_id[=":\s]+|trace=|00-|sentry-trace[=":\s]+)([a-f0-9]{32})'
+          matcherRegex: '(?:(?<!controller_id="" )trace_id[=":\s]+|trace=|00-|sentry-trace[=":\s]+)([a-f0-9]{32})'
           datasourceUid: victoriatraces-tempo
           url: "$${__value.raw}"
           urlDisplayLabel: "View trace"
