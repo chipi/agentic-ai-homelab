@@ -113,3 +113,29 @@ def test_outbox_calls_continue_the_trace(monkeypatch):
     oc.fetch_pending("email", 5)
     oc.report_status("env-1", TerminalStatus.DELIVERED)
     assert seen == [("GET", tp, "t"), ("POST", tp, "t")]
+
+
+def test_real_span_context_reaches_the_outbox(monkeypatch):
+    # With the real SDK: the traceparent the app receives names the worker's active span, so the
+    # app's span becomes its child (one trace from delivery.drain to /internal/outbox).
+    import httpx
+    from opentelemetry.sdk.trace import TracerProvider
+
+    from delivery import outbox_client
+
+    tracer = TracerProvider().get_tracer("test")
+    monkeypatch.setattr(obs, "_TRACER", tracer)
+    seen = []
+
+    def _handler(request):
+        seen.append(request.headers.get("traceparent"))
+        return httpx.Response(200, json={"envelopes": []})
+
+    client = httpx.Client(base_url="http://app", transport=httpx.MockTransport(_handler))
+    oc = outbox_client.OutboxClient("http://app", "t", client=client)
+    with tracer.start_as_current_span("delivery.drain") as sp:
+        oc.fetch_pending("email", 1)
+        ctx = sp.get_span_context()
+    version, trace_id, parent_id, flags = seen[0].split("-")
+    assert (version, trace_id, parent_id) == ("00", f"{ctx.trace_id:032x}", f"{ctx.span_id:016x}")
+    assert int(flags, 16) & 0x01  # sampled; other bits (e.g. W3C level-2 random-id) may be set
