@@ -143,13 +143,15 @@ set; logs expire after 30 days). Turning deletion on is a config change for the 
 ```sh
 VT=http://127.0.0.1:10428
 curl -s $VT/select/jaeger/api/services
-curl -s $VT/select/jaeger/api/services/delivery-worker/operations
-curl -s --get $VT/select/jaeger/api/traces --data-urlencode service=delivery-worker \
+curl -s $VT/select/jaeger/api/services/delivery-email/operations
+curl -s --get $VT/select/jaeger/api/traces --data-urlencode service=delivery-email \
   --data-urlencode operation=delivery.send --data-urlencode lookback=24h --data-urlencode limit=5
 curl -s $VT/select/jaeger/api/traces/<traceID>
 ```
 
-Traces cannot be deleted; they expire with retention. New traces are queryable after ~30 s.
+Delivery traces under one `service.name` per worker: `delivery-email`, `delivery-push`,
+`delivery-events` (before 2026-10-14 all three were `delivery-worker`). Traces cannot be
+deleted; they expire after 30 days (`--retentionPeriod=30d`). New traces are queryable after ~30 s.
 
 ## 5. Sending telemetry in (OTLP, remote-write, Loki push)
 

@@ -89,7 +89,8 @@ services:
       - --retentionPeriod=30d
       - --retention.maxDiskSpaceUsageBytes=5GiB
       # Grafana's service / attribute pickers read the fields APIs, which look back 2h by
-      # default — the nightly pipeline vanished from them most of the day. 3d is cheap here.
+      # default — the nightly pipeline vanished from them most of the day. 72h is cheap here
+      # (a Go duration: "3d" crash-loops v0.12.0).
       - --search.fieldsLookbehind=72h
     ports:
       # OTLP ingest + query to the TAILNET IP only (set VTRACES_LISTEN=100.x.y.z).
