@@ -94,8 +94,9 @@ front-ends and sends trace headers cross-origin; listed so it isn't a silent gap
   deployable; `environment=operations` stays for the fleets and self-monitoring (operator,
   2026-10-14). Phase A (add `service` + `environment` to every log source) done: mini live
   (800ae69); DGX committed (1dd7e67, with the converge); prod base + drop-ins, orrery,
-  ops events and dev naming are local commits for the next deploy; ci-ops-poller + inbox
-  live (6dcf540). Phases B/C (identity from compose labels, consumers switch, old labels
+  ops events and dev naming are local commits for the next deploy; ci-ops-poller live
+  from 17:55 UTC (its loop needed a restart to load 6dcf540), inbox live each cycle;
+  orrery's drop-in pushed (8203ff4bb6b) and installed on prod: `service=orrery-web` verified. Phases B/C (identity from compose labels, consumers switch, old labels
   dropped) go with the deploy after. Traces: delivery workers named per worker (live),
   player/operator `deployment.environment` and metric `service` labels in podcast local
   commits.

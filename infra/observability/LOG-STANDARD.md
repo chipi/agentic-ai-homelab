@@ -259,6 +259,7 @@ redefines the sink or touches another app's sources. Alloy hot-reloads on
 | prod `base.alloy` + podcast drop-ins | podcast_scraper local commit, ships with the next deploy; live prod has **no** environment key today | **not deployed** (checked on the box 2026-10-14) — next deploy |
 | prod `orrery.alloy` | orrery local commit, ships with orrery's next deploy | orrery keeps the traceparent-only pattern (it writes no trace ids) |
 | ops events (podcast `emit_ops_event.sh`) | podcast_scraper local commit | — |
-| `ci-ops-poller`, signal-fleet inbox | deployed (6dcf540) | — |
+| `ci-ops-poller` | deployed 6dcf540, **live from 2026-10-14 17:55 UTC** (the loop had to be restarted); payload checked on a real run | — |
+| signal-fleet inbox | deployed 6dcf540 (runs fresh each triage cycle) | — |
 | fleetd | already `service` + `environment` | — |
 | dev pushes (`dev_push.py`) | already; service names fixed in a podcast_scraper local commit | — |

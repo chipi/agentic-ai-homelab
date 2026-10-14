@@ -64,6 +64,16 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.ci-ops-poller
 
 Uses `/usr/bin/python3` (stdlib only — no pip deps).
 
+**Updating the code:** `poll.py` runs as ONE long-lived loop (`while True … sleep`), so a
+`git pull` changes nothing until the process restarts. After pulling, end it and let
+launchd's `KeepAlive` start a fresh one:
+```sh
+ps -axo pid,lstart,command | grep '[c]i-ops-poller/poll.py'   # note the PID
+kill <PID>                                                    # that PID only, never pkill
+ps -axo pid,lstart,command | grep '[c]i-ops-poller/poll.py'   # new PID, new start time
+```
+(2026-10-14: a change sat unused for its first poll because the loop had run since Oct 3.)
+
 ## Verify
 
 ```sh
