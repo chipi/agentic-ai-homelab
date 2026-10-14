@@ -229,6 +229,26 @@ discovery.relabel "containers" {
 loki.source.docker "containers" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.containers.output
+  forward_to = [loki.relabel.naming.receiver]
+}
+
+// service (LOG-STANDARD): the container name without compose's replica suffix
+// (vllm-prod-vllm, faster-whisper, pyannote), else the journal source's job (kernel).
+// Set after the sources, never on their targets: loki.source.docker keys read positions by
+// target labels, so a new target label re-reads every container's whole log (it did on the
+// mini, 2026-10-14).
+loki.relabel "naming" {
+  rule {
+    source_labels = ["container"]
+    regex         = "(.+?)(-[0-9]+)?"
+    target_label  = "service"
+  }
+  rule {
+    source_labels = ["service", "job"]
+    separator     = ";"
+    regex         = ";(.+)"
+    target_label  = "service"
+  }
   forward_to = [loki.process.homelab_std.receiver]
 }
 
@@ -268,7 +288,7 @@ loki.source.journal "kernel" {
   path       = "/rootfs/var/log/journal"
   matches    = "_TRANSPORT=kernel"
   labels     = { job = "kernel" }
-  forward_to = [loki.write.logs_sink.receiver]
+  forward_to = [loki.relabel.naming.receiver]
 }
 
 // ---------- PUSH logs to VictoriaLogs (Loki push protocol) ----------
@@ -283,6 +303,9 @@ loki.write "logs_sink" {
     instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"),
     cluster  = coalesce(sys.env("HOMELAB_CLUSTER"), "default"),
     env      = coalesce(sys.env("HOMELAB_ENV"), "prod"),
+    // LOG-STANDARD cross-signal key: prod | dev | ci. The DGX .env must say HOMELAB_ENV=prod
+    // (it said "production" until 2026-10-14; nothing filtered on that spelling).
+    environment = coalesce(sys.env("HOMELAB_ENV"), "prod"),
   }
 }
 
