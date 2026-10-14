@@ -47,14 +47,17 @@ services:
   victorialogs:
     image: victoriametrics/victoria-logs:v1.52.0
     container_name: victorialogs
-    cpus: 1.0   # cap ingest/query bursts (spiked to ~95% on the 8-core VM)
+    # A ceiling, not a reservation: idle CPU stays with the rest of the box. Raised from
+    # 1.0 (set after a burst hit ~95% of the 8-core VM) because 1 CPU runs only 2 searches
+    # at a time and a log dashboard opens 6-10, so panels queued behind each other.
+    cpus: 2.0
     command:
       - --httpListenAddr=:9428
       - --retentionPeriod=${VLOGS_RETENTION:-30d}
       - --storageDataPath=/victoria-logs-data
-      # One CPU runs 2 searches at a time; a dashboard opening fires ~6-10 at once. The default
-      # 10s queue wait answered the rest with 503 ("No data" panels). Wait up to Grafana's own
-      # 30s datasource timeout instead.
+      # Searches run a few at a time (2 per CPU); a dashboard opening fires ~6-10 at once. The
+      # default 10s queue wait answered the rest with 503 ("No data" panels). Wait up to
+      # Grafana's own 30s datasource timeout instead.
       - --search.maxQueueDuration=30s
     ports:
       # Ingest + query to the TAILNET IP only (set VLOGS_LISTEN=100.x.y.z).

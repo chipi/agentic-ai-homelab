@@ -14,6 +14,9 @@
 
 https://grafana.tail6d0ed4.ts.net {
 	bind tailscale/grafana
+	# Panel query responses are uncompressed JSON (~0.75 MB for one cAdvisor panel,
+	# 94 KB gzipped); compression is what makes dashboards usable off the home LAN.
+	encode zstd gzip
 	reverse_proxy grafana:3000
 }
 
