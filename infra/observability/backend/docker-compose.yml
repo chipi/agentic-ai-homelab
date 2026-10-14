@@ -85,7 +85,9 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana-oss:11.6.0
+    # grafana/grafana, not grafana-oss: the -oss repo stopped at 11.6.5. 11.6.11+ is the
+    # floor for grafana-exploretraces-app (Traces Drilldown).
+    image: grafana/grafana:11.6.16
     container_name: grafana
     depends_on: [victoriametrics, victorialogs, victoriatraces]
     ports:
@@ -96,6 +98,9 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource,grafana-exploretraces-app
+      # Grafana preinstalls Logs Drilldown (grafana-lokiexplore-app), which only works on
+      # Loki datasources — we have none — and failed to load on every page.
+      - GF_PLUGINS_PREINSTALL_DISABLED=true
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
