@@ -184,9 +184,12 @@ loki.write "local" {
   external_labels = {
     instance = "homelab",
     cluster  = "homelab",
-    env      = "prod",
+    // Everything on the mini is the stack's own self-monitoring, the fleets and the shared
+    // gateway: `operations` (ADR-0010, LOG-STANDARD), not the apps' `prod`. Until 2026-10-15
+    // this said prod, so ~100k mini lines per 6h answered `environment:prod` queries.
+    env      = "operations",
     // LOG-STANDARD: `environment` is the cross-signal key (traces' deployment.environment);
     // `env` stays until the naming migration (ADR-0010) drops it.
-    environment = "prod",
+    environment = "operations",
   }
 }

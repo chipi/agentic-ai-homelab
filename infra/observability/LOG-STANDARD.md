@@ -259,7 +259,7 @@ redefines the sink or touches another app's sources. Alloy hot-reloads on
 
 | Source | `service` + `environment` | Current trace_id regex |
 |---|---|---|
-| Mac mini | deployed, verified (800ae69) | deployed |
+| Mac mini | deployed, verified (800ae69); `environment`/`env` = `operations` from 2026-10-15 (was `prod`), committed, **not yet deployed** | deployed |
 | DGX | deployed 2026-10-14 18:15 UTC (only `config.alloy` checked out from main; rest of the checkout waits for the converge); `environment` from `HOMELAB_ENVIRONMENT` (unset → prod), `env` stays `production` until phase C | deployed |
 | prod `base.alloy` + podcast drop-ins | podcast_scraper local commit, ships with the next deploy; live prod has **no** environment key today | **not deployed** (checked on the box 2026-10-14) — next deploy |
 | prod `orrery.alloy` | orrery local commit, ships with orrery's next deploy | orrery keeps the traceparent-only pattern (it writes no trace ids) |
