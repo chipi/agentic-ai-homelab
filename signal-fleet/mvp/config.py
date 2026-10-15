@@ -34,7 +34,9 @@ GRAFANA_TOKEN = env("GRAFANA_TOKEN")                       # Viewer service-acco
 GRAFANA_USER = env("GRAFANA_ADMIN_USER", "admin")          # basic-auth fallback only
 GRAFANA_PW = env("GRAFANA_ADMIN_PASSWORD")
 GLITCHTIP_URL = env("SF_GLITCHTIP_URL", f"http://{HOST}:8090")
-GLITCHTIP_TOKEN = env("GLITCHTIP_TOKEN")                   # signal-fleet token
+GLITCHTIP_TOKEN = env("GLITCHTIP_TOKEN")                   # signal-fleet token (read-only)
+GLITCHTIP_WRITE_TOKEN = env("GLITCHTIP_WRITE_TOKEN")       # event:write — sync + notes (#100)
+GLITCHTIP_SYNC = env("SF_GLITCHTIP_SYNC", "") == "1"       # mirror GitHub closes into GlitchTip
 
 # triager (OpenRouter — reuse the bug-fleet key)
 OPENROUTER_KEY = env("OPENROUTER_API_KEY")

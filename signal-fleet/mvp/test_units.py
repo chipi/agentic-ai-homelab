@@ -1119,5 +1119,99 @@ class TestLangfuseJoin(unittest.TestCase):
         self.assertEqual([e["type"] for e in c["batch"]], ["trace-create", "generation-create"])
 
 
+class TestGlitchtipSync(unittest.TestCase):
+    """#100: the operator's GitHub decision is mirrored onto the fleet-filed GlitchTip issue."""
+
+    def _plan(self, gh_state, issue_status="unresolved", extra_rows=(), extra_issues=None):
+        import glitchtip_sync as gs
+        rows = [{"fingerprint": "glitchtip:PIPE-1", "repo": "o/r", "issue": "10"}] + list(extra_rows)
+        issues = {"PIPE-1": {"id": 1, "shortId": "PIPE-1", "status": issue_status,
+                             "project": {"slug": "podcast-pipeline"}}}
+        issues.update(extra_issues or {})
+        gh = {("o/r", 10): {"url": "https://github.com/o/r/issues/10", "dup": None, **gh_state}}
+        return [a for a in gs.plan(rows, issues, gh) if a["sid"] == "PIPE-1"][0]
+
+    def test_open_issue_only_gets_the_note(self):
+        self.assertEqual(self._plan({"state": "OPEN", "reason": ""})["action"], "note")
+
+    def test_fixed_resolves_in_next_release(self):
+        a = self._plan({"state": "CLOSED", "reason": "COMPLETED"})
+        self.assertEqual((a["action"], a["release"]), ("resolve", True))
+
+    def test_not_planned_resolves_without_release(self):
+        a = self._plan({"state": "CLOSED", "reason": "NOT_PLANNED"})
+        self.assertEqual((a["action"], a["release"]), ("resolve", False))
+
+    def test_already_resolved_is_not_resolved_again(self):
+        self.assertEqual(self._plan({"state": "CLOSED", "reason": "COMPLETED"}, issue_status="resolved")["action"], "note")
+
+    def _dup(self, canon_state, target_title, target_project="podcast-pipeline"):
+        import glitchtip_sync as gs
+        rows = [{"fingerprint": "glitchtip:PIPE-1", "repo": "o/r", "issue": "10"},
+                {"fingerprint": "glitchtip:PIPE-0", "repo": "o/r", "issue": "7"}]
+        issues = {"PIPE-1": {"id": 11, "shortId": "PIPE-1", "status": "unresolved",
+                             "title": "deadline exceeded for episode 9", "project": {"slug": "podcast-pipeline"}},
+                  "PIPE-0": {"id": 9, "shortId": "PIPE-0", "status": "unresolved",
+                             "title": target_title, "project": {"slug": target_project}}}
+        gh = {("o/r", 10): {"state": "CLOSED", "reason": "DUPLICATE", "dup": ("o/r", 7),
+                            "url": "https://github.com/o/r/issues/10"},
+              ("o/r", 7): {"dup": None, "url": "https://github.com/o/r/issues/7", **canon_state}}
+        return [a for a in gs.plan(rows, issues, gh) if a["sid"] == "PIPE-1"][0]
+
+    def test_duplicate_same_error_merges_and_takes_the_canonical_state(self):
+        a = self._dup({"state": "CLOSED", "reason": "COMPLETED"}, "deadline exceeded for episode 6")
+        self.assertEqual((a["action"], a["target"], a["then_resolve"], a["release"]), ("merge", 9, True, True))
+
+    def test_duplicate_same_error_canonical_open_merges_and_stays_open(self):
+        a = self._dup({"state": "OPEN", "reason": ""}, "deadline exceeded for episode 6")
+        self.assertEqual((a["action"], a["then_resolve"]), ("merge", False))
+
+    def test_duplicate_of_a_different_error_is_never_merged(self):
+        # 2026-10-15: orrery #557 (umbrella) held a SyntaxError, a TypeError and a CSS error.
+        a = self._dup({"state": "OPEN", "reason": ""}, "Error: Unable to preload CSS for http://x")
+        self.assertEqual((a["action"], a["canon"]), ("note", "https://github.com/o/r/issues/7"))
+        b = self._dup({"state": "CLOSED", "reason": "COMPLETED"}, "Error: Unable to preload CSS")
+        self.assertEqual((b["action"], b["release"]), ("resolve", True))
+
+    def test_duplicate_target_in_another_project_is_never_merged(self):
+        a = self._dup({"state": "CLOSED", "reason": "NOT_PLANNED"}, "deadline exceeded for episode 6",
+                      target_project="podcast-api")
+        self.assertEqual((a["action"], a["release"]), ("resolve", False))
+
+    def test_missing_glitchtip_issue_is_skipped(self):
+        import glitchtip_sync as gs
+        out = gs.plan([{"fingerprint": "glitchtip:GONE-1", "repo": "o/r", "issue": "1"}], {}, {})
+        self.assertEqual(out[0]["action"], "skip")
+
+    def test_merges_into_one_target_go_in_one_call_and_resolve_the_survivor(self):
+        import glitchtip_sync as gs
+        calls = []
+        orig = gs._gt
+        gs._gt = lambda method, path, body=None, token=None: (calls.append((method, path, body)) or (None, {}))
+        try:
+            acts = [{"sid": f"P-{i}", "id": i, "action": "merge", "target": 9, "url": "u", "canon": "c",
+                     "then_resolve": True, "release": True} for i in (11, 12, 13)]
+            gs.apply(acts)
+        finally:
+            gs._gt = orig
+        merges = [c for c in calls if c[0] == "PUT" and "/organizations/" in c[1]]
+        self.assertEqual(len(merges), 1)
+        for i in (9, 11, 12, 13):
+            self.assertIn(f"id={i}", merges[0][1])
+        self.assertIn(("PUT", "/issues/13/", {"status": "resolved", "statusDetails": {"inNextRelease": True}}), calls)
+
+    def test_glitchtip_note_uses_the_write_token(self):
+        import filing
+        sent = {}
+        orig = (filing.urllib.request.urlopen, filing.config.GLITCHTIP_WRITE_TOKEN)
+        filing.config.GLITCHTIP_WRITE_TOKEN = "write-tok"
+        filing.urllib.request.urlopen = lambda req, timeout=None: sent.update(auth=req.get_header("Authorization"))
+        try:
+            filing._glitchtip_note({"issue_id": 5}, "x")
+        finally:
+            filing.urllib.request.urlopen, filing.config.GLITCHTIP_WRITE_TOKEN = orig
+        self.assertEqual(sent["auth"], "Bearer write-tok")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

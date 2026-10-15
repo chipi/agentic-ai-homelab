@@ -463,13 +463,15 @@ def _glitchtip_note(signal, text):
     """Comment the GH link back onto the GlitchTip issue — closes the loop so
     anyone browsing GlitchTip sees 'tracked in GH#N'. Best-effort by design."""
     gt_id = signal.get("issue_id")
-    if not gt_id or not config.GLITCHTIP_TOKEN:
+    # The read-only GLITCHTIP_TOKEN gets 403 here: until #100 this note never landed.
+    token = config.GLITCHTIP_WRITE_TOKEN
+    if not gt_id or not token:
         return
     try:
         req = urllib.request.Request(
             f"{config.GLITCHTIP_URL}/api/0/issues/{gt_id}/comments/",
             data=json.dumps({"data": {"text": text}}).encode(), method="POST")
-        req.add_header("Authorization", f"Bearer {config.GLITCHTIP_TOKEN}")
+        req.add_header("Authorization", f"Bearer {token}")
         req.add_header("Content-Type", "application/json")
         urllib.request.urlopen(req, timeout=10)
     except Exception as ex:  # noqa: BLE001

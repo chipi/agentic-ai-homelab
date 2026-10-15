@@ -277,6 +277,14 @@ def run_poll(limit=10, dry_run=True):
         print("  " + stale.run_pass(dry_run=dry_run))
     except Exception as e:  # noqa: BLE001
         print("  stale pass error:", e)
+    # #100 mirror the operator's GitHub closes onto the GlitchTip issues the fleet filed.
+    # Opt-in (SF_GLITCHTIP_SYNC=1); writes only when the cycle itself writes (not dry-run).
+    if config.GLITCHTIP_SYNC:
+        try:
+            import glitchtip_sync
+            glitchtip_sync.run(do_apply=not dry_run, samples=0)
+        except Exception as e:  # noqa: BLE001 — a sync failure must never fail the cycle
+            print("  glitchtip sync error:", e)
     spend = _spent(disps)
     try:
         with open(config.SPEND_FILE, "w") as f:

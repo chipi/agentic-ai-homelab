@@ -52,6 +52,20 @@ error — but it **may never touch a production service**. Writing "handled" bac
 to GlitchTip is in scope; changing what the monitored app does is not (that is
 Fleet 1 or Fleet 3).
 
+**GitHub → GlitchTip mirror (#100, 2026-10-15).** The operator acks a filed signal on
+GitHub; `mvp/glitchtip_sync.py` copies that decision onto the GlitchTip issue (opt-in
+`SF_GLITCHTIP_SYNC=1`, scoped `GLITCHTIP_WRITE_TOKEN`):
+- closed as fixed → resolved in the next release;
+- closed as not planned → resolved;
+- closed as duplicate of #M → follows #M. It is merged into #M's GlitchTip issue only when
+  it is the same error (same project, same alert skeleton), since an umbrella issue can hold
+  different errors; otherwise it is resolved if #M is closed and stays open if not;
+- open → unchanged.
+
+Every mapped issue gets one "Tracked in GitHub:" comment. The fleet still never closes a
+GitHub issue; it mirrors the operator's call. A resolved issue that recurs reopens in
+GlitchTip, is re-triaged, and filing reopens or re-files on GitHub.
+
 ---
 
 ## 3. Why it exists — closing the gap
