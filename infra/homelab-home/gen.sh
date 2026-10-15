@@ -355,7 +355,8 @@ async function fleet(){
   const bal=await g1('sum(sum_over_time(bugfix_fleet_cost_usd[180d]))');
   const btM=await g1('sum(sum_over_time(bugfix_fleet_tokens['+mS+'s]))');
   const btA=await g1('sum(sum_over_time(bugfix_fleet_tokens[180d]))');
-  set('b_ship',cv(N(bs)));set('b_stuck',cv(N(bx)));set('b_ep',cv(N(be)));
+  const N0=x=>x?(+x[1]).toFixed(0):'0'; // no series = no chains yet; the dashboard shows 0 too (or vector(0))
+  set('b_ship',cv(N0(bs)));set('b_stuck',cv(N0(bx)));set('b_ep',cv(N0(be)));
   set('b_month',duo(bmo,btM));set('b_total',duo(bal,btA));
   try{const r=await(await fetch('https://api.github.com/search/issues?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')).json();
     set('b_route',cv(typeof r.total_count==='number'?String(r.total_count):'&rarr;'));}
