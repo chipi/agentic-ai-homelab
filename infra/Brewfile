@@ -28,7 +28,7 @@ brew "socat"           # relays the _dockerhost-owned colima socket to /var/run/
                        # without it the relay daemon fails and nobody can reach docker.
 
 # --- host metrics ------------------------------------------------------------
-brew "node_exporter"   # darwin host metrics → VictoriaMetrics (mini-metrics scrapes it)
+brew "node_exporter"   # darwin host metrics → VictoriaMetrics (alloy-homelab scrapes it)
 
 # --- secrets (observability backend) ----------------------------------------
 brew "sops"            # decrypts the sops-encrypted backend secrets

@@ -1,9 +1,11 @@
 #!/bin/bash
 # Mini host metrics -> VictoriaMetrics. Everything carries instance=homelab so the
 # box is queryable by one label (matching node_exporter + prod/dgx). Sources:
-# node_exporter scrape (node_*) + custom mini_* summaries (CPU/mem/disk/IO/load,
-# macOS-specific — darwin node_exporter omits mem + disk IO) + service_up health
-# + docker stats. Custom metrics also keep host=mini for back-compat.
+# custom mini_* summaries (CPU/mem/disk/IO/load, macOS-specific — darwin
+# node_exporter omits mem + disk IO) + service_up health + docker stats. Custom
+# metrics also keep host=mini for back-compat. node_* is NOT pushed from here:
+# alloy-homelab scrapes the same :9100 (observability/hosts/homelab/config.alloy);
+# pushing it here too doubled every node_* series (2026-10-15).
 VM=http://localhost:8428/api/v1/import/prometheus
 D=/usr/local/bin/docker
 PAGE=$(sysctl -n hw.pagesize); TOTAL=$(sysctl -n hw.memsize)
@@ -33,7 +35,6 @@ while true; do
       --grafana http://localhost:3000 --env "$HOMELAB/infra/observability/backend/.env" \
       --push "$VM" >/dev/null 2>&1 || true
   fi
-  curl -s -m5 http://localhost:9100/metrics | curl -s -o /dev/null --data-binary @- "$VM?extra_label=instance=homelab"
   IDLE=$(top -l2 -n0 | grep "CPU usage" | tail -1 | sed "s/.*, \([0-9.]*\)% idle.*/\1/")
   CPU=$(echo "100 - ${IDLE:-100}" | bc -l 2>/dev/null)
   read AW CW WW < <(vm_stat | awk '/Pages active/{a=$3}/Pages wired/{w=$4}/Pages occupied by compressor/{c=$5}END{gsub("[.]","",a);gsub("[.]","",w);gsub("[.]","",c);print a,c,w}')

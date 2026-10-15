@@ -20,38 +20,44 @@
         "expr": "sum(count_over_time(bugfix_fleet_flow{state=\"shipped\"}[$__range])) or vector(0)", "instant": true }]
     },
     {
-      "id": 2, "title": "Chains stuck (operator)", "type": "stat",
+      "id": 2, "title": "Chains stuck / needs-info (operator)", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "background", "graphMode": "none" },
       "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-        "expr": "sum(count_over_time(bugfix_fleet_flow{state=\"stuck\"}[$__range])) or vector(0)", "instant": true }]
+        "expr": "sum(count_over_time(bugfix_fleet_flow{state=~\"stuck|needs-info\"}[$__range])) or vector(0)", "instant": true }]
     },
     {
-      "id": 3, "title": "Fix episodes (pass/fail)", "type": "stat",
+      "id": 3, "title": "Fix episodes (production; bake-off pass/fail)", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
       "fieldConfig": { "defaults": {}, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name" },
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-          "expr": "sum(count_over_time(bugfix_fleet_episode{verdict=\"pass\"}[$__range])) or vector(0)", "legendFormat": "pass", "instant": true },
+          "expr": "sum(count_over_time(bugfix_fleet_cost_usd[$__range])) or vector(0)", "legendFormat": "production", "instant": true },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(count_over_time(bugfix_fleet_episode{verdict=\"pass\"}[$__range])) or vector(0)", "legendFormat": "bake-off pass", "instant": true },
         { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-          "expr": "sum(count_over_time(bugfix_fleet_episode{verdict=\"fail\"}[$__range])) or vector(0)", "legendFormat": "fail", "instant": true }
+          "expr": "sum(count_over_time(bugfix_fleet_episode{verdict=\"fail\"}[$__range])) or vector(0)", "legendFormat": "bake-off fail", "instant": true }
       ]
     },
     {
-      "id": 4, "title": "Spend (est, upper-bound $)", "type": "stat",
+      "id": 4, "title": "Spend ($; bake-off est upper bound)", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 12, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] },
-      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "area" },
-      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-        "expr": "sum(sum_over_time(bugfix_fleet_cost_est_usd[$__range])) or vector(0)", "instant": true }]
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value", "graphMode": "area", "textMode": "value_and_name" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(sum_over_time(bugfix_fleet_cost_usd[$__range])) or vector(0)", "legendFormat": "production", "instant": true },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(sum_over_time(bugfix_fleet_cost_est_usd[$__range])) or vector(0)", "legendFormat": "bake-off est", "instant": true }
+      ]
     },
     {
-      "id": 5, "title": "Output tokens", "type": "stat",
+      "id": 5, "title": "Tokens", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
@@ -78,13 +84,17 @@
         "expr": "sum by (state) (count_over_time(bugfix_fleet_flow{state=~\"shipped|stuck|needs-info|rejected\"}[$__interval]))", "legendFormat": "{{state}}" }]
     },
     {
-      "id": 8, "title": "Spend over time (est $)", "type": "timeseries",
+      "id": 8, "title": "Spend over time ($)", "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
       "fieldConfig": { "defaults": { "unit": "currencyUSD", "custom": { "drawStyle": "bars" } }, "overrides": [] },
-      "options": { "legend": { "displayMode": "hidden" } },
-      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
-        "expr": "sum(sum_over_time(bugfix_fleet_cost_est_usd[$__interval]))", "legendFormat": "$" }]
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(sum_over_time(bugfix_fleet_cost_usd[$__interval]))", "legendFormat": "production" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(sum_over_time(bugfix_fleet_cost_est_usd[$__interval]))", "legendFormat": "bake-off est" }
+      ]
     },
     {
       "id": 9, "title": "Episodes: scope-hit vs miss (localization health)", "type": "piechart",

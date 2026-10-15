@@ -23,6 +23,8 @@ VM=https://vm.$TS; VL=https://vlogs.$TS; VT=https://vtraces.$TS
 DASH_MINI=$G/d/homelab-mini/homelab-e28094-mac-mini
 DASH_GPU=$G/d/gpu-dcgm/gpu-e28094-dcgm
 DASH_DGX=$G/d/dgx-services/dgx-e28094-services
+# GPU dashboards have no host CPU/disk/IO/net panels; Node Exporter Full does, pinned to the DGX.
+DASH_DGXHOST="$G/d/rYdddlPWk/node-exporter-full?var-job=integrations%2Funix&var-nodename=spark-2c14&var-node=dgx-llm-1"
 DASH_CAD=$G/d/containers-cadvisor/containers-e28094-cadvisor
 DASH_PROD=$G/d/prod-infra-host-overview/host-overview
 DASH_PCON=$G/d/prod-infra-containers/containers
@@ -180,11 +182,11 @@ cat <<MID
     <a class=card href="$DASH_GPU"><h3>Mem temp</h3><div id=g_vram>&hellip;</div></a>
   </div>
   <div class=charts>
-    <a class=card href="$DASH_GPU"><h3>Host CPU</h3><div id=d_cpu>&hellip;</div></a>
-    <a class=card href="$DASH_GPU"><h3>Unified mem</h3><div id=d_mem>&hellip;</div></a>
-    <a class=card href="$DASH_GPU"><h3>Host disk</h3><div id=d_disk>&hellip;</div></a>
-    <a class=card href="$DASH_GPU"><h3>Disk IO</h3><div id=d_io>&hellip;</div></a>
-    <a class=card href="$DASH_GPU"><h3>Network</h3><div id=d_net>&hellip;</div></a>
+    <a class=card href="$DASH_DGXHOST"><h3>Host CPU</h3><div id=d_cpu>&hellip;</div></a>
+    <a class=card href="$DASH_DGXHOST"><h3>Unified mem</h3><div id=d_mem>&hellip;</div></a>
+    <a class=card href="$DASH_DGXHOST"><h3>Host disk</h3><div id=d_disk>&hellip;</div></a>
+    <a class=card href="$DASH_DGXHOST"><h3>Disk IO</h3><div id=d_io>&hellip;</div></a>
+    <a class=card href="$DASH_DGXHOST"><h3>Network</h3><div id=d_net>&hellip;</div></a>
   </div>
   <div id=dgxhealth class=health></div>
   <h3 class=sectitle>Containers</h3>
@@ -270,7 +272,8 @@ async function mini(){
   draw('c_temp','mini_cpu_temp_celsius',x=>x.toFixed(0)+'&deg;C',100);
   {const mt=await g1('mini_mem_total_bytes'),gb=mt?(+mt[1]/1073741824).toFixed(0):'?';
    draw('c_mem','mini_mem_used_percent',x=>x.toFixed(0)+'% <span class=muted>/ '+gb+' GB</span>',100);}
-  draw('c_disk','mini_disk_free_bytes',x=>(x/1073741824).toFixed(0)+' GB');
+  {const pf=await g1('100*node_filesystem_avail_bytes{instance="homelab",mountpoint="/System/Volumes/Data"}/node_filesystem_size_bytes{instance="homelab",mountpoint="/System/Volumes/Data"}');
+   draw('c_disk','mini_disk_free_bytes',x=>(x/1073741824).toFixed(0)+' GB'+(pf?' <span class=muted>'+(+pf[1]).toFixed(0)+'% free</span>':''));}
   draw('c_io','mini_disk_io_bytes_per_sec',x=>(x/1048576).toFixed(1)+' MB/s');
   draw('c_net','sum(rate(node_network_receive_bytes_total{instance=\"homelab\"}[2m]))+sum(rate(node_network_transmit_bytes_total{instance=\"homelab\"}[2m]))',x=>(x/1048576).toFixed(1)+' MB/s');
   const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
@@ -290,7 +293,8 @@ async function dgx(){
   draw('d_cpu','100-avg(rate(node_cpu_seconds_total{instance="dgx-llm-1",mode="idle"}[5m]))*100',x=>x.toFixed(0)+'%',100);
   {const mt=await g1('node_memory_MemTotal_bytes'+D),gb=mt?(+mt[1]/1073741824).toFixed(0):'?';
    draw('d_mem','100-node_memory_MemAvailable_bytes'+D+'/node_memory_MemTotal_bytes'+D+'*100',x=>x.toFixed(0)+'% <span class=muted>/ '+gb+' GB</span>',100);}
-  draw('d_disk','node_filesystem_avail_bytes{instance="dgx-llm-1",mountpoint="/"}',x=>(x/1073741824).toFixed(0)+' GB');
+  {const pu=await g1('100*(1-node_filesystem_avail_bytes{instance="dgx-llm-1",mountpoint="/"}/node_filesystem_size_bytes{instance="dgx-llm-1",mountpoint="/"})');
+   draw('d_disk','node_filesystem_avail_bytes{instance="dgx-llm-1",mountpoint="/"}',x=>(x/1073741824).toFixed(0)+' GB'+(pu?' <span class=muted>'+(+pu[1]).toFixed(0)+'% used</span>':''));}
   draw('d_io','sum(rate(node_disk_read_bytes_total'+D+'[2m]))+sum(rate(node_disk_written_bytes_total'+D+'[2m]))',x=>(x/1048576).toFixed(2)+' MB/s');
   draw('d_net','sum(rate(node_network_receive_bytes_total'+D+'[2m]))+sum(rate(node_network_transmit_bytes_total'+D+'[2m]))',x=>(x/1048576).toFixed(2)+' MB/s');
   const clk=await g1('DCGM_FI_DEV_SM_CLOCK'),mbw=await g1('DCGM_FI_DEV_MEM_COPY_UTIL');
@@ -307,7 +311,8 @@ async function prod(){
   draw('p_cpu','100-avg(rate(node_cpu_seconds_total{instance="prod-podcast",mode="idle"}[5m]))*100',x=>x.toFixed(0)+'%',100);
   {const mt=await g1('node_memory_MemTotal_bytes'+P),gb=mt?(+mt[1]/1073741824).toFixed(0):'?';
    draw('p_mem','100-node_memory_MemAvailable_bytes'+P+'/node_memory_MemTotal_bytes'+P+'*100',x=>x.toFixed(0)+'% <span class=muted>/ '+gb+' GB</span>',100);}
-  draw('p_disk','node_filesystem_avail_bytes{instance="prod-podcast",mountpoint="/"}',x=>(x/1073741824).toFixed(0)+' GB');
+  {const pu=await g1('100*(1-node_filesystem_avail_bytes{instance="prod-podcast",mountpoint="/"}/node_filesystem_size_bytes{instance="prod-podcast",mountpoint="/"})');
+   draw('p_disk','node_filesystem_avail_bytes{instance="prod-podcast",mountpoint="/"}',x=>(x/1073741824).toFixed(0)+' GB'+(pu?' <span class=muted>'+(+pu[1]).toFixed(0)+'% used</span>':''));}
   draw('p_io','sum(rate(node_disk_read_bytes_total'+P+'[2m]))+sum(rate(node_disk_written_bytes_total'+P+'[2m]))',x=>(x/1048576).toFixed(2)+' MB/s');
   draw('p_net','sum(rate(node_network_receive_bytes_total'+P+'[2m]))+sum(rate(node_network_transmit_bytes_total'+P+'[2m]))',x=>(x/1048576).toFixed(2)+' MB/s');
   const L=x=>x?(+x[1]).toFixed(2):'&mdash;';

@@ -1,7 +1,8 @@
 # node-exporter — host metrics for the mini
 
-Prometheus `node_exporter` on `:9100`, scraped by [`mini-metrics`](../mini-metrics/README.md)
-and pushed to VictoriaMetrics as `node_*`. Installed via Homebrew
+Prometheus `node_exporter` on `:9100`, scraped by `alloy-homelab`
+([`config.alloy`](../observability/hosts/homelab/config.alloy), via
+`host.docker.internal`) and written to VictoriaMetrics as `node_*{job="node"}`. Installed via Homebrew
 (`/usr/local/opt/node_exporter`); this directory owns only the **launchd** unit.
 
 Brew installs its service as a **LaunchAgent**, which dies with the login window.

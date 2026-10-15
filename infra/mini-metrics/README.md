@@ -3,10 +3,10 @@
 A launchd loop on the mini that feeds VictoriaMetrics the signals macOS can't
 get from a containerized exporter. Every 20s it:
 
-1. **Scrapes the local `node_exporter`** (`:9100`) → VM as `node_*` with
-   `instance=homelab` — this is what the "Homelab — Mac mini" Grafana dashboard
-   queries. (node_exporter runs natively via brew; a container can't read the
-   macOS host.)
+1. (No longer scrapes `node_exporter`. `alloy-homelab` scrapes `:9100` →
+   `node_*{instance="homelab",job="node"}`, which the "Homelab — Mac mini"
+   dashboard queries; doing it here as well doubled every `node_*` series until
+   2026-10-15.)
 2. Pushes custom summaries for the start page: `mini_cpu/mem/disk`, `mini_load*`,
    `mini_swap_used_bytes`, `mini_uptime_seconds` (`host=mini`).
 3. **Service health** — `service_up{service=…}` for grafana/glitchtip/langfuse/

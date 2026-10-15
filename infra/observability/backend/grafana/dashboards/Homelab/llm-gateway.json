@@ -105,6 +105,28 @@
       "options": { "sortBy": [{ "displayName": "spend_usd", "desc": true }] },
       "targets": [{ "refId": "A", "format": "table",
         "rawSql": "SELECT COALESCE(model,'?') AS model, SUM(spend) AS spend_usd, SUM(prompt_tokens) AS prompt_tok, SUM(completion_tokens) AS completion_tok, SUM(api_requests) AS requests FROM \"LiteLLM_DailyUserSpend\" WHERE $__timeFilter(date::timestamptz) GROUP BY 1 ORDER BY 2 DESC;" }]
+    },
+    {
+      "type": "stat",
+      "title": "OpenRouter billing: month to date, by vertical",
+      "description": "OpenRouter's own billing per key, polled every 10m by infra/mini-metrics/openrouter-spend.sh. Same numbers as the hub's 'LLM spend by vertical' cards. 'gateway' is the shared key (LiteLLM gateway + triage fleet + bug-fix bake-off); podcast and orrery have their own keys. Ignores the dashboard time range: OpenRouter's calendar month / lifetime.",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "legendFormat": "{{vertical}}",
+        "expr": "max by (vertical) (last_over_time(openrouter_vertical_usd{window=\"month\"}[2h]))" }]
+    },
+    {
+      "type": "stat",
+      "title": "OpenRouter billing: lifetime total, by vertical",
+      "description": "OpenRouter's own billing per key, polled every 10m by infra/mini-metrics/openrouter-spend.sh. Same numbers as the hub's 'LLM spend by vertical' cards. 'gateway' is the shared key (LiteLLM gateway + triage fleet + bug-fix bake-off); podcast and orrery have their own keys. Ignores the dashboard time range: OpenRouter's calendar month / lifetime.",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name" },
+      "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "legendFormat": "{{vertical}}",
+        "expr": "max by (vertical) (last_over_time(openrouter_vertical_usd{window=\"total\"}[2h]))" }]
     }
   ]
 }

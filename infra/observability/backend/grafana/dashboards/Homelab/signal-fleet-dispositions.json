@@ -25,7 +25,7 @@
     {
       "type": "stat",
       "title": "Needs your attention",
-      "description": "Queued routed work + escalations (7d). Click through for the actual items.",
+      "description": "Actionable now: queued bug work + escalations (7d). Same number as the hub card \"Needs you\". config-enhancement and cleanup drafts are Fleet-3 backlog, not operator debt (2026-08-05); they stay visible in Queue by kind.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -41,7 +41,7 @@
           "links": [
             {
               "title": "Open Operator Inbox (items & reasons)",
-              "url": "/d/sf-inbox/triage-operator-inbox"
+              "url": "/d/sf-inbox/triage-e28094-operator-inbox"
             }
           ],
           "thresholds": {
@@ -75,7 +75,7 @@
       },
       "targets": [
         {
-          "expr": "sum(last_over_time(signal_fleet_queue_depth[2h])) + sum(last_over_time(signal_fleet_escalations_7d[2h]))",
+          "expr": "(sum(last_over_time(signal_fleet_queue_depth{kind=\"bug\"}[2h])) or vector(0)) + (sum(last_over_time(signal_fleet_escalations_7d[2h])) or vector(0))",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -103,7 +103,7 @@
           "links": [
             {
               "title": "Open Operator Inbox (items & reasons)",
-              "url": "/d/sf-inbox/triage-operator-inbox"
+              "url": "/d/sf-inbox/triage-e28094-operator-inbox"
             }
           ],
           "thresholds": {
@@ -165,7 +165,7 @@
           "links": [
             {
               "title": "Open Operator Inbox (items & reasons)",
-              "url": "/d/sf-inbox/triage-operator-inbox"
+              "url": "/d/sf-inbox/triage-e28094-operator-inbox"
             }
           ],
           "thresholds": {
@@ -228,7 +228,7 @@
           "links": [
             {
               "title": "Open Operator Inbox (items & reasons)",
-              "url": "/d/sf-inbox/triage-operator-inbox"
+              "url": "/d/sf-inbox/triage-e28094-operator-inbox"
             }
           ],
           "thresholds": {
