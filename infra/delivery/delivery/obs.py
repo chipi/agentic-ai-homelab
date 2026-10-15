@@ -21,6 +21,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any, Iterator, Optional
 
@@ -65,6 +66,41 @@ def emit_event(event_type: str, **fields: Any) -> Optional[str]:
         return None
 
 
+# Variable parts of an error message, replaced so one error is ONE GlitchTip issue whatever
+# envelope id, count or status it names (same rule as podcast_scraper's sentry_init).
+_VARIABLE_PARTS = (
+    (re.compile(r"https?://\S+"), "<url>"),
+    (re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I), "<uuid>"),
+    (re.compile(r"\b\w*_[0-9a-f]{6,}\w*\b", re.I), "<id>"),
+    (re.compile(r"\b(?:0x)?[0-9a-f]{8,}\b", re.I), "<hex>"),
+    (re.compile(r"'[^']*'|\"[^\"]*\""), "<str>"),
+    (re.compile(r"\$?-?\d+(?:[.,]\d+)*%?"), "<n>"),
+)
+
+
+def _normalize(message: str) -> str:
+    for pattern, placeholder in _VARIABLE_PARTS:
+        message = pattern.sub(placeholder, message)
+    return " ".join(message.split())[:200]
+
+
+def _before_send(event: dict, hint: Any) -> dict:
+    """Group by the message with its variable parts replaced, unless a fingerprint is set."""
+    try:
+        if not event.get("fingerprint"):
+            entry = event.get("logentry") or {}
+            text = entry.get("formatted") or entry.get("message") or event.get("message")
+            values = (event.get("exception") or {}).get("values") or []
+            if text:
+                event["fingerprint"] = [str(event.get("logger") or ""), _normalize(str(text))]
+            elif values:
+                last = values[-1]
+                event["fingerprint"] = [str(last.get("type") or ""), _normalize(str(last.get("value") or ""))]
+    except Exception:  # noqa: BLE001 — grouping must never drop an event
+        pass
+    return event
+
+
 def init_error_reporting() -> bool:
     """Wire GlitchTip via sentry_sdk if DELIVERY_SENTRY_DSN is set + the SDK is present."""
     dsn = os.environ.get("DELIVERY_SENTRY_DSN", "")
@@ -74,7 +110,10 @@ def init_error_reporting() -> bool:
         import sentry_sdk
 
         sentry_sdk.init(
-            dsn=dsn, traces_sample_rate=0.0, environment=os.environ.get("DELIVERY_ENV", "prod")
+            dsn=dsn,
+            traces_sample_rate=0.0,
+            environment=os.environ.get("DELIVERY_ENV", "prod"),
+            before_send=_before_send,
         )
         return True
     except Exception:  # noqa: BLE001
@@ -82,9 +121,10 @@ def init_error_reporting() -> bool:
         return False
 
 
-def capture_error(message: str, **tags: Any) -> None:
+def capture_error(message: str, fingerprint: Optional[list[str]] = None, **tags: Any) -> None:
     """Send an error-level event to GlitchTip (no-op if unconfigured). ``tags`` (e.g.
-    tenant, correlation_id) become GlitchTip tags so issues are filterable per tenant."""
+    tenant, correlation_id) become GlitchTip tags so issues are filterable per tenant;
+    ``fingerprint`` groups every occurrence into one issue (else _before_send normalizes)."""
     try:
         import sentry_sdk
 
@@ -94,6 +134,8 @@ def capture_error(message: str, **tags: Any) -> None:
             for k, v in tags.items():
                 if v is not None:
                     scope.set_tag(k, str(v))
+            if fingerprint:
+                scope.fingerprint = fingerprint
             sentry_sdk.capture_message(message, level="error")
     except Exception:  # noqa: BLE001 — alerting must never break the drain
         _fallback.debug("capture_error dropped (sentry unavailable): %s", message)

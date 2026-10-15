@@ -213,6 +213,7 @@ class DeliveryWorker:
         capture_error(
             f"delivery dead-letter [{self._tenant}/{self._channel.value}] {env.id} "
             f"after {self._cfg.max_attempts} attempts: {detail}",
+            fingerprint=["delivery-dead-letter", self._tenant, self._channel.value],
             tenant=self._tenant,
             correlation_id=env.id,
         )
