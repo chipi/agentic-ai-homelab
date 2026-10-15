@@ -28,16 +28,28 @@ export interface LlmMeta {
 const LLM_BASE_URL = (process.env.LLM_BASE_URL ?? "https://openrouter.ai/api/v1").replace(/\/+$/, "");
 const LLM_API_KEY = process.env.LLM_API_KEY;
 
+// Through the gateway, the gateway logs each call to Langfuse itself (model, tokens, cost).
+const VIA_GATEWAY = !LLM_BASE_URL.includes("openrouter.ai");
+
 export async function orChat(
   apiKey: string, model: string, system: string, user: string, meta: LlmMeta,
 ): Promise<string> {
   const start = new Date();
+  // The trace exists before the call so the gateway can add its generation to it:
+  // `existing_trace_id` joins it without overwriting the trace's name/input/output.
+  const client = langfuse();
+  const t = client?.trace({
+    name: `${meta.phase}-#${meta.issue}`,
+    tags: ["bugfix-fleet", meta.phase, ...(meta.area ? [`area:${meta.area}`] : [])],
+    metadata: { issue: meta.issue, area: meta.area, harness: meta.harness ?? "direct" },
+  });
   const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${LLM_API_KEY ?? apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model, messages: [{ role: "system", content: system }, { role: "user", content: user }],
       response_format: { type: "json_object" }, temperature: meta.phase === "dispatch" ? 0 : 0.1,
+      ...(t && VIA_GATEWAY ? { metadata: { existing_trace_id: t.id, generation_name: meta.phase } } : {}),
     }),
   });
   if (!res.ok) throw new Error(`LLM gateway ${res.status}: ${(await res.text()).slice(0, 300)}`);
@@ -45,13 +57,9 @@ export async function orChat(
   const content: string = j.choices?.[0]?.message?.content ?? "";
   const u = j.usage;
 
-  const client = langfuse();
-  if (client) {
-    const t = client.trace({
-      name: `${meta.phase}-#${meta.issue}`,
-      tags: ["bugfix-fleet", meta.phase, ...(meta.area ? [`area:${meta.area}`] : [])],
-      metadata: { issue: meta.issue, area: meta.area, harness: meta.harness ?? "direct" },
-    });
+  // OpenRouter direct logs nothing, so the fleet records the generation; through the gateway
+  // that would be a cost-less duplicate of the gateway's own.
+  if (t && !VIA_GATEWAY) {
     t.generation({
       name: meta.phase, model, startTime: start, endTime: new Date(),
       input: [{ role: "system", content: system }, { role: "user", content: user }],

@@ -1038,5 +1038,86 @@ class TestRecurrenceOncePerCountChange(unittest.TestCase):
         self.assertEqual((b["count"], b["latest_count"], b["disposition"]), (4, 8, "file"))
 
 
+class TestLangfuseJoin(unittest.TestCase):
+    """2026-10-15: every triage landed in Langfuse twice, as two unrelated traces: the fleet's
+    own trace (context, no cost) and the gateway's per-call generations (model, usage, cost,
+    no context); 0 of 17 shared a trace. Now one trace id is minted before the first call;
+    each gateway call carries it as LiteLLM's `existing_trace_id` (it adds its costed
+    generation to that trace without touching the trace's name/input/output), and the fleet
+    writes its trace under the same id without its own cost-less duplicate generation."""
+
+    GW = "http://localhost:4001/v1/chat/completions"
+    OR = "https://openrouter.ai/api/v1/chat/completions"
+
+    def setUp(self):
+        import triage as t
+        self.t = t
+        self.sent = []
+        self.orig = (t.post_json, t.config.OPENROUTER_URL, t.config.OPENROUTER_KEY)
+        t.config.OPENROUTER_KEY = "k"
+
+        def fake(url, body, headers=None, timeout=None):
+            self.sent.append(body)
+            return {"choices": [{"message": {"content": '{"action":"decide","disposition":'
+                                             '"dismiss","reason":"r","certainty":"low"}'}}],
+                    "usage": {"prompt_tokens": 3, "completion_tokens": 2}}
+        t.post_json = fake
+
+    def tearDown(self):
+        self.t.post_json, self.t.config.OPENROUTER_URL, self.t.config.OPENROUTER_KEY = self.orig
+
+    def test_gateway_call_carries_the_trace_and_a_step_name(self):
+        self.t.config.OPENROUTER_URL = self.GW
+        self.t._call([{"role": "user", "content": "x"}], trace_id="tid-1", step=2)
+        self.assertEqual(self.sent[0]["metadata"],
+                         {"existing_trace_id": "tid-1", "generation_name": "triage-turn-3"})
+
+    def test_openrouter_direct_gets_no_metadata(self):
+        self.t.config.OPENROUTER_URL = self.OR
+        self.t._call([{"role": "user", "content": "x"}], trace_id="tid-1", step=0)
+        self.assertNotIn("metadata", self.sent[0])
+
+    def test_one_trace_id_for_every_call_and_the_fleet_trace(self):
+        self.t.config.OPENROUTER_URL = self.GW
+        got = {}
+        orig_fin = self.t.observ.finalize
+        self.t.observ.finalize = lambda signal, disp, **kw: got.update(kw)
+        try:
+            self.t.investigate({"source": "glitchtip", "alertname": "a", "summary": "s",
+                                "labels": {}})
+        finally:
+            self.t.observ.finalize = orig_fin
+        ids = {b["metadata"]["existing_trace_id"] for b in self.sent}
+        self.assertEqual(len(ids), 1)
+        self.assertEqual(got.get("trace_id"), ids.pop())
+
+    def _batch(self, url, trace_id):
+        import observ
+        captured = {}
+        orig = (observ._ingest, observ.config.OPENROUTER_URL)
+        observ._ingest = lambda host, pk, sk, batch, tid: captured.update(batch=batch, tid=tid)
+        observ.config.OPENROUTER_URL = url
+        os.environ["LANGFUSE_PUBLIC_KEY"], os.environ["LANGFUSE_SECRET_KEY"] = "pk", "sk"
+        try:
+            observ.trace_triage({"source": "glitchtip", "fingerprint": "f"},
+                                {"disposition": "dismiss", "_meta": {"model": "m"}},
+                                usage={"prompt_tokens": 1, "completion_tokens": 1},
+                                trace_id=trace_id)
+        finally:
+            observ._ingest, observ.config.OPENROUTER_URL = orig
+            del os.environ["LANGFUSE_PUBLIC_KEY"], os.environ["LANGFUSE_SECRET_KEY"]
+        return captured
+
+    def test_joined_trace_has_no_duplicate_generation(self):
+        c = self._batch(self.GW, "tid-9")
+        self.assertEqual(c["tid"], "tid-9")
+        self.assertEqual([e["type"] for e in c["batch"]], ["trace-create"])
+        self.assertEqual(c["batch"][0]["body"]["id"], "tid-9")
+
+    def test_direct_calls_keep_the_fleet_generation(self):
+        c = self._batch(self.OR, "tid-9")
+        self.assertEqual([e["type"] for e in c["batch"]], ["trace-create", "generation-create"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

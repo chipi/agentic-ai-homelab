@@ -21,7 +21,13 @@ def _now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-def trace_triage(signal, disp, usage=None, latency_s=0.0):
+def new_trace_id():
+    """A Langfuse trace id minted before the first LLM call, so the gateway's generations
+    and the fleet's trace land in one trace."""
+    return str(uuid.uuid4())
+
+
+def trace_triage(signal, disp, usage=None, latency_s=0.0, trace_id=None):
     pk = os.environ.get("LANGFUSE_PUBLIC_KEY")
     sk = os.environ.get("LANGFUSE_SECRET_KEY")
     host = os.environ.get("LANGFUSE_HOST", "http://homelab:4000").rstrip("/")
@@ -30,7 +36,7 @@ def trace_triage(signal, disp, usage=None, latency_s=0.0):
         return
     meta = disp.get("_meta", {})
     d = disp.get("disposition")
-    tid = str(uuid.uuid4())
+    tid = trace_id or new_trace_id()
     now = _now()
     batch = [{"id": str(uuid.uuid4()), "type": "trace-create", "timestamp": now, "body": {
         "id": tid, "name": f"{config.SF_SERVICE}/triage/{signal.get('source')}", "timestamp": now,
@@ -44,7 +50,9 @@ def trace_triage(signal, disp, usage=None, latency_s=0.0):
                      "prompt_sha": meta.get("prompt_sha"), "attempt": meta.get("attempt"),
                      "latency_s": round(latency_s, 2)},
         "input": signal.get("summary"), "output": disp.get("reason")}}]
-    if usage:
+    # Calls through the gateway already logged their generations (with cost) into this trace;
+    # a fleet-side copy would double the tokens and carry no cost.
+    if usage and not (trace_id and config.via_gateway()):
         batch.append({"id": str(uuid.uuid4()), "type": "generation-create", "timestamp": now, "body": {
             "id": str(uuid.uuid4()), "traceId": tid, "name": "triage-call",
             "model": meta.get("model"), "environment": "signal-fleet",
@@ -92,9 +100,9 @@ def push_disposition_metric(signal, disp):
         print(f"  vm metric push failed: {ex}")
 
 
-def finalize(signal, disp, usage=None, latency_s=0.0):
+def finalize(signal, disp, usage=None, latency_s=0.0, trace_id=None):
     """Emit both observability outputs for one disposition."""
     if config.OBSERV_DISABLED:
         return  # eval replay — don't pollute live fleet traces/metrics
-    trace_triage(signal, disp, usage=usage, latency_s=latency_s)
+    trace_triage(signal, disp, usage=usage, latency_s=latency_s, trace_id=trace_id)
     push_disposition_metric(signal, disp)

@@ -247,13 +247,18 @@ def _trim(v, n=1800):
     return s if len(s) <= n else s[:n] + f"\n…[truncated {len(s)-n} of {len(s)} chars]"
 
 
-def _call(messages):
+def _call(messages, trace_id=None, step=None):
     if not config.OPENROUTER_KEY:
         raise SystemExit("[triage] OPENROUTER_API_KEY not set")
+    body = {"model": config.TRIAGE_MODEL, "messages": messages,
+            "response_format": {"type": "json_object"}, "temperature": 0}
+    if trace_id and config.via_gateway():
+        # The gateway's Langfuse logger adds its generation (model, usage, cost) to this
+        # trace; `existing_trace_id` leaves the trace's name/input/output to the fleet.
+        body["metadata"] = {"existing_trace_id": trace_id,
+                            "generation_name": f"triage-turn-{(step or 0) + 1}"}
     try:
-        resp = post_json(config.OPENROUTER_URL,
-                         {"model": config.TRIAGE_MODEL, "messages": messages,
-                          "response_format": {"type": "json_object"}, "temperature": 0},
+        resp = post_json(config.OPENROUTER_URL, body,
                          headers={"Authorization": f"Bearer {config.OPENROUTER_KEY}"}, timeout=90)
     except urllib.error.HTTPError as e:
         # 401/403 = the gateway rejected our key (wiped litellm virtual key is the
@@ -371,7 +376,7 @@ def _gate(d, signal, trace):
     return d, f"i:{ig}/c:{cg}/d:{dg}"
 
 
-def _finish(signal, disp, trace, gates, usage, t0):
+def _finish(signal, disp, trace, gates, usage, t0, trace_id=None):
     table_miss = sum(1 for t in trace
                      if isinstance(t["result"], str) and t["result"].startswith("<TABLE-MISS"))
     r = config.RATES.get(config.TRIAGE_MODEL)
@@ -383,7 +388,7 @@ def _finish(signal, disp, trace, gates, usage, t0):
                      "probes": [t["probe"] for t in trace], "n_probes": len(trace),
                      "table_miss": table_miss, "cost_usd": round(cost, 6),
                      "certainty": disp.get("certainty"), "usage": usage}
-    observ.finalize(signal, disp, usage=usage, latency_s=time.time() - t0)
+    observ.finalize(signal, disp, usage=usage, latency_s=time.time() - t0, trace_id=trace_id)
     return disp
 
 
@@ -394,9 +399,10 @@ def investigate(signal, max_probes=None, probe_table=None):
     # usage accumulates across ALL turns — reconciliation vs LiteLLM metering
     # (2026-07-30) showed last-turn-only recording undercounted tokens ~4x
     trace, usage, t0 = [], {"prompt_tokens": 0, "completion_tokens": 0}, time.time()
+    trace_id = observ.new_trace_id()   # one Langfuse trace: the fleet's + every gateway call
     for step in range(n + 1):
         try:
-            raw, turn_usage = _call(messages)
+            raw, turn_usage = _call(messages, trace_id=trace_id, step=step)
             if isinstance(turn_usage, dict):
                 for k in ("prompt_tokens", "completion_tokens"):
                     usage[k] += turn_usage.get(k) or 0
@@ -437,7 +443,7 @@ def investigate(signal, max_probes=None, probe_table=None):
             if step < n:
                 continue
             try:
-                out2 = _parse(_call(messages)[0])
+                out2 = _parse(_call(messages, trace_id=trace_id, step=step + 1)[0])
                 disp = {k: v for k, v in out2.items() if k != "action"}
             except Exception:
                 disp = {}
@@ -445,7 +451,7 @@ def investigate(signal, max_probes=None, probe_table=None):
             disp = {"disposition": "escalate", "reason": "no terminal decision",
                     "question": "triager did not reach a disposition"}
         d, gates = _gate(disp, signal, trace)
-        return _finish(signal, d, trace, gates, usage, t0)
+        return _finish(signal, d, trace, gates, usage, t0, trace_id=trace_id)
 
 
 # back-compat: orchestrator calls triage.triage(signal, evidence); investigation

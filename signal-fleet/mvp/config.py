@@ -39,6 +39,12 @@ GLITCHTIP_TOKEN = env("GLITCHTIP_TOKEN")                   # signal-fleet token
 # triager (OpenRouter — reuse the bug-fleet key)
 OPENROUTER_KEY = env("OPENROUTER_API_KEY")
 OPENROUTER_URL = env("SF_OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions")
+
+
+def via_gateway():
+    """True when the triager calls the homelab LiteLLM gateway (which logs each call to
+    Langfuse itself), not OpenRouter direct (which logs nothing and takes no metadata)."""
+    return "openrouter.ai" not in OPENROUTER_URL
 TRIAGE_MODEL = env("SF_TRIAGE_MODEL", "deepseek/deepseek-v4-flash")
 TRIAGE_PROMPT_VER = "mvp-1"
 
