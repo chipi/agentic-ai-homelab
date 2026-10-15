@@ -1,6 +1,10 @@
-"""Langfuse UI client (tRPC, logged in as the init admin) — what the UI itself calls."""
+"""Langfuse UI client (tRPC, logged in as an admin) — what the UI itself calls.
+
+Instance-neutral: LF_UI is the Langfuse web URL (its NEXTAUTH_URL; the session cookie is
+Secure and bound to it), LANGFUSE_INIT_USER_EMAIL / _PASSWORD an admin of that instance.
+"""
 import http.cookiejar, json, os, urllib.parse, urllib.request
-B = os.environ.get("LF_UI", "https://langfuse.tail6d0ed4.ts.net")
+B = os.environ.get("LF_UI", "https://langfuse.tail6d0ed4.ts.net").rstrip("/")
 jar = http.cookiejar.CookieJar()
 op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
 
@@ -24,3 +28,9 @@ def trpc(proc, inp, mutation=True):
     if "error" in r:
         raise RuntimeError(json.dumps(r["error"]["json"].get("message"))[:3000])
     return r["result"]["data"]["json"]
+
+
+def project_ids() -> dict:
+    """{project name: id} for every project the admin can see — ids differ per instance."""
+    session = json.load(op.open(B + "/api/auth/session"))
+    return {p["name"]: p["id"] for org in session["user"]["organizations"] for p in org.get("projects", [])}

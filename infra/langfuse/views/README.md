@@ -12,16 +12,25 @@
 counts) and the gateway's `/v1/models` / `/health` probes. Those stay in Langfuse on purpose and
 have their own widget and view.
 
-Rerunnable: a dashboard or view with the same name is replaced, not duplicated. Run it from a
-machine that resolves the tailnet name (the laptop; the mini cannot resolve its own):
+**Versioned and portable.** These definitions are the source of truth; a change made in the
+Langfuse UI is overwritten by the next run, so make it here. Rerunnable: a dashboard or view
+with the same name is replaced (dashboard first, then its widgets; no orphans), not
+duplicated. Projects are found by NAME, since ids differ per instance; a missing project stops
+the run before anything changes.
 
 ```sh
+# the homelab instance (run from the laptop; the mini cannot resolve its own tailnet name)
 infra/langfuse/views/run.sh build.py                 # both projects
 infra/langfuse/views/run.sh build.py podcast-prod    # one project
+
+# any other Langfuse 3.x: its web URL (= its NEXTAUTH_URL) and an admin there; it needs
+# projects named podcast-prod and agents
+LF_UI=https://langfuse.example LANGFUSE_INIT_USER_EMAIL=... LANGFUSE_INIT_USER_PASSWORD=... \
+  infra/langfuse/views/run.sh build.py
 ```
 
-`run.sh` loads `LANGFUSE_INIT_USER_EMAIL`/`_PASSWORD` from the mini's `infra/langfuse/.env` over
-SSH and never prints them. The Langfuse session cookie is `Secure` and bound to `NEXTAUTH_URL`,
+Without those variables, `run.sh` loads the homelab admin (`LANGFUSE_INIT_USER_EMAIL`/`_PASSWORD`)
+from the mini's `infra/langfuse/.env` over SSH and never prints them. The Langfuse session cookie is `Secure` and bound to `NEXTAUTH_URL`,
 so a client on `http://127.0.0.1:4000` gets `UNAUTHORIZED`.
 
 Formats (Langfuse 3.225): a widget is `view` (`traces` / `observations` / `scores-*`),

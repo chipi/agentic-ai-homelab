@@ -6,9 +6,10 @@ agents       — the homelab gateway: triage fleet, bugfix fleet, eval runs, oth
 import json
 import sys
 
-from lfui import login, trpc
+from lfui import B, login, project_ids, trpc
 
-PROJECTS = {"podcast-prod": "cmv6f3q2q000gp30786nxme3x", "agents": "agents"}
+# Projects by NAME: their ids are per instance and are looked up at run time.
+PROJECTS = ("podcast-prod", "agents")
 TOKENIZE = "litellm-pass_through_endpoint"
 NOT_MODEL = [TOKENIZE, "litellm-/v1/models", "litellm-/health"]
 
@@ -102,17 +103,17 @@ LAYOUT = [(0, 0, 3, 2), (3, 0, 3, 2), (6, 0, 3, 2), (9, 0, 3, 2),
           (0, 12, 6, 5), (6, 12, 6, 5), (0, 17, 6, 5), (6, 17, 6, 5)]
 
 
-def build(pkey):
-    pid = PROJECTS[pkey]
+def build(pkey, pid):
     title, desc, widgets = DASHBOARDS[pkey]
     existing = trpc("dashboard.allDashboards", {"projectId": pid, "page": 0, "limit": 100,
                                                 "orderBy": {"column": "updatedAt", "order": "DESC"}}, mutation=False)
     for d in existing["dashboards"]:
         if d["projectId"] == pid and d["name"] == title:
+            # Dashboard first: Langfuse refuses to delete a widget a dashboard still uses.
+            trpc("dashboard.delete", {"projectId": pid, "dashboardId": d["id"]})
             for it in d["definition"].get("widgets", []):
                 if it.get("widgetId"):
                     trpc("dashboardWidgets.delete", {"projectId": pid, "widgetId": it["widgetId"]})
-            trpc("dashboard.delete", {"projectId": pid, "dashboardId": d["id"]})
             print(f"  replaced old '{title}'")
     dash = trpc("dashboard.createDashboard", {"projectId": pid, "name": title, "description": desc})
     did = dash["id"]
@@ -136,8 +137,13 @@ def build(pkey):
 
 if __name__ == "__main__":
     login()
+    ids = project_ids()
+    wanted = sys.argv[1:] or list(PROJECTS)
+    missing = [p for p in wanted if p not in ids]
+    if missing:
+        sys.exit(f"{B}: no project named {missing}; it has {sorted(ids)}. Create it first.")
     out = {}
-    for pkey in (sys.argv[1:] or PROJECTS):
-        print(pkey)
-        out[pkey] = build(pkey)
+    for pkey in wanted:
+        print(f"{pkey} ({ids[pkey]}) on {B}")
+        out[pkey] = build(pkey, ids[pkey])
     json.dump(out, open("built.json", "w"))
