@@ -338,9 +338,9 @@ Projects (org `homelab`):
 
 | Project | Used by | Keys on the mini (mode 600) |
 |---|---|---|
-| `agents` | homelab fleet, mini LiteLLM, **and** the prod podcast VPS's `litellm` | `~/signal-fleet/fleet-gateway.env` |
+| `agents` | homelab fleet and the mini LiteLLM | `~/signal-fleet/fleet-gateway.env` |
 | `podcast-dev` | podcast_scraper laptop dev runs | `~/podcast-langfuse-dev.env` |
-| `podcast-prod` | created 2026-10-13 for the prod podcast VPS; **not wired yet** — the VPS `litellm` still sends to `agents` | `~/podcast-langfuse-prod.env` |
+| `podcast-prod` | the prod podcast VPS's `litellm` (team key `proj-podcast-prod`) since 2026-10-14; 145 traces on 2026-10-15. Also the podcast o11y MCP's Langfuse source | `~/podcast-langfuse-prod.env` |
 
 Create a project and key pair the way the UI does (tRPC, logged in as the
 `LANGFUSE_INIT_USER_*` admin from `~/agentic-ai-homelab/infra/langfuse/.env`):
