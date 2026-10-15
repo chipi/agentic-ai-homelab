@@ -90,6 +90,38 @@ then `curl -s -u "$A" -X POST $G/api/admin/provisioning/alerting/reload`. Check 
 with the `obs-boot` skill (`drift: 0`). UI edits to provisioned dashboards are
 allowed but are overwritten the next time the file changes.
 
+**Who owns what in this Grafana** (settled 2026-10-15):
+
+| What | Owner | How it gets there |
+|---|---|---|
+| Alert rules (all, incl. the podcast `enrich-common-*` and `sec-*`) | this repo, `rules.yaml` | file provisioning + reload (above) |
+| Folders Homelab, Production Infra, CI Ops, Delivery, Podcast Operator, Podcast Player | this repo, `grafana/dashboards/<folder>/` | file provisioning (30 s) |
+| Folders Common (Box & Edge), VPS — Podcast, podcast-player | podcast_scraper, `config/grafana/dashboards/<tenant>/` | `make obs-sync` (API), run from here |
+
+A dashboard uid lives in ONE of the two repos. If an API push overwrites a provisioned
+dashboard, Grafana won't delete it ("provisioned dashboard cannot be deleted"), and touching
+the file doesn't help: the provisioner compares checksums. Restore it by POSTing the file's JSON
+to `/api/dashboards/db` with its folder's `folderUid` (done for `dgx-observability-943` on 2026-10-15).
+
+**Run podcast_scraper's `make obs-sync`.** It's run from the homelab side: prod has no token
+for it and doesn't need one. The token belongs to the existing `podcast-sync` service account
+(Admin). It's in `~/grafana/podcast-sync.env` on the mini (mode 600), which also holds
+`GRAFANA_COMMON_*` and `GRAFANA_PODCAST_PLAYER_*` (one Grafana serves both accounts). From
+a podcast_scraper checkout at `origin/main`, on the laptop:
+
+```sh
+set -a; eval "$(ssh homelab 'cat ~/grafana/podcast-sync.env')"; set +a
+python scripts/obs/grafana_sync.py           # dry run: NEW / CHANGED / MOVE / UNCHANGED per dashboard, GETs only
+make obs-sync APPLY=1                        # upload (also runs sentry_sync, which skips: no SENTRY_COMMON_*)
+python scripts/obs/grafana_sync.py           # expect every line UNCHANGED
+GRAFANA_URL=$GRAFANA_COMMON_URL GRAFANA_TOKEN=$GRAFANA_COMMON_TOKEN \
+  python scripts/obs/verify_dashboard.py --uid <uid> --var instance=prod-podcast   # panels return data
+```
+
+`verify_dashboard.py` can't check Jaeger panels: in Grafana 11.6 that datasource runs in the
+browser, so `/api/ds/query` returns no frames for it. Check those through
+`/api/datasources/proxy/uid/victoriatraces-jaeger/api/traces?service=<svc>` instead.
+
 **Careful:** a rule change can mute a real outage. Prove a rule change on history
 first (`infra/observability/rules-drift/rule_history_replay.py`, skill
 `replay-proven-fix`).
