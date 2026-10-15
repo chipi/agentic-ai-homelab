@@ -7,6 +7,7 @@ covers the pure functions the enhancements add, stage by stage.
 Each enhancement item (#1..#8, docs/wip/signal-fleet-triage-enhancements.md) adds a
 TestCase here as it lands; same input → same verdict, every run.
 """
+import collections
 import os
 import unittest
 
@@ -1191,9 +1192,14 @@ class TestGlitchtipSync(unittest.TestCase):
         try:
             acts = [{"sid": f"P-{i}", "id": i, "action": "merge", "target": 9, "url": "u", "canon": "c",
                      "then_resolve": True, "release": True} for i in (11, 12, 13)]
-            gs.apply(acts)
+            events = []
+            done = gs.apply(acts, events)
         finally:
             gs._gt = orig
+        # 2026-10-15 first live run: the survivor comment was counted but not audited (237 vs 233).
+        audited = collections.Counter(e["action"] for e in events)
+        self.assertEqual({k: audited[k] for k in ("merged", "commented", "resolved")},
+                         {k: done[k] for k in ("merged", "commented", "resolved")})
         merges = [c for c in calls if c[0] == "PUT" and "/organizations/" in c[1]]
         self.assertEqual(len(merges), 1)
         for i in (9, 11, 12, 13):

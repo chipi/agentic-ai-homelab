@@ -201,6 +201,7 @@ def apply(actions, events=None):
             if not _has_marker(survivor):
                 _comment({**members[0], "id": survivor})
                 done["commented"] += 1
+                _audit(events, "commented", {**members[0], "sid": f"merge-survivor:{survivor}"})
             if members[0].get("then_resolve"):
                 _resolve(survivor, members[0].get("release"))
                 done["resolved"] += 1
