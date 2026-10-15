@@ -9,7 +9,10 @@
 
 services:
   litellm:
-    image: ghcr.io/berriai/litellm-database:main-stable
+    # Pinned: `main-stable` moves (2026-10-15 it pointed past the running v1.96.2), so a pull
+    # upgraded the gateway silently. Move it on purpose: change the default or set
+    # LITELLM_IMAGE_TAG, then `docker compose up -d --no-deps litellm` (about 2 min to answer).
+    image: ghcr.io/berriai/litellm-database:${LITELLM_IMAGE_TAG:-v1.96.2}
     container_name: litellm
     depends_on:
       postgres:
