@@ -16,7 +16,7 @@ x-logging: &logging
 
 services:
   langfuse-worker:
-    image: docker.io/langfuse/langfuse-worker:3.221.1
+    image: docker.io/langfuse/langfuse-worker:3.225.11
     cpus: 0.5   # trace-ingest worker, barely-used homelab; cap it
     restart: always
     <<: *logging
@@ -100,7 +100,7 @@ services:
       SMTP_CONNECTION_URL: ${SMTP_CONNECTION_URL:-}
 
   langfuse-web:
-    image: docker.io/langfuse/langfuse:3.221.1
+    image: docker.io/langfuse/langfuse:3.225.11
     restart: always
     <<: *logging
     depends_on: *langfuse-depends-on
