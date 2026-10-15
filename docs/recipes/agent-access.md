@@ -306,6 +306,35 @@ Prod and dev projects (dev runs never report into a prod project):
 | Podcast pipeline | `podcast-pipeline` (16) | `podcast-pipeline-dev` (25, team `podcast`) |
 | Podcast API | `podcast-api` (17) | `podcast-api-dev` (26, team `podcast`) |
 | Player | `player` (5) | `player-dev` (20) |
+| LiteLLM gateway | `litellm-prod` (27, the VPS gateway, since 2026-10-15) | `litellm` (19) is the homelab gateway |
+
+The full list, with what reports into each project, is `infra/glitchtip/projects.json`;
+`python3 infra/glitchtip/projects.py` (on the mini) diffs it against the live org and
+`--apply` creates missing projects. It never deletes or renames, and never prints a DSN.
+
+**How GlitchTip is meant to be read** (settled 2026-10-15):
+
+- **One error = one issue.** The podcast apps' `before_send` fingerprints events by logger
+  and message, with numbers, ids, money, quoted values and URLs replaced. Before that, one
+  "context limit … ~N tokens" error was 194 issues. CI smoke-failure alerts use a fixed
+  fingerprint per surface and stage. A new app should do the same, or its issue count is
+  meaningless.
+- **Unresolved = seen in the last 14 days.** `infra/glitchtip/resolve-stale.py` runs daily
+  at 05:15 (LaunchDaemon `com.homelab.glitchtip-resolve-stale`, log
+  `/tmp/com.homelab.glitchtip-resolve-stale.log`) and resolves anything older. A recurrence
+  reopens the issue. First run: 494 resolved.
+- **No GlitchTip alerts, on purpose.** There are no alert rules or uptime monitors, and email
+  goes to the console. The triage fleet polls GlitchTip (one trace per decision in Langfuse
+  `agents`), and Grafana does alerting. Don't add GlitchTip email alerts without moving that
+  decision.
+- **Tags follow ADR-0010:** `environment=prod` everywhere (not `production`), release
+  `sha-<7>`, the OTel `trace_id` as a tag when a span is active. Still `production` until
+  their next deploy: the prod gateway (deploy-litellm), player/operator smoke alerts, and the
+  DGX pyannote / faster-whisper (env files on the DGX, changed with the DGX converge).
+- **Reaching GlitchTip from the VPS:** use the tailnet HTTPS node
+  (`https://glitchtip.<tailnet>/<id>` in the DSN). `http://homelab:8090` times out from prod,
+  which, with a deleted project id, is why the prod gateway's errors went nowhere until
+  2026-10-15.
 
 Dev DSNs for the podcast laptop runs: `~/podcast-dev-glitchtip.env` on the mini (mode 600).
 

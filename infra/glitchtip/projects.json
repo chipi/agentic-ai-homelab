@@ -1,0 +1,19 @@
+{
+  "_comment": "GlitchTip projects in org homelab, as code. projects.py diffs this against the live instance and creates missing ones (--apply). DSNs are NOT here: they live in each app's deploy secrets. Ids are per instance and shown by projects.py, never relied on.",
+  "projects": [
+    {"slug": "podcast-pipeline",          "team": "podcast", "platform": "python",         "reports": "podcast pipeline + board summarizer (prod), PODCAST_SENTRY_DSN_PIPELINE"},
+    {"slug": "podcast-api",               "team": "podcast", "platform": "python",         "reports": "control-plane + operator public api (prod), PODCAST_SENTRY_DSN_API"},
+    {"slug": "player",                    "team": "podcast", "platform": "javascript-vue", "reports": "player web, player api, player mcp, CI smoke-failure alerts (prod)"},
+    {"slug": "gi-kg-viewer",              "team": "podcast", "platform": "javascript-vue", "reports": "operator viewer web (prod)"},
+    {"slug": "podcast-pipeline-dev",      "team": "podcast", "platform": "python",         "reports": "laptop dev pipeline"},
+    {"slug": "podcast-api-dev",           "team": "podcast", "platform": "python",         "reports": "laptop dev api"},
+    {"slug": "player-dev",                "team": "podcast", "platform": "javascript-vue", "reports": "player dev builds (web + native)"},
+    {"slug": "litellm-prod",              "team": "podcast", "platform": "python",         "reports": "prod LiteLLM gateway (GH secret LITELLM_SENTRY_DSN, https tailnet node)"},
+    {"slug": "litellm",                   "team": "podcast", "platform": "python",         "reports": "homelab LiteLLM gateway"},
+    {"slug": "delivery",                  "team": "podcast", "platform": "python",         "reports": "delivery email/push workers (homelab)"},
+    {"slug": "moss-dgx-transcription",    "team": "podcast", "platform": "python",         "reports": "DGX moss server (GLITCHTIP_DSN)"},
+    {"slug": "pyannote-dgx-diarization",  "team": "podcast", "platform": "python",         "reports": "DGX pyannote server (SENTRY_DSN)"},
+    {"slug": "orrery",                    "team": "podcast", "platform": "javascript",     "reports": "orrery staging"},
+    {"slug": "orrery-prod",               "team": "podcast", "platform": "javascript",     "reports": "orrery prod"}
+  ]
+}
