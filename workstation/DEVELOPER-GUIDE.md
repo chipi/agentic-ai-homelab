@@ -156,8 +156,9 @@ cd /work/orrery/main  # the stream's directory is gone afterwards
 
 Before it starts:
 - **Stop what runs in the stream**: exit the stream's agent (`claude`) and
-  stop dev servers or other processes started there. `wb-integrate` doesn't
-  check for them and would remove the worktree underneath them.
+  stop dev servers or other processes started there (by PID or process
+  group). `wb-integrate` refuses (exit 2) while any are running and lists
+  them; an idle shell (the stream's own window) only warns.
 - **The primary checkout must be clean**: commit, move or discard its changes
   yourself. `wb-integrate` never stashes them.
 - **Untracked files in the stream block it**: commit, delete or git-ignore
@@ -172,7 +173,7 @@ real outcome:
 | 0 | Complete | Close the stream's tmux window (it stays open). |
 | 3 | Integrated, cleanup failed (e.g. teardown) | **Don't rerun.** Follow the printed commands: fix the cause, `wt remove`, then the ancestry-checked `git branch -d`. |
 | 4 | Conflict, not integrated | `git rebase --abort`, or resolve, `git add`, `git rebase --continue`, rerun `wb-integrate`. |
-| 2 | Refused | Fix what it names; nothing was touched. |
+| 2 | Refused | Fix what it names; nothing was touched. "processes are still running": stop each listed one yourself (it never kills), then rerun. |
 | 5 | Unknown | Inspect by hand; nothing was touched by `wb-integrate`. |
 
 **⚠️ Never use bare `wt merge`.** It merges into the repository's default
@@ -250,6 +251,7 @@ The prefix is **Ctrl+Space** (Omarchy).
 | `wb-integrate` exit 4 after aborting a multi-commit stream | The abort returns to Worktrunk's squash commit; the original commits are in `git reflog show <branch>`. |
 | Port in use / collision | Stale or unwanted host listener: stop it. Genuine allocation collision: stop and resolve it explicitly. Don't pick a different port behind `wb-workspace`'s back; it never does that itself, and no further resolution policy is defined yet. |
 | Long-lived process shows an unexpected Node version | Compare `node --version` with `mise current node`; the process may have a fixed `PATH` from elsewhere. |
-| A stream's agent or server still running after `wb-integrate` (cwd in `.git/wt/trash/…`) | The code is integrated. Exit that agent; stop the server by its own PID or process group. Then close the window. |
+| `wb-integrate` refused: processes are still running in the stream | Exit the stream's agent; stop each listed server by its own PID or process group (`kill -- -<pgid>`). Rerun. |
+| An idle shell left in `.git/wt/trash/…` after `wb-integrate` | Expected (it was warned about). Close that tmux window. |
 | Orrery Docker `web`: bind source path does not exist | Build that checkout first: `npm run docker:e2e` (or `npm run build`). |
 | Orrery Docker `web` returns 500 (or `/data/*` 404) after a build, possibly still "healthy" | It's serving the deleted old `build/`. Recreate it without building: `npm run docker:e2e -- --skip-build --smoke-only`. |

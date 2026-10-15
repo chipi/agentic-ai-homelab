@@ -206,7 +206,15 @@ worktree and branch. `wb-integrate` adds three things.
 - the stream has **no untracked, unignored files**. `--stage all`, Worktrunk's
   default, would silently commit them. Uncommitted tracked edits are included
   through `--stage tracked`;
-- no interrupted Git operation in either checkout.
+- no interrupted Git operation in either checkout;
+- **nothing still running in the stream**: no process of yours whose working
+  directory is the stream or a path below it, read from `/proc` (never
+  `pgrep -f`). Not counted: `wb-integrate` itself, its own subprocesses, and its
+  ancestors (the shell, or agent, it was run from). A shell with no child
+  processes, such as the stream's idle tmux pane, only warns. Each blocker is
+  listed with PID, process group, command and directory. `wb-integrate` never
+  stops processes and has no override. If `/proc` can't be read, it warns that
+  the check was not performed.
 
 **2. Outcome classification from Git state.** "Integrated" means the target
 branch advanced as a fast-forward of its old tip, so Worktrunk's exit code
@@ -235,10 +243,12 @@ anything globally, or touches tmux. The stream's tmux window stays open and is
 closed by hand.
 
 **Before running it, stop what runs in the stream:** exit the stream's agent
-and stop any dev server or other process started from the worktree.
-`wb-integrate` doesn't check for them (a [known limitation](#known-limitations-and-deferred-work)):
-it integrates and removes the worktree underneath a live process, which keeps
-running in Worktrunk's deleted trash path.
+and stop any dev server or other process started from the worktree, by its
+own PID or process group. That remains the normal procedure; `wb-integrate`
+now enforces it for every process it can see (above) and refuses instead of
+removing the worktree underneath it. It can't see other users' processes, and
+a process started after its check but before Worktrunk's removal isn't
+caught.
 
 ## wb-workspace
 
@@ -583,8 +593,8 @@ project (Orrery: `.config/workspace/README.md`, "Known limitations").
 
 | Issue | Status | Notes |
 |---|---|---|
-| **Live process during `wb-integrate`** | Proven issue, open | `wb-integrate` integrates and removes a worktree while a `claude` process (or a dev server) still runs in it. The process survives in Worktrunk's deleted trash path; its later writes are lost and any ports it holds stay bound. Happened to both Slice 4B workers. Mitigation today: stop the stream's agent and processes first (see [wb-integrate](#wb-integrate)). |
-| Stream tmux windows stay open | Expected | `wt remove` / `wb-integrate` don't close windows; close them by hand. Not automated on purpose (closing a window could kill a live agent). |
+| Live process during `wb-integrate` | **Resolved** (live-process precondition) | Was: the worktree removed underneath a running `claude` or dev server (both Slice 4B workers). Now refused (exit 2) with the blockers listed. Remaining gaps: other users' processes are invisible, and a process started between the check and Worktrunk's removal isn't caught. |
+| Stream tmux windows stay open | Expected | `wt remove` / `wb-integrate` don't close windows; close them by hand. An idle pane shell in the stream only produces a warning at integration; it then sits in the deleted trash path. A UX concern, not an integration blocker. |
 | LeanCTX project root | Inconsistent, open | Path-escape refusals rooted at the primary checkout appeared in 4A and for one 4B worker started *inside* its worktree, not for the other. "Start the agent in the worktree" is not an established fix. Plus command-policy friction (see [LeanCTX](#leanctx)). |
 | Dependency duplication | Deferred | Each fresh worktree runs its own install (Orrery: about 1.2 GB `node_modules` per stream, plus about 2 GB checkout). Correct, not storage-efficient. |
 | Compose image accumulation | Deferred | Scoped `docker compose down` removes containers and networks, not built images; per-stream images remain after teardown. Needs a scoped maintenance policy, never a global prune. |

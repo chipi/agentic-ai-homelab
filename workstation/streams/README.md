@@ -115,7 +115,15 @@ wb-integrate
   commit, delete or ignore them. Uncommitted *tracked* edits are fine:
   `--stage tracked` includes them. Ignored files never block and are never
   committed;
-- there is something to integrate (commits or tracked edits beyond the target).
+- there is something to integrate (commits or tracked edits beyond the target);
+- **nothing is still running in the stream**: no process of yours whose working
+  directory (`/proc/<pid>/cwd`) is the stream or below it. Read from `/proc`,
+  never `pgrep -f` (it matches its own command line). Excluded:
+  `wb-integrate`, its own subprocesses, and its ancestors (the shell or agent
+  it runs from). A shell with no child processes (an idle tmux pane) only
+  warns. Each blocker is listed as PID, process group, command, directory. It
+  never kills anything and there's no override; if `/proc` is unreadable it
+  warns that the check wasn't performed.
 
 Then it runs `wt merge <primary-branch> --stage tracked`. Worktrunk does
 everything else:
@@ -138,12 +146,8 @@ tip:
 | 2 | **Refused** | A precondition failed; Worktrunk wasn't invoked. The message says what to fix. |
 | 5 | **Unknown** | Anything else. It reports Worktrunk's exit code and the observable state, and changes nothing; inspect by hand. |
 
-**It doesn't check for live processes in the stream**: stop the stream's agent
-and any server started there first, or they keep running in Worktrunk's deleted
-trash path (known limitation, `../DEVELOPER-SETUP.md`).
-
-It never stashes, force-deletes branches (`-D`), cleans `refs/wt-backup`, or
-touches tmux. The stream's tmux window stays open; close it yourself. Run from
+It never stashes, force-deletes branches (`-D`), cleans `refs/wt-backup`,
+stops processes, or touches tmux. The stream's tmux window stays open; close it yourself. Run from
 inside the stream, your shell is left in a removed directory afterwards:
 `cd /work/<project>/main`.
 

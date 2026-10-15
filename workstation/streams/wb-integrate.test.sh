@@ -23,7 +23,8 @@ real_state() {
   done
 }
 REAL_BEFORE="$(real_state)"
-trap 'rm -rf "$T"' EXIT
+OWNED=()   # PIDs of processes this test started (live-process cases); stopped by PID only
+trap 'for p in "${OWNED[@]}"; do kill "$p" 2>/dev/null; done; rm -rf "$T"' EXIT
 
 export HOME="$T/home" GIT_CONFIG_GLOBAL="$T/home/.gitconfig" WB_WORK_ROOT="$ROOT" WB_INTEGRATE_WAIT=20
 export WORKTRUNK_CONFIG_PATH="$T/wt.toml" WORKTRUNK_APPROVALS_PATH="$T/approvals.toml"
@@ -161,6 +162,47 @@ stream proj fix/map; S="$W/fix-map"; printf 'm\n' > "$S/map.txt"; git -C "$S" ad
 rc=$(run "$S")
 chk "fix/map from worktrees/fix-map: exit 0, branch fix/map removed, worktree removed" \
   "[ $rc = 0 ] && grep -q 'COMPLETE: fix/map integrated into primary-line' '$T/out' && ! rev proj fix/map >/dev/null && [ ! -e '$S' ]"
+
+echo "== live processes in the stream (real processes, read from /proc)"
+stream proj s-live; S="$W/s-live"; printf 'l\n' > "$S/live.txt"; git -C "$S" add live.txt; git -C "$S" commit -q -m "s-live"
+stream proj s-livex                                            # sibling whose path shares the prefix
+alive() { kill -0 "$1" 2>/dev/null; }
+pgid_of() { local s r; s=$(cat "/proc/$1/stat") && r=${s##*) } && echo "$r" | cut -d' ' -f3; }
+( cd "$S" && exec sleep 300 ) & LP=$!; OWNED+=("$LP")
+P0=$(rev proj primary-line); : > "$LOG"
+rc=$(runs "$S")
+chk "process with cwd = stream: exit 2, REFUSED, names pid + cwd + command, Worktrunk never invoked" \
+  "[ $rc = 2 ] && grep -q 'refused (Worktrunk not invoked): processes are still running' '$T/out' && grep -q \"pid $LP \" '$T/out' && grep -q \"cwd=$S \" '$T/out' && grep -q 'cmd: sleep 300' '$T/out' && ! wt_called"
+rc=$(run "$S")
+chk "same with the real Worktrunk: target, side branch and worktree unchanged; no teardown ran" \
+  "[ $rc = 2 ] && [ \"\$(rev proj primary-line)\" = '$P0' ] && rev proj s-live >/dev/null && [ -d '$S' ] && [ ! -s '$LOG' ]"
+kill "$LP"; mkdir -p "$S/deep/er"
+( cd "$S/deep/er" && exec sleep 300 ) & LP2=$!; OWNED+=("$LP2")
+rc=$(runs "$S")
+chk "process with cwd below the stream: exit 2, its cwd reported" "[ $rc = 2 ] && grep -q \"cwd=$S/deep/er \" '$T/out' && ! wt_called"
+kill "$LP2"; rmdir "$S/deep/er" "$S/deep"
+# A process group (not PID-led), stopped by its group ID read from /proc.
+( cd "$S" && exec setsid bash -c 'sleep 300 & exec sleep 301' ) & G=$!; OWNED+=("$G")
+for _ in $(seq 50); do [ -r "/proc/$G/stat" ] && [ "$(pgid_of "$G")" != "" ] && break; sleep 0.1; done
+GP=$(pgid_of "$G"); sleep 0.3
+rc=$(runs "$S")
+chk "a setsid process group (pgid $GP) in the stream: exit 2, pgid reported" "[ $rc = 2 ] && grep -q \"(pgid $GP)\" '$T/out' && ! wt_called"
+kill -- "-$GP"; for _ in $(seq 50); do alive "$G" || break; sleep 0.1; done
+chk "group stopped by its own pgid: none of it left" "! alive '$G' && ! grep -l \"\" /proc/[0-9]*/stat 2>/dev/null | xargs -r grep -l \" $GP \" 2>/dev/null | grep -q ."
+# An idle shell in the stream (no children), plus processes in the primary and in a sibling stream.
+mkfifo "$T/idle.fifo"; exec 7<>"$T/idle.fifo"
+( cd "$S" && exec bash -c 'read -r x' < "$T/idle.fifo" ) & IS=$!; OWNED+=("$IS")
+( cd "$M" && exec sleep 300 ) & PM=$!; OWNED+=("$PM")
+( cd "$W/s-livex" && exec sleep 300 ) & PX=$!; OWNED+=("$PX")
+sleep 0.3; : > "$LOG"
+rc=$(run "$S")
+chk "after stopping it: COMPLETE (exit 0); primary and sibling-stream processes don't block" \
+  "[ $rc = 0 ] && grep -q 'COMPLETE: s-live integrated into primary-line' '$T/out' && [ ! -e '$S' ] && ! rev proj s-live >/dev/null"
+chk "the idle shell only warns (named), and teardown still ran with the worktree present" \
+  "grep -q 'warning: idle shell' '$T/out' && grep -q \"pid $IS \" '$T/out' && grep -q 'TEARDOWN proj-s-live exists=yes' '$LOG'"
+chk "nothing was stopped by wb-integrate: idle shell, primary and sibling processes all still alive" \
+  "alive '$IS' && alive '$PM' && alive '$PX'"
+kill "$IS" "$PM" "$PX"; exec 7>&-
 
 echo "== real state untouched"
 chk "/work primary checkouts (status, worktrees, branches) unchanged" "[ \"\$(real_state)\" = \"\$REAL_BEFORE\" ]"

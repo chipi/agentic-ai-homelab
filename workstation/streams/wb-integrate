@@ -104,6 +104,76 @@ if git -C "$side" merge-base --is-ancestor "$b_before" "$t_before" && [ -z "$(gi
   refuse "nothing to integrate: $branch has no commits or tracked changes beyond $target"
 fi
 
+# --- 9. nothing still running in the side worktree ----------------------------
+# A process whose working directory is in the stream (its agent, a dev server, a
+# test watcher) would survive the removal in Worktrunk's deleted trash path: its
+# later writes lost, its ports still bound. Detection reads /proc directly (Linux,
+# like the rest of the workstation contract), never `pgrep -f`, which matches its
+# own command line. Nothing is ever stopped and there is no override.
+# Not counted: wb-integrate itself, its own subprocesses (the scan included), and
+# its ancestors (the shell or agent it was run from). A shell with no child
+# processes, e.g. the stream's tmux pane sitting in the worktree, only warns.
+live_check() {
+  local uid line pid ppid u cwd comm cmd stat rest pgid p n i
+  local -A PPID_OF=() UID_OF=() KIDS=() ANC=()
+  local -a blockers=() idle=() anc_note=()
+  if ! readlink "/proc/$$/cwd" >/dev/null 2>&1; then
+    say "warning: /proc is unavailable; live-process protection was NOT performed."
+    echo "  stop the stream's agent and any server started in $side yourself before relying on this." >&2
+    return 0
+  fi
+  uid=$(id -u)
+  # One pass over /proc: pid -> ppid, uid; and child counts.
+  while read -r pid ppid u; do
+    PPID_OF[$pid]=$ppid; UID_OF[$pid]=$u; KIDS[$ppid]=$(( ${KIDS[$ppid]:-0} + 1 ))
+  done < <(grep -H -E '^(PPid|Uid):' /proc/[0-9]*/status 2>/dev/null |
+    awk '{ split($1, a, "/"); if ($1 ~ /PPid:$/) pp[a[3]] = $2; else ui[a[3]] = $2 }
+         END { for (p in pp) print p, pp[p], ui[p] }')
+  [ "${#PPID_OF[@]}" -gt 0 ] || {
+    say "warning: could not read the process table; live-process protection was NOT performed."
+    return 0
+  }
+  p=$$; for ((i = 0; i < 200; i++)); do ANC[$p]=1; p=${PPID_OF[$p]:-0}; [ "$p" -gt 1 ] || break; done
+  ours() {  # ours <pid>: wb-integrate or one of its own descendants
+    local q=$1 j
+    for ((j = 0; j < 200; j++)); do [ "$q" = "$$" ] && return 0; q=${PPID_OF[$q]:-0}; [ "$q" -gt 1 ] || return 1; done
+    return 1
+  }
+  while IFS= read -r line; do
+    pid=${line%% *}; pid=${pid#/proc/}; cwd=${line#* }
+    [ -n "$cwd" ] && [ "${UID_OF[$pid]:-}" = "$uid" ] || continue
+    [ "$cwd" = "$side" ] || [[ $cwd == "$side"/* ]] || continue
+    ours "$pid" && continue
+    comm=$(cat "/proc/$pid/comm" 2>/dev/null) || continue   # gone meanwhile
+    cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-100)
+    stat=$(cat "/proc/$pid/stat" 2>/dev/null); rest=${stat##*) }; read -r _ _ pgid _ <<<"$rest"
+    n="pid $pid (pgid ${pgid:-?}) $comm  cwd=$cwd  cmd: ${cmd:-?}"
+    if [ -n "${ANC[$pid]:-}" ]; then
+      case "$comm" in bash|sh|zsh|fish|dash|ksh) ;; *) anc_note+=("$n") ;; esac
+    elif case "$comm" in bash|sh|zsh|fish|dash|ksh) true ;; *) false ;; esac && [ "${KIDS[$pid]:-0}" = 0 ]; then
+      idle+=("$n")
+    else
+      blockers+=("$n")
+    fi
+  done < <(find /proc -mindepth 2 -maxdepth 2 -name cwd -printf '%h %l\n' 2>/dev/null)
+  if [ "${#blockers[@]}" -gt 0 ]; then
+    refuse "processes are still running in $side (they would be left in a deleted directory):" \
+      -- "$(printf '%s\n' "${blockers[@]}")" \
+      "stop them first: exit the stream's agent, stop its servers by their own PID or process group" \
+      "(kill -- -<pgid>), then rerun. wb-integrate never stops processes itself."
+  fi
+  if [ "${#idle[@]}" -gt 0 ]; then
+    say "warning: idle shell(s) in the stream (e.g. its tmux window) will be left in a removed directory; close them afterwards:"
+    printf '    %s\n' "${idle[@]}" >&2
+  fi
+  if [ "${#anc_note[@]}" -gt 0 ]; then
+    say "warning: invoked from a process running in this stream; it stays in the removed directory:"
+    printf '    %s\n' "${anc_note[@]}" >&2
+  fi
+  return 0
+}
+live_check
+
 # --- merge: Worktrunk owns squash/rebase/fast-forward/teardown/removal --------
 say "integrating $branch into $target (the branch checked out in $primary)"
 "$WT" -C "$side" merge "$target" --stage tracked
