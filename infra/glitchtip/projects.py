@@ -2,7 +2,8 @@
 """GlitchTip projects as code: diff projects.json against the live org, create what is missing.
 
     python3 projects.py            # dry run: missing / extra / platform differences
-    python3 projects.py --apply    # create missing projects (never deletes or renames)
+    python3 projects.py --apply    # create missing projects; set platform/team where they differ
+                                   # (never deletes or renames)
 
 Runs on the mini as the GlitchTip superuser (infra/glitchtip/.env), like resolve-stale.py.
 Creating a project mints a DSN; wiring it into an app (its deploy secret) stays a deliberate
@@ -37,9 +38,21 @@ def main():
         print(f"  {p['id']:>4} {slug:28} {note}")
     for w in missing:
         print(f"   new {w['slug']:28} MISSING (team {w['team']})")
+    drift = [(slug, w) for slug, w in want.items() if slug in live and (
+        (live[slug].get("platform") or "") != w["platform"]
+        or w["team"] not in [t["slug"] for t in live[slug].get("teams", [])])]
+    for slug, w in drift:
+        teams_live = [t["slug"] for t in live[slug].get("teams", [])]
+        print(f"   fix {slug:28} platform {live[slug].get('platform')}->{w['platform']} teams {teams_live}+{w['team']}")
     if not a.apply:
-        print(f"DRY RUN: {len(missing)} missing project(s) (pass --apply to create)")
+        print(f"DRY RUN: {len(missing)} missing, {len(drift)} to update (pass --apply)")
         return
+    for slug, w in drift:
+        if (live[slug].get("platform") or "") != w["platform"]:
+            s.call("PUT", f"/api/0/projects/{rs.ORG}/{slug}/", {"name": live[slug]["name"], "platform": w["platform"]})
+        if w["team"] not in [t["slug"] for t in live[slug].get("teams", [])]:
+            s.call("POST", f"/api/0/projects/{rs.ORG}/{slug}/teams/{w['team']}/")
+        print(f"updated {slug}")
     for w in missing:
         if w["team"] not in teams:
             s.call("POST", f"/api/0/organizations/{rs.ORG}/teams/", {"slug": w["team"]})

@@ -305,12 +305,13 @@ Prod and dev projects (dev runs never report into a prod project):
 |---|---|---|
 | Podcast pipeline | `podcast-pipeline` (16) | `podcast-pipeline-dev` (25, team `podcast`) |
 | Podcast API | `podcast-api` (17) | `podcast-api-dev` (26, team `podcast`) |
-| Player | `player` (5) | `player-dev` (20) |
+| Player web | `player` (5) | `player-dev` (20) |
+| Player api / mcp | `player-api` (28) / `player-mcp` (29), since 2026-10-15; smoke-failure alerts land in `player-api` | — |
 | LiteLLM gateway | `litellm-prod` (27, the VPS gateway, since 2026-10-15) | `litellm` (19) is the homelab gateway |
 
 The full list, with what reports into each project, is `infra/glitchtip/projects.json`;
 `python3 infra/glitchtip/projects.py` (on the mini) diffs it against the live org and
-`--apply` creates missing projects. It never deletes or renames, and never prints a DSN.
+`--apply` creates missing projects and sets platform/team where they differ. It never deletes or renames, and never prints a DSN.
 
 **How GlitchTip is meant to be read** (settled 2026-10-15):
 
@@ -328,9 +329,11 @@ The full list, with what reports into each project, is `infra/glitchtip/projects
   `agents`), and Grafana does alerting. Don't add GlitchTip email alerts without moving that
   decision.
 - **Tags follow ADR-0010:** `environment=prod` everywhere (not `production`), release
-  `sha-<7>`, the OTel `trace_id` as a tag when a span is active. Still `production` until
-  their next deploy: the prod gateway (deploy-litellm), player/operator smoke alerts, and the
-  DGX pyannote / faster-whisper (env files on the DGX, changed with the DGX converge).
+  `sha-<7>`, the OTel `trace_id` as a tag when a span is active. An event raised outside any
+  OTel span has no OTel trace to point at, so no tag (about 6 of 15 recent pipeline events
+  had one; the player web uses the browser SDK's own trace, not OTel). The DGX services
+  (moss, pyannote, faster-whisper) are `prod` since 2026-10-15. Still `production` until
+  their next deploy: the prod gateway (deploy-litellm) and the player/operator smoke alerts.
 - **Reaching GlitchTip from the VPS:** use the tailnet HTTPS node
   (`https://glitchtip.<tailnet>/<id>` in the DSN). `http://homelab:8090` times out from prod,
   which, with a deleted project id, is why the prod gateway's errors went nowhere until
