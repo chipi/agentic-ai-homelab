@@ -55,7 +55,7 @@ services:
     <<: *logging
 
   migrate:
-    image: glitchtip/glitchtip:6.2.2
+    image: glitchtip/glitchtip:6.2.6
     depends_on:
       postgres: { condition: service_healthy }
     environment: *glitchtip-env
@@ -64,7 +64,7 @@ services:
     <<: *logging
 
   web:
-    image: glitchtip/glitchtip:6.2.2
+    image: glitchtip/glitchtip:6.2.6
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_started }
@@ -76,7 +76,7 @@ services:
     <<: *logging
 
   worker:
-    image: glitchtip/glitchtip:6.2.2
+    image: glitchtip/glitchtip:6.2.6
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_started }

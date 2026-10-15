@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Daily: resolve GlitchTip issues not seen for 14 days (resolve-stale.py). Install:
+       sudo cp com.homelab.glitchtip-resolve-stale.plist /Library/LaunchDaemons/
+       sudo launchctl load -w /Library/LaunchDaemons/com.homelab.glitchtip-resolve-stale.plist
+     Runs at 05:15, after the 04:30 DB backup. A resolved issue that recurs reopens itself. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.homelab.glitchtip-resolve-stale</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/markodragoljevic/agentic-ai-homelab/infra/glitchtip/resolve-stale.py</string>
+    <string>--apply</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>15</integer></dict>
+  <key>StandardOutPath</key><string>/tmp/com.homelab.glitchtip-resolve-stale.log</string>
+  <key>StandardErrorPath</key><string>/tmp/com.homelab.glitchtip-resolve-stale.log</string>
+</dict>
+</plist>
