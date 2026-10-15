@@ -1200,6 +1200,20 @@ class TestGlitchtipSync(unittest.TestCase):
             self.assertIn(f"id={i}", merges[0][1])
         self.assertIn(("PUT", "/issues/13/", {"status": "resolved", "statusDetails": {"inNextRelease": True}}), calls)
 
+    def test_sync_writes_leave_an_audit_trail_and_a_metric(self):
+        import glitchtip_sync as gs
+        orig = gs._gt
+        gs._gt = lambda method, path, body=None, token=None: ([], {}) if method == "GET" else (None, {})
+        try:
+            events = []
+            done = gs.apply([{"sid": "P-1", "id": 1, "action": "resolve", "release": True, "url": "u", "gh": "o/r#1",
+                              "project": "p"}], events)
+        finally:
+            gs._gt = orig
+        self.assertEqual((done["resolved"], done["commented"]), (1, 1))
+        self.assertEqual(sorted(e["action"] for e in events), ["commented", "resolved"])
+        self.assertTrue(all(e["event"] == "glitchtip_sync" and e["fleet"] == "triage" for e in events))
+
     def test_glitchtip_note_uses_the_write_token(self):
         import filing
         sent = {}

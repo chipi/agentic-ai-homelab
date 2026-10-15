@@ -1,6 +1,6 @@
 {
   "uid": "signal-fleet-disp",
-  "title": "Fleet Workforce \u2014 Triage (Fleet 2)",
+  "title": "Fleet Workforce — Triage (Fleet 2)",
   "tags": [
     "signal-fleet",
     "fleet",
@@ -87,7 +87,7 @@
     {
       "type": "stat",
       "title": "Escalations (7d)",
-      "description": "Signals the fleet could not close autonomously \u2014 each has a cited reason. Click for reasons.",
+      "description": "Signals the fleet could not close autonomously — each has a cited reason. Click for reasons.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -149,7 +149,7 @@
     {
       "type": "stat",
       "title": "Oldest queued item",
-      "description": "Age of the oldest item waiting on you \u2014 the operator-is-the-bottleneck signal.",
+      "description": "Age of the oldest item waiting on you — the operator-is-the-bottleneck signal.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -211,8 +211,8 @@
     },
     {
       "type": "bargauge",
-      "title": "Queue by kind (\u2192 downstream fleets)",
-      "description": "bug \u2192 Fleet 1 \u00b7 config-enhancement/cleanup \u2192 Fleet 3 (future). Click for items.",
+      "title": "Queue by kind (→ downstream fleets)",
+      "description": "bug → Fleet 1 · config-enhancement/cleanup → Fleet 3 (future). Click for items.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -310,7 +310,7 @@
     },
     {
       "id": 11,
-      "title": "Escalates (bar: \u22645%)",
+      "title": "Escalates (bar: ≤5%)",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -703,7 +703,7 @@
     },
     {
       "id": 17,
-      "title": "Work filed, by type (\u2192 Fleet 1 / operator)",
+      "title": "Work filed, by type (→ Fleet 1 / operator)",
       "type": "piechart",
       "datasource": {
         "type": "prometheus",
@@ -826,7 +826,7 @@
             "uid": "victoriametrics"
           },
           "expr": "sum by (fleet, outcome) (count_over_time(fleetd_cycle[$__interval]))",
-          "legendFormat": "{{fleet}} \u00b7 {{outcome}}"
+          "legendFormat": "{{fleet}} · {{outcome}}"
         }
       ]
     },
@@ -906,6 +906,103 @@
           "legendFormat": "{{fleet}}"
         }
       ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "GlitchTip sync: changes per cycle (#100)",
+      "description": "What the GitHub → GlitchTip mirror changed each cycle (merged / resolved / commented) and its errors. Each write is also a VictoriaLogs line: {fleet=\"triage\", event=\"glitchtip_sync\"}.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 0,
+        "y": 34
+      },
+      "targets": [
+        {
+          "expr": "max by (kind) (signal_fleet_glitchtip_sync{kind!=\"mapped\"})",
+          "legendFormat": "{{kind}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "errors"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "GlitchTip issues linked to GitHub",
+      "description": "GlitchTip issues the fleet filed (filed.tsv) that the sync mirrors each cycle.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 34
+      },
+      "targets": [
+        {
+          "expr": "last_over_time(signal_fleet_glitchtip_sync{kind=\"mapped\"}[1h])",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "none",
+        "graphMode": "none"
+      }
     }
   ]
 }

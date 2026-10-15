@@ -745,6 +745,35 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [1] } }]
 
+      # --- triage fleet: GitHub -> GlitchTip sync failing (#100) --------------------
+      # The sync must never fail a fleet cycle (fleetd-cycle-failing can't see it), so it
+      # pushes signal_fleet_glitchtip_sync{kind="errors"} every run. Fire only when EVERY
+      # run in 25m (~2-3 cycles of 10m) had errors: a persistent failure (token revoked,
+      # GlitchTip/GitHub API change), not one flaky call. Drill-down: VictoriaLogs
+      # {fleet="triage", event="glitchtip_sync"} and fleetd's log ("glitchtip-sync").
+      - uid: glitchtip-sync-failing
+        title: "triage fleet: GitHub -> GlitchTip sync failing"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: fleet, meta: "true" }
+        annotations:
+          summary: "The GitHub -> GlitchTip sync (#100) has had errors in every run for 25m. GlitchTip stops mirroring GitHub closes until fixed. Drill-down: fleetd log lines 'glitchtip-sync', VictoriaLogs {fleet=\"triage\", event=\"glitchtip_sync\"}."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1500, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min_over_time(signal_fleet_glitchtip_sync{kind="errors"}[25m])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
       # --- bugfix-fleet mass-stuck (fail-loud) -------------------------------------
       # The bugfix-fleet runs autonomously in batches (dormant between operator
       # reviews). On a systemic failure — e.g. the litellm virtual key wiped by a

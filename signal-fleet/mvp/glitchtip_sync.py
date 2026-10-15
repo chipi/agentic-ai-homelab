@@ -158,7 +158,15 @@ def _resolve(issue_id, release):
     _gt("PUT", f"/issues/{issue_id}/", body)
 
 
-def apply(actions):
+def _audit(events, action, a, extra=""):
+    events.append({"fleet": "triage", "event": "glitchtip_sync", "action": action, "glitchtip": a["sid"],
+                   "github": a.get("gh", ""), "project": a.get("project", ""),
+                   "_msg": f"glitchtip-sync {action} {a['sid']} ({a.get('gh', '')}){extra}"})
+
+
+def apply(actions, events=None):
+    """Write the planned actions. ``events`` collects one audit entry per write."""
+    events = [] if events is None else events
     done = collections.Counter()
     for a in actions:
         if a["action"] in ("skip", "merge"):    # merges: commented on the survivor below
@@ -167,9 +175,11 @@ def apply(actions):
             if not _has_marker(a["id"]):
                 _comment(a)
                 done["commented"] += 1
+                _audit(events, "commented", a)
             if a["action"] == "resolve":
                 _resolve(a["id"], a.get("release"))
                 done["resolved"] += 1
+                _audit(events, "resolved", a, " in next release" if a.get("release") else "")
         except Exception as ex:  # noqa: BLE001 — one bad issue must not stop the pass
             done["errors"] += 1
             print(f"  sync {a['sid']} {a['action']} failed: {ex}")
@@ -185,6 +195,8 @@ def apply(actions):
             q = urllib.parse.urlencode([("id", i) for i in ids])
             _gt("PUT", f"/organizations/{ORG}/issues/?{q}", {"merge": 1})
             done["merged"] += len(members)
+            for m in members:
+                _audit(events, "merged", m, f" into {m.get('target_sid')} (GitHub duplicate of {m.get('canon')})")
             survivor = max(ids)
             if not _has_marker(survivor):
                 _comment({**members[0], "id": survivor})
@@ -192,6 +204,7 @@ def apply(actions):
             if members[0].get("then_resolve"):
                 _resolve(survivor, members[0].get("release"))
                 done["resolved"] += 1
+                _audit(events, "resolved", {**members[0], "sid": f"merge-survivor:{survivor}"})
         except Exception as ex:  # noqa: BLE001
             done["errors"] += 1
             print(f"  sync merge into {target} failed: {ex}")
@@ -216,9 +229,31 @@ def run(do_apply=False, samples=3):
     if not do_apply:
         print("DRY RUN (pass --apply)")
         return counts
-    done = apply(actions)
+    events = []
+    done = apply(actions, events)
     print(f"glitchtip-sync applied: {dict(done)}")
+    _observe(len(rows), done, events)
     return done
+
+
+def _observe(mapped, done, events):
+    """Minimal o11y, like the fleet's other steps: one VictoriaMetrics sample per kind per
+    run (dashboard + the glitchtip-sync-errors alert) and one VictoriaLogs line per write
+    (the audit trail: what changed in GlitchTip, and which GitHub decision caused it)."""
+    base = f'service="{config.SF_SERVICE}",environment="{config.SF_ENV}"'
+    kinds = {"mapped": mapped, **{k: done.get(k, 0) for k in ("merged", "resolved", "commented", "errors")}}
+    lines = [f'signal_fleet_glitchtip_sync{{kind="{k}",{base}}} {v}' for k, v in kinds.items()]
+    try:
+        req = urllib.request.Request(config.VM_URL + "/api/v1/import/prometheus",
+                                     data=("\n".join(lines) + "\n").encode(), method="POST")
+        urllib.request.urlopen(req, timeout=8)
+    except Exception as ex:  # noqa: BLE001 — telemetry must never fail the sync
+        print(f"  glitchtip-sync metric push failed: {ex}")
+    try:
+        import inbox
+        inbox._vl_ship(events)
+    except Exception as ex:  # noqa: BLE001
+        print(f"  glitchtip-sync audit ship failed: {ex}")
 
 
 if __name__ == "__main__":
