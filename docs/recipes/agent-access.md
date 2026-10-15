@@ -342,6 +342,23 @@ Projects (org `homelab`):
 | `podcast-dev` | podcast_scraper laptop dev runs | `~/podcast-langfuse-dev.env` |
 | `podcast-prod` | the prod podcast VPS's `litellm` (team key `proj-podcast-prod`) since 2026-10-14; 145 traces on 2026-10-15. Also the podcast o11y MCP's Langfuse source | `~/podcast-langfuse-prod.env` |
 
+**What lands in Langfuse, and how to read it** (operator's call, 2026-10-15: Langfuse holds
+EVERY call the gateways make, so the shape and nature of all LLM traffic stays visible;
+don't route calls around a gateway to tidy it):
+
+- **Traces and sessions.** A podcast trace is one OTel trace: its id is the OTel trace id,
+  it's named `episode <id>`, and its session is the run. Fleet traces carry the fleet's
+  context, and their gateway calls sit inside them (`triage-turn-N`, `existing_trace_id`).
+- **Generations** are named after the pipeline stage (`kg`, `gi`, `cleaning`,
+  `summarization`, `storyline_summary`, …).
+- **`litellm-pass_through_endpoint` entries are not model calls.** They are the pipeline's
+  `/tokenize` token counts, which go through the prod gateway to the DGX: about one per
+  episode, carrying the whole text plus its token array (about 41 KB each way), with no
+  usage and no cost. They stay on purpose. Filter them out in a saved Langfuse view when
+  reading model traffic.
+- **Environments.** `prod` comes from the prod gateway (`LANGFUSE_TRACING_ENVIRONMENT`) and
+  `operations` from the homelab gateway. `default` means a gateway without the variable.
+
 Create a project and key pair the way the UI does (tRPC, logged in as the
 `LANGFUSE_INIT_USER_*` admin from `~/agentic-ai-homelab/infra/langfuse/.env`):
 `GET /api/auth/csrf` → `POST /api/auth/callback/credentials` (form: email, password,
