@@ -102,6 +102,18 @@
       "team": "podcast",
       "platform": "javascript",
       "reports": "orrery vite dev (laptop); src/lib/observability/sentry.ts dev DSN, which pointed at a nonexistent project 7 until 2026-10-16"
+    },
+    {
+      "slug": "orrery-lab-api",
+      "team": "podcast",
+      "platform": "node",
+      "reports": "orrery lab-api server (prod), its own DSN, like player-api"
+    },
+    {
+      "slug": "orrery-mcp",
+      "team": "podcast",
+      "platform": "node",
+      "reports": "orrery mcp server (prod), its own DSN, like player-mcp"
     }
   ]
 }
