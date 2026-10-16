@@ -31,6 +31,12 @@ venv/
 secrets/
 *.key
 *.pem
+# wb-recovery: real bundles, sidecars and private manifests never belong in this repo
+*.tar.gpg
+*.tar.gpg.sha256
+*.tar.gpg.partial
+.*.tar.gpg.partial
+workstation/recovery/manifest.tsv
 
 # Backups produced by config edits — keep templates only
 *.bak

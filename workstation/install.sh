@@ -292,6 +292,8 @@ install_linux() {
   worktrunk
   storage
   tmux_persistence
+  # recovery/README.md: the tiny encrypted recovery bundle; the manifest stays private
+  link recovery/wb-recovery          "$HOME/.local/bin/wb-recovery"
 }
 
 preflight

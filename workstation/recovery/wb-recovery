@@ -1,0 +1,263 @@
+#!/usr/bin/env bash
+# wb-recovery — the workstation's tiny encrypted recovery bundle (workstation/recovery/README.md).
+#
+# Backs up ONLY the small unique local state an explicit, private manifest lists
+# (project .env files, local overrides, a few configs). Not a home-directory backup.
+#
+#   wb-recovery inventory [-m manifest]
+#   wb-recovery backup    [-m manifest] -o <dir>     encrypted bundle + .sha256 sidecar
+#   wb-recovery verify    <bundle> [--sha256 <hex>]  decrypt in memory, check every entry
+#   wb-recovery restore-plan <bundle> [--into <new dir>]
+#                                                    extract to a fresh private dir, print a plan
+#   wb-recovery discard <dir>                        remove a restore dir this tool created
+#
+# Manifest: tab-separated "CLASS<TAB>PATH<TAB>NOTE", '#' comments. Only REQUIRED_PRIVATE
+# and OPTIONAL_PRIVATE entries go into the bundle; CODIFIED, REAUTH, REPRODUCIBLE and
+# EXCLUDED are recorded for the audit and never read. PATH may start with "~/".
+# REQUIRED_PRIVATE that is missing, a symlink or not a regular file stops everything;
+# a missing OPTIONAL_PRIVATE entry is skipped with a warning. A directory entry adds
+# every regular file below it and fails on any symlink or special file inside.
+#
+# Encryption: GnuPG symmetric (OpenPGP, AES-256, iterated+salted SHA-512 S2K, integrity
+# protected). The passphrase is typed at gpg's own terminal prompt; it never appears in
+# argv, history, logs or this tool's output. Contents are never printed.
+#
+# Exit: 0 ok, 1 check failed (missing/tampered/mismatch), 2 usage or refused.
+set -uo pipefail
+umask 077
+
+MANIFEST="${WB_RECOVERY_MANIFEST:-$HOME/.config/wb-recovery/manifest.tsv}"
+RUNTIME="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+FORMAT="wb-recovery/1"
+INCLUDED_CLASSES=" REQUIRED_PRIVATE OPTIONAL_PRIVATE "
+KNOWN_CLASSES=" REQUIRED_PRIVATE OPTIONAL_PRIVATE CODIFIED REAUTH REPRODUCIBLE EXCLUDED "
+
+say() { echo "wb-recovery: $*" >&2; }
+die() { say "$*"; exit 2; }
+usage() { awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$(readlink -f "${BASH_SOURCE[0]}")"; }
+
+# gpg_args: passphrase from the terminal (loopback = gpg's own tty prompt, never a GUI
+# pinentry on another screen). WB_RECOVERY_PASSPHRASE_FD exists for the tests only.
+gpg_args() {
+  GPG=(gpg --quiet --no-symkey-cache --pinentry-mode loopback)
+  if [ -n "${WB_RECOVERY_PASSPHRASE_FD:-}" ]; then GPG+=(--batch --passphrase-fd "$WB_RECOVERY_PASSPHRASE_FD"); fi
+}
+
+STAGE=""
+cleanup() { [ -n "$STAGE" ] && [ -d "$STAGE" ] && rm -rf -- "$STAGE"; STAGE=""; }
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT TERM
+new_stage() { STAGE=$(mktemp -d "$RUNTIME/wb-recovery-stage.XXXXXXXX") || die "cannot create a private staging dir in $RUNTIME"; }
+
+# ---- manifest -------------------------------------------------------------------
+# read_manifest: ENTRY_CLASS[i] ENTRY_PATH[i] for every line; validates syntax.
+read_manifest() {
+  [ -f "$MANIFEST" ] || die "no manifest at $MANIFEST (copy workstation/recovery/manifest.example.tsv)"
+  [ ! -L "$MANIFEST" ] || die "manifest $MANIFEST is a symlink; refusing"
+  ENTRY_CLASS=(); ENTRY_PATH=()
+  local n=0 class path note
+  while IFS=$'\t' read -r class path note || [ -n "${class:-}" ]; do
+    n=$((n + 1))
+    case "$class" in ""|\#*) continue ;; esac
+    [[ $KNOWN_CLASSES == *" $class "* ]] || die "manifest line $n: unknown class '$class'"
+    [ -n "${path:-}" ] || die "manifest line $n: no path"
+    case "$path" in "~/"*) path="$HOME/${path#\~/}" ;; esac
+    case "$path" in /*) ;; *) die "manifest line $n: path must be absolute or start with ~/" ;; esac
+    case "/$path/" in */../*|*/./*) die "manifest line $n: '.' or '..' in path" ;; esac
+    [ "$path" != / ] || die "manifest line $n: refusing /"
+    ENTRY_CLASS+=("$class"); ENTRY_PATH+=("${path%/}")
+  done < "$MANIFEST"
+}
+
+# collect: FILES[] = regular files to include, FCLASS[]; fails closed on REQUIRED problems.
+collect() {
+  FILES=(); FCLASS=(); local i c p bad=0 f
+  for i in "${!ENTRY_PATH[@]}"; do
+    c=${ENTRY_CLASS[i]}; p=${ENTRY_PATH[i]}
+    [[ $INCLUDED_CLASSES == *" $c "* ]] || continue
+    if [ -L "$p" ]; then say "REFUSED $c $p is a symlink (not followed)"; bad=1; continue; fi
+    if [ ! -e "$p" ]; then
+      if [ "$c" = REQUIRED_PRIVATE ]; then say "MISSING required $p"; bad=1; else say "skip    optional $p (missing)"; fi
+      continue
+    fi
+    if [ -f "$p" ]; then FILES+=("$p"); FCLASS+=("$c"); continue; fi
+    if [ -d "$p" ]; then
+      if [ -n "$(find "$p" ! -type f ! -type d -print -quit)" ]; then say "REFUSED $c $p contains a symlink or special file"; bad=1; continue; fi
+      while IFS= read -r -d '' f; do FILES+=("$f"); FCLASS+=("$c"); done < <(find "$p" -type f -print0 | LC_ALL=C sort -z)
+      continue
+    fi
+    say "REFUSED $c $p is not a regular file or directory"; bad=1
+  done
+  for f in "${FILES[@]}"; do
+    case "$f" in *$'\n'*|*$'\t'*) say "REFUSED a path contains a newline or tab"; bad=1 ;; esac
+  done
+  [ $bad = 0 ] || { say "nothing was written"; exit 1; }
+  [ ${#FILES[@]} -gt 0 ] || die "the manifest selects no files"
+}
+
+meta_line() {  # meta_line <path> <class>: one MANIFEST.tsv record (no contents)
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(sha256sum < "$1" | cut -d' ' -f1)" "$(stat -c %a "$1")" "$(stat -c %s "$1")" \
+    "$(stat -c %Y "$1")" "$(stat -c %U:%G "$1")" "$2" "${1#/}"
+}
+
+cmd_inventory() {
+  read_manifest
+  local i c p
+  printf '%-17s %-9s %8s %4s %-12s %-19s %s\n' CLASS STATE SIZE MODE OWNER MTIME PATH
+  for i in "${!ENTRY_PATH[@]}"; do
+    c=${ENTRY_CLASS[i]}; p=${ENTRY_PATH[i]}
+    if [[ $INCLUDED_CLASSES != *" $c "* ]]; then printf '%-17s %-9s %8s %4s %-12s %-19s %s\n' "$c" "not-read" - - - - "$p"; continue; fi
+    if [ -L "$p" ]; then printf '%-17s %-9s %8s %4s %-12s %-19s %s\n' "$c" SYMLINK - - - - "$p"
+    elif [ -f "$p" ]; then printf '%-17s %-9s %8s %4s %-12s %-19s %s  sha256=%s\n' "$c" ok "$(stat -c %s "$p")" "$(stat -c %a "$p")" "$(stat -c %U:%G "$p")" "$(date -d @"$(stat -c %Y "$p")" +%FT%T)" "$p" "$(sha256sum < "$p" | cut -d' ' -f1)"
+    elif [ -d "$p" ]; then printf '%-17s %-9s %8s %4s %-12s %-19s %s (%s files)\n' "$c" dir - "$(stat -c %a "$p")" "$(stat -c %U:%G "$p")" - "$p" "$(find "$p" -type f | wc -l)"
+    elif [ -e "$p" ]; then printf '%-17s %-9s %8s %4s %-12s %-19s %s\n' "$c" SPECIAL - - - - "$p"
+    else printf '%-17s %-9s %8s %4s %-12s %-19s %s\n' "$c" MISSING - - - - "$p"; fi
+  done
+  collect >/dev/null
+  echo "included files: ${#FILES[@]}"
+}
+
+cmd_backup() {
+  local out=""
+  while [ $# -gt 0 ]; do case $1 in -o) out=${2:-}; shift 2 ;; -m) MANIFEST=${2:-}; shift 2 ;; *) die "usage: wb-recovery backup [-m manifest] -o <dir>" ;; esac; done
+  [ -n "$out" ] && [ -d "$out" ] && [ ! -L "$out" ] || die "backup needs -o <existing directory>"
+  command -v gpg >/dev/null || die "gpg is required"
+  read_manifest; collect
+  new_stage
+  local ts host name bundle tmpout f i
+  ts=$(date -u +%Y%m%dT%H%M%SZ); host=$(uname -n)
+  name="wb-recovery-$host-$ts.tar.gpg"; bundle="$out/$name"
+  [ ! -e "$bundle" ] || die "$bundle already exists"
+  { printf '# %s\tcreated=%s\thost=%s\tentries=%s\n' "$FORMAT" "$ts" "$host" "${#FILES[@]}"
+    printf '# sha256\tmode\tsize\tmtime\towner\tclass\tpath\n'
+    for i in "${!FILES[@]}"; do meta_line "${FILES[i]}" "${FCLASS[i]}"; done; } > "$STAGE/MANIFEST.tsv"
+  : > "$STAGE/list"
+  for f in "${FILES[@]}"; do printf '%s\0' "${f#/}" >> "$STAGE/list"; done
+  gpg_args
+  tmpout="$out/.${name}.partial"
+  # plaintext never reaches disk: tar streams the files straight into gpg
+  tar --format=pax --numeric-owner -cf - -C "$STAGE" MANIFEST.tsv -C / --null --no-recursion -T "$STAGE/list" |
+    "${GPG[@]}" --symmetric --cipher-algo AES256 --s2k-mode 3 --s2k-digest-algo SHA512 --s2k-count 65011712 \
+      --compress-algo zlib --output "$tmpout"
+  local rc=("${PIPESTATUS[@]}")
+  if [ "${rc[0]}" != 0 ] || [ "${rc[1]}" != 0 ]; then rm -f -- "$tmpout"; say "backup failed (tar=${rc[0]} gpg=${rc[1]}); nothing kept"; exit 1; fi
+  # a file that changed while it was read would make the manifest lie
+  local -A recorded=(); local h m s mt o cl rel
+  while IFS=$'\t' read -r h m s mt o cl rel; do recorded[$rel]=$h; done < <(grep -v '^#' "$STAGE/MANIFEST.tsv")
+  for f in "${FILES[@]}"; do
+    if [ "$(sha256sum < "$f" | cut -d' ' -f1)" != "${recorded[${f#/}]:-}" ]; then
+      rm -f -- "$tmpout"; say "a file changed during the backup; nothing kept, run it again"; exit 1
+    fi
+  done
+  mv -- "$tmpout" "$bundle"; chmod 0600 "$bundle"
+  (cd "$out" && sha256sum "$name" > "$name.sha256" && chmod 0600 "$name.sha256")
+  echo "bundle:   $bundle"
+  echo "format:   $FORMAT, OpenPGP symmetric AES256 (GnuPG $(gpg --version | head -1 | awk '{print $3}'))"
+  echo "entries:  ${#FILES[@]}"
+  echo "size:     $(stat -c %s "$bundle") bytes"
+  echo "sha256:   $(cut -d' ' -f1 "$bundle.sha256")"
+}
+
+# decrypt_to_hashes <bundle>: decrypt in memory; writes $STAGE/members (sha256 mode size name)
+# and $STAGE/MANIFEST.tsv. No content reaches disk.
+decrypt_to_hashes() {
+  gpg_args
+  local helper="$STAGE/member.sh"
+  cat > "$helper" <<'EOS'
+#!/bin/sh
+if [ "$TAR_FILENAME" = MANIFEST.tsv ]; then cat > "$WBR_STAGE/MANIFEST.tsv"; exit 0; fi
+h=$(sha256sum | cut -d' ' -f1)
+printf '%s\t%s\t%s\t%s\n' "$h" "$TAR_MODE" "$TAR_SIZE" "$TAR_FILENAME" >> "$WBR_STAGE/members"
+EOS
+  chmod 0700 "$helper"; : > "$STAGE/members"
+  "${GPG[@]}" --decrypt "$1" | WBR_STAGE="$STAGE" tar -xf - --to-command="$helper"
+  local rc=("${PIPESTATUS[@]}")
+  [ "${rc[0]}" = 0 ] || { say "DECRYPTION FAILED (wrong passphrase, or the bundle is corrupt or tampered)"; return 1; }
+  [ "${rc[1]}" = 0 ] || { say "the decrypted archive is not readable"; return 1; }
+  [ -s "$STAGE/MANIFEST.tsv" ] || { say "no MANIFEST.tsv in the bundle"; return 1; }
+}
+
+# check_members: every MANIFEST record has exactly one member with that hash/mode/size, nothing extra.
+check_members() {
+  local want got
+  want=$(awk -F'\t' '!/^#/ { printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $7 }' "$STAGE/MANIFEST.tsv" | LC_ALL=C sort)
+  got=$(awk -F'\t' '{ m = substr($2, length($2) - 2); sub(/^0+/, "", m); printf "%s\t%s\t%s\t%s\n", $1, m, $3, $4 }' "$STAGE/members" | LC_ALL=C sort)
+  if [ "$want" != "$got" ]; then
+    say "MISMATCH between the bundle's manifest and its contents:"
+    diff <(echo "$want" | cut -f2-4) <(echo "$got" | cut -f2-4) | grep '^[<>]' | sed 's/^/  /' >&2
+    [ "$(echo "$want" | cut -f4)" = "$(echo "$got" | cut -f4)" ] && say "  (same entries; a hash, mode or size differs)"
+    return 1
+  fi
+}
+
+cmd_verify() {
+  local bundle="" sha=""
+  while [ $# -gt 0 ]; do case $1 in --sha256) sha=${2:-}; shift 2 ;; -*) die "unknown option $1" ;; *) bundle=$1; shift ;; esac; done
+  [ -f "$bundle" ] && [ ! -L "$bundle" ] || die "usage: wb-recovery verify <bundle> [--sha256 <hex>]"
+  [ -n "$sha" ] || { [ -f "$bundle.sha256" ] && sha=$(cut -d' ' -f1 "$bundle.sha256"); }
+  local actual; actual=$(sha256sum < "$bundle" | cut -d' ' -f1)
+  if [ -n "$sha" ]; then
+    [ "$actual" = "$sha" ] || { say "ENCRYPTED SHA-256 MISMATCH: expected $sha, got $actual"; exit 1; }
+    echo "encrypted sha256 ok: $actual"
+  else
+    echo "encrypted sha256:    $actual (no expected value given)"
+  fi
+  new_stage
+  decrypt_to_hashes "$bundle" || exit 1
+  check_members || exit 1
+  head -1 "$STAGE/MANIFEST.tsv" | sed 's/^# /manifest: /'
+  echo "verified: $(grep -vc '^#' "$STAGE/MANIFEST.tsv") entries, every sha256, mode and size matches; no unexpected entries"
+}
+
+cmd_restore_plan() {
+  local bundle="" into=""
+  while [ $# -gt 0 ]; do case $1 in --into) into=${2:-}; shift 2 ;; -*) die "unknown option $1" ;; *) bundle=$1; shift ;; esac; done
+  [ -f "$bundle" ] && [ ! -L "$bundle" ] || die "usage: wb-recovery restore-plan <bundle> [--into <new dir>]"
+  if [ -z "$into" ]; then into=$(mktemp -d "$RUNTIME/wb-recovery-restore.XXXXXXXX") || die "cannot create a restore dir"
+  else
+    [ "$(readlink -m "$into")" != / ] || die "refusing to restore into /"
+    if [ -e "$into" ]; then [ -d "$into" ] && [ -z "$(ls -A "$into")" ] || die "$into exists and is not an empty directory; refusing"; else mkdir -m 0700 -p "$into" || die "cannot create $into"; fi
+  fi
+  chmod 0700 "$into"; : > "$into/.wb-recovery-restore"
+  gpg_args
+  "${GPG[@]}" --decrypt "$bundle" | tar -xf - -C "$into" --no-same-owner --keep-old-files --preserve-permissions
+  local rc=("${PIPESTATUS[@]}")
+  if [ "${rc[0]}" != 0 ] || [ "${rc[1]}" != 0 ]; then say "extraction failed (gpg=${rc[0]} tar=${rc[1]}); removing $into"; rm -rf -- "$into"; exit 1; fi
+  new_stage
+  awk -F'\t' '!/^#/' "$into/MANIFEST.tsv" | while IFS=$'\t' read -r h mode size mtime owner class rel; do
+    printf '%s\t%s\t%s\t%s\n' "$(sha256sum < "$into/$rel" | cut -d' ' -f1)" "$(stat -c %a "$into/$rel")" "$(stat -c %s "$into/$rel")" "$rel"
+  done | LC_ALL=C sort > "$STAGE/got"
+  local extra
+  extra=$(cd "$into" && find . -type f ! -name MANIFEST.tsv ! -name .wb-recovery-restore | sed 's#^\./##' | LC_ALL=C sort | comm -13 <(awk -F'\t' '!/^#/ { print $7 }' MANIFEST.tsv | LC_ALL=C sort) -)
+  if [ -n "$extra" ] || [ "$(awk -F'\t' '!/^#/ { printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $7 }' "$into/MANIFEST.tsv" | LC_ALL=C sort)" != "$(cat "$STAGE/got")" ]; then
+    say "restored files do not match the bundle's manifest; removing $into"; rm -rf -- "$into"; exit 1
+  fi
+  echo "restored into $into (private, mode 0700); every file matches its manifest sha256, mode and size"
+  echo "nothing outside it was written. Plan (review, then run the lines you want yourself):"
+  awk -F'\t' '!/^#/ { print $1 "\t" $2 "\t" $6 "\t" $7 }' "$into/MANIFEST.tsv" | while IFS=$'\t' read -r h mode class rel; do
+    live="/$rel"
+    if [ ! -e "$live" ]; then state="missing on this machine"
+    elif [ -f "$live" ] && [ "$(sha256sum < "$live" | cut -d' ' -f1)" = "$h" ]; then state="identical, nothing to do"
+    else state="DIFFERS from the live file (compare before replacing)"; fi
+    printf '  [%s] %s: %s\n' "$class" "$live" "$state"
+    [ "$state" = "identical, nothing to do" ] || printf '      install -D -m %s %q %q\n' "$mode" "$into/$rel" "$live"
+  done
+  echo "when done: wb-recovery discard $into"
+}
+
+cmd_discard() {
+  local d=${1:-}
+  [ -n "$d" ] && [ -d "$d" ] && [ ! -L "$d" ] || die "usage: wb-recovery discard <restore dir>"
+  [ -f "$d/.wb-recovery-restore" ] || die "$d was not created by wb-recovery restore-plan; refusing"
+  rm -rf -- "$d" && echo "removed $d"
+}
+
+case "${1:-}" in
+  inventory)    shift; [ "${1:-}" = -m ] && MANIFEST=${2:-}; cmd_inventory ;;
+  backup)       shift; cmd_backup "$@" ;;
+  verify)       shift; cmd_verify "$@" ;;
+  restore-plan) shift; cmd_restore_plan "$@" ;;
+  discard)      shift; cmd_discard "$@" ;;
+  -h|--help|help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

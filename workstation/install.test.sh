@@ -203,6 +203,8 @@ chk "populated /work + Docker trees (as on X3), dry-run: reports needs-migration
 run
 chk "populated, real run: same report; nothing moved, copied, deleted or written under the storage root" \
   "[ $(rc) = 0 ] && grep -q '^INFO  storage: needs-migration' '$H.out' && [ \"\$(ssig)\" = '$sbefore' ]"
+chk "real run links wb-recovery and installs no recovery manifest (that stays private, by hand)" \
+  "[ \"\$(readlink '$H/.local/bin/wb-recovery')\" = '$HERE/recovery/wb-recovery' ] && [ ! -e '$H/.config/wb-recovery' ]"
 chk "real run links wb-storage; installs no drop-ins and adds no fstab entry" \
   "[ \"\$(readlink '$H/.local/bin/wb-storage')\" = '$HERE/storage/wb-storage' ] && [ ! -e '$SR/etc/systemd' ] && [ \$(grep -c . '$SR/etc/fstab') = 1 ]"
 sroot fresh; home st-fresh "$BASE$SSH_LINE"$'\n'"$WT_LINE"$'\n'; sbefore=$(ssig); run
