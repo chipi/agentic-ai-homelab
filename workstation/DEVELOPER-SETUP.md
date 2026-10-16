@@ -127,6 +127,13 @@ tmux: orrery
 - **Removing a worktree (`wt remove`) doesn't close its tmux window.** Kill
   stale windows by hand.
 - No Worktrunk hook touches tmux, by design.
+- **Reboot persistence: topology is durable, processes are ephemeral.**
+  tmux-resurrect snapshots every session, window, pane, layout and working
+  directory (periodically, via `wb-tmux-save.timer`); after a reboot,
+  `wb-tmux restore` brings the cockpit back with a plain shell in every pane and
+  starts nothing (no agents, servers or test runners). Details, state location and
+  recovery: [`tmux/README.md`](tmux/README.md); decision:
+  [ADR-0012](../docs/adr/ADR-0012-tmux-workspace-persistence.md).
 
 ## Worktrunk
 
@@ -671,7 +678,7 @@ project (Orrery: `.config/workspace/README.md`, "Known limitations").
 | `refs/wt-backup/<branch>` | Deferred | Left by Worktrunk after squashing tracked edits; nothing cleans them. |
 | Port allocation | By design | Deterministic and stateless; a collision stops the operation and is resolved explicitly; never changed silently. Collisions across differently named slots of other projects aren't detectable. |
 | `session-reap.sh` family sweep under `/work` | Unverified | Its main reap is checkout-scoped (cwd under the session's directory), which suits Model-B. Its cross-worktree `gh run` loop sweep keys on a `$HOME/<container>/<base>` family prefix from the older layout; not verified for `/work/<project>/…`. |
-| tmux sessions don't survive a reboot | Expected | Recreate the project session (`tmux new -s <project> -c /work/<project>/main`). |
+| tmux sessions don't survive a reboot | **Resolved** (tmux persistence) | The topology comes back with `wb-tmux restore` ([`tmux/README.md`](tmux/README.md)); the programs that ran in the panes don't, by design. Without a snapshot: `tmux new -s <project> -c /work/<project>/main`. |
 | LUKS manual unlock | Expected | Needed before the machine is reachable after a cold boot. |
 | Storage | Codified; X3 migration pending | The layout (`@work`, `@docker`, `@containerd` outside the root rollback domain) is codified in `storage/` and [ADR-0011](../docs/adr/ADR-0011-workstation-storage-subvolumes.md); the X3 is migrated by hand with the [runbook](../docs/recipes/x3-storage-separation.md). The 2 TB disk is enough for now; a second encrypted NVMe can later take the three subvolumes by changing only their fstab lines. |
 | cmux remote-tmux | Optional | Beta; nothing depends on it. |

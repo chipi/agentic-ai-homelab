@@ -93,6 +93,12 @@ are backed up as `*.bak.<timestamp>`. `--dry-run` changes nothing on disk.
   Linux (or the reverse): `WS_OS=macos ./workstation/install.sh --dry-run`.
   Open a new shell afterwards, then unlock the key once per boot:
   `ssh-add ~/.ssh/id_ed25519`.
+- **Linux tmux persistence:** installs the pinned tmux-resurrect, the policy, `wb-tmux`
+  and the `wb-tmux-save.timer` (needs network for the plugin). To bring back a cockpit
+  from another machine, copy its snapshot into `~/.local/share/tmux/resurrect/`, point
+  `last` at it, clone the projects to the same paths, then `wb-tmux restore`
+  ([`tmux/README.md`](tmux/README.md#restore-modes)). Without one, start the canonical
+  sessions: `tmux new -s <project> -c /work/<project>/main`.
 - **Linux storage:** the `INFO  storage:` line reports the layout and changes
   nothing. On a fresh machine (`fresh`), set up `@work`, `@docker` and `@containerd`
   before cloning projects and before Docker first starts: the steps are in
@@ -152,6 +158,7 @@ ls -l ~/.claude/CLAUDE.md                     # → symlink into workstation/cla
 command -v lean-ctx lsof                      # Linux: both must resolve (hooks need them)
 systemctl --user is-enabled ssh-agent.socket  # Linux: enabled
 sudo "$(command -v wb-storage)" status        # Linux: separated (after the storage setup)
+wb-tmux status                                # Linux: plugin ok, timer enabled (start tmux first for the server line)
 ssh-add -l && ssh -T git@github.com           # Linux, after ssh-add: key listed, GitHub greets you
 ```
 

@@ -54,3 +54,4 @@ Keep it short. ADRs that grow past 200 lines usually need to be split.
 - [ADR-0009 — An on-demand dev Docker engine on the mini, separate from production](ADR-0009-on-demand-dev-docker-engine.md)
 - [ADR-0010 — One telemetry naming contract, set once at the source](ADR-0010-telemetry-naming-contract.md)
 - [ADR-0011 — Workstation storage: /work and Docker leave the root rollback domain](ADR-0011-workstation-storage-subvolumes.md)
+- [ADR-0012 — tmux workspace persistence: durable topology, ephemeral processes](ADR-0012-tmux-workspace-persistence.md)

@@ -1,0 +1,367 @@
+#!/usr/bin/env bash
+# wb-tmux — tmux workspace persistence on top of tmux-resurrect (workstation/tmux/README.md).
+#
+# Workspace topology is durable, process execution is ephemeral: sessions, window
+# names, panes, layouts, working directories and the active window/pane are saved
+# and restored; no program is ever restarted (@resurrect-processes 'false').
+#
+#   wb-tmux status                 plugin pin, config loaded in the server, timer, latest snapshot
+#   wb-tmux save [--auto]          save now with Resurrect, then verify it against the live server
+#   wb-tmux verify [file]          compare a snapshot (default: latest) with the live server
+#   wb-tmux show [file]            print a snapshot's topology (read-only)
+#   wb-tmux plan [file]            print plain tmux commands that rebuild the shells by hand
+#   wb-tmux restore [--allow-missing] [file]
+#                                  restore a snapshot into a server without those sessions
+#   wb-tmux scrub <file>           Resurrect post-save hook: drop command lines, tighten modes
+#
+# verify / save exit codes: 0 match, 1 mismatch, 3 match but some panes can't be
+# restored faithfully (see the FLAG lines), 2 nothing to compare (no server or no
+# usable snapshot). restore: 0 restored and verified, 1 restored but differs,
+# 2 refused (nothing changed), 3 restored with flags.
+#
+# --auto is the timer's mode: it saves only once this server has been restored or
+# explicitly saved, so a fresh post-boot server never replaces the snapshot that
+# still has to be restored.
+set -uo pipefail
+
+# WB_TMUX_SOCKET (tmux -L), WB_TMUX_CONF (tmux -f) and WB_TMUX_PLUGINS exist for
+# the tests, which run their own disposable server; normally all are unset.
+PLUGINS="${WB_TMUX_PLUGINS:-$HOME/.local/share/tmux/plugins}"
+RESURRECT="$PLUGINS/tmux-resurrect"
+DEFAULT_DIR="$HOME/.local/share/tmux/resurrect"
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+SHELLS=" bash zsh fish sh dash ksh mksh tcsh nu "
+# Paths that never survive a reboot. WB_TMUX_EPHEMERAL_RE exists for the tests,
+# whose scratch directories live under /tmp themselves.
+EPHEMERAL_RE="${WB_TMUX_EPHEMERAL_RE:-^(/tmp|/var/tmp|/run|/dev/shm|/proc)(/|$)}"
+
+tm() {
+  local a=()
+  [ -n "${WB_TMUX_SOCKET:-}" ] && a+=(-L "$WB_TMUX_SOCKET")
+  [ -n "${WB_TMUX_CONF:-}" ] && a+=(-f "$WB_TMUX_CONF")
+  tmux "${a[@]}" "$@"
+}
+say() { echo "wb-tmux: $*" >&2; }
+die() { say "$*"; exit 2; }
+usage() { awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$HERE/wb-tmux"; }
+
+server_running() { tm list-sessions >/dev/null 2>&1; }
+opt() { tm show-option -gqv "$1" 2>/dev/null; }
+
+# snapshot_dir: where Resurrect writes, as the running server sees it.
+snapshot_dir() {
+  local d
+  d=$(server_running && opt @resurrect-dir)
+  d=${d:-$DEFAULT_DIR}
+  d=${d//\$HOME/$HOME}; d=${d/#\~/$HOME}
+  echo "$d"
+}
+
+# resolve_file [file]: the snapshot to use (default: the 'last' symlink), absolute.
+resolve_file() {
+  local f="${1:-$(snapshot_dir)/last}"
+  [ -e "$f" ] || { say "no snapshot: $f"; return 1; }
+  readlink -f "$f"
+}
+
+# config_loaded: the running server has the workstation persistence policy.
+config_loaded() {
+  [ "$(opt @resurrect-processes)" = false ] && [[ "$(opt @resurrect-hook-post-save-layout)" == *"wb-tmux scrub"* ]] \
+    && [ -n "$(opt @resurrect-save-script-path)" ]
+}
+
+# --- normalized topology ------------------------------------------------------
+# Records, one per line, sorted (tab-separated):
+#   W  session  window-index  window-name  active  zoomed  layout-shape  panes
+#   P  session  window-index  pane-index   active  cwd
+# The layout shape is the layout without its checksum and pane ids (ids change on
+# every restore); geometry and the split tree are kept.
+SHAPE_AWK='function shape(s,   out, piece) {
+  sub(/^[0-9a-f]+,/, "", s); out = ""
+  while (match(s, /[0-9]+x[0-9]+,[0-9]+,[0-9]+,[0-9]+/)) {
+    piece = substr(s, RSTART, RLENGTH); sub(/,[0-9]+$/, "", piece)
+    out = out substr(s, 1, RSTART - 1) piece; s = substr(s, RSTART + RLENGTH)
+  }
+  return out s
+}'
+
+# file_topology <file>: normalized records from a Resurrect snapshot; exit 1 if malformed.
+file_topology() {
+  awk -F'\t' -v OFS='\t' "$SHAPE_AWK"'
+    $1 == "pane" {
+      if (NF != 11) { bad = 1; next }
+      dir = substr($8, 2); gsub(/\\ /, " ", dir)
+      print "P", $2, $3, $6, $9, dir; np[$2 SUBSEP $3]++; panes++; next
+    }
+    $1 == "window" {
+      if (NF != 8) { bad = 1; next }
+      z = (index($6, "Z") > 0) ? 1 : 0
+      w[$2 SUBSEP $3] = $2 OFS $3 OFS substr($4, 2) OFS $5 OFS z OFS shape($7); next
+    }
+    $1 == "state" || $1 == "grouped_session" || $0 == "" { next }
+    { bad = 1 }
+    END {
+      for (k in np) if (!(k in w)) bad = 1
+      for (k in w) { if (!(k in np)) bad = 1; else print "W", w[k], np[k] }
+      if (bad || panes == 0) exit 1
+    }' "$1" | LC_ALL=C sort
+  return "${PIPESTATUS[0]}"
+}
+
+live_topology() {
+  local t=$'\t'
+  {
+    tm list-windows -a -F "W${t}#{session_name}${t}#{window_index}${t}#{window_name}${t}#{window_active}${t}#{window_zoomed_flag}${t}#{window_layout}${t}#{window_panes}" |
+      awk -F'\t' -v OFS='\t' "$SHAPE_AWK"'{ $7 = shape($7); print }'
+    tm list-panes -a -F "P${t}#{session_name}${t}#{window_index}${t}#{pane_index}${t}#{pane_active}${t}#{pane_current_path}"
+  } | LC_ALL=C sort
+}
+
+# flags <file>: FLAG lines for panes that cannot be restored faithfully.
+flags() {
+  awk -F'\t' '$1 == "pane" { print $2 "\t" $3 "\t" $6 "\t" substr($8, 2) "\t" $10 }' "$1" |
+    while IFS=$'\t' read -r s w p dir cmd; do
+      local id="$s:$w.$p" path=${dir//\\ / }
+      if [[ $path == *" (deleted)" ]]; then
+        echo "FLAG $id  cwd was deleted while the pane sat in it (a restore would open it in \$HOME): ${path% (deleted)}"
+      elif [[ $dir == *\\* ]] || [[ $path =~ [[:space:]] ]]; then
+        echo "FLAG $id  cwd contains whitespace or a backslash; Resurrect cannot restore it exactly: $path"
+      elif [[ $path =~ $EPHEMERAL_RE ]]; then
+        echo "FLAG $id  cwd is on ephemeral storage and will not exist after a reboot: $path"
+      elif [ ! -d "$path" ]; then
+        echo "FLAG $id  cwd does not exist (a restore would open it in \$HOME): $path"
+      fi
+    done
+}
+
+# foreground <file>: panes whose foreground program will NOT be restarted.
+foreground() {
+  awk -F'\t' '$1 == "pane" { print $2 ":" $3 "." $6 "\t" $10 }' "$1" |
+    while IFS=$'\t' read -r id cmd; do
+      [[ $SHELLS == *" $cmd "* ]] || echo "  $id  $cmd  (not restarted; the pane gets a shell)"
+    done
+}
+
+# compare <file> [--saved-sessions-only]: diff the snapshot against the live
+# server; prints the outcome. After a restore only the saved sessions are
+# compared (the server may also hold unrelated sessions).
+compare() {
+  local f=$1 a b fl rc=0
+  a=$(file_topology "$f") || { say "snapshot is incomplete or malformed: $f"; return 2; }
+  b=$(live_topology)
+  if [ "${2:-}" = --saved-sessions-only ]; then
+    b=$(awk -F'\t' 'NR == FNR { keep[$2] = 1; next } keep[$2]' <(echo "$a") <(echo "$b"))
+  fi
+  if [ "$a" != "$b" ]; then
+    say "MISMATCH between $f and the live server (< snapshot, > live):"
+    diff <(echo "$a") <(echo "$b") | grep '^[<>]' >&2
+    rc=1
+  fi
+  fl=$(flags "$f")
+  if [ -n "$fl" ]; then echo "$fl"; [ $rc = 0 ] && rc=3; fi
+  [ $rc = 0 ] && echo "verified: $(grep -c '^W' <<<"$a") windows, $(grep -c '^P' <<<"$a") panes in $(cut -f2 <<<"$a" | sort -u | wc -l) sessions match the live server"
+  return $rc
+}
+
+cmd_verify() {
+  local f
+  server_running || die "no tmux server is running"
+  f=$(resolve_file "${1:-}") || exit 2
+  echo "snapshot: $f ($(stat -c %y "$f" | cut -d. -f1))"
+  compare "$f"; exit $?
+}
+
+cmd_show() {
+  local f
+  f=$(resolve_file "${1:-}") || exit 2
+  echo "snapshot: $f ($(stat -c %y "$f" | cut -d. -f1))"
+  file_topology "$f" > /dev/null || { say "snapshot is incomplete or malformed"; exit 2; }
+  awk -F'\t' '
+    $1 == "window" { k = $2 SUBSEP $3; order[++n] = k
+      head[k] = sprintf("%s:%s  %-16s %s%s", $2, $3, substr($4, 2), ($5 == 1 ? "active " : ""), (index($6, "Z") ? "zoomed" : "")) }
+    $1 == "pane"   { k = $2 SUBSEP $3
+      body[k] = body[k] sprintf("    .%s  %s%s  [%s]\n", $6, substr($8, 2), ($9 == 1 ? "  (active)" : ""), $10) }
+    END { for (i = 1; i <= n; i++) printf "%s\n%s", head[order[i]], body[order[i]] }
+  ' "$f"
+  local fg; fg=$(foreground "$f"); [ -z "$fg" ] || { echo "not restarted after a restore:"; echo "$fg"; }
+  flags "$f"
+}
+
+# plan: plain tmux commands, no plugin needed. Reviewed and pasted by a human.
+cmd_plan() {
+  local f
+  f=$(resolve_file "${1:-}") || exit 2
+  file_topology "$f" > /dev/null || { say "snapshot is incomplete or malformed"; exit 2; }
+  echo "# Rebuild the shells of $f by hand (no programs are started). Review, then paste."
+  awk -F'\t' '$1 == "pane" { print $2 "\t" $3 "\t" $6 "\t" substr($8, 2) "\t" $9 }' "$f" |
+    while IFS=$'\t' read -r s w p dir act; do
+      dir=${dir//\\ / }
+      if [ -z "${seen_s[$s]:-}" ]; then
+        printf 'tmux new-session -d -s %q -c %q\n' "$s" "$dir"
+        printf 'tmux move-window -s %q -t %q 2>/dev/null || true\n' "$s:" "$s:$w"
+        seen_s[$s]=1
+      elif [ -z "${seen_w[$s:$w]:-}" ]; then
+        printf 'tmux new-window -d -t %q -c %q\n' "$s:$w" "$dir"
+      else
+        # split the previous pane, so the new one takes the next index
+        printf 'tmux split-window -d -t %q -c %q\n' "$s:$w.${seen_w[$s:$w]}" "$dir"
+      fi
+      seen_w[$s:$w]=$p
+    done
+  awk -F'\t' '$1 == "window" { print $2 "\t" $3 "\t" substr($4, 2) "\t" $7 "\t" $5 }' "$f" |
+    while IFS=$'\t' read -r s w name layout act; do
+      printf 'tmux select-layout -t %q %q\ntmux rename-window -t %q %q\n' "$s:$w" "$layout" "$s:$w" "$name"
+    done
+  apply_selection_cmds "$f" | sed 's/^/tmux /'
+}
+declare -A seen_s seen_w
+
+# apply_selection_cmds <file>: select-window / select-pane / zoom with explicit
+# targets, so the saved selection comes back without an attached client.
+apply_selection_cmds() {
+  awk -F'\t' '
+    $1 == "pane" && $9 == 1 { print "select-pane\t-t\t" $2 ":" $3 "." $6; if (index($5, "Z")) print "resize-pane\t-Z\t-t\t" $2 ":" $3 "." $6 }
+    $1 == "window" && $5 == 1 { print "select-window\t-t\t" $2 ":" $3 }
+  ' "$1"
+}
+
+apply_selection() {
+  local -a a
+  while IFS=$'\t' read -r -a a; do
+    if [ "${a[0]}" = resize-pane ]; then
+      [ "$(tm display -p -t "${a[3]}" '#{window_zoomed_flag}')" = 1 ] && continue
+    fi
+    tm "${a[@]}" 2>/dev/null
+  done < <(apply_selection_cmds "$1")
+}
+
+cmd_restore() {
+  local allow_missing=0 f s missing live
+  while [ $# -gt 0 ]; do
+    case $1 in --allow-missing) allow_missing=1 ;; -*) die "unknown option $1" ;; *) break ;; esac
+    shift
+  done
+  [ -d "$RESURRECT/scripts" ] || die "tmux-resurrect is not installed at $RESURRECT (run workstation/install.sh)"
+  f=$(resolve_file "${1:-}") || exit 2
+  file_topology "$f" > /dev/null || die "snapshot is incomplete or malformed: $f (use 'wb-tmux plan' with an older snapshot)"
+  missing=$(awk -F'\t' '$1 == "pane" { d = substr($8, 2); gsub(/\\ /, " ", d); print $2 ":" $3 "." $6 "\t" d }' "$f" |
+    while IFS=$'\t' read -r id d; do [ -d "$d" ] || echo "  $id  $d"; done)
+  if [ -n "$missing" ] && [ $allow_missing = 0 ]; then
+    say "refused: saved working directories are missing (is the filesystem that holds them mounted?):"
+    echo "$missing" >&2
+    say "nothing was changed. Fix the paths, or --allow-missing to open those panes in \$HOME."
+    exit 2
+  fi
+  local bootstrap=0
+  if server_running; then
+    config_loaded || die "the running tmux server lacks the persistence config; tmux source-file your tmux.conf first"
+    live=$(tm list-sessions -F '#{session_name}')
+    for s in $(awk -F'\t' '$1 == "pane" { print $2 }' "$f" | sort -u); do
+      if grep -qxF -- "$s" <<<"$live"; then
+        die "refused: session '$s' already exists; restore only into a server without the saved sessions (nothing changed)"
+      fi
+    done
+  else
+    tm new-session -d -s 0 || die "could not start a tmux server"
+    bootstrap=1
+    config_loaded || { tm kill-session -t 0; die "the tmux config does not load the persistence policy (see wb-tmux status)"; }
+  fi
+  # Resurrect always restores its 'last' file; point it at the chosen snapshot.
+  local dir; dir=$(snapshot_dir)
+  if [ "$(readlink -f "$dir/last")" != "$f" ]; then
+    ln -sfn "$(basename "$f")" "$dir/last" || die "could not select $f"
+  fi
+  tm run-shell "$RESURRECT/scripts/restore.sh" >/dev/null 2>&1
+  [ $bootstrap = 1 ] && tm has-session -t 0 2>/dev/null && tm kill-session -t 0
+  apply_selection "$f"
+  local rc=0; compare "$f" --saved-sessions-only || rc=$?
+  [ $rc = 0 ] || [ $rc = 3 ] && tm set-option -g @wb-tmux-armed 1
+  [ $rc != 2 ] || rc=1
+  echo "restored from $f; no programs were started. Attach: tmux attach -t <session>"
+  exit $rc
+}
+
+cmd_save() {
+  local auto=0 dir before after f
+  [ "${1:-}" = --auto ] && auto=1
+  if ! server_running; then
+    [ $auto = 1 ] && exit 0
+    die "no tmux server is running"
+  fi
+  if ! config_loaded; then
+    say "the running tmux server lacks the persistence config (tmux source-file your tmux.conf; see wb-tmux status); nothing saved"
+    [ $auto = 1 ] && exit 0
+    exit 2
+  fi
+  dir=$(snapshot_dir)
+  if [ $auto = 1 ] && [ "$(opt @wb-tmux-armed)" != 1 ] && [ -e "$dir/last" ]; then
+    say "autosave paused: this server has not been restored or explicitly saved yet (wb-tmux restore, or wb-tmux save)"
+    exit 0
+  fi
+  before=$(readlink "$dir/last" 2>/dev/null)
+  # Resurrect names snapshots by the second; a second save in the same second
+  # writes the file 'last' points to, finds it unchanged, and deletes it.
+  while [ -e "$dir/tmux_resurrect_$(date +%Y%m%dT%H%M%S).txt" ]; do sleep 0.2; done
+  tm run-shell "$(opt @resurrect-save-script-path) quiet" || die "the Resurrect save failed"
+  after=$(readlink "$dir/last" 2>/dev/null)
+  f=$(resolve_file) || die "Resurrect left no usable snapshot in $dir ('last' -> ${after:-nothing})"
+  if [ "$before" = "$after" ] && [ -n "$before" ]; then
+    echo "saved: unchanged since $f ($(stat -c %y "$f" | cut -d. -f1))"
+  else
+    echo "saved: $f ($(stat -c %y "$f" | cut -d. -f1))"
+  fi
+  tm set-option -g @wb-tmux-armed 1
+  local rc=0; compare "$f" || rc=$?
+  [ $auto = 1 ] && exit 0
+  exit $rc
+}
+
+# scrub <file>: the Resurrect post-save-layout hook. Blanks the saved command line
+# of every pane (arguments can hold secrets; nothing restores processes anyway)
+# and keeps the snapshot private to the user.
+cmd_scrub() {
+  local f=${1:-} tmp
+  [ -f "$f" ] || die "usage: wb-tmux scrub <file>"
+  tmp=$(mktemp "$f.XXXXXX") || exit 2
+  awk -F'\t' -v OFS='\t' '$1 == "pane" && NF >= 11 { $11 = ":" } { print }' "$f" > "$tmp" && chmod 0600 "$tmp" && mv -f "$tmp" "$f" \
+    || { rm -f "$tmp"; exit 2; }
+  chmod 0700 "$(dirname "$f")" 2>/dev/null || true
+}
+
+cmd_status() {
+  local ok=0 name url commit got f
+  echo "plugins ($PLUGINS):"
+  while read -r name url commit; do
+    case $name in ''|\#*) continue ;; esac
+    got=$(git -C "$PLUGINS/$name" rev-parse HEAD 2>/dev/null || echo missing)
+    if [ "$got" = "$commit" ]; then echo "  ok      $name ${commit:0:12}"; else echo "  WRONG   $name: $got (expected ${commit:0:12})"; ok=1; fi
+  done < "$HERE/plugins.lock"
+  if server_running; then
+    if config_loaded; then echo "server:  persistence config loaded (processes: false, scrub hook set)"
+    else echo "server:  running WITHOUT the persistence config (tmux source-file your tmux.conf)"; ok=1; fi
+    echo "autosave: $([ "$(opt @wb-tmux-armed)" = 1 ] && echo armed || echo 'paused until a restore or an explicit save')"
+  else
+    echo "server:  not running"
+  fi
+  if command -v systemctl >/dev/null 2>&1; then
+    echo "timer:   wb-tmux-save.timer $(systemctl --user is-enabled wb-tmux-save.timer 2>/dev/null || echo unknown), $(systemctl --user is-active wb-tmux-save.timer 2>/dev/null || echo unknown)"
+  fi
+  if f=$(resolve_file 2>/dev/null); then
+    echo "latest:  $f ($(stat -c %y "$f" | cut -d. -f1), $(( ($(date +%s) - $(stat -c %Y "$f")) / 60 )) min ago)"
+  else
+    echo "latest:  none in $(snapshot_dir)"
+  fi
+  exit $ok
+}
+
+case "${1:-}" in
+  status)  shift; cmd_status ;;
+  save)    shift; cmd_save "$@" ;;
+  verify)  shift; cmd_verify "$@" ;;
+  show)    shift; cmd_show "$@" ;;
+  plan)    shift; cmd_plan "$@" ;;
+  restore) shift; cmd_restore "$@" ;;
+  scrub)   shift; cmd_scrub "$@" ;;
+  -h|--help|help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

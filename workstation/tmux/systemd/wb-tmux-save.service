@@ -1,0 +1,9 @@
+# Workstation (agentic-ai-homelab: workstation/tmux). Saves the tmux workspace
+# topology with tmux-resurrect. Does nothing when no tmux server runs, and stays
+# paused in a server that has not been restored or explicitly saved yet.
+[Unit]
+Description=Save the tmux workspace topology (tmux-resurrect via wb-tmux)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/wb-tmux save --auto

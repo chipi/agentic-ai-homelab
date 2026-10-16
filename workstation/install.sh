@@ -184,6 +184,91 @@ storage() {
   echo "INFO  storage: ${v:-status unavailable}"
 }
 
+# tmux workspace persistence (tmux/README.md): tmux-resurrect at a pinned commit,
+# the persistence policy sourced from the END of the user's tmux config by one
+# marked line (the distro's config is never replaced), wb-tmux, and a systemd user
+# timer for periodic saves. Never touches a running tmux server: load it with
+# `tmux source-file <config>` or at the next server start.
+TMUX_LOCK="${WB_TMUX_LOCK:-$WS/tmux/plugins.lock}"   # WB_TMUX_LOCK / _PLUGIN_SRC: tests only
+TMUX_SRC_LINE='source-file -q ~/.config/tmux/workstation-persistence.conf'
+
+tmux_user_conf() {   # the user config tmux loads: ~/.tmux.conf wins if it exists
+  if [ -e "$HOME/.tmux.conf" ]; then echo "$HOME/.tmux.conf"
+  elif [ -n "${XDG_CONFIG_HOME:-}" ] && [ -e "$XDG_CONFIG_HOME/tmux/tmux.conf" ]; then echo "$XDG_CONFIG_HOME/tmux/tmux.conf"
+  else echo "$HOME/.config/tmux/tmux.conf"
+  fi
+}
+
+tmux_plugins() {
+  local base="$HOME/.local/share/tmux/plugins" name url commit dst got
+  while read -r name url commit; do
+    case $name in ''|\#*) continue ;; esac
+    [ -n "${WB_TMUX_PLUGIN_SRC:-}" ] && url="$WB_TMUX_PLUGIN_SRC/$name"
+    dst="$base/$name"
+    if [ -d "$dst/.git" ]; then
+      got=$(git -C "$dst" rev-parse HEAD 2>/dev/null || true)
+      if [ "$got" = "$commit" ]; then echo "OK    tmux plugin $name at ${commit:0:12}"
+      else echo "WARN  tmux plugin $name: $dst is at ${got:-?}, pinned ${commit:0:12}; left unchanged"; fi
+      continue
+    fi
+    if [ -e "$dst" ]; then echo "WARN  tmux plugin $name: $dst exists but is not a git checkout; left unchanged"; continue; fi
+    echo "CLONE tmux plugin $name ${commit:0:12} -> $dst"
+    [ "$DRY" = 0 ] || continue
+    mkdir -p "$base"
+    if ! { git clone --quiet --no-checkout "$url" "$dst" && git -C "$dst" -c advice.detachedHead=false checkout --quiet --detach "$commit"; }; then
+      echo "WARN  tmux plugin $name: could not fetch $url at ${commit:0:12}; tmux persistence is not active (wb-tmux status)"
+    fi
+  done < "$TMUX_LOCK"
+}
+
+# Append the source line to the tmux config once (same rules as bashrc_block).
+tmux_conf_block() {
+  local conf; conf=$(tmux_user_conf)
+  if [ -f "$conf" ] && grep -qxF -- "$TMUX_SRC_LINE" <<<"$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//' "$conf")"; then
+    echo "OK    tmux persistence already sourced from $conf"; return 0
+  fi
+  if [ -f "$conf" ]; then
+    echo "BACK  $conf -> $conf.bak.$TS"
+    [ "$DRY" = 1 ] || cp -p "$conf" "$conf.bak.$TS"
+  fi
+  echo "TMUX  append the persistence source line to $conf"
+  if [ "$DRY" = 0 ]; then
+    mkdir -p "$(dirname "$conf")"
+    printf '\n# >>> workstation tmux-persistence >>>\n# tmux-resurrect policy (agentic-ai-homelab workstation/tmux); keep this block last\n%s\n# <<< workstation tmux-persistence <<<\n' \
+      "$TMUX_SRC_LINE" >> "$conf"
+  fi
+}
+
+tmux_timer() {
+  link tmux/systemd/wb-tmux-save.service "$HOME/.config/systemd/user/wb-tmux-save.service"
+  link tmux/systemd/wb-tmux-save.timer   "$HOME/.config/systemd/user/wb-tmux-save.timer"
+  if ! command -v systemctl >/dev/null 2>&1 || ! systemctl --user show-environment >/dev/null 2>&1; then
+    echo "WARN  tmux persistence: no systemd user manager; periodic saves are off (save by hand: wb-tmux save)"
+    return 0
+  fi
+  if [ "$(systemctl --user is-enabled wb-tmux-save.timer 2>/dev/null)" = enabled ] \
+     && systemctl --user is-active --quiet wb-tmux-save.timer; then
+    echo "OK    wb-tmux-save.timer enabled and active"; return 0
+  fi
+  echo "UNIT  systemctl --user daemon-reload; systemctl --user enable --now wb-tmux-save.timer"
+  if [ "$DRY" = 0 ] && ! { systemctl --user daemon-reload && systemctl --user enable --now wb-tmux-save.timer; }; then
+    echo "WARN  could not enable wb-tmux-save.timer; periodic saves are off (wb-tmux status)"
+  fi
+  return 0
+}
+
+tmux_persistence() {
+  if ! command -v tmux >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+    echo "WARN  tmux persistence: tmux or git not installed; skipped"; return 0
+  fi
+  tmux_plugins
+  link tmux/persistence.conf          "$HOME/.config/tmux/workstation-persistence.conf"
+  link tmux/wb-tmux                   "$HOME/.local/bin/wb-tmux"
+  tmux_conf_block
+  tmux_timer
+  echo "NEXT  load it into a running tmux server: tmux source-file $(tmux_user_conf)   (the installer never touches a running server)"
+}
+
 install_linux() {
   # The Mac workbench (one session, a window per project) is deliberately not
   # installed: Linux uses one tmux session per project, and a ~/.tmux.conf link
@@ -191,6 +276,7 @@ install_linux() {
   if ssh_agent_socket; then ssh_agent_shell; fi
   worktrunk
   storage
+  tmux_persistence
 }
 
 preflight

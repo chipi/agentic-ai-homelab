@@ -211,9 +211,36 @@ All true, or do not start:
 - [ ] Live-state gate: Orrery and all active work confirmed.
 - [ ] D: baselines recorded; `$WBS` staged in `/root`.
 - [ ] E: the three subvolumes exist and are empty (`ls -A "$TOP"/@work` prints nothing).
+- [ ] tmux persistence installed: `$ wb-tmux status` exits 0 (plugin at its pin, the
+  running server has the persistence config, `wb-tmux-save.timer` active).
+- [ ] tmux disposable restore test green: `$ bash /work/agentic-ai-homelab/workstation/tmux/wb-tmux.test.sh`
+  ends `fail=0` (it runs its own throwaway tmux server and never touches the real one).
+- [ ] current real topology captured, and the saved topology validated: done at the
+  start of G, before anything is stopped.
 - [ ] At the text console, with time for the whole window and a reboot.
 
 ## G. Stop everything that uses `/work`
+
+**First, the final tmux save**, while every session is still open
+([`workstation/tmux/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/workstation/tmux/README.md)).
+From any shell, as the user:
+
+```
+$ wb-tmux save        # Resurrect save + comparison with the live server
+$ wb-tmux verify      # again, read-only: must end "verified: …" with exit 0
+$ wb-tmux show        # what will come back, and which programs will NOT be restarted
+```
+
+Exit 3 means a pane cannot be restored faithfully (each has a `FLAG` line): a cwd in
+`/tmp` or another ephemeral path, a deleted directory, or a path with whitespace.
+`cd` that pane somewhere durable (or close it), then save and verify again until both
+exit 0. Exit 1 means the server changed during the save: save again. Write down the
+snapshot path `wb-tmux save` printed. From here on, do not open, close or rename tmux
+windows: the snapshot is the cockpit that comes back after the reboot.
+
+Then finish, land or deliberately park the work running in those panes (agents,
+editors, servers): nothing is restarted after the restore, so whatever is not saved
+by its own program is lost with its process.
 
 The invariant is **no live process uses `/work` or the Docker trees**, not "kill all
 tmux sessions". Find what is still there:
@@ -224,9 +251,20 @@ tmux sessions". Find what is still there:
 
 For each process listed, decide and act yourself: save and quit the editor, finish
 and exit the agent session, stop the dev server with its own command, `exit` or `cd ~`
-in the shell, or close that tmux window. If something must be stopped by force, stop
-**that PID** (`kill <pid>`), after `ps -o pid,args -p <pid>` confirms what it is. Never
-`pkill`, `killall` or `pkill -f`. Repeat until `users` lists nothing (as root: exit 0).
+in the shell. If something must be stopped by force, stop **that PID**
+(`kill <pid>`), after `ps -o pid,args -p <pid>` confirms what it is. Never `pkill`,
+`killall` or `pkill -f`.
+
+The tmux server itself usually appears in the list (its working directory is where it
+was first started, e.g. `/work/orrery/main`), and so does every idle pane shell. Once
+the agents and programs inside are finished, and only after the final save and verify
+above, stop the whole tmux server in one step:
+
+```
+$ tmux kill-server
+```
+
+Repeat the `users` check until it lists nothing (as root: exit 0).
 
 Then the window-time Git baseline, as the user from outside `/work` (git is
 short-lived and leaves nothing running):
@@ -462,8 +500,36 @@ $ docker run --rm --pull=never --network none alpine:3.20 true && echo ok
 $ ssh-add -l; tailscale status | head -3               # agent and tailnet as before
 ```
 
-From another machine on the tailnet: `ssh <x3> true`. Open a new tmux session for a
-project and work normally.
+From another machine on the tailnet: `ssh <x3> true`.
+
+Storage accepted. Only now restore the tmux cockpit (never before `/work` is mounted
+and `status` says `separated`: a restore checks that every saved directory exists and
+refuses otherwise):
+
+```
+$ wb-tmux status      # plugin ok; 'latest' is the snapshot written in G; server not running yet
+$ wb-tmux restore     # starts the server, rebuilds every session; must end "verified: …", exit 0
+$ tmux attach -t <project>
+```
+
+**Reboot acceptance**, all of:
+
+1. LUKS unlocked and the OS booted.
+2. `/work`, `/var/lib/docker`, `/var/lib/containerd` are mounted from `@work`,
+   `@docker`, `@containerd` (`"$WBS" status` → `separated`).
+3. Tailscale and SSH work (from another machine).
+4. The user logs in; `wb-tmux status` shows the plugin, the timer and the snapshot from G.
+5. `wb-tmux restore` exits 0: every saved session is back with the same window names,
+   pane counts, layouts, working directories and active window/pane as the validated
+   snapshot.
+6. No agent, dev server or test runner was started by the restore: every pane is a
+   shell (`tmux list-panes -a -F '#{pane_current_command}' | sort -u` → `bash`).
+7. `tmux attach -t <project>` shows the familiar cockpit, and the operator chooses,
+   pane by pane, what to start again.
+
+If the restore fails: [`workstation/tmux/README.md` → Recovery](https://github.com/chipi/agentic-ai-homelab/blob/main/workstation/tmux/README.md#recovery).
+The workstation itself never depends on it: a failed restore costs only the cockpit
+layout, which `wb-tmux plan` can rebuild by hand.
 
 Migration accepted. The `*.pre-subvol` copies stay (S).
 

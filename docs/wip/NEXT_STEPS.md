@@ -74,7 +74,8 @@ drafted, but they haven't been run for real yet.
       Orrery and OceanCanvas `.env` variants and Orrery's local overrides exists and
       has been decrypted and compared (C); Orrery's live state (detached HEAD
       `41330dd`, the `/tmp/…/replay-baseline-main` worktree) is landed, preserved or
-      stopped by its owner.
+      stopped by its owner; tmux persistence is installed and loaded, its disposable
+      restore test is green, and the final `wb-tmux save` + `verify` pass (runbook F, G).
 - [ ] Separately: `chmod 0600 /work/orrery/main/.env` (secret-bearing, mode 0644
       on 2026-10-16).
 - [ ] **Later, never automatic:** retire the `*.pre-subvol` safety copies with the

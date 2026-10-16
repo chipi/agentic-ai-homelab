@@ -1,0 +1,9 @@
+# tmux plugins the workstation installs: <name> <git url> <commit>.
+# install.sh clones each into ~/.local/share/tmux/plugins/<name> and checks the
+# commit out detached; an existing checkout at another commit is reported, never
+# changed. Bump deliberately, with a reason, and re-run workstation/tmux tests.
+#
+# tmux-resurrect: upstream HEAD on 2026-10-16 (2023-03-06, after v4.0.0). v4.0.0
+# still has the shell-history feature that types `history -r` into panes; HEAD
+# removed it and reads the snapshot dir from XDG_DATA_HOME.
+tmux-resurrect https://github.com/tmux-plugins/tmux-resurrect.git cff343cf9e81983d3da0c8562b01616f12e8d548

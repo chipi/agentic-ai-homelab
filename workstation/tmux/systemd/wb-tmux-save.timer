@@ -1,0 +1,11 @@
+# Workstation (agentic-ai-homelab: workstation/tmux). Periodic tmux topology save.
+[Unit]
+Description=Save the tmux workspace topology every 15 minutes
+
+[Timer]
+OnActiveSec=5min
+OnUnitActiveSec=15min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

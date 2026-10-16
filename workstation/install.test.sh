@@ -26,6 +26,11 @@ case "$*" in
   "--user is-active --quiet ssh-agent.socket") [ -e "$FAKE_STATE/active" ] ;;
   "--user enable --now ssh-agent.socket")    [ -e "$FAKE_STATE/fail_enable" ] && exit 1
                                              touch "$FAKE_STATE/enabled" "$FAKE_STATE/active" ;;
+  "--user show-environment")                 [ ! -e "$FAKE_STATE/no_user_manager" ] ;;
+  "--user is-enabled wb-tmux-save.timer")    if [ -e "$FAKE_STATE/timer" ]; then echo enabled; else echo disabled; fi ;;
+  "--user is-active --quiet wb-tmux-save.timer") [ -e "$FAKE_STATE/timer" ] ;;
+  "--user daemon-reload")                    : ;;
+  "--user enable --now wb-tmux-save.timer")  touch "$FAKE_STATE/timer" ;;
   *) exit 1 ;;
 esac
 EOF
@@ -50,6 +55,16 @@ sroot() {
 }
 ssig() { (cd "$SR" && find . -printf '%p|%y|%s|%m|%T@|%i\n' | sort; find . -type f -exec md5sum {} + | sort) | md5sum; }
 sroot default
+# tmux persistence: a local stand-in for the tmux-resurrect repository and a lock
+# file pinning its commit, so no case reaches the network.
+PSRC="$T/plugin-src"; git init -q "$PSRC/tmux-resurrect"
+echo 'run-shell true' > "$PSRC/tmux-resurrect/resurrect.tmux"
+git -C "$PSRC/tmux-resurrect" add . && git -C "$PSRC/tmux-resurrect" -c user.name=t -c user.email=t@t commit -qm one
+PIN=$(git -C "$PSRC/tmux-resurrect" rev-parse HEAD)
+echo two >> "$PSRC/tmux-resurrect/resurrect.tmux"; git -C "$PSRC/tmux-resurrect" -c user.name=t -c user.email=t@t commit -qam two
+printf '# test lock\ntmux-resurrect https://example.invalid/tmux-resurrect.git %s\n' "$PIN" > "$T/plugins.lock"
+TSRC_LINE='source-file -q ~/.config/tmux/workstation-persistence.conf'
+OMARCHY_TMUX=$'# Omarchy tmux.conf\nset -g prefix C-Space\nset -g status-right "#h "\n'
 # A PATH without wt (everything else the installer uses, plus the fake systemctl).
 mkdir -p "$T/nowt"
 for c in bash sh env dirname date uname basename readlink mkdir mv ln cp grep cat printf sed jq tr touch awk find paste cmp id; do
@@ -69,6 +84,7 @@ home() {
 }
 run()  { HOME="$H" FAKE_STATE="$S" PATH="${RUNPATH:-$T/fake:$PATH}" WS_OS="${OSV:-linux}" \
          WB_STORAGE_ROOT="$SR" WB_STORAGE_FINDMNT="$T/fake/findmnt" FAKE_MOUNTS="$SR.mounts" \
+         WB_TMUX_PLUGIN_SRC="$PSRC" WB_TMUX_LOCK="$T/plugins.lock" \
          "$INST" ${1:-} > "$H.out" 2>&1; echo $? > "$H.rc"; }
 rc()   { cat "$H.rc"; }
 ec()   { grep -c '^--user enable --now ssh-agent.socket$' "$S/calls"; }       # real enable invocations
@@ -172,6 +188,58 @@ sroot fresh; home st-fresh "$BASE$SSH_LINE"$'\n'"$WT_LINE"$'\n'; sbefore=$(ssig)
 chk "fresh machine: reports 'fresh' but does not establish the layout itself" \
   "[ $(rc) = 0 ] && grep -q '^INFO  storage: fresh: ' '$H.out' && [ \"\$(ssig)\" = '$sbefore' ] && [ ! -e '$SR/work' ]"
 sroot default
+
+echo "== tmux persistence: tracked policy (tmux/README.md)"
+PC="$HERE/tmux/persistence.conf"; LOCK="$HERE/tmux/plugins.lock"
+pc_set() { grep -v '^[[:space:]]*#' "$PC" | grep -E "^set -g $1 "; }
+chk "policy: @resurrect-processes 'false' (no program is ever restored), set exactly once" \
+  "[ \"\$(pc_set @resurrect-processes)\" = \"set -g @resurrect-processes 'false'\" ] && [ \$(grep -c '@resurrect-processes' '$PC') = 1 ]"
+chk "policy: no process lists, :all:, restore strategies, default-process overrides or continuum" \
+  "! grep -v '^[[:space:]]*#' '$PC' | grep -qiE ':all:|@resurrect-strategy|@resurrect-default-processes|continuum|claude|codex|opencode|node|npm|pnpm|bun|python|uv|docker'"
+chk "policy: pane contents never captured; scrub hook set" \
+  "[ \"\$(pc_set @resurrect-capture-pane-contents)\" = \"set -g @resurrect-capture-pane-contents 'off'\" ] && pc_set @resurrect-hook-post-save-layout | grep -q 'wb-tmux scrub'"
+chk "policy: snapshots in durable user state (\$HOME/.local/share), not /tmp, /run or a project tree" \
+  "[ \"\$(pc_set @resurrect-dir)\" = \"set -g @resurrect-dir '\\\$HOME/.local/share/tmux/resurrect'\" ]"
+chk "lock: exactly tmux-resurrect, pinned to a full 40-hex commit (no TPM, no continuum)" \
+  "[ \"\$(grep -v '^#' '$LOCK' | grep -c .)\" = 1 ] && grep -v '^#' '$LOCK' | grep -qE '^tmux-resurrect https://github.com/tmux-plugins/tmux-resurrect.git [0-9a-f]{40}\$'"
+chk "no project names in the portable tmux code, config or units (outside comments)" \
+  "! cat '$HERE/tmux/wb-tmux' '$PC' '$LOCK' '$HERE'/tmux/systemd/* | grep -v '^[[:space:]]*#' | grep -qiE 'orrery|chemigram|abyss|oceancanvas|bathys|agentic-ai-homelab|/work/'"
+chk "timer runs the guarded autosave mode" "grep -qx 'ExecStart=%h/.local/bin/wb-tmux save --auto' '$HERE/tmux/systemd/wb-tmux-save.service'"
+
+echo "== tmux persistence: install (Omarchy-like ~/.config/tmux/tmux.conf)"
+home tx-fresh "$BASE$SSH_LINE"$'\n'"$WT_LINE"$'\n'; mkdir -p "$H/.config/tmux"; printf '%s' "$OMARCHY_TMUX" > "$H/.config/tmux/tmux.conf"
+tsig() { find "$H/.config/tmux" "$H/.local/share/tmux" "$H/.config/systemd" -printf '%p|%s|%T@\n' 2>/dev/null | sort | md5sum; }
+before=$(tsig); run --dry-run
+chk "dry-run: CLONE, TMUX and UNIT announced; nothing written; no timer enabled" \
+  "[ $(rc) = 0 ] && grep -q '^CLONE tmux plugin tmux-resurrect' '$H.out' && grep -q '^TMUX  append' '$H.out' && grep -q '^UNIT  .*wb-tmux-save.timer' '$H.out' && [ \"\$(tsig)\" = '$before' ] && ! grep -q 'enable --now wb-tmux-save' '$S/calls'"
+run
+chk "real run: plugin cloned at the PINNED commit (not the source's newer HEAD)" \
+  "[ $(rc) = 0 ] && [ \"\$(git -C '$H/.local/share/tmux/plugins/tmux-resurrect' rev-parse HEAD)\" = '$PIN' ]"
+chk "real run: source line appended once, as the config's last block; original backed up byte-for-byte" \
+  "[ \$(grep -cxF '$TSRC_LINE' '$H/.config/tmux/tmux.conf') = 1 ] && [ \"\$(grep -v '^#' '$H/.config/tmux/tmux.conf' | grep . | tail -1)\" = '$TSRC_LINE' ] && same_as '$H'/.config/tmux/tmux.conf.bak.* \"\$OMARCHY_TMUX\""
+chk "real run: Omarchy's own lines kept unchanged in front of the block" \
+  "[ \"\$(head -c \$(printf '%s' \"\$OMARCHY_TMUX\" | wc -c) '$H/.config/tmux/tmux.conf' | md5sum)\" = \"\$(printf '%s' \"\$OMARCHY_TMUX\" | md5sum)\" ]"
+chk "real run: policy, wb-tmux and both units linked; timer enabled once" \
+  "[ \"\$(readlink '$H/.config/tmux/workstation-persistence.conf')\" = '$PC' ] && [ \"\$(readlink '$H/.local/bin/wb-tmux')\" = '$HERE/tmux/wb-tmux' ] && [ \"\$(readlink '$H/.config/systemd/user/wb-tmux-save.timer')\" = '$HERE/tmux/systemd/wb-tmux-save.timer' ] && [ \$(grep -c '^--user enable --now wb-tmux-save.timer\$' '$S/calls') = 1 ]"
+chk "never touches a running tmux server: prints the source-file step instead" "grep -q '^NEXT  load it into a running tmux server: tmux source-file ' '$H.out'"
+after=$(tsig); : > "$S/calls"; run
+chk "rerun: OK for plugin, block and timer; nothing changed; no new backup; no enable" \
+  "[ $(rc) = 0 ] && grep -q '^OK    tmux plugin tmux-resurrect at' '$H.out' && grep -q '^OK    tmux persistence already sourced' '$H.out' && grep -q '^OK    wb-tmux-save.timer enabled and active' '$H.out' && [ \"\$(tsig)\" = '$after' ] && [ \$(ls '$H'/.config/tmux/tmux.conf.bak.* | wc -l) = 1 ] && ! grep -q 'enable --now wb-tmux' '$S/calls'"
+git -C "$H/.local/share/tmux/plugins/tmux-resurrect" -c advice.detachedHead=false checkout -q master 2>/dev/null || git -C "$H/.local/share/tmux/plugins/tmux-resurrect" -c advice.detachedHead=false checkout -q main
+moved=$(git -C "$H/.local/share/tmux/plugins/tmux-resurrect" rev-parse HEAD); run
+chk "plugin checkout at another commit: WARN, left exactly where it is" \
+  "grep -q '^WARN  tmux plugin tmux-resurrect: .* left unchanged' '$H.out' && [ \"\$(git -C '$H/.local/share/tmux/plugins/tmux-resurrect' rev-parse HEAD)\" = '$moved' ] && [ '$moved' != '$PIN' ]"
+
+echo "== tmux persistence: other configs"
+home tx-dotfile "$BASE"; printf 'set -g mouse on\n' > "$H/.tmux.conf"; run
+chk "~/.tmux.conf present (tmux loads it first): the block goes there, ~/.config/tmux/tmux.conf not created" \
+  "[ \$(grep -cxF '$TSRC_LINE' '$H/.tmux.conf') = 1 ] && [ ! -e '$H/.config/tmux/tmux.conf' ]"
+home tx-none "$BASE"; run
+chk "no tmux config at all: ~/.config/tmux/tmux.conf created with only the block" \
+  "[ -f '$H/.config/tmux/tmux.conf' ] && [ \$(grep -cxF '$TSRC_LINE' '$H/.config/tmux/tmux.conf') = 1 ] && [ -z \"\$(ls '$H'/.config/tmux/tmux.conf.bak.* 2>/dev/null)\" ]"
+home tx-nouser "$BASE"; touch "$S/no_user_manager"; run
+chk "no systemd user manager: WARN, units still linked, no enable attempted" \
+  "[ $(rc) = 0 ] && grep -q '^WARN  tmux persistence: no systemd user manager' '$H.out' && [ -L '$H/.config/systemd/user/wb-tmux-save.timer' ] && ! grep -q 'enable --now wb-tmux' '$S/calls'"
 
 echo "== macOS path unchanged"
 home mac "$BASE" disabled; before=$(sig); OSV=macos run

@@ -68,6 +68,11 @@ each. Only the OS-specific block differs:
 | `~/.local/bin/wb-storage` | `storage/wb-storage` | Linux | symlink; the layout itself is only reported (`INFO  storage: …`) |
 | `/etc/systemd/system/{docker,containerd}.service.d/50-x3-storage-mounts.conf` | `storage/systemd/…` | Linux | **not** by `install.sh`: `wb-storage install-dropins`, as root, during the storage setup |
 | `/etc/fstab` storage entries | — (rendered by `wb-storage fstab`) | Linux | **not** by `install.sh`: added by hand ([`storage/README.md`](storage/README.md)) |
+| `~/.local/share/tmux/plugins/tmux-resurrect` | `tmux/plugins.lock` (pinned commit) | Linux | git clone + detached checkout; another commit is reported, never changed |
+| `~/.config/tmux/workstation-persistence.conf` | `tmux/persistence.conf` | Linux | symlink |
+| user tmux config (`~/.tmux.conf`, else `~/.config/tmux/tmux.conf`) | — | Linux | appends one marked `source-file` line once; the distro's config is kept |
+| `~/.local/bin/wb-tmux` | `tmux/wb-tmux` | Linux | symlink |
+| `~/.config/systemd/user/wb-tmux-save.{service,timer}` | `tmux/systemd/…` | Linux | symlinks + `systemctl --user enable --now wb-tmux-save.timer` if not already |
 | `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | both | **template** — copy + fill |
 | `~/.claude/settings.json` | `claude/settings.json.example` | both | **template** — copy + fill |
 
@@ -157,6 +162,19 @@ rewinds project work or Docker state. Layout, files and commands:
   [safety-copy retirement](../docs/recipes/x3-storage-safety-copy-retirement.md).
 - **Tests:** `bash workstation/storage/wb-storage.test.sh` (scratch roots and a fake
   `findmnt` only).
+
+## tmux persistence (Linux)
+
+The cockpit survives reboots: tmux-resurrect saves every session, window, pane,
+layout and working directory; `wb-tmux restore` rebuilds them with a plain shell in
+each pane and starts nothing. Policy, commands, state location, restore modes and
+recovery: [`tmux/README.md`](tmux/README.md); why:
+[ADR-0012](../docs/adr/ADR-0012-tmux-workspace-persistence.md).
+
+- `install.sh` installs the pinned plugin, the policy, `wb-tmux` and the save timer,
+  and never touches a running tmux server (load it with `tmux source-file` on your
+  tmux config).
+- **Tests:** `bash workstation/tmux/wb-tmux.test.sh` (its own disposable tmux server).
 
 ## Secrets policy — this repo is public
 
