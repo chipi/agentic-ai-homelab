@@ -173,12 +173,24 @@ worktrunk() {
     'Worktrunk: lets `wt switch` change this shell'"'"'s directory'
 }
 
+# Storage layout (storage/README.md): links wb-storage and REPORTS the layout.
+# The installer never changes it: no subvolumes, no fstab, no mounts, no data
+# moved, no units touched. A machine with data in /work or the Docker trees is
+# migrated by hand (docs/recipes/x3-storage-separation.md).
+storage() {
+  link storage/wb-storage            "$HOME/.local/bin/wb-storage"
+  local v
+  v="$("$WS/storage/wb-storage" status --brief 2>&1)" || true
+  echo "INFO  storage: ${v:-status unavailable}"
+}
+
 install_linux() {
   # The Mac workbench (one session, a window per project) is deliberately not
   # installed: Linux uses one tmux session per project, and a ~/.tmux.conf link
   # would shadow the distro's ~/.config/tmux/tmux.conf (tmux reads ~/.tmux.conf first).
   if ssh_agent_socket; then ssh_agent_shell; fi
   worktrunk
+  storage
 }
 
 preflight

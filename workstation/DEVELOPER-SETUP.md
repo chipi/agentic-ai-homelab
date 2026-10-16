@@ -72,6 +72,14 @@ Keep these separate:
   lands in `worktrees/`.
 - `/work` is the intentional Model-B root, hard-coded in the Worktrunk config,
   `wb-stream` and `wb-workspace`.
+- **Storage:** `/work`, `/var/lib/docker` and `/var/lib/containerd` belong in their
+  own top-level Btrfs subvolumes (`@work`, `@docker`, `@containerd`), outside the
+  root Snapper domain, so an OS rollback never rewinds project work or Docker state.
+  The paths don't change. Layout, files and `wb-storage`:
+  [`storage/README.md`](storage/README.md); why:
+  [ADR-0011](../docs/adr/ADR-0011-workstation-storage-subvolumes.md). The X3 still
+  has them as ordinary directories inside `@` until its one-time
+  [migration](../docs/recipes/x3-storage-separation.md) runs.
 
 ## Model-B development model
 
@@ -442,6 +450,15 @@ Slices 2 and 4B; see [evidence](#validation-evidence-slices-14)).
 Operational Docker rules (no global cleanup) are in
 [Multi-agent safety rules](#multi-agent-safety-rules).
 
+**Storage.** Docker 29 runs with the containerd image store, so its persistent state
+is split: `/var/lib/containerd` holds image content, layer snapshots and the BuildKit
+cache data; `/var/lib/docker` holds Docker's metadata, BuildKit records, networks,
+volumes and container logs. Both move to their own subvolumes together
+([`storage/README.md`](storage/README.md)). Omarchy's `docker.service` has
+`DefaultDependencies=no`, so the workstation's `RequiresMountsFor=` drop-ins keep
+Docker and containerd from starting before those mounts exist. `docker.socket` is
+enabled: any `docker` command starts the daemon.
+
 ## Worktrunk lifecycle hooks
 
 The user config carries exactly these hooks:
@@ -632,7 +649,7 @@ repository's floors.
 
 | Place | Owns |
 |---|---|
-| `agentic-ai-homelab/workstation` | Generic workstation policy, installer, Worktrunk config, `wb-stream`, `wb-workspace`, `wb-integrate`, shared agent configuration |
+| `agentic-ai-homelab/workstation` | Generic workstation policy, installer, Worktrunk config, `wb-stream`, `wb-workspace`, `wb-integrate`, the storage layout (`storage/`: `wb-storage`, systemd drop-ins), shared agent configuration |
 | Project repository | Runtime declaration (e.g. `mise.toml`), package dependencies, `.config/workspace/{setup,teardown}`, project-specific Compose accommodations, rules for generated runtime config |
 | tmux | Interactive sessions and UI organisation only |
 | Docker (Compose) | Service runtime only, namespaced per checkout |
@@ -656,7 +673,7 @@ project (Orrery: `.config/workspace/README.md`, "Known limitations").
 | `session-reap.sh` family sweep under `/work` | Unverified | Its main reap is checkout-scoped (cwd under the session's directory), which suits Model-B. Its cross-worktree `gh run` loop sweep keys on a `$HOME/<container>/<base>` family prefix from the older layout; not verified for `/work/<project>/…`. |
 | tmux sessions don't survive a reboot | Expected | Recreate the project session (`tmux new -s <project> -c /work/<project>/main`). |
 | LUKS manual unlock | Expected | Needed before the machine is reachable after a cold boot. |
-| Storage | Deferred | The 2 TB disk is enough for now. A second fast NVMe is the likely next step for `/work`, Docker data, package and build caches. |
+| Storage | Codified; X3 migration pending | The layout (`@work`, `@docker`, `@containerd` outside the root rollback domain) is codified in `storage/` and [ADR-0011](../docs/adr/ADR-0011-workstation-storage-subvolumes.md); the X3 is migrated by hand with the [runbook](../docs/recipes/x3-storage-separation.md). The 2 TB disk is enough for now; a second encrypted NVMe can later take the three subvolumes by changing only their fstab lines. |
 | cmux remote-tmux | Optional | Beta; nothing depends on it. |
 | Dashboard / control plane | Deferred | Only if daily use proves the need. |
 

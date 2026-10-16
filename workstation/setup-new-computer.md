@@ -93,6 +93,12 @@ are backed up as `*.bak.<timestamp>`. `--dry-run` changes nothing on disk.
   Linux (or the reverse): `WS_OS=macos ./workstation/install.sh --dry-run`.
   Open a new shell afterwards, then unlock the key once per boot:
   `ssh-add ~/.ssh/id_ed25519`.
+- **Linux storage:** the `INFO  storage:` line reports the layout and changes
+  nothing. On a fresh machine (`fresh`), set up `@work`, `@docker` and `@containerd`
+  before cloning projects and before Docker first starts: the steps are in
+  [`storage/README.md`](storage/README.md#fresh-machine-vs-existing-machine). On a
+  machine that already holds data (`needs-migration`), follow the one-time
+  [storage separation runbook](../docs/recipes/x3-storage-separation.md) instead.
 
 ## 4. Fill the secret-bearing templates
 
@@ -145,6 +151,7 @@ ls -l ~/.config/AGENTS.md                     # → symlink into workstation/con
 ls -l ~/.claude/CLAUDE.md                     # → symlink into workstation/claude/
 command -v lean-ctx lsof                      # Linux: both must resolve (hooks need them)
 systemctl --user is-enabled ssh-agent.socket  # Linux: enabled
+sudo "$(command -v wb-storage)" status        # Linux: separated (after the storage setup)
 ssh-add -l && ssh -T git@github.com           # Linux, after ssh-add: key listed, GitHub greets you
 ```
 

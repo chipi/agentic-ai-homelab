@@ -1,0 +1,270 @@
+#!/usr/bin/env bash
+# wb-storage — the Linux workstation storage layout (workstation/storage/README.md).
+#
+# /work, /var/lib/docker and /var/lib/containerd live in their own top-level Btrfs
+# subvolumes (@work, @docker, @containerd), siblings of @, so a root Snapper
+# rollback never rewinds them. Decision: docs/adr/ADR-0011-workstation-storage-subvolumes.md.
+#
+#   wb-storage status [--brief]       read-only: classify this machine's layout
+#   wb-storage fstab                  read-only: print the fstab entries for this machine
+#   wb-storage install-dropins [--dry-run]
+#                                     install the two systemd drop-ins (idempotent; root)
+#   wb-storage users [path...]        read-only: processes using the paths (cwd, root,
+#                                     open files, mapped files); exit 0 none, 1 found,
+#                                     2 inconclusive (not root, or run from inside)
+#
+# This tool never creates or deletes subvolumes, never edits /etc/fstab, never
+# mounts, never moves, copies or deletes data, and never stops, starts or reloads
+# a unit. Moving an existing machine's data is a one-time operator procedure:
+# docs/recipes/x3-storage-separation.md.
+#
+# status exit codes:
+#   0  separated: all three mounted from the right subvolumes, fstab and drop-ins in place
+#   3  fresh: all three paths absent or empty and no fstab entries (fresh-machine steps apply)
+#   4  needs migration: data in an ordinary directory inside the root subvolume
+#   5  incomplete or inconsistent (partially applied, wrong subvolume, unreadable)
+#   2  usage error, or the layout cannot be determined
+set -uo pipefail
+
+# WB_STORAGE_ROOT and WB_STORAGE_FINDMNT exist only for the tests: a scratch
+# prefix for /etc and the three paths, and a fake findmnt.
+R="${WB_STORAGE_ROOT:-}"
+FINDMNT="${WB_STORAGE_FINDMNT:-findmnt}"
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+RUNBOOK="docs/recipes/x3-storage-separation.md"
+TS="$(date +%Y%m%d-%H%M%S)"
+
+# <path>:<subvolume>, in fstab order.
+LAYOUT=("/work:@work" "/var/lib/containerd:@containerd" "/var/lib/docker:@docker")
+DROPINS=("docker.service.d/50-x3-storage-mounts.conf" "containerd.service.d/50-x3-storage-mounts.conf")
+
+say() { echo "wb-storage: $*" >&2; }
+die() { say "$*"; exit 2; }
+
+usage() { awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$HERE/wb-storage"; }
+
+# fstab_opts <path>: the options of the active /etc/fstab entry for <path>, if any.
+fstab_opts() {
+  awk -v p="$1" '$1 !~ /^#/ && $2 == p { print $1 " " $3 " " $4; exit }' "$R/etc/fstab" 2>/dev/null
+}
+
+# root_fs: sets ROOT_UUID and ROOT_OPTS (the root entry's options without
+# subvol=, subvolid= or nofail), or fails. Nothing machine-specific is hard-coded:
+# the UUID comes from the mounted root filesystem and must match its fstab entry.
+root_fs() {
+  local uuid fstype src typ opts
+  command -v "$FINDMNT" >/dev/null 2>&1 || { say "findmnt is required"; return 1; }
+  read -r uuid fstype <<<"$("$FINDMNT" -n -o UUID,FSTYPE --mountpoint / 2>/dev/null)"
+  [ "${fstype:-}" = btrfs ] || { say "the root filesystem is ${fstype:-unknown}, not btrfs"; return 1; }
+  [ -n "${uuid:-}" ] || { say "cannot read the root filesystem UUID"; return 1; }
+  read -r src typ opts <<<"$(fstab_opts /)"
+  [ "${src:-}" = "UUID=$uuid" ] && [ "${typ:-}" = btrfs ] \
+    || { say "/etc/fstab has no 'UUID=$uuid / btrfs' entry for the mounted root"; return 1; }
+  case ",$opts," in
+    *,subvol=/@,*|*,subvol=@,*) ;;
+    *) say "the root entry does not mount subvol=/@ (expected the Omarchy layout)"; return 1 ;;
+  esac
+  ROOT_UUID=$uuid
+  ROOT_OPTS=$(tr ',' '\n' <<<"$opts" | grep -v -e '^subvol=' -e '^subvolid=' -e '^nofail$' | paste -sd, -)
+}
+
+cmd_fstab() {
+  root_fs || exit 2
+  local e p sv
+  echo "# Workstation storage layout (workstation/storage/README.md): top-level siblings of @,"
+  echo "# outside the root Snapper domain. No nofail: a missing mount must stop the boot."
+  for e in "${LAYOUT[@]}"; do
+    p=${e%%:*}; sv=${e#*:}
+    printf 'UUID=%s\t%s\tbtrfs\t%s,subvol=/%s\t0 0\n' "$ROOT_UUID" "$p" "$ROOT_OPTS" "$sv"
+  done
+}
+
+# path_state <path> <subvolume>: mounted-ok | mounted-wrong | absent | empty |
+# populated | unreadable | not-a-directory
+path_state() {
+  local p=$1 sv=$2 d="$R$1" fstype opts
+  read -r fstype opts <<<"$("$FINDMNT" -n -o FSTYPE,OPTIONS --mountpoint "$p" 2>/dev/null)"
+  if [ -n "${fstype:-}" ]; then
+    if [ "$fstype" = btrfs ] && [[ ",$opts," == *",subvol=/$sv,"* ]]; then echo mounted-ok; else echo mounted-wrong; fi
+    return
+  fi
+  if [ ! -e "$d" ] && [ ! -L "$d" ]; then echo absent; return; fi
+  if [ -L "$d" ] || [ ! -d "$d" ]; then echo not-a-directory; return; fi
+  if [ ! -r "$d" ] || [ ! -x "$d" ]; then echo unreadable; return; fi
+  if [ -z "$(find "$d" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then echo empty; else echo populated; fi
+}
+
+# fstab_state <path> <subvolume>: none | ok | wrong
+fstab_state() {
+  local src typ opts
+  read -r src typ opts <<<"$(fstab_opts "$1")"
+  [ -n "${src:-}" ] || { echo none; return; }
+  if [ "$typ" = btrfs ] && [[ ",$opts," == *",subvol=/$2,"* ]] && [[ ",$opts," != *",nofail,"* ]] \
+     && { [ -z "${ROOT_UUID:-}" ] || [ "$src" = "UUID=$ROOT_UUID" ]; }; then
+    echo ok
+  else
+    echo wrong
+  fi
+}
+
+# dropin_state <relative path>: ok | differs | absent
+dropin_state() {
+  local dst="$R/etc/systemd/system/$1"
+  if [ ! -e "$dst" ]; then echo absent
+  elif cmp -s "$HERE/systemd/$1" "$dst"; then echo ok
+  else echo differs
+  fi
+}
+
+describe() {
+  case $1 in
+    mounted-ok)      echo "mounted from its own subvolume" ;;
+    mounted-wrong)   echo "mounted, but not from the expected subvolume" ;;
+    absent)          echo "does not exist" ;;
+    empty)           echo "empty directory" ;;
+    populated)       echo "ordinary directory WITH DATA inside the root subvolume" ;;
+    unreadable)      echo "not readable by this user (run as root for a full status)" ;;
+    not-a-directory) echo "exists but is not a directory" ;;
+  esac
+}
+
+cmd_status() {
+  local brief=0 e p sv st fs d ds
+  [ "${1:-}" = --brief ] && brief=1
+  command -v "$FINDMNT" >/dev/null 2>&1 || { echo "status unknown (findmnt not available)"; exit 2; }
+  ROOT_UUID=""; root_fs 2>/dev/null || ROOT_UUID=""
+  local n_ok=0 n_fresh=0 n_pop=0 n_bad=0 n_fs_ok=0 n_fs_none=0 n_fs_bad=0 n_di_ok=0
+  for e in "${LAYOUT[@]}"; do
+    p=${e%%:*}; sv=${e#*:}
+    st=$(path_state "$p" "$sv"); fs=$(fstab_state "$p" "$sv")
+    case $st in
+      mounted-ok)   n_ok=$((n_ok+1)) ;;
+      absent|empty) n_fresh=$((n_fresh+1)) ;;
+      populated)    n_pop=$((n_pop+1)) ;;
+      *)            n_bad=$((n_bad+1)) ;;
+    esac
+    case $fs in ok) n_fs_ok=$((n_fs_ok+1)) ;; none) n_fs_none=$((n_fs_none+1)) ;; *) n_fs_bad=$((n_fs_bad+1)) ;; esac
+    [ $brief = 1 ] || printf '  %-20s %-14s %s; fstab entry: %s\n' "$p" "$sv" "$(describe "$st")" "$fs"
+  done
+  for d in "${DROPINS[@]}"; do
+    ds=$(dropin_state "$d")
+    [ "$ds" = ok ] && n_di_ok=$((n_di_ok+1))
+    [ $brief = 1 ] || printf '  drop-in %-48s %s\n' "$d" "$ds"
+  done
+  local total=${#LAYOUT[@]}
+  if [ $n_pop -gt 0 ]; then
+    echo "needs-migration: existing data in ordinary directories inside @; nothing is changed automatically. Follow $RUNBOOK"
+    exit 4
+  elif [ $n_ok = "$total" ] && [ $n_fs_ok = "$total" ] && [ $n_di_ok = ${#DROPINS[@]} ]; then
+    echo "separated: /work, /var/lib/containerd and /var/lib/docker are mounted from their own subvolumes"
+    exit 0
+  elif [ $n_fresh = "$total" ] && [ $n_fs_none = "$total" ]; then
+    echo "fresh: the paths are absent or empty; the fresh-machine steps in workstation/storage/README.md apply"
+    exit 3
+  else
+    echo "incomplete: the layout is partially applied or inconsistent (mounted $n_ok/$total, fstab ok $n_fs_ok/$total, wrong $n_fs_bad, drop-ins ok $n_di_ok/${#DROPINS[@]}, other $n_bad); see wb-storage status"
+    exit 5
+  fi
+}
+
+# under <target>: is <target> one of USERS_PATHS or below one of them?
+under() {
+  local t=${1% (deleted)} p
+  for p in "${USERS_PATHS[@]}"; do
+    [ "$t" = "$p" ] || [[ $t == "$p"/* ]] && return 0
+  done
+  return 1
+}
+
+# ours <pid>: is <pid> this process or one of its descendants (the scan's own helpers)?
+ours() {
+  local p=$1 pp k v
+  while [ -n "$p" ] && [ "$p" != 0 ] && [ "$p" != 1 ]; do
+    [ "$p" = "$$" ] && return 0
+    pp=""
+    while read -r k v; do [ "$k" = PPid: ] && { pp=$v; break; }; done < "/proc/$p/status" 2>/dev/null
+    p=$pp
+  done
+  return 1
+}
+
+# users [path...]: read-only. List every process whose cwd, root, open file
+# descriptors or mapped files are at or below the paths (default: the three
+# storage paths). Never stops anything. Exit 0 none, 1 found, 2 inconclusive.
+cmd_users() {
+  local pid d t f hit cmd found=0 self_cwd
+  USERS_PATHS=("$@")
+  [ ${#USERS_PATHS[@]} -gt 0 ] || USERS_PATHS=(/work /var/lib/docker /var/lib/containerd)
+  for d in "${!USERS_PATHS[@]}"; do USERS_PATHS[d]=${USERS_PATHS[d]%/}; done
+  [ -d /proc/self ] || { say "/proc is not available; cannot check"; exit 2; }
+  self_cwd=$(readlink /proc/$$/cwd)
+  if under "$self_cwd"; then
+    say "run this from outside the checked paths (this shell's directory is $self_cwd)"; exit 2
+  fi
+  for d in /proc/[0-9]*; do
+    pid=${d#/proc/}
+    ours "$pid" && continue
+    hit=""
+    for t in "$(readlink "$d/cwd" 2>/dev/null)" "$(readlink "$d/root" 2>/dev/null)"; do
+      [ -n "$t" ] && [ "$t" != / ] && under "$t" && { hit=$t; break; }
+    done
+    if [ -z "$hit" ]; then
+      for f in "$d"/fd/*; do
+        t=$(readlink "$f" 2>/dev/null) || continue
+        under "$t" && { hit=$t; break; }
+      done
+    fi
+    if [ -z "$hit" ] && [ -r "$d/maps" ]; then
+      while IFS= read -r t; do
+        under "$t" && { hit=$t; break; }
+      done < <(awk '$6 ~ /^\// { print substr($0, index($0, $6)) }' "$d/maps" 2>/dev/null)
+    fi
+    [ -n "$hit" ] || continue
+    found=$((found+1))
+    cmd=$(tr '\0' ' ' < "$d/cmdline" 2>/dev/null | cut -c1-120)
+    printf 'pid %-8s %-10s %s\n         uses %s\n' "$pid" "$(stat -c %U "$d" 2>/dev/null)" "${cmd:-[$(cat "$d/comm" 2>/dev/null)]}" "$hit"
+  done
+  if [ $found -gt 0 ]; then
+    say "$found process(es) still use ${USERS_PATHS[*]}; stop each one yourself, by PID (never pkill/killall)"
+    exit 1
+  fi
+  if [ "$(id -u)" != 0 ]; then
+    say "none visible, but only this user's processes can be inspected; run as root for a conclusive check"
+    exit 2
+  fi
+  echo "no process uses ${USERS_PATHS[*]}"
+}
+
+cmd_install_dropins() {
+  local dry=0 d src dst
+  case "${1:-}" in --dry-run) dry=1 ;; "") ;; *) die "usage: wb-storage install-dropins [--dry-run]" ;; esac
+  if [ -z "$R" ] && [ $dry = 0 ] && [ "$(id -u)" != 0 ]; then
+    die "install-dropins writes /etc/systemd/system; run it with sudo (or preview with --dry-run)"
+  fi
+  for d in "${DROPINS[@]}"; do [ -f "$HERE/systemd/$d" ] || die "missing in repo: storage/systemd/$d"; done
+  for d in "${DROPINS[@]}"; do
+    src="$HERE/systemd/$d"; dst="$R/etc/systemd/system/$d"
+    if [ -f "$dst" ] && cmp -s "$src" "$dst"; then
+      echo "OK    already installed: /etc/systemd/system/$d"; continue
+    fi
+    if [ -e "$dst" ]; then
+      echo "BACK  /etc/systemd/system/$d -> $d.bak.$TS"
+      [ $dry = 1 ] || cp -p "$dst" "$dst.bak.$TS" || die "could not back up $dst"
+    fi
+    echo "INST  /etc/systemd/system/$d"
+    if [ $dry = 0 ]; then
+      mkdir -p "$(dirname "$dst")" && install -m 0644 "$src" "$dst" || die "could not install $dst"
+    fi
+  done
+  [ $dry = 1 ] && echo "dry-run: nothing was written"
+  echo "NEXT  systemctl daemon-reload   (wb-storage never reloads, starts or stops units)"
+}
+
+case "${1:-}" in
+  status)          shift; cmd_status "$@" ;;
+  fstab)           shift; [ $# = 0 ] || die "usage: wb-storage fstab"; cmd_fstab ;;
+  install-dropins) shift; cmd_install_dropins "$@" ;;
+  users)           shift; cmd_users "$@" ;;
+  -h|--help|help)  usage ;;
+  *)               usage >&2; exit 2 ;;
+esac

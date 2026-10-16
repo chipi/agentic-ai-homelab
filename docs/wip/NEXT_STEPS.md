@@ -64,6 +64,24 @@ drafted, but they haven't been run for real yet.
       The runbook now does both in one step. The earlier "tunnel only lives while
       logged in" warning here was wrong.
 
+## Planned X3 ops (operator picks the window; layout codified 2026-10-16)
+
+- [ ] **Storage separation window** — move `/work`, `/var/lib/docker`,
+      `/var/lib/containerd` into `@work`, `@docker`, `@containerd`
+      ([ADR-0011](../adr/ADR-0011-workstation-storage-subvolumes.md)) with the
+      [runbook](../recipes/x3-storage-separation.md). **Blocked until:** an emergency
+      boot path is confirmed (B); the small encrypted off-machine backup of the
+      Orrery and OceanCanvas `.env` variants and Orrery's local overrides exists and
+      has been decrypted and compared (C); Orrery's live state (detached HEAD
+      `41330dd`, the `/tmp/…/replay-baseline-main` worktree) is landed, preserved or
+      stopped by its owner.
+- [ ] Separately: `chmod 0600 /work/orrery/main/.env` (secret-bearing, mode 0644
+      on 2026-10-16).
+- [ ] **Later, never automatic:** retire the `*.pre-subvol` safety copies with the
+      [retirement procedure](../recipes/x3-storage-safety-copy-retirement.md), after
+      its readiness checks (normal development, Docker use, a full Workbench stream
+      lifecycle and a reboot on the new layout) and explicit approval.
+
 ## Dated checks (open on/after the date — we WILL forget otherwise)
 
 - [ ] **Monthly from 2026-11-01:** upgrade lima on the mini once

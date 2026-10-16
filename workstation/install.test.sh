@@ -30,9 +30,29 @@ case "$*" in
 esac
 EOF
 chmod +x "$T/fake/systemctl"
+# Storage status (storage/wb-storage) reads a scratch root and a fake findmnt, never
+# the live host. FAKE_MOUNTS lines: "<mountpoint> <fstype> <options> <uuid>".
+cat > "$T/fake/findmnt" <<'EOF'
+#!/bin/sh
+cols=; mp=
+while [ $# -gt 0 ]; do case $1 in -o) cols=$2; shift ;; --mountpoint) mp=$2; shift ;; esac; shift; done
+awk -v mp="$mp" -v cols="$cols" '$1 == mp { n = split(cols, c, ","); out = ""
+  for (i = 1; i <= n; i++) { v = (c[i] == "FSTYPE") ? $2 : (c[i] == "OPTIONS") ? $3 : (c[i] == "UUID") ? $4 : ""; out = out (i > 1 ? " " : "") v }
+  print out; found = 1 } END { exit found ? 0 : 1 }' "$FAKE_MOUNTS"
+EOF
+chmod +x "$T/fake/findmnt"
+# sroot <name>: a scratch storage root with an Omarchy-like root fstab entry and mount.
+SUUID="0f0f0f0f-1111-4222-8333-444455556666"; SOPTS="rw,relatime,compress=zstd:3,ssd,space_cache=v2,subvol=/@"
+sroot() {
+  SR="$T/$1.sroot"; mkdir -p "$SR/etc"
+  printf 'UUID=%s\t/\tbtrfs\t%s\t0 0\n' "$SUUID" "$SOPTS" > "$SR/etc/fstab"
+  printf '/ btrfs %s %s\n' "$SOPTS" "$SUUID" > "$SR.mounts"
+}
+ssig() { (cd "$SR" && find . -printf '%p|%y|%s|%m|%T@|%i\n' | sort; find . -type f -exec md5sum {} + | sort) | md5sum; }
+sroot default
 # A PATH without wt (everything else the installer uses, plus the fake systemctl).
 mkdir -p "$T/nowt"
-for c in bash sh env dirname date uname basename readlink mkdir mv ln cp grep cat printf sed jq tr touch; do
+for c in bash sh env dirname date uname basename readlink mkdir mv ln cp grep cat printf sed jq tr touch awk find paste cmp id; do
   ln -sf "$(command -v "$c")" "$T/nowt/$c"
 done
 ln -sf "$T/fake/systemctl" "$T/nowt/systemctl"
@@ -47,7 +67,9 @@ home() {
   esac
   [ "${4:-}" = fail ] && touch "$S/fail_enable"; return 0
 }
-run()  { HOME="$H" FAKE_STATE="$S" PATH="${RUNPATH:-$T/fake:$PATH}" WS_OS="${OSV:-linux}" "$INST" ${1:-} > "$H.out" 2>&1; echo $? > "$H.rc"; }
+run()  { HOME="$H" FAKE_STATE="$S" PATH="${RUNPATH:-$T/fake:$PATH}" WS_OS="${OSV:-linux}" \
+         WB_STORAGE_ROOT="$SR" WB_STORAGE_FINDMNT="$T/fake/findmnt" FAKE_MOUNTS="$SR.mounts" \
+         "$INST" ${1:-} > "$H.out" 2>&1; echo $? > "$H.rc"; }
 rc()   { cat "$H.rc"; }
 ec()   { grep -c '^--user enable --now ssh-agent.socket$' "$S/calls"; }       # real enable invocations
 sig()  { find "$H" -maxdepth 1 -name '.bashrc*' -printf '%p|%s|%m|%T@\n' | sort | md5sum; }
@@ -133,10 +155,28 @@ run
 chk "one backup (the original), each block once" \
   "[ $(rc) = 0 ] && [ \$(ls '$H'/.bashrc.bak.* | wc -l) = 1 ] && same_as '$H'/.bashrc.bak.* \"\$BASE\" && [ \$(grep -cxF '$WT_LINE' '$H/.bashrc') = 1 ] && [ \$(grep -cxF '$SSH_LINE' '$H/.bashrc') = 1 ]"
 
+echo "== storage layout: reported, never changed (storage/README.md)"
+sroot populated
+mkdir -p "$SR/work/orrery/main/.git" "$SR/var/lib/docker" "$SR/var/lib/containerd/io.containerd.content.v1.content"
+echo src > "$SR/work/orrery/main/README.md"; echo id > "$SR/var/lib/docker/engine-id"; echo blob > "$SR/var/lib/containerd/io.containerd.content.v1.content/b"
+home st-populated "$BASE$SSH_LINE"$'\n'"$WT_LINE"$'\n'; sbefore=$(ssig)
+run --dry-run
+chk "populated /work + Docker trees (as on X3), dry-run: reports needs-migration, storage root unchanged" \
+  "[ $(rc) = 0 ] && grep -q '^INFO  storage: needs-migration: .*docs/recipes/x3-storage-separation.md' '$H.out' && [ \"\$(ssig)\" = '$sbefore' ] && [ ! -e '$H/.local/bin/wb-storage' ]"
+run
+chk "populated, real run: same report; nothing moved, copied, deleted or written under the storage root" \
+  "[ $(rc) = 0 ] && grep -q '^INFO  storage: needs-migration' '$H.out' && [ \"\$(ssig)\" = '$sbefore' ]"
+chk "real run links wb-storage; installs no drop-ins and adds no fstab entry" \
+  "[ \"\$(readlink '$H/.local/bin/wb-storage')\" = '$HERE/storage/wb-storage' ] && [ ! -e '$SR/etc/systemd' ] && [ \$(grep -c . '$SR/etc/fstab') = 1 ]"
+sroot fresh; home st-fresh "$BASE$SSH_LINE"$'\n'"$WT_LINE"$'\n'; sbefore=$(ssig); run
+chk "fresh machine: reports 'fresh' but does not establish the layout itself" \
+  "[ $(rc) = 0 ] && grep -q '^INFO  storage: fresh: ' '$H.out' && [ \"\$(ssig)\" = '$sbefore' ] && [ ! -e '$SR/work' ]"
+sroot default
+
 echo "== macOS path unchanged"
 home mac "$BASE" disabled; before=$(sig); OSV=macos run
-chk "no ssh-agent/Worktrunk output, no systemctl calls, .bashrc unchanged" \
-  "[ $(rc) = 0 ] && ! grep -qi -e worktrunk -e wb-stream -e ssh-agent -e SSH_AUTH_SOCK '$H.out' && [ ! -s '$S/calls' ] && [ \"\$(sig)\" = '$before' ] && [ ! -e '$H/.config/worktrunk' ]"
+chk "no ssh-agent/Worktrunk/storage output, no systemctl calls, .bashrc unchanged" \
+  "[ $(rc) = 0 ] && ! grep -qi -e worktrunk -e wb-stream -e wb-storage -e 'storage:' -e ssh-agent -e SSH_AUTH_SOCK '$H.out' && [ ! -s '$S/calls' ] && [ \"\$(sig)\" = '$before' ] && [ ! -e '$H/.config/worktrunk' ]"
 
 echo; echo "RESULT: pass=$pass fail=$fail"
 [ "$fail" = 0 ]

@@ -38,8 +38,9 @@ each. Only the OS-specific block differs:
 
 - **macOS** — also installs the [workbench](workbench/README.md): one
   persistent tmux session with a window per project, started by a LaunchAgent.
-- **Linux** — enables the persistent [SSH agent](#ssh-agent-linux) and sets up
-  [Worktrunk streams](#worktrunk-streams-linux). No workbench: one tmux session
+- **Linux** — enables the persistent [SSH agent](#ssh-agent-linux), sets up
+  [Worktrunk streams](#worktrunk-streams-linux), and reports the
+  [storage layout](#storage-layout-linux) without changing it. No workbench: one tmux session
   per project; no `~/.tmux.conf`, which would shadow Omarchy's
   `~/.config/tmux/tmux.conf`.
 
@@ -64,6 +65,9 @@ each. Only the OS-specific block differs:
 | `~/.local/bin/wb-stream` | `streams/wb-stream` | Linux | symlink |
 | `~/.local/bin/wb-workspace` | `streams/wb-workspace` | Linux | symlink |
 | `~/.local/bin/wb-integrate` | `streams/wb-integrate` | Linux | symlink |
+| `~/.local/bin/wb-storage` | `storage/wb-storage` | Linux | symlink; the layout itself is only reported (`INFO  storage: …`) |
+| `/etc/systemd/system/{docker,containerd}.service.d/50-x3-storage-mounts.conf` | `storage/systemd/…` | Linux | **not** by `install.sh`: `wb-storage install-dropins`, as root, during the storage setup |
+| `/etc/fstab` storage entries | — (rendered by `wb-storage fstab`) | Linux | **not** by `install.sh`: added by hand ([`storage/README.md`](storage/README.md)) |
 | `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | both | **template** — copy + fill |
 | `~/.claude/settings.json` | `claude/settings.json.example` | both | **template** — copy + fill |
 
@@ -136,6 +140,23 @@ Full layout, lifecycle, assumptions and command reference:
 - **Tests:** `bash workstation/install.test.sh` and
   `bash workstation/streams/wb-{stream,workspace,integrate}.test.sh` (scratch
   dirs only).
+
+## Storage layout (Linux)
+
+`/work`, `/var/lib/docker` and `/var/lib/containerd` live in their own top-level
+Btrfs subvolumes (`@work`, `@docker`, `@containerd`), so a root Snapper rollback never
+rewinds project work or Docker state. Layout, files and commands:
+[`storage/README.md`](storage/README.md); why:
+[ADR-0011](../docs/adr/ADR-0011-workstation-storage-subvolumes.md).
+
+- `install.sh` links `wb-storage` and prints the layout verdict. It never creates
+  subvolumes, edits fstab, mounts, moves data or touches units.
+- **Fresh machine** (`fresh`): the steps in `storage/README.md`, before Docker first
+  starts. **Machine with data** (`needs-migration`, the X3 today): the one-time
+  [runbook](../docs/recipes/x3-storage-separation.md), then later the separate
+  [safety-copy retirement](../docs/recipes/x3-storage-safety-copy-retirement.md).
+- **Tests:** `bash workstation/storage/wb-storage.test.sh` (scratch roots and a fake
+  `findmnt` only).
 
 ## Secrets policy — this repo is public
 
