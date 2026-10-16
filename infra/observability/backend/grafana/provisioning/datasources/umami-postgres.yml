@@ -1,8 +1,9 @@
 # Read-only Umami (product analytics) datasource — orrery's orrery-analytics dashboard
-# (orrery repo, ops/observability/dashboards) picks it via its ${ds} postgres picker.
+# (orrery repo, ops/observability/dashboards) and the podcast player's beta-analytics
+# dashboard (podcast_scraper config/grafana/dashboards/podcast-player).
 #
-# Role grafana_ro in the umami DB: SELECT on website_event + event_data only (what that
-# dashboard reads). Reached by container name over umami_default (grafana joins that network,
+# Role grafana_ro in the umami DB: SELECT on website_event, event_data, session,
+# session_data only (session tables added 2026-10-16 for the player's per-participant view). Reached by container name over umami_default (grafana joins that network,
 # docker-compose.yml), not via host.docker.internal. Password from .env UMAMI_PG_RO_PASSWORD.
 apiVersion: 1
 

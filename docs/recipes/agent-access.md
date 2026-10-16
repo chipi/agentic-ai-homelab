@@ -139,7 +139,7 @@ GRAFANA_HTTP_URL=https://grafana.tail6d0ed4.ts.net ./ops/observability/dashboard
 
 `orrery-analytics` reads Umami through the provisioned read-only datasource `umami-pg`
 (`provisioning/datasources/umami-postgres.yml`): role `grafana_ro` in the umami DB, SELECT on
-`website_event` + `event_data` only, password `UMAMI_PG_RO_PASSWORD` in the backend `.env`.
+`website_event`, `event_data`, `session`, `session_data` only, password `UMAMI_PG_RO_PASSWORD` in the backend `.env`.
 Grafana reaches `umami-db` by container name on `umami_default` (it joins that network), so
 the Umami stack must be up before the observability backend's `docker compose up`.
 
