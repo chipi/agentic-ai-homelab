@@ -9,7 +9,7 @@ alone is never auto-loaded, so that pointer is what makes any of this discoverab
 
 | Hook | Event | What it does |
 |---|---|---|
-| `session-reap.sh`        | SessionEnd  | Reaps this session's tool processes + sweeps runaway `gh run` poll loops in the project family (↓ documented in full). |
+| `session-reap.sh`        | SessionEnd  | Reaps this session's tool processes + sweeps runaway `gh run` poll loops and orphaned `tail -f … \| grep` watchers in the project family (↓ documented in full). |
 | `session-orphan-report.sh` | SessionStart | Reports (never kills) long-running CPU-heavy processes in the project family (↓ documented in full). |
 | `secrets-guard.sh`       | PreToolUse  | Blocks writes/commits that would leak secrets. |
 | `lean-ctx-*`             | Pre/Post    | lean-ctx tool redirect/rewrite shims. |
@@ -91,6 +91,33 @@ A live watch, an MCP server, and any *other project* can never match all four. A
 runaway loop's `lean-ctx` wrapper *does* (its command line carries the whole loop
 body), so wrapper + shell both die.
 
+**3. Orphaned follow-watchers** (the orphan-watcher sweep, Linux only — it reads
+`/proc`). A backgrounded `tail -f <task-output> | grep 'FAIL|error|…'` outlives the
+session that started it: the session's scratch file is deleted, the pipeline is
+reparented to init, and it waits forever. Found on the X3: one surviving **14 days**
+(following a deleted `scratchpad/push.log`). Gates, all of them:
+
+- a `tail` with a follow flag (`-f`, `-F`, inside a short cluster such as `-nf`, or
+  `--follow`), AND
+- **orphaned**: its parent is pid 1 or a `systemd` manager (the session is gone), AND
+- **every file it follows is deleted** (it is watching nothing), AND
+- **age ≥ `MAX_WATCH_AGE`** (default 2h), AND
+- CWD in the **same project family**.
+
+Its pipeline partners go with it: members of the same process group that are also
+orphaned and are not a shell, agent, editor or MCP server. Nothing outside that group
+is touched. A watch with a live parent, or on a file that still exists, never matches.
+
+### Model-B layout (`/work/<project>/…`)
+
+On the Linux workstation projects live in `/work/<project>/main` and
+`/work/<project>/worktrees/<stream>` — outside `$HOME`, which the original family rule
+did not understand: it returned no family, so **both sweeps silently skipped
+themselves on the X3** (log line `family=none`). `family_prefix` now maps any
+`/work/<project>/…` path to `/work/<project>/`; the trailing slash is the boundary, so
+`/work/orrery/` never matches `/work/orrery2`. `WB_WORK_ROOT` overrides `/work`, as for
+the `wb-*` tools. `session-orphan-report.sh` uses the identical rule.
+
 ### Family scoping (why it never touches another project)
 
 The sweep is scoped to the **project family** derived from the invoking dir, so an
@@ -117,6 +144,12 @@ is too shallow to name a family, the sweep is **skipped** (fail-safe).
 | `SESSION_REAP_DRY_RUN`       | `0`    | `1` = log + print targets, kill nothing. |
 | `SESSION_REAP_MAX_LOOP_AGE`  | `7200` | Stale-loop age floor, seconds. |
 | `SESSION_REAP_NO_LOOP_SWEEP` | `0`    | `1` = skip the stale-loop sweep entirely. |
+| `SESSION_REAP_MAX_WATCH_AGE` | `7200` | Orphan-watcher age floor, seconds. |
+| `SESSION_REAP_NO_WATCH_SWEEP` | `0`   | `1` = skip the orphan-watcher sweep entirely. |
+
+Tests: `bash workstation/claude/hooks/session-reap.test.sh` — scratch work root and
+`HOME`, real orphaned pipelines it starts itself: dry-run, age floor, live run, and the
+negatives (live parent, file still there, other family, prefix-sharing project).
 
 ### Gotchas fixed here — do NOT reintroduce
 

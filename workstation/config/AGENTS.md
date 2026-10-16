@@ -450,9 +450,12 @@ enforced surface. There are no exceptions I can choose to make.
     hook, `~/.claude/hooks/session-reap.sh`, auto-runs when any session ends: it
     reaps that session's tool processes and sweeps runaway `gh run` poll loops
     (`while true; do gh run …; done` CI-watchers that leak when a session dies —
-    they poll the GitHub API for *days*). It is **family-scoped** (project-name
-    prefix), so an `orrery` session never touches a `podcast` process, and
-    vice-versa. It is also the manual entrypoint — run it by hand, **dry-run
+    they poll the GitHub API for *days*) and orphaned `tail -f <file> | grep …`
+    watchers whose session and file are gone. It is **family-scoped** (project-name
+    prefix; on the Linux workstation `/work/<project>/`), so an `orrery` session
+    never touches a `podcast` process, and vice-versa. **Don't leave a background
+    `tail -f` watcher running** when you're done with it: stop it by PID. It is also
+    the manual entrypoint — run it by hand, **dry-run
     first**: `SESSION_REAP_DRY_RUN=1 bash ~/.claude/hooks/session-reap.sh <dir>`,
     then drop the env var to kill. In a repo, `bash scripts/cleanup-worktree.sh
     [--stale-loops] [--dry-run]` is the per-repo manual cleaner. **Never background

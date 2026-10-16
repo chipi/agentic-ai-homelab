@@ -76,8 +76,11 @@ human() {  # seconds -> 4d22h / 03h07m / 12m
 
 # Same family rule as session-reap.sh: $HOME/<container>/<instance>, instance truncated at its
 # first '-'. ~/Projects/podcast_scraper-infra and -FUTURE share a family; orrery does not.
+# Model-B: /work/<project>/... -> "/work/<project>/" (trailing slash = path boundary).
 family_prefix() {
-  local p="${1%/}" rel container instance
+  local p="${1%/}" rel container instance root="${WB_WORK_ROOT:-/work}"
+  root="${root%/}"
+  case "$p" in "$root"/?*) rel="${p#"$root"/}"; echo "$root/${rel%%/*}/"; return ;; esac
   case "$p" in "$HOME"/*/*) : ;; *) echo ""; return ;; esac
   rel="${p#"$HOME"/}"; container="${rel%%/*}"; rel="${rel#*/}"; instance="${rel%%/*}"
   echo "$HOME/$container/${instance%%-*}"
