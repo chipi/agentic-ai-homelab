@@ -32,6 +32,12 @@
       "reports": "player mcp (prod), PROD_SENTRY_DSN_PLAYER_MCP"
     },
     {
+      "slug": "player-obs",
+      "team": "podcast",
+      "platform": "python",
+      "reports": "player observability MCP (prod), PROD_SENTRY_DSN_PLAYER_OBS"
+    },
+    {
       "slug": "gi-kg-viewer",
       "team": "podcast",
       "platform": "javascript-vue",
