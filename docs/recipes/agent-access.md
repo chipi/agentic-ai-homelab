@@ -97,7 +97,7 @@ allowed but are overwritten the next time the file changes.
 | Alert rules (all, incl. the podcast `enrich-common-*` and `sec-*`) | this repo, `rules.yaml` | file provisioning + reload (above) |
 | Folders Homelab, Production Infra, CI Ops, Delivery, Podcast Operator, Podcast Player | this repo, `grafana/dashboards/<folder>/` | file provisioning (30 s) |
 | Folders Common (Box & Edge), VPS — Podcast, podcast-player | podcast_scraper, `config/grafana/dashboards/<tenant>/` | `make obs-sync` (API), run from here |
-| Folder Orrery (`orrery`): orrery-overview, orrery-web, orrery-pipelines | orrery, `ops/observability/dashboards/` | that repo's `import.sh` (API), run from here with `~/grafana/orrery-sync.env` (first import 2026-10-16) |
+| Folder Orrery (`orrery`): orrery-overview, orrery-web, orrery-pipelines, orrery-analytics | orrery, `ops/observability/dashboards/` | that repo's `import.sh` (API), run from here with `~/grafana/orrery-sync.env` (first import 2026-10-16) |
 
 A dashboard uid lives in ONE of the two repos. If an API push overwrites a provisioned
 dashboard, Grafana won't delete it ("provisioned dashboard cannot be deleted"), and touching
@@ -137,8 +137,11 @@ set -a; eval "$(ssh homelab 'cat ~/grafana/orrery-sync.env')"; set +a
 GRAFANA_HTTP_URL=https://grafana.tail6d0ed4.ts.net ./ops/observability/dashboards/import.sh
 ```
 
-`import.sh` imports every `*.json` there, `orrery-analytics` included, which needs a Umami
-Postgres datasource this Grafana doesn't have yet (2026-10-16).
+`orrery-analytics` reads Umami through the provisioned read-only datasource `umami-pg`
+(`provisioning/datasources/umami-postgres.yml`): role `grafana_ro` in the umami DB, SELECT on
+`website_event` + `event_data` only, password `UMAMI_PG_RO_PASSWORD` in the backend `.env`.
+Grafana reaches `umami-db` by container name on `umami_default` (it joins that network), so
+the Umami stack must be up before the observability backend's `docker compose up`.
 
 **Careful:** a rule change can mute a real outage. Prove a rule change on history
 first (`infra/observability/rules-drift/rule_history_replay.py`, skill
