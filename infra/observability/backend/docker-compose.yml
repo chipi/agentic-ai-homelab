@@ -135,6 +135,8 @@ services:
       - GF_SERVER_SERVE_FROM_SUB_PATH=false
       # read-only LiteLLM spend datasource (provisioning/datasources/litellm-postgres.yml)
       - LITELLM_PG_RO_PASSWORD=${LITELLM_PG_RO_PASSWORD:-}
+      # read-only Umami datasource (provisioning/datasources/umami-postgres.yml; orrery-analytics)
+      - UMAMI_PG_RO_PASSWORD=${UMAMI_PG_RO_PASSWORD:-}
       # --- Alerting notification channels (generic / add-later) -----------------
       # The alert rules + routing are provisioned as code; the CHANNELS are
       # pluggable — each activates the moment you set its env in .env and restart
@@ -156,10 +158,23 @@ services:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      # default for VM/VL/VT; umami so the Umami datasource reaches umami-db by container name
+      # over the docker network, not via the host's fragile lima port-forward (the reason alloy
+      # joins litellm/delivery/langfuse; see hosts/homelab/docker-compose.yml).
+      - default
+      - umami
     logging:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
     restart: unless-stopped
+
+networks:
+  # Owned by infra/umami. External: that stack must be up (it is, under the same colima) before
+  # `docker compose up` here, else this fails with "network umami_default not found".
+  umami:
+    external: true
+    name: umami_default
 
 volumes:
   vm-data:

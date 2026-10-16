@@ -1,0 +1,24 @@
+# Read-only Umami (product analytics) datasource — orrery's orrery-analytics dashboard
+# (orrery repo, ops/observability/dashboards) picks it via its ${ds} postgres picker.
+#
+# Role grafana_ro in the umami DB: SELECT on website_event + event_data only (what that
+# dashboard reads). Reached by container name over umami_default (grafana joins that network,
+# docker-compose.yml), not via host.docker.internal. Password from .env UMAMI_PG_RO_PASSWORD.
+apiVersion: 1
+
+datasources:
+  - name: Umami (Postgres)
+    uid: umami-pg
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: umami-db:5432
+    user: grafana_ro
+    jsonData:
+      database: umami
+      sslmode: disable
+      maxOpenConns: 4
+      maxIdleConns: 2
+      postgresVersion: 1600
+    secureJsonData:
+      password: $__env{UMAMI_PG_RO_PASSWORD}
+    editable: false
