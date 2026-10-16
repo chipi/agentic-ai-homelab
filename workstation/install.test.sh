@@ -13,7 +13,9 @@ chk() { if eval "$2"; then echo "  ok   $1"; pass=$((pass+1)); else echo "  FAIL
 
 WT_LINE='if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init bash)"; fi'
 SSH_LINE='export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent.socket"'
-BASE=$'# Omarchy default\n[[ $- != *i* ]] && return\n'
+LCTX_LINE='export __LEAN_CTX_NO_DAEMON=1'
+BASE0=$'# Omarchy default\n[[ $- != *i* ]] && return\n'
+BASE="$BASE0$LCTX_LINE"$'\n'      # the X3 after this installer: the LeanCTX root line already set
 
 # Fake systemctl. State per HOME in $FAKE_STATE/{available,enabled,active,fail_enable}; every call logged.
 mkdir -p "$T/fake"
@@ -170,6 +172,25 @@ chk "dry-run announces the backup once" "[ $(rc) = 0 ] && [ \$(grep -c '^BACK  .
 run
 chk "one backup (the original), each block once" \
   "[ $(rc) = 0 ] && [ \$(ls '$H'/.bashrc.bak.* | wc -l) = 1 ] && same_as '$H'/.bashrc.bak.* \"\$BASE\" && [ \$(grep -cxF '$WT_LINE' '$H/.bashrc') = 1 ] && [ \$(grep -cxF '$SSH_LINE' '$H/.bashrc') = 1 ]"
+
+echo "== LeanCTX: per-invocation project root (config/lean-ctx/README.md)"
+home lc-fresh "$BASE0$SSH_LINE"$'\n'"$WT_LINE"$'\n'; ORIG="$BASE0$SSH_LINE"$'\n'"$WT_LINE"$'\n'; before=$(sig)
+run --dry-run
+chk "dry-run: SHELL append announced, .bashrc unchanged" "[ $(rc) = 0 ] && grep -q '^SHELL append LeanCTX per-invocation project root block' '$H.out' && [ \"\$(sig)\" = '$before' ]"
+run
+chk "real run: the line is added once, in markers; backup equals the original" \
+  "[ $(rc) = 0 ] && [ \$(grep -cxF '$LCTX_LINE' '$H/.bashrc') = 1 ] && grep -qx '# >>> workstation lean-ctx-root >>>' '$H/.bashrc' && same_as '$H'/.bashrc.bak.* \"\$ORIG\""
+sed -n '/>>> workstation lean-ctx-root/,/<<< workstation lean-ctx-root/p' "$H/.bashrc" > "$T/lc.sh"; printf 'echo "${__LEAN_CTX_NO_DAEMON:-unset}"\n' >> "$T/lc.sh"
+chk "sourcing the block exports it to child processes (agents, their tool shells)" "[ \"\$(env -i \"\$(command -v bash)\" -c '. $T/lc.sh >/dev/null; bash -c \"echo \\\${__LEAN_CTX_NO_DAEMON:-unset}\"')\" = 1 ]"
+after=$(sig); run
+chk "rerun: OK, .bashrc unchanged" "[ $(rc) = 0 ] && grep -q '^OK    LeanCTX per-invocation project root already set' '$H.out' && [ \"\$(sig)\" = '$after' ]"
+home lc-other "$BASE0"'export __LEAN_CTX_NO_DAEMON=0'$'\n'"$SSH_LINE"$'\n'"$WT_LINE"$'\n'; before=$(sig); run
+chk "a different existing setting: WARN, left unchanged" "[ $(rc) = 0 ] && grep -q '^WARN  lean-ctx-root: .* sets LeanCTX per-invocation project root differently' '$H.out' && [ \"\$(sig)\" = '$before' ]"
+LCC="$HERE/config/lean-ctx/config.toml"
+chk "no access broadening in the tracked LeanCTX config: no path_jail=false, no pinned project_root, allow_paths empty, no extra/symlink roots" \
+  "! grep -qE '^[[:space:]]*(path_jail[[:space:]]*=[[:space:]]*false|project_root[[:space:]]*=|extra_roots|allow_symlink_roots|read_only_roots)' '$LCC' && grep -qx 'allow_paths = \[\]' '$LCC'"
+chk "the fix is not a global root: installer sets no LEAN_CTX_PROJECT_ROOT, LEAN_CTX_EXTRA_ROOTS or path_jail override" \
+  "! grep -v '^[[:space:]]*#' '$INST' | grep -qE 'LEAN_CTX_PROJECT_ROOT|LEAN_CTX_EXTRA_ROOTS|LEAN_CTX_ALLOW_PATH|path_jail'"
 
 echo "== storage layout: reported, never changed (storage/README.md)"
 sroot populated

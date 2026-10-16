@@ -60,7 +60,7 @@ each. Only the OS-specific block differs:
 | `~/.tmux.conf` | `workbench/tmux.conf` | macOS | symlink |
 | `~/Library/LaunchAgents/com.chipi.workbench.plist` | `workbench/com.chipi.workbench.plist` | macOS | symlink + one-off `launchctl bootstrap` |
 | systemd user `ssh-agent.socket` | — (distro unit) | Linux | `systemctl --user enable --now` if not already |
-| `~/.bashrc` | — | Linux | appends an `SSH_AUTH_SOCK` block and a Worktrunk shell-integration block, each once, unless already set |
+| `~/.bashrc` | — | Linux | appends an `SSH_AUTH_SOCK` block, a LeanCTX per-invocation-root block (`export __LEAN_CTX_NO_DAEMON=1`, [`config/lean-ctx/README.md`](config/lean-ctx/README.md)) and a Worktrunk shell-integration block, each once, unless already set |
 | `~/.config/worktrunk/config.toml` | `config/worktrunk/config.toml` | Linux | symlink |
 | `~/.local/bin/wb-stream` | `streams/wb-stream` | Linux | symlink |
 | `~/.local/bin/wb-workspace` | `streams/wb-workspace` | Linux | symlink |

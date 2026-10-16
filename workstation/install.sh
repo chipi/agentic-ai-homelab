@@ -269,11 +269,26 @@ tmux_persistence() {
   echo "NEXT  load it into a running tmux server: tmux source-file $(tmux_user_conf)   (the installer never touches a running server)"
 }
 
+# LeanCTX project root per invocation (config/lean-ctx/README.md). The Bash hook
+# rewrites cat/head/sed/tail/grep/rg/ls into one-shot `lean-ctx read|grep|ls`
+# calls, which by default are served by ONE per-user daemon whose project root is
+# the cwd of whichever call happened to start it; every other project and
+# worktree is then refused (upstream #1695, still in 3.10.5 and 3.11.4). With
+# this set, each call resolves the root from its own cwd. Agents launched from
+# a shell inherit it; already running agents keep their old environment.
+LEANCTX_ROOT_LINE='export __LEAN_CTX_NO_DAEMON=1'
+
+lean_ctx_root() {
+  bashrc_block lean-ctx-root "LeanCTX per-invocation project root" "$LEANCTX_ROOT_LINE" '^[^#]*__LEAN_CTX_NO_DAEMON=' \
+    'one-shot lean-ctx calls take the project root from their own cwd, not the shared daemon (lean-ctx #1695)'
+}
+
 install_linux() {
   # The Mac workbench (one session, a window per project) is deliberately not
   # installed: Linux uses one tmux session per project, and a ~/.tmux.conf link
   # would shadow the distro's ~/.config/tmux/tmux.conf (tmux reads ~/.tmux.conf first).
   if ssh_agent_socket; then ssh_agent_shell; fi
+  lean_ctx_root
   worktrunk
   storage
   tmux_persistence

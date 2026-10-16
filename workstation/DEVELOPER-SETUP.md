@@ -560,10 +560,14 @@ process, compare `node --version` with `mise current node`.
   `wb-workspace` and `wb-integrate`.
 - Don't put LeanCTX-specific state into product repositories unless it's
   intentionally required.
+- **Project root = the invocation's own cwd** (its Git top-level: a worktree is
+  its own root). A wrong root such as `/work/orrery/main` for an agent elsewhere
+  came from LeanCTX's shared daemon, which checked hook-rewritten reads
+  (`cat`/`sed`/`grep`/`ls` → `lean-ctx read|grep|ls`) against the cwd it was
+  started in. Fixed by `export __LEAN_CTX_NO_DAEMON=1` in `~/.bashrc` (installed by
+  `install.sh`; agents started afterwards pick it up). Cause, evidence,
+  troubleshooting: [`config/lean-ctx/README.md`](config/lean-ctx/README.md).
 - **Observed friction (not fixed):**
-  - its file tools sometimes refuse paths outside a "project root"
-    ("path escapes project root"), and that root isn't reliably the checkout
-    an agent works in (see [limitations](#known-limitations-and-deferred-work));
   - some commands and shell forms are blocked by policy: `node -e`,
     `python3 -c`, some subshell groupings, and earlier `ss`.
   The workaround is the agent's native read tool or a script file; never
@@ -672,7 +676,7 @@ project (Orrery: `.config/workspace/README.md`, "Known limitations").
 |---|---|---|
 | Live process at stream retirement | **Resolved** (retirement invariant) | Was: the worktree removed underneath a running `claude` or dev server (Slice 4B), and the remote-delivery path (`wt remove` after a PR merge) wasn't checked at all. Now `wb-workspace live-check` is step 1 of the `pre-remove` pipeline for every Worktrunk retirement, and also a `wb-integrate` precondition. Remaining gaps: only the cwd is checked (not open files); other users' and containers' processes are invisible; a process started between the check and the removal isn't caught; `wt remove --no-hooks` and `git worktree remove` bypass it. |
 | Stream tmux windows stay open | Expected | `wt remove` / `wb-integrate` don't close windows; close them by hand. An idle pane shell in the stream only produces a warning at integration; it then sits in the deleted trash path. A UX concern, not an integration blocker. |
-| LeanCTX project root | Inconsistent, open | Path-escape refusals rooted at the primary checkout appeared in 4A and for one 4B worker started *inside* its worktree, not for the other. "Start the agent in the worktree" is not an established fix. Plus command-policy friction (see [LeanCTX](#leanctx)). |
+| LeanCTX project root | **Resolved** (per-invocation root) | Cause: hook-rewritten one-shot reads went through LeanCTX's shared daemon, rooted in the directory of whichever call started it (`/work/orrery/main` on the X3); MCP `ctx_*` tools were always rooted correctly, hence the inconsistency in 4A/4B. Fix: `__LEAN_CTX_NO_DAEMON=1` from `~/.bashrc`; running agents need a restart to pick it up ([`config/lean-ctx/README.md`](config/lean-ctx/README.md)). Command-policy friction remains (see [LeanCTX](#leanctx)). |
 | Dependency duplication | Deferred | Each fresh worktree runs its own install (Orrery: about 1.2 GB `node_modules` per stream, plus about 2 GB checkout). Correct, not storage-efficient. |
 | Compose image accumulation | Deferred | Scoped `docker compose down` removes containers and networks, not built images; per-stream images remain after teardown. Needs a scoped maintenance policy, never a global prune. |
 | `refs/wt-backup/<branch>` | Deferred | Left by Worktrunk after squashing tracked edits; nothing cleans them. |
