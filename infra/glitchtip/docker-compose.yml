@@ -77,6 +77,8 @@ services:
     environment: *glitchtip-env
     ports:
       - "${GLITCHTIP_LISTEN:-127.0.0.1}:${GLITCHTIP_PORT:-8090}:8080"
+    volumes:
+      - uploads:/code/uploads
     restart: unless-stopped
     <<: *logging
 
@@ -88,6 +90,8 @@ services:
       migrate: { condition: service_completed_successfully }
     environment: *glitchtip-env
     command: ./bin/run-celery-with-beat.sh
+    volumes:
+      - uploads:/code/uploads
     restart: unless-stopped
     <<: *logging
 
@@ -118,3 +122,8 @@ services:
 
 volumes:
   pg-data:
+  # Uploaded files (source-map / debug-file chunks, then assembled bundles). web receives the
+  # chunks and worker assembles them, so both must see the same /code/uploads; without it the
+  # worker failed every assemble with FileNotFoundError on file_blobs/<sha1> (2026-10-16), and
+  # every recreate discarded what web had stored.
+  uploads:
