@@ -97,6 +97,7 @@ allowed but are overwritten the next time the file changes.
 | Alert rules (all, incl. the podcast `enrich-common-*` and `sec-*`) | this repo, `rules.yaml` | file provisioning + reload (above) |
 | Folders Homelab, Production Infra, CI Ops, Delivery, Podcast Operator, Podcast Player | this repo, `grafana/dashboards/<folder>/` | file provisioning (30 s) |
 | Folders Common (Box & Edge), VPS — Podcast, podcast-player | podcast_scraper, `config/grafana/dashboards/<tenant>/` | `make obs-sync` (API), run from here |
+| Folder Orrery (`orrery`): orrery-overview, orrery-web, orrery-pipelines | orrery, `ops/observability/dashboards/` | that repo's `import.sh` (API), run from here with `~/grafana/orrery-sync.env` (first import 2026-10-16) |
 
 A dashboard uid lives in ONE of the two repos. If an API push overwrites a provisioned
 dashboard, Grafana won't delete it ("provisioned dashboard cannot be deleted"), and touching
@@ -121,6 +122,23 @@ GRAFANA_URL=$GRAFANA_COMMON_URL GRAFANA_TOKEN=$GRAFANA_COMMON_TOKEN \
 `verify_dashboard.py` can't check Jaeger panels: in Grafana 11.6 that datasource runs in the
 browser, so `/api/ds/query` returns no frames for it. Check those through
 `/api/datasources/proxy/uid/victoriatraces-jaeger/api/traces?service=<svc>` instead.
+
+It also reports **HTTP 400 for every VictoriaLogs panel**, working ones included (checked on
+`logs-overview`, 2026-10-16): those targets carry no `datasource` of their own, the panel does,
+and the script doesn't inherit it. Until that's fixed, check VictoriaLogs panels by POSTing each
+target to `/api/ds/query` with the panel's `datasource` copied in, its own `queryType`
+(`stats` / `statsRange` / `instant`) and `intervalMs`, as the UI does.
+
+**Re-import the Orrery dashboards** (owned by the orrery repo; see the table above). From an
+orrery checkout at `origin/main`, on the laptop:
+
+```sh
+set -a; eval "$(ssh homelab 'cat ~/grafana/orrery-sync.env')"; set +a
+GRAFANA_HTTP_URL=https://grafana.tail6d0ed4.ts.net ./ops/observability/dashboards/import.sh
+```
+
+`import.sh` imports every `*.json` there, `orrery-analytics` included, which needs a Umami
+Postgres datasource this Grafana doesn't have yet (2026-10-16).
 
 **Careful:** a rule change can mute a real outage. Prove a rule change on history
 first (`infra/observability/rules-drift/rule_history_replay.py`, skill
