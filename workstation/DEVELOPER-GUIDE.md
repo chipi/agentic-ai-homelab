@@ -158,7 +158,8 @@ Before it starts:
 - **Stop what runs in the stream**: exit the stream's agent (`claude`) and
   stop dev servers or other processes started there (by PID or process
   group). `wb-integrate` refuses (exit 2) while any are running and lists
-  them; an idle shell (the stream's own window) only warns.
+  them, before merging anything; an idle shell (the stream's own window) only
+  warns. The same check guards every retirement (see below).
 - **The primary checkout must be clean**: commit, move or discard its changes
   yourself. `wb-integrate` never stashes them.
 - **Untracked files in the stream block it**: commit, delete or git-ignore
@@ -179,15 +180,32 @@ real outcome:
 **⚠️ Never use bare `wt merge`.** It merges into the repository's default
 branch, not necessarily the branch the primary checkout is on.
 
-## Remove a side stream
+## Retire a stream
+
+A stream completes one of two ways; which one depends on the project and the
+change:
+- **Local composition:** `wb-integrate` (above). It retires the stream itself.
+- **Remote delivery:** push, PR, merged on the host. Then sync the primary and
+  retire the stream (never `wb-integrate` it as well):
 
 ```bash
+git -C /work/orrery/main pull --ff-only     # sync the primary branch
 cd /work/orrery/main
-wt remove feature-x                         # branch name; pre-remove runs the project teardown
+wt remove feature-x                         # branch name: live-check, project teardown, removal
 tmux kill-window -t '=orrery:feature-x'     # if its window is still open (wt doesn't close it)
 ```
 
-Never `rm -rf` a worktree directory.
+**Stop what runs in the stream first** (its agent, dev servers). Every
+retirement refuses while any of your processes still has its directory in the
+stream: `wt remove` fails with "live-check REFUSED" and lists them. Nothing is
+torn down or removed then. An idle shell only warns.
+
+- **Branch kept:** Worktrunk deletes the local branch when the work is in the
+  repository default branch. If your primary branch is a different branch, it
+  keeps it as "unmerged"; delete it yourself once you're sure.
+- **Remote branch:** left alone.
+- **Never** `rm -rf` a worktree directory, and never `wt remove --no-hooks` to
+  get past a refusal (it skips the teardown too).
 
 ## Docker safety
 
@@ -251,7 +269,8 @@ The prefix is **Ctrl+Space** (Omarchy).
 | `wb-integrate` exit 4 after aborting a multi-commit stream | The abort returns to Worktrunk's squash commit; the original commits are in `git reflog show <branch>`. |
 | Port in use / collision | Stale or unwanted host listener: stop it. Genuine allocation collision: stop and resolve it explicitly. Don't pick a different port behind `wb-workspace`'s back; it never does that itself, and no further resolution policy is defined yet. |
 | Long-lived process shows an unexpected Node version | Compare `node --version` with `mise current node`; the process may have a fixed `PATH` from elsewhere. |
-| `wb-integrate` refused: processes are still running in the stream | Exit the stream's agent; stop each listed server by its own PID or process group (`kill -- -<pgid>`). Rerun. |
-| An idle shell left in `.git/wt/trash/…` after `wb-integrate` | Expected (it was warned about). Close that tmux window. |
+| `wb-integrate` refused, or `wt remove` says "live-check REFUSED": processes are still running in the stream | Exit the stream's agent; stop each listed server by its own PID or process group (`kill -- -<pgid>`). Rerun the same command. Nothing was torn down or removed. |
+| `wb-integrate` exit 3 because live-check refused at removal (a process started after its first check) | The code is integrated. Stop the process, then `wt -C /work/<project>/main remove <branch>`. |
+| An idle shell left in `.git/wt/trash/…` after a retirement | Expected (it was warned about). Close that tmux window. |
 | Orrery Docker `web`: bind source path does not exist | Build that checkout first: `npm run docker:e2e` (or `npm run build`). |
 | Orrery Docker `web` returns 500 (or `/data/*` 404) after a build, possibly still "healthy" | It's serving the deleted old `build/`. Recreate it without building: `npm run docker:e2e -- --skip-build --smoke-only`. |

@@ -116,14 +116,11 @@ wb-integrate
   `--stage tracked` includes them. Ignored files never block and are never
   committed;
 - there is something to integrate (commits or tracked edits beyond the target);
-- **nothing is still running in the stream**: no process of yours whose working
-  directory (`/proc/<pid>/cwd`) is the stream or below it. Read from `/proc`,
-  never `pgrep -f` (it matches its own command line). Excluded:
-  `wb-integrate`, its own subprocesses, and its ancestors (the shell or agent
-  it runs from). A shell with no child processes (an idle tmux pane) only
-  warns. Each blocker is listed as PID, process group, command, directory. It
-  never kills anything and there's no override; if `/proc` is unreadable it
-  warns that the check wasn't performed.
+- **nothing is still running in the stream**: the stream-retirement invariant,
+  checked by its canonical implementation `wb-workspace live-check` (see
+  [Completing and retiring a stream](#completing-and-retiring-a-stream)).
+  `wb-integrate` runs it first so it refuses *before* anything is merged;
+  Worktrunk's pre-remove pipeline runs it again just before removal.
 
 Then it runs `wt merge <primary-branch> --stage tracked`. Worktrunk does
 everything else:
@@ -131,7 +128,8 @@ everything else:
   edits leaves `refs/wt-backup/<branch>`);
 - rebase onto the target if needed;
 - fast-forward the target and update the primary checkout;
-- `pre-remove` (`wb-workspace teardown`, while the worktree still exists);
+- the `pre-remove` pipeline, while the worktree still exists: `wb-workspace
+  live-check`, then `wb-workspace teardown`;
 - remove the worktree and branch.
 
 **Outcome, classified from Git state, not from Worktrunk's exit code.**
@@ -151,6 +149,70 @@ stops processes, or touches tmux. The stream's tmux window stays open; close it 
 inside the stream, your shell is left in a removed directory afterwards:
 `cd /work/<project>/main`.
 
+## Completing and retiring a stream
+
+**Invariant: a stream worktree is never removed while a process of yours still
+has its working directory in it.** A process left there (an agent, a dev
+server, a test watcher) would keep running in Worktrunk's deleted trash path:
+its later writes lost, its ports still bound. This is a property of stream
+*retirement*, not of any one integration path.
+
+**Where it's enforced:** the first step of the Worktrunk `pre-remove` pipeline
+(`wb-workspace live-check`), before the project teardown and before removal.
+That covers every Worktrunk retirement: `wt remove`, `wt merge`, and
+`wb-integrate` (which also checks before merging).
+
+A stream completes along one of two first-class paths. Which one depends on the
+project, the change and its stage; Workbench is repository-host agnostic and
+prescribes neither.
+
+| Path | Steps | Retirement |
+|---|---|---|
+| **Local composition** | stream → `wb-integrate` → the primary branch (then push or open a PR from there, as the project does) | Included: `wb-integrate` runs `wt merge`, which retires the stream |
+| **Remote delivery** | stream → push → PR/review → merged on the host → sync the primary checkout → retire | `wt -C /work/<project>/main remove <branch>`, protected by the same pipeline |
+
+```bash
+# remote delivery, after the host merged the stream:
+git -C /work/<project>/main pull --ff-only     # sync the primary branch (the project's usual way)
+wt -C /work/<project>/main remove <branch>     # retire: live-check, teardown, removal
+```
+
+- **Don't integrate a remotely merged stream a second time** (no `wb-integrate`
+  after the host merged it). Retire it.
+- **Branch handling:** Worktrunk deletes the local branch when it recognizes the
+  work as integrated *into the repository default branch*: ancestry, matching
+  tree or patch-id, which covers squash merges. If the primary branch isn't the
+  default branch, it keeps the branch as "unmerged" and says so; deleting it
+  then is your decision.
+- **The remote branch** is left alone. Deleting it belongs to the host or
+  project tooling, not Workbench.
+
+**What `live-check` counts**, read from `/proc` (never `pgrep -f`, which matches
+its own command line):
+- **Blocks** (exit 5): every process of the current user whose working
+  directory (`/proc/<pid>/cwd`) is the stream or below it. Each is listed with
+  PID, process group, command and directory.
+- **Only warns:** a shell with no child processes (e.g. the stream's idle tmux
+  pane), and a non-shell process the check itself was started from.
+- **Not counted:** the check and its own subprocesses, and its ancestors (the
+  shell or agent that ran `wt` / `wb-integrate`, and those two themselves).
+- **Never** stops anything. There's no override. If `/proc` is unreadable, it
+  warns that the check wasn't performed.
+
+Worktrunk itself refuses a dirty worktree (uncommitted or untracked files)
+*before* any hook runs. Ordering, verified with Worktrunk 0.68.0:
+1. Worktrunk's dirty check;
+2. `live-check`;
+3. project teardown;
+4. removal.
+
+`[[pre-remove]]` pipeline steps run in order, and a failing step skips the rest
+and stops the removal. A `[pre-remove]` *table* would run its commands
+concurrently; that's why the config uses a pipeline.
+
+**Not protected:** `wt remove --no-hooks` (it skips the teardown too, so don't
+use it to get past a refusal) and plain `git worktree remove`.
+
 ## Agents: plain Worktrunk
 
 Autonomous agents use `wt` directly (with the rule above) and never touch
@@ -166,13 +228,15 @@ wb-integrate                                                  # from the stream'
 
 Worktrunk owns the lifecycle; `wb-workspace` adds a **stateless** workspace
 identity and hands everything runtime-specific to the project. The user config
-carries exactly two hooks:
+carries exactly these hooks:
 
 ```toml
 [pre-start]
-workspace = "wb-workspace setup"      # blocking, in the new worktree
-[pre-remove]
-workspace = "wb-workspace teardown"   # blocking, while the worktree still exists
+workspace = "wb-workspace setup"           # blocking, in the new worktree
+[[pre-remove]]                             # a pipeline: steps in order, a failure stops the rest
+live-check = "wb-workspace live-check"     # 1. the retirement invariant
+[[pre-remove]]
+workspace = "wb-workspace teardown"        # 2. blocking, while the worktree still exists
 ```
 
 | Command | Does |
@@ -181,6 +245,7 @@ workspace = "wb-workspace teardown"   # blocking, while the worktree still exist
 | `wb-workspace setup [args]` | Export the identity, then `exec` the project's `.config/workspace/setup` (from the worktree root, stdin passed through). |
 | `wb-workspace teardown [args]` | Same for `.config/workspace/teardown`. |
 | `wb-workspace port [--require-free] <slot>...` | One port per slot, in order. |
+| `wb-workspace live-check` | Exit 5 while processes still run in this side stream ([retirement invariant](#completing-and-retiring-a-stream)); a no-op for the primary checkout and outside Model-B. |
 
 **Identity** (exported to the project scripts), from the path alone:
 
@@ -222,9 +287,10 @@ one that exists but isn't executable fails; a project script's exit code is
 `wb-workspace`'s.
 
 **Failure behaviour (Worktrunk 0.68, verified):** a failing `setup` leaves the
-worktree in place and makes `wt` exit non-zero. A failing `teardown` stops
-`wt remove`; bypass with `wt remove --no-hooks <branch>` once the cause is
-understood. Project scripts should fail only when continuing is unsafe.
+worktree in place and makes `wt` exit non-zero. A failing `live-check` or
+`teardown` stops `wt remove`. `wt remove --no-hooks <branch>` bypasses both, so
+use it only once the cause is understood and no process is left in the stream.
+Project scripts should fail only when continuing is unsafe.
 
 **The primary checkout** is never created by Worktrunk, so no hook runs there:
 run `wb-workspace setup` once by hand in `/work/<project>/main`.

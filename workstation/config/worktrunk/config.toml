@@ -17,17 +17,28 @@
 # approvals.toml).
 #
 # Deliberately absent: [commit.generation] (no LLM commit messages), project
-# hooks, and any hook beyond the two workspace hooks below.
+# hooks, and any hook beyond the workspace hooks below.
 worktree-path = "{% if repo_path is startingwith('/work/') and repo_path is endingwith('/main') and (repo_path | split('/') | list | length) == 4 %}{{ repo_path }}/../worktrees/{{ branch | sanitize }}{% else %}{{ repo_path }}/../{{ repo }}.{{ branch | sanitize }}{% endif %}"
 
 # Workspace lifecycle (streams/README.md, "Workspaces"). User hooks run in every
 # repo, before project hooks; wb-workspace does nothing outside Model-B and runs
 # the project's own .config/workspace/{setup,teardown} only when present.
 # pre-start blocks until setup is done; if it fails, the worktree stays and wt
-# exits non-zero. pre-remove runs while the worktree still exists; if it fails,
-# the removal stops (bypass: wt remove --no-hooks <branch>).
+# exits non-zero.
 [pre-start]
 workspace = "wb-workspace setup"
 
-[pre-remove]
+# Stream retirement (wt remove, wt merge, wb-integrate) — runs while the worktree
+# still exists, after Worktrunk's own dirty-worktree refusal. A PIPELINE
+# ([[pre-remove]] steps), not a table: Worktrunk 0.68 runs a table's commands
+# concurrently, but pipeline steps in order, and a failing step skips the rest and
+# stops the removal (verified; regression-tested in streams/wb-workspace.test.sh).
+# 1. live-check: refuse while processes still run in the stream (the retirement
+#    invariant), before the project teardown touches any runtime state.
+# 2. workspace: the project's own teardown.
+# `wt remove --no-hooks` bypasses both; don't use it to get past live-check.
+[[pre-remove]]
+live-check = "wb-workspace live-check"
+
+[[pre-remove]]
 workspace = "wb-workspace teardown"

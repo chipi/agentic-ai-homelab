@@ -9,7 +9,12 @@ CMD="$HERE/wb-workspace"; CONFIG="$HERE/../config/worktrunk/config.toml"
 for c in git wt jq python3; do command -v "$c" >/dev/null || { echo "SKIP: $c not installed"; exit 0; }; done
 
 T="$(mktemp -d)"; ROOT="$T/work"
-cleanup() { [ -n "${LISTENER:-}" ] && kill "$LISTENER" 2>/dev/null; rm -rf "$T"; }
+OWNED=()   # PIDs of processes this test started (retirement cases); stopped by PID only
+cleanup() {
+  [ -n "${LISTENER:-}" ] && kill "$LISTENER" 2>/dev/null
+  for p in "${OWNED[@]}"; do kill "$p" 2>/dev/null; done
+  rm -rf "$T"
+}
 pass=0; fail=0
 ok()  { echo "  ok   $1"; pass=$((pass+1)); }
 bad() { echo "  FAIL $1"; fail=$((fail+1)); }
@@ -196,6 +201,55 @@ chk "teardown received the hook JSON (hook_type pre-remove)" "jq -e '.hook_type 
 mkrepo "$T/code/elsewhere"; : > "$T/hook.log"
 rc=$( (cd "$T/code/elsewhere" && wt switch --create side --no-cd) >/dev/null 2>&1; echo $?)
 chk "repo outside Model-B: hooks are harmless no-ops, worktree created as before" "[ $rc = 0 ] && [ -d '$T/code/elsewhere.side' ] && [ ! -s '$T/hook.log' ]"
+
+echo "== live-check: no-ops and usage"
+rc=$(run "$P" live-check); chk "primary checkout: exit 0, nothing checked (never retired)" "[ $rc = 0 ] && grep -q 'primary checkout (never retired)' '$T/err'"
+rc=$(run "$T/plain" live-check); chk "outside Model-B: exit 0, nothing checked" "[ $rc = 0 ] && grep -q 'not a Model-B checkout' '$T/err'"
+rc=$(run "$P" live-check extra); chk "an argument: usage, exit 2" "[ $rc = 2 ]"
+
+echo "== stream retirement (real processes, real wt remove, tracked pre-remove pipeline)"
+alive() { kill -0 "$1" 2>/dev/null; }
+RW="$ROOT/proj/worktrees"
+retire_ready() {  # retire_ready <branch>: a stream whose work is already in the primary branch (as after a remote squash merge + sync)
+  ( cd "$P" && wt switch --create "$1" --base @ --no-cd ) >/dev/null 2>&1
+  printf '%s\n' "$1" > "$RW/$1/$1.txt"; git -C "$RW/$1" add "$1.txt"; git -C "$RW/$1" commit -q -m "$1 work"
+  git -C "$P" merge -q --squash "$1" >/dev/null && git -C "$P" commit -q -m "Squash merge $1 (#1)"
+}
+retire_ready r1; S="$RW/r1"
+( cd "$S" && wt switch --create r1x --base @ --no-cd ) >/dev/null 2>&1   # sibling whose path shares the prefix
+( cd "$S" && exec sleep 300 ) & LP=$!; OWNED+=("$LP"); sleep 0.3
+rc=$(run "$S" live-check)
+chk "live-check in the stream with a live process: exit 5, names pid + cwd + command" \
+  "[ $rc = 5 ] && grep -q 'live-check REFUSED: processes are still running in $S' '$T/err' && grep -q \"pid $LP \" '$T/err' && grep -q \"cwd=$S \" '$T/err' && grep -q 'sleep 300' '$T/err'"
+: > "$T/hook.log"
+rc=$( (cd "$P" && wt remove r1) > "$T/out" 2> "$T/err"; echo $?)
+chk "wt remove with a live process: refused by pre-remove step 1 (live-check)" "[ $rc != 0 ] && grep -q 'pre-remove command failed: live-check' '$T/err' && grep -q 'live-check REFUSED' '$T/err'"
+chk "refusal: worktree and branch intact, process untouched" "[ -d '$S' ] && git -C '$P' show-ref -q --verify refs/heads/r1 && alive '$LP'"
+chk "refusal came BEFORE the project teardown (step 2 never ran)" "[ ! -s '$T/hook.log' ]"
+chk "refusal warns against bypassing with --no-hooks" "grep -q -- \"--no-hooks': that also skips the project teardown\" '$T/err'"
+kill "$LP"; for _ in $(seq 50); do alive "$LP" || break; sleep 0.1; done
+mkdir -p "$S/deep/er"; ( cd "$S/deep/er" && exec sleep 300 ) & LP2=$!; OWNED+=("$LP2"); sleep 0.3
+rc=$( (cd "$P" && wt remove r1) > "$T/out" 2> "$T/err"; echo $?)
+chk "process with cwd below the stream: also refused, its cwd reported, stream intact" "[ $rc != 0 ] && grep -q \"cwd=$S/deep/er \" '$T/err' && [ -d '$S' ]"
+kill "$LP2"; for _ in $(seq 50); do alive "$LP2" || break; sleep 0.1; done; rm -rf "$S/deep"
+mkfifo "$T/idle.fifo"; exec 7<>"$T/idle.fifo"
+( cd "$S" && exec bash -c 'read -r x' < "$T/idle.fifo" ) & IS=$!; OWNED+=("$IS")
+( cd "$P" && exec sleep 300 ) & PM=$!; OWNED+=("$PM")
+( cd "$RW/r1x" && exec sleep 300 ) & PX=$!; OWNED+=("$PX")
+sleep 0.3; : > "$T/hook.log"
+rc=$( (cd "$P" && wt remove r1) > "$T/out" 2> "$T/err"; echo $?); sleep 1
+chk "no blocker left: wt remove succeeds, worktree removed; squash-merged branch deleted by Worktrunk" \
+  "[ $rc = 0 ] && [ ! -e '$S' ] && ! git -C '$P' show-ref -q --verify refs/heads/r1"
+chk "teardown ran exactly once, after live-check, with the worktree still present" "[ \"\$(cat '$T/hook.log')\" = 'teardown stream=r1 exists=yes' ]"
+chk "idle shell only warned (named); primary and prefix-sibling processes didn't block" "grep -q 'warning: idle shell' '$T/err' && grep -q \"pid $IS \" '$T/err' && ! grep -q \"pid $PM \" '$T/err' && ! grep -q \"pid $PX \" '$T/err'"
+chk "nothing was stopped: idle shell, primary and sibling processes all alive" "alive '$IS' && alive '$PM' && alive '$PX'"
+retire_ready r2
+rc=$( (cd "$RW/r2" && wt remove) > "$T/out" 2> "$T/err"; echo $?); sleep 1
+chk "wt remove run from inside the stream (its shell is an ancestor, not a blocker): removed" "[ $rc = 0 ] && [ ! -e '$RW/r2' ]"
+retire_ready r3; printf 'wip\n' > "$RW/r3/untracked.txt"; : > "$T/hook.log"
+rc=$( (cd "$P" && wt remove r3) > "$T/out" 2> "$T/err"; echo $?)
+chk "dirty stream: Worktrunk refuses before any hook (no live-check, no teardown), stream intact" \
+  "[ $rc != 0 ] && grep -q 'uncommitted changes' '$T/err' && ! grep -q 'live-check' '$T/err' && [ ! -s '$T/hook.log' ] && [ -f '$RW/r3/untracked.txt' ]"
 
 echo "== real state untouched"
 chk "/work primary checkouts (status, worktrees) unchanged" "[ \"\$(real_state)\" = \"\$REAL_BEFORE\" ]"

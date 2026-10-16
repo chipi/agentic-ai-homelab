@@ -62,8 +62,8 @@ links_ok() {
 echo "== tracked Worktrunk config (rendering and hooks are tested in streams/wb-stream.test.sh and wb-workspace.test.sh)"
 CFG="$HERE/config/worktrunk/config.toml"
 chk "no commit generation configured (no commit keys outside comments)" "! grep -v '^[[:space:]]*#' '$CFG' | grep -q 'commit'"
-chk "only worktree-path plus the two workspace hooks" \
-  "[ \"\$(grep -v '^[[:space:]]*#' '$CFG' | grep -v '^[[:space:]]*\$' | grep -v '^worktree-path = ' | tr '\n' '|')\" = '[pre-start]|workspace = \"wb-workspace setup\"|[pre-remove]|workspace = \"wb-workspace teardown\"|' ] && grep -q '^worktree-path = ' '$CFG'"
+chk "only worktree-path, the setup hook, and the ordered pre-remove pipeline (live-check, then teardown)" \
+  "[ \"\$(grep -v '^[[:space:]]*#' '$CFG' | grep -v '^[[:space:]]*\$' | grep -v '^worktree-path = ' | tr '\n' '|')\" = '[pre-start]|workspace = \"wb-workspace setup\"|[[pre-remove]]|live-check = \"wb-workspace live-check\"|[[pre-remove]]|workspace = \"wb-workspace teardown\"|' ] && grep -q '^worktree-path = ' '$CFG'"
 chk "installer sets no WORKTRUNK_COMMIT__* override and installs no wt plugins" "! grep -q -e 'WORKTRUNK_COMMIT' -e 'wt config plugins' '$INST'"
 LCX="$HERE/config/lean-ctx/config.toml"
 chk "LeanCTX allowlist covers wt, wb-stream, wb-workspace, wb-integrate" \
