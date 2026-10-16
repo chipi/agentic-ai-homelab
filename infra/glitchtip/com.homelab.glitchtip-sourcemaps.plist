@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Every 15 min: upload new deploys' source maps to GlitchTip (upload-sourcemaps.py). Install:
+       sudo cp com.homelab.glitchtip-sourcemaps.plist /Library/LaunchDaemons/
+       sudo launchctl load -w /Library/LaunchDaemons/com.homelab.glitchtip-sourcemaps.plist
+     Idempotent: a run is recorded in ~/glitchtip/sourcemaps-state.json only after GlitchTip has
+     stored its bundles, so a failure is retried on the next tick. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.homelab.glitchtip-sourcemaps</string>
+  <key>UserName</key><string>markodragoljevic</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>export PATH=/usr/local/bin:$PATH HOME=/Users/markodragoljevic; exec /usr/bin/python3 /Users/markodragoljevic/agentic-ai-homelab/infra/glitchtip/upload-sourcemaps.py --apply</string>
+  </array>
+  <key>StartInterval</key><integer>900</integer>
+  <key>StandardOutPath</key><string>/tmp/com.homelab.glitchtip-sourcemaps.log</string>
+  <key>StandardErrorPath</key><string>/tmp/com.homelab.glitchtip-sourcemaps.log</string>
+</dict>
+</plist>

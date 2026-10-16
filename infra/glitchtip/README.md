@@ -67,9 +67,40 @@ migrate the `pg-data` volume (or `pg_dump`/restore) or start fresh (errors are a
 fresh-start loses history), `docker compose up -d` on the new host, give it the `homelab` 
 tailnet name apps expect (or update each app's DSN host).
 
+## Source maps (readable JS stack traces)
+
+CI builds source maps, and the mini uploads them. CI runners can't reach GlitchTip: the
+tailnet ACL gives `tag:gha-deployer` no path to the glitchtip node, and the public
+`telemetry.*` edges serve error ingest only.
+
+1. **App CI** (each deploy job):
+   - runs `npx @sentry/cli@2.58.6 sourcemaps inject <dist>`;
+   - deploys that same build;
+   - uploads the injected `.js` + `.js.map` files as a run artifact named
+     `sourcemaps-<release>`. `<release>` must be the release string the app's SDK sends.
+2. **The mini:** `upload-sourcemaps.py --apply`, run every 15 min by
+   `com.homelab.glitchtip-sourcemaps.plist`.
+   - It finds successful runs of the app's deploy workflow (the `APPS` list in the script).
+   - It downloads each artifact with `gh`, uploads it with sentry-cli to
+     `http://127.0.0.1:8090`, and records the run in `~/glitchtip/sourcemaps-state.json`.
+   - A run is recorded only once GlitchTip has stored a bundle for every debug id, so a
+     failure is retried on the next tick. The log is
+     `/tmp/com.homelab.glitchtip-sourcemaps.log`.
+   - Token: `~/glitchtip/orrery-sourcemaps.env` (`project:releases`, org-wide).
+
+Two settings make the upload work at all. Both are in `docker-compose.yml` (2026-10-16):
+
+- `GLITCHTIP_CHUNK_UPLOAD_USE_RELATIVE_URL=true`. Without it, GlitchTip tells clients to
+  upload chunks to the tailnet name, which the mini can neither resolve nor reach.
+- A shared `uploads` volume for web and worker. Without it, the worker never sees the chunks
+  web received, and every assemble fails with `FileNotFoundError`. sentry-cli still exits 0
+  in that case, so check the stored bundle (as the script does), not the exit code.
+
+To add an app: add a row to `APPS` and add the artifact step to its deploy job.
+
 ## Backup / rollback
 
-- Config in git; data in the `pg-data` volume.
+- Config in git; data in the `pg-data` volume, uploaded source maps in the `uploads` volume.
 - Backup: `docker compose exec postgres pg_dump -U glitchtip glitchtip > backup.sql`.
 - Rollback a bad bring-up: `docker compose down` (add `-v` to also wipe data —
   destructive).
