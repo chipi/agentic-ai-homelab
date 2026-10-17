@@ -1,6 +1,6 @@
 ---
 name: gpu-mode
-description: Coordinate which vLLM owns the single DGX GPU before using a local vLLM endpoint. Checks the active mode (code/research/idle/BROKEN-BOTH) read-only, and switches only on explicit request. Use before pointing any tool at a local vLLM (http://<dgx>:9000/v1 or :8003/v1), when a vLLM call fails to connect, or when asked to bring the coder-next or autoresearch vLLM up or down. Switching is shared-state — never switch without explicit approval.
+description: Coordinate which vLLM owns the single DGX GPU before using a local vLLM endpoint. Checks the active mode (prod/ollama/code/research/idle/BROKEN-BOTH) read-only, and switches only on explicit request. Use before pointing any tool at a local vLLM (http://<dgx>:9000/v1 or :8003/v1), when a vLLM call fails to connect, or when asked to bring the coder-next or autoresearch vLLM up or down. Switching is shared-state — never switch without explicit approval.
 ---
 
 # gpu-mode
