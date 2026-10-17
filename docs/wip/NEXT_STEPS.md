@@ -87,8 +87,8 @@ checkout look dirty and hid how far behind it was.
       operator's SSH key: memory note `project-dgx-converge-dry-run-pending`.
 - [x] ~~**Decide Ollama:** retire or keep.~~ **Keep** (operator, 2026-10-17). Nothing to do:
       `ollama` mode starts Ollama and its `ollama-metrics` exporter; `prod` mode stops both.
-- [ ] **Pin `librechat-api`.** It runs `registry.librechat.ai/danny-avila/librechat-dev-api:latest`,
-      so any recreate pulls whatever is newest. Pin the running digest, as Umami was on 2026-10-17.
+- [x] ~~**Pin `librechat-api`.**~~ **Stays on `:latest`** (operator, 2026-10-17): LibreChat is
+      being evaluated, so tracking the newest build is intended.
 - [ ] *Optional:* align cadvisor v0.52.1 → v0.55.1 (see the item below).
 - [ ] **After any recreate, verify:**
   - the `dgx-status` skill;
