@@ -47,6 +47,8 @@ Do not create logins, publish ports or change groups to "get access".
 | Langfuse | `set -a; . ~/signal-fleet/fleet-gateway.env; set +a` | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` (project `agents`; other projects in section 8) |
 | LiteLLM (mini) | `set -a; . ~/agentic-ai-homelab/infra/litellm/.env; set +a` | `LITELLM_MASTER_KEY` |
 | LiteLLM (VPS) | inside the `litellm` container's env | `LITELLM_MASTER_KEY` |
+| LiteLLM podcast dev (mini gateway) | `set -a; . ~/podcast-litellm-dev.env; set +a` | `LITELLM_API_KEY` (virtual key `proj-podcast-dev`: the DGX model only, $1 cap, traces to Langfuse `podcast-dev`) + `LITELLM_API_BASE=http://homelab:4001/v1`. The one key here **meant to be copied**: into a podcast_scraper checkout's gitignored `.env` for local dev runs (`dev_dgx_full`). Re-minted 2026-10-17; the 2026-10-13 one was never stored anywhere |
+| GlitchTip source maps | `set -a; . ~/glitchtip/orrery-sourcemaps.env; set +a` | `GLITCHTIP_SOURCEMAP_TOKEN` (`project:releases` + `org:read`, org-wide; used by `infra/glitchtip/upload-sourcemaps.py`) |
 | DGX vLLM | `docker exec vllm-prod-vllm printenv VLLM_API_KEY` (or `vllm-translate`) | the server's API key |
 | Databases | none — `docker exec … psql` trusts local connections | — |
 
