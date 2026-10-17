@@ -1,0 +1,11 @@
+{
+ "prompt": [
+  "\\b(mint|create|new|rotate|generate)\\b.{0,30}\\b(api )?(key|token|credential)s?\\b",
+  "\\bset\\b.{0,20}\\bgithub secret\\b"
+ ],
+ "bash": [
+  "/key/generate\\b",
+  "/api/0/api-tokens/",
+  "\\bgh secret set\\b"
+ ]
+}

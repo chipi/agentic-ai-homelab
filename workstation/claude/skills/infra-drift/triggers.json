@@ -1,0 +1,13 @@
+{
+ "prompt": [
+  "\\b(drift|drifted)\\b",
+  "\\bbehind origin\\b",
+  "\\bis the (dgx|mini|checkout)\\b.{0,20}\\b(current|up to date)\\b",
+  "\\bwhat'?s running\\b.{0,30}\\bcompose\\b",
+  ":latest\\b"
+ ],
+ "bash": [
+  "git -C \\S*agentic-ai-homelab (status|fetch|log)",
+  "sudo -n -u ops git"
+ ]
+}

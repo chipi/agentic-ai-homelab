@@ -1,0 +1,8 @@
+{
+ "prompt": [
+  "\\bverify (the|this|that) (deploy|release)\\b",
+  "\\b(after|since) the deploy\\b",
+  "\\bpost-?deploy\\b.{0,30}\\b(check|verif)",
+  "\\bsource ?maps?\\b.{0,30}\\bresolve"
+ ]
+}

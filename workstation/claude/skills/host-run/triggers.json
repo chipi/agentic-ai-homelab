@@ -1,0 +1,6 @@
+{
+ "bash": [
+  "\\bssh\\b[^\\n]*\\b(homelab|dgx-llm-1|prod-podcast)\\b[^\\n]*(python3 -c|<<|\\$\\(cat)",
+  "\\bssh\\b[^\\n]*\\b(homelab|dgx-llm-1|prod-podcast)\\b[^\\n]*'[^']*\\n"
+ ]
+}

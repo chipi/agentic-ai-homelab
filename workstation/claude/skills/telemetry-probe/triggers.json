@@ -1,0 +1,12 @@
+{
+ "prompt": [
+  "\\b(send|fire)\\b.{0,20}\\b(test|probe)\\b.{0,20}\\b(event|error|trace|pageview)\\b",
+  "\\bprove\\b.{0,30}\\b(works|lands?|pipeline)\\b",
+  "\\b(dev|staging)\\b.{0,40}\\b(prod)\\b.{0,20}\\b(isolat|leak|land|drip)"
+ ],
+ "bash": [
+  "/api/\\d+/(envelope|store)/",
+  "127\\.0\\.0\\.1:3001/api/send",
+  "/api/public/ingestion"
+ ]
+}
