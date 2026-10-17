@@ -7,7 +7,7 @@
   ":latest\\b"
  ],
  "bash": [
-  "git -C \\S*agentic-ai-homelab (status|fetch|log)",
+  "\\bssh\\b.*\\bgit -C \\S*agentic-ai-homelab (status|fetch|log)\\b",
   "sudo -n -u ops git"
  ]
 }
