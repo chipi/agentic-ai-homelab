@@ -1,6 +1,6 @@
 ---
 name: triage-fleet-review
-description: Weekly health and quality review of the homelab triage fleet (signal-fleet, Fleet 2) across every repo it files into (podcast_scraper, orrery, agentic-ai-homelab). Use when the operator asks "how is the fleet doing", "what did the fleet do this week", or "what can we optimize in the fleet". Read-only: checks cycle health, the dispositions and filed ledgers, and what the fleet did on GitHub, and flags fan-out, reopens, issues buried in low-signal rollups, escalations and dismissals to audit.
+description: Weekly health and quality review of the homelab triage fleet (signal-fleet, Fleet 2) across every repo it files into (podcast_scraper, orrery, agentic-ai-homelab), plus triage of the proposals it parks for the operator. Use when the operator asks "how is the fleet doing", "what did the fleet do this week", "what can we optimize in the fleet", or "triage the fleet queue / parked proposals". Read-only: checks cycle health, the dispositions and filed ledgers, and what the fleet did on GitHub, and flags fan-out, reopens, issues buried in low-signal rollups, escalations and dismissals to audit.
 ---
 
 # triage-fleet-review
@@ -56,6 +56,35 @@ The script finds candidates; it can't tell right from wrong. For each flag:
    - never open GitHub issues without approval;
    - never close or reopen issues on your own;
    - a fleet code change goes through `replay-proven-fix` and the operator's go before deploy.
+
+## Triage the parked proposals (`proposals.py`)
+
+The fleet parks proposals it may not act on alone (`cleanup`, `config-enhancement`) in
+`~/signal-fleet/queue/` as `*.json`. Nobody reviewing them is how 54 piled up between September
+and 2026-10-17. Its own gauge, `signal_fleet_queue_oldest_age_seconds`, is the signal that the
+operator is the bottleneck.
+
+```bash
+P=~/.claude/skills/triage-fleet-review/scripts/proposals.py
+~/.claude/skills/host-run/scripts/run.sh homelab $P            # read-only list with a proposed action each
+~/.claude/skills/host-run/scripts/run.sh homelab $P --apply    # only after the operator's go
+```
+
+Each proposal's fingerprint (`glitchtip:<SHORT-ID>`, `grafana:<hash>`) is looked up in GlitchTip,
+across every project, or in `dispositions.tsv`.
+
+| Action | When | `--apply` does |
+|---|---|---|
+| done | the issue is already resolved or deleted | marks the proposal `.resolved` |
+| resolve | a cleanup of an unresolved test, probe or smoke issue (matched by title) | resolves it in GlitchTip (superuser session), re-reads it, then marks |
+| stale | a tuning proposal whose issue was last seen > 14 days ago, or a grafana alert the fleet hasn't seen in 14 days | marks `.resolved` |
+| review | anything else | nothing: a person decides |
+
+**Before `--apply`,** read the `review` list, and hand items owned by another project (orrery,
+the mobile app) to that project's session. On 2026-10-17 orrery decided its three itself.
+
+Replayed on the 56 proposals of 2026-10-17: 39 done, 10 stale, and 7 review. The 7 were the
+tuning proposals whose errors were still recent, e.g. the podcast pipeline's deadline messages.
 
 ## Not covered
 

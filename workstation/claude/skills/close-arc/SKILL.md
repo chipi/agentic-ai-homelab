@@ -24,9 +24,20 @@ Write the paper trail that lets the next session pick up cold. History is
 4. **Decisions.** For each non-trivial *operational* decision this arc, append a
    `D-NNNN` entry to `docs/history/0002-decisions.md` (grep-able, referenced by
    id). Structural decisions get an ADR instead (use `new-doc`).
-5. **Strike NEXT_STEPS.** In `docs/wip/NEXT_STEPS.md`, mark completed items
-   `- [x] ~~text~~ — *done note (date)*`. Strike, never delete — the strikethrough
-   is the paper trail.
+5. **Strike NEXT_STEPS — against live state, not memory.** In `docs/wip/NEXT_STEPS.md`, mark
+   completed items `- [x] ~~text~~ — *done note (date)*`. Strike, never delete — the
+   strikethrough is the paper trail.
+   - **Check every item you strike or carry forward against the system, not a handover or your
+     memory of it.** On 2026-10-17, four "open" items were already done when checked: an ACL
+     grant already gone, mini changes already landed, a DGX deploy whose purpose was already
+     live, a symlink superseded by a wrapper. One stale handover was trusted for a day before
+     anyone looked.
+   - **Write the check into the item** when you add or touch one: a `check:` line with a
+     command whose output answers it. For example:
+     `check: ssh dgx-llm-1 'docker exec pyannote md5sum /app/app.py'` vs podcast main.
+     Closing it next time is then one command.
+   - Infra items: run the `infra-drift` skill; telemetry items: `deploy-verify` or
+     `telemetry-probe`. Strike with the command's output in the done note.
 6. **Version tag.** If the repo's tagging gate is met, suggest
    `git tag v<X>-<arc-slug>` at the closing commit — don't tag unprompted.
 7. **Validate.** Run the `docs-preflight` skill.
