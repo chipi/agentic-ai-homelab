@@ -13,7 +13,7 @@ unset `DOCKER_HOST` first. This script runs the whole set the same way every tim
 ## Run it
 
 ```bash
-bash ~/.claude/skills/infra-preflight/scripts/preflight.sh ~/projects/podcast_scraper-infra
+bash ~/.claude/skills/infra-preflight/scripts/preflight.sh ~/projects/infra
 #   --all-sh       shellcheck every tracked .sh, not only those changed since the base
 #   --base REF     the base for "changed" and for gitleaks without an upstream (default origin/main)
 ```
