@@ -220,3 +220,7 @@ Design questions for the operator and the homelab agent:
   self-hosted Infisical over 1Password to keep Dashlane for passwords and keep secrets on owned
   hardware. Handed to the homelab agent for review and to continue the discussion with the
   operator.
+- 2026-10-17 — Homelab review against Infisical's current docs: audit logs, trusted IPs on
+  identities and custom (environment/folder-scoped) roles need a licence when self-hosted, and the
+  CLI caches fetched secrets for offline use (storage undocumented). The operator chose the
+  server-less counter-proposal, [RFC-0007](RFC-0007-sops-age-engineering-secrets.md) (sops + age).

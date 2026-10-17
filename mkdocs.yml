@@ -135,6 +135,7 @@ nav:
     - RFC-0004 — fleetd supervisor: rfc/RFC-0004-fleetd-supervisor.md
     - RFC-0005 — Remediation fleet (post-reboot recovery): rfc/RFC-0005-remediation-fleet-post-reboot-recovery.md
     - RFC-0006 — Self-hosted Infisical (engineering secrets): rfc/RFC-0006-self-hosted-infisical-engineering-secrets.md
+    - RFC-0007 — Engineering secrets in sops + age: rfc/RFC-0007-sops-age-engineering-secrets.md
   - In progress:
     - Overview: wip/README.md
     - Next steps: wip/NEXT_STEPS.md
