@@ -85,10 +85,8 @@ checkout look dirty and hid how far behind it was.
       and observability blocks are opt-in and stay off. Plan, pre-checks and verification:
       [handover 2026-10-10](handover-homelab-session-2026-10-10.md) §1. Command, run without the
       operator's SSH key: memory note `project-dgx-converge-dry-run-pending`.
-- [ ] **Decide Ollama:** retire or keep.
-  - Retire: remove the `ollama-metrics` service and the Alloy `ollama` scrape job, and drop
-    `ollama` mode from gpu-mode.
-  - Keep: nothing to do; `ollama` mode starts Ollama and its exporter.
+- [x] ~~**Decide Ollama:** retire or keep.~~ **Keep** (operator, 2026-10-17). Nothing to do:
+      `ollama` mode starts Ollama and its `ollama-metrics` exporter; `prod` mode stops both.
 - [ ] **Pin `librechat-api`.** It runs `registry.librechat.ai/danny-avila/librechat-dev-api:latest`,
       so any recreate pulls whatever is newest. Pin the running digest, as Umami was on 2026-10-17.
 - [ ] *Optional:* align cadvisor v0.52.1 → v0.55.1 (see the item below).
