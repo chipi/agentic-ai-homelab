@@ -147,6 +147,19 @@ def _hours_since(ts_iso):
         return 1e9
 
 
+def _promote_now(sig, base):
+    """A recurrence that should not wait out RETRIAGE_HOURS: the fleet already decided
+    to FILE this fingerprint, the low-signal gate folded it into a rollup, and it has
+    recurred, so it is past that gate (a recurrence has count >= 2). Re-triage at once so file_or_update promotes it to its own
+    issue; otherwise it stayed a rollup line for good (2026-10-17: 6 fingerprints, 12
+    count changes, incl. the fatal PLAYER-1I on #2000)."""
+    if (base or {}).get("disposition") != "file":
+        return False
+    import filing
+    row = filing.ledger_lookup(sig["fingerprint"], first_seen=sig.get("startsAt", ""))
+    return bool(row) and str(row.get("group_key", "")).startswith(filing.ROLLUP_PREFIX)
+
+
 def run_glitchtip(limit=5, dry_run=True):
     """Phase B: process unresolved GlitchTip errors through the same spine.
 
@@ -164,7 +177,7 @@ def run_glitchtip(limit=5, dry_run=True):
         cur_count = int(sig.get("labels", {}).get("count") or 0)
         if prior_occ:
             if base and cur_count > base["count"] > 0:
-                if _hours_since(base["ts"]) < config.RETRIAGE_HOURS:
+                if _hours_since(base["ts"]) < config.RETRIAGE_HOURS and not _promote_now(sig, base):
                     # one row per count CHANGE, not per cycle: the count stays above the
                     # baseline until re-triage, which wrote ~140 identical rows per bump
                     # (10,764 of 11,700 GlitchTip recurrence rows by 2026-10-01)

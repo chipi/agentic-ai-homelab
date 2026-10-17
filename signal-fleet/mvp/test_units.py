@@ -1301,5 +1301,44 @@ class TestIdentityAndFoldFixes(unittest.TestCase):
             os.unlink(tmp.name)
 
 
+class TestPromoteRolledUpOnRecurrence(unittest.TestCase):
+    """2026-10-17: a FILE decision folded into a rollup is re-triaged on its first recurrence."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+        self._tmp.close()
+        self._orig = filing.FILED
+        filing.FILED = self._tmp.name
+        filing._ledger_write([{"fingerprint": "glitchtip:PLAYER-1I", "repo": "chipi/podcast_scraper", "issue": "2000",
+                               "group_key": "low-signal:player", "filed_at": "2026-10-17T06:33:04+00:00"}])
+
+    def tearDown(self):
+        filing.FILED = self._orig
+        os.unlink(self._tmp.name)
+
+    def _sig(self, first="2026-10-17T06:23:46Z"):
+        return {"fingerprint": "glitchtip:PLAYER-1I", "startsAt": first, "source": "glitchtip",
+                "labels": {"count": "2"}, "raw": {}}
+
+    def test_filed_then_rolled_up_promotes_now(self):
+        import orchestrator
+        self.assertTrue(orchestrator._promote_now(self._sig(), {"disposition": "file"}))
+
+    def test_a_later_dismiss_is_respected(self):
+        import orchestrator
+        self.assertFalse(orchestrator._promote_now(self._sig(), {"disposition": "dismiss"}))
+
+    def test_reused_short_id_does_not_promote(self):
+        import orchestrator
+        self.assertFalse(orchestrator._promote_now(self._sig(first="2026-11-01T00:00:00Z"), {"disposition": "file"}))
+
+    def test_own_issue_does_not_retriage_early(self):
+        import orchestrator
+        filing._ledger_write([{"fingerprint": "glitchtip:PLAYER-1I", "repo": "chipi/podcast_scraper", "issue": "2400",
+                               "group_key": "", "filed_at": "2026-10-17T06:33:04+00:00"}])
+        self.assertFalse(orchestrator._promote_now(self._sig(), {"disposition": "file"}))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
