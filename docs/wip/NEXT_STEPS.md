@@ -70,10 +70,12 @@ drafted, but they haven't been run for real yet.
 
 - [ ] **Skills: the operator's four decisions** from the
       [skills usage review](skills-usage-review-2026-10-17.md):
-  1. wire the `skill-nudge` hook;
-  2. give `secrets-scan` a script and maybe a push hook;
-  3. add an install-drift check to `index.py`;
-  4. shrink `homelab-endpoint`.
+  1. wire the `skill-nudge` hook — waits for the orrery session's commits on main;
+  2. ~~give `secrets-scan` a script and maybe a push hook~~ — *done a21d0d3; the push hook
+     already existed (`secrets-guard.sh`), it now adds gitleaks*;
+  3. add an install-drift check to `index.py` — waits for the orrery `index.py` change;
+  4. ~~shrink `homelab-endpoint`~~ — *done 2026-10-17, now a pointer at the handbook*.
+  check: `git log origin/main --oneline | grep -i skill-nudge`
 
 ## Planned DGX ops (operator picks a maintenance window)
 

@@ -32,9 +32,12 @@ never invoked: `fleet-stats`, `compose-check`, `vllm-deploy`, `dgx-status`, `obs
    It was an agent deciding mid-task to push, query, or recreate. Nothing looks at the skill list
    again at that point, so `ship` never comes up while `git push` is being typed.
    *This is the main cause.*
-2. **Some skills are checklists without a script.** `secrets-scan` has only a `SKILL.md`: "run
+2. **Some skills are checklists without a script.** `secrets-scan` had only a `SKILL.md`: "run
    gitleaks, else these patterns". Using it means re-typing the procedure, so agents skip it, or
    run gitleaks directly, which is fine, but then it never counts as the skill.
+   *Correction:* the first version of this note implied the 893 pushes went unscanned. They
+   didn't. The `secrets-guard.sh` PreToolUse hook, wired since 2026-07-30, scans every
+   `git commit`/`git push` an agent runs, but with regexes only, no gitleaks.
 3. **Some skills had the wrong shape for the job.** `o11y-review` is a window *review*, while
    post-deploy checking needs a *gate* (expected vs live, PASS/FAIL). So agents wrote a fresh
    verify script after each deploy, 2026-10-16/17 included.
@@ -79,21 +82,24 @@ never invoked: `fleet-stats`, `compose-check`, `vllm-deploy`, `dgx-status`, `obs
   were replayed over this session's 2,295 Bash commands and 211 prompts. `host-run` fires on 250
   commands, the inline multi-line ssh calls it replaces; the others fire rarely.
 
-## Still open (operator decisions)
+## The operator's four decisions ("yes to all 4", 2026-10-17)
 
 - [ ] **Wire `skill-nudge.py`** into `~/.claude/settings.json`: the `UserPromptSubmit` and
       `PreToolUse` Bash hooks, with the entries in `settings.json.example` in the orrery
-      session's commits. It changes every session's harness, so it's the operator's call.
-      Without it, `triggers.json` does nothing.
-- [ ] **Give `secrets-scan` a script** (gitleaks, else patterns, PASS/FAIL), and have `ship`
-      call it. Optional: a `PreToolUse` hook on `git push` that runs it, so the gate is
-      mechanical, not remembered.
-- [ ] **Catch install drift:** `index.py --check` could also report repo skills not linked into
-      `~/.claude/skills`. New skills were linked by hand this session; `install.sh` does it on a
-      full run. It touches `index.py`, which the orrery session changed (`--write-repo`), so it
-      goes after that lands.
-- [ ] **`homelab-endpoint`** overlaps the handbook's section 0; maybe shrink it to a pointer.
-      It was used once; don't retire it on this evidence alone.
+      session's commits. Waiting for those commits to reach main. Without it,
+      `triggers.json` does nothing.
+- [x] ~~Give `secrets-scan` a script and maybe a push hook~~ — *a21d0d3*:
+      `secrets-scan/scripts/scan.sh` (`--staged`, `--push`, `--range`, `--tree`; gitleaks,
+      else patterns; PASS/FAIL), `ship` runs `scan.sh --push`, and the existing
+      `secrets-guard.sh` hook gains a gitleaks pass (tests 18/18 with gitleaks, 16/16
+      without). No new hook was needed: the push hook already existed (see cause 2).
+- [ ] **Catch install drift:** `index.py --check` also reports repo skills not linked into
+      `~/.claude/skills`. Waiting for the orrery session's `index.py` change
+      (`--write-repo`) to reach main. Its case on 2026-10-17: the six prod-ops skills
+      (66dedd3) were on main but not linked on the laptop.
+- [x] ~~Shrink `homelab-endpoint` to a pointer~~ — *done 2026-10-17*: it now points at the
+      handbook. Its own table was stale: it listed coder-next on `:9000` and a "research"
+      mode for `:8003`, which handbook section 13 shows is the prod vLLM.
 
 ## Not covered
 

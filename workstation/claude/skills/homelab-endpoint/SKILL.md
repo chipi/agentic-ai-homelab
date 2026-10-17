@@ -1,35 +1,27 @@
 ---
 name: homelab-endpoint
-description: Resolve a homelab service name to its real endpoint URL and how to call it — DGX host, vLLM coder-next/autoresearch slots, Ollama, observability labels. Use when an agent or client needs to point at a homelab service, when writing config that consumes one, or when asked "what's the URL for X". Read-only.
+description: Resolve a homelab service name to its real endpoint URL and how to call it — DGX model servers, the mini's observability and LLM gateway services, prod VPS services. Points at the operations handbook, which holds the one maintained table. Use when an agent or client needs to point at a homelab service, when writing config that consumes one, or when asked "what's the URL for X". Read-only.
 ---
 
 # homelab-endpoint
 
-Resolve a homelab service to a concrete endpoint + how to consume it. Read-only.
-Source of truth for the namespace and the `${VAR}` substitution convention:
-`docs/recipes/consuming-homelab-services.md`.
+The endpoints live in one place, the operations handbook
+(`agentic-ai-homelab/docs/recipes/agent-access.md`). This skill used to keep its own
+table; it went stale (ports and GPU modes changed on the DGX), so it now points there.
 
-## The namespace (canonical values)
-
-Host: `DGX_TAILNET_HOST = dgx-llm-1.tail6d0ed4.ts.net` (use anywhere on the
-tailnet) · `DGX_LAN_IP = 192.168.0.59` (same-LAN only).
-
-| Service | Base URL | model / notes |
-|---|---|---|
-| coder-next vLLM | `http://${DGX_TAILNET_HOST}:9000/v1` | model `coder-next`, bearer = that stack's `VLLM_API_KEY` (per-stack, in its untracked `.env` on the DGX — not published); needs gpu-mode **code** |
-| autoresearch vLLM | `http://${DGX_TAILNET_HOST}:8003/v1` | model `autoresearch`, bearer = that stack's `VLLM_API_KEY` (in its untracked `.env` on the DGX — not published); needs gpu-mode **research** |
-| Ollama | `http://${DGX_TAILNET_HOST}:11434` | metrics exporter on `:9778` |
-| Observability (PromQL labels) | — | `instance="homelab-1"`, `cluster="homelab"` |
+| Need | Where |
+|---|---|
+| Which host runs what, how to get on it | handbook section 0 |
+| Credentials for a service (load from file, never print) | handbook section 0, "Credentials" |
+| A mini service (Grafana, Victoria*, Umami, GlitchTip, Langfuse, LiteLLM) | handbook sections 1–9: each heading has the loopback port and tailnet URL |
+| DGX model servers (whisper, pyannote, prod vLLM, translate, moss) and their API keys | handbook section 13 |
+| Tailnet names for the web services | `docs/recipes/observability-endpoints.md` |
+| The `${VAR}` substitution convention for config that consumes a service | `docs/recipes/consuming-homelab-services.md` |
 
 ## Resolve
 
-- Default to `DGX_TAILNET_HOST` (works anywhere on the tailnet); use `DGX_LAN_IP`
-  only when the consumer is on the same LAN.
-- The two vLLM slots are **mutually exclusive** on the GPU — a slot is only live
-  when its gpu-mode is active. Check with the `gpu-mode` skill before assuming
-  `:9000` or `:8003` answers.
-
-## Report
-
-Print the full base URL + `model` name + auth header (`Authorization: Bearer …`),
-and note the gpu-mode dependency for the vLLM slots.
+1. Read the handbook row for the service; give the base URL, the model name if any, and the
+   auth header (`Authorization: Bearer …`, with the key's source, never its value).
+2. A DGX vLLM answers only in the right GPU mode: check with the `gpu-mode` skill
+   (`--mode-only`) before assuming the port is live.
+3. If the handbook and the live host disagree, the host wins: fix the handbook row.
