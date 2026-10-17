@@ -11,9 +11,11 @@ coordinator. This skill wraps it: **check freely, switch only on explicit go.**
 
 ## Connect
 
-The script lives on the DGX host, symlinked at `~/bin/gpu-mode-swap.sh`. Reach it
-over the tailnet with ssh (non-interactive → always the absolute path; the
-`gpu-mode` zsh alias is not loaded in agent shells):
+On the DGX, `~/bin/gpu-mode-swap.sh` is a wrapper that runs the real script as the `ops`
+account (`sudo -u ops /home/ops/agentic-ai-homelab/infra/dgx/bin/gpu-mode-swap.sh`), which
+owns the vLLM stacks and their `.env` files. Reach it over the tailnet with ssh
+(non-interactive, so always the absolute path; the `gpu-mode` zsh alias is not loaded in agent
+shells):
 
 ```bash
 ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh <args>'
@@ -24,10 +26,14 @@ ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh <args>'
 Before ANY local vLLM call, confirm the right stack owns the GPU:
 
 ```bash
-ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh --mode-only'    # → code | research | idle | BROKEN-BOTH
+ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh --mode-only'    # → prod | ollama | code | research | idle | BROKEN-BOTH
 ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh status --json'  # full machine-readable state
 ```
 
+- **prod** — the production serving vLLM on `:8003` (`infra/vllm/prod-vllm`), plus the
+  co-resident translation vLLM on `:8005`. Ollama and its `ollama-metrics` exporter are stopped.
+  The DGX's normal state (2026-10-17).
+- **ollama** — the podcast_scraper pipeline's Ollama mode: no vLLM, Ollama warm on `:11434`.
 - **code** — coder-next up on `:9000`
 - **research** — autoresearch up on `:8003`
 - **idle** — both down; GPU free for ML training / Ollama
