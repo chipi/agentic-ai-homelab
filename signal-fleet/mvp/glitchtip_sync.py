@@ -90,9 +90,13 @@ def github_states(pairs):
 
 def plan(rows, issues, gh):
     """Decide one action per mapped GlitchTip issue. Pure: no I/O (tested)."""
+    def reused(r):
+        issue = issues.get(r["fingerprint"].split(":", 1)[1])
+        return bool(issue) and filing.reused_short_id(r, issue.get("firstSeen"))
     by_gh = collections.defaultdict(list)       # (repo, n) -> [shortId] (to find a duplicate's target)
     for r in rows:
-        by_gh[(r["repo"], int(r["issue"]))].append(r["fingerprint"].split(":", 1)[1])
+        if not reused(r):
+            by_gh[(r["repo"], int(r["issue"]))].append(r["fingerprint"].split(":", 1)[1])
     actions = []
     for r in rows:
         sid = r["fingerprint"].split(":", 1)[1]
@@ -101,6 +105,9 @@ def plan(rows, issues, gh):
         st = gh.get(key)
         if not issue or not st:
             actions.append({"sid": sid, "action": "skip", "why": "not in GlitchTip" if not issue else "no GitHub state"})
+            continue
+        if reused(r):     # a recreated project's new issue; the row's GitHub decision is not its
+            actions.append({"sid": sid, "action": "skip", "why": "short id reused by a newer issue"})
             continue
         base = {"sid": sid, "id": issue["id"], "project": (issue.get("project") or {}).get("slug"),
                 "status": issue.get("status"), "gh": f"{r['repo']}#{r['issue']}", "url": st["url"]}

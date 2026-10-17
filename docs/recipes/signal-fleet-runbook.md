@@ -121,7 +121,7 @@ Never edit a ledger while a cycle runs. Back it up first: `cp filed.tsv filed.ts
 
 ### GlitchTip project recreated (same slug)
 
-The new project's short ids restart at 1 and collide with the dead project's ledger rows, so a new error reopens an unrelated old issue. To fix it:
+The new project's short ids restart at 1. Since 2026-10-17 the fleet ignores a ledger row filed before the issue now holding its short id was first seen, so a new error no longer reopens or resolves an unrelated old issue. Retiring the dead project's rows is optional tidying:
 
 1. Pause the fleet, or work between cycles.
 2. Back up `filed.tsv`.
@@ -216,7 +216,8 @@ Since 2026-09-30 every behaviour change has gone through the same loop, and the 
 | `eval_recurrence_replay.py` | one recurrence row per count change (about 6 min on the mini) |
 | `eval_open_preference_replay.py` | a norm_key match prefers the bug's open issue, never a rollup bucket |
 | `eval_duplicate_follow_replay.py` | a recurrence on an issue closed as a duplicate goes to its canonical issue |
-| `test_units.py` | unit tests (86 on 2026-10-02) |
+| `eval_identity_replay.py` | reused GlitchTip short ids are ignored (filing and sync); fatal events never go to a rollup; one provider-auth failure is one issue per project |
+| `test_units.py` | unit tests (115 on 2026-10-17) |
 
 Alert-rule changes have their own checks under [`infra/observability/rules-drift/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/observability/rules-drift):
 

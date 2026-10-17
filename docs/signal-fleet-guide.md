@@ -156,11 +156,13 @@ It is upserted by fingerprint, so a fingerprint has exactly one row.
 | no match | files a new issue, labelled `triage-fleet/filed` |
 | prior is a low-signal rollup, signal is no longer low-signal | promotes: a new issue of its own |
 
-**Low-signal:** a GlitchTip error with ≤ 1 event, 0 users and no code location. It goes to a per-project rollup issue (`[low-signal] aggregate — <project>`) as one line, instead of an issue of its own.
+**Low-signal:** a GlitchTip error with ≤ 1 event, 0 users and no code location. It goes to a per-project rollup issue (`[low-signal] aggregate — <project>`) as one line, instead of an issue of its own. A **fatal** event (a crash, a watchdog kill) is never low-signal: it gets its own issue on its first hit (2026-10-17: PLAYER-I, PLAYER-L and PLAYER-1I had been buried in rollup #2000).
 
 **GitHub state is read at filing time** (`issue_state`): the operator's close, label or comment *is* the acknowledgement. The local ledger never overrides GitHub.
 
 **Retired rows:** `glitchtip-retired:<SLUG>-<n>`. These belong to a deleted GlitchTip project. A project recreated under the same slug restarts its short ids, and its new errors would match the dead project's rows (2026-10-01: a rate limit reopened an unrelated issue). `filing.py --retire-glitchtip-project SLUG BEFORE` moves them out of the matching namespace. The runbook has the procedure.
+
+**Reused short ids are ignored automatically** (2026-10-17): a ledger row filed *before* the GlitchTip issue now holding its short id was first seen belongs to another, older issue. Filing (`ledger_lookup`, GlitchTip signals only) and the GitHub → GlitchTip sync both ignore such a row (`reused_short_id`). Before this, a recreated `orrery-dev` gave the probe ORRERY-DEV-1 the August decision on orrery#429, and the sync resolved it; 7 rows were affected. Retiring rows is still tidy, but no longer required.
 
 ### Other state files
 
@@ -206,8 +208,9 @@ These rules came from incidents. Keep them unless the evidence changes.
 | Gap | Effect | Status |
 |---|---|---|
 | **Warnings never reach the fleet** | systematic warnings (e.g. speaker-attribution loss in 26 of 28 runs on 2026-10-01) are invisible to it | by design today: the sources are GlitchTip errors and Grafana alerts |
-| A one-event GlitchTip error with no culprit is **low-signal by rule** | a real bug can be buried as one line in the rollup (2026-10-01: `[Errno 36] File name too long` → podcast_scraper #1871) | open |
-| GlitchTip project **recreated under the same slug** | fingerprint collisions with retired rows | procedure in the runbook. A permanent fix would key GlitchTip fingerprints on the project id. |
+| A one-event GlitchTip error with no culprit is **low-signal by rule** | a real bug can be buried as one line in the rollup (2026-10-01: `[Errno 36] File name too long` → podcast_scraper #1871) | open for non-fatal errors; fatal events get their own issue since 2026-10-17 |
+| GlitchTip project **recreated under the same slug** | fingerprint collisions with retired rows | fixed 2026-10-17: a row filed before its issue's first event is ignored (`reused_short_id`). Rows keep their short-id fingerprint. |
+| **One cause, several GlitchTip issues** | a provider-auth failure is logged by each layer it passes through: 4 issues in 31 minutes on 2026-10-16 | fixed for provider auth 2026-10-17 (`PROJECT_GROUP_RULES`, one group per project). Other cause classes still fan out until a rule names them. |
 | `eval_recurrence_replay.py` takes about 6 min on the mini | every deploy is that much slower | accepted for now (operator call 2026-10-01) |
 | Homelab filesystem series are **pushed twice** to VictoriaMetrics | double storage; hidden by `min by` in rules | not investigated |
 | `~/signal-fleet/fleet.env` | a stale duplicate of `fleet-gateway.env`; fleetd does not load it | delete when convenient |

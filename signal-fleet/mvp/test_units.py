@@ -1179,6 +1179,32 @@ class TestGlitchtipSync(unittest.TestCase):
                       target_project="podcast-api")
         self.assertEqual((a["action"], a["release"]), ("resolve", False))
 
+    def test_reused_short_id_is_skipped(self):
+        # 2026-10-17: ORRERY-DEV-1 was a recreated project's new issue; its row (orrery#429,
+        # closed in August) belonged to the dead project's ORRERY-DEV-1.
+        import glitchtip_sync as gs
+        rows = [{"fingerprint": "glitchtip:PIPE-1", "repo": "o/r", "issue": "10", "filed_at": "2026-07-29T15:03:45+00:00"}]
+        issues = {"PIPE-1": {"id": 1, "shortId": "PIPE-1", "status": "unresolved", "firstSeen": "2026-10-17T07:51:32Z",
+                             "project": {"slug": "podcast-pipeline"}}}
+        gh = {("o/r", 10): {"state": "CLOSED", "reason": "COMPLETED", "dup": None, "url": "u"}}
+        a = gs.plan(rows, issues, gh)[0]
+        self.assertEqual((a["action"], a["why"]), ("skip", "short id reused by a newer issue"))
+        issues["PIPE-1"]["firstSeen"] = "2026-07-29T15:00:00Z"        # the row's own issue
+        self.assertEqual(gs.plan(rows, issues, gh)[0]["action"], "resolve")
+
+    def test_duplicate_target_with_reused_short_id_is_never_merged(self):
+        import glitchtip_sync as gs
+        rows = [{"fingerprint": "glitchtip:PIPE-1", "repo": "o/r", "issue": "10"},
+                {"fingerprint": "glitchtip:PIPE-0", "repo": "o/r", "issue": "7", "filed_at": "2026-07-01T00:00:00+00:00"}]
+        issues = {"PIPE-1": {"id": 11, "shortId": "PIPE-1", "status": "unresolved",
+                             "title": "deadline exceeded for episode 9", "project": {"slug": "podcast-pipeline"}},
+                  "PIPE-0": {"id": 9, "shortId": "PIPE-0", "status": "unresolved", "firstSeen": "2026-10-01T00:00:00Z",
+                             "title": "deadline exceeded for episode 6", "project": {"slug": "podcast-pipeline"}}}
+        gh = {("o/r", 10): {"state": "CLOSED", "reason": "DUPLICATE", "dup": ("o/r", 7), "url": "u10"},
+              ("o/r", 7): {"state": "CLOSED", "reason": "COMPLETED", "dup": None, "url": "u7"}}
+        a = [x for x in gs.plan(rows, issues, gh) if x["sid"] == "PIPE-1"][0]
+        self.assertEqual(a["action"], "resolve")       # follows #7's state, but no merge into a stranger
+
     def test_missing_glitchtip_issue_is_skipped(self):
         import glitchtip_sync as gs
         out = gs.plan([{"fingerprint": "glitchtip:GONE-1", "repo": "o/r", "issue": "1"}], {}, {})
@@ -1231,6 +1257,48 @@ class TestGlitchtipSync(unittest.TestCase):
         finally:
             filing.urllib.request.urlopen, filing.config.GLITCHTIP_WRITE_TOKEN = orig
         self.assertEqual(sent["auth"], "Bearer write-tok")
+
+
+class TestIdentityAndFoldFixes(unittest.TestCase):
+    """2026-10-17 weekly review: short-id reuse, fatal events in rollups, provider-auth storms."""
+
+    def test_fatal_is_never_low_signal(self):
+        sig = {"source": "glitchtip", "raw": {}, "labels": {"count": "1", "culprit": "", "level": "fatal"}}
+        self.assertFalse(filing.low_signal(sig))
+        sig["labels"]["level"] = "error"
+        self.assertTrue(filing.low_signal(sig))
+
+    def test_reused_short_id_parses_any_fraction_width(self):
+        row = {"filed_at": "2026-07-29T15:03:45.685502+00:00"}
+        for seen in ("2026-10-17T07:51:32Z", "2026-10-17T07:51:32.8Z", "2026-10-17T07:51:32.83957Z",
+                     "2026-10-17T07:51:32.839570123+00:00"):
+            self.assertTrue(filing.reused_short_id(row, seen), seen)
+        self.assertFalse(filing.reused_short_id(row, "2026-07-29T15:03:45.68Z"))
+        self.assertFalse(filing.reused_short_id(row, "not a time"))
+
+    def test_provider_auth_groups_per_project(self):
+        t = "ProviderAuthError: OpenAI authentication failed: unknown: the key is invalid or lacks access"
+        self.assertEqual(filing.group_key_for(t, "", "podcast-pipeline"), "provider-auth:podcast-pipeline")
+        self.assertEqual(filing.group_key_for("AuthenticationError: Error code: 401", "", "podcast-pipeline-dev"),
+                         "provider-auth:podcast-pipeline-dev")
+        self.assertEqual(filing.group_key_for(t, ""), "")          # no project, no cross-host group
+
+    def test_reused_short_id_row_is_not_a_fingerprint_match(self):
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+        tmp.close()
+        orig = filing.FILED
+        filing.FILED = tmp.name
+        try:
+            filing._ledger_write([{"fingerprint": "glitchtip:ORRERY-DEV-1", "repo": "chipi/orrery", "issue": "429",
+                                   "filed_at": "2026-07-29T15:03:45+00:00"}])
+            self.assertIsNone(filing.ledger_lookup("glitchtip:ORRERY-DEV-1", first_seen="2026-10-17T07:51:32Z"))
+            hit = filing.ledger_lookup("glitchtip:ORRERY-DEV-1", first_seen="2026-07-29T15:00:00Z")
+            self.assertEqual((hit["issue"], hit["_dim"]), ("429", "fingerprint"))
+            self.assertIsNotNone(filing.ledger_lookup("glitchtip:ORRERY-DEV-1"))   # no first_seen: as before
+        finally:
+            filing.FILED = orig
+            os.unlink(tmp.name)
 
 
 if __name__ == "__main__":

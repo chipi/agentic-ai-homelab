@@ -232,6 +232,11 @@ def low_signal(signal):
         return False
     if "count" not in raw and "count" not in labels:
         return False   # evidence-present required — never infer low from absence
+    # A fatal event killed the process (a crash, a watchdog kill): never a rollup line,
+    # even on its first hit (2026-10-17: PLAYER-I, PLAYER-L and PLAYER-1I, all fatal,
+    # sat in rollup #2000; operator: a crash gets its own issue).
+    if str(raw.get("level") or labels.get("level") or "").lower() == "fatal":
+        return False
 
     def _int(*vals):
         for v in vals:
@@ -260,13 +265,30 @@ def _today():
     return _now().strftime("%Y-%m-%d")
 
 
-def group_key_for(alertname, title=""):
+# Storm rules scoped to ONE GlitchTip project: the key is `<key>:<project>`. A provider
+# auth failure hard-stops a run and is logged by every layer it passes through, each a
+# different GlitchTip issue (2026-10-16 nightly: PODCAST-PIPELINE-DA/DB/DC/DD, 47 events
+# each, filed as #2371-#2374; 10-14 dev: DEV-2..5 -> #2354-#2357). Per project, so a
+# dev-key failure never absorbs a prod one.
+PROJECT_GROUP_RULES = [
+    (re.compile(r"ProviderAuthError|AuthenticationError|key is invalid or lacks access|"
+                r"Error code: 401\b|\b401\W{0,3}unauthori[sz]ed|invalid proxy server token|"
+                r"invalid (?:openai |vllm )?api key|incorrect api key", re.I),
+     "provider-auth"),
+]
+
+
+def group_key_for(alertname, title="", project=""):
     """Match alertname AND drafted title — storms often surface as generic
     transport errors (ReadTimeout) whose cause only the title names."""
     hay = f"{alertname or ''} {title or ''}"
     for rx, key in GROUP_RULES:
         if rx.search(hay):
             return key
+    if project:
+        for rx, key in PROJECT_GROUP_RULES:
+            if rx.search(hay):
+                return f"{key}:{project}"
     return ""
 
 
@@ -325,7 +347,8 @@ def _ledger_write(rows):
             f.write("\t".join(str(r.get(c, "")) for c in FILED_COLS) + "\n")
 
 
-def ledger_lookup(fingerprint, group_key="", norm_key="", alert_key="", is_open=None):
+def ledger_lookup(fingerprint, group_key="", norm_key="", alert_key="", is_open=None,
+                  first_seen=""):
     """Newest matching row, strongest dimension first: exact fingerprint → group_key
     (storm) → norm_key (normalized dedup #1; among its rows an OPEN, non-rollup issue
     wins over the newest closed one) → alert_key (#9, only rows whose issue
@@ -346,6 +369,8 @@ def ledger_lookup(fingerprint, group_key="", norm_key="", alert_key="", is_open=
         return dict(hit) if hit else None
 
     r = newest(lambda r: r.get("fingerprint") == fingerprint)
+    if r and first_seen and reused_short_id(r, first_seen):
+        r = None                              # the short id now names a different issue
     if r:
         r["_dim"] = "fingerprint"
         return r
@@ -438,6 +463,24 @@ def retire_glitchtip_project(project, filed_before, dry_run=False):
     if retired and not dry_run:
         _ledger_write(rows)
     return {"rows": len(rows), "retired": len(retired), "detail": retired}
+
+
+def reused_short_id(row, first_seen):
+    """True when ``row`` was filed BEFORE the GlitchTip issue now holding its short id was
+    first seen: a recreated project restarted the counter, so the row is another,
+    older issue's. A real row is always filed after its issue's first event. Replaces
+    the manual retire_glitchtip_project step, which was missed for four projects
+    (2026-10-17: ORRERY-DEV-1 inherited orrery#429, closed in August)."""
+    def ts(v):
+        # Python 3.9 (the mini) parses only 3- or 6-digit fractions: pad/cut to 6
+        m = re.match(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d+))?(Z|[+-]\d\d:\d\d)?$", str(v).strip())
+        if not m:
+            return None
+        frac = (m.group(2) or "0").ljust(6, "0")[:6]
+        tz = m.group(3) or "+00:00"
+        return datetime.fromisoformat(f"{m.group(1)}.{frac}{'+00:00' if tz == 'Z' else tz}")
+    seen, filed = ts(first_seen), ts(row.get("filed_at", ""))
+    return bool(seen and filed and seen > filed)
 
 
 def ledger_upsert(entry):
@@ -609,7 +652,8 @@ def _milestone_number(repo, title):
 def file_or_update(signal, issue, kind):
     """Returns a one-line outcome string (also printed by the caller)."""
     fp = signal.get("fingerprint", "")
-    gk = group_key_for(signal.get("alertname", ""), (issue or {}).get("title", ""))
+    gk = group_key_for(signal.get("alertname", ""), (issue or {}).get("title", ""),
+                       (signal.get("labels") or {}).get("project", ""))
     nk = normalized_key(signal)
     repo = repo_for(signal)
     if not repo:
@@ -617,7 +661,8 @@ def file_or_update(signal, issue, kind):
     ak = alert_key(repo, signal.get("source", ""), signal.get("alertname", ""))
     issue = sanitize_issue(signal, issue)
     prior = ledger_lookup(fp, gk, nk, ak,
-                          is_open=lambda rp, n: issue_state(rp, n)["state"] == "open")
+                          is_open=lambda rp, n: issue_state(rp, n)["state"] == "open",
+                          first_seen=signal.get("startsAt", "") if signal.get("source") == "glitchtip" else "")
 
     # #4 promotion (review R6) — checked BEFORE the mute gate (Fable pre-deploy
     # review) so a signal that has crossed the threshold escapes a MUTED rollup
@@ -786,7 +831,8 @@ if __name__ == "__main__":
                 continue
             sig, iss = item.get("signal") or {}, item.get("issue") or {}
             fp = sig.get("fingerprint", "")
-            gk = group_key_for(sig.get("alertname", ""), (iss.get("title") or ""))
+            gk = group_key_for(sig.get("alertname", ""), (iss.get("title") or ""),
+                               (sig.get("labels") or {}).get("project", ""))
             nk = normalized_key(sig)
             if args.dry_run:
                 dup = (fp in seen_fp or (gk and gk in seen_gk) or (nk and nk in seen_nk)
