@@ -6,13 +6,13 @@ This guide explains the triage fleet (`signal-fleet`, Fleet 2): its parts, one s
 - **The full design history:** RFC-0003 and [`SIGNALS.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/signal-fleet/SIGNALS.md).
 - **How this fleet fits with the others:** [Fleet architecture](fleet-architecture.md).
 
-State as of 2026-10-02: live on the Mac mini at stage **`propose`**. It files, comments on and reopens GitHub issues in `chipi/podcast_scraper`, `chipi/orrery` and `chipi/agentic-ai-homelab`.
+State as of 2026-10-17 (checked against the running system): live on the Mac mini at stage **`propose`**, code at `69f88f1` or later. It files, comments on and reopens GitHub issues in `chipi/podcast_scraper`, `chipi/orrery` and `chipi/agentic-ai-homelab`, and mirrors the operator's GitHub closes onto the GlitchTip issues it filed (the sync, below).
 
 ## What it is, and what it is not
 
 The fleet watches production signals (Grafana alerts and GlitchTip errors) and decides, for each one, whether a human or another fleet needs to act. The result is a GitHub issue, a comment on an existing issue, or a recorded decision to do nothing.
 
-It **never** touches production, never changes code, and never closes an issue. Closing is the operator's call (fleet-architecture invariant 6). Fixing belongs to Fleet 1 (bug-fix) and Fleet 3 (remediation).
+It **never** touches production, never changes code, and never closes a GitHub issue. Closing is the operator's call (fleet-architecture invariant 6); the sync only copies that call onto GlitchTip. Fixing belongs to Fleet 1 (bug-fix) and Fleet 3 (remediation).
 
 ## The moving parts
 
@@ -28,16 +28,17 @@ fleetd (Go supervisor, macOS LaunchDaemon com.homelab.fleetd)
        ├─ 3. triager-down    if the LLM is down: ONE aggregate issue, never one per signal
        ├─ 4. inbox push      operator-inbox metrics for Grafana
        ├─ 5. stale pass      once per UTC day: nudge open issues whose signal went quiet
-       └─ 6. spend file      cycle cost → fleetd's daily budget guard ($2/day)
+       ├─ 6. GitHub → GlitchTip sync (#100, SF_GLITCHTIP_SYNC=1): mirror the operator's closes
+       └─ 7. spend file      cycle cost → fleetd's daily budget guard ($2/day)
 ```
 
 | Part | Where | Role |
 |---|---|---|
 | `fleetd` | [`fleetd/`](https://github.com/chipi/agentic-ai-homelab/tree/main/fleetd), binary at `~/fleetd/fleetd` | runs each fleet's cycle on its interval. Owns the stage, timeout (process group killed on timeout), budget, STOP flag and its own metrics. |
-| cycle code | [`signal-fleet/mvp/`](https://github.com/chipi/agentic-ai-homelab/tree/main/signal-fleet/mvp), run **from the git checkout** | `orchestrator.py` (cycle), `sources.py` (read Grafana/GlitchTip), `triage.py` (decide), `actions.py` (dispositions ledger), `filing.py` (GitHub + filed ledger), `stale.py`, `inbox.py`, `observ.py` (metrics, Langfuse) |
+| cycle code | [`signal-fleet/mvp/`](https://github.com/chipi/agentic-ai-homelab/tree/main/signal-fleet/mvp), run **from the git checkout** | `orchestrator.py` (cycle), `sources.py` (read Grafana/GlitchTip), `correlate.py` (probe evidence: logs, metrics, traces), `triage.py` (decide), `actions.py` (dispositions ledger), `filing.py` (GitHub + filed ledger), `glitchtip_sync.py` (GitHub → GlitchTip), `stale.py`, `inbox.py`, `observ.py` (metrics, Langfuse) |
 | state | `~/signal-fleet/` on the host, never in git | `results/dispositions.tsv`, `results/filed.tsv`, small state files, `queue/`, `fleet-gateway.env` |
 | LLM | the homelab LiteLLM gateway, model alias `fleet-triage-pro` | investigation and the file/escalate decision. Never dedup, never routing. |
-| surfaces | Grafana "Fleet Workforce — Triage (Fleet 2)", "Triage — Operator Inbox"; alerts `fleetd-cycle-failing`, `fleetd-silent` | how the operator and the next agent see it |
+| surfaces | Grafana "Fleet Workforce — Triage (Fleet 2)" (incl. the sync's panels), "Triage — Operator Inbox"; alerts `fleetd-cycle-failing`, `fleetd-silent`, `glitchtip-sync-failing`; Langfuse project "agents" | how the operator and the next agent see it |
 
 The code is stateless between cycles. Everything the fleet "remembers" is in the two ledgers and the GitHub issues themselves.
 
@@ -57,6 +58,7 @@ Test and synthetic signals are suppressed at this stage.
 `orchestrator.run_grafana` / `run_glitchtip`:
 
 - **Same occurrence already decided:** skip. A GlitchTip error whose event count rose since its last triage gets a `recurrence` row: one per count change, not one per cycle (fix `b3c4c5f`). It is re-triaged in full only after `SF_RETRIAGE_HOURS` (24 h).
+- **Exception — promote at once** (2026-10-17, `orchestrator._promote_now`): when the last decision was `file` but the low-signal gate folded the error into a rollup, its first recurrence re-triages immediately, so filing promotes it to its own issue. Before this, 6 fingerprints (12 count changes, incl. the fatal PLAYER-1I) stayed rollup lines for good.
 - **A new Grafana firing of a known fingerprint inside 24 h:** a `recurrence` row, no new triage.
 
 ### 3. Triage: deterministic gates before the LLM
@@ -71,7 +73,7 @@ Test and synthetic signals are suppressed at this stage.
 
     These are states, not bugs, and they hold even while the triager is down.
 
-2. **Investigation by the LLM:** up to `SF_MAX_PROBES` (3) probes — logs, metrics, traces, source state, occurrence history — then one terminal decision:
+2. **Investigation by the LLM:** up to `SF_MAX_PROBES` (3) probes — logs, metrics, traces, source state, occurrence history — then one terminal decision. A GlitchTip error's trace is looked up by the OTel id the apps stamp as `tags.trace_id` (fix `06c07e0`; the SDK's own `contexts.trace.trace_id` never exists in VictoriaTraces). Each triage is **one Langfuse trace** (project "agents"): the fleet mints the trace id, and the gateway adds its costed generations to it as `triage-turn-N` (`e4e396f`). The decision:
     - `file`: a real problem; becomes an issue with `work_type` `bug` or `config-enhancement`;
     - `dismiss`: benign, **with independent probe evidence** (the intent gate);
     - `cleanup`: test or synthetic noise;
@@ -89,6 +91,23 @@ Test and synthetic signals are suppressed at this stage.
 - **`shadow`:** nothing external.
 - **`propose`:** issues, comments and reopens on GitHub. Cleanup stays queued.
 - **`live`:** everything.
+
+### 5. Mirror onto GlitchTip: the sync (#100)
+
+GitHub is where the operator decides; GlitchTip used to never hear about it (2026-10-15: 312 of 363 filed GitHub issues were closed, their GlitchTip issues still unresolved). At the end of each cycle `glitchtip_sync.run` reads, for every GlitchTip fingerprint in the filed ledger, its GitHub issue and copies the decision:
+
+| GitHub | GlitchTip |
+|---|---|
+| closed as fixed | resolved "in next release": a later recurrence counts as a regression |
+| closed as not planned | resolved |
+| closed as duplicate of #M | follows #M: merged into #M's GlitchTip issue only if it is the **same error** (same project, same fleet skeleton), then takes #M's state; otherwise resolved when #M is closed |
+| open / reopened | untouched |
+
+Every mapped issue gets one `Tracked in GitHub: <url>` comment. A row whose short id was reused by a newer issue is skipped (`reused_short_id`). Nothing is lost by resolving: a recurrence reopens the GlitchTip issue, triage runs before the sync in the same cycle, and filing reopens (< 7 days) or files a regression.
+
+- **Switch:** `SF_GLITCHTIP_SYNC=1` in `fleet-gateway.env`, token `GLITCHTIP_WRITE_TOKEN` (`event:write`). Writes only when the cycle writes (not in `shadow`).
+- **o11y:** metric `signal_fleet_glitchtip_sync{kind=mapped|merged|resolved|commented|errors}` every run; alert `glitchtip-sync-failing` (errors in every run for 25 min); one VictoriaLogs line per write, `{fleet="triage", event="glitchtip_sync"}` (the audit trail).
+- **By hand:** `python3 glitchtip_sync.py` is a dry run (counts and samples); `--apply` writes.
 
 ## The two ledgers
 
@@ -172,7 +191,7 @@ It is upserted by fingerprint, so a fingerprint has exactly one row.
 | `results/.stale_last_run` | UTC day of the last stale pass |
 | `results/.inbox_seen` | operator-inbox bookkeeping |
 | `results/.last_cycle_spend` | cycle cost in USD, read by fleetd's budget guard |
-| `queue/` | drafts that were not sent (shadow stage, cleanup dispositions) |
+| `queue/` | proposals the fleet may not act on alone (`cleanup`, `config-enhancement`; everything in `shadow`) as `*.json`; handled ones renamed `.filed` / `.resolved`. The operator triages them with the `triage-fleet-review` skill's `proposals.py` (54 had piled up by 2026-10-17); `queue/archive/` holds batches set aside |
 
 ## The operator's interface: GitHub labels
 
@@ -202,8 +221,11 @@ These rules came from incidents. Keep them unless the evidence changes.
 7. **A rollup bucket is not a bug's issue.** Never route a specific bug's recurrence to `[low-signal] aggregate`.
 8. **One condition, one alert.** Fan-out has to be fixed at the source rule, not deduplicated afterwards. Example: per-mountpoint disk alerts gave six issues for one disk; the fix groups by disk (`0702aee`).
 9. **Every behaviour change is proven on real history before it ships.** The runbook's improvement loop requires a replay against a frozen corpus, a baseline-reproduces-history check, and a mutation check.
+10. **A GlitchTip short id is not an identity on its own.** A recreated project restarts the counter, so a ledger row counts only if it was filed after the issue now holding that id was first seen. A manual retire step was forgotten for four projects; the rule needs no step.
+11. **A crash is never a rollup line.** Fatal events skip the low-signal gate, and a signal the fleet decided to file is promoted on its first recurrence. The rollup exists to quiet one-off noise, not to hold bugs the fleet already recognised.
+12. **GitHub decides, GlitchTip follows.** The sync copies the operator's call and never makes one; a merge needs the same error, not just a duplicate link, because an umbrella issue can hold several errors.
 
-## Known gaps (as of 2026-10-02)
+## Known gaps (as of 2026-10-17)
 
 | Gap | Effect | Status |
 |---|---|---|
@@ -211,6 +233,9 @@ These rules came from incidents. Keep them unless the evidence changes.
 | A one-event GlitchTip error with no culprit is **low-signal by rule** | a real bug can be buried as one line in the rollup (2026-10-01: `[Errno 36] File name too long` → podcast_scraper #1871) | open for non-fatal errors; fatal events get their own issue since 2026-10-17 |
 | GlitchTip project **recreated under the same slug** | fingerprint collisions with retired rows | fixed 2026-10-17: a row filed before its issue's first event is ignored (`reused_short_id`). Rows keep their short-id fingerprint. |
 | **One cause, several GlitchTip issues** | a provider-auth failure is logged by each layer it passes through: 4 issues in 31 minutes on 2026-10-16 | fixed for provider auth 2026-10-17 (`PROJECT_GROUP_RULES`, one group per project). Other cause classes still fan out until a rule names them. |
+| GlitchTip pass reads the **10 most recently seen** issues | a recurrence missed because more than 10 issues had events in one cycle would be re-resolved by the sync before triage sees it | not seen: the busiest 10-minute window in the 14 days to 2026-10-17 had 6 issues |
+| **Cycle output is not kept** | fleetd logs one summary line per cycle (`fleetd.log`, VictoriaLogs `service:fleetd`); what a cycle printed is gone | the sync's writes are in VictoriaLogs; for anything else, rerun the step by hand |
+| `.deferred.json` entries **never expire** | an occurrence that deferred once and never came back keeps a count of 1 (two from 2026-10-08) | harmless; pruning needs a last-deferred time per entry, which the file does not store |
 | `eval_recurrence_replay.py` takes about 6 min on the mini | every deploy is that much slower | accepted for now (operator call 2026-10-01) |
 | Homelab filesystem series are **pushed twice** to VictoriaMetrics | double storage; hidden by `min by` in rules | not investigated |
 | `~/signal-fleet/fleet.env` | a stale duplicate of `fleet-gateway.env`; fleetd does not load it | delete when convenient |

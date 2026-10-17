@@ -750,7 +750,8 @@ groups:
       # pushes signal_fleet_glitchtip_sync{kind="errors"} every run. Fire only when EVERY
       # run in 25m (~2-3 cycles of 10m) had errors: a persistent failure (token revoked,
       # GlitchTip/GitHub API change), not one flaky call. Drill-down: VictoriaLogs
-      # {fleet="triage", event="glitchtip_sync"} and fleetd's log ("glitchtip-sync").
+      # {fleet="triage", event="glitchtip_sync"} (writes only; fleetd keeps no cycle
+      # output) and the sync's dry run by hand (signal-fleet runbook section 3).
       - uid: glitchtip-sync-failing
         title: "triage fleet: GitHub -> GlitchTip sync failing"
         condition: threshold
@@ -758,7 +759,7 @@ groups:
         noDataState: OK
         labels: { severity: warning, kind: fleet, meta: "true" }
         annotations:
-          summary: "The GitHub -> GlitchTip sync (#100) has had errors in every run for 25m. GlitchTip stops mirroring GitHub closes until fixed. Drill-down: fleetd log lines 'glitchtip-sync', VictoriaLogs {fleet=\"triage\", event=\"glitchtip_sync\"}."
+          summary: "The GitHub -> GlitchTip sync (#100) has had errors in every run for 25m. GlitchTip stops mirroring GitHub closes until fixed. Drill-down: VictoriaLogs {fleet=\"triage\", event=\"glitchtip_sync\"} for its writes, then the sync's dry run by hand (signal-fleet runbook section 3) for the error."
         data:
           - refId: q
             relativeTimeRange: { from: 1500, to: 0 }

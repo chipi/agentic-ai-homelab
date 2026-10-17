@@ -7,7 +7,7 @@ RFC-0002). It never touches production and never fixes code; its `File` output
 chains to Fleet 1 as a labelled GitHub issue. This is RFC-0002's own Phase-3
 ("o11y-reactive agents"), promoted to its own project.
 
-**Start here (2026-10-02):** [Triage fleet guide](../docs/signal-fleet-guide.md) — the parts,
+**Start here (updated 2026-10-17):** [Triage fleet guide](../docs/signal-fleet-guide.md) — the parts,
 one signal's path, the two ledgers and the reasoning behind each rule — and the
 [runbook](../docs/recipes/signal-fleet-runbook.md): install on a new host, operate, the weekly
 review, and the replay-proven loop every fleet change goes through. The notes below are older

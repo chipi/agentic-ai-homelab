@@ -1,57 +1,41 @@
-# signal-fleet MVP — first vertical slice
+# signal-fleet/mvp — the triage fleet's cycle code
 
-The smallest end-to-end proof of the signal-to-action spine (SIGNALS §13.3):
+The code fleetd runs every 10 minutes on the Mac mini (`python3 orchestrator.py --cycle --limit 10
+--no-dry-run`, from the git checkout). The directory keeps its MVP name; the code has been the live
+fleet since August 2026.
 
-```
-poll (Grafana alert) → correlate (VictoriaLogs/Metrics) → triage (LLM, structured)
-  → intent gate (deterministic) → act (Dismiss / File-dry-run / Escalate) → ledger
-```
+- **How it works and why:** [Triage fleet guide](../../docs/signal-fleet-guide.md).
+- **How to run, deploy, review and change it:** [Triage fleet runbook](../../docs/recipes/signal-fleet-runbook.md).
 
-Stdlib-only Python. Runs on the mini (`homelab`), reads every source over
-localhost/tailnet. No secrets in the repo — creds come from the deployed stack
-`.env`s (see `run.sh`).
-
-## The slice
-The one signal wired: the **orrery launch-data-stale** Grafana alert. The triager
-reads the correlated `orrery-data-refresh` logs and decides Dismiss (data actually
-fresh → false alarm, with a config-enhancement recommendation) vs File. Verified
-live 2026-07-24: it dismissed on real evidence and recommended the alert fix.
+Stdlib-only Python (3.9 on the mini). No secrets in the repo: credentials come from
+`~/signal-fleet/fleet-gateway.env` on the host; state lives in `~/signal-fleet/` (ledgers, queue).
 
 ## Files
+
 | File | Role |
 |---|---|
-| `config.py` | endpoints + creds from env (homelab defaults) |
-| `http_util.py` | stdlib HTTP helpers |
-| `sources.py` | trigger — poll Grafana Alerting; normalize to a signal |
-| `correlate.py` | correlation reads — VictoriaLogs / VictoriaMetrics evidence bundle |
-| `triage.py` | the triager — OpenRouter structured output + validate-retry + **deterministic intent gate** |
-| `actions.py` | Dismiss / File (dry-run) / Escalate + append-only ledger + idempotency |
-| `orchestrator.py` | the deterministic loop tying it together |
-| `probe.py`, `triage_probe.py` | live probes for the trigger/correlate/triage halves |
+| `orchestrator.py` | one cycle: Grafana pass, GlitchTip pass, triager-down, inbox, stale pass, GitHub → GlitchTip sync, spend |
+| `sources.py` | read firing Grafana alerts and unresolved GlitchTip issues; normalize to signals |
+| `correlate.py` | probe evidence for the triager: VictoriaLogs, VictoriaMetrics, VictoriaTraces (by the OTel trace id) |
+| `triage.py` | deterministic gates (operational states, intent gate), then the LLM investigation and decision |
+| `actions.py` | the dispositions ledger, idempotency, recurrence rows |
+| `filing.py` | the filed ledger and the GitHub decision tree (dedup keys, storm groups, rollups, duplicates, reused short ids) |
+| `glitchtip_sync.py` | mirror the operator's GitHub closes onto the fleet-filed GlitchTip issues (#100) |
+| `stale.py` | the daily "looks resolved?" nudge |
+| `inbox.py` | operator-inbox metrics; ships audit events to VictoriaLogs |
+| `observ.py` | metrics and the Langfuse trace per triage |
+| `config.py`, `http_util.py`, `scrub.py`, `freeze.py` | settings from env, HTTP helpers, scrubbing and freezing corpora |
+| `probe.py`, `probes.py`, `triage_probe.py`, `score.py` | live probes and the triager scorer over frozen fixtures |
+| `eval_*.py`, `test_units.py` | the deterministic gates `deploy/deploy.sh` runs; the runbook's §5 lists what each guards |
 
-## Run (on the mini)
+## Run by hand (on the mini)
+
 ```sh
-./run.sh --synthetic          # drive with a synthetic staleness signal
-./run.sh                      # act on the live alert (if firing)
+cd ~/agentic-ai-homelab/signal-fleet/mvp
+set -a; . ~/signal-fleet/fleet-gateway.env; set +a
+python3 glitchtip_sync.py                           # the sync's dry run: reads only
 ```
-Ledger: `~/signal-fleet/results/dispositions.tsv`.
 
-## Reused from Fleet 1 (SIGNALS §13.4)
-directAdapter structured-output + validate-retry pattern; the deterministic
-intent-source gate (`triage._intent_gate`); the append-only ledger; the shared
-`intent_source` vocabulary.
-
-## NOT done (MVP boundaries)
-- **File is dry-run** — real GitHub issue creation is blocked on the target-repo
-  decision (SIGNALS §13.1 #3).
-- **Poll is single-shot** (`run_once`) — no daemon loop / schedule yet.
-- **One signal only** (orrery staleness). GlitchTip errors + trace correlation are
-  Phase B.
-- **Not yet TypeScript** — this prototype reuses Fleet-1 *patterns*; sharing the
-  actual `src/worker` seam + GitHub App is the productionization step.
-- Langfuse tracing of the triager call is not wired yet.
-- **Escalate is print-only** — no operator notification path beyond the ledger row.
-- **`GLITCHTIP_TOKEN` is loaded but unused** — reserved for the Phase-B GlitchTip
-  trigger; wire it then or drop it.
-- **Least-privilege debt** — creds are the broad handy ones (see
-  `../PHASE-0-infra.md` R3-6); scope down before the daemon/ingress phase.
+A cycle by hand is not read-only, even without `--no-dry-run`: it calls the LLM (cost),
+appends to the dispositions ledger and can queue proposals. To push one signal through, follow the runbook's §3
+("Run one signal through by hand"), right after a fleetd cycle ends.

@@ -2,7 +2,7 @@
 
 How to operate the triage fleet (`signal-fleet`, Fleet 2), written so a different agent can pick it up each week. For what the parts are and why they work the way they do, read the [Triage fleet guide](../signal-fleet-guide.md) first. For the operator's own rituals (inbox, routing, labels), see the [operator playbook](../wip/operator-playbook-fleets.md).
 
-Facts below were checked against the running system on 2026-10-02. Host today: the Mac mini (`homelab`), user `markodragoljevic`, reached from a laptop with `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab`. Commands marked **[host]** run on the fleet host.
+Facts below were checked against the running system on 2026-10-02, and re-checked on 2026-10-17 where this page changed (env file, logs, the sync, proposals, gates). Host today: the Mac mini (`homelab`), user `markodragoljevic`, reached from a laptop with `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab`. Commands marked **[host]** run on the fleet host.
 
 ## 1. What has to exist
 
@@ -32,11 +32,13 @@ This is the **only** env file fleetd loads for the triage fleet; `fleet.env` nex
 | `SF_HOST` | `config.py` | host of Grafana/VM/VL/VT/GlitchTip; `127.0.0.1` when they run on the same box |
 | `GITHUB_TOKEN` | `filing.py`, `stale.py` | GitHub token (issues + labels read/write on the three repos) |
 | `GLITCHTIP_TOKEN` | `sources.py` | GlitchTip API token, read access to org `homelab` |
+| `GLITCHTIP_WRITE_TOKEN` | `glitchtip_sync.py`, `filing.py` | GlitchTip token with `event:write`: the sync's resolves, merges and "Tracked in GitHub" comments |
+| `SF_GLITCHTIP_SYNC` | `config.py` | `1` = run the GitHub → GlitchTip sync at the end of each cycle (#100); unset = off |
 | `GRAFANA_TOKEN`, or `GRAFANA_USER` + `GRAFANA_PASSWORD` | `sources.py`, `filing.py` | read firing alerts; write annotations |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` | `observ.py` | optional tracing |
 | `SF_STALE_NUDGE` | `stale.py` | `1` = the daily "looks resolved?" pass comments and labels; unset = dry run |
 
-Present in the file but **not read by the fleet code** (as of 2026-10-02): `LITELLM_FLEET_TRIAGE_KEY`, `LITELLM_FLEET_BUGFIX_KEY` (the bug-fix fleet's), `GLITCHTIP_FLEET_DSN`, `UMAMI_RO_USER`, `UMAMI_RO_PASSWORD`.
+Present in the file but **not read by the fleet code** (as of 2026-10-17): `LITELLM_FLEET_TRIAGE_KEY`, `LITELLM_FLEET_BUGFIX_KEY` (the bug-fix fleet's), `GLITCHTIP_FLEET_DSN`.
 
 Optional knobs, with their defaults:
 
@@ -114,14 +116,17 @@ Do it in this order. The ledgers are the part you can't recreate. Without them t
 | **Pause the fleet** | **[host]** `touch ~/signal-fleet/STOP`; remove it to resume. `fleetd-silent` alerts after 35 min, on purpose. |
 | **Change stage** | edit `stage` in `~/fleetd/fleetd.json`, then `sudo launchctl kickstart -k system/com.homelab.fleetd` |
 | **Deploy or roll back fleetd itself** | `cd fleetd && make deploy` / `make rollback` (from the laptop; asks nothing, so get the operator's go first) |
-| **Logs** | `~/fleetd/fleetd.log` (one line per cycle); cycle output also goes to VictoriaLogs (`service:fleetd`) |
+| **Logs** | `~/fleetd/fleetd.log` and VictoriaLogs `service:fleetd`: **one summary line per cycle** (`cycle triage-…: ok in 20s (719 bytes output)`). The cycle's own output is not kept. Kept elsewhere: the sync's writes (VictoriaLogs `{fleet="triage", event="glitchtip_sync"}`), metrics (`signal_fleet_*`), the ledgers. |
+| **Check the GitHub → GlitchTip sync** | metric `signal_fleet_glitchtip_sync{kind=...}` (one sample per run; read it with `count_over_time` or the export API, an instant query can miss it), alert `glitchtip-sync-failing`, audit lines above. Dry run by hand: **[host]** `cd ~/agentic-ai-homelab/signal-fleet/mvp && set -a && . ~/signal-fleet/fleet-gateway.env && set +a && python3 glitchtip_sync.py` |
+| **Turn the sync off** | remove `SF_GLITCHTIP_SYNC=1` from `fleet-gateway.env`; the next cycle skips it |
+| **Triage the parked proposals** (`queue/*.json`) | `~/.claude/skills/host-run/scripts/run.sh homelab ~/.claude/skills/triage-fleet-review/scripts/proposals.py` lists each with its live GlitchTip issue and a proposed action; `--apply` carries out the done/stale/resolve ones, only after the operator's go. `signal_fleet_queue_oldest_age_seconds` says when the queue is ageing. |
 | **Run one signal through by hand** | the operator asked for this once (2026-10-01). Run `run_glitchtip` from a small script with `sources.glitchtip_unresolved` filtered to one short id, `config.RETRIAGE_HOURS = 0`, the same env file, and `FLEETD_STAGE=propose`. Run it right after a cycle finishes so the two never write the ledger at the same time. |
 
 Never edit a ledger while a cycle runs. Back it up first: `cp filed.tsv filed.tsv.bak-<date>-<reason>`.
 
 ### GlitchTip project recreated (same slug)
 
-The new project's short ids restart at 1. Since 2026-10-17 the fleet ignores a ledger row filed before the issue now holding its short id was first seen, so a new error no longer reopens or resolves an unrelated old issue. Retiring the dead project's rows is optional tidying:
+Recreating a project is the homelab side's change (e.g. `infra/glitchtip/projects.py`); the 2026-10-16 `orrery-dev` recreate was one. The new project's short ids restart at 1. Since 2026-10-17 the fleet ignores a ledger row filed before the issue now holding its short id was first seen, so a new error no longer reopens or resolves an unrelated old issue. Retiring the dead project's rows is optional tidying:
 
 1. Pause the fleet, or work between cycles.
 2. Back up `filed.tsv`.
@@ -164,7 +169,8 @@ Run these read-only checks, then report in four parts: what it did, what went wr
     - recurring WARNING patterns in VictoriaLogs (`_time:7d level:warning`) — warnings never reach the fleet;
     - new GlitchTip projects missing from `filing.REPO_MAP`.
 
-6. **Ledger health:**
+6. **The parked proposals and the sync:** run `proposals.py` (§3) and check the sync's errors metric is 0.
+7. **Ledger health:**
     - row counts and growth (`wc -l results/*.tsv`);
     - `.deferred.json` present = something is being deferred;
     - the open `triage-fleet/stale-candidate` issues waiting for the operator.
@@ -217,7 +223,8 @@ Since 2026-09-30 every behaviour change has gone through the same loop, and the 
 | `eval_open_preference_replay.py` | a norm_key match prefers the bug's open issue, never a rollup bucket |
 | `eval_duplicate_follow_replay.py` | a recurrence on an issue closed as a duplicate goes to its canonical issue |
 | `eval_identity_replay.py` | reused GlitchTip short ids are ignored (filing and sync); fatal events never go to a rollup; one provider-auth failure is one issue per project |
-| `test_units.py` | unit tests (115 on 2026-10-17) |
+| `eval_promotion_replay.py` | a filed-but-rolled-up signal re-triages on its first recurrence (977 historical recurrences; exactly 12 change) |
+| `test_units.py` | unit tests (119 on 2026-10-17) |
 
 Alert-rule changes have their own checks under [`infra/observability/rules-drift/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/observability/rules-drift):
 
@@ -231,7 +238,8 @@ Alert-rule changes have their own checks under [`infra/observability/rules-drift
 |---|---|---|
 | every cycle fails, or one "triager unavailable" issue appears | LiteLLM virtual key wiped (a colima/DB recreate does this), or budget exhausted | gateway call with the key; recreate the `fleet-triage` key per the LiteLLM README and update `OPENROUTER_API_KEY` |
 | GlitchTip or Grafana pass errors in the log | source token wiped by a recreate | re-issue `GLITCHTIP_TOKEN` / `GRAFANA_TOKEN`; test with curl (§2 step 4) |
-| a new error reopens an unrelated old issue | GlitchTip project recreated under the same slug | §3 "GlitchTip project recreated" |
+| a new error reopens an unrelated old issue | GlitchTip project recreated under the same slug | handled automatically since 2026-10-17 (`reused_short_id`); if it still happens, check the row's `filed_at` against the issue's `firstSeen`, then §3 "GlitchTip project recreated" |
+| `glitchtip-sync-failing` fires | `GLITCHTIP_WRITE_TOKEN` revoked or wiped by a recreate, or a GlitchTip/GitHub API change | run the sync's dry run by hand (§3); re-mint the token with the `mint-credential` skill |
 | one condition opens or reopens many issues | the alert rule fans out (labels too fine) | fix the **rule**, not the issues; replay the rule against VictoriaMetrics history |
 | issues land in the wrong repo | routing: `REPO_MAP` (GlitchTip project prefix) or `INSTANCE_REPO_MAP` / the rule's `instance` label (Grafana) | `eval_routing_replay.py` covers the Grafana side |
 | `fleetd-silent` fires | a forgotten `STOP` file, the daemon down, or the host down | `ls ~/signal-fleet/STOP`; `sudo launchctl print system/com.homelab.fleetd` |
