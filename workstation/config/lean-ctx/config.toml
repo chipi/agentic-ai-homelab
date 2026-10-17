@@ -86,6 +86,7 @@ shell_allowlist_extra = [
     "devengine",
     "sips",
     "say",
+    "mkdocs",
 ]
 
 [cloud]
