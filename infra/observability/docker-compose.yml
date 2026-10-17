@@ -70,7 +70,10 @@ services:
     # metadata — which silently empties every per-container dashboard panel
     # (they filter on name!=""). Verified 2026-08-30 on dgx-llm-1: v0.49.1 -> 0
     # named series, v0.52.1 -> 112 (pyannote, faster-whisper, dcgm-exporter...).
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    # v0.55.1 (2026-10-17, same as the prod VPS): a throwaway on :18089 next to the running
+    # v0.52.1 gave identical named series (12 container_memory_usage_bytes, 12
+    # container_pressure_io_waiting_seconds_total) before the swap.
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: cadvisor
     network_mode: host
     privileged: true
