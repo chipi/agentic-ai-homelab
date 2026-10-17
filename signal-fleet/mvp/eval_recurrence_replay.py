@@ -39,6 +39,11 @@ import tempfile
 
 os.environ.setdefault("OPENROUTER_API_KEY", "replay-dummy")
 os.environ.setdefault("SF_OBSERV_DISABLED", "1")
+# Hermetic: never the host's live filed ledger. On the mini the default path is the real
+# ledger, and orchestrator._promote_now reads it (2026-10-17: 31 count changes moved).
+_FILED = tempfile.NamedTemporaryFile("w", suffix=".tsv", delete=False)
+_FILED.close()
+os.environ["SF_FILED_LEDGER"] = _FILED.name
 HERE = os.path.dirname(os.path.abspath(__file__))
 CORPUS = os.path.join(HERE, "..", "reference-recurrence", "glitchtip-history-2026-10-01.tsv.gz")
 BASE_REV = "1343851"   # main before this fix
