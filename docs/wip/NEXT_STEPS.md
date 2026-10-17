@@ -230,13 +230,15 @@ below are decisions/work, not one-line fixes:
 - [ ] **Flash worker under kick-back/advisor path is unmeasured.**
       `BAKEOFF.md:891` — flash won the worker seat on price, but the load-bearing
       kick-back/advisor-pin reliability was only measured with v4-pro.
-- [ ] **Trim the obsolete 9443 ACL grant** (PR #1662), superseded by the
+- [x] ~~**Trim the obsolete 9443 ACL grant** (PR #1662), superseded by the
       caddy-tailscale plugin. `docs/wip/mac-mini-headless-server.md:302`. Minor
-      tailnet hygiene (unnecessary open-port grant).
-- [ ] **Land the uncommitted mini changes** (need push approval):
+      tailnet hygiene (unnecessary open-port grant).~~ **Done** (checked 2026-10-17): podcast_scraper
+      `tailscale/policy.hujson` mentions :9443 only in a comment saying it was removed.
+- [x] ~~**Land the uncommitted mini changes** (need push approval):
       `infra/reverse-proxy/` (Caddy stack, on mini + local, not committed) and the
       `infra/homelab-home/docker-compose.yml` tailnet-port edit.
-      `docs/wip/mac-mini-headless-server.md:29-31`.
+      `docs/wip/mac-mini-headless-server.md:29-31`.~~ **Done** (checked 2026-10-17): the mini's
+      checkout has no uncommitted files, and `infra/reverse-proxy/` is in the repo.
 - [ ] **bugfix-fleet TypeScript has no test suite** (`bugfix-fleet/src/`, 15
       modules). Highest-value targets: `worker/schemas.ts` (label-schema parsing)
       and `fleet/dispatch.ts` (fallback routing). Blocked on a decision: adding a
