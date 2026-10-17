@@ -303,7 +303,21 @@ curl -s -H "$H" "$GT/api/0/issues/<id>/"                 # one issue; events und
 ```
 
 **Write** (resolve, ignore, delete issues; create projects) with the superuser session
-— the token above is read-only (writes return 403). Save as a script and run it.
+— the token above is read-only (writes return 403).
+
+**Every GlitchTip API token, and what it can do** (scopes from the token table, 2026-10-17). A 403 on a
+write means the token is read-only by design: use the superuser session below, don't widen a token.
+
+| id | Label | Scopes | Used by |
+|---|---|---|---|
+| 1 | `signal-fleet` | read only (project, team, event, org, member) | the triage fleet's reads (`GLITCHTIP_TOKEN`) |
+| 2 | `podcast-obs-dev` | read only, same as 1 | `podcast_obs`'s GlitchTip issue links (`SENTRY_AUTH_TOKEN` in a podcast_scraper `.env.obs.dev`) |
+| 3 | `signal-fleet-write` | `project:read`, `event:read`, `event:write`, `org:read` | the GitHub → GlitchTip sync (`GLITCHTIP_WRITE_TOKEN`) |
+| 4 | `orrery-sourcemaps` | `project:releases`, `org:read` | source-map uploads |
+
+From the laptop, an agent runs the session recipe on the mini with the `host-run` skill: save the
+block below as a script with the `S -X PUT … resolved` line, then
+`~/.claude/skills/host-run/scripts/run.sh homelab <script>`. Save as a script and run it.
 A delete returns 200 but the issue can stay readable for a few seconds; confirm with a
 later read that returns 404. The `telemetry-probe` skill wraps this login.
 
