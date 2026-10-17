@@ -23,7 +23,10 @@ services:
       retries: 10
 
   umami:
-    image: ghcr.io/umami-software/umami:postgresql-latest
+    # Pinned to the running 3.3.1 build (2026-08-20) by digest. Orrery SRI-pins the tracker
+    # script.js, so an image that changes it stops orrery's analytics silently. Upgrade only
+    # deliberately: see README "Ops".
+    image: ghcr.io/umami-software/umami:postgresql-latest@sha256:fa32d116cf20cad52cbc3fad9a63b46e7fa02299d8f967168eb453d49c476b4a
     container_name: umami
     restart: unless-stopped
     depends_on:

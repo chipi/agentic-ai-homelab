@@ -229,6 +229,10 @@ returns 200 and appears in VictoriaTraces.
 
 ## 6. Umami (`:3001` · `https://umami.tail6d0ed4.ts.net` · tracker `https://analytics.closelistening.app/script.js`)
 
+**Before upgrading Umami:** tell the Orrery session first. Orrery SRI-pins `script.js`, so a
+new image can silently stop its analytics (see `infra/umami/README.md`, Ops). The image is
+pinned by digest.
+
 **API** (run from a script file on the mini):
 
 ```sh

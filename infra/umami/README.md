@@ -57,7 +57,16 @@ internet. So:
 
 - Data lives in the `umami-db-data` volume (Postgres). Back it up with the mini's
   usual volume backup.
-- Upgrades: bump the image tag, `docker compose pull && up -d` (Umami self-migrates).
+- Upgrades: bump the image (pinned by digest in `docker-compose.yml`), then
+  `docker compose pull && up -d`. Umami self-migrates.
+- **Before any upgrade, tell the Orrery session.** Orrery pins the tracker with SRI
+  (`integrity="sha384-…"` on `https://analytics.orrerylearn.com/script.js`, constant
+  `UMAMI_SCRIPT_INTEGRITY` in orrery's `src/lib/analytics.ts`). If the new image changes
+  `script.js`, browsers refuse it and orrery's analytics stop with no error anywhere else. Bump
+  the hash in the same window. Check the served hash with
+  `curl -s https://analytics.orrerylearn.com/script.js | openssl dgst -sha384 -binary | openssl base64 -A`
+  (3.3.1: `FeSgFWhRpNmUWqmtRLZpDSRTuxgovbVqlyM0OaJpq2IanhF2u3xjYziXsyXR9Kg/`, checked
+  2026-10-17). Orrery's `validate-prod` also fails on a mismatch.
 
 ## Related
 
