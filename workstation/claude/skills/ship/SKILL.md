@@ -24,7 +24,7 @@ Path B is never self-granted. Without the operator's word for this repo and arc,
    - *A:* on a feature branch, never `main`; confirm what it is ahead of.
    - *B:* confirm the local commits about to land (`git log origin/main..HEAD`), and that
      nothing unrelated rides along.
-2. **Secrets.** Run the `secrets-scan` skill over the diff. A hit blocks the push.
+2. **Secrets.** Run `~/.claude/skills/secrets-scan/scripts/scan.sh --push` (the `secrets-scan` skill) over what the push sends. `SECRETS SCAN: FAIL` blocks the push.
 3. **Rebase onto the trunk.** `git fetch origin main && git rebase origin/main`. Resolve
    conflicts; never leave a merge commit. Every push, not just the first. If the rebase pulled in
    code (not only docs) that touches what you changed, re-run the affected gates.

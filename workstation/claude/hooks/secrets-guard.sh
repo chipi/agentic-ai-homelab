@@ -93,6 +93,21 @@ if printf '%s\n' "$names" | grep -Eq '(^|/)\.env(\.local|\.production|\.prod)?$'
     hits="${hits}  - real .env file in the change"$'\n'
 fi
 
+# --- gitleaks, when installed: its ~200 provider rules catch shapes the regexes above don't
+# (Stripe, Twilio, SendGrid, …). Same placeholder-filtered added lines; rule ids only, never
+# values (--redact). Fail-open: a gitleaks error (exit other than 0/1) never blocks.
+if [ -z "$hits" ] && command -v gitleaks >/dev/null 2>&1 && [ -n "$scan" ]; then
+    rep="$(mktemp 2>/dev/null)" || allow
+    printf '%s\n' "$scan" | gitleaks stdin --redact --no-banner --log-level error \
+        --report-format json --report-path "$rep" >/dev/null 2>&1
+    rc=$?
+    if [ "$rc" = 1 ]; then
+        rules="$(jq -r '[.[].RuleID] | unique | join(", ")' "$rep" 2>/dev/null)"
+        hits="  - gitleaks: ${rules:-a provider secret rule}"$'\n'
+    fi
+    rm -f "$rep"
+fi
+
 [ -n "$hits" ] || allow
 
 verb="commit"; [ "$is_push" = 1 ] && verb="push"

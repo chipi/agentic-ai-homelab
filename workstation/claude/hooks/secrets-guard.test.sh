@@ -47,6 +47,15 @@ run deny  "git commit -m x"           "staged generic api_key assignment"; git r
 printf -- '-----BEGIN OPENSSH %s\n' "$PK" > k.txt; git add k.txt
 run deny  "git commit -m x"           "staged private key block"; git reset -q k.txt; rm -f k.txt
 
+# A provider shape only gitleaks knows (no regex above matches sk_live_…). Skipped without gitleaks.
+if command -v gitleaks >/dev/null 2>&1; then
+  ST="sk_""live_"; SV="51HxY2bKfP4qR8sT6uV9wZ0aB3cD5eF7gH"
+  printf 'stripe = %s%s\n' "$ST" "$SV" > st.txt; git add st.txt
+  run deny  "git commit -m x"         "staged Stripe live key (gitleaks rule)"; git reset -q st.txt; rm -f st.txt
+  printf 'clean line, nothing secret\n' > gl.txt; git add gl.txt
+  run allow "git commit -m x"         "clean change with gitleaks present"; git reset -q gl.txt; rm -f gl.txt
+fi
+
 printf 'api_key = ${MY_KEY}\n' > p.txt; git add p.txt
 run allow "git commit -m x"           "placeholder \${MY_KEY}"; git reset -q p.txt; rm -f p.txt
 printf 'token = "example_placeholder_value_here"\n' > p2.txt; git add p2.txt

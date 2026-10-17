@@ -9,22 +9,35 @@ Catch secrets before they land in git. Enforces the non-negotiable: `.env`,
 credentials, tokens, API keys — never in git, never in fixtures, never in a
 commit message. **Read-only** — it never writes; it blocks by reporting.
 
-## Scan (prefer a real scanner, else patterns)
+## Run
 
-1. **gitleaks** (preferred) — if installed:
-   - staged / pre-commit: `gitleaks protect --staged --no-banner -v`
-   - whole tree/history: `gitleaks detect --no-banner -v`
-   If gitleaks isn't installed, say so and use the fallback.
-2. **Pattern fallback** — over `git diff --cached` (staged) or the target diff.
-   Redact the matched value in output. High-signal markers:
-   - Provider keys: `sk-[A-Za-z0-9]{16,}`, `ghp_[A-Za-z0-9]{20,}`, `github_pat_`,
-     `glpat-[A-Za-z0-9_-]{20,}`, `AKIA[0-9A-Z]{16}`, `AIza[0-9A-Za-z_-]{20,}`,
-     `xox[baprs]-`, `sk-ant-`
-   - Private keys: `-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----`
-   - Generic assignments: `(api[_-]?key|secret|token|password|passwd|bearer|auth)`
-     followed by `=`/`:` and a 16+ char value
-3. **`.env` guard** — flag any real `.env` (not `.env.example`) being added:
-   `git diff --cached --name-only | grep -E '(^|/)\.env$'`.
+```bash
+~/.claude/skills/secrets-scan/scripts/scan.sh            # staged changes (what `git commit` would add)
+~/.claude/skills/secrets-scan/scripts/scan.sh --push     # commits not yet on the upstream (what `git push` sends)
+~/.claude/skills/secrets-scan/scripts/scan.sh --range origin/main..HEAD
+~/.claude/skills/secrets-scan/scripts/scan.sh --tree [PATH]   # the working tree, no history
+```
+
+Run it from inside the repo.
+- **With gitleaks:** gitleaks is used when installed, with ~200 provider rules. Findings are
+  listed `file:line — rule (commit …)`, with values redacted.
+- **Without it:** the script falls back to the same high-signal regexes as the hook below, and
+  says so.
+- **`.env`:** a real `.env` (not `.env.example`) in the change is a finding by itself.
+
+It ends with `SECRETS SCAN: PASS/FAIL`, exit 1 on FAIL.
+
+**The automatic net:** the `secrets-guard.sh` PreToolUse hook (`workstation/claude/hooks/`,
+wired in `~/.claude/settings.json` since 2026-07-30) blocks a `git commit`/`git push` from
+Claude whose change matches. Since 2026-10-17 it also runs gitleaks when installed. This script is
+the on-demand report with file:line; `ship` runs it as its secrets gate.
+
+Verified 2026-10-17:
+- clean staged passes;
+- a staged Stripe key, a bad commit range and a staged `.env` each FAIL with file:line or the
+  file name;
+- without gitleaks, the regex fallback FAILs on an AWS key;
+- `--tree workstation/claude/skills` passes.
 
 ## Report
 
