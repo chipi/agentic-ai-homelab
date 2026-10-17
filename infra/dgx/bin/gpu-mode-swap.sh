@@ -665,6 +665,10 @@ stop_ollama_daemon() {
     flush_ollama
     if ! systemctl is-active --quiet ollama 2>/dev/null; then
         ok "ollama daemon already stopped"
+        # The sidecar too: this early return skipped it, so with ollama already down (the
+        # DGX's normal state in prod mode) the exporter kept polling :11434 and logged an
+        # error every 15 s, from 2026-09-18 until it was noticed on 2026-10-17.
+        ollama_sidecar stop
         return 0
     fi
     log "stopping the ollama daemon (prod mode: no load/unload cycles on this host)"
