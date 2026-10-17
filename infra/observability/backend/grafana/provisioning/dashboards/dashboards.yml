@@ -5,7 +5,7 @@
 #   dashboards/Production Infra/ -> "Production Infra"  (VPS host / containers / edge)
 #   dashboards/Podcast Operator/ -> "Podcast Operator"  (operator API + viewer)
 #   dashboards/Podcast Player/   -> "Podcast Player"    (consumer player; source of truth
-#                                   is podcast_scraper-infra, synced here for provisioning)
+#                                   is chipi/infra, synced here for provisioning)
 #   dashboards/CI Ops/           -> "CI Ops"            (GitHub Actions deploy/backup + CI/DORA
 #                                   health from ops_event/v1 in VictoriaLogs)
 apiVersion: 1

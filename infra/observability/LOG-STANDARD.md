@@ -6,7 +6,7 @@ any app (orrery, podcast, player) — the logs MUST carry the fields below. This
 what makes "filter by host / app / env, and pivot log ↔ trace" work **identically
 regardless of where the log came from**.
 
-This file is the source of truth. Other repos (`podcast_scraper-infra`, app repos)
+This file is the source of truth. Other repos (`chipi/infra`, app repos)
 reference it by URL and apply the same snippet — they do not redefine it.
 
 Canonical URL:

@@ -5,7 +5,7 @@ description: Rebase a branch that deletes extracted code (code moved to another 
 
 # extraction-rebase
 
-PR 2138 removes what moved from `chipi/podcast_scraper` to `podcast_scraper-infra` (+461/−47k).
+PR 2138 removes what moved from `chipi/podcast_scraper` to `chipi/infra` (+461/−47k).
 Every time main moved, it was rebased again (2026-10-14, 10-16, 10-17). The same conflicts came
 back each time, and so did the same hand-written scripts (`take_ours.py`, `take_theirs.py`,
 `resolve1.py`, `refs.py`, `deadrefs.py`):

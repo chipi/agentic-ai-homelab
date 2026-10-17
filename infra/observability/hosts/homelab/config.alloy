@@ -86,7 +86,7 @@ prometheus.scrape "langfuse_postgres" {
 // Each delivery loop exposes Prometheus /metrics (email 9110 / push 9111 / events 9112).
 // Feeds the delivery_* series the "Delivery worker" Grafana board reads (bounce-rate =
 // the deliverability canary). Logs are already captured by the generic container source
-// below. Source of truth: podcast_scraper-infra/infra/observability/delivery.alloy.
+// below. Source of truth: chipi/infra/infra/observability/delivery.alloy.
 // Scraped VM-INTERNALLY by container name over the delivery docker network (alloy joins
 // delivery_default — see docker-compose.yml), NOT via the host's forwarded :9110-9112,
 // so the board survives a lima forward break (see the litellm_postgres note above).

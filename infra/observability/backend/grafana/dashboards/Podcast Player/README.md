@@ -11,6 +11,6 @@ Observability for the **consumer podcast player** (public app) on the prod-podca
 ## Notes
 
 - **Log-based, not metrics.** Queries event_type, estimated_cost_usd, and job labels in VictoriaLogs. No Prometheus time-series.
-- **Source of truth**: `podcast_scraper-infra` repo. This copy is synced so Grafana provisioning reads it locally.
+- **Source of truth**: `chipi/infra` repo. This copy is synced so Grafana provisioning reads it locally.
 - **Provisioning**: Auto-load into the Homelab folder within 30s (see `../provisioning/dashboards/dashboards.yml`).
 - **Further context**: `../README.md`

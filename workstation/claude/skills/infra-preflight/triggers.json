@@ -3,7 +3,7 @@
   "\\binfra\\b.{0,30}\\b(green|preflight|gates?)\\b"
  ],
  "bash": [
-  "podcast_scraper-infra[^\\n]*\\bmake (quality|boundary-check|citations-check|obs-umami-views-check)\\b",
+  "(podcast_scraper-infra|projects/infra)[^\\n]*\\bmake (quality|boundary-check|citations-check|obs-umami-views-check)\\b",
   "rhysd/actionlint|koalaman/shellcheck"
  ]
 }

@@ -5,7 +5,7 @@ and ship no telemetry on their own; the prod workflows that **already join the
 tailnet** push discrete `ops_event/v1` records to **VictoriaLogs** (`:9428`), so
 runner-side deploy/backup health sits on one Grafana pane next to app telemetry.
 
-Source of the pipeline lives in `podcast_scraper` / `podcast_scraper-infra`
+Source of the pipeline lives in `podcast_scraper` / `chipi/infra`
 (ADR-119, vendor-neutral event emission); this folder is the homelab-side view,
 provisioned as code.
 

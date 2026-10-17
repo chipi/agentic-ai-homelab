@@ -1,6 +1,6 @@
 ---
 name: infra-preflight
-description: podcast_scraper-infra's gates before a commit or push, in one command — make quality, boundary-check, citations-check and obs-umami-views-check (what the staged infra-quality.yml runs in CI), the secrets scan on unpushed commits, and actionlint over the staged workflows plus shellcheck over changed .sh on the dev docker engine. One PASS / FAIL / NOT RUN line per stage. Use when about to commit or push in podcast_scraper-infra, after porting public main into it, or when asked "is the infra branch green".
+description: chipi/infra's gates before a commit or push, in one command — make quality, boundary-check, citations-check and obs-umami-views-check (what the staged infra-quality.yml runs in CI), the secrets scan on unpushed commits, and actionlint over the staged workflows plus shellcheck over changed .sh on the dev docker engine. One PASS / FAIL / NOT RUN line per stage. Use when about to commit or push in chipi/infra, after porting public main into it, or when asked "is the infra branch green".
 ---
 
 # infra-preflight
@@ -59,5 +59,5 @@ bash ~/.claude/skills/infra-preflight/scripts/preflight.sh ~/projects/podcast_sc
   Use `docs-preflight` for docs changes.
 - The actionlint and shellcheck images are `rhysd/actionlint:latest` and
   `koalaman/shellcheck:stable`, unpinned, so a new release can change results.
-- It is podcast_scraper-infra only: it refuses a repo without `.github/workflows-staged` and a
+- It is chipi/infra only: it refuses a repo without `.github/workflows-staged` and a
   `quality` target.

@@ -176,7 +176,7 @@ prometheus.scrape "pyannote" {
 
 // ---------- DGX APP: MOSS transcribe+diarize server (:8004) ----------
 // FastAPI /metrics via prometheus-fastapi-instrumentator (added to moss-server
-// in podcast_scraper-infra). up=0 until the moss image is rebuilt+redeployed.
+// in chipi/infra). up=0 until the moss image is rebuilt+redeployed.
 prometheus.scrape "moss" {
   targets         = [{ __address__ = "localhost:8004", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1"), service = "moss" }]
   forward_to      = [prometheus.remote_write.sink.receiver]

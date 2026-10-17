@@ -58,7 +58,7 @@ multiple backends (Claude, OpenAI, Gemini, local vLLM). Selection axes:
 - **Latency target** — local for interactive, cloud for thoughtful
 
 Not extracted into `examples/multi-provider-router/`. The honest reference
-is operator's `podcast_scraper-infra` provider classes (`cloud_balanced`,
+is operator's `chipi/infra` provider classes (`cloud_balanced`,
 `cloud_thin`, `cloud_with_dgx_*`), where the abstraction has been beaten
 on by real work. Genericizing it cleanly is more work than its derived
 value here.
@@ -153,7 +153,7 @@ Designed to lift into its own GitHub project later — see
 
 All Pillar 3 items landed. Future work is judgment-call territory —
 e.g., examples for batch API, multi-provider router (still deferred to
-podcast_scraper-infra's real reference).
+chipi/infra's real reference).
 
 ## Inspirations
 

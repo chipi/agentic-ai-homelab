@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# infra-preflight: podcast_scraper-infra's gates before a commit or push, one PASS/FAIL/NOT RUN line each.
+# infra-preflight: chipi/infra's gates before a commit or push, one PASS/FAIL/NOT RUN line each.
 #   preflight.sh [REPO] [--all-sh] [--base REF]
 # REPO defaults to the current directory. Stages:
 #   quality                 make quality                (= CI job `quality`)
@@ -27,7 +27,7 @@ cd "$repo" 2>/dev/null || { echo "no such repo: $repo" >&2; exit 2; }
 repo="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "not a git repo: $repo" >&2; exit 2; }
 cd "$repo" || exit 2
 [ -d .github/workflows-staged ] && grep -q '^quality:' Makefile 2>/dev/null \
-  || { echo "$repo does not look like podcast_scraper-infra (no .github/workflows-staged or quality target)" >&2; exit 2; }
+  || { echo "$repo does not look like chipi/infra (no .github/workflows-staged or quality target)" >&2; exit 2; }
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 logs="$(mktemp -d "${TMPDIR:-/tmp}/infra-preflight.XXXXXX")"

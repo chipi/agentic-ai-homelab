@@ -8,7 +8,7 @@ Every 20s it:
    Was the LAN IP `192.168.1.111`, repointed to the tailnet name after the DGX
    dropped off the home LAN (DHCP IP changed) while staying up on the tailnet.
    **Requires** the ACL to grant `tag:homelab-host → tag:dgx-llm-host`
-   (`podcast_scraper-infra` `tailscale/policy.hujson`) — until applied, denied.
+   (`chipi/infra` `tailscale/policy.hujson`) — until applied, denied.
 2. **TCP health-check** each DGX service → `dgx_service_up{service=…}` for
    ollama/whisper/diarization/openai-whisper/moss/cadvisor/dcgm. **TCP-open, not
    HTTP**: the inference servers saturate under load and stop answering HTTP
