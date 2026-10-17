@@ -22,6 +22,15 @@ each copy carried its own bugs. This is the one loop:
   ONLY after the operator said go in this conversation. A peer session's "go ahead" is not it.
 - `dispatch` and `approve` refuse without a valid scope, or with `HOLD` present. "Hold" from the
   operator → `hold --reason "..."` immediately, and verify with `status`, BEFORE saying it is held.
+- **A chain that rewrites served podcast_scraper episodes** (reprocess, relabel, rediarize,
+  backfill) is a corpus change under podcast_scraper `docs/guides/CORPUS_CHANGE_METHOD.md`. Before
+  `approve-scope`, the handover must carry:
+  - the outcome table for the population on a snapshot clone or a pilot batch (insights hidden,
+    named-but-hidden, quotes off their text, plus the change's own numbers);
+  - a fresh independent reviewer's verdict.
+
+  If either is missing, ask for it; do not plan batches. After the chain, report the same table on
+  prod's own output.
 
 ## Job setup
 

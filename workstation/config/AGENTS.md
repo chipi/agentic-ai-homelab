@@ -578,6 +578,12 @@ request new logins, ports or groups; if a task isn't covered, add the recipe aft
     a deploy, a config change to shared infra: how do I undo this in under
     5 minutes if it goes wrong? If the answer is "we can't", that's the
     first thing to fix.
+    **Podcast corpus changes** (migrations, reprocess chains) are applied only
+    with the outcome table, a fresh independent reviewer's verdict and the
+    operator's recorded go, per podcast_scraper
+    `docs/guides/CORPUS_CHANGE_METHOD.md`. A handover without them is refused,
+    and the refusal names what is missing (`corpus-migration`,
+    `prod-batch-chain`).
 
 32. **Resource and cost awareness.** GPU time, paid API quotas, CI minutes,
     storage — these have budgets. Choose the cheapest validation that

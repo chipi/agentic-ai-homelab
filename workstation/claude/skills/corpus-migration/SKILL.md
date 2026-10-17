@@ -19,6 +19,27 @@ hand-maintained checklist (POST-DEPLOY-*.md "Migrations … LAST, one run"):
 
 This packages the parts that can be checked by a machine.
 
+## Refuse a handover without its outcome table (podcast_scraper corpus change method)
+
+Before any dry run is planned or any apply, the handover from the migration's owner must carry the
+following, per podcast_scraper `docs/guides/CORPUS_CHANGE_METHOD.md` §4–§6. If any item is
+missing, reply with what is missing and do not run.
+
+1. **The outcome table:** before → after on a named snapshot clone, for:
+   - the gating rows (S1n, S1c, S12, and S1/S2 under the trade rule);
+   - the change's own outcome numbers, each with its definition and script.
+2. **A fresh independent reviewer's verdict** (GO / GO WITH CONDITIONS), and its conditions.
+3. **The predicted apply counts as integers**, so you can check the dry run and the apply against
+   them. Any other number: stop.
+4. **The run steps for every derived surface** (search upsert, insight-clusters, enrichment
+   sidecars, edges, …), and the undo for exactly the migrations being run.
+5. **The operator's recorded go** for this apply.
+
+The prod-side half is yours:
+- produce the per-episode plan read-only (the dry run plus the owner's plan listing) and send it
+  back, so it is diffed against the clone before apply;
+- write the job for exactly the migrations being run.
+
 ## Job
 
 `~/.local/state/corpus-migration/<job>/job.json`:
@@ -29,10 +50,13 @@ This packages the parts that can be checked by a machine.
  "corpus_dir_in_container": "/app/output", "corpus_dir_on_host": "/srv/podcast-scraper/corpus",
  "need_gb": 30, "busy_container_regex": "reprocess|sweep|pipeline-llm-run",
  "nightly_utc": "00:00", "guard_min": 90,
- "expect_pending": ["0030_adfree_cut_resynced", "0031_naming_voices_rederived"],
+ "expect_pending": ["0030_adfree_cut_resynced"],
  "owner_uid": 1000, "owner_gid": 1000,
- "undo": "0031 first, then 0030: from podcast_scraper.upgrade.migrations.m0031_… import undo; undo(Path('/app/output'))"}
+ "undo": "from podcast_scraper.upgrade.migrations.m0030_adfree_cut_resynced import undo; undo(Path('/app/output'))"}
 ```
+
+`expect_pending` and `undo` name exactly the migrations this job runs, and nothing else. The example
+is the 2026-10-17 0030-alone run; 0031 is held.
 
 Optional `snapshot_dir` passes `--snapshot-dir`.
 
