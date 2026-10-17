@@ -1,0 +1,6 @@
+{
+  "background": true,
+  "prompt": [
+    "\\b(in the background|this will take a while|kick off the (full|whole) run|long[- ]running)\\b"
+  ]
+}

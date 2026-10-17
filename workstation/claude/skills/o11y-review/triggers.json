@@ -1,0 +1,9 @@
+{
+  "prompt": [
+    "\\b(what happened (overnight|during|since)|since the deploy|after the deploy|check (the )?(logs|glitchtip|errors|telemetry)|any errors (in|on) (prod|staging))\\b"
+  ],
+  "bash": [
+    "vlogs\\.[a-z0-9.-]+/select/logsql",
+    "glitchtip\\.[a-z0-9.-]+/api/"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "bash": [
+    "\\bmkdocs\\s+build\\b",
+    "docs:build"
+  ]
+}

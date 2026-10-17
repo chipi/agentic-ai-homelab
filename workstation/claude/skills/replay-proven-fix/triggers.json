@@ -1,0 +1,6 @@
+{
+  "prompt": [
+    "\\b(dedup|routing|alert rules?|classifier|filter|guard|detector|false positives?)\\b.*\\b(change|fix|tune|tighten|loosen)\\b",
+    "\\b(change|fix|tune|tighten|loosen)\\b.*\\b(dedup|routing|alert rules?|classifier|filter|guard|detector)\\b"
+  ]
+}

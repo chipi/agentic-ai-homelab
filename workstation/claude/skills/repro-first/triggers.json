@@ -1,0 +1,5 @@
+{
+  "prompt": [
+    "\\b(it'?s broken|bug|regression|incident|crash(es|ed)?|doesn'?t work|stale)\\b"
+  ]
+}

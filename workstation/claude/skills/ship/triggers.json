@@ -1,0 +1,9 @@
+{
+  "bash": [
+    "\\bgit\\s+push\\b",
+    "\\bgh\\s+pr\\s+create\\b"
+  ],
+  "prompt": [
+    "\\b(push it|ship it|open (a|the) pr|ready to push)\\b"
+  ]
+}

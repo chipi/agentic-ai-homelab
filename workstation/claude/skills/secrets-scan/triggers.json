@@ -1,0 +1,8 @@
+{
+  "bash": [
+    "\\bgit\\s+commit\\b"
+  ],
+  "prompt": [
+    "\\b(leaked? secrets?|check for secrets|secret scan)\\b"
+  ]
+}

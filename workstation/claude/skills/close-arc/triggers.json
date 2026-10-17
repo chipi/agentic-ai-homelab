@@ -1,0 +1,5 @@
+{
+  "prompt": [
+    "\\b(wrap (it )?up|close (the|this) arc|end of (the )?(session|arc)|milestone done)\\b"
+  ]
+}
