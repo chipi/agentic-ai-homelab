@@ -80,11 +80,12 @@ checkout look dirty and hid how far behind it was.
 
 **In the window** (each step interrupts serving or a GPU job, so it waits for the operator):
 
-- [ ] **podcast_scraper DGX converge, the real deploy.** It ships pyannote's `app.py` with the
-      #1397 `/dev/shm` guard, which the DGX lacks (its `app.py` dates from 07-11). The whisper-server
-      and observability blocks are opt-in and stay off. Plan, pre-checks and verification:
-      [handover 2026-10-10](handover-homelab-session-2026-10-10.md) §1. Command, run without the
-      operator's SSH key: memory note `project-dgx-converge-dry-run-pending`.
+- [x] ~~**podcast_scraper DGX converge, the real deploy.**~~ **Not needed (checked 2026-10-17):**
+      the #1397 `/dev/shm` guard is already live. pyannote was redeployed on 2026-10-15 13:06 UTC.
+      Its `/app/app.py` is byte-identical to podcast_scraper main (md5 `611aefc5…`), and its
+      startup log says "sharing strategy: file_system (avoids /dev/shm)". `/dev/shm` holds 16K. The
+      converge's other changes (faster-whisper/moss composes) are cosmetic, so it isn't worth a
+      window on its own.
 - [x] ~~**Decide Ollama:** retire or keep.~~ **Keep** (operator, 2026-10-17). Nothing to do:
       `ollama` mode starts Ollama and its `ollama-metrics` exporter; `prod` mode stops both.
 - [x] ~~**Pin `librechat-api`.**~~ **Stays on `:latest`** (operator, 2026-10-17): LibreChat is
