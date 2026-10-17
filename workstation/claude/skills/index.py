@@ -7,6 +7,7 @@ list in AGENTS.md can never drift from the skills on disk.
 
   index.py            # print the generated blocks
   index.py --write    # replace both blocks between their markers in workstation/config/AGENTS.md
+  index.py --write-repo  # only the repo-skills block (keeps the committed third-party list)
   index.py --check    # exit 1 if the repo-skills block is stale (CI runs this)
 
 Two blocks: the operator's skills (this directory — checked in CI), and third-party
@@ -47,11 +48,20 @@ def split_description(desc):
     return " ".join(what).strip(), " ".join(when).strip()
 
 
+def what_when(fm):
+    """`when_to_use` (Claude Code skill frontmatter, matched together with the
+    description) is the trigger when present; otherwise the description's own
+    'Use when …' sentence."""
+    if fm.get("when_to_use"):
+        return fm["description"].strip(), fm["when_to_use"].strip()
+    return split_description(fm["description"])
+
+
 def _row(name, p):
     fm = frontmatter(p)
     if not fm or "description" not in fm:
         return None
-    what, when = split_description(fm["description"])
+    what, when = what_when(fm)
     cell = lambda s: s.replace("|", "\\|")
     return f"| `{fm.get('name', name)}` | {cell(when) or '—'} | {cell(what)} |"
 
@@ -80,7 +90,7 @@ def render():
         fm = frontmatter(p)
         if not fm or "description" not in fm:
             sys.exit(f"{p}: missing frontmatter description — every skill needs one (it is the trigger)")
-        what, when = split_description(fm["description"])
+        what, when = what_when(fm)
         cell = lambda s: s.replace("|", "\\|")
         rows.append(f"| `{fm.get('name', name)}` | {cell(when) or '—'} | {cell(what)} |")
     head = ["| Skill | Load it when | What it does |", "|---|---|---|"]
@@ -103,17 +113,19 @@ def main():
             return 1
         print("skills index up to date")
         return 0
-    if mode == "--write":
+    if mode in ("--write", "--write-repo"):
         text = text.replace(current, block)
         tp = render_thirdparty()
-        if TP_BEGIN in text and TP_END in text:
+        # --write-repo leaves the machine-specific third-party block as committed
+        # (a write from the Linux workstation would replace the laptop's list).
+        if mode == "--write" and TP_BEGIN in text and TP_END in text:
             old = text[text.index(TP_BEGIN):text.index(TP_END) + len(TP_END)]
             text = text.replace(old, tp)
         open(AGENTS, "w").write(text)
         print(f"wrote skills index ({block.count(chr(10) + '| `')} repo skills, "
               f"{tp.count(chr(10) + '| `')} third-party) into {os.path.relpath(AGENTS)}")
         return 0
-    sys.exit("usage: index.py [--write | --check]")
+    sys.exit("usage: index.py [--write | --write-repo | --check]")
 
 
 if __name__ == "__main__":
