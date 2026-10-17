@@ -134,6 +134,7 @@ nav:
     - RFC-0003 — Signal-to-action fleet: rfc/RFC-0003-signal-to-action-fleet.md
     - RFC-0004 — fleetd supervisor: rfc/RFC-0004-fleetd-supervisor.md
     - RFC-0005 — Remediation fleet (post-reboot recovery): rfc/RFC-0005-remediation-fleet-post-reboot-recovery.md
+    - RFC-0006 — Self-hosted Infisical (engineering secrets): rfc/RFC-0006-self-hosted-infisical-engineering-secrets.md
   - In progress:
     - Overview: wip/README.md
     - Next steps: wip/NEXT_STEPS.md
