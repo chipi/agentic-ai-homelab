@@ -161,6 +161,29 @@ negatives (live parent, file still there, other family, prefix-sharing project).
 
 ---
 
+## skill-nudge.py — tell the agent when a skill matches (UserPromptSubmit + PreToolUse Bash)
+
+Skills load by description matching, which an agent deep in a task skips (orrery,
+2026-10-17: `o11y-review`, `replay-proven-fix` and `secrets-scan` each fitted a step that
+was done by hand, and a background run hit the 30-minute timeout that `long-job` avoids).
+This hook adds a one-line context note — **never a permission decision** — when the
+prompt or a Bash command matches a skill's `triggers.json`:
+
+```json
+{ "prompt": ["regex", …], "bash": ["regex", …], "background": true }
+```
+
+`background: true` matches any `run_in_background` Bash call that doesn't already go
+through the skill's own script. Skills come from `~/.claude/skills/*` and the project's
+`.claude/skills/*`. Each skill is nudged at most once per session per event type (state:
+`~/.local/state/skill-nudge/<session>.json`). Any error → silent exit 0; a nudge can never
+block work. Cost: ~12 ms per call (20 calls in 0.24 s).
+
+To make a skill nudgeable, add `triggers.json` next to its `SKILL.md`; keep the patterns
+specific (a nudge that fires on everything gets ignored).
+
+---
+
 ## session-orphan-report.sh — SessionStart detector (REPORT ONLY, never kills)
 
 Covers the one gap `session-reap.sh` structurally cannot: it fires on **SessionEnd**, so a job
