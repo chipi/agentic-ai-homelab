@@ -1,0 +1,13 @@
+{
+ "prompt": [
+  "\\bpre-?existing\\b",
+  "\\bdid (my|the|this) (branch|change|rebase|pr)\\b.{0,20}\\b(cause|break)",
+  "\\bsame (error|failure)s? on (main|trunk)\\b",
+  "\\bfails? on main too\\b"
+ ],
+ "bash": [
+  "PYTHONPATH=\\S+/src\\S*\\s+make\\b",
+  "git worktree add\\b[^\\n]*\\b(main|baseline|base)\\b",
+  "git stash\\b[^\\n]*\\b(make|pytest)\\b"
+ ]
+}
