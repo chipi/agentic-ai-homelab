@@ -68,6 +68,13 @@ drafted, but they haven't been run for real yet.
       in a window. The `litellm` "drift" (runs `main-stable`, compose pins `v1.96.2`) is
       cosmetic: the container reports 1.96.2, so its next recreate changes nothing.
 
+- [ ] **Skills: the operator's four decisions** from the
+      [skills usage review](skills-usage-review-2026-10-17.md):
+  1. wire the `skill-nudge` hook;
+  2. give `secrets-scan` a script and maybe a push hook;
+  3. add an install-drift check to `index.py`;
+  4. shrink `homelab-endpoint`.
+
 ## Planned DGX ops (operator picks a maintenance window)
 
 State on 2026-10-17, checked:
