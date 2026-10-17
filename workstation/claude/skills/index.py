@@ -8,7 +8,9 @@ list in AGENTS.md can never drift from the skills on disk.
   index.py            # print the generated blocks
   index.py --write    # replace both blocks between their markers in workstation/config/AGENTS.md
   index.py --write-repo  # only the repo-skills block (keeps the committed third-party list)
-  index.py --check    # exit 1 if the repo-skills block is stale (CI runs this)
+  index.py --check    # exit 1 if the repo-skills block is stale (CI runs this); also
+                      #   warns about repo skills not installed on this machine
+  index.py --check-install  # exit 1 if a repo skill is not linked into ~/.claude/skills
 
 Two blocks: the operator's skills (this directory — checked in CI), and third-party
 skills installed on THIS machine (~/.claude/skills entries that are not links into this
@@ -97,9 +99,39 @@ def render():
     return "\n".join([BEGIN, ""] + head + rows + ["", END])
 
 
+def install_drift():
+    """Repo skills an agent on THIS machine can't load: not in ~/.claude/skills, or a
+    link that no longer resolves. None when ~/.claude/skills doesn't exist (CI)."""
+    if not os.path.isdir(CLAUDE_SKILLS):
+        return None
+    out = []
+    for name in sorted(os.listdir(HERE)):
+        if not os.path.isfile(os.path.join(HERE, name, "SKILL.md")):
+            continue
+        d = os.path.join(CLAUDE_SKILLS, name)
+        if not os.path.isfile(os.path.join(d, "SKILL.md")):
+            out.append(f"{name} ({'dangling link' if os.path.islink(d) else 'not linked'})")
+    return out
+
+
+def report_drift(drift):
+    print(f"NOT INSTALLED on this machine ({len(drift)}): " + ", ".join(drift))
+    print("  fix: bash workstation/install.sh --dry-run, then without --dry-run")
+
+
 def main():
     block = render()
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
+    if mode == "--check-install":
+        drift = install_drift()
+        if drift is None:
+            print(f"no {CLAUDE_SKILLS} on this machine; nothing to check")
+            return 0
+        if drift:
+            report_drift(drift)
+            return 1
+        print("all repo skills installed")
+        return 0
     if not mode:
         print(block + "\n\n" + render_thirdparty())
         return 0
@@ -112,6 +144,9 @@ def main():
             print("skills index in AGENTS.md is STALE — run: python3 workstation/claude/skills/index.py --write")
             return 1
         print("skills index up to date")
+        drift = install_drift()
+        if drift:                        # a warning: CI has no ~/.claude/skills
+            report_drift(drift)
         return 0
     if mode in ("--write", "--write-repo"):
         text = text.replace(current, block)
@@ -125,7 +160,7 @@ def main():
         print(f"wrote skills index ({block.count(chr(10) + '| `')} repo skills, "
               f"{tp.count(chr(10) + '| `')} third-party) into {os.path.relpath(AGENTS)}")
         return 0
-    sys.exit("usage: index.py [--write | --write-repo | --check]")
+    sys.exit("usage: index.py [--write | --write-repo | --check | --check-install]")
 
 
 if __name__ == "__main__":

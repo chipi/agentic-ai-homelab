@@ -68,14 +68,14 @@ drafted, but they haven't been run for real yet.
       in a window. The `litellm` "drift" (runs `main-stable`, compose pins `v1.96.2`) is
       cosmetic: the container reports 1.96.2, so its next recreate changes nothing.
 
-- [ ] **Skills: the operator's four decisions** from the
-      [skills usage review](skills-usage-review-2026-10-17.md):
-  1. wire the `skill-nudge` hook — waits for the orrery session's commits on main;
+- [x] ~~**Skills: the operator's four decisions** from the
+      [skills usage review](skills-usage-review-2026-10-17.md)~~ — *all four done 2026-10-17*:
+  1. ~~wire the `skill-nudge` hook~~ — *done 2026-10-17 on the laptop and omarchy*;
   2. ~~give `secrets-scan` a script and maybe a push hook~~ — *done a21d0d3; the push hook
      already existed (`secrets-guard.sh`), it now adds gitleaks*;
-  3. add an install-drift check to `index.py` — waits for the orrery `index.py` change;
+  3. ~~add an install-drift check to `index.py`~~ — *done 2026-10-17: `index.py --check-install`*;
   4. ~~shrink `homelab-endpoint`~~ — *done 2026-10-17, now a pointer at the handbook*.
-  check: `git log origin/main --oneline | grep -i skill-nudge`
+  check: `python3 workstation/claude/skills/index.py --check-install` on each machine
 
 ## Planned DGX ops (operator picks a maintenance window)
 

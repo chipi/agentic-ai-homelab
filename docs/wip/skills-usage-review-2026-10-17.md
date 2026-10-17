@@ -84,19 +84,20 @@ never invoked: `fleet-stats`, `compose-check`, `vllm-deploy`, `dgx-status`, `obs
 
 ## The operator's four decisions ("yes to all 4", 2026-10-17)
 
-- [ ] **Wire `skill-nudge.py`** into `~/.claude/settings.json`: the `UserPromptSubmit` and
-      `PreToolUse` Bash hooks, with the entries in `settings.json.example` in the orrery
-      session's commits. Waiting for those commits to reach main. Without it,
-      `triggers.json` does nothing.
+- [x] ~~Wire `skill-nudge.py` into `~/.claude/settings.json`~~ — *done 2026-10-17 on the
+      laptop* (the orrery session wired omarchy): `~/.claude/hooks/skill-nudge.py` linked,
+      `UserPromptSubmit` and `PreToolUse` Bash entries added. Checked by hand: "verify the
+      deploy please" gets the `deploy-verify` note, `git push origin main` gets `ship`, `ls`
+      gets nothing.
 - [x] ~~Give `secrets-scan` a script and maybe a push hook~~ — *a21d0d3*:
       `secrets-scan/scripts/scan.sh` (`--staged`, `--push`, `--range`, `--tree`; gitleaks,
       else patterns; PASS/FAIL), `ship` runs `scan.sh --push`, and the existing
       `secrets-guard.sh` hook gains a gitleaks pass (tests 18/18 with gitleaks, 16/16
       without). No new hook was needed: the push hook already existed (see cause 2).
-- [ ] **Catch install drift:** `index.py --check` also reports repo skills not linked into
-      `~/.claude/skills`. Waiting for the orrery session's `index.py` change
-      (`--write-repo`) to reach main. Its case on 2026-10-17: the six prod-ops skills
-      (66dedd3) were on main but not linked on the laptop.
+- [x] ~~Catch install drift~~ — *done 2026-10-17*: `index.py --check` now also warns about
+      repo skills not linked into `~/.claude/skills` (or linked to nothing), and
+      `index.py --check-install` exits 1 on them. CI has no `~/.claude/skills`, so it is
+      silent there. On its first run it found `long-job` unlinked on the laptop.
 - [x] ~~Shrink `homelab-endpoint` to a pointer~~ — *done 2026-10-17*: it now points at the
       handbook. Its own table was stale: it listed coder-next on `:9000` and a "research"
       mode for `:8003`, which handbook section 13 shows is the prod vLLM.
