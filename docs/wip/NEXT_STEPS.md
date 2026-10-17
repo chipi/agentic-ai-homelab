@@ -23,12 +23,10 @@ drafted, but they haven't been run for real yet.
 - [x] ~~Pin the Alloy / DCGM exporter / cAdvisor / ollama-metrics image
       tags after first successful boot (currently `:latest`).~~
       *Done — versions captured after the verified boot.*
-- [ ] Symlink `infra/dgx/bin/gpu-mode-swap.sh` into `~/bin/` on the DGX
-      and verify (`gpu-mode-swap.sh status`). Defaults assume repo at
-      `~/agentic-ai-homelab/` and podcast_scraper at `~/Projects/`; if
-      layout differs, drop a `~/.config/gpu-mode.env`.
-      *Co-located reference: [`infra/dgx/bin/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/dgx/bin/README.md);
-      recipe: [`recipes/gpu-mode-swap.md`](../recipes/gpu-mode-swap.md).*
+- [x] ~~Symlink `infra/dgx/bin/gpu-mode-swap.sh` into `~/bin/` on the DGX
+      and verify (`gpu-mode-swap.sh status`).~~ *Superseded:* `~/bin/gpu-mode-swap.sh`
+      is a wrapper that runs the `ops` checkout's script as `ops`
+      (`/home/ops/agentic-ai-homelab/infra/dgx/bin/gpu-mode-swap.sh`). Checked 2026-10-17.
 - [ ] Run `provider-bakeoff/` with your real API keys; pick a primary
       cloud provider for the next round of work. *(Sweep cost ~$2-5.)*
 
@@ -63,6 +61,42 @@ drafted, but they haven't been run for real yet.
       boot-time `tailscale up` is refused and the mini stays off the tailnet.
       The runbook now does both in one step. The earlier "tunnel only lives while
       logged in" warning here was wrong.
+
+## Planned DGX ops (operator picks a maintenance window)
+
+State on 2026-10-17, checked:
+- The `ops` checkout (`/home/ops/agentic-ai-homelab`) is current with `origin/main` and clean.
+  It had been 171 commits behind, with three files copied in by hand that matched
+  `origin/main`. It was reset to `origin/main`, losing nothing.
+- Every running container from that checkout uses the image its compose file names: no drift.
+  The stacks are `infra/observability`, `infra/vllm/prod-vllm`, `infra/vllm/translate` and
+  `infra/librechat`.
+- Mode `prod`. Ollama is stopped and disabled. `ollama-metrics` is stopped, and the
+  gpu-mode fix (312e9ba) stops it on later swaps.
+
+**Rule from now on:** deploy to the DGX by pulling as `ops`, never by copying files in:
+`sudo -u ops git -C /home/ops/agentic-ai-homelab pull --ff-only`. Copied files made the
+checkout look dirty and hid how far behind it was.
+
+**In the window** (each step interrupts serving or a GPU job, so it waits for the operator):
+
+- [ ] **podcast_scraper DGX converge, the real deploy.** It ships pyannote's `app.py` with the
+      #1397 `/dev/shm` guard, which the DGX lacks (its `app.py` dates from 07-11). The whisper-server
+      and observability blocks are opt-in and stay off. Plan, pre-checks and verification:
+      [handover 2026-10-10](handover-homelab-session-2026-10-10.md) §1. Command, run without the
+      operator's SSH key: memory note `project-dgx-converge-dry-run-pending`.
+- [ ] **Decide Ollama:** retire or keep.
+  - Retire: remove the `ollama-metrics` service and the Alloy `ollama` scrape job, and drop
+    `ollama` mode from gpu-mode.
+  - Keep: nothing to do; `ollama` mode starts Ollama and its exporter.
+- [ ] **Pin `librechat-api`.** It runs `registry.librechat.ai/danny-avila/librechat-dev-api:latest`,
+      so any recreate pulls whatever is newest. Pin the running digest, as Umami was on 2026-10-17.
+- [ ] *Optional:* align cadvisor v0.52.1 → v0.55.1 (see the item below).
+- [ ] **After any recreate, verify:**
+  - the `dgx-status` skill;
+  - `~/bin/gpu-mode-swap.sh --mode-only` → `prod`;
+  - the `obs-boot` check (DGX metric freshness);
+  - one podcast pipeline call through the gateway (`proj-podcast-dev`, the DGX model).
 
 ## Planned X3 ops (operator picks the window; layout codified 2026-10-16)
 
