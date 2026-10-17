@@ -89,7 +89,10 @@ checkout look dirty and hid how far behind it was.
       `ollama` mode starts Ollama and its `ollama-metrics` exporter; `prod` mode stops both.
 - [x] ~~**Pin `librechat-api`.**~~ **Stays on `:latest`** (operator, 2026-10-17): LibreChat is
       being evaluated, so tracking the newest build is intended.
-- [ ] *Optional:* align cadvisor v0.52.1 → v0.55.1 (see the item below).
+- [x] ~~*Optional:* align cadvisor v0.52.1 → v0.55.1.~~ **Done 2026-10-17** (77d327c), outside a
+      window: a cadvisor recreate only gaps container metrics, so it doesn't interrupt serving.
+      A throwaway v0.55.1 on `:18089` first gave identical named series. After the swap, DGX
+      container samples reach VictoriaMetrics again (latest 8 s old).
 - [ ] **After any recreate, verify:**
   - the `dgx-status` skill;
   - `~/bin/gpu-mode-swap.sh --mode-only` → `prod`;
