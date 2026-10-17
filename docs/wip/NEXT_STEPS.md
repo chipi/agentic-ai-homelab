@@ -62,6 +62,12 @@ drafted, but they haven't been run for real yet.
       The runbook now does both in one step. The earlier "tunnel only lives while
       logged in" warning here was wrong.
 
+- [ ] **Pin the mini's floating images** (found by `infra-drift`, 2026-10-17). Langfuse's
+      `clickhouse-server` and `chainguard/minio` run with no tag, so a pull or recreate can
+      change them silently. Pin each to its running digest, as Umami was (4cafb0c), and recreate
+      in a window. The `litellm` "drift" (runs `main-stable`, compose pins `v1.96.2`) is
+      cosmetic: the container reports 1.96.2, so its next recreate changes nothing.
+
 ## Planned DGX ops (operator picks a maintenance window)
 
 State on 2026-10-17, checked:
