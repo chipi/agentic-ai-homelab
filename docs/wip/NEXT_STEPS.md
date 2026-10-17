@@ -175,13 +175,17 @@ checkout look dirty and hid how far behind it was.
       in three days of image churn, while the guest used 25G (`df` in the VM).
       Sawtooth: weekly growth, reclaimed each Sunday. Read the size *after* a Sunday
       run, not mid-week.
-- [ ] **~2026-09-13:** check the two handed-off podcast_scraper issues moved:
+- [x] ~~**~2026-09-13:** check the two handed-off podcast_scraper issues moved:
       [#1877](https://github.com/chipi/podcast_scraper/issues/1877) (prod-ops-health
       cron → on-VPS systemd timer) and
       [#1879](https://github.com/chipi/podcast_scraper/issues/1879) (63 batched
       signal-fleet proposals, 18 families). If untouched, ping/reassign.
       **Overdue — checked 2026-09-30:** both OPEN, last updated 2026-08-30 (untouched
-      for a month). Operator call: ping, reassign, or close.
+      for a month). Operator call: ping, reassign, or close.~~ **Resolved 2026-10-17:**
+  - #1879 closed as dormant: none of its themes in the last 30 days of logs. Its 63 proposals
+    are archived in `~/signal-fleet/queue/archive/1879-dormant-2026-10-17/`.
+  - #1877 is still valid, and is handed to the prod session: the GitHub cron runs 4–7 h late,
+    though every run succeeds.
 ## Active subprojects
 
 - [ ] **Agentic coding fleet** — multi-agent setup across opencode + Pi,
