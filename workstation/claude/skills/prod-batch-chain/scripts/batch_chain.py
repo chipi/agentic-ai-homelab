@@ -13,7 +13,8 @@ Mutating steps (dispatch, approve) need a valid approval.json and no HOLD, every
 matched to its dispatch by creation time + event + actor, never by "newest run": anything else
 dispatched in the same window makes the match ambiguous and the step refuses.
 
-Exit: 0 ok · 1 refused/nothing to do · 2 run not successful · 3 problem seen in logs · 4 usage
+Exit: 0 ok (for `run`: the pool is done) · 1 refused / nothing fits · 2 run not successful ·
+3 problem seen in logs · 4 usage
 """
 
 from __future__ import annotations
@@ -313,6 +314,9 @@ def cmd_run(job: Job, args: argparse.Namespace) -> int:
                 if not busy(job):
                     break
                 time.sleep(30)
+        if not (set(x["id"] for x in job.pool()) - job.done_ids() - set(job.cfg.get("held_ids", []))):
+            print("pool done")  # the chain finished its work: success, not a refusal
+            return 0
         rc = cmd_dispatch(job, argparse.Namespace(dry_run=False))
         if rc != 0:
             return rc

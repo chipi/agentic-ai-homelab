@@ -70,7 +70,7 @@ python3 $B <job> adopt --run-id <id> --ids-file <f> [--result success]   # a run
 ```
 
 Run `run` in the background and watch `ledger.jsonl` (one line per dispatched / approved / result /
-stop event). Exit codes: 0 ok, 1 refused or nothing fits, 2 run not successful, 3 problem in the
+stop event). Exit codes: 0 ok (`run`: pool done), 1 refused or nothing fits, 2 run not successful, 3 problem in the
 container logs (Traceback / Killed / OOM). It never cancels a run; on 2/3 it stops and says why.
 
 Progress and ETA of the open run: the `prod-job-progress` skill.

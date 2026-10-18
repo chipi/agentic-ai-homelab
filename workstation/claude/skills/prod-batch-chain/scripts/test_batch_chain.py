@@ -64,6 +64,17 @@ class PlanTests(Base):
         self.assertEqual({x["id"] for x in batch}, {"e1", "e3", "e4"})
 
 
+class RunTests(Base):
+    def test_run_exits_0_when_the_pool_is_done(self) -> None:
+        import argparse
+
+        for i, eid in enumerate(["e0", "e1", "e2", "e3", "e4"]):
+            self.job.log(event="dispatched", run_id=str(i), ids=[eid], n=1, work_min=1)
+            self.job.log(event="result", run_id=str(i), conclusion="success")
+        rc = self.bc.cmd_run(self.job, argparse.Namespace(max_hours=0.01, poll_s=1))
+        self.assertEqual(rc, 0)
+
+
 class MatchTests(Base):
     def test_only_our_dispatch_after_the_timestamp_matches(self) -> None:
         since = dt.datetime(2026, 10, 17, 12, 0, tzinfo=dt.timezone.utc)
