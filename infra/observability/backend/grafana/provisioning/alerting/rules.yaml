@@ -668,6 +668,43 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: gt, params: [0] } }]
 
+      # --- Edge 5xx burst, per vhost (2026-10-18) ---------------------------------
+      # Every host on the prod Caddy edge (apps, analytics/telemetry vhosts, static sites)
+      # writes /var/log/caddy/access.log -> VictoriaLogs job:caddy. No other rule sees
+      # Caddy: app-http-5xx reads the FastAPI apps' own metrics. One instance per host.
+      # Threshold from 30 days of history (sliding 5 min, as evaluated): >= 10 fired 4
+      # episodes, all real (Umami ingest down 10-07, prod OOM 10-17, player 502/504 on
+      # 09-30 and 10-03); single-digit windows were blips. A query error is not a 5xx
+      # burst, so it must not page (execErrState=OK; 2026-10-18 DB-lock flaps).
+      - uid: edge-caddy-5xx-burst
+        title: "Edge 5xx burst on a prod vhost (>=10 in 5m)"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: OK
+        labels: { tenant: common, severity: warning, kind: availability }
+        annotations:
+          summary: "{{ $labels.host }} served {{ $values.reduced }} 5xx responses in 5 minutes at the prod Caddy edge. Drill-down: VictoriaLogs job:caddy request.host:={{ $labels.host }} status:>=500."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'job:caddy status:>=500 | rename request.host as host | stats by (host) count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [9] } }]
+
   # --- Orrery (orrerylearn.com VPS) --------------------------------------------
   # The launch manifest is refreshed by an on-VPS cron every 6h (Orrery RFC-035),
   # which logs `[refresh-prod-data] … ok — launches.json <n> bytes` on success
