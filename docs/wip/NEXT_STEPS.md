@@ -136,6 +136,21 @@ checkout look dirty and hid how far behind it was.
 
 ## Dated checks (open on/after the date — we WILL forget otherwise)
 
+- [ ] **On 2026-10-25: Grafana on Postgres, or stay on SQLite?** WAL went on 2026-10-18 11:56
+      UTC (c3b0a18) after "database is locked" flapped alert rules (968 locks at 09:00 UTC,
+      rising since 10-17). Decide on a week of data. Migrate if locks come back or we want
+      a second Grafana.
+      - **What a migration has to carry** (checked 2026-10-18): 5 service accounts with 10
+        tokens other repos and the fleet use (`podcast-sync` 6, `orrery-sync`,
+        `signal-fleet`, `podcast-obs-reader`, `claude-code-obs`) and 15 of the 36 dashboards
+        (pushed by the podcast/orrery sync jobs, not in this repo). A fresh DB would break
+        every token, so it is a data migration, not a re-provision.
+      - **Where:** its own database and role in an existing Postgres. Running servers:
+        `glitchtip-postgres-1` (16.4), `langfuse-postgres-1` (17), `litellm-postgres`,
+        `umami`. Sharing one couples Grafana's uptime to that app's.
+      - check: `docker logs grafana --since 168h 2>&1 | grep -c 'database is locked'` on the
+        mini (0 = stay on SQLite).
+
 - [ ] **Monthly from 2026-11-01:** upgrade lima on the mini once
       [lima-vm/lima#5420](https://github.com/lima-vm/lima/issues/5420) ships —
       keepalives on the SSH ControlMaster plus a loop that re-creates forwards
