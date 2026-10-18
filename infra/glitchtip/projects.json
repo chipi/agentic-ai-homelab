@@ -120,6 +120,12 @@
       "team": "podcast",
       "platform": "node",
       "reports": "orrery mcp server (prod), its own DSN, like player-mcp"
+    },
+    {
+      "slug": "humancopilot-web",
+      "team": "podcast",
+      "platform": "javascript",
+      "reports": "www.humancopilot.eu CSP violation reports (GlitchTip security endpoint, via the telemetry.humancopilot.eu vhost); the site ships almost no JS"
     }
   ]
 }
