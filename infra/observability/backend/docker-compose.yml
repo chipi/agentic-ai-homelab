@@ -123,6 +123,11 @@ services:
       # Loki datasources — we have none — and failed to load on every page.
       - GF_PLUGINS_PREINSTALL_DISABLED=true
       - GF_USERS_ALLOW_SIGN_UP=false
+      # SQLite in WAL mode: readers no longer block on a writer. Without it the alert
+      # scheduler, state persistence and data-source lookups fought over one lock
+      # (2026-10-18: 968 "database is locked" in an hour; each failed lookup fired its
+      # rule as an error, so prod-dark / DGX-dark / fail2ban alerts flapped for a minute).
+      - GF_DATABASE_WAL=true
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
       # Serve behind an HTTPS reverse proxy on a subpath (tailscale serve
