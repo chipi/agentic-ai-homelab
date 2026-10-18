@@ -56,7 +56,9 @@ The prod-side half is yours:
 ```
 
 `expect_pending` and `undo` name exactly the migrations this job runs, and nothing else. The example
-is the 2026-10-17 0030-alone run; 0031 is held.
+is the 2026-10-17 0030-alone run. The held naming re-derivation is `0032_naming_voices_rederived`
+(it was 0031 until 2026-10-18); `0031_named_voices_shown` is a different migration, run only
+with its own outcome table, reviewer verdict and operator go.
 
 Optional `snapshot_dir` passes `--snapshot-dir`.
 
