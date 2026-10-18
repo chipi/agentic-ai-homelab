@@ -48,6 +48,7 @@ Do not create logins, publish ports or change groups to "get access".
 | LiteLLM (mini) | `set -a; . ~/agentic-ai-homelab/infra/litellm/.env; set +a` | `LITELLM_MASTER_KEY` |
 | LiteLLM (VPS) | inside the `litellm` container's env | `LITELLM_MASTER_KEY` |
 | LiteLLM podcast dev (mini gateway) | `set -a; . ~/podcast-litellm-dev.env; set +a` | `LITELLM_API_KEY` (virtual key `proj-podcast-dev`: the DGX model only, $1 cap, traces to Langfuse `podcast-dev`) + `LITELLM_API_BASE=http://homelab:4001/v1`. The one key here **meant to be copied**: into a podcast_scraper checkout's gitignored `.env` for local dev runs (`dev_dgx_full`). Re-minted 2026-10-17; the 2026-10-13 one was never stored anywhere. A copy for the mini's `claude` account (other agents' sessions) is at `/Users/claude/podcast-litellm-dev.env`, owner `claude`, mode 600 |
+| Grafana `humancopilot-sync` (service account id 7, Editor) | `set -a; . ~/grafana/humancopilot-sync.env; set +a` | `GRAFANA_HTTP_URL` (loopback), `GRAFANA_API_TOKEN`, `GRAFANA_FOLDER_UID=websites`: for importing the website dashboards (folder Websites). Minted 2026-10-18; mode 600 |
 | GlitchTip source maps | `set -a; . ~/glitchtip/orrery-sourcemaps.env; set +a` | `GLITCHTIP_SOURCEMAP_TOKEN` (`project:releases` + `org:read`, org-wide; used by `infra/glitchtip/upload-sourcemaps.py`) |
 | DGX vLLM | `docker exec vllm-prod-vllm printenv VLLM_API_KEY` (or `vllm-translate`) | the server's API key |
 | Databases | none — `docker exec … psql` trusts local connections | — |
@@ -100,6 +101,7 @@ allowed but are overwritten the next time the file changes.
 | Folders Homelab, Production Infra, CI Ops, Delivery, Podcast Operator, Podcast Player | this repo, `grafana/dashboards/<folder>/` | file provisioning (30 s) |
 | Folders Common (Box & Edge), VPS — Podcast, podcast-player | podcast_scraper, `config/grafana/dashboards/<tenant>/` | `make obs-sync` (API), run from here |
 | Folder Orrery (`orrery`): orrery-overview, orrery-web, orrery-pipelines, orrery-analytics | orrery, `ops/observability/dashboards/` | that repo's `import.sh` (API), run from here with `~/grafana/orrery-sync.env` (first import 2026-10-16) |
+| Folder Websites (`websites`): humancopilot.eu (devwhateverops.com later) | the website session's repo | its import (API), run on the mini or over the tailnet with `~/grafana/humancopilot-sync.env` (folder created 2026-10-18) |
 
 A dashboard uid lives in ONE of the two repos. If an API push overwrites a provisioned
 dashboard, Grafana won't delete it ("provisioned dashboard cannot be deleted"), and touching
@@ -358,6 +360,7 @@ Prod and dev projects (dev runs never report into a prod project):
 | Player web | `player` (5) | `player-dev` (20) |
 | Player api / mcp | `player-api` (28) / `player-mcp` (29), since 2026-10-15; smoke-failure alerts land in `player-api` | — |
 | LiteLLM gateway | `litellm-prod` (27, the VPS gateway, since 2026-10-15) | `litellm` (19) is the homelab gateway |
+| www.humancopilot.eu | `humancopilot-web` (34, since 2026-10-18): CSP violation reports on the **security endpoint** `/api/34/security/?glitchtip_key=<public key>`, through the site's ingest-only vhost `telemetry.humancopilot.eu`. A report needs every browser field, `disposition` included, or GlitchTip answers 422 | — |
 
 The full list, with what reports into each project, is `infra/glitchtip/projects.json`;
 `python3 infra/glitchtip/projects.py` (on the mini) diffs it against the live org and
