@@ -15,6 +15,12 @@ One job = ~/.local/state/corpus-migration/<job>/job.json (see SKILL.md) + ledger
 - watch: tails the log until the process ends; verify: `upgrade verify`; ownership: files under the
   corpus not owned by the corpus owner since the apply started (--fix chowns them, gated).
 
+podcast_scraper's outcome hook (migrations 0031 on, one at a time): `upgrade run` exits 3 refused
+(nothing written), 4 stopped on a plan difference (only the plan-diff file written; `plan-diff`
+fetches it for the owner, whose accept file goes back through `apply --accept-plan-diff`), 5
+applied but the outcome is not the measured one (no auto-undo; the undo is printed). `watch` names
+each. The receipt lands in `<corpus>/.podcast_scraper/upgrade-outcomes/`; `ownership` covers it.
+
 Exit: 0 ok · 1 refused / check failed · 4 usage
 """
 
@@ -32,6 +38,19 @@ import time
 from pathlib import Path
 
 ROOT = Path(os.environ.get("CORPUS_MIGRATION_HOME", "~/.local/state/corpus-migration")).expanduser()
+OUTCOMES = ".podcast_scraper/upgrade-outcomes"
+HOOK_EXITS = {
+    3: "REFUSED by the outcome hook: nothing written. Read the log's OUTCOME HOOK line; it names why.",
+    4: "STOPPED on a plan difference: only the plan-diff file was written. Run `plan-diff` and send "
+       "it to the migration's owner; apply again only with their accept file and the operator's go.",
+    5: "APPLIED, but the outcome is not the measured one (or could not be measured). Nothing was "
+       "undone and the ledger records it. Stop: the receipt and the printed undo go to the owner "
+       "and the operator; do not run anything else on this corpus first.",
+}
+
+
+def hook_meaning(rc: int) -> str | None:
+    return HOOK_EXITS.get(rc)
 
 
 class Job:
@@ -144,7 +163,9 @@ def cmd_apply(job: Job, a: argparse.Namespace) -> int:
     log = f"/tmp/upgrade-{ts}.log"
     marker = f"/tmp/upgrade-{ts}.start"
     snap = f" --snapshot-dir {shlex.quote(c['snapshot_dir'])}" if c.get("snapshot_dir") else ""
-    run = f"{c['cli']} upgrade run --yes --corpus-dir {shlex.quote(c['corpus_dir_in_container'])}{snap}"
+    accept = f" --accept-plan-diff {shlex.quote(a.accept_plan_diff)}" if a.accept_plan_diff else ""
+    run = (f"{c['cli']} upgrade run --yes --corpus-dir {shlex.quote(c['corpus_dir_in_container'])}"
+           f"{snap}{accept}")
     remote = (f"touch {marker} && docker exec -d {c['container']} sh -c "
               + shlex.quote(f"touch {marker}; {run} > {log} 2>&1; echo EXIT=$? >> {log}"))
     if a.dry_run:
@@ -155,7 +176,7 @@ def cmd_apply(job: Job, a: argparse.Namespace) -> int:
         print(f"start failed: {r.stderr.strip()}")
         return 1
     job.log(event="apply-started", said=a.said, log=log, marker=marker, expect=c["expect_pending"],
-            undo=c.get("undo", "see the migrations' docs"))
+            undo=c.get("undo", "see the migrations' docs"), accept=a.accept_plan_diff)
     print(f"running in {c['container']}; `watch` follows {log}")
     return 0
 
@@ -178,6 +199,8 @@ def cmd_watch(job: Job, a: argparse.Namespace) -> int:
         if done:
             rc = int(done[-1].split("=")[1])
             job.log(event="apply-finished", exit=rc, log=s["log"])
+            if hook_meaning(rc):
+                print(f"EXIT {rc}: {hook_meaning(rc)}")
             return 0 if rc == 0 else 1
         time.sleep(a.poll_s)
     print("watch bound reached; still running — run `watch` again")
@@ -222,6 +245,21 @@ def cmd_ownership(job: Job, a: argparse.Namespace) -> int:
     return r.returncode
 
 
+def cmd_plan_diff(job: Job, _: argparse.Namespace) -> int:
+    """The hook's plan-diff files on the corpus (read-only), saved under the job dir for the owner."""
+    c = job.c
+    d = f"{c['corpus_dir_in_container']}/{OUTCOMES}"
+    r = job.ssh(f"docker exec {c['container']} sh -c " + shlex.quote(f"cat {d}/*.plan-diff.json"))
+    if r.returncode != 0 or not r.stdout.strip():
+        print(f"no plan-diff file under {d}")
+        return 1
+    p = job.save("plan-diff", r.stdout)
+    job.log(event="plan-diff", saved=str(p))
+    print(r.stdout)
+    print(f"\nsaved: {p}\nSend it to the migration's owner; each entry needs a cause in their accept file.")
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("job")
@@ -229,12 +267,15 @@ def main() -> int:
     for n in ("status", "preflight", "dry-run", "verify"):
         sub.add_parser(n)
     ap = sub.add_parser("apply"); ap.add_argument("--said", required=True); ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--accept-plan-diff", help="the owner's accept file, as a path inside the container")
+    sub.add_parser("plan-diff")
     w = sub.add_parser("watch"); w.add_argument("--max-hours", type=float, default=6); w.add_argument("--poll-s", type=int, default=60)
     o = sub.add_parser("ownership"); o.add_argument("--fix", action="store_true"); o.add_argument("--said")
     a = p.parse_args()
     job = Job(a.job)
     return {"status": cmd_status, "preflight": cmd_preflight, "dry-run": cmd_dry_run, "apply": cmd_apply,
-            "watch": cmd_watch, "verify": cmd_verify, "ownership": cmd_ownership}[a.cmd](job, a)
+            "watch": cmd_watch, "verify": cmd_verify, "ownership": cmd_ownership,
+            "plan-diff": cmd_plan_diff}[a.cmd](job, a)
 
 
 if __name__ == "__main__":

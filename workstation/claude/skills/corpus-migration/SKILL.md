@@ -69,7 +69,8 @@ M=~/.claude/skills/corpus-migration/scripts/migrate.py
 python3 $M <job> status          # the CLI's own status
 python3 $M <job> preflight       # PASS/FAIL with reasons; read-only
 python3 $M <job> dry-run         # saved under the job dir → send counts/refusals to the owner
-python3 $M <job> apply --said "<operator's go, verbatim>" [--dry-run]
+python3 $M <job> apply --said "<operator's go, verbatim>" [--dry-run] [--accept-plan-diff <path>]
+python3 $M <job> plan-diff       # after an exit 4: the hook's plan-diff file, saved for the owner
 python3 $M <job> watch           # follows the log until EXIT=
 python3 $M <job> verify
 python3 $M <job> ownership       # [--fix --said "..."] chowns what the run left root-owned
@@ -85,6 +86,22 @@ python3 $M <job> ownership       # [--fix --said "..."] chowns what the run left
 - Undo is per migration and in reverse order; the job's `undo` text is recorded in the ledger at
   apply time.
 
+## The outcome hook (podcast_scraper migrations 0031 on)
+
+From 0031, `upgrade run` applies a migration only as it was measured on its snapshot clone (method
+§4, `upgrade/outcome_hook.py`). It runs alone: `expect_pending` is exactly that one migration, and
+every earlier one has been applied first.
+
+| Exit | Meaning | What you do |
+| --- | --- | --- |
+| 3 | refused (no shipped outcome, code or verdict not the measured one, not alone, applied set differs): nothing written, no snapshot | send the log's `OUTCOME HOOK` line to the owner; do not retry |
+| 4 | stopped: prod's per-episode plan differs from the clone's; only `<corpus>/.podcast_scraper/upgrade-outcomes/<id>.plan-diff.json` written | `plan-diff` saves it; send it to the owner. Apply again only with their accept file (a cause per entry, the operator's go verbatim) via `apply --accept-plan-diff <path in container>` |
+| 5 | applied, but the after-scoreboard is not the measured one (or failed): nothing undone, the ledger records it | stop; the receipt (`<id>.json` in the same directory) and the printed undo go to the owner and the operator |
+
+The dry run prints the hook's decision (`outcome hook: plan diff N episode(s)`) and writes nothing.
+The receipt and the plan-diff file are written by `docker exec`, so as root; `ownership` checks them
+with everything else the run wrote.
+
 ## Tested 2026-10-17 (live, read-only)
 
 Preflight on prod during #2332 batch 2: `FAIL busy: ['podcast-reprocess-39026409470']` and
@@ -94,6 +111,8 @@ Preflight on prod during #2332 batch 2: `FAIL busy: ['podcast-reprocess-39026409
 
 ## Not covered
 
+- The hook's exits, the accept path and `plan-diff` are tested against the parser and the command
+  it builds (`test_migrate`), not against a live container: the first real use is 0031's apply.
 - The apply itself has not been run through this script yet. The first real use is the 0030+0031
   run after the next deploy; watch it the first time.
 - Spot checks and the search upsert are project-specific; they stay in the project's checklist.
