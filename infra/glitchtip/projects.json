@@ -126,6 +126,12 @@
       "team": "podcast",
       "platform": "javascript",
       "reports": "www.humancopilot.eu CSP violation reports (GlitchTip security endpoint, via the telemetry.humancopilot.eu vhost); the site ships almost no JS"
+    },
+    {
+      "slug": "devwhateverops-web",
+      "team": "podcast",
+      "platform": "javascript",
+      "reports": "www.devwhateverops.com CSP violation reports (GlitchTip security endpoint, via the shared telemetry.humancopilot.eu vhost); static page, almost no JS"
     }
   ]
 }

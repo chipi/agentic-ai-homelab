@@ -26,6 +26,9 @@ Do not create logins, publish ports or change groups to "get access".
 | DGX (`dgx-llm-1`) | vLLM (prod + translate), faster-whisper, pyannote, moss | `ssh dgx-llm-1` |
 
 - Plain `ssh homelab` is refused: no `Host homelab` alias exists; the key flags are required.
+- From the Omarchy workstation (X3, local login `marko`) the remote user must be explicit:
+  `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab`; without it the
+  login is `marko` and fails with "Too many authentication failures".
 - On the mini, non-interactive shells lack `/usr/local/bin` on `PATH`: call
   `/usr/local/bin/docker`.
 - **Run multi-line recipes as a script file on the host** (`scp` it, `bash file.sh`),
@@ -101,7 +104,7 @@ allowed but are overwritten the next time the file changes.
 | Folders Homelab, Production Infra, CI Ops, Delivery, Podcast Operator, Podcast Player | this repo, `grafana/dashboards/<folder>/` | file provisioning (30 s) |
 | Folders Common (Box & Edge), VPS — Podcast, podcast-player | podcast_scraper, `config/grafana/dashboards/<tenant>/` | `make obs-sync` (API), run from here |
 | Folder Orrery (`orrery`): orrery-overview, orrery-web, orrery-pipelines, orrery-analytics | orrery, `ops/observability/dashboards/` | that repo's `import.sh` (API), run from here with `~/grafana/orrery-sync.env` (first import 2026-10-16) |
-| Folder Websites (`websites`): humancopilot.eu (devwhateverops.com later) | the website session's repo | its import (API), run on the mini or over the tailnet with `~/grafana/humancopilot-sync.env` (folder created 2026-10-18) |
+| Folder Websites (`websites`): humancopilot-eu, devwhateverops-com, evals-humancopilot-eu | chipi/humancopilot.eu, `infra/observability/dashboards/` | that repo's `import.sh` (API, overwrite by uid), run on the mini with `~/grafana/humancopilot-sync.env` (folder created 2026-10-18; recipe below) |
 
 A dashboard uid lives in ONE of the two repos. If an API push overwrites a provisioned
 dashboard, Grafana won't delete it ("provisioned dashboard cannot be deleted"), and touching
@@ -140,6 +143,22 @@ orrery checkout at `origin/main`, on the laptop:
 set -a; eval "$(ssh homelab 'cat ~/grafana/orrery-sync.env')"; set +a
 GRAFANA_HTTP_URL=https://grafana.tail6d0ed4.ts.net ./ops/observability/dashboards/import.sh
 ```
+
+**Re-import the website dashboards** (owned by chipi/humancopilot.eu; see the table above).
+Copy the repo's `infra/observability/dashboards/` (the JSON files and `import.sh`) to the
+mini, then run it there; it uses `GRAFANA_HTTP_URL`, `GRAFANA_API_TOKEN` and
+`GRAFANA_FOLDER_UID` from the env file and prints one `success /d/<uid>/…` line per file:
+
+```sh
+set -a; . ~/grafana/humancopilot-sync.env; set +a
+bash /tmp/hc-dash/import.sh
+```
+
+| Dashboard uid | Site | Data |
+|---|---|---|
+| `humancopilot-eu` | www.humancopilot.eu | Umami (`umami-pg`) + nginx and Caddy logs (`victorialogs`, `app="websites"`, `job="caddy"`) |
+| `devwhateverops-com` | www.devwhateverops.com | same as above |
+| `evals-humancopilot-eu` | evals.humancopilot.eu (eval-harness) | Umami only: GitHub Pages gives no request logs |
 
 `orrery-analytics` reads Umami through the provisioned read-only datasource `umami-pg`
 (`provisioning/datasources/umami-postgres.yml`): role `grafana_ro` in the umami DB, SELECT on
@@ -241,6 +260,20 @@ returns 200 and appears in VictoriaTraces.
 **Before upgrading Umami:** tell the Orrery session first. Orrery SRI-pins `script.js`, so a
 new image can silently stop its analytics (see `infra/umami/README.md`, Ops). The image is
 pinned by digest.
+
+**The website family's Umami sites** (tracker hosts are public vhosts on the VPS edge that forward
+only `/script.js` and `/api/send` to this Umami):
+
+| Umami website (domain) | id | Tracker host |
+|---|---|---|
+| humancopilot.eu (`www.humancopilot.eu`) | `5f4eb50a-4831-43b7-874c-5ff29f253a6d` | `analytics.humancopilot.eu` |
+| devwhateverops.com (`www.devwhateverops.com`) | `4bd6a4f9-aaf2-400b-9f26-8e9282561615` | `analytics.humancopilot.eu` |
+| Eval Harness (`evals.humancopilot.eu`; was `chipi.github.io` until 2026-10-19, same id, history kept) | `76169139-07c1-4806-bde6-f9014e803e7f` | `analytics.closelistening.app` |
+
+Click events: `cta-book-call` (with `position`), `cta-email`, `outbound` (with `target`).
+humancopilot.eu and devwhateverops.com also run Cloudflare Web Analytics (cookieless, page
+speed); their CSP allows it and their privacy pages say so. eval-harness is on GitHub Pages, not
+behind Cloudflare.
 
 **API** (run from a script file on the mini):
 
@@ -361,6 +394,7 @@ Prod and dev projects (dev runs never report into a prod project):
 | Player api / mcp | `player-api` (28) / `player-mcp` (29), since 2026-10-15; smoke-failure alerts land in `player-api` | — |
 | LiteLLM gateway | `litellm-prod` (27, the VPS gateway, since 2026-10-15) | `litellm` (19) is the homelab gateway |
 | www.humancopilot.eu | `humancopilot-web` (34, since 2026-10-18): CSP violation reports on the **security endpoint** `/api/34/security/?glitchtip_key=<public key>`, through the site's ingest-only vhost `telemetry.humancopilot.eu`. A report needs every browser field, `disposition` included, or GlitchTip answers 422 | — |
+| www.devwhateverops.com | `devwhateverops-web` (35, since 2026-10-18): CSP violation reports, same mechanism, through the same `telemetry.humancopilot.eu` vhost (`/api/35/security/`). Blob-worker and inline-style reports from browser extensions are expected noise; resolve, don't loosen the CSP | — |
 
 The full list, with what reports into each project, is `infra/glitchtip/projects.json`;
 `python3 infra/glitchtip/projects.py` (on the mini) diffs it against the live org and
@@ -510,6 +544,22 @@ holds those locks while writing (a stuck lock already showed up as `PLAYER-1D`).
 `orrery-web` `:8090` (public), `orrery-lab-api` `:8094`, `orrery-mcp` `:8091`, all on the
 VPS (`127.0.0.1`; `/` returns 404 on the APIs — use their paths). Analytics: Umami
 websites "Orrery" and "Orrery Staging"; errors: GlitchTip projects `orrery`, `orrery-prod`.
+
+## 12b. Websites: humancopilot.eu and devwhateverops.com (prod VPS)
+
+Static sites from repo **chipi/humancopilot.eu** (`sites/<domain>/`, ADR-0001 there), served
+by one nginx container behind the shared Caddy edge. Independent of Orrery and Close Listening.
+
+| What | Where |
+|---|---|
+| Container | `websites-nginx` (compose project `websites`), `127.0.0.1:8095`, read-only, unprivileged |
+| Releases | `/srv/websites/releases/<sha>`, `current` symlink; rollback = point it back, or re-run an older deploy |
+| Edge vhosts | `/etc/caddy/sites/humancopilot{,-analytics,-telemetry}.caddy`, `devwhateverops.caddy`, listed in the repo's `infra/caddy/enabled.txt`; installs take `/tmp/caddy-sites.lock` |
+| Deploy | GitHub Actions `deploy-prod.yml` on push to main (also manual dispatch), over the tailnet as `deploy@` |
+| Logs | VictoriaLogs `{app="websites"}` (field `site`, real client IP from `CF-Connecting-IP`); edge `{job="caddy"}` |
+| DNS | Cloudflare zones humancopilot.eu, devwhateverops.com (proxied, origin A + AAAA), expected records in the repo's `infra/dns/*.records`; DNSSEC on devwhateverops.com only (Hover has no DS for `.eu`) |
+| Mail | Google Workspace (devwhateverops.com is a secondary domain), SPF + DKIM + DMARC `p=none`, reports to info@humancopilot.eu |
+| Analytics, errors, dashboards | Umami (section 6), GlitchTip 34/35 (section 7), Grafana folder Websites (section 1) |
 
 ## 13. DGX services
 
