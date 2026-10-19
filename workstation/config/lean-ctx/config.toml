@@ -87,6 +87,7 @@ shell_allowlist_extra = [
     "sips",
     "say",
     "mkdocs",
+    "scan.sh",
 ]
 
 [cloud]
