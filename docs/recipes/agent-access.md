@@ -104,7 +104,7 @@ allowed but are overwritten the next time the file changes.
 | Folders Homelab, Production Infra, CI Ops, Delivery, Podcast Operator, Podcast Player | this repo, `grafana/dashboards/<folder>/` | file provisioning (30 s) |
 | Folders Common (Box & Edge), VPS — Podcast, podcast-player | podcast_scraper, `config/grafana/dashboards/<tenant>/` | `make obs-sync` (API), run from here |
 | Folder Orrery (`orrery`): orrery-overview, orrery-web, orrery-pipelines, orrery-analytics | orrery, `ops/observability/dashboards/` | that repo's `import.sh` (API), run from here with `~/grafana/orrery-sync.env` (first import 2026-10-16) |
-| Folder Websites (`websites`): humancopilot-eu, devwhateverops-com, evals-humancopilot-eu | chipi/humancopilot.eu, `infra/observability/dashboards/` | that repo's `import.sh` (API, overwrite by uid), run on the mini with `~/grafana/humancopilot-sync.env` (folder created 2026-10-18; recipe below) |
+| Folder Websites (`websites`): humancopilot-eu, devwhateverops-com, evals-humancopilot-eu, markodragoljevic-com | chipi/humancopilot.eu, `infra/observability/dashboards/` | that repo's `import.sh` (API, overwrite by uid), run on the mini with `~/grafana/humancopilot-sync.env` (folder created 2026-10-18; recipe below) |
 
 A dashboard uid lives in ONE of the two repos. If an API push overwrites a provisioned
 dashboard, Grafana won't delete it ("provisioned dashboard cannot be deleted"), and touching
@@ -159,6 +159,7 @@ bash /tmp/hc-dash/import.sh
 | `humancopilot-eu` | www.humancopilot.eu | Umami (`umami-pg`) + nginx and Caddy logs (`victorialogs`, `app="websites"`, `job="caddy"`) |
 | `devwhateverops-com` | www.devwhateverops.com | same as above |
 | `evals-humancopilot-eu` | evals.humancopilot.eu (eval-harness) | Umami only: GitHub Pages gives no request logs |
+| `markodragoljevic-com` | www.markodragoljevic.com (photography, hosted by Format) | Umami only: Format serves the site, no request logs |
 
 `orrery-analytics` reads Umami through the provisioned read-only datasource `umami-pg`
 (`provisioning/datasources/umami-postgres.yml`): role `grafana_ro` in the umami DB, SELECT on
@@ -269,6 +270,7 @@ only `/script.js` and `/api/send` to this Umami):
 | humancopilot.eu (`www.humancopilot.eu`) | `5f4eb50a-4831-43b7-874c-5ff29f253a6d` | `analytics.humancopilot.eu` |
 | devwhateverops.com (`www.devwhateverops.com`) | `4bd6a4f9-aaf2-400b-9f26-8e9282561615` | `analytics.humancopilot.eu` |
 | Eval Harness (`evals.humancopilot.eu`; was `chipi.github.io` until 2026-10-19, same id, history kept) | `76169139-07c1-4806-bde6-f9014e803e7f` | `analytics.closelistening.app` |
+| markodragoljevic.com (`www.markodragoljevic.com`; Format photo site, snippet in Format's custom code next to GA4 `G-DSYP1XW6RM`, since 2026-10-19) | `f4dde7dd-d482-4c75-8942-e2a9ba7f62c5` | `analytics.markodragoljevic.com` |
 
 Click events: `cta-book-call` (with `position`), `cta-email`, `outbound` (with `target`).
 humancopilot.eu and devwhateverops.com also run Cloudflare Web Analytics (cookieless, page
@@ -554,7 +556,7 @@ by one nginx container behind the shared Caddy edge. Independent of Orrery and C
 |---|---|
 | Container | `websites-nginx` (compose project `websites`), `127.0.0.1:8095`, read-only, unprivileged |
 | Releases | `/srv/websites/releases/<sha>`, `current` symlink; rollback = point it back, or re-run an older deploy |
-| Edge vhosts | `/etc/caddy/sites/humancopilot{,-analytics,-telemetry}.caddy`, `devwhateverops.caddy`, listed in the repo's `infra/caddy/enabled.txt`; installs take `/tmp/caddy-sites.lock` |
+| Edge vhosts | `/etc/caddy/sites/humancopilot{,-analytics,-telemetry}.caddy`, `devwhateverops.caddy`, `markodragoljevic-analytics.caddy` (Umami tracker for the Format photo site), listed in the repo's `infra/caddy/enabled.txt`; installs take `/tmp/caddy-sites.lock` |
 | Deploy | GitHub Actions `deploy-prod.yml` on push to main (also manual dispatch), over the tailnet as `deploy@` |
 | Logs | VictoriaLogs `{app="websites"}` (field `site`, real client IP from `CF-Connecting-IP`); edge `{job="caddy"}` |
 | DNS | Cloudflare zones humancopilot.eu, devwhateverops.com (proxied, origin A + AAAA), expected records in the repo's `infra/dns/*.records`; DNSSEC on devwhateverops.com only (Hover has no DS for `.eu`) |
