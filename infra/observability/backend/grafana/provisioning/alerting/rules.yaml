@@ -38,6 +38,14 @@ groups:
       # Excludes the on-demand GPU services (vllm / vllm-autoresearch / ollama) —
       # they legitimately come and go with `gpu-mode-swap`, so a blanket up==0 would
       # false-page on every mode swap. Alert only on the always-on estate.
+      #
+      # pyannote-app and moss-app count as up if ANY scrape in the last 15m succeeded.
+      # Both are single-worker servers: while one diarize/transcribe request runs
+      # (1.5-25 min) /metrics waits behind it and the scrape times out, so a busy
+      # server reads up==0. Replay of 7 days (2026-10-14..21, 1-min evals, for 5m):
+      # pyannote 41 firings -> 1, the one kept being a real 31-min dark stretch
+      # (2026-10-21 07:34); moss keeps both its real outages (10-20 21:10, 10-21 07:31).
+      # Cost: a dead pyannote/moss now alerts after ~20 min instead of ~5.
       - uid: infra-target-down
         title: "Scrape target down (up==0)"
         condition: threshold
@@ -54,7 +62,7 @@ groups:
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min by (job, instance) (up{job!~"vllm|vllm-autoresearch|ollama"})'
+              expr: 'min by (job, instance) (up{job!~"vllm|vllm-autoresearch|ollama|pyannote-app|moss-app"}) or min by (job, instance) (max_over_time(up{job=~"pyannote-app|moss-app"}[15m]))'
               instant: true
               queryType: instant
           - refId: threshold
