@@ -66,6 +66,12 @@ services:
       # vllm-translate co-resident. If preemptions appear (e.g. the ~1,450-episode
       # backfill), 0.23 is the step back; not 0.21 (~82% at the measured peak).
       - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.22}
+      # KV cache pinned to 6 GiB (~130k tokens at 48 KB/token, the size 0.22 was chosen
+      # for above) instead of being derived from the utilization at each boot. On GB10's
+      # unified memory that derivation depends on what the rest of the host holds at that
+      # moment: same image and flags, 2026-10-20 boots got 1.7 GiB (refused to start, a
+      # 64k request needs 3.0) and then 7.25 GiB minutes later.
+      - --kv-cache-memory-bytes=${VLLM_KV_CACHE_BYTES:-6442450944}
       # Context window — 64k, matching autoresearch. Model is 256k-native
       # (max_position_embeddings 262144, rope_scaling null) so 64k needs no
       # RoPE/YaRN scaling; KV cache fp8_e4m3, MoE (~3B active) ≈ 48 KB/token →

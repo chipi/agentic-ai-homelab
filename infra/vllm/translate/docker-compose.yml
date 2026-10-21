@@ -99,6 +99,13 @@ services:
       # Sized from the failed 0.20 boot — see the MEMORY note in the header. This is a
       # fraction of TOTAL memory and must cover weights (23.3 GiB) PLUS KV cache.
       - --gpu-memory-utilization=${VLLM_GPU_MEM_UTIL:-0.26}
+      # KV cache pinned to 4 GiB instead of being derived from the utilization at each
+      # boot: on GB10's unified memory the derivation depends on what the rest of the host
+      # holds at that moment, and three boots at 0.26 got 13.46 GiB (2026-10-20, which
+      # pushed the DGX over its 75 GB GPU alert), -1.59 GiB (refused to start) and 7.69 GiB
+      # (2026-10-21). The loop is serial (concurrency 1, p95 141 tokens); 4 GiB holds ~1.8
+      # worst-case 4,096-token requests.
+      - --kv-cache-memory-bytes=${VLLM_KV_CACHE_BYTES:-4294967296}
       # 2,048 in + 2,048 out — the measured ceiling (see RE-SIZED in the header). Not
       # 8192: it cost KV on a shared host AND let a too-long prompt come back 200 with
       # 99% of its content silently truncated; at 4096 the server refuses it instead.
