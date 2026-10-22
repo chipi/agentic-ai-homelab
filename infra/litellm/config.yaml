@@ -97,6 +97,22 @@ model_list:
       model: openrouter/deepseek/deepseek-v4-flash-0731
       api_key: os.environ/OPENROUTER_API_KEY_PODCAST
 
+  # Podcast copies of homelab-qwen / homelab-qwen38-max / homelab-pro, billed to the
+  # podcast key rather than the general homelab one (operator, 2026-10-22): podcast
+  # comparisons against the DGX model spend the podcast budget, not the homelab's.
+  - model_name: podcast-qwen
+    litellm_params:
+      model: openrouter/qwen/qwen3.6-35b-a3b
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+  - model_name: podcast-qwen38-max
+    litellm_params:
+      model: openrouter/qwen/qwen3.8-max
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+  - model_name: podcast-pro
+    litellm_params:
+      model: openrouter/deepseek/deepseek-v4-pro
+      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+
   # ── The DGX model (podcast_scraper#2342): a TRANSPARENT proxy in front of the DGX vLLM. The
   # podcast pipeline keeps its own vLLM provider unchanged and only points its base at this
   # gateway, so every call is metered and traced (Langfuse) like every other model. The alias IS
