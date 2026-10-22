@@ -132,6 +132,12 @@
       "team": "podcast",
       "platform": "javascript",
       "reports": "www.devwhateverops.com CSP violation reports (GlitchTip security endpoint, via the shared telemetry.humancopilot.eu vhost); static page, almost no JS"
+    },
+    {
+      "slug": "evals-web",
+      "team": "podcast",
+      "platform": "javascript",
+      "reports": "evals.humancopilot.eu and catalog.evals.humancopilot.eu CSP violation reports (GlitchTip security endpoint, via the shared telemetry.humancopilot.eu vhost); one project for both hosts, report URI in chipi/eval-harness infra/sites/*.cfg"
     }
   ]
 }

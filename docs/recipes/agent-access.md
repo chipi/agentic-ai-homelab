@@ -405,6 +405,7 @@ Prod and dev projects (dev runs never report into a prod project):
 | LiteLLM gateway | `litellm-prod` (27, the VPS gateway, since 2026-10-15) | `litellm` (19) is the homelab gateway |
 | www.humancopilot.eu | `humancopilot-web` (34, since 2026-10-18): CSP violation reports on the **security endpoint** `/api/34/security/?glitchtip_key=<public key>`, through the site's ingest-only vhost `telemetry.humancopilot.eu`. A report needs every browser field, `disposition` included, or GlitchTip answers 422 | — |
 | www.devwhateverops.com | `devwhateverops-web` (35, since 2026-10-18): CSP violation reports, same mechanism, through the same `telemetry.humancopilot.eu` vhost (`/api/35/security/`). Blob-worker and inline-style reports from browser extensions are expected noise; resolve, don't loosen the CSP | — |
+| evals.humancopilot.eu, catalog.evals.humancopilot.eu | `evals-web` (36, since 2026-10-22): CSP violation reports from both hosts into one project, same mechanism, through the same `telemetry.humancopilot.eu` vhost (`/api/36/security/`). Report URI in chipi/eval-harness `infra/sites/*.cfg`; no real reports until those sites go live | — |
 
 The full list, with what reports into each project, is `infra/glitchtip/projects.json`;
 `python3 infra/glitchtip/projects.py` (on the mini) diffs it against the live org and
