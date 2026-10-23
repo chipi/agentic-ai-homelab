@@ -29,6 +29,12 @@ Do not create logins, publish ports or change groups to "get access".
 - From the Omarchy workstation (X3, local login `marko`) the remote user must be explicit:
   `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab`; without it the
   login is `marko` and fails with "Too many authentication failures".
+- From the mini's `claude` account, plain `ssh dgx-llm-1` logs in as the DGX user `claude`
+  (since 2026-10-23). Tailscale SSH authorises it by the mini's `tag:homelab-host`, no key:
+  the user list is podcast_scraper `tailscale/policy.hujson` (commit 28f709fa1). On the DGX,
+  `claude` is in the `docker` group (it can restart containers) and `~/bin/gpu-mode-swap.sh`
+  only reads the mode: `/etc/sudoers.d/claude-gpu-mode-status` allows `status` and
+  `--mode-only`, so a switch fails with "sudo: a password is required". No other sudo.
 - On the mini, non-interactive shells lack `/usr/local/bin` on `PATH`: call
   `/usr/local/bin/docker`.
 - **Run multi-line recipes as a script file on the host** (`scp` it, `bash file.sh`),
