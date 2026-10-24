@@ -11,7 +11,7 @@ UM_U=admin; UM_P=$(get ~/umami/.env UMAMI_ADMIN_PASSWORD)
 LL_K=$(get "$REPO/litellm/.env" LITELLM_MASTER_KEY)
 # Grafana VIEWER service-account token (read-only) — powers the alert banner.
 # Embedding follows the page's existing trust model (admin creds are already
-# on it; the page itself is basic-auth + tailnet-only).
+# on it; the page itself is tailnet-only, no basic auth since 2026-10-24).
 GF_VIEW=$(get ~/signal-fleet/fleet-gateway.env GRAFANA_TOKEN)
 H=https://homelab.tail6d0ed4.ts.net   # legacy node (GlitchTip still fronted here until Level 3)
 # Per-service caddy-tailscale nodes — each <name>.tail6d0ed4.ts.net with its own

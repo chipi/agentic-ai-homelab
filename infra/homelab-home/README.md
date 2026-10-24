@@ -13,16 +13,16 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   shell (the live numbers are fetched client-side).
 - `docker-compose.yml` — `nginx:alpine` serving `www/`, bound to the **tailnet
   IP** (`100.87.33.61:8888`), joined to `backend_default` so it can proxy VM.
-- `default.conf` — nginx: basic-auth (`.htpasswd`) over everything + a `/vm/`
+- `default.conf` — nginx, no auth of its own (tailnet-only since 2026-10-24) + a `/vm/`
   reverse-proxy to `victoriametrics:8428` (same-origin, so the page's JS queries
   VM without CORS).
 
 ## Not in git (mini-local, gitignored)
-`www/index.html` (generated), `.htpasswd`, `.basic-auth-cred`, `.env`.
+`www/index.html` (generated), `.env`. (`.htpasswd` and `.basic-auth-cred` are left over from the basic auth removed on 2026-10-24.)
 
 ## Deploy / refresh (run-in-place from the repo — no copy-out)
 Runs from this repo checkout; `gen.sh` writes `www/index.html` next to itself
-and the compose mounts it. `www/`, `.htpasswd`, `.basic-auth-cred` are gitignored
+and the compose mounts it. `www/` is gitignored
 (generated / secret, staged here on the mini).
 ```sh
 # on the mini, in this dir (…/agentic-ai-homelab/infra/homelab-home)
