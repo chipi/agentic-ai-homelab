@@ -169,6 +169,7 @@ row "LiteLLM"         "$LL/ui/"       "admin" "$LL_K" "4001"
 row "VictoriaMetrics" "$VM/vmui"      "&mdash;" "tailnet" "8428"
 row "VictoriaLogs"    "$VL"           "&mdash;" "tailnet" "9428"
 row "VictoriaTraces"  "$VT"           "&mdash;" "tailnet" "10428"
+row "Home Assistant"  "https://homeassistant.$TS" "own account" "&mdash;" "8123"
 cat <<MID
   </tbody></table>
 </div>
