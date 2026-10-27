@@ -1488,6 +1488,10 @@ groups:
       # The batch finalize measures how many served episodes publish no named voice and the api
       # serves it on /metrics (podcast_corpus_episodes_no_named_voice, from the nightly's
       # naming_coverage.json). 274 of 2,619 English episodes on 2026-10-12 after migration 0029.
+      # One series (2026-10-27): podcast-api, operator-public-api and player-api all export the
+      # gauge, so the unfiltered expression fired three instances for one event. Filtered to
+      # service="podcast-api" and aggregated, so label changes (the `app` label added that day)
+      # cannot split it into two series across the 3-day window either.
       - uid: podcast-naming-coverage-rose
         title: "Podcast: more episodes publish no named voice"
         condition: threshold
@@ -1502,7 +1506,7 @@ groups:
             relativeTimeRange: { from: 259200, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'last_over_time(podcast_corpus_episodes_no_named_voice{instance="prod-podcast",language="en"}[1h]) - min_over_time(podcast_corpus_episodes_no_named_voice{instance="prod-podcast",language="en"}[3d])'
+              expr: 'max(last_over_time(podcast_corpus_episodes_no_named_voice{instance="prod-podcast",language="en",service="podcast-api"}[1h])) - min(min_over_time(podcast_corpus_episodes_no_named_voice{instance="prod-podcast",language="en",service="podcast-api"}[3d]))'
               instant: true
               queryType: instant
           - refId: threshold

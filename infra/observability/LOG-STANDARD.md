@@ -103,6 +103,14 @@ field (table above; since 2026-10-27 for the podcast and player drop-ins), so
 `level:error` works on those services. It is absent on lines it could not parse, so the
 message pattern above stays the **portable** severity signal across every service.
 
+**Event lines (a bare JSON object, e.g. the pipeline's `pipeline_stage` / `llm_cost`)** get a
+readable `_msg` built by the drop-in after the JSON parse: `<event_type>` followed by
+`stage=… operation=… model=… episode=… episodes_done=…`, only the keys present, e.g.
+`llm_cost stage=speaker_detection operation=speaker_detection model=NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4 episode=1_2766277`.
+Every JSON key stays a field; `_msg` is for reading, queries use the fields (`event_type:llm_cost`).
+Without it VictoriaLogs stores "missing _msg field". Shipped for operator.alloy 2026-10-27
+(podcast_scraper 5efd01fb2, tested alloy v1.17.0 → victoria-logs v1.52.0).
+
 **Why `level` and `release` are structured_metadata, not stream labels:** `level` varies
 per line (as a label it would multiply streams by five), and `release` changes on every
 deploy (as a label every deploy would mint new streams). As structured_metadata both are
