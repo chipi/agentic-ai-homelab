@@ -37,6 +37,8 @@ Canonical URL:
 > stay until ADR-0010's phase C replaces them with `namespace`/`service`/`environment`
 > declared once by each deployable.
 | `trace_id` | **structured_metadata** | **high** | 32-hex W3C/Sentry trace id, for correlation | `loki.process` regex stage (below) |
+| `level` | **structured_metadata** | per line | lowercase `debug` / `info` / `warning` / `error` / `critical` (`WARN`→`warning`, `FATAL`→`critical`); **only** on lines whose prefix parses (Python `<date> <time>,<ms> LEVEL [logger]`); absent otherwise | `loki.process` regex stage in the app's drop-in (since 2026-10-27) |
+| `release` | **structured_metadata** | changes per deploy | `sha-<7>`, the exact string GlitchTip's `release`, Langfuse's `release` and the traces' `service.version` carry | from the image tag (`__meta_docker_container_image` `…:sha-<7>`) in the app's drop-in (since 2026-10-27) |
 
 **Why `trace_id` is structured_metadata, not a stream label:** trace ids are unique
 per request (very high cardinality). As a *stream label* they would explode
@@ -95,8 +97,16 @@ time by **message pattern-match**, not a field:
 - errors only: `_msg:~"(?i)(error|fatal|panic|exception|traceback|critical)"`
 
 The `Logs — Overview` dashboard's **Severity** variable encodes exactly these.
-If an app emits a clean structured `level`, great — keep it; but the portable
-severity signal is the message pattern above.
+
+Where a line's prefix parses, the drop-in also sets the `level` structured_metadata
+field (table above; since 2026-10-27 for the podcast and player drop-ins), so
+`level:error` works on those services. It is absent on lines it could not parse, so the
+message pattern above stays the **portable** severity signal across every service.
+
+**Why `level` and `release` are structured_metadata, not stream labels:** `level` varies
+per line (as a label it would multiply streams by five), and `release` changes on every
+deploy (as a label every deploy would mint new streams). As structured_metadata both are
+normal queryable fields (`level:error`, `release:sha-ab39fbd`) at no stream cost.
 
 ## The reusable Alloy snippet (copy into every Alloy config)
 
