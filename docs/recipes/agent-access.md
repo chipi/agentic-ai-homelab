@@ -52,6 +52,7 @@ Do not create logins, publish ports or change groups to "get access".
 | Grafana | `set -a; . ~/agentic-ai-homelab/infra/observability/backend/.env; set +a` | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` |
 | Umami | `set -a; . ~/umami/.env; set +a` (note: `~/umami`, not the repo) | `UMAMI_ADMIN_PASSWORD` (user `admin`) |
 | GlitchTip (read) | `set -a; . ~/signal-fleet/fleet-gateway.env; set +a` | `GLITCHTIP_TOKEN` (read-only) |
+| GlitchTip `agents issue status` | `set -a; . ~/agents-glitchtip.env; set +a` (copy for `claude`: `/Users/claude/agents-glitchtip.env`, owner `claude`, mode 600) | `GLITCHTIP_ISSUE_TOKEN` (event:read, event:write, project:read, org:read, org-wide): resolve/delete issues, probe events; cannot create projects |
 | GlitchTip (write) | `set -a; . ~/agentic-ai-homelab/infra/glitchtip/.env; set +a` | `DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_PASSWORD` |
 | Langfuse | `set -a; . ~/signal-fleet/fleet-gateway.env; set +a` | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` (project `agents`; other projects in section 8) |
 | LiteLLM (mini) | `set -a; . ~/agentic-ai-homelab/infra/litellm/.env; set +a` | `LITELLM_MASTER_KEY` |
@@ -353,11 +354,24 @@ curl -s -H "$H" "$GT/api/0/organizations/homelab/issues/?query=is:unresolved&lim
 curl -s -H "$H" "$GT/api/0/issues/<id>/"                 # one issue; events under /events/
 ```
 
-**Write** (resolve, ignore, delete issues; create projects) with the superuser session
-— the token above is read-only (writes return 403).
+**Issue status** (resolve, ignore, reopen, delete issues; probe events) with the agents' token,
+`GLITCHTIP_ISSUE_TOKEN` in `~/agents-glitchtip.env` on the mini (mode 600; a copy for the
+`claude` account at `/Users/claude/agents-glitchtip.env`):
+
+```sh
+set -a; . ~/agents-glitchtip.env; set +a
+curl -s -X PUT -H "Authorization: Bearer $GLITCHTIP_ISSUE_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"status":"resolved"}' "$GT/api/0/organizations/homelab/issues/?id=<id>"
+```
+
+Proven 2026-10-27 on a probe issue in `player-dev`: resolve 200 (read back `resolved`), issue
+delete 200 (then 404), project create 403.
+
+**Projects and everything else** (create projects, keys, teams) with the superuser session; the
+read token above returns 403 on any write.
 
 **Every GlitchTip API token, and what it can do** (scopes from the token table, 2026-10-17). A 403 on a
-write means the token is read-only by design: use the superuser session below, don't widen a token.
+write means the token is read-only by design: use the agents' token or the superuser session, don't widen a token.
 
 | id | Label | Scopes | Used by |
 |---|---|---|---|
@@ -365,6 +379,7 @@ write means the token is read-only by design: use the superuser session below, d
 | 2 | `podcast-obs-dev` | read only, same as 1 | `podcast_obs`'s GlitchTip issue links (`SENTRY_AUTH_TOKEN` in a podcast_scraper `.env.obs.dev`) |
 | 3 | `signal-fleet-write` | `project:read`, `event:read`, `event:write`, `org:read` | the GitHub → GlitchTip sync (`GLITCHTIP_WRITE_TOKEN`) |
 | 4 | `orrery-sourcemaps` | `project:releases`, `org:read` | source-map uploads |
+| 8 | `agents issue status` | `event:read`, `event:write`, `project:read`, `org:read` | agents resolving issues after a deploy and running probe events (`GLITCHTIP_ISSUE_TOKEN`, `~/agents-glitchtip.env` + the `claude` account's copy), since 2026-10-27 |
 
 From the laptop, an agent runs the session recipe on the mini with the `host-run` skill: save the
 block below as a script with the `S -X PUT … resolved` line, then
