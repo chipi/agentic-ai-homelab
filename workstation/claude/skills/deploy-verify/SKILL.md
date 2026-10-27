@@ -39,7 +39,7 @@ $R homelab $V compare --project orrery --since 2026-10-17T08:21:00Z --sourcemaps
 | metrics | every scrape job `up=1`; every listed counter has series over 2 days (`count_over_time`, not an instant query) |
 | errors | **no** GlitchTip issue first seen since the deploy. Each new one FAILs the gate on purpose: someone has to look. Its status is shown. |
 | langfuse | app traces since the deploy all carry `--release`. LiteLLM's own `litellm-*` traces are ignored. |
-| umami | each site got events since the deploy (WARN, not FAIL, when zero: traffic can be quiet) |
+| umami | each site got events since the deploy, with the latest event's time. Zero events is INCONCLUSIVE while the time since the deploy is shorter than the quiet gap before it, from the site's last event to the deploy (sparse traffic: re-run `compare` later), and WARN once it is older. A failed Umami query is a FAIL, not "0 events" |
 | sourcemaps | every live `_app/immutable` JS with a debugId has a stored GlitchTip bundle. Unmatched stubs under 1 KB are INFO. |
 
 ## Verified

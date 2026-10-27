@@ -99,8 +99,12 @@ def gt_project_ids():
 
 
 def umami_sql(sql):
-    p = subprocess.run([DOCKER, "exec", "-i", "umami-db", "psql", "-U", "umami", "-d", "umami", "-At", "-F", "|"],
+    p = subprocess.run([DOCKER, "exec", "-i", "-e", "PGOPTIONS=-c timezone=UTC", "umami-db", "psql",
+                        "-U", "umami", "-d", "umami", "-At", "-F", "|", "-v", "ON_ERROR_STOP=1"],
                        input=sql, capture_output=True, text=True)
+    # A failed query used to come back as "" and read as "0 events" — a silent WARN.
+    if p.returncode != 0:
+        raise RuntimeError(f"umami query failed (exit {p.returncode}): {p.stderr.strip()[:200]}")
     return p.stdout.strip()
 
 
@@ -178,9 +182,34 @@ def compare(prof, base, release, since):
             check(True, "no app traces since the deploy (nothing ran)", warn=True)
     print("== Umami")
     for site in prof["umami_sites"]:
-        n = umami_sql(f"SELECT count(*) FROM website_event e JOIN website w USING (website_id) "
-                      f"WHERE w.name = '{site}' AND e.created_at > '{since}';")
-        check(int(n or 0) > 0, f"{site}: {n} events since the deploy", warn=int(n or 0) == 0)
+        try:
+            row = umami_sql(
+                f"SELECT count(*) FILTER (WHERE e.created_at > '{since}'), "
+                f"to_char(max(e.created_at) FILTER (WHERE e.created_at <= '{since}'), 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), "
+                f"to_char(max(e.created_at), 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') "
+                f"FROM website_event e JOIN website w USING (website_id) "
+                f"WHERE w.name = '{site}' AND w.deleted_at IS NULL;")
+        except RuntimeError as e:
+            check(False, f"{site}: {e}"); continue
+        n_s, before, last = (row.split("|") + ["", "", ""])[:3]
+        n = int(n_s or 0)
+        if n > 0:
+            check(True, f"{site}: {n} events since the deploy (latest {last})")
+            continue
+        # Sparse sites (the Player saw 24 h between events on 2026-10-24/25) are legitimately
+        # silent for a while after a deploy: 0 is only a warning once the deploy is older
+        # than the gap before it. Re-run compare later to settle an INCONCLUSIVE.
+        fmt = "%Y-%m-%dT%H:%M:%SZ"
+        dep = datetime.strptime(since, fmt).replace(tzinfo=timezone.utc)
+        age = datetime.now(timezone.utc) - dep
+        if before:
+            gap = dep - datetime.strptime(before, fmt).replace(tzinfo=timezone.utc)
+            if age < gap:
+                print(f"  [INCONCLUSIVE] {site}: 0 events since the deploy, {age} ago; the last event before it "
+                      f"was {before} ({gap} earlier) — re-run compare later")
+                continue
+        check(False, f"{site}: 0 events since the deploy ({age} ago; last event before it: {before or 'none'})",
+              warn=True)
     return True
 
 
