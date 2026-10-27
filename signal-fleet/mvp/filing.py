@@ -182,6 +182,12 @@ REPO_MAP = {
     "LITELLM": "chipi/agentic-ai-homelab",
     "PODCAST": "chipi/podcast_scraper",
     "PLAYER": "chipi/podcast_scraper",
+    # 2026-10-27, once the fleet token covered these repos: the eval-harness projects
+    # (evals-web CSP, evals-inspector) and the websites' CSP projects. Unmapped, they
+    # were refused (no SF_OPS_REPO), not filed.
+    "EVALS": "chipi/eval-harness",
+    "HUMANCOPILOT": "chipi/humancopilot.eu",
+    "DEVWHATEVEROPS": "chipi/humancopilot.eu",
 }
 OPS_REPO = os.environ.get("SF_OPS_REPO", "")
 

@@ -1397,6 +1397,25 @@ class TestOomPerContainer(unittest.TestCase):
         self.assertEqual(sources.to_signals(a, data=_FakeData()), [sources.to_signal(a)])
 
 
+class TestRepoFor(unittest.TestCase):
+    """GlitchTip project prefix -> repo (2026-10-27: eval-harness and the websites added)."""
+
+    def _r(self, fp):
+        return filing.repo_for({"fingerprint": fp})
+
+    def test_new_projects_route_to_their_repos(self):
+        self.assertEqual(self._r("glitchtip:EVALS-INSPECTOR-1"), "chipi/eval-harness")
+        self.assertEqual(self._r("glitchtip:EVALS-WEB-3"), "chipi/eval-harness")
+        self.assertEqual(self._r("glitchtip:HUMANCOPILOT-WEB-2"), "chipi/humancopilot.eu")
+        self.assertEqual(self._r("glitchtip:DEVWHATEVEROPS-WEB-1"), "chipi/humancopilot.eu")
+
+    def test_existing_routes_unchanged(self):
+        self.assertEqual(self._r("glitchtip:PODCAST-PIPELINE-5E"), "chipi/podcast_scraper")
+        self.assertEqual(self._r("glitchtip:PLAYER-1I"), "chipi/podcast_scraper")
+        self.assertEqual(self._r("glitchtip:ORRERY-PROD-1P"), "chipi/orrery")
+        self.assertEqual(self._r("glitchtip:LITELLM-PROD-4"), "chipi/agentic-ai-homelab")
+
+
 class TestEdgeGate(unittest.TestCase):
     def _d(self):
         return {"disposition": "dismiss", "reason": "r", "dismissal_evidence": "e"}

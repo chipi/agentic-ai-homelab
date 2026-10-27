@@ -13,15 +13,14 @@ Full continuity of how v0.2 landed: see
 
 ## Immediately open (still on the operator)
 
-- [ ] **Triage fleet GitHub token expires 2026-10-27 15:59 UTC** (`GITHUB_TOKEN` in the mini's
-      `~/signal-fleet/fleet-gateway.env`, a fine-grained token on chipi/podcast_scraper, orrery,
-      agentic-ai-homelab). After that the fleet can't file, comment or reopen, and the GitHub ->
-      GlitchTip sync stops. Operator: extend or regenerate it, and add **chipi/humancopilot.eu**
-      (Issues read/write) in the same edit. Then the homelab side adds `"HUMANCOPILOT": "chipi/humancopilot.eu"`
-      to `filing.REPO_MAP` (website session's request 2026-10-18; until then those CSP issues are
-      refused, not filed). check: on the mini, `curl -sI -H "Authorization: Bearer $GITHUB_TOKEN"
-      https://api.github.com/repos/chipi/humancopilot.eu | head -1` returns 200 and the
-      `github-authentication-token-expiration` header is past 2026-10-27.
+- [x] ~~**Triage fleet GitHub token expires 2026-10-27 15:59 UTC**~~ Done 2026-10-27: it lapsed
+      (401 on every repo) and the operator regenerated it. Now covers chipi/podcast_scraper, orrery,
+      agentic-ai-homelab, humancopilot.eu and eval-harness (all 200, issues listable); **expires
+      2027-01-25 19:03 UTC** (`github-authentication-token-expiration`). `filing.REPO_MAP` now
+      routes `EVALS` → chipi/eval-harness and `HUMANCOPILOT` / `DEVWHATEVEROPS` → chipi/humancopilot.eu.
+- [ ] **Renew the fleet GitHub token before 2027-01-25 19:03 UTC** (same five repos, Issues
+      read/write). check: on the mini, `curl -sI -H "Authorization: Bearer $GITHUB_TOKEN"
+      https://api.github.com/rate_limit | grep -i token-expiration`.
 
 These need DGX / Grafana Cloud / live-infra access — the recipes are
 drafted, but they haven't been run for real yet.
