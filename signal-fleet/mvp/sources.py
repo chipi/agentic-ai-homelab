@@ -5,8 +5,10 @@ alert. `firing_alerts()` is the general poll; `orrery_staleness()` picks the one
 """
 import hashlib
 import re
+import time
 
 import config
+import guards
 from http_util import get_json
 
 # Test / synthetic run markers — signals carrying these are noise-at-source and
@@ -83,6 +85,41 @@ def to_signal(alert):
         "startsAt": alert.get("startsAt"),
         "raw": alert,
     }
+
+
+def to_signals(alert, data=None, now=None):
+    """`to_signal`, except a host-wide OOM alert becomes one signal per container the
+    kernel killed in the last 15 min (the rule's own window). The container goes into
+    the fingerprint, so another container's OOM while the alert is still firing is a new
+    signal (2026-10-27: player-api's kills were invisible behind evals-inspector's). The
+    occurrence is the container's kill EPISODE (guards.oom_episodes): a crash loop stays
+    one occurrence, a later kill after a quiet gap is a new one (recurrence or re-triage).
+    No container found, or the lookup failing, keeps the single host-wide signal."""
+    sig = to_signal(alert)
+    instance = sig["labels"].get("instance")
+    if sig["alertname"] != guards.OOM_ALERT or not instance:
+        return [sig]
+    try:
+        episodes = guards.oom_episodes(instance, now or time.time(), data=data)
+    except Exception as e:  # noqa: BLE001 — best effort, keep the host-wide signal
+        print(f"  oom container lookup failed ({e}); keeping the host-wide signal")
+        return [sig]
+    if not episodes:
+        return [sig]
+    starts = sig["startsAt"] or ""
+    out = []
+    for name in sorted(episodes):
+        ep = episodes[name]
+        # An episode that began with this firing (or outlived the lookback) is keyed on the
+        # firing's own start, so its key never shifts mid-loop.
+        if not ep or (starts and abs(guards._ts(ep) - guards._ts(starts)) < guards.EPISODE_GAP_S):
+            ep = starts
+        s = dict(sig, labels=dict(sig["labels"], container=name))
+        s["fingerprint"] = f"{sig['fingerprint']}:oom:{name}"
+        s["occurrence_id"] = f"{s['fingerprint']}@{ep}"
+        s["summary"] = f"{name} OOM-killed on {instance}. " + sig["summary"]
+        out.append(s)
+    return out
 
 
 def orrery_staleness():

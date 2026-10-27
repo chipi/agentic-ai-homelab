@@ -50,6 +50,7 @@ The code is stateless between cycles. Everything the fleet "remembers" is in the
 
 - **`fingerprint`** — the same problem across time. Grafana: the alert's label-set fingerprint. GlitchTip: `glitchtip:<SHORTID>`, e.g. `glitchtip:PODCAST-PIPELINE-5E`.
 - **`occurrence_id`** — one episode of it: fingerprint + `startsAt` (Grafana) or `firstSeen` (GlitchTip). The cycle is idempotent on this key.
+- **The host-wide OOM alert is split per container** (2026-10-27, `sources.to_signals` + `guards.oom_episodes`). "Kernel OOM killer fired" fires per host, so while evals-inspector was OOM-killed every ~5 min the alert never stopped, and player-api's kills (10-26 13:46, 10-27 07:13) produced no new occurrence. The fleet now reads the kernel's `oom-kill:` lines (VictoriaLogs), maps each docker cgroup to its container (cadvisor), and emits one signal per container: fingerprint `<alert>:oom:<container>`, occurrence = the container's kill *episode* (kills under 30 min apart; an episode that began with the firing is keyed on the firing's start), so a crash loop stays one occurrence and a later kill is a new one. A failed lookup keeps the host-wide signal. Replay: `eval_oom_edge_replay.py`.
 
 Test and synthetic signals are suppressed at this stage.
 
@@ -75,7 +76,7 @@ Test and synthetic signals are suppressed at this stage.
 
 2. **Investigation by the LLM:** up to `SF_MAX_PROBES` (3) probes — logs, metrics, traces, source state, occurrence history — then one terminal decision. A GlitchTip error's trace is looked up by the OTel id the apps stamp as `tags.trace_id` (fix `06c07e0`; the SDK's own `contexts.trace.trace_id` never exists in VictoriaTraces). Each triage is **one Langfuse trace** (project "agents"): the fleet mints the trace id, and the gateway adds its costed generations to it as `triage-turn-N` (`e4e396f`). The decision:
     - `file`: a real problem; becomes an issue with `work_type` `bug` or `config-enhancement`;
-    - `dismiss`: benign, **with independent probe evidence** (the intent gate);
+    - `dismiss`: benign, **with independent probe evidence** (the intent gate). An **edge-5xx burst** is never dismissed when a container on the edge's host started or was OOM-killed within 10 min before to 5 min after it (`triage._edge_gate`, 2026-10-27): probes run after the restart look healthy because the container is back (the 10-26 13:46:30 burst was dismissed exactly so). It escalates naming the container; a failed lookup escalates too;
     - `cleanup`: test or synthetic noise;
     - `escalate`: a specific question only a human can answer.
 

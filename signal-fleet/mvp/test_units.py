@@ -1340,5 +1340,89 @@ class TestPromoteRolledUpOnRecurrence(unittest.TestCase):
         self.assertFalse(orchestrator._promote_now(self._sig(), {"disposition": "file"}))
 
 
+class _FakeData:
+    """guards' data interface: kills as (iso time, container), starts as (name, iso time)."""
+    def __init__(self, kills=(), starts=()):
+        self.kills, self.starts = list(kills), list(starts)
+
+    def oom_kills(self, instance, start, end):
+        import guards
+        return [{"t": t, "cid": n} for t, n in self.kills if guards._ts(start) <= guards._ts(t) <= guards._ts(end)]
+
+    def container_name(self, instance, cid):
+        return cid
+
+    def container_starts(self, instance, start, end):
+        import guards
+        return [{"name": n, "start": t} for n, t in self.starts if guards._ts(start) <= guards._ts(t) <= guards._ts(end)]
+
+
+class TestOomPerContainer(unittest.TestCase):
+    """2026-10-27: one OOM alert per host hid player-api behind evals-inspector's loop."""
+
+    def _alert(self, starts="2026-10-26T07:39:40Z"):
+        return {"fingerprint": "f", "startsAt": starts, "status": {"state": "active"},
+                "labels": {"alertname": "Kernel OOM killer fired", "instance": "prod"}, "annotations": {}}
+
+    def test_one_signal_per_killed_container(self):
+        import guards, sources
+        now = guards._ts("2026-10-26T13:50:00Z")
+        d = _FakeData([("2026-10-26T13:45:00Z", "loop"), ("2026-10-26T13:46:07Z", "api")])
+        sigs = sources.to_signals(self._alert(), data=d, now=now)
+        self.assertEqual([s["labels"]["container"] for s in sigs], ["api", "loop"])
+        self.assertEqual(sigs[0]["fingerprint"], "grafana:f:oom:api")
+
+    def test_crash_loop_is_one_occurrence_across_cycles(self):
+        import guards, sources
+        kills = [(time_str, "loop") for time_str in
+                 ("2026-10-26T07:38:09Z", "2026-10-26T07:43:06Z", "2026-10-26T07:48:00Z", "2026-10-26T07:53:00Z")]
+        d = _FakeData(kills)
+        occ = {sources.to_signals(self._alert(), data=d, now=guards._ts(t))[0]["occurrence_id"]
+               for t in ("2026-10-26T07:40:00Z", "2026-10-26T07:50:00Z", "2026-10-26T07:55:00Z")}
+        self.assertEqual(len(occ), 1)
+
+    def test_lookup_failure_keeps_the_host_wide_signal(self):
+        import sources
+
+        class Broken(_FakeData):
+            def oom_kills(self, *a):
+                raise RuntimeError("vl down")
+        sigs = sources.to_signals(self._alert(), data=Broken(), now=0)
+        self.assertEqual(len(sigs), 1)
+        self.assertEqual(sigs[0]["fingerprint"], "grafana:f")
+
+    def test_other_alerts_untouched(self):
+        import sources
+        a = dict(self._alert(), labels={"alertname": "Edge 5xx burst on a prod vhost (>=10 in 5m)"})
+        self.assertEqual(sources.to_signals(a, data=_FakeData()), [sources.to_signal(a)])
+
+
+class TestEdgeGate(unittest.TestCase):
+    def _d(self):
+        return {"disposition": "dismiss", "reason": "r", "dismissal_evidence": "e"}
+
+    _sig = {"alertname": "Edge 5xx burst on a prod vhost (>=10 in 5m)", "startsAt": "2026-10-26T13:46:30Z"}
+
+    def test_restart_nearby_blocks_dismiss(self):
+        import triage
+        d, g = triage._edge_gate(self._d(), self._sig, _FakeData(starts=[("player-api-1", "2026-10-26T13:46:25Z")]))
+        self.assertEqual(d["disposition"], "escalate")
+        self.assertIn("player-api-1", d["reason"])
+
+    def test_quiet_host_keeps_dismiss(self):
+        import triage
+        d, g = triage._edge_gate(self._d(), self._sig, _FakeData())
+        self.assertEqual((d["disposition"], g), ("dismiss", "passed"))
+
+    def test_lookup_failure_escalates_never_dismisses(self):
+        import triage
+
+        class Broken(_FakeData):
+            def oom_kills(self, *a):
+                raise RuntimeError("vl down")
+        d, g = triage._edge_gate(self._d(), self._sig, Broken())
+        self.assertEqual(d["disposition"], "escalate")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

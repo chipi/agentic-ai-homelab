@@ -19,6 +19,7 @@ import time
 import urllib.error
 
 import config
+import guards
 import observ
 import probes
 from http_util import post_json
@@ -369,11 +370,36 @@ def _dismiss_gate(d, trace):
     return d, "downgraded (no corroboration)"
 
 
-def _gate(d, signal, trace):
+EDGE_INSTANCE = "prod-podcast"   # the prod Caddy edge; the edge alert carries only `host`
+
+
+def _edge_gate(d, signal, data=None):
+    """An edge-5xx burst that coincided with a container start or OOM kill on the edge's
+    host is not dismissable: probes run after the restart look healthy because the
+    container is back. 2026-10-26 13:46:30 burst (closelistening.app, 11 5xx) was
+    dismissed on exactly that while player-api was being OOM-killed."""
+    if d.get("disposition") != "dismiss" or not signal.get("alertname", "").startswith(guards.EDGE_5XX_PREFIX):
+        return d, "n/a"
+    try:
+        hits = guards.restarts_near(EDGE_INSTANCE, signal.get("startsAt") or "", data=data)
+    except Exception as e:  # noqa: BLE001 — can't check, so can't clear the burst
+        _to_escalate(d, f"edge gate: restart/OOM lookup failed ({e})",
+                     "Could not check for a container restart behind this 5xx burst — confirm benign?")
+        return d, "downgraded (lookup failed)"
+    if not hits:
+        return d, "passed"
+    _to_escalate(d, f"edge gate: container(s) {', '.join(hits)} restarted or were OOM-killed on "
+                    f"{EDGE_INSTANCE} around the burst",
+                 f"The 5xx burst coincides with {', '.join(hits)} restarting — was that the cause?")
+    return d, "downgraded (restart nearby)"
+
+
+def _gate(d, signal, trace, edge_data=None):
     d, ig = _intent_gate(d)
     d, cg = _cleanup_gate(d, signal)
     d, dg = _dismiss_gate(d, trace)
-    return d, f"i:{ig}/c:{cg}/d:{dg}"
+    d, eg = _edge_gate(d, signal, edge_data)
+    return d, f"i:{ig}/c:{cg}/d:{dg}/e:{eg}"
 
 
 def _finish(signal, disp, trace, gates, usage, t0, trace_id=None):

@@ -65,8 +65,8 @@ def run_grafana(limit=5, dry_run=True):
     alerts = sources.firing_alerts()
     print(f"grafana firing (non-meta): {len(alerts)}")
     disps = []
-    for a in alerts[:limit]:
-        sig = sources.to_signal(a)
+    # to_signals: a host-wide OOM alert becomes one signal per killed container
+    for sig in (s for a in alerts[:limit] for s in sources.to_signals(a)):
         prior_occ = actions.already_done(sig["occurrence_id"])
         if prior_occ:
             print(f"  idempotent: {sig['occurrence_id']} -> {prior_occ}; skip")
