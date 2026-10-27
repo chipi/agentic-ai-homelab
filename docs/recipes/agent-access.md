@@ -165,7 +165,7 @@ bash /tmp/hc-dash/import.sh
 |---|---|---|
 | `humancopilot-eu` | www.humancopilot.eu | Umami (`umami-pg`) + nginx and Caddy logs (`victorialogs`, `app="websites"`, `job="caddy"`) |
 | `devwhateverops-com` | www.devwhateverops.com | same as above |
-| `evals-humancopilot-eu` | evals.humancopilot.eu (eval-harness) | Umami only: GitHub Pages gives no request logs |
+| `evals-humancopilot-eu` | evals.humancopilot.eu (eval-harness, served by `evals-nginx` + `evals-inspector` on prod-podcast since 2026-10-26) | Umami (`umami-pg`); server row: nginx logs (`victorialogs`, `app:evals`, `container:evals-nginx`) + Caddy edge by host; inspector row: its `/metrics` (`victoriametrics`, `service="evals-inspector"`, from eval-harness 0.4.2 + `evals.alloy`), container memory/restarts (cadvisor) and its log. Errors: GlitchTip `evals-web` (36, CSP) and `evals-inspector` (37). Imported 2026-10-27 from humancopilot.eu 1199869 |
 | `markodragoljevic-com` | www.markodragoljevic.com (photography, hosted by Format) | Umami only: Format serves the site, no request logs |
 | `airandspacehistory-com` | airandspacehistory.com (museum photos, Adobe Portfolio behind Cloudflare) | Umami only (injected by Cloudflare Zaraz) |
 
