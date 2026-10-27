@@ -230,6 +230,14 @@ them by `environment`).
    ```
 6. The Grafana correlation + `Logs — Overview` filters then work with no per-source
    config — they key off these standard fields.
+7. **A change to a source's TARGET labels (`discovery.relabel` feeding `loki.source.docker`,
+   e.g. the `release` rule) does not reach containers already being tailed.** On a hot
+   reload the existing tailer keeps the labels it started with; a `docker restart` (same
+   container id) does not help; a recreated container or an Alloy restart does. So a deploy
+   installs the drop-in first, then (re)creates its containers. Changes to `loki.process`
+   stages (level, run_id, `_msg`) apply to running tailers at once. Found 2026-10-27:
+   evals-nginx, recreated before evals.alloy was installed, shipped no `release`;
+   reproduced with alloy v1.17.0 (fresh Alloy: kept; after reload: `structured_metadata={}`).
 
 ## Ownership & integration — who changes what, where
 
