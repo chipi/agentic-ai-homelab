@@ -23,6 +23,9 @@ services:
       - delivery
       - backend
       - langfuse
+      - home-automation
+    environment:
+      HA_PROMETHEUS_TOKEN: ${HA_PROMETHEUS_TOKEN:?set HA_PROMETHEUS_TOKEN (Home Assistant long-lived token) in .env}
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro    # container-log discovery
@@ -65,6 +68,10 @@ networks:
   backend:
     external: true
     name: backend_default
+  # Home Assistant's /api/prometheus, by container name (chipi/home-automation).
+  home-automation:
+    external: true
+    name: home-automation_default
 
 volumes:
   alloy-data:

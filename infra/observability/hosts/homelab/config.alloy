@@ -101,6 +101,25 @@ prometheus.scrape "delivery" {
   scrape_interval = "30s"
 }
 
+// ---------- Home Assistant (chipi/home-automation) ----------
+// HA's /api/prometheus (its `prometheus:` integration, filtered to the entities worth
+// keeping), over home-automation_default by container name. Bearer token: a long-lived HA
+// token, HA_PROMETHEUS_TOKEN in this stack's .env on the mini (gitignored).
+prometheus.scrape "home_assistant" {
+  targets = [{
+    __address__ = "home-assistant:8123",
+    instance    = "homelab",
+    service     = "home-assistant",
+    namespace   = "home-automation",
+    environment = "prod",
+  }]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "home-assistant"
+  metrics_path    = "/api/prometheus"
+  scrape_interval = "60s"
+  bearer_token    = sys.env("HA_PROMETHEUS_TOKEN")
+}
+
 // NOTE: cAdvisor was tried here for per-container cpu/mem/io but doesn't work on
 // colima (cgroup v2 + cgroupfs + cgroupns — it only sees system/systemd cgroups, not
 // the docker container scopes). Covered instead by an inline `docker stats` block in
