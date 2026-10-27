@@ -90,6 +90,19 @@ python3 $M <job> ownership       # [--fix --said "..."] chowns what the run left
 - Undo is per migration and in reverse order; the job's `undo` text is recorded in the ledger at
   apply time.
 
+### Where the pre-upgrade snapshot lives (podcast_scraper prod, 2026-10-27)
+
+- `upgrade run` copies the whole corpus first, to `/app/.corpus-upgrade-backup-<version>-<utc>`
+  inside `compose-api-1` (e.g. `/app/.corpus-upgrade-backup-2.7.29-20261027T101817Z`). Without
+  `snapshot_dir` that path is in the container's **writable layer, not a mount**.
+- So a deploy that recreates the container **deletes it silently**. "Rollback = this directory"
+  holds only until the next deploy; after one, the rollback is the per-migration undo (receipts
+  and `.podcast_scraper/upgrade-backups/<tag>/`, on the corpus mount) or the daily
+  `snapshot-prod-<date>` in the backup repo. Say which one applies when you report the apply.
+- Each run needs about the corpus's size in free disk for that copy: **30 GB** on 2026-10-27.
+  The job's `need_gb` is that number; raise it as the corpus grows. Delete a run's snapshot only
+  with the operator's go, per path, once its verify passed and a daily snapshot after it exists.
+
 ## The outcome hook (podcast_scraper migrations 0031 on)
 
 From 0031, `upgrade run` applies a migration only as it was measured on its snapshot clone (method
