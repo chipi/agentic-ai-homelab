@@ -395,6 +395,9 @@ curl -s -c $CJ -b $CJ -o /dev/null -H 'Content-Type: application/json' -H "X-CSR
   -d "{\"email\":\"$DJANGO_SUPERUSER_EMAIL\",\"password\":\"$DJANGO_SUPERUSER_PASSWORD\"}" $GT/_allauth/browser/v1/auth/login
 CSRF=$(awk '$6=="csrftoken"{print $7}' $CJ)
 S(){ curl -s -c $CJ -b $CJ -H "X-CSRFToken: $CSRF" -H "Referer: $GT/" -H 'Content-Type: application/json' "$@"; }
+# Porting this to Python urllib: GlitchTip marks its cookies Secure (GLITCHTIP_DOMAIN is https)
+# and http.cookiejar won't send them back over http://127.0.0.1 -> CSRF 403. curl does send them
+# (verified 2026-10-27); in Python clear `cookie.secure` on the jar's cookies after each call.
 
 S -X PUT -d '{"status":"resolved"}' "$GT/api/0/organizations/homelab/issues/?id=<id>"   # or "ignored" / "unresolved"
 S -X DELETE "$GT/api/0/organizations/homelab/issues/?id=<id>"
@@ -427,6 +430,7 @@ Prod and dev projects (dev runs never report into a prod project):
 | www.humancopilot.eu | `humancopilot-web` (34, since 2026-10-18): CSP violation reports on the **security endpoint** `/api/34/security/?glitchtip_key=<public key>`, through the site's ingest-only vhost `telemetry.humancopilot.eu`. A report needs every browser field, `disposition` included, or GlitchTip answers 422 | — |
 | www.devwhateverops.com | `devwhateverops-web` (35, since 2026-10-18): CSP violation reports, same mechanism, through the same `telemetry.humancopilot.eu` vhost (`/api/35/security/`). Blob-worker and inline-style reports from browser extensions are expected noise; resolve, don't loosen the CSP | — |
 | evals.humancopilot.eu, catalog.evals.humancopilot.eu | `evals-web` (36, since 2026-10-22): CSP violation reports from both hosts into one project, same mechanism, through the same `telemetry.humancopilot.eu` vhost (`/api/36/security/`). Report URI in chipi/eval-harness `infra/sites/*.cfg`; no real reports until those sites go live | — |
+| eval-harness inspector (prod-podcast) | `evals-inspector` (37, since 2026-10-27): the inspector backend's errors via the Sentry SDK (`environment=prod`, `release=sha-<7>`). DSN (tailnet TLS host form) in `/srv/evals/observability.env` on the VPS; master copy `~/glitchtip/evals-inspector.env` on the mini (mode 600). Traces: service `evals-inspector` in VictoriaTraces | — |
 
 The full list, with what reports into each project, is `infra/glitchtip/projects.json`;
 `python3 infra/glitchtip/projects.py` (on the mini) diffs it against the live org and

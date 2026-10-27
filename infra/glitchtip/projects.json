@@ -138,6 +138,12 @@
       "team": "podcast",
       "platform": "javascript",
       "reports": "evals.humancopilot.eu and catalog.evals.humancopilot.eu CSP violation reports (GlitchTip security endpoint, via the shared telemetry.humancopilot.eu vhost); one project for both hosts, report URI in chipi/eval-harness infra/sites/*.cfg"
+    },
+    {
+      "slug": "evals-inspector",
+      "team": "podcast",
+      "platform": "python",
+      "reports": "the eval-harness inspector backend on prod-podcast (Sentry SDK, environment prod, release sha-<7>); DSN in /srv/evals/observability.env on the VPS, master copy ~/glitchtip/evals-inspector.env on the mini"
     }
   ]
 }
