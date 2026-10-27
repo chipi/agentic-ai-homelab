@@ -141,7 +141,8 @@ def cmd_preflight(job: Job, _: argparse.Namespace) -> int:
 
 
 def cmd_dry_run(job: Job, _: argparse.Namespace) -> int:
-    r = job.ssh(job.cli("upgrade run --dry-run"), timeout=3600)
+    to = f" --to {shlex.quote(job.c['to_version'])}" if job.c.get("to_version") else ""
+    r = job.ssh(job.cli(f"upgrade run --dry-run{to}"), timeout=3600)
     text = "\n".join(ln for ln in (r.stdout + r.stderr).splitlines() if "otel_init" not in ln)
     p = job.save("dry-run", text)
     print(text)
@@ -164,8 +165,9 @@ def cmd_apply(job: Job, a: argparse.Namespace) -> int:
     marker = f"/tmp/upgrade-{ts}.start"
     snap = f" --snapshot-dir {shlex.quote(c['snapshot_dir'])}" if c.get("snapshot_dir") else ""
     accept = f" --accept-plan-diff {shlex.quote(a.accept_plan_diff)}" if a.accept_plan_diff else ""
+    to = f" --to {shlex.quote(c['to_version'])}" if c.get("to_version") else ""
     run = (f"{c['cli']} upgrade run --yes --corpus-dir {shlex.quote(c['corpus_dir_in_container'])}"
-           f"{snap}{accept}")
+           f"{to}{snap}{accept}")
     remote = (f"touch {marker} && docker exec -d {c['container']} sh -c "
               + shlex.quote(f"touch {marker}; {run} > {log} 2>&1; echo EXIT=$? >> {log}"))
     if a.dry_run:

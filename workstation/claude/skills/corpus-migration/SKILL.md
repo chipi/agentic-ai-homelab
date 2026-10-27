@@ -60,7 +60,11 @@ is the 2026-10-17 0030-alone run. The held naming re-derivation is `0032_naming_
 (it was 0031 until 2026-10-18); `0031_named_voices_shown` is a different migration, run only
 with its own outcome table, reviewer verdict and operator go.
 
-Optional `snapshot_dir` passes `--snapshot-dir`.
+Optional `snapshot_dir` passes `--snapshot-dir`. Optional `to_version` passes
+`--to <version>` to both dry-run and apply, so a job upgrades to exactly that
+version instead of running every pending migration in one go — used when a plan
+needs migrations applied one at a time (e.g. the 2026-10-27 0034/0035/0036 run,
+one job per migration).
 
 ## Run, in order
 

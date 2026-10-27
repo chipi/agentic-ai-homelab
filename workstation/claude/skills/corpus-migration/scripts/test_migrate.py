@@ -65,6 +65,21 @@ class ApplyTests(unittest.TestCase):
                 migrate.cmd_apply(job, args)
             self.assertNotIn("--accept-plan-diff", out.getvalue())
 
+    def test_to_version_reaches_the_run_command_only_when_set(self) -> None:
+        import argparse, contextlib, io, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            job = self._job(Path(d))
+            args = argparse.Namespace(said="go", dry_run=True, accept_plan_diff=None)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(migrate.cmd_apply(job, args), 0)
+            self.assertNotIn(" --to ", out.getvalue())
+            job.c["to_version"] = "2.7.28"
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(migrate.cmd_apply(job, args), 0)
+            self.assertIn(" --to 2.7.28 ", out.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
