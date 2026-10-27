@@ -1,6 +1,6 @@
 ---
 name: fleet-stats
-description: Show per-subagent invocation counts and token/cost spread by model tier from the current Claude Code transcript — proves whether the model-tiered fleet (haiku/sonnet/opus) actually spreads token cost. Use to see who was invoked, how often, tokens per agent/model, and escalation rate. Local and read-only (no Grafana/OTEL needed).
+description: Show per-subagent invocation counts and token/cost spread by model tier from the current Claude Code transcript — proves whether the model-tiered fleet (haiku/sonnet/fable) actually spreads token cost. Use to see who was invoked, how often, tokens per agent/model, and escalation rate. Local and read-only (no Grafana/OTEL needed).
 ---
 
 # fleet-stats
@@ -26,8 +26,8 @@ invocation) for `totalTokens` + `resolvedModel`, then walks
 
 - **invocations per agent** — who ran, how many times, on which model, tokens.
 - **token + cost spread by model tier** — the money shot: `haiku`/`sonnet` should
-  carry the volume; `opus` should be a small slice (advisor escalations only). If
-  `opus` dominates, the tiering isn't paying off.
+  carry the volume; `fable` should be a small slice (advisor escalations only). If
+  `fable` dominates, the tiering isn't paying off.
 - **escalation** — nested executor→advisor calls.
 - **delegation diagram** — mermaid; who called whom.
 
@@ -41,7 +41,7 @@ main transcript. A **nested** call — an executor consulting the `advisor` — 
 as a separate sub-agent, recorded in `<session>/subagents/agent-<id>.jsonl`, and
 never lands in the main transcript. v1 read only the main transcript, so nested
 escalations were **invisible**: escalation showed `0 nested` and the advisor's
-(opus) tokens went uncounted entirely (they do *not* roll into the parent — a
+(fable) tokens went uncounted entirely (they do *not* roll into the parent — a
 parent's `totalTokens` is its own final-context, disjoint from the child's).
 
 v2 walks the `subagents/` dir too:

@@ -21,7 +21,7 @@ scope, decompose, and freeze the contract so the implementer executes cleanly.
 - **Do exactly what's asked** (rule #7) — no scope creep. Flag adjacent
   improvements as questions; don't fold them in.
 - **Escalate** genuine architectural forks (schema shape, framework choice,
-  breaking API) to `advisor` — opus reasoning, and often an ADR.
+  breaking API) to `advisor` — fable reasoning, and often an ADR.
 - Read-only: you produce a plan, not edits.
 
 ## Return

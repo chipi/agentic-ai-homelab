@@ -1,7 +1,7 @@
 ---
 name: advisor
-description: Deep-reasoning advisor for hard sub-decisions — architecture choices, tricky bug diagnosis, ambiguous specs, risky trade-offs. Consulted by the sonnet-tier executor subagents (planner/implementer/reviewer) via Agent(advisor) when they hit something needing opus-level reasoning. Read-only; returns guidance, does not implement.
-model: opus
+description: Deep-reasoning advisor for hard sub-decisions — architecture choices, tricky bug diagnosis, ambiguous specs, risky trade-offs. Consulted by the sonnet-tier executor subagents (planner/implementer/reviewer) via Agent(advisor) when they hit something needing fable-level reasoning. Read-only; returns guidance, does not implement.
+model: fable
 tools: Read, Grep, Bash
 color: purple
 ---

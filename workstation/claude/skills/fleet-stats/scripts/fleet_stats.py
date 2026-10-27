@@ -4,7 +4,7 @@ transcript. Proves the cost-spread of a model-tiered subagent fleet, fully local
 (no Grafana / OTEL needed).
 
 v2 descends into the session's subagents/ transcripts, so nested escalations (an
-executor consulting the opus advisor) land in the right model tier instead of being
+executor consulting the fable advisor) land in the right model tier instead of being
 invisible. See "How nesting is counted" in SKILL.md.
 
 Usage: fleet_stats.py [transcript.jsonl]   # defaults to the latest for this cwd
@@ -12,9 +12,10 @@ Usage: fleet_stats.py [transcript.jsonl]   # defaults to the latest for this cwd
 import json, sys, glob, os
 from collections import defaultdict
 
-# Approximate output-blended $/Mtok — UPDATE to current pricing (see the claude-api
+# Approximate base-input $/Mtok — UPDATE to current pricing (see the claude-api
 # skill). Tokens-per-model is the real signal; dollars are a rough guide.
-RATES = {"opus": 15.0, "sonnet": 3.0, "haiku": 0.8, "fable": 3.0}
+# fable = Fable 5 at $10/MTok in, $50 out (platform.claude.com pricing, 2026-10-27).
+RATES = {"opus": 15.0, "sonnet": 3.0, "haiku": 0.8, "fable": 10.0}
 
 
 def find_transcript():
