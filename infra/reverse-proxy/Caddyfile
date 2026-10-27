@@ -75,3 +75,11 @@ https://compare.tail6d0ed4.ts.net {
 	# Streamlit is websocket-driven; Caddy's reverse_proxy upgrades automatically.
 	reverse_proxy evals-compare:8501
 }
+
+# Home Assistant — chipi/home-automation, deploy/homelab/. HA trusts this proxy's
+# X-Forwarded-For only from its own network (trusted_proxies = home-automation_default).
+https://homeassistant.tail6d0ed4.ts.net {
+	bind tailscale/homeassistant
+	# HA's frontend is websocket-driven; Caddy's reverse_proxy upgrades automatically.
+	reverse_proxy home-assistant:8123
+}

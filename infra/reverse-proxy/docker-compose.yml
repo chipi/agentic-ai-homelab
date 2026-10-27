@@ -22,6 +22,7 @@ services:
       - umami_default
       - glitchtip_default
       - evals_default
+      - home-automation_default
 
 volumes:
   caddy_data:
@@ -39,4 +40,6 @@ networks:
   glitchtip_default:
     external: true
   evals_default:
+    external: true
+  home-automation_default:
     external: true
