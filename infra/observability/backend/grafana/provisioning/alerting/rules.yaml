@@ -322,7 +322,7 @@ groups:
         noDataState: OK
         labels: { severity: critical, kind: infra }
         annotations:
-          summary: "OOM kill(s) on {{ $labels.instance }} in the last 15m — the kernel shot a process. Check dmesg / which service died; this is the DGX-wedge signature."
+          summary: "OOM kill(s) on {{ $labels.instance }} in the last 15m — the kernel shot a process. On prod, `Container near its memory limit` / `Container crashlooping` name the container and app; else check dmesg. On the DGX this is the wedge signature."
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }
@@ -1665,10 +1665,14 @@ groups:
       # counting changes is a direct crashloop detector, independent of whether the app
       # has metrics, logs, or even manages to execute a single instruction.
       #
-      # Threshold >3 in 15m, measured not guessed: a normal deploy produces exactly ONE
-      # restart per container (verified against the 2026-09-16 deploy — every container
-      # showed changes()==1 over 3h). A crashloop produces dozens. The gap between 1 and
-      # "dozens" is wide enough that this will not page on ordinary deploys.
+      # Counts container INSTANCES, not changes (2026-10-27). cadvisor labels each start
+      # with its cgroup `id`, so every restart is a NEW series: changes() inside one series
+      # is never above 1, and the old `max by (name) (changes(...)) > 3` never fired for
+      # evals-inspector while Docker restarted it every ~5 min after OOM kills (281+
+      # restarts, 2026-10-26/27). Replay of 7 days (1-min evals, for 5m): old rule 0
+      # firings; this one fires once for evals-inspector (10-26 07:48) and stays firing.
+      # Ordinary deploys peak at 2 instances per 15m, so >=3 does not page on a deploy
+      # (>=4 flapped 24 times on the same loop). `app` is the compose project.
       - uid: ingest-container-crashloop
         title: "Container crashlooping on prod (restart storm)"
         condition: threshold
@@ -1677,13 +1681,13 @@ groups:
         execErrState: Alerting
         labels: { severity: critical, kind: infra }
         annotations:
-          summary: "{{ $labels.name }} on prod-podcast restarted >3 times in 15m — a crashloop, not a deploy. If it is an nginx/web container, suspect its OWN api container is dead rather than nginx itself: nginx resolves proxy_pass at startup. Exited(127) with no app logs means runc failed a MOUNT — after a reboot that is /dev/shm, so run restage-prod-secrets.yml (surfaces: all). See DEPLOY_GOTCHAS.md §1b."
+          summary: "{{ $labels.name }} (app {{ $labels.app }}) on prod-podcast ran as 3+ container instances in 15m — a crashloop, not a deploy. If it was OOM-killed, `Container near its memory limit` names it too. If it is an nginx/web container, suspect its OWN api container is dead rather than nginx itself: nginx resolves proxy_pass at startup. Exited(127) with no app logs means runc failed a MOUNT — after a reboot that is /dev/shm, so run restage-prod-secrets.yml (surfaces: all). See DEPLOY_GOTCHAS.md §1b."
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'max by (name) (changes(container_start_time_seconds{instance="prod-podcast",name!=""}[15m]))'
+              expr: 'count by (name, app) (label_replace(count_over_time(container_start_time_seconds{instance="prod-podcast",name!=""}[15m]), "app", "$1", "container_label_com_docker_compose_project", "(.*)"))'
               instant: true
               queryType: instant
           - refId: threshold
@@ -1691,7 +1695,39 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [3] } }]
+              conditions: [{ evaluator: { type: gt, params: [2] } }]
+
+      # --- Container near its memory limit (prod) ---------------------------------
+      # Names the APP before (or while) the kernel OOM-kills a container at its cgroup
+      # limit. `Kernel OOM killer fired` is host-wide (node_vmstat_oom_kill) and cannot
+      # say which container; cadvisor's container_oom_events_total stayed 0 for
+      # evals-inspector while the kernel killed it every ~5 min, so it cannot either.
+      # Peak working set over 15m / the container's own limit (containers with a limit
+      # only). Replay of 7 days (1-min evals, for 10m): evals-inspector 5 firings (its
+      # loop, 10-26) and orrery-web once (10-22 11:30, 98.6% of its 192 MiB) — a real
+      # near-miss; nothing else passed 69%.
+      - uid: prod-container-mem-near-limit
+        title: "Container near its memory limit on prod (>90%)"
+        condition: threshold
+        for: 10m
+        noDataState: OK
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "{{ $labels.name }} (app {{ $labels.app }}) on prod-podcast peaked above 90% of its memory limit for 10m — the kernel kills it at 100%. Raise its mem_limit in that app's compose or cut what it loads."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max by (name, app) (label_replace(max_over_time(container_memory_working_set_bytes{instance="prod-podcast",name!=""}[15m]), "app", "$1", "container_label_com_docker_compose_project", "(.*)") / on (id, name) group_left label_replace(container_spec_memory_limit_bytes{instance="prod-podcast",name!=""} > 0, "app", "$1", "container_label_com_docker_compose_project", "(.*)"))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.9] } }]
 
       # --- prod logs dark ---------------------------------------------------------
       # Catches TOTAL loss of prod logs. Be clear about what it does NOT catch:
