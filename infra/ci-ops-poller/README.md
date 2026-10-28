@@ -12,19 +12,23 @@ neutral event emission). Tier-1 contract lives in
 
 ## What it does, each poll (~15 min)
 
-1. Reads a persisted cursor (`state.json`) and queries
-   `GET /repos/<repo>/actions/runs?created=>{since}` (paginated). The repo has
+1. For each repo in `GITHUB_REPOS` (`chipi/podcast_scraper` for CI, and `chipi/infra`,
+   where the prod workflows run since the 2026-10-28 cutover), reads that repo's
+   persisted cursor (`state.json`) and queries
+   `GET /repos/<repo>/actions/runs?created=>{since}` (paginated). The repos have
    thousands of runs — it **never full-scans**; the cursor + a 2h overlap window
-   bound every query.
+   bound every query. A repo that errors (a 404 while the token can't see it, a rate
+   limit) keeps its cursor and is retried next poll; the other repos still run.
 2. For each **completed** run, classifies by workflow file:
    - `infra-drift.yml` → **`drift`**
    - `drill-*.yml` → **`drill`**
    - other `.github/workflows/*` → **`ci_run`**
-   - the four Tier-1 workflows (deploy-prod/player, backup-corpus/player) → **skipped**
+   - the eight Tier-1 workflows that call `emit-ops-event` (deploy-prod/player/operator/
+     litellm/config, backup-corpus/player-appdata/operator-appdata) → **skipped**
      (they're already emitted via push — skipping avoids double-counting).
 3. Emits `ops_event/v1` to `POST :9428/insert/jsonline` with
    `duration_ms` (`updated_at − run_started_at`), `queue_ms`
-   (`run_started_at − created_at`), plus `workflow, branch, event, sha, run_id,
+   (`run_started_at − created_at`), plus `repo, workflow, branch, event, sha, run_id,
    attempt, status`.
 4. **Dedups on `run_id:run_attempt`** (VictoriaLogs is append-only). A re-run
    bumps `run_attempt` → a new event = the flaky signal.

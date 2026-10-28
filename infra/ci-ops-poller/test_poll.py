@@ -237,26 +237,31 @@ def _make_run(**over):
 
 class TestPollOnce:
 
+    REPO = "chipi/podcast_scraper"
+
     def _run(self, fake_runs, state=None, emit_raises=None):
-        """Run poll_once with fetch_runs and emit mocked; save_state captured."""
+        """Run poll_once over one repo with fetch_runs and emit mocked. `state` is that
+        repo's {"since", "seen"}; returns (emit mock, the repo's saved state)."""
         if state is None:
             state = {"since": None, "seen": {}}
+        full = {"repos": {self.REPO: state}}
         saved = {}
 
         def fake_save(s):
-            saved.update(s)
+            saved.update(s["repos"].get(self.REPO, {}))
 
-        with patch.object(poll, "fetch_runs", return_value=fake_runs), \
+        with patch.object(poll, "REPOS", [self.REPO]), \
+             patch.object(poll, "fetch_runs", return_value=fake_runs), \
              patch.object(poll, "emit") as mock_emit, \
              patch.object(poll, "save_state", side_effect=fake_save):
             if emit_raises:
                 mock_emit.side_effect = emit_raises
                 try:
-                    poll.poll_once(state)
+                    poll.poll_once(full)
                 except Exception:
                     pass
             else:
-                poll.poll_once(state)
+                poll.poll_once(full)
             return mock_emit, saved
 
     # -- happy path ---------------------------------------------------------
@@ -347,33 +352,89 @@ class TestPollOnce:
 
     # -- API-error path: must degrade, not crash ----------------------------
 
-    def test_fetch_runs_http_error_propagates(self):
-        """fetch_runs raising HTTPError must surface (caller in main() catches it).
-        poll_once itself does not swallow it — that is the correct contract."""
+    def test_http_error_on_one_repo_does_not_stop_the_others(self):
+        """A repo the token cannot see yet (404) or a rate limit (403) is logged and keeps
+        its old cursor, so its window is re-scanned next poll; the other repos still run."""
         import urllib.error
         http_err = urllib.error.HTTPError(
-            url="https://api.github.com/...",
-            code=403,
-            msg="Forbidden",
-            hdrs=None,  # type: ignore[arg-type]
-            fp=None,
+            url="https://api.github.com/...", code=404, msg="Not Found",
+            hdrs=None, fp=None,  # type: ignore[arg-type]
         )
-        state = {"since": None, "seen": {}}
-        with patch.object(poll, "fetch_runs", side_effect=http_err), \
+        old = {"since": "2026-10-28T10:00:00Z", "seen": {}}
+        state = {"repos": {"chipi/infra": dict(old)}}
+
+        def fake_fetch(repo, since_iso):
+            if repo == "chipi/infra":
+                raise http_err
+            return [_make_run()]
+
+        with patch.object(poll, "REPOS", ["chipi/infra", "chipi/podcast_scraper"]), \
+             patch.object(poll, "fetch_runs", side_effect=fake_fetch), \
+             patch.object(poll, "emit") as mock_emit, \
+             patch.object(poll, "save_state"):
+            poll.poll_once(state)
+        assert state["repos"]["chipi/infra"] == old
+        events = mock_emit.call_args[0][0]
+        assert [e["repo"] for e in events] == ["chipi/podcast_scraper"]
+
+    def test_each_repo_polled_with_its_own_cursor(self):
+        state = {"repos": {"a/x": {"since": "2026-10-28T10:00:00Z", "seen": {}},
+                           "b/y": {"since": "2026-10-28T11:00:00Z", "seen": {}}}}
+        calls = []
+        with patch.object(poll, "REPOS", ["a/x", "b/y"]), \
+             patch.object(poll, "OVERLAP_MIN", 0), \
+             patch.object(poll, "fetch_runs", side_effect=lambda r, s: calls.append((r, s)) or []), \
              patch.object(poll, "emit"), \
              patch.object(poll, "save_state"):
-            try:
-                poll.poll_once(state)
-                raised = False
-            except urllib.error.HTTPError:
-                raised = True
-        assert raised, "HTTPError from fetch_runs must not be swallowed by poll_once"
+            poll.poll_once(state)
+        assert calls == [("a/x", "2026-10-28T10:00:00Z"), ("b/y", "2026-10-28T11:00:00Z")]
+
+    def test_events_carry_their_repo(self):
+        with patch.object(poll, "REPOS", ["chipi/infra"]), \
+             patch.object(poll, "fetch_runs", return_value=[_make_run(path=".github/workflows/infra-drift.yml")]), \
+             patch.object(poll, "emit") as mock_emit, \
+             patch.object(poll, "save_state"):
+            poll.poll_once({"repos": {}})
+        ev = mock_emit.call_args[0][0][0]
+        assert (ev["repo"], ev["event_type"]) == ("chipi/infra", "drift")
 
     def test_multiple_runs_all_emitted(self):
         runs = [_make_run(id=i, run_attempt=1) for i in range(1, 4)]
         mock_emit, _ = self._run(runs)
         events = mock_emit.call_args[0][0]
         assert len(events) == 3
+
+
+class TestStateMigration:
+    """A single-repo state file becomes the first repo's entry: no re-scan, no re-emit."""
+
+    def test_legacy_state_becomes_first_repo(self, tmp_path):
+        f = tmp_path / "state.json"
+        f.write_text(json.dumps({"since": "2026-10-28T19:00:00Z", "seen": {"1:1": "2026-10-28T18:00:00Z"}}))
+        with patch.object(poll, "STATE_FILE", str(f)), \
+             patch.object(poll, "REPOS", ["chipi/podcast_scraper", "chipi/infra"]):
+            st = poll.load_state()
+        assert st == {"repos": {"chipi/podcast_scraper": {"since": "2026-10-28T19:00:00Z",
+                                                          "seen": {"1:1": "2026-10-28T18:00:00Z"}}}}
+
+    def test_missing_state_file_is_empty(self, tmp_path):
+        with patch.object(poll, "STATE_FILE", str(tmp_path / "none.json")):
+            assert poll.load_state() == {"repos": {}}
+
+    def test_new_shape_loaded_as_is(self, tmp_path):
+        f = tmp_path / "state.json"
+        new = {"repos": {"chipi/infra": {"since": None, "seen": {}}}}
+        f.write_text(json.dumps(new))
+        with patch.object(poll, "STATE_FILE", str(f)):
+            assert poll.load_state() == new
+
+
+def test_default_skip_covers_every_push_path_workflow():
+    """The eight workflows that call emit-ops-event (chipi/infra) push their own events."""
+    for wf in ("deploy-prod.yml", "deploy-player.yml", "deploy-operator.yml", "deploy-litellm.yml",
+               "deploy-config.yml", "backup-corpus-prod.yml", "backup-player-appdata-prod.yml",
+               "backup-operator-appdata-prod.yml"):
+        assert poll.classify(".github/workflows/" + wf) is None, wf
 
 
 if __name__ == "__main__":

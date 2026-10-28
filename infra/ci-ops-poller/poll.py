@@ -52,7 +52,10 @@ def load_env():
 
 
 CFG = load_env()
-REPO = CFG.get("GITHUB_REPO", "chipi/podcast_scraper")
+# Since the 2026-10-28 cutover the prod workflows (drift, drill, deploys, backups, ops
+# health) run on chipi/infra and public keeps CI only, so both repos are polled.
+# GITHUB_REPOS wins; GITHUB_REPO is the old single-repo key.
+REPOS = [r.strip() for r in CFG.get("GITHUB_REPOS", CFG.get("GITHUB_REPO", "chipi/podcast_scraper")).split(",") if r.strip()]
 TOKEN = CFG.get("GITHUB_TOKEN", "")
 VLOGS = CFG.get("VLOGS_URL", "http://localhost:9428").rstrip("/")
 INTERVAL = int(CFG.get("POLL_INTERVAL", "900"))          # seconds between polls
@@ -66,9 +69,13 @@ STATE_FILE = CFG.get("STATE_FILE", os.path.join(HERE, "state.json"))
 ONCE = "--once" in sys.argv or CFG.get("POLL_ONCE") == "1"
 
 # Workflows already covered by the Tier-1 push path — skip so we don't double-count.
+# These are the eight that call the emit-ops-event action (the same set in chipi/infra and,
+# before the cutover, in public); the first four-name list let the other four through as
+# ci_run.
 SKIP = set(w.strip() for w in CFG.get(
     "SKIP_WORKFLOWS",
-    "deploy-prod.yml,deploy-player.yml,backup-corpus-prod.yml,backup-player-appdata-prod.yml",
+    "deploy-prod.yml,deploy-player.yml,deploy-operator.yml,deploy-litellm.yml,deploy-config.yml,"
+    "backup-corpus-prod.yml,backup-player-appdata-prod.yml,backup-operator-appdata-prod.yml",
 ).split(",") if w.strip())
 
 
@@ -104,11 +111,11 @@ def gh_get(path):
         return json.load(r)
 
 
-def fetch_runs(since_iso):
-    """All runs created since `since_iso`, paginated (newest-first from the API)."""
+def fetch_runs(repo, since_iso):
+    """All runs of `repo` created since `since_iso`, paginated (newest-first from the API)."""
     runs, page = [], 1
     while page <= 20:                    # 20*100 = 2000 run safety cap per poll
-        q = f"/repos/{REPO}/actions/runs?created=%3E{since_iso}&per_page=100&page={page}"
+        q = f"/repos/{repo}/actions/runs?created=%3E{since_iso}&per_page=100&page={page}"
         data = gh_get(q)
         batch = data.get("workflow_runs", [])
         runs.extend(batch)
@@ -118,7 +125,7 @@ def fetch_runs(since_iso):
     return runs
 
 
-def to_event(run, event_type):
+def to_event(run, event_type, repo=None):
     created = parse_ts(run.get("created_at"))
     started = parse_ts(run.get("run_started_at"))
     updated = parse_ts(run.get("updated_at"))
@@ -126,6 +133,7 @@ def to_event(run, event_type):
         "_time": run.get("updated_at") or run.get("created_at"),
         "schema": "ops_event/v1",
         "event_type": event_type,
+        "repo": repo or REPOS[0],
         "app": APP,
         "env": ENV,
         "service": SERVICE,
@@ -161,11 +169,17 @@ def emit(events):
 
 
 def load_state():
+    """{"repos": {repo: {"since", "seen"}}}. A single-repo state file ({"since", "seen"}
+    at the top) becomes the first repo's entry, so an upgrade doesn't re-scan or re-emit."""
     try:
         with open(STATE_FILE) as f:
-            return json.load(f)
+            state = json.load(f)
     except (OSError, ValueError):
-        return {"since": None, "seen": {}}
+        state = {}
+    if "repos" not in state:
+        legacy = {k: state[k] for k in ("since", "seen") if k in state}
+        state = {"repos": {REPOS[0]: legacy} if legacy else {}}
+    return state
 
 
 def save_state(state):
@@ -175,15 +189,15 @@ def save_state(state):
     os.replace(tmp, STATE_FILE)
 
 
-def poll_once(state):
-    now = datetime.now(timezone.utc)
-    since_dt = parse_ts(state.get("since")) or (now - timedelta(hours=LOOKBACK_H))
+def poll_repo(repo, rstate, now):
+    """One repo: fetch, classify, emit. Returns the repo's updated state."""
+    since_dt = parse_ts(rstate.get("since")) or (now - timedelta(hours=LOOKBACK_H))
     # re-scan an overlap window to catch runs that completed after we last saw them
     since_dt = min(since_dt, now - timedelta(minutes=OVERLAP_MIN))
     since_iso = since_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    seen = state.get("seen", {})
-    runs = fetch_runs(since_iso)
+    seen = rstate.get("seen", {})
+    runs = fetch_runs(repo, since_iso)
     events, emitted = [], 0
     for run in runs:
         if run.get("status") != "completed":
@@ -194,7 +208,7 @@ def poll_once(state):
         key = f"{run.get('id')}:{run.get('run_attempt')}"
         if key in seen:
             continue
-        events.append(to_event(run, et))
+        events.append(to_event(run, et, repo))
         seen[key] = run.get("created_at")
         emitted += 1
 
@@ -204,11 +218,23 @@ def poll_once(state):
     cutoff = (now - timedelta(days=SEEN_TTL_DAYS))
     seen = {k: v for k, v in seen.items()
             if (parse_ts(v) or now) >= cutoff}
-    state["seen"] = seen
-    state["since"] = (now - timedelta(minutes=OVERLAP_MIN)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    save_state(state)
-    print(f"[{now.isoformat(timespec='seconds')}] scanned={len(runs)} "
+    print(f"[{now.isoformat(timespec='seconds')}] {repo} scanned={len(runs)} "
           f"emitted={emitted} seen={len(seen)}", flush=True)
+    return {"seen": seen, "since": (now - timedelta(minutes=OVERLAP_MIN)).strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+
+def poll_once(state):
+    """Every repo in turn. A repo that fails (a 404 while the token can't see it yet, a
+    rate limit) keeps its old cursor, so its window is picked up again next poll, and
+    does not stop the others."""
+    now = datetime.now(timezone.utc)
+    repos = state.setdefault("repos", {})
+    for repo in REPOS:
+        try:
+            repos[repo] = poll_repo(repo, repos.get(repo, {}), now)
+        except urllib.error.HTTPError as e:
+            print(f"{repo}: HTTPError {e.code}: {e.reason}", file=sys.stderr, flush=True)
+        save_state(state)
 
 
 def main():
