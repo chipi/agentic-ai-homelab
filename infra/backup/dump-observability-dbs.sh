@@ -66,8 +66,19 @@ if $D ps --format '{{.Names}}' | grep -qx "$HA"; then
   else echo "FAIL $HA -> archive errored"; rm -f "$out"; rc=1; fi
 else echo "SKIP $HA -> not running"; fi
 
+# Mosquitto (chipi/home-automation): /mosquitto/data (mosquitto.db, which the broker
+# replaces atomically on autosave) and /mosquitto/config (passwd: hashed users).
+MQ=mosquitto
+out="$BACKUP_DIR/${MQ}-${STAMP}.tar.gz"
+if $D ps --format '{{.Names}}' | grep -qx "$MQ"; then
+  if $D exec "$MQ" tar -czf - -C /mosquitto data config > "$out" 2>/dev/null; then
+    sz=$(wc -c < "$out" | tr -d ' ')
+    if [ "$sz" -gt 100 ]; then echo "OK   $MQ -> $out ($sz bytes)"; else echo "FAIL $MQ -> archive too small ($sz)"; rm -f "$out"; rc=1; fi
+  else echo "FAIL $MQ -> archive errored"; rm -f "$out"; rc=1; fi
+else echo "SKIP $MQ -> not running"; fi
+
 # rotation: keep the last $KEEP dumps per container
-for c in "$HA"; do
+for c in "$HA" "$MQ"; do
   ls -1t "$BACKUP_DIR/${c}-"*.tar.gz 2>/dev/null | tail -n +$((KEEP+1)) | while read -r f; do rm -f "$f"; done
 done
 for c in glitchtip-postgres-1 umami-db langfuse-postgres-1 litellm-postgres; do
