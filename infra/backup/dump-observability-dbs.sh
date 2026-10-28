@@ -14,7 +14,11 @@ KEEP="${DB_BACKUP_KEEP:-14}"
 PATH=/usr/local/bin:/usr/bin:/bin:$PATH
 D="${DB_BACKUP_DOCKER:-sudo -u _dockerhost env PATH=$PATH HOME=/var/_dockerhost docker}"
 STAMP=$(date +%Y%m%d-%H%M%S)
+# The dumps and HA's .storage hold credentials: owner-only, never world-readable (the mini
+# has other accounts, e.g. other agents' `claude`).
+umask 077
 mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR"
 
 # container : pg-user : db
 DBS="glitchtip-postgres-1:glitchtip:glitchtip umami-db:umami:umami langfuse-postgres-1:postgres:postgres litellm-postgres:litellm:litellm"
