@@ -60,7 +60,24 @@ while true; do
   COMPOSE=$($D ps -a --format '{{.Label "com.docker.compose.project"}}|{{.State}}|{{.Status}}' 2>/dev/null \
     | awk -F'|' '$1!=""{a[$1]++; if($2=="running")r[$1]++; else if($3 ~ /^Exited \(0\)/)e0[$1]++}
         END{for(p in a){run=r[p]+0; tot=a[p]-(e0[p]+0); if(run==0)tot=a[p]; printf "%s %d %d\n",p,run,tot}}')
+  # VM outbound health. The VM's network is lima's `limactl usernet` (gvisor-tap-vsock
+  # v0.8.9), whose TCP forwarder admits only 10 half-open outbound connections and dials
+  # without a timeout: one container retrying ~10 unreachable hosts blocks every new
+  # outbound connection from the engine (2026-10-28: home-assistant polling devices at
+  # their old addresses, ~15 min of no egress for delivery/LiteLLM/Alloy). Fixed upstream
+  # in gvisor-tap-vsock 0.9.0, not yet in a lima release: agentic-ai-homelab#118.
+  # SYN_SENT is counted every loop; the in-guest connect probe every 3rd loop (~1 min).
+  UPID=$(pgrep -f 'limactl usernet' | head -1)
+  SYN=""; [ -n "$UPID" ] && SYN=$(sudo -n lsof -nP -a -p "$UPID" -iTCP -sTCP:SYN_SENT 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
+  EGRESS=""
+  if [ $(( loop % 3 )) -eq 1 ]; then
+    EGRESS=$(sudo -n -u _dockerhost env HOME=/var/_dockerhost PATH=/usr/local/bin:$PATH \
+      colima ssh -- sh -c 'for t in internet:1.1.1.1:443 lan:192.168.0.1:443; do n=${t%%:*}; r=${t#*:}; timeout 4 bash -c "</dev/tcp/${r%:*}/${r#*:}" 2>/dev/null && echo "$n 1" || echo "$n 0"; done' \
+      </dev/null 2>/dev/null | grep -E '^(internet|lan) [01]$')
+  fi
   {
+    [ -n "$SYN" ] && printf 'mini_vm_usernet_syn_sent %s\n' "$SYN"
+    [ -n "$EGRESS" ] && echo "$EGRESS" | while read -r tgt ok; do printf 'mini_vm_egress_ok{target="%s"} %s\n' "$tgt" "$ok"; done
     printf 'mini_cpu_used_percent %s\nmini_mem_used_percent %s\nmini_mem_used_bytes %s\nmini_mem_total_bytes %s\nmini_disk_free_bytes %s\nmini_disk_used_percent %s\nmini_disk_io_bytes_per_sec %s\nmini_disk_tps %s\nmini_load1 %s\nmini_load5 %s\nmini_load15 %s\nmini_swap_used_bytes %s\nmini_uptime_seconds %s\n' \
       "$CPU" "$MEMPCT" "$USED_B" "$TOTAL" "$FREE_B" "$DPCT" "${IOBPS:-0}" "${IOTPS:-0}" "$L1" "$L5" "$L15" "$SWAP_B" "$UP"
     [ -n "$TEMP" ] && printf 'mini_cpu_temp_celsius %s\n' "$TEMP"
