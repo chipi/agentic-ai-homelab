@@ -1,0 +1,608 @@
+{
+  "uid": "home-energy-p1",
+  "title": "Home energy (P1)",
+  "tags": [
+    "home-automation",
+    "home-assistant"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "description": "HomeWizard P1 meter via Home Assistant's /api/prometheus (job=home-assistant, chipi/home-automation). Built 2026-10-28.",
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Power now",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Grid power",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_sensor_power_w{job=\"home-assistant\",entity=\"sensor.p1_meter_power\"}",
+          "legendFormat": "grid",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "description": "P1 meter net power (sensor.p1_meter_power)."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Per phase",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 10,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_sensor_power_w{job=\"home-assistant\",entity=~\"sensor.p1_meter_power_phase_.*\"}",
+          "legendFormat": "{{friendly_name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Scrape up",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"home-assistant\"}",
+          "legendFormat": "up",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Meter last reading",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "time() - max(homeassistant_last_updated_time_seconds{job=\"home-assistant\",entity=\"sensor.p1_meter_power\"})",
+          "legendFormat": "age",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "description": "Seconds since HA last updated the P1 power sensor."
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Grid power and phases",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_sensor_power_w{job=\"home-assistant\",entity=\"sensor.p1_meter_power\"}",
+          "legendFormat": "grid",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "homeassistant_sensor_power_w{job=\"home-assistant\",entity=~\"sensor.p1_meter_power_phase_.*\"}",
+          "legendFormat": "{{friendly_name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "custom": {
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Energy (kWh)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Import / export, last 24 h",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_import\"}[24h])",
+          "legendFormat": "import",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_export\"}[24h])",
+          "legendFormat": "export",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "description": "Energy sensors are total_increasing meter readings (kWh): shown as increase over the window, never as a rate."
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Import / export, last 7 days",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_import\"}[7d])",
+          "legendFormat": "import",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_export\"}[7d])",
+          "legendFormat": "export",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "description": "Energy sensors are total_increasing meter readings (kWh): shown as increase over the window, never as a rate."
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Import / export per day",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_import\"}[$__interval])",
+          "legendFormat": "import",
+          "interval": "1d",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_export\"}[$__interval])",
+          "legendFormat": "export",
+          "interval": "1d",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "barAlignment": -1
+          }
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Energy sensors are total_increasing meter readings (kWh): shown as increase over the window, never as a rate. Buckets are aligned to UTC.",
+      "interval": "1d"
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Import / export per week",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_import\"}[$__interval])",
+          "legendFormat": "import",
+          "interval": "7d",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_export\"}[$__interval])",
+          "legendFormat": "export",
+          "interval": "7d",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "barAlignment": -1
+          }
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Energy sensors are total_increasing meter readings (kWh): shown as increase over the window, never as a rate. Buckets are aligned to UTC.",
+      "interval": "7d"
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Import by tariff, last 24 h",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_import_tariff_1\"}[24h])",
+          "legendFormat": "tariff 1",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_import_tariff_2\"}[24h])",
+          "legendFormat": "tariff 2",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "description": "Energy sensors are total_increasing meter readings (kWh): shown as increase over the window, never as a rate."
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Export by tariff, last 24 h",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_export_tariff_1\"}[24h])",
+          "legendFormat": "tariff 1",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.p1_meter_energy_export_tariff_2\"}[24h])",
+          "legendFormat": "tariff 2",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "description": "Energy sensors are total_increasing meter readings (kWh): shown as increase over the window, never as a rate."
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}
