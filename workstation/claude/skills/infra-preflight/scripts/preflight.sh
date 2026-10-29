@@ -7,7 +7,7 @@
 #   citations-check         make citations-check        (needs ./public)
 #   obs-umami-views-check   make obs-umami-views-check  (needs ./public)
 #   secrets                 the secrets-scan skill on the commits not yet pushed (gitleaks)
-#   actionlint              staged workflows + local actions, on the dev docker engine
+#   actionlint              .github/workflows (the active ones) + local actions, on the dev engine
 #   shell lint (shellcheck) .sh changed since merge-base(REF, HEAD) (--all-sh: every tracked .sh)
 # The docker stages run only on the dev engine (ADR-0009), never the production socket. If it is not
 # running they are NOT RUN, which is not a pass. This script does not start it: `devengine start`.
@@ -26,8 +26,8 @@ done
 cd "$repo" 2>/dev/null || { echo "no such repo: $repo" >&2; exit 2; }
 repo="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "not a git repo: $repo" >&2; exit 2; }
 cd "$repo" || exit 2
-[ -d .github/workflows-staged ] && grep -q '^quality:' Makefile 2>/dev/null \
-  || { echo "$repo does not look like chipi/infra (no .github/workflows-staged or quality target)" >&2; exit 2; }
+[ -f config/prod-settings.env ] && grep -q '^quality:' Makefile 2>/dev/null \
+  || { echo "$repo does not look like chipi/infra (no config/prod-settings.env or quality target)" >&2; exit 2; }
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 logs="$(mktemp -d "${TMPDIR:-/tmp}/infra-preflight.XXXXXX")"
@@ -77,7 +77,9 @@ if [ "$dev_up" = 1 ]; then
   w="$(mktemp -d "$HOME/.cache/infra-preflight.XXXXXX")"
   chmod 755 "$w"   # mktemp makes it 700; the dev engine VM mounts it as another uid
   mkdir -p "$w/.github/workflows"
-  cp .github/workflows-staged/*.yml "$w/.github/workflows/"
+  # The ACTIVE workflows. This used to lint .github/workflows-staged, which the cutover emptied
+  # (2026-10-28): it then failed "no YAML file found" on every run and linted nothing.
+  cp .github/workflows/*.yml "$w/.github/workflows/"
   [ -d .github/actions ] && cp -R .github/actions "$w/.github/actions"
   [ -f .github/actionlint.yaml ] && cp .github/actionlint.yaml "$w/.github/"
   git -C "$w" init -q

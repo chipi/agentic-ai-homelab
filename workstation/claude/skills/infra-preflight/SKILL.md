@@ -1,6 +1,6 @@
 ---
 name: infra-preflight
-description: chipi/infra's gates before a commit or push, in one command — make quality, boundary-check, citations-check and obs-umami-views-check (what the staged infra-quality.yml runs in CI), the secrets scan on unpushed commits, and actionlint over the staged workflows plus shellcheck over changed .sh on the dev docker engine. One PASS / FAIL / NOT RUN line per stage. Use when about to commit or push in chipi/infra, after porting public main into it, or when asked "is the infra branch green".
+description: chipi/infra's gates before a commit or push, in one command — make quality, boundary-check, citations-check and obs-umami-views-check (what the staged infra-quality.yml runs in CI), the secrets scan on unpushed commits, and actionlint over the active workflows plus shellcheck over changed .sh on the dev docker engine. One PASS / FAIL / NOT RUN line per stage. Use when about to commit or push in chipi/infra, after porting public main into it, or when asked "is the infra branch green".
 ---
 
 # infra-preflight
@@ -23,7 +23,7 @@ bash ~/.claude/skills/infra-preflight/scripts/preflight.sh ~/projects/infra
 | quality | `make quality` (format-check, lint, type, test, check-prod-secret-staging) | job `quality` |
 | boundary-check, citations-check, obs-umami-views-check | the `make` targets that read `./public` | job `boundary` |
 | secrets | the `secrets-scan` skill's `scan.sh --push` (gitleaks on unpushed commits) | not in CI |
-| actionlint | staged workflows copied into a temp `.github/workflows` with the local actions | not in CI |
+| actionlint | `.github/workflows` copied into a temp repo with the local actions | not in CI |
 | shellcheck | `-S warning`, the `.sh` files changed since `merge-base(REF, HEAD)` | not in CI |
 
 - **The docker stages and the suite's docker-backed tests see only the dev engine.** The script
@@ -59,5 +59,5 @@ bash ~/.claude/skills/infra-preflight/scripts/preflight.sh ~/projects/infra
   Use `docs-preflight` for docs changes.
 - The actionlint and shellcheck images are `rhysd/actionlint:latest` and
   `koalaman/shellcheck:stable`, unpinned, so a new release can change results.
-- It is chipi/infra only: it refuses a repo without `.github/workflows-staged` and a
+- It is chipi/infra only: it refuses a repo without `config/prod-settings.env` and a
   `quality` target.
