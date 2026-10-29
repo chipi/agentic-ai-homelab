@@ -37,11 +37,11 @@ NOW="$(git -C "$CHECKOUT" rev-parse --short HEAD)"
 say "pulled : $NOW$([ "$PREV" = "$NOW" ] && echo '  (no new commits — re-verifying anyway)')"
 
 # verify the deployed code with the deterministic gates (no LLM, no network, no cost)
-say "verifying: eval_hardening · eval_dedup · eval_filing_replay · eval_stale_replay · eval_routing_replay · eval_triager_failure_replay · eval_glitchtip_litellm_replay · eval_recurrence_replay · eval_open_preference_replay · eval_duplicate_follow_replay · eval_identity_replay · eval_promotion_replay · eval_oom_edge_replay · test_units"
+say "verifying: eval_hardening · eval_dedup · eval_filing_replay · eval_stale_replay · eval_routing_replay · eval_triager_failure_replay · eval_glitchtip_litellm_replay · eval_recurrence_replay · eval_open_preference_replay · eval_duplicate_follow_replay · eval_identity_replay · eval_promotion_replay · eval_oom_edge_replay · test_units · test_capture"
 cd "$SF/mvp"
 GATE_HOME="$(mktemp -d)"
 ok=1
-for g in eval_hardening.py eval_dedup.py eval_filing_replay.py eval_stale_replay.py eval_routing_replay.py eval_triager_failure_replay.py eval_glitchtip_litellm_replay.py eval_recurrence_replay.py eval_open_preference_replay.py eval_duplicate_follow_replay.py eval_identity_replay.py eval_promotion_replay.py eval_oom_edge_replay.py test_units.py; do
+for g in eval_hardening.py eval_dedup.py eval_filing_replay.py eval_stale_replay.py eval_routing_replay.py eval_triager_failure_replay.py eval_glitchtip_litellm_replay.py eval_recurrence_replay.py eval_open_preference_replay.py eval_duplicate_follow_replay.py eval_identity_replay.py eval_promotion_replay.py eval_oom_edge_replay.py test_units.py test_capture.py; do
   # eval_filing_replay: the 2026-09-30 duplicate cases must stay comments (#9)
   args=""; [ "$g" = eval_filing_replay.py ] && args="--cases-only"
   # HOME = an empty dir: every live state path is under ~/signal-fleet, so no gate can
