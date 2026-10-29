@@ -12,6 +12,10 @@ own. Read-only: GitHub API reads through an already-authenticated `gh`.
 - On the first failure, the tail of that job's log follows, so the cause is in the event.
 - `cancelled` is never a pass or a fail: it prints `NOT RUN`, naming the newer commit on the
   branch that superseded it when there is one.
+- Each completed check's warning and failure annotations print under it (notices do not). A
+  green check can carry a swallowed failure (`|| true`, a non-fatal step, a retry that passed)
+  or a deprecation that will break it later; those are only visible as annotations, and the
+  verdict line counts them, naming failures inside green checks as hidden.
 - The last line is the verdict, classified like podcast_scraper's ci-gate.yml: RED on
   failure/timed_out; INCOMPLETE on anything that did not run (cancelled, stale, still running at
   the deadline); else GREEN.
@@ -99,6 +103,15 @@ def workflow_runs(repo: str, sha: str) -> list[dict]:
     return gh_items(f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100", ".workflow_runs[]")
 
 
+def annotations(repo: str, check_id: int) -> list[dict]:
+    """The check's warning and failure annotations (notices are routine runner chatter)."""
+    try:
+        items = gh_items(f"repos/{repo}/check-runs/{check_id}/annotations?per_page=100", ".[]")
+    except RuntimeError as exc:
+        return [{"annotation_level": "warning", "message": f"(annotations not readable: {exc})"}]
+    return [a for a in items if a.get("annotation_level") in ("warning", "failure")]
+
+
 def superseded_by(repo: str, sha: str, branch: str | None) -> tuple[str, str]:
     """(the commit right after ``sha`` on ``branch``, the branch head), or ("", "") if none."""
     if not branch:
@@ -147,6 +160,8 @@ def main(argv: list[str]) -> int:
 
     deadline = time.monotonic() + args.timeout_min * 60
     reported: dict[int, str] = {}
+    warned: list[str] = []
+    hidden: list[str] = []
     showed_failure = False
     branch: str | None = None
     while True:
@@ -176,6 +191,14 @@ def main(argv: list[str]) -> int:
                 say(f"{r['name']}: NOT RUN — {why}")
             else:
                 say(f"{r['name']}: {c}")
+                for a in annotations(repo, int(r["id"])):
+                    level = a.get("annotation_level")
+                    msg = " ".join(str(a.get("message", "")).split())[:300]
+                    say(f"  {level}: {msg}")
+                    if level == "warning":
+                        warned.append(r["name"])
+                    elif c in GOOD:
+                        hidden.append(r["name"])
             if c in HARD_FAIL and not showed_failure:
                 showed_failure = True
                 say(f"--- first failure: {r['name']} — log tail (job {r['id']}) ---")
@@ -204,7 +227,13 @@ def main(argv: list[str]) -> int:
     if not_run:
         say(f"VERDICT INCOMPLETE — {counts} (cancelled/stale checks did not run; they are not a pass)")
         return 2
-    say(f"VERDICT GREEN — {counts}")
+    notes = []
+    if hidden:
+        notes.append(f"{len(hidden)} HIDDEN failure annotation(s) in green checks: "
+                     f"{', '.join(sorted(set(hidden)))}")
+    if warned:
+        notes.append(f"{len(warned)} warning(s) in {', '.join(sorted(set(warned)))}")
+    say(f"VERDICT GREEN — {counts}" + (f"; {'; '.join(notes)} — read them above" if notes else ""))
     return 0
 
 

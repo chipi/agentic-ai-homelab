@@ -14,6 +14,7 @@ way every time, so the failures that happened when the loop was hand-written can
 | The monitor expired at 30 minutes and nobody re-armed it | Stops before the deadline with `RE-ARM ci-watch` and exit 3 |
 | A fix's `app-unit` job was **cancelled** twice before it ran, and a cancelled check read as "done" | Prints `NOT RUN — cancelled; the next commit on <branch> is <sha>`; the verdict is INCOMPLETE, never GREEN |
 | The cause of a red job took several commands to find | Prints the failing job's log tail on the first failure, `##[error]` lines first |
+| A green drill hid a failed `tofu destroy` (a fallback said "teardown OK") and a Node 20 deprecation, 2026-10-28; nobody read them | Prints each check's warning and failure annotations under it; the GREEN verdict line counts warnings and names failures inside green checks as HIDDEN |
 
 ## Run it under the Monitor tool
 
@@ -41,6 +42,8 @@ and timed_out are RED, cancelled is unresolved.
 
 ## Rules that go with it
 
+- **A GREEN verdict that names HIDDEN failures or warnings is not done.** Read each one and fix
+  it or say why it is noise; a swallowed failure in a green job is the same failure.
 - **Report the verdict line, not a feeling.** "CI is green" needs `VERDICT GREEN` from this
   script (or the gate) in the same sentence.
 - **Do not push a docs-only commit while your fix's run is still pending.** On a branch with a
