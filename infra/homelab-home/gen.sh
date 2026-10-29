@@ -35,6 +35,7 @@ DASH_FLEET=$G/d/signal-fleet-disp
 DASH_INBOX=$G/d/sf-inbox
 DASH_BUGFIX=$G/d/bugfix-fleet-work
 DASH_DELIVERY=$G/d/delivery-worker/delivery-worker
+DASH_UPTIME=$G/d/prod-uptime
 row(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td><code>%s</code></td><td><code>%s</code></td></tr>\n' "$2" "$1" "$5" "$3" "$4"; }
 dsvc(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td class=muted>%s</td></tr>\n' "$4" "$1" "$2" "$3"; }
 {
@@ -86,6 +87,22 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
 }</style></head><body>
 <h1>homelab</h1>
 <div id=hetznerbar></div>
+<!-- Uptime: outside-in probes from the mini (job site-probe, every minute through Cloudflare)
+     plus Cloudflare's own count of errors for every visitor (infra/cloudflare-edge). -->
+<div style="margin:0 0 22px" id=uptime>
+  <h2><span class="dot stale" id=up_agg></span><a href="$DASH_UPTIME">Uptime &mdash; prod endpoints &rarr;</a></h2>
+  <div id=cfbar></div>
+  <div class=charts>
+    <a class=card href="$DASH_UPTIME"><h3>Up now</h3><div id=up_now>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Availability 24h</h3><div id=up_24h>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Availability 7d</h3><div id=up_7d>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Availability 30d</h3><div id=up_30d>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Edge 5xx 1h</h3><div id=up_edge>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Security blocks 24h</h3><div id=up_sec>&hellip;</div></a>
+  </div>
+  <table class=ctbl><thead><tr><th>Endpoint</th><th>Now</th><th>24h</th><th>7d</th><th>30d</th><th title="Cloudflare: 5xx answered to all visitors, 24h">Edge 5xx 24h</th><th>Check</th></tr></thead><tbody id=uptbl></tbody></table>
+  <p class=sec>Checked from the mini (home internet) through Cloudflare every minute; minutes when the mini itself was offline are left out. Edge 5xx = Cloudflare's count for every visitor (520-530: it could not reach our origin).</p>
+</div>
 <div id=alertbar></div>
 <!-- Production apps — the operator's FIRST impression of app health, above the fleets and
      machine columns. Fed by each app's prod-ops-health run (podcast_scraper #1876) pushing
@@ -406,6 +423,60 @@ async function hetzner(){
   el.innerHTML=rows.map(r=>{const m=r.metric;return '<a class="abar '+(cls[m.relevance]||'plumb')+'" href="'+esc(m.link)+'">'
     +'<span class=hz>Hetzner &middot; '+esc(m.kind)+' &middot; '+esc(what[m.relevance]||m.relevance)+'</span><b>'+esc(m.category)+'</b> &mdash; '+esc(m.title)+' <span style="opacity:.75">('+esc(when(m))+')</span></a>';}).join('');
 }
+async function cloudflare(){
+  // Cloudflare status items that are ours (infra/cloudflare-edge/ours.json + PoPs carrying our
+  // traffic): an incident listing one of our components is red, a degraded component of ours
+  // amber, maintenance on a PoP of ours muted. Re-pushed every 5 min while true; empty = no bar.
+  const el=document.getElementById('cfbar');if(!el)return;
+  const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const f=s=>s?String(s).slice(0,16).replace('T',' ')+'Z':'';
+  const inc=await q('last_over_time(cloudflare_status_incident{instance="homelab",relevance="direct"}[10m])');
+  const comp=await q('last_over_time(cloudflare_status_component{instance="homelab"}[10m])');
+  const mnt=await q('last_over_time(cloudflare_status_maintenance{instance="homelab"}[10m])');
+  const bar=(cls,href,tag,body)=>'<a class="abar '+cls+'"'+(href?' href="'+esc(href)+'"':'')+'><span class=hz>Cloudflare &middot; '+tag+'</span>'+body+'</a>';
+  el.innerHTML=inc.map(r=>{const m=r.metric;return bar('crit',m.link,'incident on what we use','<b>'+esc(m.name)+'</b> &mdash; '+esc(m.components)+' <span style="opacity:.75">('+esc(m.impact)+', '+esc(m.status)+')</span>');}).join('')
+    +comp.map(r=>{const m=r.metric;return bar('warn','https://www.cloudflarestatus.com/',m.kind==='pop'?'a PoP carrying our traffic':'a service we use','<b>'+esc(m.name)+'</b> &mdash; '+esc(String(m.status).replace(/_/g,' ')));}).join('')
+    +mnt.map(r=>{const m=r.metric;return bar(m.status==='in_progress'?'warn':'plumb',m.link,'maintenance','<b>'+esc(m.components)+'</b> &mdash; '+(m.status==='in_progress'?'in progress':'starts '+esc(f(m.start)))+(m.end?' until '+esc(f(m.end)):''));}).join('');
+}
+async function uptime(){
+  // Outside-in availability per probed endpoint (job site-probe). The long windows are
+  // subqueries over 1-minute steps, so they are refreshed every 5 minutes, not every 30s.
+  const tb=document.getElementById('uptbl');if(!tb)return;
+  const P='probe_success{job="site-probe",run_id=""}';
+  const OK='(max by (host) ('+P+') and on () (last_over_time(mini_vm_egress_ok{instance="homelab",target="internet"}[5m]) == 1))';
+  const byHost=async(query)=>{const m={};(await q(query)).forEach(r=>m[r.metric.host]=+r.value[1]);return m;};
+  if(!uptime.c||Date.now()-uptime.t>300000){
+    uptime.c={d1:await byHost('avg_over_time('+OK+'[24h:1m])'),d7:await byHost('avg_over_time('+OK+'[7d:1m])'),d30:await byHost('avg_over_time('+OK+'[30d:1m])')};
+    uptime.t=Date.now();
+  }
+  const c=uptime.c;
+  const cur=await byHost('max by (host) (last_over_time('+P+'[3m]))');
+  const ms=await byHost('max by (host) (last_over_time(probe_duration_seconds{job="site-probe"}[3m]))');
+  const E='{instance="homelab",class=~"5xx_unreachable|5xx_server",window="';
+  const e24=await byHost('sum by (host) (last_over_time(cloudflare_edge_requests'+E+'24h"}[15m]))');
+  const e1=await g1('sum(last_over_time(cloudflare_edge_requests'+E+'1h"}[15m]))');
+  const sec=await g1('sum(last_over_time(cloudflare_security_events{instance="homelab"}[15m]))');
+  const eg=await g1('last_over_time(mini_vm_egress_ok{instance="homelab",target="internet"}[5m])');
+  const set=(id,h)=>{const el=document.getElementById(id);if(el)el.innerHTML=h;};
+  const hosts=Object.keys(cur).sort();
+  const col=v=>v==null?'':(v>=0.999?'':(v>=0.99?'color:#d29922':'color:#f85149'));
+  const pct=v=>v==null||isNaN(v)?'&mdash;':(v>=0.99995?'100%':(v*100).toFixed(2)+'%');
+  const avg=m=>{const v=hosts.map(h=>m[h]).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
+  const worst=m=>{let w=null;hosts.forEach(h=>{if(m[h]!=null&&(w==null||m[h]<m[w]))w=h;});return w;};
+  const offline=eg&&+eg[1]===0;
+  const down=hosts.filter(h=>cur[h]===0);
+  const agg=document.getElementById('up_agg');
+  if(agg)agg.className='dot '+(!hosts.length||offline?'stale':(down.length?'down':(hosts.some(h=>c.d1[h]!=null&&c.d1[h]<0.999)?'mid':'up')));
+  set('up_now',!hosts.length?'<div class=cv>&mdash;</div>':'<div class=cv style="'+(down.length?'color:#f85149':'')+'">'+(hosts.length-down.length)+'/'+hosts.length+'</div><span class=muted>'+(offline?'mini offline: unknown':(down.length?'down: '+down.join(', '):'all answering'))+'</span>');
+  for(const [id,k] of [['up_24h','d1'],['up_7d','d7'],['up_30d','d30']]){const a=avg(c[k]),w=worst(c[k]);
+    set(id,'<div class=cv style="'+col(a)+'">'+pct(a)+'</div><span class=muted>'+(w&&c[k][w]<0.99995?'lowest: '+w+' '+pct(c[k][w]):'every endpoint')+'</span>');}
+  set('up_edge','<div class=cv>'+(e1?(+e1[1]).toFixed(0):'&mdash;')+'</div><span class=muted>all hosts, Cloudflare</span>');
+  set('up_sec','<div class=cv>'+(sec?(+sec[1]).toFixed(0):'&mdash;')+'</div><span class=muted>WAF / bots</span>');
+  tb.innerHTML=hosts.length?hosts.map(h=>{const u=cur[h];return '<tr><td>'+h+'</td><td><span class=dot style="background:'+(offline?'#7a7a8c':(u?'#3fb950':'#f85149'))+'"></span></td>'
+    +['d1','d7','d30'].map(k=>'<td class=u style="'+col(c[k][h])+'">'+pct(c[k][h])+'</td>').join('')
+    +'<td class=u>'+(e24[h]!=null?e24[h].toFixed(0):'0')+'</td><td class=u>'+(ms[h]!=null?(ms[h]*1000).toFixed(0)+' ms':'&mdash;')+'</td></tr>';}).join('')
+    :'<tr><td class=muted colspan=7>no probe data</td></tr>';
+}
 async function alerts(){
   // One consolidated notification surface: EVERYTHING alert-worthy is (or
   // becomes) a Grafana rule over VM/VLogs — disk, apps, security, delivery,
@@ -465,7 +536,7 @@ async function podcastHealth(){
   if(ts){const h=Math.floor((now-+ts[1])/3600);set('ph_age','<div class=cv>'+(h<1?'&lt;1':h)+'h ago</div>'+(stale?'<div class=muted style="font-size:12px">STALE &mdash; check not running</div>':''));}
   else set('ph_age','<div class=cv>&mdash;</div><div class=muted style="font-size:12px">no run in 28h</div>');
 }
-function refresh(){hetzner();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
+function refresh(){hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT

@@ -8,14 +8,14 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "5m",
   "time": {
     "from": "now-7d",
     "to": "now"
   },
-  "description": "Outside-in availability of the prod endpoints, from the Mac mini every minute (job site-probe). Built 2026-10-29.",
+  "description": "Outside-in availability of the prod endpoints, from the Mac mini every minute (job site-probe), and Cloudflare's own counts for every visitor (infra/cloudflare-edge). Built 2026-10-29.",
   "panels": [
     {
       "type": "table",
@@ -519,6 +519,319 @@
       },
       "description": "The certificate Cloudflare serves to visitors (Cloudflare renews it), not the origin certificate.",
       "id": 5
+    },
+    {
+      "type": "table",
+      "title": "Cloudflare: every visitor's requests per host, last 24h",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 11
+      },
+      "targets": [
+        {
+          "expr": "sum by (host) (last_over_time(cloudflare_edge_requests{instance=\"homelab\",window=\"24h\",class=\"2xx\"}[15m]))",
+          "format": "table",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "sum by (host) (last_over_time(cloudflare_edge_requests{instance=\"homelab\",window=\"24h\",class=\"3xx\"}[15m]))",
+          "format": "table",
+          "instant": true,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "sum by (host) (last_over_time(cloudflare_edge_requests{instance=\"homelab\",window=\"24h\",class=\"4xx\"}[15m]))",
+          "format": "table",
+          "instant": true,
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "sum by (host) (last_over_time(cloudflare_edge_requests{instance=\"homelab\",window=\"24h\",class=\"5xx_server\"}[15m]))",
+          "format": "table",
+          "instant": true,
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "sum by (host) (last_over_time(cloudflare_edge_requests{instance=\"homelab\",window=\"24h\",class=\"5xx_unreachable\"}[15m]))",
+          "format": "table",
+          "instant": true,
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "sum by (host) (last_over_time(cloudflare_edge_requests{instance=\"homelab\",window=\"24h\",class=\"client_closed\"}[15m]))",
+          "format": "table",
+          "instant": true,
+          "refId": "F",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "host": "Host",
+              "Value #A": "2xx",
+              "Value #B": "3xx",
+              "Value #C": "4xx",
+              "Value #D": "5xx from our server",
+              "Value #E": "520-530 (origin unreachable)",
+              "Value #F": "499 (client gave up)"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "5xx.*|520.*"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 50
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "520-530 (origin unreachable)",
+            "desc": true
+          }
+        ]
+      },
+      "description": "Cloudflare's GraphQL analytics, read every 5 min by infra/cloudflare-edge/poll.py (window ends 2 min ago). 520-526/530 are answered by Cloudflare when it cannot get a valid response from our origin, so the prod Caddy never logs them. Alert cloudflare-edge-unreachable: >= 20 in 1h and >= 5% of the host's requests.",
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Cloudflare: origin unreachable (520-530), rolling 1h",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "sum by (host) (cloudflare_edge_requests{instance=\"homelab\",window=\"1h\",class=\"5xx_unreachable\"})",
+          "legendFormat": "{{host}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "bargauge",
+      "title": "Cloudflare PoPs carrying our traffic (24h)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 46,
+        "w": 6,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "topk(10, last_over_time(cloudflare_edge_pop_share{instance=\"homelab\"}[15m]))",
+          "legendFormat": "{{colo}}",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "description": "A PoP carrying >= 5% of our requests counts as ours for Cloudflare status incidents (infra/cloudflare-edge/ours.json).",
+      "id": 8
+    },
+    {
+      "type": "table",
+      "title": "Cloudflare status: what touches us",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 46,
+        "w": 6,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "last_over_time(cloudflare_status_incident{instance=\"homelab\"}[10m])",
+          "format": "table",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "last_over_time(cloudflare_status_maintenance{instance=\"homelab\"}[10m])",
+          "format": "table",
+          "instant": true,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "instance": true,
+              "service": true,
+              "environment": true,
+              "job": true,
+              "Value #A": true,
+              "Value #B": true
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "description": "Unresolved incidents (relevance direct = lists a component we use) and maintenance on our PoPs within 24h, from cloudflarestatus.com.",
+      "id": 9
     }
   ],
   "templating": {

@@ -1,0 +1,21 @@
+{
+  "_comment": "What of Cloudflare we depend on. services = status-page components (cloudflarestatus.com, group 'Cloudflare Sites and Services') our zones use; pops = PoP codes always treated as ours; a PoP that carried at least pop_share_min of our requests over the last 24h counts as ours too.",
+  "services": [
+    "CDN/Cache",
+    "Authoritative DNS",
+    "DNS Updates",
+    "Network",
+    "SSL Certificate Provisioning",
+    "Firewall",
+    "Rules",
+    "Bot Management",
+    "Challenge Platform",
+    "Zaraz",
+    "Web Analytics",
+    "Analytics",
+    "API",
+    "Dashboard"
+  ],
+  "pops": ["FRA"],
+  "pop_share_min": 0.05
+}

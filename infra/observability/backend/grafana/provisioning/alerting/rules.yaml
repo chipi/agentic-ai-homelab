@@ -2477,3 +2477,84 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: gt, params: [3600] } }]
+
+  # --- Cloudflare edge (infra/cloudflare-edge) ---------------------------------
+  # poll.py on the mini reads Cloudflare's analytics for every zone and cloudflarestatus.com
+  # every 5 min. 520-526/530 are Cloudflare's own answers when it cannot get a valid response
+  # from our origin; they never reach the prod Caddy, so edge-caddy-5xx-burst cannot see them.
+  # Thresholds are set to stay quiet on the background (2026-10-29: at most 15 a day per host,
+  # mostly obs.closelistening.app 520s). Status-page incidents alert only when they list a
+  # component that is ours (ours.json, plus PoPs carrying >= 5% of our traffic).
+  - orgId: 1
+    name: cloudflare-edge
+    folder: "Alerts"
+    interval: 5m
+    rules:
+      - uid: cloudflare-edge-unreachable
+        title: "Cloudflare cannot reach our origin for a host (1h)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { tenant: common, severity: warning, kind: availability }
+        annotations:
+          summary: "Cloudflare answered {{ $values.q }} requests for {{ $labels.host }} with 520-526/530 in the last hour (at least 5% of the host's requests): it could not connect to, handshake with or read the prod origin. These never reach the prod Caddy. Per status: cloudflare_edge_5xx{host=\"{{ $labels.host }}\",window=\"1h\"}; then the prod Caddy vhost and the upstream container."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'last_over_time(cloudflare_edge_requests{instance="homelab",class="5xx_unreachable",window="1h"}[15m]) and on (zone, host) ((last_over_time(cloudflare_edge_requests{instance="homelab",class="5xx_unreachable",window="1h"}[15m]) / on (zone, host) sum by (zone, host) (last_over_time(cloudflare_edge_requests{instance="homelab",window="1h"}[15m]))) >= 0.05)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [19] } }]
+
+      - uid: cloudflare-status-ours
+        title: "Cloudflare incident on a component we use"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: provider, host: homelab, service: cloudflare-edge, environment: operations, meta: "true" }
+        annotations:
+          summary: "Cloudflare reports \"{{ $labels.name }}\" ({{ $labels.impact }}, {{ $labels.status }}) affecting {{ $labels.components }}, which our zones use. Details: {{ $labels.link }}"
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'count by (name, impact, status, components, link) (last_over_time(cloudflare_status_incident{instance="homelab",relevance="direct"}[15m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      - uid: cloudflare-edge-poller-stale
+        title: "Cloudflare edge poller has not succeeded for 1h"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: warning, kind: infra, host: homelab, service: cloudflare-edge, environment: operations, meta: "true" }
+        annotations:
+          summary: "infra/cloudflare-edge/poll.py on the mini has not read Cloudflare's analytics for over an hour, so edge errors are not being watched. Log: /tmp/cloudflare-edge.log on the mini; launchd job com.homelab.cloudflare-edge; token ~/.config/cloudflare/readonly.env."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - max(last_over_time(cloudflare_last_success_timestamp{instance="homelab",part="edge"}[7d]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [3600] } }]
