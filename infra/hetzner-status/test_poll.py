@@ -45,17 +45,55 @@ def test_parse_fields():
 
 def test_classification():
     b = {x["title"]: x for x in poll.parse(FEED)}
-    assert (b["Maintenance UPS systems in FSN1-DC22"]["affects"], b["Maintenance UPS systems in FSN1-DC22"]["location"],
-            b["Maintenance UPS systems in FSN1-DC22"]["kind"]) == ("ours", "FSN1-DC22", "maintenance")
-    assert b["Urgent maintenance on all core routers"]["affects"] == "service"
-    assert (b["Disk failures in HEL1-DC1"]["affects"], b["Disk failures in HEL1-DC1"]["kind"]) == ("other", "incident")
+    # the Storage Box's city, datacenter unknown -> nearby, not direct
+    assert (b["Maintenance UPS systems in FSN1-DC22"]["relevance"], b["Maintenance UPS systems in FSN1-DC22"]["location"],
+            b["Maintenance UPS systems in FSN1-DC22"]["kind"]) == ("nearby", "FSN1-DC22", "maintenance")
+    assert b["Urgent maintenance on all core routers"]["relevance"] == "service"
+    assert (b["Disk failures in HEL1-DC1"]["relevance"], b["Disk failures in HEL1-DC1"]["kind"]) == ("other", "incident")
 
 
-def test_location_prefix_is_exact():
-    # NBG10 is not NBG1: only the location itself or LOC-<dc> counts
-    assert poll.classify(["NBG10-DC1"], "x")[0] == "other"
-    assert poll.classify(["NBG1-DC3"], "x")[0] == "ours"
-    assert poll.classify(["NBG1"], "x")[0] == "ours"
+def test_correlation_levels():
+    c = lambda cats, title="x", text="": poll.classify(cats, title, text)[0]
+    assert c(["NBG1-DC3"]) == "direct"            # our server's exact datacenter
+    assert c(["NBG1"]) == "direct"                # whole-location bulletin for the server's location
+    assert c(["General"], "x", "affects hosts in NBG1-DC3 only") == "direct"   # text names our DC
+    assert c(["NBG1-DC5"]) == "nearby"            # same city, other datacenter
+    assert c(["FSN1"]) == "nearby"                # the Storage Box's city
+    assert c(["NBG10-DC1"]) == "other"            # NBG10 is not NBG1
+    assert c(["General"], "x", "NBG1-DC30 maintenance") == "other"   # DC30 is not DC3
+    assert c(["Cloud Server"]) == "service"
+
+
+def _b(start, end="", relevance="direct"):
+    return {"relevance": relevance, "start": start, "end": end, "kind": "maintenance", "category": "NBG1-DC3",
+            "title": 'UPS "work"', "link": "https://status.hetzner.com/incident/x"}
+
+
+def test_phase_and_active():
+    from datetime import datetime, timezone
+    now = datetime(2026, 10, 29, 12, 0, tzinfo=timezone.utc)
+    assert poll.phase(_b("2026-11-02T08:00:00+00:00"), now) == "upcoming"       # within 7 days
+    assert poll.phase(_b("2026-11-20T08:00:00+00:00"), now) is None             # too far ahead
+    assert poll.phase(_b("2026-10-29T10:00:00+00:00", "2026-10-29T14:00:00+00:00"), now) == "ongoing"
+    assert poll.phase(_b("2026-10-29T08:00:00+00:00", "2026-10-29T10:00:00+00:00"), now) is None   # ended
+    assert poll.phase(_b("2026-10-27T13:00:00+00:00"), now) == "ongoing"        # no end, < 72 h old
+    assert poll.phase(_b("2026-10-20T13:00:00+00:00"), now) is None             # no end, too old
+    assert poll.phase(_b(""), now) is None
+    # service only while ongoing; other never
+    rows = [_b("2026-11-02T08:00:00+00:00", relevance="service"), _b("2026-10-29T11:00:00+00:00", relevance="service"),
+            _b("2026-11-02T08:00:00+00:00", relevance="nearby"), _b("2026-10-29T11:00:00+00:00", relevance="other")]
+    assert [(a["relevance"], a["phase"]) for a in poll.active(rows, now)] == [("service", "ongoing"), ("nearby", "upcoming")]
+
+
+def test_active_metric_line_escapes_labels():
+    from datetime import datetime, timezone
+    now = datetime(2026, 10, 29, 12, 0, tzinfo=timezone.utc)
+    b = dict(_b("2026-11-02T08:00:00+00:00"), entry_id="i", updated="u", location="NBG1-DC3", summary="s")
+    lines = poll.metric_lines(True, [b], now)
+    act = [l for l in lines if l.startswith("hetzner_status_active")]
+    assert act == ['hetzner_status_active{relevance="direct",phase="upcoming",kind="maintenance",category="NBG1-DC3",'
+                   'title="UPS \\"work\\"",start="2026-11-02T08:00:00+00:00",end="",link="https://status.hetzner.com/incident/x"} 1']
+    assert 'hetzner_status_feed_entries{relevance="direct"} 1' in lines
 
 
 def test_first_run_is_backfill_then_only_new_or_updated():
@@ -73,7 +111,7 @@ def test_first_run_is_backfill_then_only_new_or_updated():
   </entry>
   <entry>""", 1)
     events, _ = poll.poll_once(state, fetch=lambda: new)
-    assert [(e["title"], e["affects"], e["backfill"]) for e in events] == [("Outage in NBG1-DC3", "ours", "false")]
+    assert [(e["title"], e["relevance"], e["backfill"]) for e in events] == [("Outage in NBG1-DC3", "direct", "false")]
 
 
 def test_state_drops_ids_no_longer_in_feed():

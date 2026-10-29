@@ -1,0 +1,12 @@
+{
+  "_comment": "What prod runs where at Hetzner, for correlating status bulletins (poll.py). Keep in step with chipi/infra infra/terraform (location, audio_storage_box_location). datacenters = exact datacenters we are in; server_locations = locations where a bulletin for the whole location (no datacenter) hits us directly; nearby_locations = same city, other or unknown datacenter.",
+  "datacenters": {
+    "NBG1-DC3": "prod-podcast server (Hetzner metadata availability-zone nbg1-dc3, read 2026-10-29)"
+  },
+  "server_locations": ["NBG1"],
+  "nearby_locations": {
+    "NBG1": "prod-podcast's location, other datacenters",
+    "FSN1": "audio Storage Box (its datacenter is not known: no Hetzner token outside GitHub Actions)"
+  },
+  "services": ["Cloud Server", "Network", "Storage Box", "Cloud Volumes", "Cloud Networks", "Robot", "Console", "DNS"]
+}

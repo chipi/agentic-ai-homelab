@@ -12,6 +12,8 @@ apiVersion: 1
 deleteRules:
   - orgId: 1
     uid: mini-vm-usernet-inflight-high   # replaced by mini-vm-usernet-slots-full, 2026-10-29
+  - orgId: 1
+    uid: hetzner-status-service          # only `direct` bulletins alert now (operator, 2026-10-29)
 
 # A NOTE ON execErrState — read before setting it to OK again.
 #
@@ -2412,60 +2414,33 @@ groups:
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
   # Hetzner status bulletins (status.hetzner.com en.atom -> VictoriaLogs app=hetzner-status, by
-  # infra/hetzner-status/poll.py every 10 min). `affects` classifies each bulletin against prod:
-  # ours = a category naming nbg1 (prod-podcast) or fsn1 (the audio Storage Box), service = a
-  # Hetzner service we use (Cloud Server, Network, Storage Box, ...), other = the rest. A new or
-  # updated bulletin is one event; the first run's events are backfill=true and never alert.
-  # meta="true": Hetzner's notices terminate at the operator (email), not the triage fleet.
-  # Write your own rules on the same fields: title, category, location, affects, kind
-  # (maintenance|incident), start, end, link, summary.
+  # infra/hetzner-status/poll.py every 10 min), correlated with where prod runs (ours.json):
+  # relevance direct = our datacenter NBG1-DC3 (prod-podcast), a whole-NBG1 bulletin, or text
+  # naming our DC; nearby = other NBG1 DCs or FSN1 (the Storage Box, DC unknown); service = a
+  # Hetzner service we use; other = the rest. Only `direct` alerts (operator, 2026-10-29: alert
+  # only when relevant to us); nearby/service show on the hub banner and the dashboard. A new or
+  # updated bulletin is one event; backfill=true events never alert. meta="true": email to the
+  # operator, not the triage fleet. Own rules: same fields (title, category, location, relevance,
+  # kind, start, end, link, summary); infra/hetzner-status/README.md has an example.
   - orgId: 1
     name: hetzner-status
     folder: "Alerts"
     interval: 5m
     rules:
       - uid: hetzner-status-ours
-        title: "Hetzner bulletin for our location (nbg1/fsn1)"
+        title: "Hetzner bulletin for our datacenter (prod-podcast, NBG1-DC3)"
         condition: threshold
         for: 0s
         noDataState: OK
         labels: { severity: warning, kind: provider, host: homelab, service: hetzner-status, environment: operations, meta: "true" }
         annotations:
-          summary: "Hetzner posted or updated a {{ $labels.kind }} for {{ $labels.category }}: \"{{ $labels.title }}\" (start {{ $labels.start }}). Our prod server is in nbg1, the audio Storage Box in fsn1. Details: {{ $labels.link }}"
+          summary: "Hetzner posted or updated a {{ $labels.kind }} for {{ $labels.category }}: \"{{ $labels.title }}\" (start {{ $labels.start }}). It names prod-podcast's datacenter NBG1-DC3 or all of NBG1. Details: {{ $labels.link }}"
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }
             datasourceUid: victorialogs
             model:
-              expr: 'app:hetzner-status affects:ours backfill:false | stats by (title, kind, category, start, link) count() as value'
-              queryType: stats
-          - refId: reduced
-            datasourceUid: __expr__
-            model:
-              type: reduce
-              expression: q
-              reducer: last
-          - refId: threshold
-            datasourceUid: __expr__
-            model:
-              type: threshold
-              expression: reduced
-              conditions: [{ evaluator: { type: gt, params: [0] } }]
-
-      - uid: hetzner-status-service
-        title: "Hetzner bulletin for a service we use"
-        condition: threshold
-        for: 0s
-        noDataState: OK
-        labels: { severity: warning, kind: provider, host: homelab, service: hetzner-status, environment: operations, meta: "true" }
-        annotations:
-          summary: "Hetzner posted or updated a {{ $labels.kind }} for {{ $labels.category }}: \"{{ $labels.title }}\" (start {{ $labels.start }}). Not tied to one location; check whether it touches prod-podcast (nbg1) or the Storage Box (fsn1). Details: {{ $labels.link }}"
-        data:
-          - refId: q
-            relativeTimeRange: { from: 900, to: 0 }
-            datasourceUid: victorialogs
-            model:
-              expr: 'app:hetzner-status affects:service backfill:false | stats by (title, kind, category, start, link) count() as value'
+              expr: 'app:hetzner-status relevance:direct backfill:false | stats by (title, kind, category, start, link) count() as value'
               queryType: stats
           - refId: reduced
             datasourceUid: __expr__

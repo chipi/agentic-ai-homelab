@@ -8,18 +8,18 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "5m",
   "time": {
     "from": "now-90d",
     "to": "now"
   },
-  "description": "status.hetzner.com bulletins (Atom feed) via infra/hetzner-status/poll.py. Built 2026-10-29.",
+  "description": "status.hetzner.com bulletins (Atom feed) correlated with prod's datacenters (infra/hetzner-status/ours.json). Built 2026-10-29.",
   "panels": [
     {
       "type": "stat",
-      "title": "In the feed now: ours",
+      "title": "In the feed: direct",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -27,13 +27,13 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 4,
+        "w": 3,
         "h": 4
       },
       "targets": [
         {
-          "expr": "hetzner_status_feed_entries{instance=\"homelab\",affects=\"ours\"}",
-          "legendFormat": "ours",
+          "expr": "hetzner_status_feed_entries{instance=\"homelab\",relevance=\"direct\"}",
+          "legendFormat": "direct",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -63,26 +63,26 @@
         "graphMode": "none",
         "textMode": "auto"
       },
-      "description": "Bulletins whose category names nbg1 (prod-podcast) or fsn1 (audio Storage Box).",
+      "description": "Our datacenter NBG1-DC3 (prod-podcast), a whole-NBG1 bulletin, or text naming our DC. Alerts.",
       "id": 1
     },
     {
       "type": "stat",
-      "title": "In the feed now: service",
+      "title": "In the feed: nearby",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
       },
       "gridPos": {
-        "x": 4,
+        "x": 3,
         "y": 0,
-        "w": 4,
+        "w": 3,
         "h": 4
       },
       "targets": [
         {
-          "expr": "hetzner_status_feed_entries{instance=\"homelab\",affects=\"service\"}",
-          "legendFormat": "service",
+          "expr": "hetzner_status_feed_entries{instance=\"homelab\",relevance=\"nearby\"}",
+          "legendFormat": "nearby",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -112,25 +112,74 @@
         "graphMode": "none",
         "textMode": "auto"
       },
-      "description": "Bulletins for a Hetzner service we use (Cloud Server, Network, Storage Box, ...).",
+      "description": "Same city, other or unknown datacenter: other NBG1 DCs; FSN1 (the audio Storage Box).",
       "id": 2
     },
     {
       "type": "stat",
-      "title": "In the feed now: other",
+      "title": "In the feed: service",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
       },
       "gridPos": {
-        "x": 8,
+        "x": 6,
         "y": 0,
-        "w": 4,
+        "w": 3,
         "h": 4
       },
       "targets": [
         {
-          "expr": "hetzner_status_feed_entries{instance=\"homelab\",affects=\"other\"}",
+          "expr": "hetzner_status_feed_entries{instance=\"homelab\",relevance=\"service\"}",
+          "legendFormat": "service",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "description": "A Hetzner service we use (Cloud Server, Network, Storage Box, ...), not tied to a place.",
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "In the feed: other",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 9,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "hetzner_status_feed_entries{instance=\"homelab\",relevance=\"other\"}",
           "legendFormat": "other",
           "refId": "A",
           "datasource": {
@@ -162,7 +211,7 @@
         "textMode": "auto"
       },
       "description": "Other datacenters, General notices, products we do not use.",
-      "id": 3
+      "id": 4
     },
     {
       "type": "stat",
@@ -220,7 +269,7 @@
         "textMode": "auto"
       },
       "description": "Alert hetzner-status-poller-stale after 1h.",
-      "id": 4
+      "id": 5
     },
     {
       "type": "stat",
@@ -279,7 +328,68 @@
         "graphMode": "none",
         "textMode": "auto"
       },
-      "id": 5
+      "id": 6
+    },
+    {
+      "type": "table",
+      "title": "Relevant now (what the hub banner shows)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "last_over_time(hetzner_status_active{instance=\"homelab\"}[15m])",
+          "format": "table",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "instance": true,
+              "service": true,
+              "environment": true,
+              "job": true
+            },
+            "indexByName": {
+              "relevance": 0,
+              "phase": 1,
+              "kind": 2,
+              "category": 3,
+              "title": 4,
+              "start": 5,
+              "end": 6,
+              "link": 7
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "description": "direct/nearby bulletins that are ongoing or start within 7 days, and service bulletins while ongoing (hetzner_status_active). Empty = nothing relevant.",
+      "id": 7
     },
     {
       "type": "logs",
@@ -290,13 +400,13 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 10,
         "w": 24,
-        "h": 18
+        "h": 16
       },
       "targets": [
         {
-          "expr": "app:hetzner-status | fields _time, _msg, affects, kind, category, start, end, backfill, link, summary",
+          "expr": "app:hetzner-status | fields _time, _msg, relevance, affects, kind, category, start, end, backfill, link, summary",
           "queryType": "instant",
           "refId": "A",
           "datasource": {
@@ -312,8 +422,8 @@
         "enableLogDetails": true,
         "prettifyLogMessage": false
       },
-      "description": "Alerts: hetzner-status-ours (category nbg1/fsn1), hetzner-status-service (a service we use). Fields to filter on: affects, kind, category, location, start, end, link.",
-      "id": 6
+      "description": "Alert hetzner-status-ours fires on new direct bulletins only. Lines before 2026-10-29 16:00Z carry `affects` instead of `relevance`.",
+      "id": 8
     }
   ],
   "templating": {

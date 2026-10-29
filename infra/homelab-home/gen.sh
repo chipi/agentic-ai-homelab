@@ -70,6 +70,7 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 .abar.crit{background:#3d1114;border:1px solid #f85149}
 .abar.warn{background:#3a2d0e;border:1px solid #d29922}
 .abar.plumb{background:#16161f;border:1px solid #26263a;color:#8888aa}
+.abar .hz{font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.8;margin-right:6px}
 h3.sectitle{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:16px 0 6px;border-bottom:1px solid #22223a;padding-bottom:4px}
 table.ctbl td{padding:4px 10px;border-bottom:1px solid #1a1a2b;font-size:13px;vertical-align:middle}
 table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
@@ -84,6 +85,7 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
   .sysrow,.dock,.sec,.health{font-size:12.5px}
 }</style></head><body>
 <h1>homelab</h1>
+<div id=hetznerbar></div>
 <div id=alertbar></div>
 <!-- Production apps — the operator's FIRST impression of app health, above the fleets and
      machine columns. Fed by each app's prod-ops-health run (podcast_scraper #1876) pushing
@@ -388,6 +390,22 @@ async function delivery(){
   const ca=await g1('max(delivery_events_cursor_age_seconds)');
   set('dl_cursor',cv(ca?fmtUp(ca[1]):'&mdash;'));
 }
+async function hetzner(){
+  // Hetzner status bulletins that touch us (infra/hetzner-status: correlated with prod's
+  // datacenters in ours.json). hetzner_status_active is re-pushed every 10 min while a bulletin
+  // is ongoing or starts within 7 days (direct/nearby) or is ongoing (service); empty = no bar.
+  const el=document.getElementById('hetznerbar');if(!el)return;
+  const rows=await q('last_over_time(hetzner_status_active{instance="homelab"}[15m])');
+  if(!rows.length){el.innerHTML='';return;}
+  const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const when=m=>{const s=m.start?new Date(m.start):null,e=m.end?new Date(m.end):null,f=d=>d.toISOString().slice(0,16).replace('T',' ')+'Z';
+    return m.phase==='upcoming'?'starts '+(s?f(s):'?'):'ongoing'+(e?' until '+f(e):'')+(s?', since '+f(s):'');};
+  const order={direct:0,nearby:1,service:2},cls={direct:'crit',nearby:'warn',service:'plumb'},
+        what={direct:'our datacenter (prod-podcast, NBG1-DC3)',nearby:'near us (same city)',service:'a Hetzner service we use'};
+  rows.sort((a,b)=>(order[a.metric.relevance]??9)-(order[b.metric.relevance]??9));
+  el.innerHTML=rows.map(r=>{const m=r.metric;return '<a class="abar '+(cls[m.relevance]||'plumb')+'" href="'+esc(m.link)+'">'
+    +'<span class=hz>Hetzner &middot; '+esc(m.kind)+' &middot; '+esc(what[m.relevance]||m.relevance)+'</span><b>'+esc(m.category)+'</b> &mdash; '+esc(m.title)+' <span style="opacity:.75">('+esc(when(m))+')</span></a>';}).join('');
+}
 async function alerts(){
   // One consolidated notification surface: EVERYTHING alert-worthy is (or
   // becomes) a Grafana rule over VM/VLogs — disk, apps, security, delivery,
@@ -447,7 +465,7 @@ async function podcastHealth(){
   if(ts){const h=Math.floor((now-+ts[1])/3600);set('ph_age','<div class=cv>'+(h<1?'&lt;1':h)+'h ago</div>'+(stale?'<div class=muted style="font-size:12px">STALE &mdash; check not running</div>':''));}
   else set('ph_age','<div class=cv>&mdash;</div><div class=muted style="font-size:12px">no run in 28h</div>');
 }
-function refresh(){alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
+function refresh(){hetzner();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
