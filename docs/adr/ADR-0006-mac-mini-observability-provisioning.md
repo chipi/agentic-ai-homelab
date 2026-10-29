@@ -48,7 +48,13 @@ Need: a repeatable, low-toil "empty Mac mini → running platform" path.
 macOS native integration. Exposure via caddy-tailscale nodes — each service has its own
 Tailscale certificate node (Grafana, GlitchTip, Umami, Langfuse, LiteLLM, VictoriaMetrics,
 VictoriaLogs, VictoriaTraces, hub). See [`docs/observability-dependency-map.md`](../observability-dependency-map.md)
-for the architecture.
+for the architecture. Two other exposure designs were tried first and rejected by the operator on 2026-08-15:
+`*.home` names behind a reverse proxy with split DNS and an internal CA (every device would
+have to trust an exported root certificate), and a public domain with Let's Encrypt (the
+homelab is tailnet-only and serves several projects). Per-service caddy-tailscale nodes need
+no domain, no CA and no DNS changes. The machine itself boots without a login: FileVault off
+and `pmset` auto-restart (`infra/README.md` prerequisites 6-7), colima and the docker relay
+as LaunchDaemons (`infra/engine/`), Tailscale through `infra/tailscale/`.
 
 ## Non-goals
 

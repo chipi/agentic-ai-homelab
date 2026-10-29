@@ -17,7 +17,7 @@
 
 # --- container runtime -------------------------------------------------------
 # colima (QEMU-backed) replaced OrbStack under the _dockerhost service account
-# (ADR-0006, mac-mini-headless-server.md). colima is the VM; the docker CLI +
+# (ADR-0006, infra/engine/README.md). colima is the VM; the docker CLI +
 # compose plugin are separate formulae (colima provides the daemon, not the CLI).
 brew "colima"          # Docker/Compose engine (VM) — every infra/ stack runs on this
 brew "docker"          # docker CLI (talks to the colima-hosted daemon)

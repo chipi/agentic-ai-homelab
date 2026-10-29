@@ -276,3 +276,36 @@ egress-only service.
 **Alternatives:** Listmonk-in-front (rejected: duplicate queue + racing
 suppression list, extra Postgres/Redis to run); SES (rejected: AWS out); a
 public bounce webhook (rejected: breaks tailnet-only posture for one callback).
+
+## D-0014 — App services and assets move out of this repo; homelab services stay
+
+**Date:** 2026-10-29
+**Decided by:** operator
+**Decision:** agentic-ai-homelab keeps homelab infra. Product pieces move to chipi/infra, the
+repo for the operator's non-homelab infra, even when they run on homelab hardware: the delivery
+service (whole; podcast is its only tenant), the prod-podcast collector mirror, the podcast and
+prod-box dashboards (into an o11y folder), podcast's DGX vLLM stacks (into an ai folder), and
+product-only skills (into their own folder). Alert rules stay in this repo's `rules.yaml`
+(product groups included). Homelab services (the shared mini services, the hub, the fleets,
+the Hetzner/Cloudflare/uptime monitoring) stay for now and are a later discussion.
+**Why:** the podcast email logic in `infra/delivery` was the trigger; the repo had become the
+home of things that belong to the products.
+**How:** the infra session writes the plan in chipi/infra and moves nothing before its arc B;
+homelab deletes each copy in the same change as infra adopts it.
+
+## D-0015 — The eval harness lives in chipi/eval-harness
+
+**Date:** 2026-09-26 (recorded 2026-10-29)
+**Decision:** the eval harness, its summarisation example and its research moved to their own
+repo, chipi/eval-harness (MIT); this repo removed them in dec3575. `examples/` keeps only
+`claude-api-with-caching` and `mcp-tool-template`.
+
+## D-0016 — wip notes are closed when their work ships
+
+**Date:** 2026-10-29
+**Decided by:** operator ("trim down docs/wip … why do we have wip notes open?")
+**Decision:** a `docs/wip/` note is closed when its work ships or is dropped: lasting content is
+folded into the living doc, open items move to `NEXT_STEPS.md`, links are repointed, the note is
+deleted and recorded in a `docs/history/` entry. Procedure in `docs/wip/README.md`.
+**Why:** only `NEXT_STEPS.md` had a rule, so every handover and plan stayed forever; 25 of 32
+notes were finished when this was decided (history 0007).

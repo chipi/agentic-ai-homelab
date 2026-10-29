@@ -4,10 +4,10 @@ One day of measurement that closed the bug-fix fleet's model-selection
 chapter: the production loop verified end-to-end, both LLM seats decided
 on frozen-replay evidence, and four instrument defects found and fixed by
 the failures themselves. This document is the review-grade record; the
-raw per-run data lives in
-[`bugfix-fleet/bakeoff/results-snapshots/2026-07-26-seat-auction/`](https://github.com/chipi/agentic-ai-homelab/tree/main/bugfix-fleet/bakeoff/results-snapshots/2026-07-26-seat-auction)
-(ledgers, per-chain flow logs, per-consultation rationale JSONs).
-Narrative session log: BAKEOFF §6.3 sessions 3k–3m.
+raw per-run data lives next to this file in this folder
+(ledgers, per-chain flow logs, per-consultation rationale JSONs; moved here
+from `docs/wip/` on 2026-10-29).
+Narrative session log: [`BAKEOFF.md`](../../../BAKEOFF.md) §6.3 sessions 3k–3m.
 
 ## 0. Scope — what this record does and does NOT cover
 

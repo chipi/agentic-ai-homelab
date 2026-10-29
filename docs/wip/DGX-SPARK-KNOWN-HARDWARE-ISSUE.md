@@ -6,8 +6,8 @@ requires a physical power-button press. It establishes (1) that the issue exists
 platform defect rather than a deployment fault, (2) what we did about it, and (3) the RMA
 path if mitigation is not enough.
 
-Hypothesis history, dead ends, and one retracted precursor live separately in
-[`DGX-WEDGE-DIFFERENTIAL.md`](DGX-WEDGE-DIFFERENTIAL.md). This file is the standing reference.
+The hypothesis log behind it (DGX-WEDGE-DIFFERENTIAL, closed 2026-10-29; see
+`docs/history/0007-wip-notes-closed.md`) is folded into §1.6. This file is the standing reference.
 
 **Status:** mitigated, not fixed. Clock cap applied and verified 2026-09-18. Recurrence still
 possible — see [Residual risk](#residual-risk).
@@ -153,10 +153,10 @@ actual — though we did not measure the offset on this unit.
 
 | Hypothesis | Killed by |
 |---|---|
-| Memory exhaustion / unified-memory pressure | host memory flat at 73.2–73.3 GB available through every final window; 0 OOM kills across 10 h |
+| Memory exhaustion / unified-memory pressure (**for these power-offs only**) | host memory flat at 73.2–73.3 GB *MemAvailable* through every final window; 0 OOM kills across 10 h. Caveat: the later **freezes** were memory after all (MemFree, not MemAvailable: freeze 2 had MemFree 0.97 GB under GPU allocations plus page cache), fixed by `infra/dgx/sysctl/90-dgx-min-free-kbytes.conf` (fa7066a, 2026-10-01). Watch MemFree, not MemAvailable. |
 | Peak temperature (thermal trip) | survived 84.6 C for 24 min; died at 79 C |
 | The ollama load/unload cycle | wedges 2 and 4 had **0 models loaded**; an 8 h run with repeated cycles survived |
-| GPU degradation before each wedge | cache-independent throughput flat to **-0.4 %** — see the retraction in `DGX-WEDGE-DIFFERENTIAL.md` |
+| GPU degradation before each wedge | cache-independent throughput flat to **-0.4 %** — an apparent drop before wedges was a **prefix-cache artifact**: cached requests skip prefill and look faster. Measure prefill only on uncached tokens (`vllm:request_prefill_kv_computed_tokens_sum/_count`); the prefix-cache series are collected continuously |
 | Headless fan bug as the *load-time* cause | every community report of it is an **idle** phenomenon (45–70 C at 0 % GPU); one user stress-tested affected and healthy units and both *"reached 75-78°C GPU, passed without crashes"*. Not ruled out as a contributor; ruled out as the documented mechanism. |
 | Suspend when headless | not a suspend — the machine stays running and it is a Wi-Fi/NetworkManager teardown ([353777](https://forums.developer.nvidia.com/t/nvidia-dgx-spark-automatically-suspends-when-running-headless-despite-power-config-changes/353777)). A resume would not produce `uptime 0` and a new boot record. |
 | Kernel 7.0.0-1019 advisory (2026-09-14) | we run `6.17.0-1021-nvidia` |

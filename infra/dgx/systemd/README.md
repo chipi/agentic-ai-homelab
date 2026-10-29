@@ -63,8 +63,8 @@ nvidia-smi -q -d CLOCK | grep -A1 '^    Clocks$'     # expect Graphics <= 2200 M
 Check it under load, not at idle. Remove the mitigation with
 `sudo systemctl stop gpu-clock-cap` (its `ExecStop` runs `nvidia-smi -rgc`).
 
-Full hypothesis history, including a retracted precursor that turned out to be a
-prefix-cache artifact: `docs/wip/DGX-WEDGE-DIFFERENTIAL.md`.
+Standing reference, including the retracted precursor that turned out to be a
+prefix-cache artifact: `docs/wip/DGX-SPARK-KNOWN-HARDWARE-ISSUE.md` §1.6.
 
 ## Why `ollama.service.d/override.conf` exists
 

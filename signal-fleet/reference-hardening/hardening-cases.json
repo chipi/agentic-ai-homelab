@@ -1,6 +1,6 @@
 {
  "_schema": "signal-fleet hardening eval dataset v1 — deterministic (no LLM). Each case feeds a real (scrubbed) production signal through the DETERMINISTIC hardening (triage.operational_class / triage.triage gate / sources test-suppression) and asserts the behavior. Runner: mvp/eval_hardening.py. Cultivate: when a new incident class appears, add a case here with its real (scrubbed) strings + expected behavior. Provenance links the source incident.",
- "_provenance": "Derived from the 2026-08-13→19 chipi/podcast_scraper escalation flood (the triager was auth-broken -> fail-open -> ~128 issues). Strings are the real error titles, scrubbed (no secrets/PII). See docs/wip/signal-fleet-flood-hardening.md.",
+ "_provenance": "Derived from the 2026-08-13→19 chipi/podcast_scraper escalation flood (the triager was auth-broken -> fail-open -> ~128 issues). Strings are the real error titles, scrubbed (no secrets/PII). Incident record: docs/history/0007-wip-notes-closed.md; design: docs/signal-fleet-guide.md.",
  "cases": [
   {
    "id": "op-cost-cap-cexc",

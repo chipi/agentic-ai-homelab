@@ -247,7 +247,7 @@ rest reduce frequency or improve the signal.
    Wired Ethernet over Wi-Fi, a stable uplink, and keeping the Mac awake
    (`caffeinate` — already holding sleep off) cut how often the SSH mux flaps.
    Doesn't eliminate internet outages, but lowers the rate. Ties into the
-   headless-server work (`docs/wip/mac-mini-headless-server.md`).
+   headless-server work (ADR-0006 "Implementation update", `infra/engine/`).
 
 5. **No clean lighter recovery exists today.**
    lima has no supported "re-forward without restarting the VM"; cycling the SSH

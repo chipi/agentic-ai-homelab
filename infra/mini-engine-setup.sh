@@ -6,7 +6,7 @@
 # assumes docker works. Neither creates the thing underneath them both: the
 # _dockerhost service account, the colima VM spec, the boot daemon, and the
 # shared socket relay. Until 2026-09-03 that layer existed only on the box and in
-# prose in docs/wip/mac-mini-headless-server.md — so a from-scratch rebuild got
+# prose in a wip note (its lasting parts are now in ADR-0006 and infra/README.md) — so a from-scratch rebuild got
 # as far as "brew installed, Tailscale up" and then stopped dead.
 #
 # Rebuild order:
@@ -140,4 +140,4 @@ fi
 echo
 echo "== done. Next: ./infra/observability/bootstrap.sh, then ./infra/mini-setup.sh"
 echo "   NOT covered here (see infra/README.md Prerequisites): Xcode CLT, Homebrew,"
-echo "   Tailscale (App Store), the age key, FileVault-off and pmset power settings."
+echo "   Tailscale (standalone macsys build), the age key, FileVault-off and pmset power settings."

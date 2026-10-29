@@ -139,7 +139,6 @@ nav:
   - In progress:
     - Overview: wip/README.md
     - Next steps: wip/NEXT_STEPS.md
-    - Skills usage review (2026-10-17): wip/skills-usage-review-2026-10-17.md
   - History:
     - Overview: history/README.md
     - "0001 — Genesis": history/0001-genesis.md
@@ -148,6 +147,7 @@ nav:
     - "0004 — Agent-config + skills": history/0004-agent-config-and-skills.md
     - "0005 — Bake-off matrix arc": history/0005-bakeoff-matrix-arc.md
     - "0006 — Delivery comms-platform arc": history/0006-delivery-comms-platform-arc.md
+    - "0007 — docs/wip cleanup": history/0007-wip-notes-closed.md
 
 extra:
   social:

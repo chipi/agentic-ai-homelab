@@ -2,7 +2,7 @@
 
 The homelab's autonomous-agent system, in one picture. This page ties the
 RFCs together; each RFC owns its own depth. Written 2026-07-25, at the
-lab→wild transition ([rollout plan](wip/fleet-rollout-plan.md)).
+lab→wild transition. Where each fleet stands now: [Rollout status](#rollout-status).
 
 ## The one-sentence version
 
@@ -15,8 +15,8 @@ impossible to act on, and evals that replay frozen reality — so autonomy is
 
 | Fleet | Lever | Pipeline | Status |
 |---|---|---|---|
-| **1 · Bug-fix** ([RFC-0002](rfc/RFC-0002-autonomous-bug-fix-fleet.md)) | **code** | GH `bug` issue → active triage (L1, intent-cited) → specialist fix (repro-first) → kick-back loop → PR; operator merges, always | bake-off measured; real-issue wiring = Track B gate |
-| **2 · Signal-to-action** ([RFC-0003](rfc/RFC-0003-signal-to-action-fleet.md)) | **meaning** | o11y signal → bounded investigation (probe menu) → dismiss / cleanup / file / escalate; File chains into Fleet 1 via the `bug` label; `config-enhancement` awaits Fleet 3 | quality bar **passed**; daemon+digest = Track A gate |
+| **1 · Bug-fix** ([RFC-0002](rfc/RFC-0002-autonomous-bug-fix-fleet.md)) | **code** | GH `bug` issue → active triage (L1, intent-cited) → specialist fix (repro-first) → kick-back loop → PR; operator merges, always | bake-off measured; ran one real batch, then paused on purpose (`fleetd.json` bugfix `enabled: false`) |
+| **2 · Signal-to-action** ([RFC-0003](rfc/RFC-0003-signal-to-action-fleet.md)) | **meaning** | o11y signal → bounded investigation (probe menu) → dismiss / cleanup / file / escalate; File chains into Fleet 1 via the `bug` label; `config-enhancement` awaits Fleet 3 | **live at `propose`** under fleetd since 2026-07-29 |
 | **3 · Remediation** ([RFC-0005](rfc/RFC-0005-remediation-fleet-post-reboot-recovery.md) = v1) | **config/runtime** | long-term: `config-enhancement` → lever menu (typed, allowlisted, verify-after-apply, auto-rollback). v1: a deterministic check on prod → one registered [prod lever](#prod-levers-how-a-fleet-may-act-on-prod) (post-reboot restage) → outcome verify | v1 proposed; no lever in force yet |
 
 The seam between fleets is a **typed label** — each fleet subscribes only to
@@ -200,8 +200,27 @@ Grafana (o11y) — all self-hosted on the mini. Deliberately NOT adopted:
 agent frameworks (audit + revisit triggers for Temporal/LiteLLM in
 [ADR-0008](adr/ADR-0008-fleet-daemon-tech-and-framework-non-adoption.md)).
 
+## Rollout status
+
+As of 2026-10-29. The original per-fleet plan (Track A = triage, Track B =
+bug-fix; lab → shadow → propose → per-class autonomy) lived in a wip note,
+closed this day; its finished parts are below, its open ones are in
+[`wip/NEXT_STEPS.md`](wip/NEXT_STEPS.md) under "Fleets".
+
+- **Shared foundations, done:** LiteLLM gateway with Langfuse callbacks (one
+  trace per triage/bug-fix call); the STOP-flag kill switch (fleetd,
+  [runbook §3](recipes/signal-fleet-runbook.md)); the incident → frozen
+  corpus → replay → mutation-check loop (runbook §5, `replay-proven-fix`
+  skill); the weekly operator review (runbook §4, `triage-fleet-review`
+  skill); fleetd's `budget_day_usd` hard cap and the monthly OpenRouter
+  spend alert.
+- **Track A, triage (Fleet 2):** shadow → **propose** on 2026-07-29 (db50b13).
+  File and dismiss run without approval; escalate stays human by design;
+  cleanup stays queued for the operator.
+- **Track B, bug-fix (Fleet 1):** dormant on purpose after one real batch;
+  it targets `chipi/orrery` only (`fleetd/deploy/chain.json`).
+
 ## Reading order for a fresh brain
 
-1. This page → 2. the [rollout plan](wip/fleet-rollout-plan.md) (where we
-are) → 3. RFC-0002/0003 (per-fleet depth) → 4. `BAKEOFF.md` §6 + `EVAL.md`
-(how anything got measured) → 5. ADR-0008 / RFC-0004 (the shell it runs in).
+1. This page, including [Rollout status](#rollout-status) (where we are) → 2. RFC-0002/0003 (per-fleet depth) → 3. `BAKEOFF.md` §6 + `EVAL.md`
+(how anything got measured) → 4. ADR-0008 / RFC-0004 (the shell it runs in).

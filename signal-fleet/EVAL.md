@@ -33,7 +33,7 @@ propose-first digest); (iii) additionally pends the executable File check
 (seeded thrown-bug fixtures — §3.2 — still the thin spot: 3 file fixtures,
 2 near-duplicates). The staged rollout, per-class autonomy promotion, and
 the full tick list live in
-[`docs/wip/fleet-rollout-plan.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/wip/fleet-rollout-plan.md)
+[`docs/fleet-architecture.md` → Rollout status](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/fleet-architecture.md#rollout-status)
 (Track A).
 
 ## 2. Why an eval at all (the failure the pipeline hides)

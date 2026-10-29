@@ -1,30 +1,228 @@
 # Next steps
 
-> Promotion target: this doc itself stays as a rolling plan — content gets
-> moved out (to pillar docs / ADRs / templates) as it stabilizes. When
-> there's nothing left here, the repo has caught up to v1.0.
+The live punch list for this repo: every open item, grouped by where the work happens. Strike an
+item when it's done (`- [x] ~~text~~ — *done note (date)*`) and move it to
+[Done](#done-paper-trail) at the end; don't delete it. Regrouped on 2026-10-29, when 25 other wip
+notes were closed and their open items folded in here
+([history 0007](../history/0007-wip-notes-closed.md)). "Checked" dates say when an item's
+state was last verified against the live system.
 
-Status as of v0.2: all four pillars are real. What's left here is ops
-items the operator has to run (live infra), follow-up extractions whose
-sanitization cost wasn't worth it yet, and parallel maintenance work.
+## Decisions waiting on the operator
 
-Full continuity of how v0.2 landed: see
-[`history/0003-v0.2-arc.md`](../history/0003-v0.2-arc.md).
+- [ ] **Grafana on Postgres, or stay on SQLite?** Due 2026-10-25, now overdue. WAL went on
+      2026-10-18 (c3b0a18) after "database is locked" flapped alert rules (968 locks in one
+      hour on 10-18). **Checked 2026-10-29: 2 locks in the last 7 days**, which argues for
+      staying on SQLite. Migrate only if locks come back or a second Grafana is wanted.
+      - **What a migration has to carry** (checked 2026-10-18): 5 service accounts with 10
+        tokens other repos and the fleet use (`podcast-sync` 6, `orrery-sync`,
+        `signal-fleet`, `podcast-obs-reader`, `claude-code-obs`) and 15 of the 36 dashboards
+        (pushed by the podcast/orrery sync jobs, not in this repo). A fresh DB would break
+        every token, so it is a data migration, not a re-provision.
+      - **Where:** its own database and role in an existing Postgres (`glitchtip-postgres-1`
+        16.4, `langfuse-postgres-1` 17, `litellm-postgres`, `umami`). Sharing one couples
+        Grafana's uptime to that app's.
+      - check: `docker logs grafana --since 168h 2>&1 | grep -c 'database is locked'` on the mini.
+- [ ] **Agentic coding fleet: close it, or do the first test ride?** Dormant since 2026-07-03.
+      The opencode fleet was later built from the oh-my-opencode plugin; the Pi team and the
+      greenfield test ride never happened. Its decisions are in history 0007.
+- [ ] **Operator-preference conflicts** found when the 2026-07-24 preferences review was closed:
+  - `make`: global rule 16 says foreground; podcast_scraper's memory says background
+    ("REVERSED 2026-06-09"). Which wins there?
+  - AI credit in commits: orrery's memory says never credit Claude or AI; this repo's commits
+    carry `Co-Authored-By: Claude`. Orrery-only, or global?
+  - Project memories with no global rule (no cheating options, never cut scope, never touch
+    sudo or host state, never skip tests or add xfail, no lint weakening, no prod
+    self-approve, never suggest dropping models): keep them project-scoped, or promote?
+- [ ] **`provider-bakeoff/`: run it or drop it?** "Run with your real API keys; pick a primary
+      cloud provider" has been open since 2026-06-12. Everything now routes through LiteLLM and
+      OpenRouter (`infra/litellm/README.md`), so the question it answered may be gone.
+- [ ] **Mini leftovers from the 2026-08-30 pruning:** `org.cindori.AuthHelper` (TRIM
+      Enabler/Sensei helper; remove only with a yes) and `~/Library/Application Support/Adobe`
+      (1.1 GB of personal Photoshop/Lightroom data; keep or delete).
+- [ ] **Smoke-test traffic:** tag the post-deploy Playwright smokes (a user-agent marker in
+      podcast_scraper's configs) so edge and log analysis can leave them out; asked 2026-10-29.
+- [ ] **Website checks the websites session suggested** (2026-10-29): Adobe's origin 403/429
+      trend on airandspacehistory.com, and a probe of Adobe's origin certificate behind
+      Cloudflare (valid until 2026-12-08). Cloudflare's own notifications are a dashboard setting.
 
-## Immediately open (still on the operator)
+## Mini (operator picks the window)
 
+- [ ] **colima 8 → 4 vCPU, 20 → 12 GB, and Spotlight off** —
+      [`colima-vcpu-8-to-4-runbook.md`](colima-vcpu-8-to-4-runbook.md). **Checked 2026-10-29:**
+      still `8 CPUs / 20GiB`, `mdutil` → `Indexing enabled.` The plan predates the dev engine
+      (ADR-0009); recheck the 12 GB sizing against it before running.
+- [ ] **Install the +32 GB RAM** (2018 mini → 64 GB). **Checked 2026-10-29:** still 32 GB
+      (`hw.memsize` 34359738368). Full shutdown and a physical open.
+- [ ] **Tailscale exit node on the mini** (NL egress while travelling) —
+      [`tailscale-exit-node-mini.md`](tailscale-exit-node-mini.md), not executed. The ACL now
+      lives in **chipi/infra** (`tailscale/policy.hujson`, `tailscale-acl.yml`); the mini runs
+      the standalone macsys build, which can be an exit node (checked 2026-10-29).
+- [ ] **Pin the mini's floating images** (found by `infra-drift`, 2026-10-17): Langfuse's
+      `clickhouse-server` and `chainguard/minio` run untagged. Pin each to its running digest,
+      as Umami was (4cafb0c), and recreate in a window.
+- [ ] **Prove a login-less reboot** since the Tailscale fix (2026-09-10). The 2026-09-08 power
+      cut brought containers back in 81 s but left the host off the tailnet for 30 h; the fix
+      has not been through a real reboot. check: `last reboot | head -3; tail -20
+      /tmp/tailscale-up.log`.
+- [ ] **Upgrade lima once [#5420](https://github.com/lima-vm/lima/issues/5420) is released**
+      (operator approved the upgrade 2026-10-09). **Checked 2026-10-29:** closed upstream on
+      10-27, not in a release yet (latest v2.2.1, v2.3.0-beta.1, both 10-03). Check monthly.
+      Caveat: #5420 covers a dead SSH master; the 2026-10-08 break was a wedged one, so confirm
+      the fix detects that too. Runbook:
+      [colima/lima forwarding recovery](../recipes/colima-lima-forwarding-recovery.md). Related:
+      the usernet outbound limit, homelab #118.
+- [ ] **Langfuse MinIO retention not verified.** ClickHouse deletes after 30 days (checked
+      2026-09-30); confirm the same for MinIO with `mc ls` and credentials (oldest object under
+      `lf/langfuse/events`).
+- [ ] **Can the caddy-tailscale auth key be revoked?** Tailscale admin console → Settings →
+      Keys. `infra/reverse-proxy/docker-compose.yml` requires `TS_AUTHKEY` to be set either way.
+- [ ] **Renew the fleet GitHub token before 2027-01-25 19:03 UTC** (chipi/podcast_scraper,
+      orrery, agentic-ai-homelab, humancopilot.eu, eval-harness; Issues read/write). check: on
+      the mini, `curl -sI -H "Authorization: Bearer $GITHUB_TOKEN"
+      https://api.github.com/rate_limit | grep -i token-expiration`.
+
+## DGX
+
+State on 2026-10-17, checked: the `ops` checkout is current with `origin/main` and clean; every
+container runs the image its compose names; mode `prod`, Ollama stopped and disabled.
+
+**Rule:** deploy to the DGX by pulling as `ops`, never by copying files in:
+`sudo -u ops git -C /home/ops/agentic-ai-homelab pull --ff-only`.
+
+**After any recreate, verify:** the `dgx-status` skill; `~/bin/gpu-mode-swap.sh --mode-only` →
+`prod`; the `obs-boot` check (DGX metric freshness); one podcast pipeline call through the
+gateway (`proj-podcast-dev`, the DGX model).
+
+- [ ] **Clock cap across a reboot is unproven.** The DGX has not rebooted since 2026-09-18
+      (`node_boot_time_seconds`); peak SM clock since then is 2197 MHz, under the 2200 MHz
+      cap (checked 2026-10-29 from metrics). Verify after the next reboot:
+      `systemctl is-active gpu-clock-cap` and the SM clock under load. Background:
+      [`DGX-SPARK-KNOWN-HARDWARE-ISSUE.md`](DGX-SPARK-KNOWN-HARDWARE-ISSUE.md).
+- [ ] **Physical, at the box:** NVIDIA's `dgx-spark-fieldiag` PowerStress (blocked by Secure
+      Boot, needs the console) and a repaste / chassis-fan orientation check.
+- [ ] **Meter the DGX's power** (smart plug). Home Assistant only meters the house's P1 meter
+      today (checked 2026-10-29); a HomeWizard socket on the DGX would make power-off
+      forensics possible. Home-automation's call.
+
+## Observability
+
+- [ ] **Telemetry pipeline, remaining steps** —
+      [`otel-pipeline-end-to-end.md`](otel-pipeline-end-to-end.md), issue #99: ADR-0010 phases B
+      and C (container labels and one relabel per box; phase C 30 days later); #99 §2's
+      post-deploy checks; a `run_id` tag on errors raised outside a span; write
+      `docs/recipes/observability-correlation.md`.
+- [ ] **Missing spend alerts:** a per-fleet daily-spend alert and a dead-call alert. The
+      fleetd `budget_day_usd` cap and the monthly OpenRouter alert exist.
+- [ ] **GlitchTip's stale `prod` / `dgx-prod` environment rows** (cosmetic). check:
+      `GET /api/0/organizations/homelab/environments/`.
+
+## Fleets
+
+Where each fleet stands: [fleet architecture → Rollout status](../fleet-architecture.md#rollout-status).
+
+**Triage fleet (Fleet 2)**
+- [ ] **Cleanup autonomy** (track A3): cleanup still waits for the operator.
+- [ ] **Seeded-defect fixtures** — `signal-fleet/EVAL.md` calls them "still the thin spot".
+- [ ] **Client-side corroboration probe** (Umami) for front-end signals.
+- [ ] **Ground-truth labels for STAGING-2/3/4** (`signal-fleet/reference/glitchtip-ORRERY-STAGING-*.json`,
+      `ground_truth.disposition` is null).
+- [ ] **`muted-class` label** for bugs whose fingerprint keeps changing (guide, Known gaps).
+- [ ] Delete the stale `~/signal-fleet/fleet.env` on the mini (fleetd loads `fleet-gateway.env`).
+
+**Bug-fix fleet (Fleet 1)** — paused by the operator after one real batch
+- [ ] **Resume B1/B2** (shadow on the real backlog, then PR mode), and **B3**: add
+      podcast_scraper next to orrery in `fleetd/deploy/chain.json`.
+- [ ] **Per-vertical OpenRouter keys** (pi / opencode / fleet). Intended since 2026-07-26,
+      never done: only 2 OpenRouter keys exist (2fb91ee; `openrouter-spend.sh`).
+- [ ] **Langfuse span emission is a stub** (`bugfix-fleet/src/observability/langfuse.ts:22`
+      `TODO(langfuse)`). Gateway-side traces exist since e4e396f; the chain's own spans don't.
+- [ ] **Structured-output retry policy for flash workers** (`BAKEOFF.md:603`): about 1 in 11
+      structured outputs flake; a flash fleet collects silent `stuck` chains without it.
+- [ ] **Flash worker under the kick-back/advisor path is unmeasured** (`BAKEOFF.md:891`).
+- [ ] **A test for `fleet/dispatch.ts`.** The vitest suite exists since 98420f6; dispatch
+      routing is the named target still without a test.
+- [ ] **pi/opencode worker adapters are skeletons** (`piAdapter.ts`, `opencodeAdapter.ts`):
+      real harness integration is its own work item.
+- [ ] **Split advisor consultation** (redirect → glm, confirm → flash), deferred on 2026-07-26;
+      `fleetd/chain.go` still has one advisor.
+
+## Moving app pieces out (D-0014)
+
+The infra session writes the plan in chipi/infra and moves nothing before its arc B. When infra
+adopts a piece, delete homelab's copy in the same change (dashboards share uids).
+- [ ] `infra/delivery/` (whole) → chipi/infra.
+- [ ] `infra/observability/hosts/prod-podcast/` → adopted by chipi/infra, then deleted here.
+- [ ] Podcast Player, Podcast Operator and Production Infra (host, containers, edge-security)
+      dashboards → chipi/infra, an o11y folder.
+- [ ] `infra/vllm/prod-vllm`, `translate`, `autoresearch` → chipi/infra, an ai folder.
+- [ ] Product-only skills (corpus-migration, prod-batch-chain, prod-deploy, prod-job-progress,
+      extraction-rebase, infra-preflight) → chipi/infra; `install.sh` has to keep linking them.
+
+## X3 (operator picks the window; layout codified 2026-10-16)
+
+- [ ] **Storage separation window** — move `/work`, `/var/lib/docker`,
+      `/var/lib/containerd` into `@work`, `@docker`, `@containerd`
+      ([ADR-0011](../adr/ADR-0011-workstation-storage-subvolumes.md)) with the
+      [runbook](../recipes/x3-storage-separation.md). **Blocked until:** an emergency
+      boot path is confirmed (B); the small encrypted off-machine backup of the
+      Orrery and OceanCanvas `.env` variants and Orrery's local overrides exists and
+      has been decrypted and compared (C); Orrery's live state (detached HEAD
+      `41330dd`, the `/tmp/…/replay-baseline-main` worktree) is landed, preserved or
+      stopped by its owner; tmux persistence is installed and loaded, its disposable
+      restore test is green, and the final `wb-tmux save` + `verify` pass (runbook F, G).
+- [ ] **Later, never automatic:** retire the `*.pre-subvol` safety copies with the
+      [retirement procedure](../recipes/x3-storage-safety-copy-retirement.md), after
+      its readiness checks and explicit approval.
+
+## Maintenance (parallel, not urgent)
+
+- [ ] **Dedup project AGENTS.md files** against the global one (genesis open thread #5):
+      podcast_scraper (1,320 lines), orrery (994), chemigram, oceancanvas. Keep only
+      project-specific content in each.
+
+## Deferred (intentional)
+
+These were considered and explicitly NOT extracted, because the honest
+reference lives elsewhere:
+
+- **`examples/multi-provider-router/`** — provider abstraction shape.
+  The honest reference is `podcast_scraper-FUTURE`'s `cloud_balanced` /
+  `cloud_thin` / `cloud_with_dgx_*` provider classes, where the
+  abstraction has been beaten on by real work. Genericizing it cleanly
+  is more work than the derived value here.
+- **Claude Code settings.json template** (`templates/claude-code/`) — 127K of
+  operator-specific config (permissions, MCP allowlists, hook commands). Load-bearing
+  pieces are documented in
+  [`recipes/token-management-lean-ctx-rtk.md`](../recipes/token-management-lean-ctx-rtk.md)
+  and [`recipes/chrome-devtools-mcp-agent-loop.md`](../recipes/chrome-devtools-mcp-agent-loop.md).
+  Ship a minimum-viable extraction if one becomes viable.
+
+## What's deliberately NOT in scope
+
+Per ADR-0001 — for context if anyone asks why something isn't here.
+
+- Generic "best practices" content not grounded in operator's actual use.
+- LangChain / LangGraph / CrewAI orchestration frameworks. The operator
+  prefers thin direct API integrations + MCP. If that changes, write an
+  ADR.
+- Cloud-deployed agentic services (Lambda, Cloud Run, Functions). This
+  is a homelab repo.
+- **Self-hosted multi-model chat UIs as deploy targets.** Tried in
+  genesis, pulled out (see `history/0002-decisions.md` D-0007). Phone
+  access to the local vLLM is via Chatbox (OpenAI-compatible client, no
+  deploy) — see `agent-harnesses.md`.
+- Mobile-native apps (custom iOS / Android dev).
+
+## Done (paper trail)
+
+Struck items, kept verbatim as they were written.
+
+- [x] ~~`chmod 0600 /work/orrery/main/.env`~~ — *done; checked 2026-10-29: mode 600.*
 - [x] ~~**Triage fleet GitHub token expires 2026-10-27 15:59 UTC**~~ Done 2026-10-27: it lapsed
       (401 on every repo) and the operator regenerated it. Now covers chipi/podcast_scraper, orrery,
       agentic-ai-homelab, humancopilot.eu and eval-harness (all 200, issues listable); **expires
       2027-01-25 19:03 UTC** (`github-authentication-token-expiration`). `filing.REPO_MAP` now
       routes `EVALS` → chipi/eval-harness and `HUMANCOPILOT` / `DEVWHATEVEROPS` → chipi/humancopilot.eu.
-- [ ] **Renew the fleet GitHub token before 2027-01-25 19:03 UTC** (same five repos, Issues
-      read/write). check: on the mini, `curl -sI -H "Authorization: Bearer $GITHUB_TOKEN"
-      https://api.github.com/rate_limit | grep -i token-expiration`.
-
-These need DGX / Grafana Cloud / live-infra access — the recipes are
-drafted, but they haven't been run for real yet.
-
 - [x] ~~Fill in `infra/observability/.env` with Grafana Cloud creds →
       `docker compose up -d` → verify in Grafana Cloud Explore.~~
       *Done 2026-06-12; all four dashboards (Node, DCGM, vLLM, cAdvisor)
@@ -36,74 +234,20 @@ drafted, but they haven't been run for real yet.
       and verify (`gpu-mode-swap.sh status`).~~ *Superseded:* `~/bin/gpu-mode-swap.sh`
       is a wrapper that runs the `ops` checkout's script as `ops`
       (`/home/ops/agentic-ai-homelab/infra/dgx/bin/gpu-mode-swap.sh`). Checked 2026-10-17.
-- [ ] Run `provider-bakeoff/` with your real API keys; pick a primary
-      cloud provider for the next round of work. *(Sweep cost ~$2-5.)*
-
-## Planned mini ops (operator picks the window; prep is DONE)
-
-- [ ] **Window ~2026-08-30/31:** run the colima restart —
-      [`colima-vcpu-8-to-4-runbook.md`](colima-vcpu-8-to-4-runbook.md):
-      one `colima stop && start --cpu 4 --memory 12` (~2–5 min stack gap)
-      + the same-window Spotlight disable (`mdutil -a -i off`, instant).
-      **Still not done (checked 2026-09-30):** colima is at `cpu: 8`, `memory: 20`, and
-      `mdutil -s /` → `Indexing enabled.` Needs an operator-chosen window.
 - [x] ~~**Step 2:** desktop-software pruning per
-      [`mini-box-pruning.md`](mini-box-pruning.md).~~ **Done 2026-08-30**,
+      `mini-box-pruning.md` (closed 2026-10-29).~~ **Done 2026-08-30**,
       all 12 vendors, ~8.7G freed, health green throughout. Left behind:
       `org.cindori.AuthHelper` (identified as TRIM Enabler/Sensei helper —
       needs an explicit yes) and `~/Library/Application Support/Adobe`
       (1.1G personal Photoshop/Lightroom/DE data — operator call).
-- [ ] **Hardware, someday:** install the +32G RAM the operator has at home
-      (2018 mini → 64G total). Full shutdown + physical open; no config
-      changes needed after (colima VM stays 12G — sized to guest usage).
-
-- [ ] **Tailscale exit node on the mini** (NL egress for NL-only government
-      sites while travelling) — runbook prepared, NOT executed:
-      [`tailscale-exit-node-mini.md`](tailscale-exit-node-mini.md). Three steps:
-      `--advertise-exit-node` on the mini, one manual approval in the admin
-      console, and a one-rule ACL grant in **podcast_scraper**'s
-      `tailscale/policy.hujson` (no `autogroup:internet` rule exists today —
-      verified 0). **Known risk (corrected 2026-09-30):** the mini's tunnel is
-      login-independent since 2026-09-10 (`tailscale-up` LaunchDaemon), so a
-      reboot abroad is survivable — *unless* the exit-node flag is added without
-      also restating it in `infra/tailscale/tailscale-up.sh`, in which case the
-      boot-time `tailscale up` is refused and the mini stays off the tailnet.
-      The runbook now does both in one step. The earlier "tunnel only lives while
-      logged in" warning here was wrong.
-
-- [ ] **Pin the mini's floating images** (found by `infra-drift`, 2026-10-17). Langfuse's
-      `clickhouse-server` and `chainguard/minio` run with no tag, so a pull or recreate can
-      change them silently. Pin each to its running digest, as Umami was (4cafb0c), and recreate
-      in a window. The `litellm` "drift" (runs `main-stable`, compose pins `v1.96.2`) is
-      cosmetic: the container reports 1.96.2, so its next recreate changes nothing.
-
 - [x] ~~**Skills: the operator's four decisions** from the
-      [skills usage review](skills-usage-review-2026-10-17.md)~~ — *all four done 2026-10-17*:
+      skills usage review (closed 2026-10-29, history 0007)~~ — *all four done 2026-10-17*:
   1. ~~wire the `skill-nudge` hook~~ — *done 2026-10-17 on the laptop and omarchy*;
   2. ~~give `secrets-scan` a script and maybe a push hook~~ — *done a21d0d3; the push hook
      already existed (`secrets-guard.sh`), it now adds gitleaks*;
   3. ~~add an install-drift check to `index.py`~~ — *done 2026-10-17: `index.py --check-install`*;
   4. ~~shrink `homelab-endpoint`~~ — *done 2026-10-17, now a pointer at the handbook*.
   check: `python3 workstation/claude/skills/index.py --check-install` on each machine
-
-## Planned DGX ops (operator picks a maintenance window)
-
-State on 2026-10-17, checked:
-- The `ops` checkout (`/home/ops/agentic-ai-homelab`) is current with `origin/main` and clean.
-  It had been 171 commits behind, with three files copied in by hand that matched
-  `origin/main`. It was reset to `origin/main`, losing nothing.
-- Every running container from that checkout uses the image its compose file names: no drift.
-  The stacks are `infra/observability`, `infra/vllm/prod-vllm`, `infra/vllm/translate` and
-  `infra/librechat`.
-- Mode `prod`. Ollama is stopped and disabled. `ollama-metrics` is stopped, and the
-  gpu-mode fix (312e9ba) stops it on later swaps.
-
-**Rule from now on:** deploy to the DGX by pulling as `ops`, never by copying files in:
-`sudo -u ops git -C /home/ops/agentic-ai-homelab pull --ff-only`. Copied files made the
-checkout look dirty and hid how far behind it was.
-
-**In the window** (each step interrupts serving or a GPU job, so it waits for the operator):
-
 - [x] ~~**podcast_scraper DGX converge, the real deploy.**~~ **Not needed (checked 2026-10-17):**
       the #1397 `/dev/shm` guard is already live. pyannote was redeployed on 2026-10-15 13:06 UTC.
       Its `/app/app.py` is byte-identical to podcast_scraper main (md5 `611aefc5…`), and its
@@ -118,59 +262,6 @@ checkout look dirty and hid how far behind it was.
       window: a cadvisor recreate only gaps container metrics, so it doesn't interrupt serving.
       A throwaway v0.55.1 on `:18089` first gave identical named series. After the swap, DGX
       container samples reach VictoriaMetrics again (latest 8 s old).
-- [ ] **After any recreate, verify:**
-  - the `dgx-status` skill;
-  - `~/bin/gpu-mode-swap.sh --mode-only` → `prod`;
-  - the `obs-boot` check (DGX metric freshness);
-  - one podcast pipeline call through the gateway (`proj-podcast-dev`, the DGX model).
-
-## Planned X3 ops (operator picks the window; layout codified 2026-10-16)
-
-- [ ] **Storage separation window** — move `/work`, `/var/lib/docker`,
-      `/var/lib/containerd` into `@work`, `@docker`, `@containerd`
-      ([ADR-0011](../adr/ADR-0011-workstation-storage-subvolumes.md)) with the
-      [runbook](../recipes/x3-storage-separation.md). **Blocked until:** an emergency
-      boot path is confirmed (B); the small encrypted off-machine backup of the
-      Orrery and OceanCanvas `.env` variants and Orrery's local overrides exists and
-      has been decrypted and compared (C); Orrery's live state (detached HEAD
-      `41330dd`, the `/tmp/…/replay-baseline-main` worktree) is landed, preserved or
-      stopped by its owner; tmux persistence is installed and loaded, its disposable
-      restore test is green, and the final `wb-tmux save` + `verify` pass (runbook F, G).
-- [ ] Separately: `chmod 0600 /work/orrery/main/.env` (secret-bearing, mode 0644
-      on 2026-10-16).
-- [ ] **Later, never automatic:** retire the `*.pre-subvol` safety copies with the
-      [retirement procedure](../recipes/x3-storage-safety-copy-retirement.md), after
-      its readiness checks (normal development, Docker use, a full Workbench stream
-      lifecycle and a reboot on the new layout) and explicit approval.
-
-## Dated checks (open on/after the date — we WILL forget otherwise)
-
-- [ ] **On 2026-10-25: Grafana on Postgres, or stay on SQLite?** WAL went on 2026-10-18 11:56
-      UTC (c3b0a18) after "database is locked" flapped alert rules (968 locks at 09:00 UTC,
-      rising since 10-17). Decide on a week of data. Migrate if locks come back or we want
-      a second Grafana.
-      - **What a migration has to carry** (checked 2026-10-18): 5 service accounts with 10
-        tokens other repos and the fleet use (`podcast-sync` 6, `orrery-sync`,
-        `signal-fleet`, `podcast-obs-reader`, `claude-code-obs`) and 15 of the 36 dashboards
-        (pushed by the podcast/orrery sync jobs, not in this repo). A fresh DB would break
-        every token, so it is a data migration, not a re-provision.
-      - **Where:** its own database and role in an existing Postgres. Running servers:
-        `glitchtip-postgres-1` (16.4), `langfuse-postgres-1` (17), `litellm-postgres`,
-        `umami`. Sharing one couples Grafana's uptime to that app's.
-      - check: `docker logs grafana --since 168h 2>&1 | grep -c 'database is locked'` on the
-        mini (0 = stay on SQLite).
-
-- [ ] **Monthly from 2026-11-01:** upgrade lima on the mini once
-      [lima-vm/lima#5420](https://github.com/lima-vm/lima/issues/5420) ships —
-      keepalives on the SSH ControlMaster plus a loop that re-creates forwards
-      when the master breaks (operator approved the upgrade 2026-10-09). As of
-      2026-10-09 the issue is open with no merged PR; the mini runs lima 2.2.0,
-      latest is v2.2.1 / v2.3.0-beta.1. Check: `gh api repos/lima-vm/lima/issues/5420
-      --jq .state` and the release notes. Caveat: #5420 covers a DEAD master; our
-      2026-10-08 break was a WEDGED one, so confirm the fix also detects that
-      before calling the forward-break class closed. Runbook:
-      [colima/lima forwarding recovery](../recipes/colima-lima-forwarding-recovery.md).
-
 - [x] ~~**2026-08-31+ (any day next week):** verify the docker-prune LaunchAgent
       self-fired Sunday 04:00 on the mini (installed + hand-verified 2026-08-30,
       but the calendar trigger itself has never fired).
@@ -225,23 +316,6 @@ checkout look dirty and hid how far behind it was.
     are archived in `~/signal-fleet/queue/archive/1879-dormant-2026-10-17/`.
   - #1877 is still valid, and is handed to the prod session: the GitHub cron runs 4–7 h late,
     though every run succeeds.
-## Active subprojects
-
-- [ ] **Agentic coding fleet** — multi-agent setup across opencode + Pi,
-      OpenRouter cloud gateway with hard model-locks, FastContext-4B as
-      local recon. Tracking + progress in
-      [`agentic-coding-fleet/README.md`](agentic-coding-fleet/README.md).
-      Eventual graduation target: new `docs/agentic-coding/` section.
-      Phase 0 (OpenRouter keys) is on the operator; Phase 1+ is the
-      harness wiring.
-
-## Maintenance items (parallel, not urgent)
-
-- [ ] **Dedup existing project AGENTS.md files** against the new global.
-      Open thread #5 from genesis. Targets: `podcast_scraper-FUTURE`,
-      `orrery`, `chemigram`, `oceancanvas`. Each has its own AGENTS.md
-      that predates the global rules; the project-level files should now
-      keep only project-specific content.
 - [x] ~~**Versioning scheme** decision.~~ **Decided 2026-06-13:** HEAD is
       the source of truth + README "Status" line carries the meaningful
       label. Drop lightweight `git tag`s at the moments
@@ -249,30 +323,6 @@ checkout look dirty and hid how far behind it was.
       (`v0.1-genesis`, `v0.2-four-pillars-real`, …) — bookmarks, not
       releases. First tag lands once v0.1 is stable; not yet. Revisit if
       the repo gains external consumers who need pinning.
-- [ ] **`templates/claude-code/`** — currently deferred (per
-      `agent-harnesses.md`). If a clean minimum-viable
-      `~/.claude/settings.json` extraction becomes viable, ship it. Hook
-      patterns (RTK + lean-ctx) are already covered by the recipes; the
-      missing piece is the harness-specific defaults.
-
-## Harden follow-ups (surfaced 2026-08-28 by the pre-close harden audit)
-
-Findings the audit flagged as untracked/parked. Code/doc fixes from the same
-audit already landed on the `harden-followups` branch (Brewfile orbstack→colima,
-verify.sh oracle path, webpush rs field, signal-fleet README workdir; +Go/Python
-test coverage for fleetd chain.go, ci-ops-poller, delivery `_aged_out`). The items
-below are decisions/work, not one-line fixes:
-
-- [ ] **bugfix-fleet Langfuse span emission is a no-op stub.**
-      `bugfix-fleet/src/observability/langfuse.ts:22` has a `TODO(langfuse)` — the
-      per-chain telemetry that feeds the bakeoff Langfuse scores isn't emitted.
-- [ ] **Structured-output retry policy for flash workers.** `BAKEOFF.md:603` —
-      flash has a ~1/11 structured-output flake; graceful-degrade lands it in
-      `stuck` (not a crash), but the retry decision is parked. A flash-worker
-      fleet accumulates stuck chains silently without it.
-- [ ] **Flash worker under kick-back/advisor path is unmeasured.**
-      `BAKEOFF.md:891` — flash won the worker seat on price, but the load-bearing
-      kick-back/advisor-pin reliability was only measured with v4-pro.
 - [x] ~~**Trim the obsolete 9443 ACL grant** (PR #1662), superseded by the
       caddy-tailscale plugin. `docs/wip/mac-mini-headless-server.md:302`. Minor
       tailnet hygiene (unnecessary open-port grant).~~ **Done** (checked 2026-10-17): podcast_scraper
@@ -282,44 +332,3 @@ below are decisions/work, not one-line fixes:
       `infra/homelab-home/docker-compose.yml` tailnet-port edit.
       `docs/wip/mac-mini-headless-server.md:29-31`.~~ **Done** (checked 2026-10-17): the mini's
       checkout has no uncommitted files, and `infra/reverse-proxy/` is in the repo.
-- [ ] **bugfix-fleet TypeScript has no test suite** (`bugfix-fleet/src/`, 15
-      modules). Highest-value targets: `worker/schemas.ts` (label-schema parsing)
-      and `fleet/dispatch.ts` (fallback routing). Blocked on a decision: adding a
-      test runner (vitest/jest) is a new dev dependency — needs approval before
-      install (rule 30). Not done in the harden pass for that reason.
-- [ ] **pi/opencode worker adapters are skeletons** (`bugfix-fleet/src/worker/
-      piAdapter.ts`, `opencodeAdapter.ts`, marked `STATUS: skeleton`). Deliberate
-      in-progress per the bakeoff MVP design — real harness integration is its own
-      work item, not a hardening fix.
-
-## Deferred (intentional)
-
-These were considered and explicitly NOT extracted, because the honest
-reference lives elsewhere:
-
-- **`examples/multi-provider-router/`** — provider abstraction shape.
-  The honest reference is `podcast_scraper-FUTURE`'s `cloud_balanced` /
-  `cloud_thin` / `cloud_with_dgx_*` provider classes, where the
-  abstraction has been beaten on by real work. Genericizing it cleanly
-  is more work than the derived value here.
-- **Claude Code settings.json template** — 127K of operator-specific
-  config (permissions, MCP allowlists, hook commands). Load-bearing
-  pieces are documented in
-  [`recipes/token-management-lean-ctx-rtk.md`](../recipes/token-management-lean-ctx-rtk.md)
-  and [`recipes/chrome-devtools-mcp-agent-loop.md`](../recipes/chrome-devtools-mcp-agent-loop.md).
-
-## What's deliberately NOT in scope
-
-Per ADR-0001 — for context if anyone asks why something isn't here.
-
-- Generic "best practices" content not grounded in operator's actual use.
-- LangChain / LangGraph / CrewAI orchestration frameworks. The operator
-  prefers thin direct API integrations + MCP. If that changes, write an
-  ADR.
-- Cloud-deployed agentic services (Lambda, Cloud Run, Functions). This
-  is a homelab repo.
-- **Self-hosted multi-model chat UIs as deploy targets.** Tried in
-  genesis, pulled out (see `history/0002-decisions.md` D-0007). Phone
-  access to the local vLLM is via Chatbox (OpenAI-compatible client, no
-  deploy) — see `agent-harnesses.md`.
-- Mobile-native apps (custom iOS / Android dev).

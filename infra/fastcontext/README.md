@@ -68,3 +68,26 @@ install`, or symlink `/usr/bin/rg` → `/opt/homebrew/bin/rg`.
 - FastContext CLI: 0.1.0 (microsoft/fastcontext @ 2026-06-15 release)
 - GGUF: `hf.co/mradermacher/FastContext-1.0-4B-RL-i1-GGUF:latest`
 - macOS: Darwin 24.x, Apple Silicon
+
+## Why FastContext, and where it stands
+
+FastContext is a 4B Qwen3 finetune trained for one job: code recon. Given a question about a
+repo it greps and reads live (READ / GLOB / GREP tool calls in its own loop, no index) and
+returns the files and line ranges that matter, so the exploration tokens stay out of the
+calling agent's context. Things to know before wiring it anywhere:
+
+- **Tool-call parsing is make-or-break.** It only works if the runtime parses its tool calls
+  instead of printing them as text; that is what the Modelfile patch above fixes on Ollama.
+- **Wire it as a service, not a `model`.** It carries its own tools and loop; set as a
+  subagent's model, the host feeds it the host's tool names and it misfires.
+- **Measure net tokens per passing task,** not main-agent savings: it spends its own tokens.
+  This was never measured.
+- **Concurrency:** one local 4B serves a few parallel callers, not a fleet.
+
+**Status (2026-06-24, unchanged since):** active for Pi through `~/.pi/rules/fastcontext.md`;
+**parked for opencode**. Three subagent models (DeepSeek-V4-Flash, Kimi K2.6, Qwen 3.6 Plus)
+all bypassed the wrapped CLI, no published opencode integration exists, and opencode's
+architecture blocks it (sst/opencode #4096: subagents get the full repo context; #7296: task
+permissions hard-disabled). With the "off-the-shelf only" constraint (no custom MCP wrapper)
+there was no path left; opencode's `agent.explore` is `disable: true` with its config kept.
+The binary, the `fastcontext-clean` Ollama model and the Pi rule are intact.

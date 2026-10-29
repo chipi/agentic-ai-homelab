@@ -124,8 +124,8 @@ mdutil -s /System/Volumes/Data # verify → "Indexing disabled."
 Rollback: `sudo mdutil -a -i on` (index rebuilds itself).
 
 **NOT in this window:** the desktop-software pruning (Backblaze, Adobe,
-Wacom, …) — that's its own careful pass, see
-[`mini-box-pruning.md`](mini-box-pruning.md). Don't mix it into the
+Wacom, …): done 2026-08-30 in its own pass; two leftovers are in
+[`NEXT_STEPS.md`](NEXT_STEPS.md). Don't mix them into the
 colima downtime; nothing about it needs the VM stopped.
 
 ## Expected gap (ESTIMATE — not measured; boot log was already cleared)

@@ -33,7 +33,7 @@ while true; do
     # into infra/langfuse-check/prod.env (gitignored) as:
     #   PROD_LF_PUBLIC_KEY=pk-lf-...
     #   PROD_LF_SECRET_KEY=sk-lf-...
-    # (Owned by the prod agent — see docs/wip/level3-prod-handover.md.)
+    # (Owned by the prod agent; the prod LiteLLM is chipi/infra's.)
     if [ -f "$REPO/langfuse-check/prod.env" ]; then
       # shellcheck disable=SC1091
       . "$REPO/langfuse-check/prod.env"

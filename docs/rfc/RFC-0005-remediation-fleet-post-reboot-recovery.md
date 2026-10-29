@@ -708,7 +708,7 @@ podcast_scraper `main` `3f2a9f43b` and the environments API; `drill`, `prod-back
 Two things a reviewer might assume are **not** true:
 
 - **The disk is not encrypted.** `fdesetup status` → `FileVault is Off`. That was a deliberate
-  trade-off to let the mini boot without a login (see `docs/wip/mac-mini-headless-server.md`). Anyone
+  trade-off to let the mini boot without a login (see `infra/README.md` prerequisite 6 and ADR-0006). Anyone
   with physical access to the mini has the tokens, and so does any process running as
   `markodragoljevic` on it, agent sessions included.
 - **The mini is not tailnet-only.** `sshd` listens on `*:22`, the macOS application firewall is
@@ -787,7 +787,7 @@ Same channels as the other daemons.
 ### Rollout — the same ladder as Fleets 1 and 2
 
 The operator gates every stage transition, as for the other fleets
-([`fleet-rollout-plan.md`](../wip/fleet-rollout-plan.md)). On acceptance this section becomes
+([Rollout status](../fleet-architecture.md#rollout-status)). On acceptance this section becomes
 **Track C** in that plan. `fleetd` holds one `stage` per fleet; per-class promotion lives in the fleet's
 own config (`RF_LIVE_CLASSES` in `.env`) — a class not listed there behaves as `propose` even when
 `FLEETD_STAGE=live`.

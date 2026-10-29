@@ -4,7 +4,7 @@
 **Runs on:** the `homelab` Mac mini, under `launchd`, as one static Go binary.
 **Relates to:** RFC-0002 (bug-fix fleet), RFC-0003 (signal-to-action fleet),
 ADR-0008 (tech choice + framework non-adoption),
-[rollout plan](../wip/fleet-rollout-plan.md) (the gate items this implements).
+[rollout plan](../fleet-architecture.md#rollout-status) (the gate items this implements).
 Top-level picture: [Agentic fleets — architecture](../fleet-architecture.md).
 
 ## Motivation

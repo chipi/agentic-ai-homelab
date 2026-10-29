@@ -622,6 +622,12 @@ Both vLLMs need their API key (compose: `infra/vllm/{prod-vllm,translate}/` in t
 ssh dgx-llm-1 'K=$(docker exec vllm-prod-vllm printenv VLLM_API_KEY); curl -s -H "Authorization: Bearer $K" http://127.0.0.1:8003/v1/models'
 ```
 
+**The DGX services share one env file**, `/home/markodragoljevic/.env`, and each reads a
+different error-reporting variable: moss reads `GLITCHTIP_DSN` (then `SENTRY_DSN`), pyannote
+reads only `SENTRY_DSN`. Never blank or repoint a variable for one service: the others pick it
+up on their next restart. A third service needs its own variable, or per-service
+`environment:` blocks in the converge.
+
 **Deploying DGX services** (faster-whisper, pyannote, moss) is podcast_scraper's
 pyinfra converge, `infra/dgx/converge/deploy.py` (`make dgx-deploy`). The retired
 openai-whisper server and the duplicate exporter stack are opt-in

@@ -33,18 +33,23 @@ Each channel is **pluggable** — its secret is sourced from the backend `.env` 
 
 ## Notification policies
 
-Routing model: **route by severity, not by channel**. The tree stays stable as channels are added/removed; only the receiver reference changes.
+Routing model: **route by severity, not by channel**. The tree stays stable as channels are added/removed; only the receiver reference changes. What `policies.yaml` does today:
 
-- **Default receiver:** `default` (email + eventually Slack once the webhook is set)
-- **Grouping:** by `alertname` and `job`
-- **Group wait:** 30s (batch alerts arriving together)
-- **Group interval:** 5m (re-group after 5m of silence)
-- **Repeat interval:** 4h (re-send unresolved alerts every 4h)
+- **Root receiver:** `default`, email to `$ALERT_EMAIL_TO`. Grouped by `alertname` and `job`; group wait 30s, group interval 5m, **repeat every 24h**.
+- **Plumbing states** (`DatasourceNoData`, `DatasourceError`, `Watchdog`): muted. They are wiring problems, not incidents; still visible in Grafana and on the hub banner.
+- **`meta: "true"`** (fleetd, the VM, Grafana's own health): matched first, email only, never to the triage fleet.
+- **No GlitchTip route.** The old `severity=critical → glitchtip` route was removed on 2026-08-05: a matched child route stops the fall-back to the root receiver, so every critical was swallowed, and GlitchTip is a triage-fleet source, so bridging alerts into it would ingest each event twice. The `slack` and `glitchtip` contact points still exist with placeholder values; no route uses them.
 
-**Critical-severity route:** receiver = `glitchtip`, `continue: true`  
-Critical alerts (disk critical, fail2ban ban, scrape target down) route to GlitchTip **and** continue to the default receiver — so confirmed issues both open a ticket and ping the day-to-day channel.
+**Who acts on a firing alert.** The triage fleet (signal-fleet) reads every firing Grafana alert, not a list. When you add a rule:
 
-**Transition path:** Once the Slack webhook is set, flip the default receiver from email to `slack` (or add a child route) — no rule changes needed.
+| You want | You do |
+|---|---|
+| the fleet triages it | nothing: it is in by default. Give it a stable `alertname`, `service` and `instance` labels, a symptom `summary`, and a probe hint |
+| only the operator sees it (substrate) | label `meta: "true"` |
+| a new box's issues land in its own repo | add one line to `INSTANCE_REPO_MAP` in `signal-fleet/mvp/filing.py` (today `prod-podcast` → podcast_scraper, everything else → this repo) |
+| never | let NoData or an absent series impersonate an incident: for pushed metrics use `noDataState: OK` plus a paired dead-man rule; for scraped metrics fix the scrape |
+
+`kind=` is a hint for the triager, never a gate; a new `kind` needs no fleet change.
 
 ## Editing
 

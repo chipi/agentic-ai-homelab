@@ -179,7 +179,7 @@ dismiss-with-evidence, then File; escalate stays human forever).
 
 Remaining gate items before shadow (occurrence-churn fix, recurrence dedup,
 daemon, digest) and the full tick list live in the master rollout plan:
-[`docs/wip/fleet-rollout-plan.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/wip/fleet-rollout-plan.md)
+[`docs/fleet-architecture.md` → Rollout status](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/fleet-architecture.md#rollout-status)
 (Track A). Fleet 2 rolls out independently of Fleet 1.
 
 ## Open questions

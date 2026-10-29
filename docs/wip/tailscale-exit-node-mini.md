@@ -130,10 +130,11 @@ Admin console → Machines → `homelab` → **Edit route settings → Use as ex
 that anyone who compromised a key and minted a `tag:homelab-host` device could
 self-approve as an exit node. One manual click is cheaper than that risk.)
 
-## Step 3 — ACL grant (podcast_scraper repo, GitOps)
+## Step 3 — ACL grant (chipi/infra repo, GitOps)
 
-The tailnet policy lives at **`tailscale/policy.hujson` in `chipi/podcast_scraper`**
-(not this repo) and ships via that repo's GitOps action. The ACL is implicit-deny
+The tailnet policy lives at **`tailscale/policy.hujson` in `chipi/infra`**
+(not this repo) and ships via its `tailscale-acl.yml` action. It moved there from
+podcast_scraper, whose workflow is now deleted (checked 2026-10-29). The ACL is implicit-deny
 with narrowly scoped port grants, and there is currently **no `autogroup:internet`
 rule at all**, so exit-node traffic is denied by default today.
 

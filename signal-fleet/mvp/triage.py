@@ -62,7 +62,7 @@ CLEANUP_MARKERS = re.compile(
 # already fired; the fleet must not turn each occurrence into a bug ticket. 72 of
 # the 2026-08-13→19 flood were "cost soft cap". Downstream (provider-not-initialized
 # / fallback-failed) is folded to the same class here (the correlation half of #6:
-# they share the budget/cap root). See docs/wip/signal-fleet-flood-hardening.md.
+# they share the budget/cap root). See docs/signal-fleet-guide.md (fail closed; operational markers).
 OPERATIONAL_MARKERS = [
     (re.compile(r"cost soft cap|cost cap exceeded|costcapexceeded|soft[- ]?cap exceeded", re.I),
      "cost-cap"),

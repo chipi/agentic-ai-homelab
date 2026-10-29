@@ -9,7 +9,7 @@ Installed by [`../mini-engine-setup.sh`](../mini-engine-setup.sh) — run it
 ## Why this directory exists
 
 Until 2026-09-03 this layer lived **only on the box** and as prose in
-[`docs/wip/mac-mini-headless-server.md`](../../docs/wip/mac-mini-headless-server.md).
+a wip note (closed 2026-10-29; its lasting parts are in ADR-0006 and `infra/README.md`).
 An audit that day found a from-scratch rebuild would have reached "brew
 installed, Tailscale up, age key restored" and then stopped: nothing created the
 service account, the VM spec, the boot daemon or the socket relay. The

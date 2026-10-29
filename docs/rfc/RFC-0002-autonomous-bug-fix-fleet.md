@@ -193,7 +193,7 @@ reporter loops fail safe (needs-info/stuck, never a silent wrong fix). Gate
 checklist, stage exits, and the shared operational foundations (spend-capped
 keys, kill switches, incident→fixture runbook, weekly ritual) live in the
 master rollout plan:
-[`docs/wip/fleet-rollout-plan.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/wip/fleet-rollout-plan.md)
+[`docs/fleet-architecture.md` → Rollout status](https://github.com/chipi/agentic-ai-homelab/blob/main/docs/fleet-architecture.md#rollout-status)
 (Track B). Fleet 1 rolls out independently of Fleet 2 — whichever passes its
 gate first goes first.
 

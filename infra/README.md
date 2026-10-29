@@ -92,8 +92,10 @@ are the OS-level pieces a fresh install needs first. Do them top to bottom:
 | 1 | **Xcode Command Line Tools** | `xcode-select --install` | gives `git` + `make` — needed to clone the repo and build `osx-cpu-temp` |
 | 2 | **Homebrew** | the [brew.sh](https://brew.sh) install one-liner | the package manager everything below rides on |
 | 3 | **Brew packages** | `brew bundle --file infra/Brewfile` | colima (container engine, QEMU-backed), node_exporter, sops, age — see [`Brewfile`](Brewfile). `mini-setup.sh` runs this for you. |
-| 4 | **Tailscale** | Mac **App Store** → sign in, `tailscale up` | the tailnet everything binds to. It's the App Store GUI build (root-owned), **not** a brew cask — that's why it's not in the Brewfile. |
+| 4 | **Tailscale** | the **standalone (macsys)** build from tailscale.com, *not* the App Store build → sign in | the tailnet everything binds to. Checked 2026-10-29: `io.tailscale.ipn.macsys`, no App Store receipt. The standalone build is the one that can run as an exit node and that `infra/tailscale/tailscale-up.sh` drives without a login session. Not a brew cask, so not in the Brewfile. |
 | 5 | **age key** | drop the private key at `~/.config/sops/age/keys.txt` | `bootstrap.sh` decrypts `secrets.sops.env` with it — the one secret no script can regenerate; restore it from your password manager / backup. |
+| 6 | **FileVault off** | System Settings → Privacy & Security → FileVault → Turn Off (`fdesetup status` → Off) | FileVault asks for a disk-unlock password at every boot, which blocks an unattended restart. The operator accepted the trade-off (disk not encrypted at rest), 2026-08-14. |
+| 7 | **Power settings** | `sudo pmset -a autorestart 1 sleep 0 disksleep 0 powernap 0` | restart after a power loss, never sleep. |
 
 ### Then the three idempotent scripts
 

@@ -7,7 +7,7 @@ guards against the 2026-08 escalation flood. Companion to `EVAL.md` /`score.py`
 test-suppression (#7) — so the same input yields the same verdict every run.
 
 > The incident that happened, turned into the test that guarantees it can't silently
-> recur. Root-cause + design: [`docs/wip/signal-fleet-flood-hardening.md`](../../docs/wip/signal-fleet-flood-hardening.md).
+> recur. Design: [`docs/signal-fleet-guide.md`](../../docs/signal-fleet-guide.md); the incident is recorded in `docs/history/0007-wip-notes-closed.md`.
 
 ## Run
 

@@ -37,7 +37,15 @@ global rule #28.
 ## `wip/NEXT_STEPS.md` is the live punch list
 
 Strike items inline when done (`- [x] ~~text~~ — *done note (date)*`);
-don't silently delete them — the strikethrough is the paper trail.
+don't silently delete them — the strikethrough is the paper trail. Struck items move to its "Done (paper trail)" section.
+
+## Other wip notes are closed when their work ships
+
+Handovers, plans and runbooks in `docs/wip/` don't live forever. When a note's work ships or is
+dropped, fold what's still needed into the living doc, move open items to `NEXT_STEPS.md`,
+repoint links, delete the note, and record it in `docs/history/`. Procedure:
+[`wip/README.md`](wip/README.md) "Closing a note" (D-0016). Before closing a note, check its items
+against the live system and git, not its own status line.
 
 ## `history/<N>-<arc>.md` carries multi-session continuity
 

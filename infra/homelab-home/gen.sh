@@ -15,7 +15,7 @@ LL_K=$(get "$REPO/litellm/.env" LITELLM_MASTER_KEY)
 GF_VIEW=$(get ~/signal-fleet/fleet-gateway.env GRAFANA_TOKEN)
 H=https://homelab.tail6d0ed4.ts.net   # legacy node (GlitchTip still fronted here until Level 3)
 # Per-service caddy-tailscale nodes — each <name>.tail6d0ed4.ts.net with its own
-# Tailscale cert (infra/reverse-proxy; docs/wip/mac-mini-headless-server.md).
+# Tailscale cert (infra/reverse-proxy; ADR-0006).
 TS=tail6d0ed4.ts.net
 G=https://grafana.$TS
 LF=https://langfuse.$TS; UM=https://umami.$TS; LL=https://litellm.$TS

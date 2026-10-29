@@ -4,7 +4,7 @@ covers the pure functions the enhancements add, stage by stage.
 
   SF_OBSERV_DISABLED=1 python3 test_units.py            # all, non-zero on failure
 
-Each enhancement item (#1..#8, docs/wip/signal-fleet-triage-enhancements.md) adds a
+Each enhancement item (#1..#8, the 2026-08-27 triage enhancements; see docs/signal-fleet-guide.md) adds a
 TestCase here as it lands; same input → same verdict, every run.
 """
 import collections

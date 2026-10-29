@@ -45,7 +45,7 @@ context.
   ONE `fleet-triager-down` issue, not N escalations); #4 storm group-rules
   (cost-cap/budget/402); #5 operational classifier (cost-cap/402 → dismiss-not-ticket,
   no LLM); #7 test/synthetic suppression at ingestion. Full write-up:
-  [`docs/wip/signal-fleet-flood-hardening.md`](../docs/wip/signal-fleet-flood-hardening.md).
+  [`docs/signal-fleet-guide.md`](../docs/signal-fleet-guide.md) (fail closed in one place; operational markers).
 - **Gotcha — recreation casualties:** a colima/DB recreate wipes the litellm virtual
   key, the Grafana/GlitchTip source tokens, and the Langfuse keys → the fleet 401s and
   fails (historically fails-open → issue flood). If it's misbehaving, check those creds

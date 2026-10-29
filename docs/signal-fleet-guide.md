@@ -240,3 +240,5 @@ These rules came from incidents. Keep them unless the evidence changes.
 | `eval_recurrence_replay.py` takes about 6 min on the mini | every deploy is that much slower | accepted for now (operator call 2026-10-01) |
 | Homelab filesystem series are **pushed twice** to VictoriaMetrics | double storage; hidden by `min by` in rules | not investigated |
 | `~/signal-fleet/fleet.env` | a stale duplicate of `fleet-gateway.env`; fleetd does not load it | delete when convenient |
+| **No way to mute a fragmenting bug** | a bug whose fingerprint keeps changing files new issues; `triage-fleet/muted` only silences one fingerprint, and fuzzy matches never inherit a mute | needs a `muted-class` label (2026-08-28 design, never built) |
+| **Chained-exception ordering is spec-only** | the cause-chain handling (2026-08-27 enhancement #5) was built against the spec; no real chained exception has passed through it yet | re-check when the first real chain appears |

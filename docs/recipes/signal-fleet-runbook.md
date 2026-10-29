@@ -1,6 +1,6 @@
 # Triage fleet runbook — install, run, review, improve
 
-How to operate the triage fleet (`signal-fleet`, Fleet 2), written so a different agent can pick it up each week. For what the parts are and why they work the way they do, read the [Triage fleet guide](../signal-fleet-guide.md) first. For the operator's own rituals (inbox, routing, labels), see the [operator playbook](../wip/operator-playbook-fleets.md).
+How to operate the triage fleet (`signal-fleet`, Fleet 2), written so a different agent can pick it up each week. For what the parts are and why they work the way they do, read the [Triage fleet guide](../signal-fleet-guide.md) first. For the operator's own rituals (inbox, routing, labels, judging a fleet PR), see [§7](#7-operator-rituals).
 
 Facts below were checked against the running system on 2026-10-02, and re-checked on 2026-10-17 where this page changed (env file, logs, the sync, proposals, gates). Host today: the Mac mini (`homelab`), user `markodragoljevic`, reached from a laptop with `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab`. Commands marked **[host]** run on the fleet host.
 
@@ -244,3 +244,48 @@ Alert-rule changes have their own checks under [`infra/observability/rules-drift
 | issues land in the wrong repo | routing: `REPO_MAP` (GlitchTip project prefix) or `INSTANCE_REPO_MAP` / the rule's `instance` label (Grafana) | `eval_routing_replay.py` covers the Grafana side |
 | `fleetd-silent` fires | a forgotten `STOP` file, the daemon down, or the host down | `ls ~/signal-fleet/STOP`; `sudo launchctl print system/com.homelab.fleetd` |
 | a deploy refuses | dirty checkout (often another session's uncommitted work) | find out whose change it is before touching it; never stash or discard someone else's work |
+
+## 7. Operator rituals
+
+The operator's side, folded in from the 2026-07-29 operator playbook. The fleets do the volume;
+the operator glances, routes, answers and merges.
+
+**Glance.** Grafana → Homelab → "Fleet Workforce — Triage" (top row: needs attention,
+escalations 7d, oldest queued item, queue by kind); click through to "Triage — Operator Inbox"
+for the items themselves. Its bottom panel shows `meta=true` substrate alerts, which only the
+operator answers: a broken fleet can't triage its own substrate.
+
+**Route.** The inboxes:
+- [machine-fixable, all repos](https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22)
+- [everything the fleet filed](https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Ffiled%22)
+- [escalations awaiting the operator](https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Fescalated%22)
+
+On a fleet-filed issue, four native GitHub actions that the fleet reads back:
+
+| The operator does | Meaning | What happens |
+|---|---|---|
+| label `triage-fleet/routed:bugfix` | dispatch Fleet 1 | the bug-fix chain picks it up (below) |
+| close the issue | not worth it | the filing ledger respects it; a recurrence within 7 days reopens it, a later one files fresh with a back-link |
+| comment | answer or add context | the fleet re-triages with the comment as reporter input |
+| label `triage-fleet/muted` | never again for this fingerprint | permanent silence for that signal |
+
+Don't route `config-enhancement` issues: Fleet 1 can't test config. They wait for Fleet 3.
+
+**Dispatch Fleet 1** (orrery only, manual; the fleet is paused by default, see
+[fleet architecture → Rollout status](../fleet-architecture.md#rollout-status)): label the
+orrery issue `triage-fleet/routed:bugfix`, then `cd fleetd && make chain`. The chain is bounded
+(3 kick-backs, $3, 20 min per episode). Outcomes land on the issue: a **draft PR** with a Claude
+review comment; **`triage-fleet/needs-info`** with a question (answer like a reporter: what you
+saw, what "fixed" means, then re-run `make chain`); or **stuck** (budget exhausted; the chain
+ledger names the wall). A bug ticket written for the fleet should read like a busy maintainer's:
+symptom, where, what correct looks like. Don't add file paths or acceptance criteria; the loop
+has to earn those, and adding them blinds the measurement.
+
+**Judge a draft PR** like a maintainer: does the regression test encode *this* bug, is the fix
+at the cause, what does the review comment say. Merge = shipped. Close with a one-line reason =
+rejected; every rejection becomes a fixture for the next round. Never merge a fleet PR you
+wouldn't merge from a human.
+
+**Levers** beyond §3: stage rollback (`fleetd/deploy/fleetd.json` `"stage": "shadow"`, then
+`make deploy`); binary rollback (`cd fleetd && make rollback`); GitHub token rotation (new
+fine-grained token into `~/signal-fleet/fleet-gateway.env` on the host).

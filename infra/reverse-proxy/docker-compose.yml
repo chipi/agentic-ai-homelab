@@ -2,7 +2,7 @@
 # tailnet node (<name>.tail6d0ed4.ts.net) with a real Tailscale cert. No host
 # ports are published: the listeners live on the tailnet via tsnet. Backends are
 # reached over each stack's docker network. Needs TS_AUTHKEY (reusable, tagged
-# tag:homelab-svc) in .env. See docs/wip/mac-mini-headless-server.md.
+# tag:homelab-svc) in .env. See ADR-0006 ("Implementation update").
 services:
   caddy:
     build: .

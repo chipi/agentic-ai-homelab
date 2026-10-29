@@ -2,7 +2,7 @@
 
 **Status:** Accepted (2026-07-25)
 **Context:** RFC-0002 / RFC-0003 fleets are approaching go-live
-([rollout plan](../wip/fleet-rollout-plan.md)); both need an always-on
+([rollout plan](../fleet-architecture.md#rollout-status)); both need an always-on
 daemon on the mini. The operator's stack is Python/TypeScript and wants a
 deliberate learning surface for new tech — plus an explicit
 "are we reinventing a wheel?" audit against the agent-framework ecosystem.
