@@ -89,9 +89,15 @@ def cmd_preflight(c: dict, a: argparse.Namespace) -> int:
         if code != 200:
             fails.append(f"{image}:{tag} not published (HTTP {code})")
     inputs = " ".join(f"-f {k}={v}" for k, v in {**c["dispatch_inputs"], c["sha_input"]: full[:7]}.items())
-    print(f"\ndispatch (needs the operator's go): gh workflow run {c['workflow']} -R {c['repo']} --ref main {inputs}")
+    print(f"\ndispatch (needs the operator's go): gh workflow run {c['workflow']} -R {drepo(c)} --ref main {inputs}")
     print("PREFLIGHT " + ("FAIL: " + "; ".join(fails) if fails else "PASS"))
     return 1 if fails else 0
+
+
+def drepo(c: dict) -> str:
+    """The repository that holds the deploy workflow. CI and images are checked on c["repo"];
+    the deploy can live elsewhere (podcast: chipi/infra since the 2026-10-28 cutover)."""
+    return c.get("dispatch_repo", c["repo"])
 
 
 def cmd_dispatch(c: dict, a: argparse.Namespace) -> int:
@@ -99,7 +105,7 @@ def cmd_dispatch(c: dict, a: argparse.Namespace) -> int:
         print("REFUSED: preflight failed")
         return 1
     full = full_sha(c, a.sha)
-    cmd = ["gh", "workflow", "run", c["workflow"], "-R", c["repo"], "--ref", "main"]
+    cmd = ["gh", "workflow", "run", c["workflow"], "-R", drepo(c), "--ref", "main"]
     for k, v in {**c["dispatch_inputs"], c["sha_input"]: full[:7]}.items():
         cmd += ["-f", f"{k}={v}"]
     since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=5)
@@ -107,12 +113,12 @@ def cmd_dispatch(c: dict, a: argparse.Namespace) -> int:
     me = sh(["gh", "api", "user", "-q", ".login"]).strip()
     for _ in range(12):
         time.sleep(10)
-        runs = json.loads(sh(["gh", "api", f"repos/{c['repo']}/actions/workflows/{c['workflow']}/runs?event=workflow_dispatch&per_page=10",
+        runs = json.loads(sh(["gh", "api", f"repos/{drepo(c)}/actions/workflows/{c['workflow']}/runs?event=workflow_dispatch&per_page=10",
                               "-q", "[.workflow_runs[] | {id, created_at, actor: .actor.login}]"]))
         mine = [r for r in runs if r["actor"] == me
                 and dt.datetime.fromisoformat(r["created_at"].replace("Z", "+00:00")) >= since]
         if len(mine) == 1:
-            print(f"dispatched ({a.said!r}): https://github.com/{c['repo']}/actions/runs/{mine[0]['id']}")
+            print(f"dispatched ({a.said!r}): https://github.com/{drepo(c)}/actions/runs/{mine[0]['id']}")
             return 0
         if len(mine) > 1:
             print(f"AMBIGUOUS: {len(mine)} runs by {me} since dispatch: {[r['id'] for r in mine]} — approve by id yourself")
@@ -122,7 +128,7 @@ def cmd_dispatch(c: dict, a: argparse.Namespace) -> int:
 
 
 def cmd_approve(c: dict, a: argparse.Namespace) -> int:
-    pend = json.loads(sh(["gh", "api", f"repos/{c['repo']}/actions/runs/{a.run}/pending_deployments"]) or "[]")
+    pend = json.loads(sh(["gh", "api", f"repos/{drepo(c)}/actions/runs/{a.run}/pending_deployments"]) or "[]")
     envs = [p["environment"] for p in pend]
     if not envs:
         print(f"run {a.run}: nothing waiting for approval")
@@ -131,12 +137,12 @@ def cmd_approve(c: dict, a: argparse.Namespace) -> int:
     if bad:
         print(f"REFUSED: run waits on {bad}, not in approvable_environments {c['approvable_environments']}")
         return 1
-    args = ["gh", "api", "-X", "POST", f"repos/{c['repo']}/actions/runs/{a.run}/pending_deployments",
+    args = ["gh", "api", "-X", "POST", f"repos/{drepo(c)}/actions/runs/{a.run}/pending_deployments",
             "-f", "state=approved", "-f", f"comment=prod-deploy: {a.said}"]
     for e in envs:
         args += ["-F", f"environment_ids[]={e['id']}"]
     sh(args)
-    got = json.loads(sh(["gh", "api", f"repos/{c['repo']}/actions/runs/{a.run}/approvals", "-q", "[.[] | .state]"]))
+    got = json.loads(sh(["gh", "api", f"repos/{drepo(c)}/actions/runs/{a.run}/approvals", "-q", "[.[] | .state]"]))
     print(f"approved {[e['name'] for e in envs]} for run {a.run}; approvals now: {got}")
     return 0 if "approved" in got else 1
 

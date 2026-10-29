@@ -19,7 +19,7 @@ Preflight on 2026-10-17 also showed that `sha-ded80e0` went out with Snyk cancel
 `~/.local/state/prod-deploy/<project>.json` (podcast example):
 
 ```json
-{"repo": "chipi/podcast_scraper", "workflow": "deploy-all-prod.yml",
+{"repo": "chipi/podcast_scraper", "dispatch_repo": "chipi/infra", "workflow": "deploy-all-prod.yml",
  "dispatch_inputs": {"confirm": "DEPLOY_ALL"}, "sha_input": "image_sha",
  "required_ci": ["Python application", "Docker Build & Test", "CodeQL Advanced", "Snyk Security Scan"],
  "images": ["ghcr.io/chipi/podcast-scraper-stack-api", "ghcr.io/chipi/podcast-scraper-stack-viewer",
@@ -31,15 +31,26 @@ Preflight on 2026-10-17 also showed that `sha-ded80e0` went out with Snyk cancel
  "must_run": ["compose-api-1", "player-api-1", "..."], "health": [{"url": "https://…", "expect": 200}]}
 ```
 
+`repo` is where CI and the images are checked. `dispatch_repo` (optional, default `repo`) holds the
+deploy workflow: `dispatch` and `approve` act there. Podcast deploys run from `chipi/infra` since the
+2026-10-28 cutover.
+
 ## Run
 
 ```bash
 D=~/.claude/skills/prod-deploy/scripts/deploy.py
 python3 $D podcast preflight <sha>                        # read-only; prints the exact dispatch command
+# before the dispatch: a box inventory to diff against afterwards (podcast; root, read-only)
+ssh root@prod-podcast 'python3 /srv/podcast-infra/current/scripts/ops/box_inventory.py snap pre-<sha7>'
 python3 $D podcast dispatch <sha> --said "<operator's go>"   # refuses if preflight fails (--force-preflight only on the operator's explicit waiver)
 python3 $D podcast approve <run_id> --said "<operator's go>" # only environments in approvable_environments
 python3 $D podcast verify <sha>                           # after the run: the box runs it
+ssh root@prod-podcast 'B=/srv/podcast-infra/current/scripts/ops/box_inventory.py; python3 $B snap post-<sha7> && python3 $B diff pre-<sha7> post-<sha7>'
 ```
+
+The diff must show only release keys and the changes the deploy was meant to make. Without the
+`pre-` snapshot, the only baseline is the previous deploy's `post-`, and every other tenant's change
+since then lands in the same diff (2026-10-29: 17 hours, 32 changes, attributed by hand).
 
 - Each deploy needs its own go. A go for the previous deploy, or a peer session's go, does not count.
 - `verify` checks images and the must-run set only. Then also run:
