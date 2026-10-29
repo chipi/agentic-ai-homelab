@@ -833,6 +833,38 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: gt, params: [9] } }]
 
+      # Outside-in: a site that answers NOTHING right (DNS record gone, Cloudflare-side outage,
+      # vhost missing, wrong page) never reaches edge-caddy-5xx-burst. alloy-homelab's blackbox
+      # probes each public URL every 60s from the home internet through Cloudflare, checking
+      # the status and (for the two sites) the page title; see hosts/homelab/config.alloy.
+      # Every probe in the last 3m failed -> fire. Gated on the mini's own egress: while the
+      # mini cannot reach the internet (mini-vm-egress-down covers that) the probes fail for
+      # reasons that are not the sites', so this stays quiet instead of paging "all sites
+      # down". The labels a probe target carries (host, and run_id on a test target) reach
+      # the alert, so a test target marked run_id=synthetic-* is dropped by the triage fleet.
+      - uid: site-probe-failing
+        title: "Website not answering correctly from outside (3m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { tenant: common, severity: critical, kind: availability }
+        annotations:
+          summary: "{{ $labels.host }} has failed every outside-in probe for 3 minutes (GET through Cloudflare from the homelab: wrong status, wrong page title, timeout or DNS failure) while the homelab itself has internet. Drill-down: VictoriaMetrics probe_success / probe_http_status_code / probe_failed_due_to_regex{job=\"site-probe\",host=\"{{ $labels.host }}\"}; then Cloudflare DNS, then the prod Caddy vhost (job:caddy request.host:={{ $labels.host }})."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max by (host, run_id) (max_over_time(probe_success{job="site-probe"}[3m])) and on () (last_over_time(mini_vm_egress_ok{instance="homelab",target="internet"}[5m]) == 1)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
   # --- Orrery (orrerylearn.com VPS) --------------------------------------------
   # The launch manifest is refreshed by an on-VPS cron every 6h (Orrery RFC-035),
   # which logs `[refresh-prod-data] … ok — launches.json <n> bytes` on success

@@ -120,6 +120,110 @@ prometheus.scrape "home_assistant" {
   bearer_token    = sys.env("HA_PROMETHEUS_TOKEN")
 }
 
+// ---------- Website probes (outside-in) ----------
+// The sites are behind Cloudflare; edge-caddy-5xx-burst only sees errors that reach the prod
+// Caddy. These GET each public URL from the home internet, through Cloudflare like a visitor,
+// so a deleted DNS record, a Cloudflare-side outage or a missing vhost shows too. Alloy's
+// embedded blackbox exporter, no extra container. Alert: site-probe-failing (rules.yaml),
+// gated on the mini's own egress so a mini network outage does not read as every site down.
+prometheus.exporter.blackbox "sites" {
+  config = `
+modules:
+  page_humancopilot:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      fail_if_body_not_matches_regexp: ["<title>[^<]*Human Copilot"]
+  page_devwhateverops:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      fail_if_body_not_matches_regexp: ["<title>[^<]*DevWhateverOps"]
+  http_200:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+  http_404:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [404]
+`
+
+  target {
+    name    = "www.humancopilot.eu"
+    address = "https://www.humancopilot.eu/"
+    module  = "page_humancopilot"
+  }
+  target {
+    name    = "www.devwhateverops.com"
+    address = "https://www.devwhateverops.com/"
+    module  = "page_devwhateverops"
+  }
+  target {
+    name    = "analytics.humancopilot.eu"
+    address = "https://analytics.humancopilot.eu/script.js"
+    module  = "http_200"
+  }
+  // ingest-only: only /api/<n>/security/ is routed, so the root must answer 404 (not 5xx, not silence)
+  target {
+    name    = "telemetry.humancopilot.eu"
+    address = "https://telemetry.humancopilot.eu/"
+    module  = "http_404"
+  }
+  target {
+    name    = "evals.humancopilot.eu"
+    address = "https://evals.humancopilot.eu/"
+    module  = "http_200"
+  }
+  target {
+    name    = "www.markodragoljevic.com"
+    address = "https://www.markodragoljevic.com/"
+    module  = "http_200"
+  }
+  target {
+    name    = "airandspacehistory.com"
+    address = "https://airandspacehistory.com/"
+    module  = "http_200"
+  }
+}
+
+discovery.relabel "sites" {
+  targets = prometheus.exporter.blackbox.sites.targets
+  rule {
+    source_labels = ["__param_target"]
+    regex         = "https?://([^/]+).*"
+    target_label  = "host"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "homelab"
+  }
+  rule {
+    target_label = "service"
+    replacement  = "site-probe"
+  }
+  // the exporter's targets carry job="integrations/blackbox/<name>", which wins over job_name
+  rule {
+    target_label = "job"
+    replacement  = "site-probe"
+  }
+}
+
+prometheus.scrape "sites" {
+  targets         = discovery.relabel.sites.output
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "site-probe"
+  scrape_interval = "60s"
+}
+
 // NOTE: cAdvisor was tried here for per-container cpu/mem/io but doesn't work on
 // colima (cgroup v2 + cgroupfs + cgroupns — it only sees system/systemd cgroups, not
 // the docker container scopes). Covered instead by an inline `docker stats` block in
