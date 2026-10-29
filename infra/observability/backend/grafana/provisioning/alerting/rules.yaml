@@ -2229,3 +2229,152 @@ groups:
               type: threshold
               expression: reduced
               conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+  # Home automation (chipi/home-automation, RFC-004 step 5): household alerts from Home
+  # Assistant's /api/prometheus (job=home-assistant). meta="true": they terminate at the
+  # operator (email), never at the triage fleet or GitHub; a warm freezer is not an issue in a
+  # code repo. noDataState OK: HA itself down is the generic scrape-target-down rule's job.
+  # Thresholds proposed by the home-automation session 2026-10-29. The windows are the
+  # duration: min/max_over_time over the window = the condition held for the whole of it.
+  - orgId: 1
+    name: home-automation
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      - uid: ha-internet-down
+        title: "Home internet down (3m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: critical, kind: household, host: homelab, service: home-assistant, namespace: home-automation, environment: prod, meta: "true" }
+        annotations:
+          summary: "The UniFi gateway reports the home internet down for 3m (binary_sensor.internet_up, read from the gateway over the LAN). This email itself may only arrive once the internet is back."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max_over_time(homeassistant_binary_sensor_state{job="home-assistant",entity="binary_sensor.internet_up"}[3m])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      - uid: ha-p1-silent
+        title: "P1 meter silent (10m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: household, host: homelab, service: home-assistant, namespace: home-automation, environment: prod, meta: "true" }
+        annotations:
+          summary: "Home Assistant has had no new reading from the HomeWizard P1 meter (sensor.p1_meter_power) for over 10 minutes: the meter, its Wi-Fi/IoT VLAN, or the HomeWizard integration."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - max(homeassistant_last_updated_time_seconds{job="home-assistant",entity="sensor.p1_meter_power"})'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [600] } }]
+
+      - uid: ha-freezer-warm
+        title: "Freezer warmer than -10°C (30m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: household, host: homelab, service: home-assistant, namespace: home-automation, environment: prod, meta: "true" }
+        annotations:
+          summary: "The freezer zone (sensor.fridge_freezer_temperature_zone_2) has been above -10°C for the whole last 30 minutes (normal ~-15°C)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min_over_time(homeassistant_sensor_temperature_celsius{job="home-assistant",entity="sensor.fridge_freezer_temperature_zone_2"}[30m])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [-10] } }]
+
+      - uid: ha-fridge-warm
+        title: "Fridge warmer than 8°C (30m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: household, host: homelab, service: home-assistant, namespace: home-automation, environment: prod, meta: "true" }
+        annotations:
+          summary: "The fridge (sensor.fridge_freezer_temperature) has been above 8°C for the whole last 30 minutes (normal ~5°C)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min_over_time(homeassistant_sensor_temperature_celsius{job="home-assistant",entity="sensor.fridge_freezer_temperature"}[30m])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [8] } }]
+
+      - uid: ha-appliance-fault
+        title: "Appliance reports a problem (5m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: household, host: homelab, service: home-assistant, namespace: home-automation, environment: prod, meta: "true" }
+        annotations:
+          summary: "An appliance has reported a problem for 5 minutes: {{ $labels.entity }}. Check the appliance or its app."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min by (entity) (min_over_time(homeassistant_binary_sensor_state{job="home-assistant",entity=~"binary_sensor\\.(dishwasher|washer_dryer|steam_oven_combi|fridge_freezer|hob_with_extraction)_problem"}[5m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.5] } }]
+
+      - uid: ha-internet-data-missing
+        title: "Home internet status unavailable (10m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: household, host: homelab, service: home-assistant, namespace: home-automation, environment: prod, meta: "true" }
+        annotations:
+          summary: "Home Assistant has had no internet status (binary_sensor.internet_up unavailable) for 10 minutes: the unifi-poller or the gateway API is down, so ha-internet-down cannot fire."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max_over_time(homeassistant_entity_available{job="home-assistant",entity="binary_sensor.internet_up"}[10m])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
