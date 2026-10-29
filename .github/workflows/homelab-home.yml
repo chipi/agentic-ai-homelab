@@ -28,7 +28,7 @@ jobs:
     name: gen.sh syntax + page JS tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: gen.sh syntax
         run: bash -n infra/homelab-home/gen.sh
