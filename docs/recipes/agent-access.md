@@ -657,6 +657,31 @@ on 2026-10-09 an interrupted request plus an unload hung the server until a rest
 | mini | `litellm-postgres` | Postgres | `litellm` / `litellm` |
 | VPS | `litellm-postgres` | Postgres | `litellm` / `litellm` |
 
+### Backups of the mini (since 2026-10-29)
+
+- **Nightly, 04:30 local** (`com.homelab.db-backup`, `infra/backup/dump-observability-dbs.sh`, root):
+  Postgres dumps of `glitchtip`, `umami`, `langfuse`, `litellm`, plus tar archives of
+  home-assistant's `/config` and mosquitto's data/config, into `~/db-backups` (dir 700, files
+  600, 14 kept). Log: `/tmp/com.homelab.db-backup.log`.
+- **Off the mini:** `infra/backup/offsite.sh` encrypts every file of the run with
+  [age](https://age-encryption.org) to the operator's public key (`infra/backup/offsite.recipients`)
+  and uploads them to the private repo **`chipi/homelab-backup`** as one Release per night
+  (`homelab-YYYYMMDD`, with `manifest-<stamp>.txt` = plaintext sha256s). Kept: the newest 7
+  nightly + the newest 4 Sunday releases. Uploads use `markodragoljevic`'s `gh` login (a
+  fine-grained token that covers the repo). Alert `homelab-backup-offsite-stale` when no upload
+  has succeeded for 30h.
+- **The private key exists only with the operator** (password manager). Nothing on the mini
+  or GitHub can decrypt a backup. Restore:
+  `gh release download homelab-YYYYMMDD --repo chipi/homelab-backup`, then
+  `age -d -i homelab-backup.key -o <file> <file>.age`, check against the manifest
+  (`shasum -a 256`), then `gunzip -c <dump>.sql.gz | psql …` into the database's container,
+  or untar a `/config` archive into the volume.
+- **Not backed up anywhere:** VictoriaMetrics/Logs/Traces data and Langfuse's ClickHouse/MinIO
+  (history, ~7 GB), and the stacks' `.env` files (those belong in the password manager).
+- Tested 2026-10-29 with a throwaway key: 6 files, 78.6 MB uploaded, downloaded, decrypted, all
+  sha256s match, every gzip valid, the langfuse dump restored (72 tables) into a throwaway
+  Postgres on the dev engine, a wrong key refused; the test release deleted.
+
 ## Rules
 
 1. Reads are always fine; write when the task needs it. For one-off SQL,

@@ -574,6 +574,34 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [9] } }]
 
+      # The mini's only off-box backup: infra/backup/offsite.sh pushes
+      # homelab_backup_offsite_last_success_timestamp after each nightly upload to
+      # chipi/homelab-backup (04:30 local). 30h = one missed night plus slack. NoData alerts
+      # too: no series at all means the upload has never succeeded since the metric's 30-day
+      # lookback, which is the case this rule exists for.
+      - uid: homelab-backup-offsite-stale
+        title: "Homelab off-mini backup has not succeeded for 30h"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: warning, kind: infra, host: homelab, service: db-backup, environment: operations }
+        annotations:
+          summary: "The nightly encrypted upload of the mini's backups (GlitchTip, Umami, Langfuse, LiteLLM, Home Assistant, Mosquitto) to chipi/homelab-backup has not succeeded for over 30h; the only copy of those backups is then on the mini. Check /tmp/com.homelab.db-backup.log on the mini for `OFFSITE FAIL`, and the token (`gh auth status` as markodragoljevic) and repo access."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - max(last_over_time(homelab_backup_offsite_last_success_timestamp{instance="homelab"}[30d]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [108000] } }]
+
       # --- Mac mini CPU temperature (warning >85°C, critical >95°C) ---------------
       # The mini runs 24/7; healthy idle ~60°C, thermal-throttles ~100°C. 85 = warn
       # headroom; 95 = imminent throttle. Source: mini_cpu_temp_celsius (osx-cpu-temp

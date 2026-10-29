@@ -84,5 +84,10 @@ done
 for c in glitchtip-postgres-1 umami-db langfuse-postgres-1 litellm-postgres; do
   ls -1t "$BACKUP_DIR/${c}-"*.sql.gz 2>/dev/null | tail -n +$((KEEP+1)) | while read -r f; do rm -f "$f"; done
 done
+# Off-mini copy (age-encrypted to the operator's key, chipi/homelab-backup). DB_BACKUP_OFFSITE=0
+# skips it, e.g. for a manual run into a scratch DB_BACKUP_DIR.
+if [ "${DB_BACKUP_OFFSITE:-1}" = 1 ]; then
+  bash "$(cd "$(dirname "$0")" && pwd)/offsite.sh" "$BACKUP_DIR" "$STAMP" || rc=1
+fi
 echo "backup run $STAMP done (rc=$rc); dir=$BACKUP_DIR"
 exit $rc
