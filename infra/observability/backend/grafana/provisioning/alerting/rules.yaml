@@ -490,20 +490,29 @@ groups:
       # hand. Fix upstream, not yet in lima: agentic-ai-homelab#118. Both series come
       # from mini-metrics/push.sh; absent = the collector or the VM is down, which
       # mini-forward-down covers, so noData is OK here.
+      #
+      # Tuned 2026-10-29, after a 3-min episode (02:45-02:49Z: the UniFi gateway restarted, 11
+      # HomeWizard polls through it hung and filled the 10 slots) that the first thresholds
+      # missed. These episodes recur at every gateway restart, so: the slots being full pages
+      # (warning) within ~2 min; losing the INTERNET from the VM is critical; the LAN probe
+      # (the gateway itself) only warns after a sustained 10 min, since a gateway restart is
+      # routine. The probe runs every ~2m20s, so the egress windows are 5m (>= 2 probes):
+      # "every probe in 5m failed" = two failures in a row, never one. Replayed over all
+      # history (10-28 16:40Z -> 10-29 07:39Z): only the slots rule fires, once, 02:46:45-02:48:45Z.
       - uid: mini-vm-egress-down
-        title: "Mac mini docker VM cannot open outbound connections (3m)"
+        title: "Mac mini docker VM cannot reach the internet (2 probes in a row)"
         condition: threshold
-        for: 3m
+        for: 0s
         noDataState: OK
         labels: { severity: critical, kind: infra, host: homelab, service: host-metrics, environment: operations }
         annotations:
-          summary: "From inside the mini's prod docker VM, TCP connects to {{ $labels.target }} (internet 1.1.1.1:443 / lan 192.168.0.1:443) have failed for 3m, while the mini host itself may be fine. Likely the usernet in-flight limit (see mini-vm-usernet-inflight-high): find the container holding SYN_SENT connections (`colima ssh`, then `nsenter -t <pid> -n ss -tan state syn-sent` per container) and stop or fix it; a colima restart only clears it until that container refills it. Delivery email/push, LiteLLM and Alloy cannot reach anything new while this fires."
+          summary: "From inside the mini's prod docker VM, every TCP connect to 1.1.1.1:443 in the last 5m failed (two probes in a row), while the mini host itself may be fine. Delivery email/push, LiteLLM and Alloy cannot reach anything new. Likely the usernet in-flight limit (see mini-vm-usernet-slots-full): find the container holding SYN_SENT connections (`colima ssh`, then `nsenter -t <pid> -n ss -tan state syn-sent` per container) and stop or fix it; a colima restart only clears it until that container refills it."
         data:
           - refId: q
-            relativeTimeRange: { from: 300, to: 0 }
+            relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'max by (target) (max_over_time(mini_vm_egress_ok{instance="homelab"}[2m]))'
+              expr: 'max_over_time(mini_vm_egress_ok{instance="homelab",target="internet"}[5m])'
               instant: true
               queryType: instant
           - refId: threshold
@@ -513,20 +522,20 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
-      - uid: mini-vm-usernet-inflight-high
-        title: "Mac mini docker VM outbound connection slots nearly full (>=8 of 10, 3m)"
+      - uid: mini-vm-egress-lan-down
+        title: "Mac mini docker VM cannot reach the LAN gateway (10m)"
         condition: threshold
-        for: 3m
+        for: 10m
         noDataState: OK
         labels: { severity: warning, kind: infra, host: homelab, service: host-metrics, environment: operations }
         annotations:
-          summary: "lima usernet holds {{ $values.q }} half-open (SYN_SENT) outbound connections; at 10 every new outbound connection from the prod docker VM is dropped. Some container keeps connecting to hosts that do not answer (2026-10-28: home-assistant polling moved IoT devices). Find it with `nsenter -t <pid> -n ss -tan state syn-sent` per container inside `colima ssh`."
+          summary: "From inside the mini's prod docker VM, TCP connects to the gateway 192.168.0.1:443 have failed for over 10m. A gateway restart (a few minutes) does not trip this. Either the gateway is down for longer, or the VM's usernet slots stay full (see mini-vm-usernet-slots-full); home-assistant and the IoT devices behind the gateway are unreachable meanwhile."
         data:
           - refId: q
-            relativeTimeRange: { from: 300, to: 0 }
+            relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min_over_time(mini_vm_usernet_syn_sent{instance="homelab"}[3m])'
+              expr: 'max_over_time(mini_vm_egress_ok{instance="homelab",target="lan"}[5m])'
               instant: true
               queryType: instant
           - refId: threshold
@@ -534,7 +543,30 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [7] } }]
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      - uid: mini-vm-usernet-slots-full
+        title: "Mac mini docker VM outbound connection slots full (10 of 10, ~2m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: infra, host: homelab, service: host-metrics, environment: operations }
+        annotations:
+          summary: "lima usernet has held all 10 half-open (SYN_SENT) outbound slots for ~2m: every new outbound connection from the prod docker VM is dropped (delivery outbox polls, LiteLLM, Alloy, the tailnet nodes' new connections). Usually home-assistant's polls hanging on unreachable LAN devices: a UniFi gateway restart (11 HomeWizard devices behind it, 2026-10-29 02:45Z) or moved devices (2026-10-28). Find the holder with `nsenter -t <pid> -n ss -tan state syn-sent` per container inside `colima ssh`. Clears on its own once the devices answer again."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min_over_time(mini_vm_usernet_syn_sent{instance="homelab"}[2m])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [9] } }]
 
       # --- Mac mini CPU temperature (warning >85°C, critical >95°C) ---------------
       # The mini runs 24/7; healthy idle ~60°C, thermal-throttles ~100°C. 85 = warn
