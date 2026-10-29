@@ -91,6 +91,6 @@ For GlitchTip/Umami/Langfuse (the nightly `infra/backup/` pg_dump now makes this
 ## Known stale docs (2026-08-17 audit — to sweep)
 These still describe the pre-migration exposure (serve ports `:8443/:8444/:8445/:10000`,
 `homelab:8888`, raw `:8090/:3001` as tailnet-reachable, OrbStack). Fix or banner them:
-`docs/recipes/observability-endpoints.md` (full rewrite) · `infra/homelab-serve/README.md`
-(deprecate) · `infra/README.md` · `infra/{glitchtip,umami,langfuse,homelab-home}/README.md` ·
+`docs/recipes/observability-endpoints.md` (full rewrite) · (`infra/homelab-serve/` was deleted 2026-10-29)
+· `infra/README.md` · `infra/{glitchtip,umami,langfuse,homelab-home}/README.md` ·
 `docs/adr/ADR-0006-*` (OrbStack→colima) · `docs/recipes/mac-mini-observability.md`.
