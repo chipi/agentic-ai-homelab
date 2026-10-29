@@ -88,4 +88,7 @@ def test_event_shape():
     e = poll.to_event(poll.parse(FEED)[0], backfill=False)
     assert e["_msg"] == "hetzner maintenance [FSN1-DC22] Maintenance UPS systems in FSN1-DC22"
     assert (e["app"], e["environment"], e["instance"], e["backfill"]) == ("hetzner-status", "operations", "homelab", "false")
-    assert e["_time"] == "2026-11-01T08:00:00+00:00"
+    from datetime import datetime, timezone
+    seen_at = datetime.fromisoformat(e["_time"])
+    assert e["updated"] == "2026-11-01T08:00:00+00:00"
+    assert abs((datetime.now(timezone.utc) - seen_at).total_seconds()) < 60   # observation time, not `updated`

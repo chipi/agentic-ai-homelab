@@ -8,7 +8,9 @@ VictoriaLogs, so bulletins can be searched, shown and alerted on like any other 
 ## What lands where
 
 - **VictoriaLogs**, stream `app=hetzner-status, service=hetzner-status, environment=operations,
-  instance=homelab`. One line per bulletin update, `_time` = the bulletin's `updated`. Fields:
+  instance=homelab`. One line per bulletin update; `_time` = when the poller saw it (the bulletin's own time is
+  the `updated` field; using it as `_time` would drop old-but-current notices, which fall outside
+  VictoriaLogs' retention). Fields:
 
   | field | meaning |
   |---|---|

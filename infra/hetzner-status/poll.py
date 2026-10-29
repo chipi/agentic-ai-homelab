@@ -88,7 +88,9 @@ def parse(xml_text):
 def to_event(b, backfill):
     ev = dict(b)
     ev.update({
-        "_time": b["updated"] or datetime.now(timezone.utc).isoformat(),
+        # observation time, not b["updated"]: bulletins stay in the feed for months, and VictoriaLogs
+        # drops rows older than its retention, so an old notice that is still current would vanish.
+        "_time": datetime.now(timezone.utc).isoformat(),
         "_msg": "hetzner %s [%s] %s" % (b["kind"], b["category"] or "-", b["title"]),
         "app": "hetzner-status", "service": "hetzner-status",
         "environment": "operations", "instance": "homelab",
@@ -143,7 +145,8 @@ def poll_once(state, fetch=None):
     text = fetch() if fetch else urllib.request.urlopen(
         urllib.request.Request(FEED, headers={"User-Agent": "homelab-hetzner-status"}), timeout=30).read().decode()
     bulletins = parse(text)
-    first = "seen" not in state
+    # HETZNER_BACKFILL=1 forces a backfill run (re-adding rows without alerting)
+    first = "seen" not in state or os.environ.get("HETZNER_BACKFILL") == "1"
     seen = state.setdefault("seen", {})
     events = []
     for b in bulletins:
