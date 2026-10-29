@@ -155,6 +155,45 @@ modules:
     http:
       preferred_ip_protocol: ip4
       valid_status_codes: [404]
+  page_orrery:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      fail_if_body_not_matches_regexp: ["<title>[^<]*Orrery"]
+  cl_api:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      fail_if_body_not_matches_regexp: ["\"auth_ready\":\\s*true"]
+  json_ok:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      fail_if_body_not_matches_regexp: ["\"ok\":\\s*true"]
+  mcp_unauth:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: "{}"
+      valid_status_codes: [401]
+      fail_if_body_not_matches_regexp: ["unauthorized"]
+  glitchtip_ingest:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [405]
+      fail_if_body_not_matches_regexp: ["Method not allowed"]
 `
 
   target {
@@ -172,11 +211,68 @@ modules:
     address = "https://analytics.humancopilot.eu/script.js"
     module  = "http_200"
   }
-  // ingest-only: only /api/<n>/security/ is routed, so the root must answer 404 (not 5xx, not silence)
+  // GlitchTip ingest hosts: a GET on an ingest path is answered 405 by GlitchTip itself
+  // (Caddy alone answers 404), so this proves the edge -> Caddy -> GlitchTip path without
+  // sending an event. telemetry.humancopilot.eu routes only /api/<n>/security/.
   target {
     name    = "telemetry.humancopilot.eu"
-    address = "https://telemetry.humancopilot.eu/"
-    module  = "http_404"
+    address = "https://telemetry.humancopilot.eu/api/36/security/"
+    module  = "glitchtip_ingest"
+  }
+  target {
+    name    = "telemetry.closelistening.app"
+    address = "https://telemetry.closelistening.app/api/1/envelope/"
+    module  = "glitchtip_ingest"
+  }
+  target {
+    name    = "telemetry.orrerylearn.com"
+    address = "https://telemetry.orrerylearn.com/api/1/envelope/"
+    module  = "glitchtip_ingest"
+  }
+  // Close Listening: the apps' API (the unauthenticated / is a static coming-soon page and
+  // proves nothing about the backend). operator.closelistening.app is behind a login and
+  // has no unauthenticated backend path, so it is not probed.
+  target {
+    name    = "closelistening.app"
+    address = "https://closelistening.app/api/app/auth/status"
+    module  = "cl_api"
+  }
+  // MCP servers: an unauthenticated POST /mcp must be refused by the server (401 JSON).
+  target {
+    name    = "mcp.closelistening.app"
+    address = "https://mcp.closelistening.app/mcp"
+    module  = "mcp_unauth"
+  }
+  target {
+    name    = "obs.closelistening.app"
+    address = "https://obs.closelistening.app/mcp"
+    module  = "mcp_unauth"
+  }
+  target {
+    name    = "www.orrerylearn.com"
+    address = "https://www.orrerylearn.com/"
+    module  = "page_orrery"
+  }
+  target {
+    name    = "lab-api.orrerylearn.com"
+    address = "https://lab-api.orrerylearn.com/health"
+    module  = "json_ok"
+  }
+  target {
+    name    = "mcp.orrerylearn.com"
+    address = "https://mcp.orrerylearn.com/health"
+    module  = "json_ok"
+  }
+  // Umami tracker script on the product domains.
+  target {
+    name    = "analytics.closelistening.app"
+    address = "https://analytics.closelistening.app/script.js"
+    module  = "http_200"
+  }
+  target {
+    name    = "analytics.orrerylearn.com"
+    address = "https://analytics.orrerylearn.com/script.js"
+    module  = "http_200"
   }
   target {
     name    = "evals.humancopilot.eu"

@@ -599,6 +599,7 @@ by one nginx container behind the shared Caddy edge. Independent of Orrery and C
 | DNS | Cloudflare zones humancopilot.eu, devwhateverops.com (proxied, origin A + AAAA), expected records in the repo's `infra/dns/*.records`; DNSSEC on devwhateverops.com only (Hover has no DS for `.eu`) |
 | Mail | Google Workspace (devwhateverops.com is a secondary domain), SPF + DKIM + DMARC `p=none`, reports to info@humancopilot.eu |
 | Analytics, errors, dashboards | Umami (section 6), GlitchTip 34/35 (section 7), Grafana folder Websites (section 1) |
+| Uptime | Outside-in probes from the mini every minute (`probe_success{job="site-probe"}`, targets and checks in `infra/observability/hosts/homelab/config.alloy`), these sites plus the prod product endpoints; dashboard Production Infra / **Prod uptime** (`prod-uptime`); alert `site-probe-failing`. UptimeRobot (the operator's account, no API key here) also HEADs seven landing pages every 5 min |
 
 ## 13. DGX services
 

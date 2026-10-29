@@ -1,0 +1,530 @@
+{
+  "uid": "prod-uptime",
+  "title": "Prod uptime",
+  "tags": [
+    "prod",
+    "uptime",
+    "probe"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "description": "Outside-in availability of the prod endpoints, from the Mac mini every minute (job site-probe). Built 2026-10-29.",
+  "panels": [
+    {
+      "type": "table",
+      "title": "Availability per endpoint",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "expr": "avg_over_time((max by (host) (probe_success{job=\"site-probe\",run_id=\"\"}) and on () (last_over_time(mini_vm_egress_ok{instance=\"homelab\",target=\"internet\"}[5m]) == 1))[24h:1m])",
+          "format": "table",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "avg_over_time((max by (host) (probe_success{job=\"site-probe\",run_id=\"\"}) and on () (last_over_time(mini_vm_egress_ok{instance=\"homelab\",target=\"internet\"}[5m]) == 1))[7d:1m])",
+          "format": "table",
+          "instant": true,
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "avg_over_time((max by (host) (probe_success{job=\"site-probe\",run_id=\"\"}) and on () (last_over_time(mini_vm_egress_ok{instance=\"homelab\",target=\"internet\"}[5m]) == 1))[30d:1m])",
+          "format": "table",
+          "instant": true,
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "avg_over_time((max by (host) (probe_success{job=\"site-probe\",run_id=\"\"}) and on () (last_over_time(mini_vm_egress_ok{instance=\"homelab\",target=\"internet\"}[5m]) == 1))[$__range:1m])",
+          "format": "table",
+          "instant": true,
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "(1 - avg_over_time((max by (host) (probe_success{job=\"site-probe\",run_id=\"\"}) and on () (last_over_time(mini_vm_egress_ok{instance=\"homelab\",target=\"internet\"}[5m]) == 1))[$__range:1m])) * ($__range_s / 60)",
+          "format": "table",
+          "instant": true,
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        },
+        {
+          "expr": "max by (host) (last_over_time(probe_success{job=\"site-probe\",run_id=\"\"}[3m]))",
+          "format": "table",
+          "instant": true,
+          "refId": "F",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "host": "Endpoint",
+              "Value #A": "24h",
+              "Value #B": "7d",
+              "Value #C": "30d",
+              "Value #D": "Selected range",
+              "Value #E": "Down minutes (range)",
+              "Value #F": "Now"
+            },
+            "indexByName": {
+              "host": 0,
+              "Value #F": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #E": 6
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 3,
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.99
+              },
+              {
+                "color": "green",
+                "value": 0.999
+              }
+            ]
+          },
+          "custom": {
+            "cellOptions": {
+              "type": "color-text"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Endpoint"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Down minutes (range)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": null
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Now"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "DOWN",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "UP",
+                        "color": "green"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Selected range",
+            "desc": false
+          }
+        ]
+      },
+      "description": "Share of 1-minute checks that passed, measured from the Mac mini (home internet) through Cloudflare like a visitor. Minutes when the mini's own internet was down are left out, not counted as down. Each endpoint's check is in infra/observability/hosts/homelab/config.alloy (the apps' API, the MCP servers' 401, GlitchTip's 405, pages by <title>). A window longer than an endpoint's history averages only the history there is (the probes started 2026-10-29).",
+      "id": 1
+    },
+    {
+      "type": "state-timeline",
+      "title": "Up / down",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 11
+      },
+      "targets": [
+        {
+          "expr": "max by (host) (probe_success{job=\"site-probe\",run_id=\"\"})",
+          "legendFormat": "{{host}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "down",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "up",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "description": "Raw probe results, including minutes when the mini itself was offline (see the egress row below).",
+      "id": 2
+    },
+    {
+      "type": "state-timeline",
+      "title": "The probe's own internet (mini egress)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 3
+      },
+      "targets": [
+        {
+          "expr": "last_over_time(mini_vm_egress_ok{instance=\"homelab\",target=\"internet\"}[5m])",
+          "legendFormat": "mini egress",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "offline",
+                  "color": "purple"
+                },
+                "1": {
+                  "text": "online",
+                  "color": "transparent"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              },
+              {
+                "color": "transparent",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "description": "Purple = the mini could not reach the internet; probe failures then say nothing about prod.",
+      "id": 3
+    },
+    {
+      "type": "timeseries",
+      "title": "Response time",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 16,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "max by (host) (probe_duration_seconds{job=\"site-probe\"})",
+          "legendFormat": "{{host}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "median",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "description": "Whole check, DNS + TLS + response, from the home internet.",
+      "id": 4
+    },
+    {
+      "type": "table",
+      "title": "Edge certificate expiry",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 26,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "(min by (host) (probe_ssl_earliest_cert_expiry{job=\"site-probe\"}) - time()) / 86400",
+          "format": "table",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "host": "Endpoint",
+              "Value": "Days left"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "custom": {
+            "cellOptions": {
+              "type": "color-text"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 14
+              },
+              {
+                "color": "green",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Days left",
+            "desc": false
+          }
+        ]
+      },
+      "description": "The certificate Cloudflare serves to visitors (Cloudflare renews it), not the origin certificate.",
+      "id": 5
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}
