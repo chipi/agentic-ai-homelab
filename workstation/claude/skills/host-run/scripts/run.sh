@@ -10,7 +10,7 @@ host=$1; file=$2; shift 2
 case "$host" in
   homelab|mini) SSH=(ssh -i "$HOME/.ssh/homelab_mini" -o IdentitiesOnly=yes markodragoljevic@homelab) ;;
   homelab-claude) SSH=(ssh homelab-claude) ;;
-  dgx|dgx-llm-1) SSH=(ssh dgx-llm-1) ;;
+  dgx|dgx-llm-1) SSH=(ssh markodragoljevic@dgx-llm-1) ;;
   prod|prod-podcast) SSH=(ssh deploy@prod-podcast) ;;
   *) echo "host-run: unknown host '$host'" >&2; exit 2 ;;
 esac
