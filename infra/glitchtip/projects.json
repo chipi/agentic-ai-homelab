@@ -144,6 +144,12 @@
       "team": "podcast",
       "platform": "python",
       "reports": "the eval-harness inspector backend on prod-podcast (Sentry SDK, environment prod, release sha-<7>); DSN in /srv/evals/observability.env on the VPS, master copy ~/glitchtip/evals-inspector.env on the mini"
+    },
+    {
+      "slug": "evals-mcp",
+      "team": "podcast",
+      "platform": "python",
+      "reports": "the eval-harness MCP server on prod-podcast (evals.humancopilot.eu/mcp; Sentry SDK, environment prod, release sha-<7>); master copy of the DSN ~/glitchtip/evals-mcp.env on the mini"
     }
   ]
 }
