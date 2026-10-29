@@ -1,0 +1,570 @@
+{
+  "uid": "home-ha-overview",
+  "title": "Home (Home Assistant)",
+  "tags": [
+    "home-automation",
+    "home-assistant"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "description": "Internet, kitchen and energy split from Home Assistant's /api/prometheus (job=home-assistant, chipi/home-automation). Alerts: group home-automation. Built 2026-10-29.",
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Internet (UniFi gateway via unifi-poller)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Internet",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_binary_sensor_state{job=\"home-assistant\",entity=\"binary_sensor.internet_up\"}",
+          "legendFormat": "internet",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Availability 24h",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_sensor_unit_percent{job=\"home-assistant\",entity=\"sensor.internet_availability_24h\"}",
+          "legendFormat": "24h",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Drops (since gateway start)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_sensor_state{job=\"home-assistant\",entity=\"sensor.internet_drops\"}",
+          "legendFormat": "drops",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "description": "Counted by the gateway; resets to 0 when the gateway restarts, so it is not a lifetime total."
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_sensor_duration_ms{job=\"home-assistant\",entity=\"sensor.internet_latency\"}",
+          "legendFormat": "latency",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "fillOpacity": 5
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Throughput now",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_sensor_data_rate_mbit_per_s{job=\"home-assistant\",entity=\"sensor.internet_download_now\"}",
+          "legendFormat": "download",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "homeassistant_sensor_data_rate_mbit_per_s{job=\"home-assistant\",entity=\"sensor.internet_upload_now\"}",
+          "legendFormat": "upload",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Mbits",
+          "custom": {
+            "fillOpacity": 5
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Kitchen",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Fridge and freezer",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 16,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_sensor_temperature_celsius{job=\"home-assistant\",entity=\"sensor.fridge_freezer_temperature\"}",
+          "legendFormat": "fridge",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "homeassistant_sensor_temperature_celsius{job=\"home-assistant\",entity=\"sensor.fridge_freezer_temperature_zone_2\"}",
+          "legendFormat": "freezer",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": {
+            "fillOpacity": 5
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Alerts: ha-fridge-warm (> 8\u00b0C for 30m), ha-freezer-warm (> -10\u00b0C for 30m)."
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Appliance problems",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 14,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "homeassistant_binary_sensor_state{job=\"home-assistant\",entity=~\"binary_sensor\\\\.(dishwasher|washer_dryer|steam_oven_combi|fridge_freezer|hob_with_extraction)_problem\"}",
+          "legendFormat": "{{friendly_name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "OK",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "PROBLEM",
+                  "color": "red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "description": "Alert: ha-appliance-fault (on for 5m)."
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Energy split (kWh; meter readings shown as increase, never as a rate)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Sockets vs not on sockets, last 24 h",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.sockets_energy_total\"}[24h])",
+          "legendFormat": "on sockets",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.energy_not_on_sockets\"}[24h])",
+          "legendFormat": "not on sockets",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Sockets vs not on sockets, last 7 days",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.sockets_energy_total\"}[7d])",
+          "legendFormat": "on sockets",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.energy_not_on_sockets\"}[7d])",
+          "legendFormat": "not on sockets",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Per day: sockets vs not on sockets",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.sockets_energy_total\"}[$__interval])",
+          "legendFormat": "on sockets",
+          "interval": "1d",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "A"
+        },
+        {
+          "expr": "increase(homeassistant_sensor_energy_kwh{job=\"home-assistant\",entity=\"sensor.energy_not_on_sockets\"}[$__interval])",
+          "legendFormat": "not on sockets",
+          "interval": "1d",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "stacking": {
+              "mode": "normal"
+            },
+            "barAlignment": -1
+          }
+        },
+        "overrides": []
+      },
+      "options": {},
+      "description": "Daily buckets, aligned to UTC. Both are cumulative kWh sensors from Home Assistant.",
+      "interval": "1d"
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}
