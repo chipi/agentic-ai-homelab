@@ -10,6 +10,10 @@ consumers.** The reliable fix is a **graceful `colima restart`**. The durable
 fix is to stop depending on the host forward for anything that matters (see
 [Make it more resilient](#make-it-more-resilient)).
 
+A second, unrelated VM network failure (containers cannot open new **outbound**
+connections; the forward is fine) has its own section:
+[the VM cannot open new outbound connections](#a-different-failure-the-vm-cannot-open-new-outbound-connections).
+
 ---
 
 ## What colima and lima actually are
@@ -253,6 +257,61 @@ rest reduce frequency or improve the signal.
    Apple-Silicon-only; that is false — the `claude` account's colima has run
    `vmType: vz`, `mountType: virtiofs` on this Intel i7-8700B / macOS 15.7 since
    2026-10-08. Moving the production VM to vz is untested.)
+
+---
+
+## A different failure: the VM cannot open new outbound connections
+
+Not the forward. Here the host→VM direction is fine (docker CLI, loopback ports and inbound
+tailnet traffic all work), but **nothing inside the VM can open a new outbound
+connection**: delivery's outbox polls time out, LiteLLM cannot reach providers, Alloy cannot
+push, and the caddy-tailscale nodes' new connections stall (prod's trace exports to
+`vtraces` time out). Connections that already exist keep working, which hides it.
+
+**Why.** The VM's network is lima's user-v2 `limactl usernet` (gvisor-tap-vsock **v0.8.9**
+in limactl 2.2.0). Its TCP forwarder admits **10 half-open outbound connections** at a time
+(`tcp.NewForwarder(s, 0, 10, …)`) and dials with a plain `net.Dial`, no timeout. A
+container that keeps connecting to hosts that do not answer holds all 10 slots until macOS
+times each dial out, and every other SYN in the VM is dropped. Upstream raised it to 128
+with a 30 s timeout in gvisor-tap-vsock 0.9.0; no lima release ships that yet
+([#118](https://github.com/chipi/agentic-ai-homelab/issues/118)).
+
+**Who fills it, so far always home-assistant** (it polls LAN/IoT devices):
+
+| When | Trigger | Length |
+|---|---|---|
+| 2026-10-28 16:16-16:31Z | devices moved to a new VLAN; HA kept polling their old IPs | ~15 min |
+| 2026-10-29 02:45-02:49Z | the UniFi gateway restarted; 11 HomeWizard devices behind it (polled every 5 s, 10 s timeout) hung at once | ~4 min |
+
+Expect it again at every gateway restart until #118 lands or HA leaves the prod engine
+([home-automation#1](https://github.com/chipi/home-automation/issues/1)).
+
+**Detect.** `mini-metrics/push.sh` pushes `mini_vm_usernet_syn_sent` (slots held, every
+loop) and `mini_vm_egress_ok{target="internet"|"lan"}` (an in-guest TCP connect to
+1.1.1.1:443 / 192.168.0.1:443, every third loop, ~2m20s). Alerts in `rules.yaml`:
+`mini-vm-usernet-slots-full` (warning, all 10 held ~2m), `mini-vm-egress-down` (critical,
+no internet for two probes in a row), `mini-vm-egress-lan-down` (warning, gateway
+unreachable >10m).
+
+**Find the holder** (read-only):
+
+```sh
+ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes homelab '
+  export PATH=/usr/local/bin:$PATH
+  DH="sudo -n -u _dockerhost env HOME=/var/_dockerhost PATH=$PATH"
+  # slots held by the usernet process (10 = full)
+  sudo -n lsof -nP -a -p "$(pgrep -f "limactl usernet")" -iTCP -sTCP:SYN_SENT | tail -n +2 | wc -l
+  # which container holds them, and towards where
+  $DH colima ssh -- sh -c "for c in \$(sudo docker ps -q); do n=\$(sudo docker inspect -f \"{{.Name}} {{.State.Pid}}\" \$c); p=\${n#* }; k=\$(sudo nsenter -t \$p -n ss -tan state syn-sent | tail -n +2 | wc -l); [ \$k -gt 0 ] && echo \"\${n% *} \$k\" && sudo nsenter -t \$p -n ss -tan state syn-sent | tail -n +2 | awk \"{print \\\$NF}\" | sort | uniq -c; done" </dev/null'
+```
+
+`colima ssh` reads stdin: keep the `</dev/null`, or it swallows the rest of a script.
+
+**Recover.** Remove the cause, not the VM: stop or fix the container holding the slots
+(2026-10-28: `docker stop home-assistant`, fix its config entries, start it; egress came
+back within ~2 min). It clears by itself once the unreachable hosts answer again (a gateway
+restart). **A `colima restart` does not help**: it empties the slots for a few
+minutes and the same container fills them again.
 
 ---
 
