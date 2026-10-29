@@ -111,15 +111,15 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
      (degraded, not customer-impacting) / 0 red; STALENESS IS A STATE — no run for >26h renders
      grey/stale, because a dead health check must never look healthy. -->
 <div style="margin:0 0 22px" id=podcast_prod>
-  <h2><span class="dot stale" id=ph_agg></span><a href="https://github.com/chipi/podcast_scraper/actions/workflows/prod-ops-health.yml">Podcast &mdash; production &rarr;</a></h2>
+  <h2><span class="dot stale" id=ph_agg></span><a href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml">Podcast &mdash; production &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
-    <a class=card href="https://github.com/chipi/podcast_scraper/actions/workflows/prod-ops-health.yml"><h3>App health</h3><div id=ph_overall>&hellip;</div></a>
-    <a class=card href="https://github.com/chipi/podcast_scraper/actions/workflows/prod-ops-health.yml"><h3>LLM gateway</h3><div id=ph_gateway>&hellip;</div></a>
+    <a class=card href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml"><h3>App health</h3><div id=ph_overall>&hellip;</div></a>
+    <a class=card href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml"><h3>LLM gateway</h3><div id=ph_gateway>&hellip;</div></a>
     <a class=card href="$VL"><h3>Logs flowing</h3><div id=ph_o11y_logs>&hellip;</div></a>
     <a class=card href="$DASH_PROD"><h3>Metrics flowing</h3><div id=ph_o11y_metrics>&hellip;</div></a>
     <a class=card href="$VT"><h3>Traces flowing</h3><div id=ph_o11y_traces>&hellip;</div></a>
     <a class=card href="https://glitchtip.tail6d0ed4.ts.net"><h3>Error tracking</h3><div id=ph_o11y_glitchtip>&hellip;</div></a>
-    <a class=card href="https://github.com/chipi/podcast_scraper/actions/workflows/prod-ops-health.yml"><h3>Last check</h3><div id=ph_age>&hellip;</div></a>
+    <a class=card href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml"><h3>Last check</h3><div id=ph_age>&hellip;</div></a>
   </div>
 </div>
 <div style="margin:0 0 22px">
@@ -526,7 +526,7 @@ async function podcastHealth(){
   // The pusher owns the check list — a check it adds that this page doesn't know yet must
   // still be VISIBLE, so grow a card for it (before "Last check") instead of dropping it.
   const grow=id=>{const row=document.querySelector('#podcast_prod .charts');const age=document.getElementById('ph_age');if(!row||!age)return;
-    const a=document.createElement('a');a.className='card';a.href='https://github.com/chipi/podcast_scraper/actions/workflows/prod-ops-health.yml';
+    const a=document.createElement('a');a.className='card';a.href='https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml';
     a.innerHTML='<h3></h3><div id="'+id+'">&hellip;</div>';a.querySelector('h3').textContent=id.slice(3).replace(/_/g,' ');
     row.insertBefore(a,age.closest('a.card'));};
   const seen=new Set();
