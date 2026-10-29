@@ -414,6 +414,8 @@ def _finish(signal, disp, trace, gates, usage, t0, trace_id=None):
                      "probes": [t["probe"] for t in trace], "n_probes": len(trace),
                      "table_miss": table_miss, "cost_usd": round(cost, 6),
                      "certainty": disp.get("certainty"), "usage": usage}
+    # what the model asked and got, for capture.py; "shown" is the exact trimmed text it read
+    disp["_probe_trace"] = [dict(t, shown=_trim(t["result"])) for t in trace]
     observ.finalize(signal, disp, usage=usage, latency_s=time.time() - t0, trace_id=trace_id)
     return disp
 

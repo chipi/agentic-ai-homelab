@@ -74,6 +74,11 @@ RETRIAGE_HOURS = float(env("SF_RETRIAGE_HOURS", "24"))
 
 # state
 LEDGER = env("SF_LEDGER", os.path.expanduser("~/signal-fleet/results/dispositions.tsv"))
+# Per-decision probe capture (capture.py): off unless SF_CAPTURE_PROBES=1. One JSON per decision
+# with the signal and every probe answer, so a decision can be replayed later exactly.
+CAPTURE_PROBES = env("SF_CAPTURE_PROBES", "0") == "1"
+CAPTURE_DIR = env("SF_CAPTURE_DIR", os.path.expanduser("~/signal-fleet/results/probes"))
+CAPTURE_EAGER = env("SF_CAPTURE_EAGER", "1") == "1"   # also record the rest of the probe menu
 # propose-first: File/Tune proposals are queued here as drafts for operator review
 # (never opened as real issues until the File-quality eval gate — EVAL.md (iii)).
 QUEUE_DIR = env("SF_QUEUE", os.path.expanduser("~/signal-fleet/queue"))

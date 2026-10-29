@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 
+import capture
 import config
 
 LEDGER_COLS = ["ts", "occurrence_id", "fingerprint", "source", "alertname",
@@ -257,3 +258,4 @@ def act(signal, disp, dry_run=True):
             import filing
             print(f"  [ESCALATE] {filing.file_escalation(signal, disp)}")
     ledger_append(signal, disp, followup=followup)
+    capture.record(signal, disp)

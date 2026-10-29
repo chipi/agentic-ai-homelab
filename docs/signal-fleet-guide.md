@@ -192,6 +192,7 @@ It is upserted by fingerprint, so a fingerprint has exactly one row.
 | `results/.stale_last_run` | UTC day of the last stale pass |
 | `results/.inbox_seen` | operator-inbox bookkeeping |
 | `results/.last_cycle_spend` | cycle cost in USD, read by fleetd's budget guard |
+| `results/probes/` | per-decision capture (`capture.py`), **off unless `SF_CAPTURE_PROBES=1`** in `fleet-gateway.env`: one JSON per decision (mode 600) with the signal, every probe answer the model got (raw and the trimmed text it read) and, with `SF_CAPTURE_EAGER=1` (default), the rest of the probe menu at default args, so `triage.investigate(signal, probe_table=item["probes"])` replays the decision exactly. About 12 KB each. Real production data: keep on the host, `scrub.py` before sharing |
 | `queue/` | proposals the fleet may not act on alone (`cleanup`, `config-enhancement`; everything in `shadow`) as `*.json`; handled ones renamed `.filed` / `.resolved`. The operator triages them with the `triage-fleet-review` skill's `proposals.py` (54 had piled up by 2026-10-17); `queue/archive/` holds batches set aside |
 
 ## The operator's interface: GitHub labels
