@@ -2513,6 +2513,50 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [19] } }]
 
+      # Box-wide, low-rate origin trouble that cloudflare-edge-unreachable (per host, per hour)
+      # misses: 2026-10-29 14:42-15:54Z had 29 errors spread 1-2/min over every vhost, no host
+      # near 20/h. Replay of 7 days of Cloudflare per-minute data (520/522/525, prod's hosts,
+      # scanners and non-VPS hosts excluded): ">= 3 per 5 min in two consecutive polls" fired
+      # twice, 10-29 14:55 (that incident) and 10-26 07:40 (the evals cut-over's 525s), nothing
+      # else. Prod's TCP retransmits are shown here, not alerted on alone: "3x the 1h median for
+      # 10 min" fired ~23 times in 30 days even with a 0.3/s floor.
+      - uid: cloudflare-origin-errors-sustained
+        title: "Cloudflare cannot reach the prod origin, sustained across hosts"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        labels: { severity: warning, kind: availability, host: prod-podcast, service: cloudflare-edge, environment: prod, meta: "true" }
+        annotations:
+          summary: "Cloudflare answered {{ $values.q }} requests with 520/522/525 across the prod server's hosts in the last 5 minutes, two polls in a row: it could not connect to, handshake with or read the origin. Prod TCP retransmits now {{ $values.r }}/s, 1h median {{ $values.m }}/s. Grab on the box while it lasts: `nstat -az | grep -i retrans` and `ss -ti 'sport = :443'`. Per host: cloudflare_edge_5xx{window=\"5m\"}; Caddy's journal: VictoriaLogs unit:\"caddy.service\"."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(last_over_time(cloudflare_edge_5xx{instance="homelab",window="5m",status=~"520|522|525",host!~".*:.*|mail\\..*|(www\\.)?airandspacehistory\\.com|(www\\.)?markodragoljevic\\.com"}[6m]))'
+              instant: true
+              queryType: instant
+          - refId: r
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'round(rate(node_netstat_Tcp_RetransSegs{instance="prod-podcast"}[5m]), 0.01)'
+              instant: true
+              queryType: instant
+          - refId: m
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'round(quantile_over_time(0.5, rate(node_netstat_Tcp_RetransSegs{instance="prod-podcast"}[5m])[1h:1m]), 0.01)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [2] } }]
+
       - uid: cloudflare-status-ours
         title: "Cloudflare incident on a component we use"
         condition: threshold

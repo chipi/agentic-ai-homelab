@@ -100,3 +100,12 @@ def test_token_file_must_be_private(tmp_path):
         poll.load_token(str(p))
     os.chmod(p, 0o600)
     assert poll.load_token(str(p)) == "abc"
+
+
+def test_five_minute_window_is_published_per_status():
+    edge = {"example.app": {
+        "m5": [g("a.example.app", 522, 2), g("a.example.app", 520, 1), g("a.example.app", 200, 40)],
+        "h1": [], "d1": [], "colo": [], "fw": []}}
+    lines, _ = poll.edge_lines(edge)
+    assert 'cloudflare_edge_5xx{zone="example.app",host="a.example.app",status="522",window="5m"} 2' in lines
+    assert 'cloudflare_edge_requests{zone="example.app",host="a.example.app",class="5xx_unreachable",window="5m"} 3' in lines

@@ -16,7 +16,7 @@ is the `claude-mcp-readonly` token, all six zones. Run once by hand: `python3 po
 
 | Metric | Meaning |
 |---|---|
-| `cloudflare_edge_requests{zone,host,class,window}` | requests over the last `1h` / `24h` (ending 2 min ago) by class: `2xx`, `3xx`, `4xx`, `5xx_server` (500-519, our server answered an error), `5xx_unreachable` (520-526, 530: Cloudflare could not reach, handshake with or read our origin), `client_closed` (499, the client gave up first) |
+| `cloudflare_edge_requests{zone,host,class,window}` | requests over the last `5m` / `1h` / `24h` (ending 2 min ago) by class: `2xx`, `3xx`, `4xx`, `5xx_server` (500-519, our server answered an error), `5xx_unreachable` (520-526, 530: Cloudflare could not reach, handshake with or read our origin), `client_closed` (499, the client gave up first) |
 | `cloudflare_edge_5xx{zone,host,status,window}` | the same per status code, for 499 and 5xx |
 | `cloudflare_edge_pop_share{colo}` | share of our requests per Cloudflare PoP over 24h (top 20) |
 | `cloudflare_security_events{zone,action,source}` | WAF / bot / rate-limit events over 24h |
@@ -41,6 +41,11 @@ is the `claude-mcp-readonly` token, all six zones. Run once by hand: `python3 po
 - **Alerts** (`rules.yaml`, group `cloudflare-edge`):
   - `cloudflare-edge-unreachable`: a host had at least 20 `5xx_unreachable` in the last hour
     and they were at least 5% of its requests;
+  - `cloudflare-origin-errors-sustained`: at least 3 errors 520/522/525 across the prod server's hosts in each
+    of two consecutive 5-minute windows (replayed over 7 days: it fired on the 2026-10-29 14:42Z incident and
+    the 10-26 evals cut-over, nothing else). Its message carries prod's TCP retransmit rate against its
+    1-hour median and the commands to run on the box; retransmits alone fire about daily, so they are
+    context, not an alert;
   - `cloudflare-status-ours`: an unresolved Cloudflare incident lists a component that is ours;
   - `cloudflare-edge-poller-stale`: no successful edge read for 1h.
 

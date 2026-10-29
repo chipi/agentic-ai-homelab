@@ -7,7 +7,7 @@ response from our origin. This poller reads, every POLL_INTERVAL:
 
 1. Cloudflare's GraphQL analytics for every zone the token sees (free plan:
    httpRequestsAdaptiveGroups, firewallEventsAdaptive) and publishes, per zone and host,
-   requests by class over the last 1h and 24h:
+   requests by class over the last 5m, 1h and 24h:
      2xx 3xx 4xx           as answered at the edge
      5xx_server            500-519: our server answered with an error
      5xx_unreachable       520-526, 530: Cloudflare could not reach / handshake / read our origin
@@ -90,7 +90,8 @@ def pop_code(name):
     return m.group(1) if m else None
 
 
-ZONE_QUERY = """query($z:String!,$h:Time!,$d:Time!,$u:Time!){viewer{zones(filter:{zoneTag:$z}){
+ZONE_QUERY = """query($z:String!,$m:Time!,$h:Time!,$d:Time!,$u:Time!){viewer{zones(filter:{zoneTag:$z}){
+  m5: httpRequestsAdaptiveGroups(limit:5000, filter:{datetime_geq:$m, datetime_lt:$u}){count dimensions{clientRequestHTTPHost edgeResponseStatus}}
   h1: httpRequestsAdaptiveGroups(limit:5000, filter:{datetime_geq:$h, datetime_lt:$u}){count dimensions{clientRequestHTTPHost edgeResponseStatus}}
   d1: httpRequestsAdaptiveGroups(limit:5000, filter:{datetime_geq:$d, datetime_lt:$u}){count dimensions{clientRequestHTTPHost edgeResponseStatus}}
   colo: httpRequestsAdaptiveGroups(limit:500, filter:{datetime_geq:$d, datetime_lt:$u}){count dimensions{coloCode}}
@@ -115,7 +116,7 @@ def fetch_edge(token, now=None):
     out = {}
     for z in zones:
         r = _call(token, API + "/graphql", {"query": ZONE_QUERY, "variables": {
-            "z": z["id"], "h": f(u - timedelta(hours=1)), "d": f(u - timedelta(hours=24)), "u": f(u)}})
+            "z": z["id"], "m": f(u - timedelta(minutes=5)), "h": f(u - timedelta(hours=1)), "d": f(u - timedelta(hours=24)), "u": f(u)}})
         if r.get("errors"):
             raise RuntimeError("%s: %s" % (z["name"], r["errors"][0].get("message", "")[:200]))
         out[z["name"]] = r["data"]["viewer"]["zones"][0]
@@ -133,10 +134,10 @@ def _m(name, labels, value):
 def edge_lines(edge):
     lines, colos = [], {}
     for zone, d in sorted(edge.items()):
-        for window in ("h1", "d1"):
-            wl = "1h" if window == "h1" else "24h"
+        for window in ("m5", "h1", "d1"):
+            wl = {"m5": "5m", "h1": "1h", "d1": "24h"}[window]
             by_class, by_5xx = {}, {}
-            for g in d[window]:
+            for g in d.get(window) or []:
                 host, st = g["dimensions"]["clientRequestHTTPHost"], g["dimensions"]["edgeResponseStatus"]
                 k = (host, status_class(st))
                 by_class[k] = by_class.get(k, 0) + g["count"]
