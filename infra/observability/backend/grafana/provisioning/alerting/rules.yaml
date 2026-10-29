@@ -7,6 +7,12 @@
 # routes to the default channel.
 apiVersion: 1
 
+# Removing a rule from `groups` does not delete it from Grafana; a renamed or dropped uid
+# has to be listed here, or the old rule keeps evaluating.
+deleteRules:
+  - orgId: 1
+    uid: mini-vm-usernet-inflight-high   # replaced by mini-vm-usernet-slots-full, 2026-10-29
+
 # A NOTE ON execErrState — read before setting it to OK again.
 #
 # `execErrState: OK` means "if this rule fails to evaluate, report Normal". It does not
