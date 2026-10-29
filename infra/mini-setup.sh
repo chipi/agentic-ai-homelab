@@ -56,6 +56,7 @@ for rel in \
   infra/mini-metrics/com.homelab.openrouter-spend.plist \
   infra/dgx-scrape/com.homelab.dgx-scrape.plist \
   infra/ci-ops-poller/com.homelab.ci-ops-poller.plist \
+  infra/hetzner-status/com.homelab.hetzner-status.plist \
   infra/docker-maintenance/com.homelab.docker-prune.plist \
   infra/caffeinate/com.homelab.caffeinate.plist \
   infra/node-exporter/homebrew.mxcl.node_exporter.plist \

@@ -2410,3 +2410,95 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+  # Hetzner status bulletins (status.hetzner.com en.atom -> VictoriaLogs app=hetzner-status, by
+  # infra/hetzner-status/poll.py every 10 min). `affects` classifies each bulletin against prod:
+  # ours = a category naming nbg1 (prod-podcast) or fsn1 (the audio Storage Box), service = a
+  # Hetzner service we use (Cloud Server, Network, Storage Box, ...), other = the rest. A new or
+  # updated bulletin is one event; the first run's events are backfill=true and never alert.
+  # meta="true": Hetzner's notices terminate at the operator (email), not the triage fleet.
+  # Write your own rules on the same fields: title, category, location, affects, kind
+  # (maintenance|incident), start, end, link, summary.
+  - orgId: 1
+    name: hetzner-status
+    folder: "Alerts"
+    interval: 5m
+    rules:
+      - uid: hetzner-status-ours
+        title: "Hetzner bulletin for our location (nbg1/fsn1)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: provider, host: homelab, service: hetzner-status, environment: operations, meta: "true" }
+        annotations:
+          summary: "Hetzner posted or updated a {{ $labels.kind }} for {{ $labels.category }}: \"{{ $labels.title }}\" (start {{ $labels.start }}). Our prod server is in nbg1, the audio Storage Box in fsn1. Details: {{ $labels.link }}"
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'app:hetzner-status affects:ours backfill:false | stats by (title, kind, category, start, link) count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      - uid: hetzner-status-service
+        title: "Hetzner bulletin for a service we use"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: provider, host: homelab, service: hetzner-status, environment: operations, meta: "true" }
+        annotations:
+          summary: "Hetzner posted or updated a {{ $labels.kind }} for {{ $labels.category }}: \"{{ $labels.title }}\" (start {{ $labels.start }}). Not tied to one location; check whether it touches prod-podcast (nbg1) or the Storage Box (fsn1). Details: {{ $labels.link }}"
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'app:hetzner-status affects:service backfill:false | stats by (title, kind, category, start, link) count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      - uid: hetzner-status-poller-stale
+        title: "Hetzner status poller has not succeeded for 1h"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: warning, kind: infra, host: homelab, service: hetzner-status, environment: operations, meta: "true" }
+        annotations:
+          summary: "infra/hetzner-status/poll.py on the mini has not read status.hetzner.com successfully for over an hour, so Hetzner bulletins are not being watched. Log: /tmp/hetzner-status.log on the mini; launchd job com.homelab.hetzner-status."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - max(last_over_time(hetzner_status_last_success_timestamp{instance="homelab"}[7d]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [3600] } }]
