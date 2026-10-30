@@ -550,10 +550,14 @@ API runs in container `litellm` (master key in its env); run the calls from the 
 
 - Health: `/usr/local/bin/docker ps | grep delivery` (`delivery-email`, `-push`, `-events`, all `healthy`).
 - Queue and sends (VictoriaMetrics): `delivery_batch_pending`, `delivery_sent_total`,
-  `delivery_attempts_total`, `delivery_send_seconds_*`, `delivery_events_cursor_age_seconds`.
+  `delivery_attempts_total`, `delivery_send_seconds_*`, `delivery_events_cursor_age_seconds`,
+  and (once chipi/infra's backoff change is deployed) `delivery_outbox_poll_failures_total{reason}`
+  and `delivery_outbox_last_success_timestamp_seconds`.
 - Logs: `container:delivery-email` (or `-push`, `-events`) in VictoriaLogs.
-- Real test send (sends a REAL email): `infra/delivery/README.md` → "Deployed-service e2e".
-- Pause all sends: `cd ~/agentic-ai-homelab/infra/delivery && /usr/local/bin/docker compose stop` (outbox keeps the backlog).
+- Runs from the chipi/infra checkout since 2026-10-30 (runbook S4): `~/chipi-infra/infra/delivery`
+  on the mini. The old `~/agentic-ai-homelab/infra/delivery` is stopped; never `compose down` there.
+- Real test send (sends a REAL email): chipi/infra `infra/delivery/README.md` → "Deployed-service e2e".
+- Pause all sends: `cd ~/chipi-infra/infra/delivery && /usr/local/bin/docker compose stop` (outbox keeps the backlog).
 
 ## 11. Close Listening (prod VPS)
 

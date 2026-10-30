@@ -1175,7 +1175,7 @@ groups:
         noDataState: OK
         labels: { severity: critical, kind: delivery }
         annotations:
-          summary: "Delivery worker down 5m — {{ $labels.channel }}. Digests/pushes are not going out. cd ~/agentic-ai-homelab/infra/delivery && docker compose up -d."
+          summary: "Delivery worker down 5m — {{ $labels.channel }}. Digests/pushes are not going out. cd ~/chipi-infra/infra/delivery && docker compose up -d."
         data:
           - refId: q
             relativeTimeRange: { from: 300, to: 0 }
@@ -1187,6 +1187,34 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
+      # A delivery loop has not reached its upstream (the app outbox, or Resend for the
+      # events poller) for 15 min. The workers back off quietly through the expected blips:
+      # every app deploy restarts the outbox API (~30 s), and tailnet / container-network
+      # blips ran up to ~15 min on 2026-10-16..30 with polls succeeding in between, so none of
+      # those would have fired. A loop stamps the gauge with its START time and moves it on
+      # each success, so a worker that never reaches its upstream after a restart fires 15 min
+      # after starting, while one restarted during a short deploy does not (an exported 0
+      # would fire after every such restart). NoData is OK: the series is absent until
+      # chipi/infra's delivery with this metric is deployed.
+      - uid: delivery-outbox-unreachable
+        title: "Delivery cannot reach its outbox (15m)"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        labels: { severity: critical, kind: delivery }
+        annotations:
+          summary: "delivery-{{ $labels.channel }} (tenant {{ $labels.tenant }}) has not reached its upstream for {{ $values.q }}s — nothing is being sent. Check the app API on prod (compose-api-1) and the mini's tailnet; reasons: delivery_outbox_poll_failures_total."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model: { expr: 'time() - max by (tenant, channel) (delivery_outbox_last_success_timestamp_seconds{job="delivery"})', instant: true, queryType: instant }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [900] } }]
       # Deliverability canary: bounce+complaint > 5% of terminal sends over 1h, held 15m.
       # bounced/complaint SERIES only exist once the first bounce ever happens — same
       # trap as fleetd-cycle-failing above: NoData is GOOD news, noDataState: OK is
