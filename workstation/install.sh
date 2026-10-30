@@ -330,7 +330,7 @@ for _ic in ${INFRA_CHECKOUT:-"$HOME/projects/infra" /work/infra/main}; do
   [ -d "$_ic/skills" ] && { INFRA_SKILLS="$_ic/skills"; break; }
 done
 for _sk in "$WS"/claude/skills/*/; do
-  [ -d "$_sk" ] || continue
+  [ -f "$_sk/SKILL.md" ] || continue   # not a skill (e.g. index.py's __pycache__)
   _n="$(basename "$_sk")"
   if [ -n "$INFRA_SKILLS" ] && [ -f "$INFRA_SKILLS/$_n/SKILL.md" ]; then
     echo "INFRA $_n: linked from chipi/infra below"; continue

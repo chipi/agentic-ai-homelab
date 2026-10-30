@@ -286,6 +286,14 @@ run
 chk "undo: no infra checkout re-points it back to homelab's copy, no backup left" \
   "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/ci-watch')\" = '$HERE/claude/skills/ci-watch' ] && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
 
+echo "== only directories with a SKILL.md are skills"
+NS="$HERE/claude/skills/zz-test-not-a-skill"
+mkdir -p "$NS"; trap 'rm -rf "$T" "$NS"' EXIT
+home sk-nonskill "$BASE"; run
+chk "a directory without SKILL.md under skills/ is not linked" \
+  "[ $(rc) = 0 ] && [ ! -e '$H/.claude/skills/zz-test-not-a-skill' ] && [ ! -L '$H/.claude/skills/zz-test-not-a-skill' ] && [ -L '$H/.claude/skills/ship' ]"
+rm -rf "$NS"
+
 echo "== macOS path unchanged"
 home mac "$BASE" disabled; before=$(sig); OSV=macos run
 chk "no ssh-agent/Worktrunk/storage output, no systemctl calls, .bashrc unchanged" \
