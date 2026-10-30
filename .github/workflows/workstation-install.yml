@@ -1,0 +1,29 @@
+# Run the workstation installer's tests: workstation/install.test.sh exercises install.sh in
+# throwaway HOMEs with faked systemctl/worktrunk (linking, backups, RELINK, chipi/infra skills,
+# the SKILL.md rule). Until 2026-10-30 nothing ran it in CI, so an install.sh change was only
+# ever tested on the laptop that made it.
+
+name: workstation-install
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workstation/**'
+      - '.github/workflows/workstation-install.yml'
+  pull_request:
+    paths:
+      - 'workstation/**'
+      - '.github/workflows/workstation-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: install.test.sh
+        run: bash workstation/install.test.sh

@@ -1,0 +1,55 @@
+// Research collector for the MacBook (Apple M4 Pro, 48 GB): host CPU/memory and the Ollama log,
+// pushed to the mini over the tailnet, with the same series names as the DGX's and X3's
+// collectors (instance label "macbook"). No GPU utilisation: macOS exposes it only through
+// powermetrics, which needs root.
+//
+// Runs as a launchd user agent (no root): see dev.homelab.alloy-research.plist and README.md.
+// Deployed with `git show origin/main:<this file>` into ~/.config/alloy-research/ (the laptop's
+// checkout is a working copy and is never pulled for this).
+// Ollama here is Homebrew's service, which writes to /opt/homebrew/var/log/ollama.log.
+
+prometheus.exporter.unix "host" { }
+
+prometheus.scrape "host" {
+  targets         = prometheus.exporter.unix.host.targets
+  job_name        = "integrations/unix"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.relabel.instance.receiver]
+}
+
+prometheus.relabel "instance" {
+  rule {
+    target_label = "instance"
+    replacement  = "macbook"
+  }
+  forward_to = [prometheus.remote_write.sink.receiver]
+}
+
+prometheus.remote_write "sink" {
+  endpoint {
+    url = "https://vm.tail6d0ed4.ts.net/api/v1/write"
+  }
+  external_labels = { cluster = "workstation" }
+}
+
+local.file_match "ollama" {
+  path_targets = [{
+    "__path__" = "/opt/homebrew/var/log/ollama.log",
+    "job"      = "ollama",
+    "service"  = "ollama",
+  }]
+}
+
+loki.source.file "ollama" {
+  targets       = local.file_match.ollama.targets
+  // Start at the end: the file predates the collector, and a backfill would arrive stamped "now".
+  tail_from_end = true
+  forward_to    = [loki.write.sink.receiver]
+}
+
+loki.write "sink" {
+  endpoint {
+    url = "https://vlogs.tail6d0ed4.ts.net/insert/loki/api/v1/push"
+  }
+  external_labels = { instance = "macbook", cluster = "workstation", env = "research" }
+}

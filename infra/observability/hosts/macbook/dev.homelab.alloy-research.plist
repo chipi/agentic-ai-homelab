@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>dev.homelab.alloy-research</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/markodragoljevic/.local/opt/alloy/alloy</string>
+    <string>run</string>
+    <string>/Users/markodragoljevic/.config/alloy-research/config.alloy</string>
+    <string>--storage.path=/Users/markodragoljevic/.local/state/alloy-research</string>
+    <string>--server.http.listen-addr=127.0.0.1:12346</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/markodragoljevic/.local/state/alloy-research/alloy.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/markodragoljevic/.local/state/alloy-research/alloy.log</string>
+</dict>
+</plist>

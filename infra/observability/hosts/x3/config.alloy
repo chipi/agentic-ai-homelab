@@ -1,0 +1,57 @@
+// Research collector for the X3 workstation (Linux, AMD Strix Halo): what a local model run
+// needs next to its results — host CPU/memory/pressure, the AMD GPU's busy % and memory (drm
+// collector), and the Ollama log — pushed to the mini over the tailnet. Same series names as the
+// DGX's collector, so one board can put the three research hosts side by side (instance label).
+//
+// Runs as a systemd USER service (no root): see alloy-research.service and README.md. Ollama on
+// this box is started by eval-harness through the long-job skill, so its log is that job's file,
+// not a journal.
+
+prometheus.exporter.unix "host" {
+  enable_collectors  = ["drm", "pressure"]
+  disable_collectors = ["mountstats", "infiniband", "nfs", "nfsd", "tapestats", "ipvs", "bonding", "btrfs"]
+}
+
+prometheus.scrape "host" {
+  targets         = prometheus.exporter.unix.host.targets
+  job_name        = "integrations/unix"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.relabel.instance.receiver]
+}
+
+prometheus.relabel "instance" {
+  rule {
+    target_label = "instance"
+    replacement  = "x3"
+  }
+  forward_to = [prometheus.remote_write.sink.receiver]
+}
+
+prometheus.remote_write "sink" {
+  endpoint {
+    url = "https://vm.tail6d0ed4.ts.net/api/v1/write"
+  }
+  external_labels = { cluster = "workstation" }
+}
+
+local.file_match "ollama" {
+  path_targets = [{
+    "__path__" = "/home/marko/.local/state/long-job/*ollama*.log",
+    "job"      = "ollama",
+    "service"  = "ollama",
+  }]
+}
+
+loki.source.file "ollama" {
+  targets       = local.file_match.ollama.targets
+  // Start at the end: the file predates the collector, and a backfill would arrive stamped "now".
+  tail_from_end = true
+  forward_to    = [loki.write.sink.receiver]
+}
+
+loki.write "sink" {
+  endpoint {
+    url = "https://vlogs.tail6d0ed4.ts.net/insert/loki/api/v1/push"
+  }
+  external_labels = { instance = "x3", cluster = "workstation", env = "research" }
+}

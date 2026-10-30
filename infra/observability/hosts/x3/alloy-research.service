@@ -1,0 +1,11 @@
+[Unit]
+Description=Alloy research collector (host + GPU metrics, Ollama log -> the mini)
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/opt/alloy/alloy run /work/agentic-ai-homelab/infra/observability/hosts/x3/config.alloy --storage.path=%h/.local/state/alloy-research --server.http.listen-addr=127.0.0.1:12346
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
