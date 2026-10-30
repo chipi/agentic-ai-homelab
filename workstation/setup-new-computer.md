@@ -77,7 +77,7 @@ The clone location is free; on Linux the repo usually lives under `/work/`.
 
 This links the **non-secret** files (`AGENTS.md`, `CLAUDE.md`,
 lean-ctx/ponytail config, every skill/subagent/hook/workflow). Existing files
-are backed up as `*.bak.<timestamp>`. `--dry-run` changes nothing on disk.
+are backed up as `*.bak.<timestamp>` (an existing symlink is re-pointed instead). `--dry-run` changes nothing on disk.
 
 - **macOS only:** also links the [workbench](workbench/README.md) (`~/bin/wb`,
   `~/bin/wb-session.sh`, `~/.tmux.conf`, the `com.chipi.workbench` LaunchAgent),
