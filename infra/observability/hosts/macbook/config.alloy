@@ -8,7 +8,10 @@
 // checkout is a working copy and is never pulled for this).
 // Ollama here is Homebrew's service, which writes to /opt/homebrew/var/log/ollama.log.
 
-prometheus.exporter.unix "host" { }
+prometheus.exporter.unix "host" {
+  // thermal needs a CPU power status this Mac does not report: it failed on every scrape (2026-10-30).
+  disable_collectors = ["thermal"]
+}
 
 prometheus.scrape "host" {
   targets         = prometheus.exporter.unix.host.targets
