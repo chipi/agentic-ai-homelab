@@ -49,10 +49,15 @@ case "$cmd" in
     log="$STATE/$name.log"
     printf '%q ' "$@" > "$STATE/$name.cmd"
     : > "$log"
-    # setsid: own process group, survives the tool call; the wrapper writes EXIT=.
+    # Own process group (pgid == pid, so `stop` can signal the whole job), surviving the tool call;
+    # the wrapper writes EXIT=. setsid is Linux-only: macOS has none ("setsid: command not found"
+    # killed every job there while `start` still reported success), so use perl's setpgrp + exec.
+    if command -v setsid >/dev/null 2>&1; then newpg=(setsid)
+    elif command -v perl >/dev/null 2>&1; then newpg=(perl -e 'setpgrp(0, 0) or die "setpgrp: $!"; exec @ARGV or die "exec: $!"')
+    else die "need setsid (Linux) or perl (macOS) to give the job its own process group"; fi
     (
       cd "$cwd"
-      setsid bash -c '
+      "${newpg[@]}" bash -c '
         echo "[long-job] start $(date -u +%FT%TZ) in $PWD: $*"
         "$@"
         rc=$?
@@ -62,6 +67,12 @@ case "$cmd" in
       echo $! > "$STATE/$name.pid"
     )
     pid="$(cat "$STATE/$name.pid")"
+    # A job that is gone a second later without an EXIT= line never started (a missing launcher,
+    # a bad cwd): say so instead of "started".
+    sleep 1
+    if ! alive "$pid" && ! grep -q '^EXIT=' "$log"; then
+      die "job '$name' died at once without an EXIT= line; log $log: $(tail -3 "$log" | tr '\n' ' ')"
+    fi
     echo "$pid $name" > "$lockf"
     echo "started '$name' pid $pid (pgid $pid), lock '$lock'"
     echo "log: $log"

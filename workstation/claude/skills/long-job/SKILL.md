@@ -20,8 +20,11 @@ J=~/.claude/skills/long-job/scripts/long-job.sh
 $J start <name> [--lock <key>] [--cwd <dir>] -- <command …>
 ```
 
-- The job runs under `setsid`, detached from the tool call: the tool returns at
-  once and no tool timeout applies. Its log ends with `EXIT=<code>`.
+- The job runs in its own process group (`setsid` on Linux; on macOS, which has no
+  `setsid`, perl's `setpgrp`), detached from the tool call: the tool returns at
+  once and no tool timeout applies. Its log ends with `EXIT=<code>`. `start` fails
+  (exit 2, with the log's last lines) if the job is gone a second later without an
+  `EXIT=` line, instead of reporting "started".
 - `--lock <key>`: jobs that write the same thing share a key (e.g. `orrery-i18n`).
   A second job with a held lock is **refused** (exit 2). A lock whose owner died
   is free, so a crash never blocks the next run.
