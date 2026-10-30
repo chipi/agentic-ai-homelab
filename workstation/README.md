@@ -18,6 +18,8 @@ git clone <this repo>
 > exactly which files move. Backups of skill *directories* land next to the live
 > skills — after you've confirmed the symlinks resolve, delete the
 > `~/.claude/skills/*.bak.*` dirs so they don't show up as duplicate skills.
+> A target that is already a symlink to somewhere else is re-pointed (`RELINK`),
+> not backed up: a link holds no data.
 
 Full step-by-step for a clean machine (macOS or Omarchy/Arch Linux):
 [`setup-new-computer.md`](setup-new-computer.md). On the Mac laptop, after every

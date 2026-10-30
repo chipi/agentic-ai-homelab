@@ -38,7 +38,14 @@ link() {  # link <workstation-relative or absolute src> <absolute-home-target>
   if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
     echo "OK    already linked: $dst"; return
   fi
-  if [ -e "$dst" ] || [ -L "$dst" ]; then
+  # A symlink holds no data, and a backup of one under ~/.claude/skills would load as a second
+  # copy of the skill, so a link pointing elsewhere is replaced, not backed up.
+  if [ -L "$dst" ]; then
+    echo "RELINK $dst: $(readlink "$dst") -> $src"
+    if [ "$DRY" = 0 ]; then rm "$dst"; ln -s "$src" "$dst"; fi
+    return 0
+  fi
+  if [ -e "$dst" ]; then
     echo "BACK  $dst -> $dst.bak.$TS"
     if [ "$DRY" = 0 ]; then mv "$dst" "$dst.bak.$TS"; fi
   fi

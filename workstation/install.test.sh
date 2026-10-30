@@ -278,6 +278,13 @@ chk "infra checkout: its skills linked; the same-named homelab skill not linked;
 INFRA_CHECKOUT="$T/infra" run
 chk "rerun with infra: already linked, no skill backed up (the two loops never relink each other)" \
   "[ $(rc) = 0 ] && grep -q \"^OK    already linked: $H/.claude/skills/prod-deploy\$\" '$H.out' && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
+# A skill backup left in ~/.claude/skills is itself loaded as a skill (same name, other copy).
+home sk-move "$BASE"; run; INFRA_CHECKOUT="$T/infra" run
+chk "homelab link re-pointed to the infra checkout, no backup left in ~/.claude/skills" \
+  "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/prod-deploy')\" = '$T/infra/skills/prod-deploy' ] && grep -q '^RELINK.*/.claude/skills/prod-deploy' '$H.out' && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
+run
+chk "undo: no infra checkout re-points it back to homelab's copy, no backup left" \
+  "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/prod-deploy')\" = '$HERE/claude/skills/prod-deploy' ] && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
 
 echo "== macOS path unchanged"
 home mac "$BASE" disabled; before=$(sig); OSV=macos run
