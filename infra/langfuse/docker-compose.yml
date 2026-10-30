@@ -124,7 +124,9 @@ services:
       LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
 
   clickhouse:
-    image: docker.io/clickhouse/clickhouse-server
+    # Pinned to the digest that runs (ClickHouse 26.7.3.19, pulled as :latest). Move it on purpose:
+    # a bare/latest ref let any pull or recreate change the database version silently.
+    image: docker.io/clickhouse/clickhouse-server@sha256:f90a77560f72b10802106ee49e9870e41668cbc496e280c3911f6e3b216657f3
     cpus: 0.5   # idle ClickHouse scales background threads to cores; cap it (barely-used homelab, was ~204%).
                 # config tune (clickhouse-lowcpu.xml, async metrics 1s->60s) didn't crack the idle spin —
                 # it's thread-pool-driven and background_pool_size can't go low (mutation sanity check) — so
@@ -152,7 +154,8 @@ services:
       start_period: 60s
 
   minio:
-    image: cgr.dev/chainguard/minio
+    # Pinned to the digest that runs (MinIO RELEASE.2026-07-17T12-07-51Z, pulled as :latest).
+    image: cgr.dev/chainguard/minio@sha256:4c94e754559e9fb91cefe103a056d63582b5892de612b647d8e1b0751af5067e
     cpus: 0.5   # barely-used object store for langfuse; cap it (was ~40%)
     restart: always
     <<: *logging
