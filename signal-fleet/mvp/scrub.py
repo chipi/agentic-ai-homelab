@@ -37,8 +37,10 @@ SECRETS = [
 # ── tier 2: identifiers (map to stable synthetic; shape/semantics preserved) ─
 # order matters — most specific first.
 IDENTIFIERS = [
-    # IPs (freeze.py already does v4; keep idempotent + add v6)
-    (re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b"), "<ip>"),
+    # IPs (freeze.py already does v4; keep idempotent + add v6). A dotted quad right after
+    # "Name/" is a product version (Chrome/141.0.0.0 in a user-agent), not an address: left
+    # alone so the evidence the agent reads is unchanged. URLs (//10.1.2.3) still scrub.
+    (re.compile(r"(?<![A-Za-z]/)\b\d{1,3}(?:\.\d{1,3}){3}\b"), "<ip>"),
     (re.compile(r"\b(?:[0-9a-fA-F]{0,4}:){3,7}[0-9a-fA-F]{0,4}\b(?=.*::|.*:[0-9a-f])"), "<ip6>"),
     # real production domains (operator products) -> synthetic, consistent mapping
     (re.compile(r"\b(?:www\.)?orrerylearn\.com\b"), "example-orrery.test"),
