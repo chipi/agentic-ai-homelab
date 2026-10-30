@@ -73,10 +73,13 @@ backed-off poll (60 → 300 s) instead of a 40-line traceback every 30 s. Fourte
 - A script of mine printed "already gone" for DGX directories it could not read (no sudo on the
   existence test); the guard stopped it and the rerun deleted them.
 - I first told eval-harness gpt-oss:120b was missing, from an `ollama list` cut at 20 lines.
+- I called the 2026-10-28 16:15–16:30Z delivery timeouts "unexplained" twice (and in the first
+  version of this entry) without searching the issues: homelab #118, opened that afternoon, has
+  the cause (lima usernet's 10 half-open outbound slots, held by home-assistant's retries).
 
 ## Open threads
 
 - The DGX back to `prod` before 22:00Z, then prod's 5-check route test (in progress at writing).
 - Research bench: run start/end marks, MacBook GPU (root only), a loaded-model metric off-DGX.
-- The unexplained 2026-10-28 16:15–16:30Z delivery timeouts.
+- #118: upgrade lima/colima once a release pins gvisor-tap-vsock >= 0.9.0 (none yet on 10-30).
 - `wip/NEXT_STEPS.md` holds the rest.

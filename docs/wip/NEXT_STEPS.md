@@ -71,7 +71,8 @@ state was last verified against the live system.
       Caveat: #5420 covers a dead SSH master; the 2026-10-08 break was a wedged one, so confirm
       the fix detects that too. Runbook:
       [colima/lima forwarding recovery](../recipes/colima-lima-forwarding-recovery.md). Related:
-      the usernet outbound limit, homelab #118.
+      the usernet outbound limit, homelab #118 (needs gvisor-tap-vsock >= 0.9.0; check: `curl -s
+      https://raw.githubusercontent.com/lima-vm/lima/<tag>/go.mod | grep gvisor-tap-vsock`).
 - [ ] **Langfuse MinIO retention not verified.** ClickHouse deletes after 30 days (checked
       2026-09-30); confirm the same for MinIO with `mc ls` and credentials (oldest object under
       `lf/langfuse/events`).
@@ -115,10 +116,12 @@ gateway (`proj-podcast-dev`, the DGX model).
       ids; MacBook GPU utilisation (only via root `powermetrics`); a loaded-model metric on X3 and
       the MacBook (the `ollama-metrics` sidecar is a container; neither runs Docker). check:
       `count({instance=~"x3|macbook"})` in VictoriaMetrics, and the board's host selector.
-- [ ] **Unexplained delivery timeouts, 2026-10-28 16:15–16:30Z** — only the delivery containers
-      timed out (to prod and to the local VictoriaTraces); mini CPU/load normal, no other
-      container affected. The 10-29 02:44 window matched a UniFi/LAN event; 10-21 the obs
-      restart. Read-only dig next.
+- [x] ~~**Unexplained delivery timeouts, 2026-10-28 16:15–16:30Z**~~ — *not unexplained: homelab
+      #118 (opened 10-28 16:36Z) has the cause. lima usernet (gvisor-tap-vsock v0.8.9) admits 10
+      half-open outbound connections; home-assistant's retries to old LAN addresses held them, so
+      every container's new outbound connection was dropped (delivery to prod and to VictoriaTraces,
+      home-assistant's HomeWizard meter 16:19–16:22Z alike). Fix waits for a lima release with
+      gvisor-tap-vsock >= 0.9.0 (checked 2026-10-30: v2.2.1 and v2.3.0-beta.1 still pin v0.8.9).*
 
 - [ ] **Telemetry pipeline, remaining steps** —
       [`otel-pipeline-end-to-end.md`](otel-pipeline-end-to-end.md), issue #99: ADR-0010 phases B
