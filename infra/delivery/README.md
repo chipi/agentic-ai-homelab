@@ -77,7 +77,7 @@ except loopback `/metrics` (9110/9111/9112) for the Alloy scrape.
   (`prometheus.scrape "delivery"` in `../observability/hosts/homelab/config.alloy`, job=delivery).
 - **Logs:** canonical JSONL events to stdout → Alloy → VictoriaLogs (`event_type=delivery`
   / `delivery_suppression` / `delivery_deadletter`).
-- **Dashboard:** `../observability/backend/grafana/dashboards/Delivery/delivery.json`
+- **Dashboard:** uid `delivery-worker`, in chipi/infra `config/grafana/dashboards/o11y/`
   (worker-up, sent-by-status, **bounce+complaint canary**, pending depth, dead-letters,
   cursor lag, latency).
 - **Alerts:** `delivery` group in `../observability/.../alerting/rules.yaml` — worker-down

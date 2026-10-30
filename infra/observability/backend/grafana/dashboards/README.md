@@ -16,10 +16,13 @@ right subdir and it appears in that folder within ~30s
 | Folder | Covers | Per-folder doc |
 |---|---|---|
 | **Homelab/** | Mac mini + DGX core infra (host, GPU, containers, logs, DGX services, bug-fix fleet, orrery refresh) | [Homelab/README.md](Homelab/README.md) |
-| **Production Infra/** | prod-podcast VPS — host / containers / edge security | [Production Infra/README.md](Production%20Infra/README.md) |
-| **Podcast Operator/** | Operator API + viewer observability | [Podcast Operator/README.md](Podcast%20Operator/README.md) |
-| **Podcast Player/** | Consumer player (log-based); source of truth is `chipi/infra`, synced here | [Podcast Player/README.md](Podcast%20Player/README.md) |
+| **Production Infra/** | prod-podcast VPS seen from outside: uptime probes + Cloudflare, Hetzner bulletins | [Production Infra/README.md](Production%20Infra/README.md) |
 | **CI Ops/** | GitHub Actions deploy/backup + CI/DORA health (`ops_event/v1` → VictoriaLogs) | [CI Ops/README.md](CI%20Ops/README.md) |
+
+The podcast boards (Podcast Player, Podcast Operator overviews), the prod box's host,
+containers and edge-security boards, and the Delivery worker board moved to chipi/infra
+`config/grafana/dashboards/o11y/` in 2026-10 (uids unchanged; uploaded by its `grafana_sync` into
+the `o11y` folder; D-0014).
 
 Each per-folder README states that folder's **goal** and a per-board table (what
 each answers, datasource, key panels). Alerts are documented separately in

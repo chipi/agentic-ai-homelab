@@ -21,6 +21,9 @@ R=~/.claude/skills/host-run/scripts/run.sh
 
 $R homelab $D --checkout '~/agentic-ai-homelab'
 $R dgx     $D --checkout /home/ops/agentic-ai-homelab --as ops --allow-unpinned librechat-api
+# --checkout repeats: one run covers every checkout on the host (homelab + chipi/infra)
+$R homelab $D --checkout '~/agentic-ai-homelab' --checkout '~/chipi-infra'
+$R dgx     $D --checkout /home/ops/agentic-ai-homelab --checkout /home/ops/chipi-infra --as ops --allow-unpinned librechat-api
 ```
 
 - `--as USER`: git and compose run as the checkout's owner. On the DGX that's `ops`, which owns

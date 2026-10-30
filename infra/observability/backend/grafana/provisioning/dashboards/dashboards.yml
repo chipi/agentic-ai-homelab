@@ -2,10 +2,8 @@
 # FOLDER taken from each subdirectory name (foldersFromFilesStructure: true + empty
 # `folder`). Each subdir is a Grafana folder, persisting the 2026-07-23 reorg as code:
 #   dashboards/Homelab/          -> "Homelab"          (host + DGX + orrery-refresh + logs)
-#   dashboards/Production Infra/ -> "Production Infra"  (VPS host / containers / edge)
-#   dashboards/Podcast Operator/ -> "Podcast Operator"  (operator API + viewer)
-#   dashboards/Podcast Player/   -> "Podcast Player"    (consumer player; source of truth
-#                                   is chipi/infra, synced here for provisioning)
+#   dashboards/Production Infra/ -> "Production Infra"  (prod uptime + Cloudflare, Hetzner bulletins)
+#   (the podcast, prod-box and delivery boards moved to chipi/infra's grafana_sync, folder o11y)
 #   dashboards/Home Automation/  -> "Home Automation"   (Home Assistant: P1 energy; chipi/home-automation)
 #   dashboards/CI Ops/           -> "CI Ops"            (GitHub Actions deploy/backup + CI/DORA
 #                                   health from ops_event/v1 in VictoriaLogs)

@@ -5,6 +5,7 @@ Runs ON a host (via host-run). Stdlib only (the mini has Python 3.9).
 
     drift.py --checkout ~/agentic-ai-homelab                 # the mini
     drift.py --checkout /home/ops/agentic-ai-homelab --as ops  # the DGX (checkout owned by ops)
+    drift.py --checkout ~/agentic-ai-homelab --checkout ~/chipi-infra   # several checkouts, one run
 
 Reports, then ends with "DRIFT: N finding(s)" (exit 1 if any):
   1. checkout: commits behind/ahead of origin/main after a fetch; modified and untracked files;
@@ -119,9 +120,8 @@ def unpinned(ref):
     return tag == "" or tag == "latest" or tag.endswith("-latest") or tag in ("main", "main-stable", "stable", "edge")
 
 
-def check_containers(checkout, user):
-    print("== containers vs compose")
-    cs = containers()
+def check_containers(checkout, user, cs):
+    print(f"== containers vs compose ({checkout})")
     stacks = {}
     for c in cs:
         if c["workdir"].startswith(os.path.realpath(checkout)) or c["workdir"].startswith(checkout):
@@ -140,6 +140,9 @@ def check_containers(checkout, user):
                 note("compose", f"{rel}: {c['name']} runs {c['image']} but compose names {w[1]}: recreate to apply")
             c["compose_image"] = w[1] if w else ""
         print(f"  {rel}: {len(members)} container(s) checked")
+
+
+def check_unpinned(cs):
     print("== unpinned images (judged on what a recreate would pull)")
     for c in cs:
         ref = c.get("compose_image") or c["image"]
@@ -149,19 +152,18 @@ def check_containers(checkout, user):
             continue
         if unpinned(ref):
             note("unpinned", f"{c['name']}: {ref} (a pull/recreate can change it silently)")
-    return cs
 
 
-def check_strays(cs, checkout):
+def check_strays(cs, checkouts):
     print("== stray compose files")
     running_from = {c["name"]: c["files"] for c in cs}
     home = os.path.expanduser("~")
     cands = set(glob.glob(os.path.join(home, "*", "docker-compose*.y*ml")) +
                 glob.glob(os.path.join(home, "*", "*", "docker-compose*.y*ml")))
-    real_checkout = os.path.realpath(checkout)
+    reals = [os.path.realpath(c) for c in checkouts]
     n = 0
     for f in sorted(cands):
-        if os.path.realpath(f).startswith(real_checkout):
+        if any(os.path.realpath(f).startswith(r) for r in reals):
             continue
         try:
             text = open(f, errors="ignore").read()
@@ -178,15 +180,19 @@ def check_strays(cs, checkout):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--checkout", required=True)
+    ap.add_argument("--checkout", required=True, action="append",
+                    help="a checkout on this host; repeat for several (e.g. homelab and chipi-infra)")
     ap.add_argument("--as", dest="user", help="OS user that owns the checkout (git + compose run as it)")
     ap.add_argument("--allow-unpinned", default="", help="comma-separated container names allowed to float (operator decision)")
     a = ap.parse_args()
     ALLOW_UNPINNED.update(x.strip() for x in a.allow_unpinned.split(",") if x.strip())
-    checkout = os.path.expanduser(a.checkout)
-    check_checkout(checkout, a.user)
-    cs = check_containers(checkout, a.user)
-    check_strays(cs, checkout)
+    checkouts = [os.path.expanduser(c) for c in a.checkout]
+    cs = containers()
+    for checkout in checkouts:
+        check_checkout(checkout, a.user)
+        check_containers(checkout, a.user, cs)
+    check_unpinned(cs)
+    check_strays(cs, checkouts)
     print(f"DRIFT: {len(findings)} finding(s)")
     sys.exit(1 if findings else 0)
 

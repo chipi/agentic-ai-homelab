@@ -30,8 +30,9 @@ case "$OS" in
   *) echo "unsupported platform: $OS (set WS_OS=macos|linux)" >&2; exit 1 ;;
 esac
 
-link() {  # link <workstation-relative-src> <absolute-home-target>
-  local src="$WS/$1" dst="$2"
+link() {  # link <workstation-relative or absolute src> <absolute-home-target>
+  local src="$1" dst="$2"
+  case "$src" in /*) ;; *) src="$WS/$1" ;; esac
   if [ ! -e "$src" ]; then echo "SKIP (missing in repo): $1"; return; fi
   if [ "$DRY" = 0 ]; then mkdir -p "$(dirname "$dst")"; fi
   if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
@@ -314,11 +315,30 @@ link config/lean-ctx/config.toml   "$HOME/.config/lean-ctx/config.toml"
 link config/ponytail/config.json   "$HOME/.config/ponytail/config.json"
 link claude/CLAUDE.md              "$HOME/.claude/CLAUDE.md"
 "install_$OS"
+# Product skills live in chipi/infra's skills/ (private). INFRA_CHECKOUT names that checkout;
+# unset, the first of ~/projects/infra (the Macs) and /work/infra/main (the X3) that has skills/.
+# A skill there wins over a same-named one here, so the two loops never relink each other.
+INFRA_SKILLS=""
+for _ic in ${INFRA_CHECKOUT:-"$HOME/projects/infra" /work/infra/main}; do
+  [ -d "$_ic/skills" ] && { INFRA_SKILLS="$_ic/skills"; break; }
+done
 for _sk in "$WS"/claude/skills/*/; do
   [ -d "$_sk" ] || continue
   _n="$(basename "$_sk")"
+  if [ -n "$INFRA_SKILLS" ] && [ -f "$INFRA_SKILLS/$_n/SKILL.md" ]; then
+    echo "INFRA $_n: linked from chipi/infra below"; continue
+  fi
   link "claude/skills/$_n" "$HOME/.claude/skills/$_n"
 done
+if [ -n "$INFRA_SKILLS" ]; then
+  for _sk in "$INFRA_SKILLS"/*/; do
+    [ -f "$_sk/SKILL.md" ] || continue
+    _n="$(basename "$_sk")"
+    link "$INFRA_SKILLS/$_n" "$HOME/.claude/skills/$_n"
+  done
+else
+  echo "SKIP  chipi/infra skills: no checkout with skills/ (set INFRA_CHECKOUT, or clone it to ~/projects/infra)"
+fi
 for _ag in "$WS"/claude/agents/*.md; do
   [ -e "$_ag" ] || continue
   _n="$(basename "$_ag")"

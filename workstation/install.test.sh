@@ -8,6 +8,7 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; INST="$HERE/install.sh"
 for c in jq wt; do command -v "$c" >/dev/null || { echo "SKIP: $c not installed"; exit 0; }; done
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+export INFRA_CHECKOUT="$T/no-infra"   # no chipi/infra checkout unless a case names one
 pass=0; fail=0
 chk() { if eval "$2"; then echo "  ok   $1"; pass=$((pass+1)); else echo "  FAIL $1"; fail=$((fail+1)); fi; }
 
@@ -263,6 +264,20 @@ chk "no tmux config at all: ~/.config/tmux/tmux.conf created with only the block
 home tx-nouser "$BASE"; touch "$S/no_user_manager"; run
 chk "no systemd user manager: WARN, units still linked, no enable attempted" \
   "[ $(rc) = 0 ] && grep -q '^WARN  tmux persistence: no systemd user manager' '$H.out' && [ -L '$H/.config/systemd/user/wb-tmux-save.timer' ] && ! grep -q 'enable --now wb-tmux' '$S/calls'"
+
+echo "== product skills from a chipi/infra checkout"
+for s in prod-deploy infra-only; do
+  mkdir -p "$T/infra/skills/$s"; printf -- '---\nname: %s\ndescription: x\n---\n' "$s" > "$T/infra/skills/$s/SKILL.md"
+done
+home sk-none "$BASE"; run
+chk "no infra checkout: SKIP line, homelab's own prod-deploy linked from this repo" \
+  "[ $(rc) = 0 ] && grep -q '^SKIP  chipi/infra skills' '$H.out' && [ \"\$(readlink '$H/.claude/skills/prod-deploy')\" = '$HERE/claude/skills/prod-deploy' ]"
+home sk-infra "$BASE"; INFRA_CHECKOUT="$T/infra" run
+chk "infra checkout: its skills linked; the same-named homelab skill not linked; others unchanged" \
+  "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/prod-deploy')\" = '$T/infra/skills/prod-deploy' ] && [ \"\$(readlink '$H/.claude/skills/infra-only')\" = '$T/infra/skills/infra-only' ] && grep -q '^INFRA prod-deploy' '$H.out' && [ \"\$(readlink '$H/.claude/skills/ship')\" = '$HERE/claude/skills/ship' ]"
+INFRA_CHECKOUT="$T/infra" run
+chk "rerun with infra: already linked, no skill backed up (the two loops never relink each other)" \
+  "[ $(rc) = 0 ] && grep -q \"^OK    already linked: $H/.claude/skills/prod-deploy\$\" '$H.out' && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
 
 echo "== macOS path unchanged"
 home mac "$BASE" disabled; before=$(sig); OSV=macos run
