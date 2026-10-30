@@ -15,6 +15,27 @@
     "to": "now"
   },
   "refresh": "1m",
+  "annotations": {
+    "list": [
+      {
+        "name": "Research runs",
+        "enable": true,
+        "iconColor": "purple",
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "target": {
+          "type": "dashboard",
+          "limit": 200,
+          "matchAny": false,
+          "tags": []
+        },
+        "builtIn": 1,
+        "hide": false
+      }
+    ]
+  },
   "templating": {
     "list": [
       {
