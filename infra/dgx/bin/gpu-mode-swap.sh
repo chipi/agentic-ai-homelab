@@ -194,17 +194,30 @@
 #   reboot, anything expecting :11434 without running this script gets connection
 #   refused instead of a wedge. That is the intended failure direction.
 #
-# Idempotent: re-running the same mode is a no-op. Agent-friendly: supports
-# --json (machine-readable), --no-color (strip ANSI), --mode-only (print
-# just the current mode). All human-readable logs go to stderr; --json
-# output goes to stdout as a single object.
+# A SWAP RUNS DETACHED AND ENDS ON A CHECKED STATE (2026-10-30). Twice that day a swap to
+# prod ended with translate down and needing a hand start: once the 120 s timeout ran out
+# before translate's cold load (~6m40s), once the caller's SSH session was cut mid-run and
+# the script died with it. So every mode except `status`:
+#   * re-runs itself under `setsid -w nohup` with all output in its own log,
+#     ${GPU_MODE_STATE_DIR:-~/.local/state/gpu-mode}/swap-<UTC>-<mode>.log (last.log points
+#     at the newest). The caller follows the log and gets the exit code, but a dropped SSH
+#     session, a killed caller or Ctrl-C no longer stops the swap. --foreground runs inline.
+#   * waits per stack until /health is 200 AND /v1/models lists the expected model id,
+#     within GPU_MODE_START_TIMEOUT (default 600 s: slowest cold load measured 400 s).
+#   * checks the end state before exiting: prod = :8003 and :8005 both serving their models.
+#     Exit 0 means that state was reached; anything short of it exits non-zero.
+#   * ends its log with one line, `MODE=<mode> OK` or `MODE=<mode> FAILED: <reason>`.
+#   * holds a lock: a second swap while one runs fails at once (exit 4).
+#
+# Re-running the same mode does not tear anything down: it starts only what is missing
+# (e.g. translate after a half-done prod swap) and re-checks that everything serves.
+# Agent-friendly: --json (machine-readable result on stdout), --no-color, --mode-only.
 #
 # RESETTING A MESSED-UP HOST: re-running the same mode does NOT do it. The mode is
 # inferred from which compose service is running, not from whether the host is sane,
-# so a hand-started ollama, a manually loaded model, or an up-but-unhealthy vLLM all
-# still report the current mode and the swap short-circuits. Use `--force` to re-run
-# the full swap (stop every compose, stop ollama, bring the target back up), or bounce
-# through `free` and back.
+# so a hand-started ollama or a manually loaded model still reports the current mode.
+# Use `--force` to re-run the full swap (stop every compose, stop ollama, bring the
+# target back up), or bounce through `free` and back.
 #
 # Config — override any of these via env vars (or ~/.config/gpu-mode.env):
 #   GPU_MODE_CODER_DIR       Path to coder-next compose dir
@@ -218,7 +231,12 @@
 #   GPU_MODE_SUDO            Privilege prefix for host commands like
 #                            `systemctl restart ollama` (default "sudo";
 #                            set to "" when already root / passwordless)
-#   GPU_MODE_START_TIMEOUT   Seconds to wait for target port (default 120)
+#   GPU_MODE_START_TIMEOUT   Seconds a stack may take to serve (default 600)
+#   GPU_MODE_PRODVLLM_MODEL  Model id prod-vllm must list on /v1/models
+#   GPU_MODE_TRANSLATE_MODEL Model id translate must list on /v1/models
+#                            ("" = any model; the other slots always accept any)
+#   GPU_MODE_STATE_DIR       Where swap logs and the lock live
+#                            (default ~/.local/state/gpu-mode)
 #   GPU_MODE_RESEARCH_MIN_FREE_GIB  Free VRAM (GiB) required before starting
 #                            the autoresearch vLLM (default 73 — matches
 #                            --gpu-memory-utilization=0.6 on the GB10's ~121
@@ -235,10 +253,11 @@
 #                            still proceeds and warns rather than failing.
 #
 # Exit codes:
-#   0  success — requested mode is active (or no-op confirmed)
-#   1  failed to bring up target (port not listening within timeout)
+#   0  success — every stack the mode needs is serving its expected model
+#   1  the end state was not reached (a stack not serving within the timeout, or exited)
 #   2  usage error / unknown mode
 #   3  config error (compose dir missing)
+#   4  another swap is already running (its log is named)
 
 set -euo pipefail
 
@@ -299,6 +318,9 @@ JUDGE_NEMOTRON_SVC="${GPU_MODE_JUDGE_NEMOTRON_SVC:-vllm-judge-nemotron}"
 PRODVLLM_DIR="${GPU_MODE_PRODVLLM_DIR:-$INFRA_ROOT/infra/ai/vllm/prod-vllm}"
 PRODVLLM_PORT="${GPU_MODE_PRODVLLM_PORT:-8003}"
 PRODVLLM_SVC="${GPU_MODE_PRODVLLM_SVC:-vllm-prod-vllm}"
+# What "prod-vllm serves" means: /v1/models lists this id. The id the stack served on
+# 2026-10-30; change it here (or in gpu-mode.env) when chipi/infra changes the model.
+PRODVLLM_MODEL="${GPU_MODE_PRODVLLM_MODEL-NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4}"
 
 # translate — the translation vLLM (chipi/infra infra/ai/vllm/translate), TranslateGemma-12B.
 #
@@ -314,6 +336,7 @@ PRODVLLM_SVC="${GPU_MODE_PRODVLLM_SVC:-vllm-prod-vllm}"
 TRANSLATE_DIR="${GPU_MODE_TRANSLATE_DIR:-$INFRA_ROOT/infra/ai/vllm/translate}"
 TRANSLATE_PORT="${GPU_MODE_TRANSLATE_PORT:-8005}"
 TRANSLATE_SVC="${GPU_MODE_TRANSLATE_SVC:-vllm-translate}"
+TRANSLATE_MODEL="${GPU_MODE_TRANSLATE_MODEL-google/translategemma-12b-it}"
 # 1 (default) = `prod` mode also brings the translation vLLM up. Set 0 to serve
 # summaries without translation (e.g. reproducing a pre-#2169 run, or freeing the
 # memory for a heavier prod model).
@@ -321,10 +344,11 @@ TRANSLATE_WITH_PROD="${GPU_MODE_TRANSLATE_WITH_PROD:-1}"
 
 DOCKER_CMD="${GPU_MODE_DOCKER:-sudo docker}"
 SUDO="${GPU_MODE_SUDO-sudo}"                    # host-privilege prefix; "" if root
-# 300, not 120: after `free` a stack loads from a cold page cache. On 2026-10-30 prod-vllm
-# took 110 s for its weights plus warmup and translate ~3.5 min, so `prod` gave up at 120 s
-# before starting translate.
-START_TIMEOUT="${GPU_MODE_START_TIMEOUT:-300}"
+# Per stack, from `compose up` to serving its model. Measured cold loads on 2026-10-30:
+# translate up to ~6m40s (400 s), prod-vllm ~5m21s (321 s). The old 120 s, then 300 s, were
+# both below the slowest; 600 s is the slowest plus half again.
+START_TIMEOUT="${GPU_MODE_START_TIMEOUT:-600}"
+STATE_DIR="${GPU_MODE_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/gpu-mode}"
 
 # research-mode GPU prep — Ollama shares the GPU and is flushed before vLLM
 RESEARCH_MIN_FREE_GIB="${GPU_MODE_RESEARCH_MIN_FREE_GIB:-73}"
@@ -337,8 +361,10 @@ JSON=0
 MODE_ONLY=0
 NO_COLOR=0
 FORCE=0
+FOREGROUND=0
 MODE=""
 JUDGING_SUB=""
+ORIG_ARGS=("$@")
 
 while (( $# )); do
     case "$1" in
@@ -346,6 +372,7 @@ while (( $# )); do
         --mode-only)  MODE_ONLY=1 ;;
         --no-color)   NO_COLOR=1 ;;
         --force)      FORCE=1 ;;
+        --foreground) FOREGROUND=1 ;;
         -h|--help)
             sed -n '2,30p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//'
             exit 0
@@ -362,7 +389,7 @@ while (( $# )); do
             JUDGING_SUB="$1"
             ;;
         *)
-            echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color] [--force]" >&2
+            echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color] [--force] [--foreground]" >&2
             echo "  prod = serving vLLM on :$PRODVLLM_PORT PLUS the co-resident translate vLLM on :$TRANSLATE_PORT" >&2
             echo "         (GPU_MODE_TRANSLATE_WITH_PROD=0 brings up the serving vLLM only)" >&2
             exit 2
@@ -372,6 +399,7 @@ while (( $# )); do
 done
 
 MODE="${MODE:-status}"
+MODE_LABEL="$MODE${JUDGING_SUB:+-$JUDGING_SUB}"
 
 # Auto-disable color when stdout is not a TTY, or NO_COLOR is honored.
 if [[ -n "${NO_COLOR:-}" ]] || (( NO_COLOR )) || (( JSON )) || ! [[ -t 2 ]]; then
@@ -387,8 +415,15 @@ ok()   { (( JSON )) || printf "  ${C_OK}✓${C_RST} %s\n" "$*" >&2; }
 warn() { (( JSON )) || printf "  ${C_BAD}✗${C_RST} %s\n" "$*" >&2; }
 dim()  { (( JSON )) || printf "  ${C_DIM}%s${C_RST}\n" "$*" >&2; }
 
-is_listening() {
-    ss -lntH 2>/dev/null | awk -v p=":$1$" '$4 ~ p {print; exit}' | grep -q ':'
+# Stop the swap: the reason becomes the log's last line (see finish) and --json reports it.
+FAIL_REASON=""
+fail() {
+    local code=1
+    [[ "$1" =~ ^[0-9]+$ ]] && { code=$1; shift; }
+    FAIL_REASON="$*"
+    warn "$*"
+    ((JSON)) && emit_json "$MODE_LABEL" false || true
+    exit "$code"
 }
 
 gpu_util_pct() {
@@ -442,11 +477,17 @@ gpu_free_gib() {
 }
 
 prepare_gpu_for_research() {
-    log "research: flushing Ollama GPU models before vLLM start"
-    if $SUDO systemctl restart ollama; then
-        ok "ollama restarted — models drop from GPU, reload on demand"
-    else
-        warn "could not restart ollama (absent / no sudo?) — continuing"
+    # do_swap has just STOPPED the daemon (stop_ollama_daemon). `systemctl restart` starts a
+    # stopped unit, so restarting here put ollama back up beside every research/prod vLLM —
+    # the co-residency #63 forbids. Found 2026-10-30: ollama active since the 21:45Z prod swap.
+    # Restart only in flush-only mode, where the daemon is meant to stay up.
+    if [[ "${GPU_MODE_VLLM_STOPS_OLLAMA:-1}" != "1" ]]; then
+        log "research: flushing Ollama GPU models before vLLM start"
+        if $SUDO systemctl restart ollama; then
+            ok "ollama restarted — models drop from GPU, reload on demand"
+        else
+            warn "could not restart ollama (absent / no sudo?) — continuing"
+        fi
     fi
     local free="" smi_fails=0
     for ((i=0; i<OLLAMA_FLUSH_TIMEOUT; i++)); do
@@ -517,30 +558,55 @@ current_mode() {
     fi
 }
 
-wait_for_port() {
-    local port=$1 timeout=${2:-$START_TIMEOUT}
-    for ((i=0; i<timeout; i++)); do
-        is_listening "$port" && return 0
-        sleep 1
-    done
-    return 1
+# The stack's own client key (its .env), so /v1/models can be asked as a client would.
+stack_api_key() {
+    sed -n 's/^VLLM_API_KEY=//p' "$1/.env" 2>/dev/null | head -1 | tr -d "\"'" || true
 }
 
-# Wait for a vLLM's /health endpoint to return 200. vLLM binds its port as
-# soon as the ASGI server starts — but /health returns 200 ONLY when the
-# model has finished loading (weights + CUDA graphs + KV cache init). If
-# a client hits /v1/chat/completions before /health is 200 the request
-# hangs / times out. This is the correct readiness signal for a swap.
-wait_for_health() {
-    local port=$1 timeout=${2:-$START_TIMEOUT}
-    local waited=0
-    while (( waited < timeout )); do
-        if curl -fsS --max-time 3 "http://127.0.0.1:${port}/health" >/dev/null 2>&1; then
+# A stack SERVES when /health is 200 (vLLM answers it only once weights, CUDA graphs and
+# KV cache are up; a bound port alone means nothing) AND /v1/models lists the expected
+# model id (any id when none is expected). The key goes to curl on stdin, never argv.
+serving_ok() {  # <port> <stack dir> <model id or "">
+    local port=$1 dir=$2 model=$3 key body
+    curl -fsS --max-time 3 -o /dev/null "http://127.0.0.1:${port}/health" 2>/dev/null || return 1
+    key="$(stack_api_key "$dir")"
+    body="$(printf 'header = "Authorization: Bearer %s"\n' "$key" \
+        | curl -fsS --max-time 5 -K - "http://127.0.0.1:${port}/v1/models" 2>/dev/null)" || return 1
+    WANT="$model" python3 -c '
+import json, os, sys
+try:
+    ids = [m.get("id") for m in json.load(sys.stdin).get("data", [])]
+except Exception:
+    sys.exit(1)
+want = os.environ["WANT"]
+sys.exit(0 if ((want in ids) if want else ids) else 1)' <<<"$body"
+}
+
+# One deadline per stack, from `compose up` to serving. Gives up early only when the
+# container is gone or has exited — a restarting or loading one gets the full timeout.
+wait_serving() {  # <label> <port> <stack dir> <container> <model id or "">
+    local label=$1 port=$2 dir=$3 svc=$4 model=$5
+    local start=$SECONDS waited=0 state="" next_note=0
+    while (( waited < START_TIMEOUT )); do
+        if serving_ok "$port" "$dir" "$model"; then
+            ok "$label serving ${model:-a model} on :$port (${waited}s)"
             return 0
         fi
+        if [[ -n "$svc" ]]; then
+            state="$($DOCKER_CMD inspect -f '{{.State.Status}}' "$svc" 2>/dev/null)" || state="absent"
+            if [[ "$state" =~ ^(absent|exited|dead)$ ]] && (( waited >= 20 )); then
+                warn "$label container $svc is $state — check 'docker logs $svc'"
+                return 1
+            fi
+        fi
+        if (( waited >= next_note )); then
+            dim "$label: not serving yet (${waited}s of ${START_TIMEOUT}s, container ${state:-?})"
+            next_note=$(( next_note + 60 ))
+        fi
         sleep 5
-        waited=$((waited + 5))
+        waited=$(( SECONDS - start ))
     done
+    warn "$label not serving ${model:-a model} on :$port within ${START_TIMEOUT}s — check 'docker logs $svc'"
     return 1
 }
 
@@ -559,7 +625,7 @@ emit_json() {
 }
 
 require_dir() {
-    [[ -d "$1" ]] || { warn "compose dir missing: $1"; exit 3; }
+    [[ -d "$1" ]] || fail 3 "compose dir missing: $1"
 }
 
 # ── actions ──────────────────────────────────────────────────────────────
@@ -741,49 +807,58 @@ action_status() {
     ((JSON)) && emit_json "$mode" true || true
 }
 
-action_code()     { do_swap "code"     "$CODER_DIR"    "$CODER_PORT"; }
-action_research() { do_swap "research" "$RESEARCH_DIR" "$RESEARCH_PORT" "$RESEARCH_SVC"; }
-# prod = the serving vLLM on :8003 AND the co-resident translation vLLM on :8005.
-# do_swap enforces the single-owner rule over the :8003 slots and waits for health;
-# the translator is then started beside it, on its own port.
+# Single-slot modes: done when that slot serves. do_swap fails the run otherwise.
+swap_slot() {  # <mode> <dir> <port> <container> [model]
+    do_swap "$@"
+    ((JSON)) && emit_json "$1" true "port=$3" || true
+}
+action_code()     { swap_slot "code"     "$CODER_DIR"    "$CODER_PORT"    "$CODER_SVC"; }
+action_research() { swap_slot "research" "$RESEARCH_DIR" "$RESEARCH_PORT" "$RESEARCH_SVC"; }
+
+# prod = the serving vLLM on :8003 AND the co-resident translation vLLM on :8005, and it
+# is done only when BOTH serve their models. It used to report success with translate down
+# ("summaries still serve") — which is how the 2026-10-30 swaps ended with translation
+# missing and a hand start needed. A half-done prod is a failed prod; re-run `prod` to
+# finish it, which starts only what is missing.
 action_prodvllm() {
-    do_swap "prod"      "$PRODVLLM_DIR" "$PRODVLLM_PORT" "$PRODVLLM_SVC"
+    do_swap "prod" "$PRODVLLM_DIR" "$PRODVLLM_PORT" "$PRODVLLM_SVC" "$PRODVLLM_MODEL"
     if [[ "$TRANSLATE_WITH_PROD" == "1" ]]; then
-        start_translate
+        start_translate || fail "translate not serving on :$TRANSLATE_PORT — prod is NOT complete (:$PRODVLLM_PORT serves; re-run 'prod' to finish)"
     else
         dim "translate vLLM skipped (GPU_MODE_TRANSLATE_WITH_PROD=0)"
     fi
+    # End state, re-checked as a whole: loading translate must not have cost :8003.
+    serving_ok "$PRODVLLM_PORT" "$PRODVLLM_DIR" "$PRODVLLM_MODEL" \
+        || fail "end-state check: :$PRODVLLM_PORT no longer serving $PRODVLLM_MODEL"
+    if [[ "$TRANSLATE_WITH_PROD" == "1" ]]; then
+        serving_ok "$TRANSLATE_PORT" "$TRANSLATE_DIR" "$TRANSLATE_MODEL" \
+            || fail "end-state check: :$TRANSLATE_PORT not serving $TRANSLATE_MODEL"
+    fi
+    ok "prod complete: :$PRODVLLM_PORT ${PRODVLLM_MODEL:-serving}$([[ "$TRANSLATE_WITH_PROD" == "1" ]] && echo ", :$TRANSLATE_PORT ${TRANSLATE_MODEL:-serving}")"
+    ((JSON)) && emit_json "prod" true "port=$PRODVLLM_PORT" || true
 }
 
-# Bring the translation vLLM up beside whatever owns :8003.
-#
-# A translator that fails to start must NOT fail the whole swap: the summary model is
-# already up and serving by this point, and reporting `prod` as failed would have the
-# caller believe summarization is down when it is not. So this WARNS and returns
-# non-zero without exiting, and the pipeline's own translation stage is what surfaces
-# a missing translator (it checks /health before sending units).
+# Bring the translation vLLM up beside whatever owns :8003 and wait until it serves.
+# Idempotent: `compose up -d` leaves a running container alone, so a re-run only starts
+# a missing translator. Returns non-zero; the caller decides that this fails the mode.
 start_translate() {
     if [[ ! -d "$TRANSLATE_DIR" ]]; then
-        warn "translate stack dir missing: $TRANSLATE_DIR — skipping"
+        warn "translate stack dir missing: $TRANSLATE_DIR"
         return 1
     fi
-    log "starting translate vLLM (co-resident, :$TRANSLATE_PORT)"
-    compose_up "$TRANSLATE_DIR"
-    if ! wait_for_port "$TRANSLATE_PORT"; then
-        warn "translate vLLM did not bind :$TRANSLATE_PORT within ${START_TIMEOUT}s — summaries still serving on :$PRODVLLM_PORT"
-        return 1
+    if grep -qx "$TRANSLATE_SVC" <<<"$(running_containers)"; then
+        dim "translate container already running — checking it serves"
+    else
+        log "starting translate vLLM (co-resident, :$TRANSLATE_PORT)"
+        remove_stale_container "$TRANSLATE_SVC"
+        compose_up "$TRANSLATE_DIR" || { warn "compose up failed for $TRANSLATE_DIR"; return 1; }
     fi
-    if wait_for_health "$TRANSLATE_PORT"; then
-        ok "translate vLLM ready on :$TRANSLATE_PORT"
-        return 0
-    fi
-    warn "translate vLLM bound :$TRANSLATE_PORT but /health not 200 within ${START_TIMEOUT}s — model still loading? check 'docker logs $TRANSLATE_SVC'"
-    return 1
+    wait_serving "translate vLLM" "$TRANSLATE_PORT" "$TRANSLATE_DIR" "$TRANSLATE_SVC" "$TRANSLATE_MODEL"
 }
-action_judging_a() { do_swap "judging-a" "$JUDGE_A_DIR" "$JUDGE_A_PORT"; }
-action_judging_b() { do_swap "judging-b" "$JUDGE_B_DIR" "$JUDGE_B_PORT"; }
-action_judging_n() { do_swap "judging-qwen-next" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_QWEN_NEXT_PORT"; }
-action_judging_x() { do_swap "judging-nemotron"  "$JUDGE_NEMOTRON_DIR"  "$JUDGE_NEMOTRON_PORT"; }
+action_judging_a() { swap_slot "judging-a" "$JUDGE_A_DIR" "$JUDGE_A_PORT" "$JUDGE_A_SVC"; }
+action_judging_b() { swap_slot "judging-b" "$JUDGE_B_DIR" "$JUDGE_B_PORT" "$JUDGE_B_SVC"; }
+action_judging_n() { swap_slot "judging-qwen-next" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_QWEN_NEXT_PORT" "$JUDGE_QWEN_NEXT_SVC"; }
+action_judging_x() { swap_slot "judging-nemotron"  "$JUDGE_NEMOTRON_DIR"  "$JUDGE_NEMOTRON_PORT"  "$JUDGE_NEMOTRON_SVC"; }
 
 action_free() {
     log "→ free (bringing all vLLM composes down)"
@@ -792,6 +867,11 @@ action_free() {
     # stop_all_composes omits it on purpose (a swap into prod must not kill it).
     stop_all_composes_including_translate
     sleep 2
+    local left="" svc names; names="$(running_containers)"
+    for svc in "$CODER_SVC" "$RESEARCH_SVC" "$PRODVLLM_SVC" "$TRANSLATE_SVC" "$JUDGE_A_SVC" "$JUDGE_B_SVC" "$JUDGE_QWEN_NEXT_SVC" "$JUDGE_NEMOTRON_SVC"; do
+        grep -qx "$svc" <<<"$names" && left+=" $svc"
+    done
+    [[ -z "$left" ]] || fail "end-state check: still running after free:$left"
     local apps_after; apps_after=$(gpu_compute_app_count)
     ok "compute apps ${apps_before}→${apps_after}; now: $(gpu_state_line)"
     ((JSON)) && emit_json "free" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
@@ -870,22 +950,26 @@ action_ollama() {
     local all_ok=false
     [[ $llm_ok -eq 1 && $svc_ok -eq 1 ]] && all_ok=true
     ((JSON)) && emit_json "ollama" "$all_ok" "llm=${OLLAMA_LLM_MODEL}" "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
-    [[ "$all_ok" == true ]] || return 1
+    if [[ "$all_ok" != true ]]; then
+        FAIL_REASON="ollama mode incomplete: llm warm=$llm_ok, whisper+pyannote up=$svc_ok"
+        return 1
+    fi
 }
 
 do_swap() {
-    local target=$1 start_dir=$2 start_port=$3 start_svc=${4:-}
+    local target=$1 start_dir=$2 start_port=$3 start_svc=${4:-} start_model=${5:-}
     require_dir "$start_dir"
     local current; current=$(current_mode)
 
-    # --force skips this short-circuit and re-runs the whole swap. current_mode() infers the
-    # mode purely from WHICH COMPOSE SERVICE IS RUNNING, so a host messed with by hand —
-    # ollama started manually, a model loaded, the vLLM up but unhealthy — still reports the
-    # same mode and the swap no-ops, leaving the mess in place. Re-running the same mode is
-    # therefore NOT a reset; --force is.
+    # Already in the target mode: no teardown, but not a blind no-op either — wait until the
+    # slot actually serves (it may still be loading from a swap that was cut short). The
+    # caller then starts whatever else the mode needs. current_mode() infers the mode from
+    # WHICH COMPOSE SERVICE IS RUNNING, so a host messed with by hand (ollama started
+    # manually, a model loaded) still reports the same mode; --force is the reset.
     if [[ "$current" == "$target" && $FORCE -eq 0 ]]; then
-        log "already in $target mode — no-op (use --force to re-run the full swap)"
-        action_status
+        log "already in $target mode — checking it serves (use --force to re-run the full swap)"
+        wait_serving "$target vLLM" "$start_port" "$start_dir" "$start_svc" "$start_model" \
+            || fail "$target vLLM not serving on :$start_port"
         return 0
     fi
 
@@ -920,27 +1004,72 @@ do_swap() {
         remove_stale_container "${start_svc:-$RESEARCH_SVC}"
     fi
 
-    compose_up "$start_dir"
+    compose_up "$start_dir" || fail "compose up failed for $start_dir"
 
-    if ! wait_for_port "$start_port"; then
-        warn "$target vLLM did not bind :$start_port within ${START_TIMEOUT}s"
-        ((JSON)) && emit_json "$target" false "compute_apps_before=${apps_before}" "port=$start_port" || true
-        exit 1
-    fi
+    log "waiting for $target to serve (model load; up to ${START_TIMEOUT}s)"
+    wait_serving "$target vLLM" "$start_port" "$start_dir" "$start_svc" "$start_model" \
+        || fail "$target vLLM not serving on :$start_port"
+    local apps_after; apps_after=$(gpu_compute_app_count)
+    dim "compute apps ${apps_before}→${apps_after}; $(gpu_state_line)"
+}
 
-    # Port is bound but the model may still be loading. Poll /health until
-    # 200 (or timeout) so callers know the vLLM is actually ready to serve.
-    log "waiting for $target /health (model load)"
-    if wait_for_health "$start_port"; then
-        local apps_after; apps_after=$(gpu_compute_app_count)
-        ok "$target vLLM ready on :$start_port (compute apps ${apps_before}→${apps_after}; $(gpu_state_line))"
-        ((JSON)) && emit_json "$target" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" "port=$start_port" || true
+# ── detach, lock, record ─────────────────────────────────────────────────
+#
+# A swap takes minutes and must not die with whoever started it: on 2026-10-30 the
+# caller's SSH session was cut three minutes in and the swap stopped between :8003 and
+# translate. So the caller only launches and follows; the swap itself runs in its own
+# session (setsid) with SIGHUP ignored (nohup) and every byte of output in its log, so
+# nothing it does touches the caller's terminal. `setsid -w` hands the swap's exit code
+# back to a caller that is still there.
+
+# The caller side: start the detached swap, stream its log, return its exit code.
+detach_and_follow() {
+    mkdir -p "$STATE_DIR"
+    local log="$STATE_DIR/swap-$(date -u +%Y%m%dT%H%M%SZ)-${MODE_LABEL}.log"
+    : >"$log"
+    ln -sfn "$(basename "$log")" "$STATE_DIR/last.log"
+    # Keep the newest 50 logs.
+    ls -1t "$STATE_DIR"/swap-*.log 2>/dev/null | tail -n +51 | xargs -r rm -f --
+    GPU_MODE_DETACHED="$log" setsid -w nohup "$SCRIPT_PATH" "${ORIG_ARGS[@]}" \
+        >>"$log" 2>&1 </dev/null &
+    local pid=$! rc=0
+    printf '[gpu-mode] %s swap running detached (pid %s); it carries on if this shell or SSH session ends\n[gpu-mode] log: %s\n' \
+        "$MODE_LABEL" "$pid" "$log" >&2
+    if (( JSON )); then
+        tail -n +1 -F --pid="$pid" "$log" 2>/dev/null | grep -v '^{' >&2 || true
     else
-        warn "$target vLLM port :$start_port bound but /health not 200 within ${START_TIMEOUT}s — model still loading? check 'docker logs $target'"
-        ((JSON)) && emit_json "$target" false "compute_apps_before=${apps_before}" "port=$start_port" || true
-        exit 1
+        tail -n +1 -F --pid="$pid" "$log" >&2 2>/dev/null || true
+    fi
+    wait "$pid" || rc=$?
+    (( JSON )) && { grep '^{' "$log" | tail -1 || true; }
+    return "$rc"
+}
+
+# The swap side: the log's last line says how it ended, whatever path it took out.
+finish() {
+    local rc=$?
+    if (( rc == 0 )); then
+        printf 'MODE=%s OK\n' "$MODE_LABEL" >&2
+    else
+        printf 'MODE=%s FAILED: %s (exit %s)\n' "$MODE_LABEL" "${FAIL_REASON:-see the lines above}" "$rc" >&2
     fi
 }
+
+if [[ "$MODE" != status ]]; then
+    if [[ -z "${GPU_MODE_DETACHED:-}" ]] && (( FOREGROUND == 0 )); then
+        rc=0
+        detach_and_follow || rc=$?
+        exit "$rc"
+    fi
+    trap finish EXIT
+    mkdir -p "$STATE_DIR"
+    exec 9>>"$STATE_DIR/swap.lock"
+    if ! flock -n 9; then
+        fail 4 "another swap is running: $(cat "$STATE_DIR/swap.owner" 2>/dev/null || echo unknown)"
+    fi
+    printf 'pid %s, %s, log %s\n' "$$" "$MODE_LABEL" "${GPU_MODE_DETACHED:-foreground}" >"$STATE_DIR/swap.owner"
+    log "$MODE_LABEL swap started $(date -u +%FT%TZ) as $(id -un) (pid $$)"
+fi
 
 # ── dispatch ─────────────────────────────────────────────────────────────
 

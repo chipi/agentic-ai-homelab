@@ -27,7 +27,9 @@ override any of them via env vars or `~/.config/gpu-mode.env`, see
 > | Research service name | `vllm-autoresearch` | `GPU_MODE_RESEARCH_SVC` |
 > | Docker command | `sudo docker` | `GPU_MODE_DOCKER` |
 > | Privilege prefix (host cmds) | `sudo` | `GPU_MODE_SUDO` |
-> | Start timeout (s) | `300` | `GPU_MODE_START_TIMEOUT` |
+> | Start timeout per stack (s) | `600` | `GPU_MODE_START_TIMEOUT` |
+> | Expected model ids | prod-vllm `NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4`, translate `google/translategemma-12b-it` | `GPU_MODE_PRODVLLM_MODEL`, `GPU_MODE_TRANSLATE_MODEL` |
+> | Swap logs + lock | `~/.local/state/gpu-mode/` | `GPU_MODE_STATE_DIR` |
 
 ---
 
@@ -128,7 +130,11 @@ Should print current mode + GPU memory used.
 
 ## Verification (first runs)
 
-After each transition, three things should be true:
+The script checks the end state itself and exits non-zero if it isn't reached (prod:
+`:8003` and `:8005` both serving their models). To read the outcome afterwards:
+`sudo -u ops tail -1 /home/ops/.local/state/gpu-mode/last.log`.
+
+By hand, after each transition, three things should be true:
 
 1. **The intended port is listening.** `ss -lnt | grep :<port>`
 2. **The "other" port is NOT listening.** Otherwise mode-swap silently
@@ -148,12 +154,14 @@ nvidia-smi --query-gpu=memory.used --format=csv,noheader
 
 ## Troubleshooting
 
-### `wait_for_port` times out
+### A swap ends `MODE=<mode> FAILED: … not serving`
 
-vLLM start can take longer than 120s (model shard load + CUDA-graph /
-torch.compile — the 30B prod/research model needs ~170s cold). Raise the
-wait with `GPU_MODE_START_TIMEOUT=300 gpu-mode <mode>`, or pre-warm by
-running the compose once manually.
+Every swap runs detached and logs to `~/.local/state/gpu-mode/` (as `ops` on the DGX);
+`last.log` is the newest, and its last line says how it ended. "Not serving" means that
+within `GPU_MODE_START_TIMEOUT` (600 s) `/health` never returned 200 or `/v1/models` never
+listed the expected id. Cold loads measured on 2026-10-30: translate up to ~400 s,
+prod-vllm ~321 s. Once the cause is fixed, re-run the same mode: it starts only what is
+missing.
 
 If it's not first-run: check `cd <compose-dir> && sudo docker compose logs --tail=200`
 — most failures are `HF_TOKEN` missing or model revision mismatch.

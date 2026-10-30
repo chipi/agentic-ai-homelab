@@ -123,13 +123,30 @@ take effect" signal the VRAM delta used to give on discrete GPUs.
 
 | Code | Meaning |
 |---|---|
-| `0` | Requested mode is active (or no-op confirmed) |
-| `1` | Target vLLM did not start listening within timeout |
+| `0` | Every stack the mode needs serves its expected model (prod: `:8003` **and** `:8005`) |
+| `1` | That end state was not reached — a stack not serving within `GPU_MODE_START_TIMEOUT`, or its container exited |
 | `2` | Usage error / unknown mode |
 | `3` | Config error (compose dir missing) |
+| `4` | Another swap is already running (its log is named) |
 
-**Idempotency:** re-running the same mode is a no-op. Safe to call before
-every local-vLLM request without measurable cost.
+**Detached, logged, checked (2026-10-30).** Every mode except `status` re-runs itself
+under `setsid -w nohup` and writes everything to
+`~/.local/state/gpu-mode/swap-<UTC>-<mode>.log` (`last.log` points at the newest). The
+caller is given the log path and follows it; if the caller's SSH session drops or it is
+killed, the swap carries on to the end. "Serving" means `/health` is 200 **and**
+`/v1/models` lists the expected id (`GPU_MODE_PRODVLLM_MODEL`, `GPU_MODE_TRANSLATE_MODEL`).
+The log always ends with `MODE=<mode> OK` or `MODE=<mode> FAILED: <reason>`, so the outcome
+can be read after the fact:
+
+```bash
+sudo -u ops tail -1 /home/ops/.local/state/gpu-mode/last.log    # MODE=prod OK
+```
+
+`--foreground` runs inline (tests, debugging). Tests: `bash infra/dgx/bin/gpu-mode-swap.test.sh`
+(stub docker/curl/systemctl, no GPU needed).
+
+**Re-running:** the same mode tears nothing down. It starts only what is missing (e.g.
+translate after a prod swap that was cut short) and re-checks that everything serves.
 
 ### Sudo expectation
 
@@ -157,7 +174,6 @@ the env vars in the calling shell or drop a `~/.config/gpu-mode.env`:
 GPU_MODE_CODER_PORT=9000
 GPU_MODE_RESEARCH_PORT=8003
 GPU_MODE_DOCKER="sudo docker"
-GPU_MODE_START_TIMEOUT=180
 ```
 
 Available variables (all optional):
@@ -172,7 +188,10 @@ Available variables (all optional):
 | `GPU_MODE_RESEARCH_SVC` | `vllm-autoresearch` | Autoresearch service name |
 | `GPU_MODE_DOCKER` | `sudo docker` | Docker command prefix |
 | `GPU_MODE_SUDO` | `sudo` | Privilege prefix for host cmds (e.g. `systemctl restart ollama`); `""` if root/passwordless |
-| `GPU_MODE_START_TIMEOUT` | `300` | Seconds to wait for target port (cold loads after `free` take 2-4 min) |
+| `GPU_MODE_START_TIMEOUT` | `600` | Seconds a stack may take from `compose up` to serving (slowest cold load measured: translate, ~400 s) |
+| `GPU_MODE_PRODVLLM_MODEL` | `NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4` | Id prod-vllm must list on `/v1/models` (`""` = any) |
+| `GPU_MODE_TRANSLATE_MODEL` | `google/translategemma-12b-it` | Id translate must list on `/v1/models` (`""` = any) |
+| `GPU_MODE_STATE_DIR` | `~/.local/state/gpu-mode` | Swap logs, `last.log`, the lock |
 
 ### Common failure modes
 
@@ -184,9 +203,9 @@ Available variables (all optional):
   set `GPU_MODE_RESEARCH_DIR` or just use `code` / `free`.
 - **GPU memory stays high after `free`.** Zombie vLLM worker. See the
   recipe's troubleshooting section — usually `pkill -9 -f vllm`.
-- **Port doesn't come up within 120s.** First-run model download or CUDA
-  graph compile. Bump `GPU_MODE_START_TIMEOUT=300`, or pre-warm the
-  compose manually once.
+- **`FAILED: … not serving … within 600s`.** First-run model download or CUDA
+  graph compile, or the stack serves a different model id than expected. Read the
+  swap log, then `docker logs <container>`; re-run the same mode to finish once fixed.
 
 ### What "agent-friendly" means here
 
@@ -195,6 +214,6 @@ Available variables (all optional):
 - Color auto-disables for non-TTY captures.
 - All human logs to stderr; stdout reserved for structured output.
 - Stable exit codes per situation.
-- Idempotent — safe to call defensively before every local-vLLM request.
+- Re-runnable — the same mode starts only what is missing and re-checks the rest.
 - No interactive prompts (with sudoers configured).
 - Versioned in the repo — agents see updates via `git pull`.
