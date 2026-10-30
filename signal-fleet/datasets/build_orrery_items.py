@@ -45,7 +45,10 @@ FP_IN_TEXT = re.compile(r"fp:? `([^`]+)`")
 
 
 def ts(s):
-    t = dt.datetime.fromisoformat(s.strip().replace("Z", "+00:00").replace(" ", "T"))
+    s = s.strip().replace("Z", "+00:00").replace(" ", "T")
+    # Python 3.9 (the mini's) parses only 3- or 6-digit fractions; VictoriaLogs gives 9
+    s = re.sub(r"\.(\d+)", lambda m: "." + (m.group(1) + "000000")[:6], s, count=1)
+    t = dt.datetime.fromisoformat(s)
     return t if t.tzinfo else t.replace(tzinfo=UTC)
 
 
