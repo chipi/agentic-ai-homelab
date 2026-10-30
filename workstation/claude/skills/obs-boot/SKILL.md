@@ -13,7 +13,7 @@ was removed from the docs on 2026-10-02 (historical copy: https://github.com/chi
 |---|---|
 | Mac mini (`homelab`) | `victoriametrics` :8428, `victorialogs` :9428, `victoriatraces` :10428, `grafana` :3000, GlitchTip :8090, Langfuse, `caddy` (tailnet TLS), `alloy-homelab` (its own host metrics + logs); launchd loops `com.homelab.dgx-scrape` (TCP health of each DGX service, `dgx_service_up`), `mini-metrics`, `forward-watchdog` |
 | DGX (`dgx-llm-1`) | `alloy` (all DGX metrics + container logs + kernel journal → the mini), `dcgm-exporter`, `cadvisor` |
-| prod (`prod-podcast`) | Alloy collector (`infra/observability/hosts/prod-podcast/`) pushing to the mini |
+| prod (`prod-podcast`) | Alloy collector (chipi/infra `infra/observability/vps-observability/`) pushing to the mini |
 
 The backend ports are loopback- or tailnet-only. Query them on the mini, or through the tailnet names (`https://grafana.tail6d0ed4.ts.net`, …).
 
@@ -49,5 +49,5 @@ After any boot: run step 1 again, and it must PASS.
 ## Not covered
 
 - **Dashboards:** this check doesn't look at their content. Open Grafana.
-- **Alert delivery:** whether an alert would actually reach you by email; see infra/delivery.
+- **Alert delivery:** whether an alert would actually reach you by email; see chipi/infra infra/delivery.
 - **Whether a specific app emits telemetry:** use the `o11y-review` skill for one project's logs, errors and traces.

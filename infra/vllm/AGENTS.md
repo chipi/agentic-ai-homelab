@@ -35,10 +35,10 @@ start a second vLLM while another holds the GPU.
 (above starves the host; **0.92 OOM-crashes — never use it**). Right-size per
 workload, not by default: single-request sweeps need far less KV cache than
 concurrent serving. Methodology + per-model values:
-[`autoresearch/KV_CACHE_SIZING.md`](autoresearch/KV_CACHE_SIZING.md).
+[`gb10_serving/KV_CACHE_SIZING.md`](https://github.com/chipi/podcast-scraper-eval-data/blob/master/autoresearch/gb10_serving/KV_CACHE_SIZING.md) (private eval-data repo).
 
 ## Adding a new stack
 
 Copy [`template/`](template/) — it carries the shared env wiring, the healthcheck,
 and the repo-root `.env` convention. Record non-obvious model/param choices as a
-dated note under `<stack>/decisions/` (see `autoresearch/decisions/`).
+dated note under `<stack>/decisions/` (see [`gb10_serving/decisions/`](https://github.com/chipi/podcast-scraper-eval-data/tree/master/autoresearch/gb10_serving/decisions)).

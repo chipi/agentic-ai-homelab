@@ -81,7 +81,7 @@ README update).
 | `DGX_TAILNET_HOST` | `dgx-llm-1.tail6d0ed4.ts.net` | Tailnet FQDN of the GB10 DGX host. Stable; only changes if the tailnet is rotated. |
 | `DGX_LAN_IP` | `192.168.0.59` | DGX local IP. Use only when both consumer and DGX are on the same LAN. |
 
-### vLLM autoresearch slot (`infra/vllm/autoresearch/`)
+### vLLM autoresearch slot (chipi/infra `infra/ai/vllm/autoresearch/`)
 
 | Variable | Canonical value | What it is |
 |---|---|---|
@@ -261,7 +261,6 @@ size and churn rate.
   `src/podcast_scraper/evaluation/experiment_config.py:load_experiment_config`
   passing un-expanded `${VAR}` strings to the OpenAI client.
 - The homelab compose files that use the same syntax:
-  - [`infra/vllm/autoresearch/docker-compose.yml`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/autoresearch/docker-compose.yml)
   - [`infra/vllm/coder-next/docker-compose.yml`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/coder-next/docker-compose.yml)
 - Related operator rule: every operational value via `${VAR:-default}`
   in compose (commit `30b2597`).

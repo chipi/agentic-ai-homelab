@@ -32,7 +32,7 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 | **umami** | Privacy-friendly web analytics | mini | admin `https://umami.tail6d0ed4.ts.net` · ingest port `:3001` (loopback) | `~/umami/.env` | [umami/](umami/README.md) |
 | **langfuse** | LLM tracing / cost observability | mini | web UI `https://langfuse.tail6d0ed4.ts.net` · ingest `:4000` (internal) | `langfuse/.env` | [langfuse/](langfuse/README.md) |
 | **litellm** | Production LLM gateway — provider-swappable aliases + per-consumer budget keys | mini | web UI `https://litellm.tail6d0ed4.ts.net/ui/` · ingest `:4001/v1` (internal) | `litellm/.env` | [litellm/](litellm/README.md) |
-| **delivery** | Outbound comms — multi-tenant digest email (Resend) + self-hosted Web Push | mini | tailnet-only, egress-only; loopback `/metrics` `:9110-9112` | `delivery/.env` | [delivery/](delivery/README.md) |
+| **delivery** | Outbound comms — multi-tenant digest email (Resend) + self-hosted Web Push. **Moved to chipi/infra** (`infra/delivery/`) 2026-10-30; runs from `~/chipi-infra` on the mini | mini | tailnet-only, egress-only; loopback `/metrics` `:9110-9112` | chipi/infra | — |
 | **homelab-home** | Tailnet start page (mini · DGX · prod columns) | mini | `https://hub.tail6d0ed4.ts.net` | reads other stacks' `.env` | [homelab-home/](homelab-home/README.md) |
 | **reverse-proxy** | Per-service Tailscale nodes (Caddy) serving HTTPS for observability + admin UIs | mini | web nodes `{grafana,glitchtip,umami,langfuse,litellm,hub,vm,vlogs,vtraces}.tail6d0ed4.ts.net` | — | [reverse-proxy/](reverse-proxy/README.md) |
 | **mini-metrics** | Mac-mini host metrics → VictoriaMetrics | mini | pushes to VM `:8428` | — | [mini-metrics/](mini-metrics/README.md) |
@@ -42,7 +42,7 @@ deliberately tunnels (e.g. `telemetry.closelistening.app` → GlitchTip).
 | **dgx-scrape** | TCP health of each DGX service (`dgx_service_up`) + a container inventory → VM. DGX *metrics and logs* come from Alloy on the DGX (observability collector), not from here | mini | pushes to VM `:8428` | — | [dgx-scrape/](dgx-scrape/README.md) |
 | **ci-ops-poller** | Pulls GitHub Actions runs (CI / drift / drill) → VictoriaLogs for CI health + DORA | mini | pushes to VLogs `:9428` | `ci-ops-poller/.env` | [ci-ops-poller/](ci-ops-poller/README.md) |
 | **dgx** | DGX-host operator scripts (`gpu-mode-swap`) + service map | DGX | Tailscale SSH (see above) | — | [dgx/](dgx/README.md) |
-| **vllm** | Local vLLM inference stacks (coder / autoresearch) | DGX | `:8003` / `:9000` `/v1` (GPU-mode gated) | — | [vllm/](vllm/README.md) |
+| **vllm** | Local vLLM inference stacks (coder-next, judges; the product stacks prod-vllm / translate / autoresearch are in chipi/infra `infra/ai/vllm/`) | DGX | `:8003` / `:9000` `/v1` (GPU-mode gated) | — | [vllm/](vllm/README.md) |
 
 Per-folder rules layer on top of the repo-root [`AGENTS.md`](../AGENTS.md); see
 [`infra/AGENTS.md`](AGENTS.md), [`infra/dgx/AGENTS.md`](dgx/AGENTS.md),

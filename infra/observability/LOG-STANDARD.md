@@ -276,7 +276,7 @@ redefines the sink or touches another app's sources. Alloy hot-reloads on
 | prod `base.alloy`, `selfmon.alloy` | `podcast_scraper` · `infra/observability/` | podcast `deploy-config.yml` (scp, atomic rename, HUP) |
 | prod `operator.alloy` / `player.alloy` / `litellm.alloy` | `podcast_scraper` · `infra/observability/` | `deploy-operator.sh` / `deploy-player.sh` / `deploy-litellm.sh` (cp + HUP) |
 | prod `orrery.alloy` | `orrery` · `ops/observability/orrery.alloy` | orrery `ops/deploy_stack.sh` (cp + HUP) |
-| mirror of the prod files | this repo · `hosts/prod-podcast/config.d/` | nothing — a copy; refresh it after the podcast deploy |
+| prod collector config | `chipi/infra` · `infra/observability/vps-observability/` | chipi/infra's deploy |
 | mini `alloy-homelab` | this repo · `hosts/homelab/config.alloy` | `git pull` + `docker restart alloy-homelab` on the mini |
 | DGX `alloy` | this repo · `config.alloy` | `git pull` + restart on the DGX |
 | Grafana correlation + dashboards | this repo · `backend/grafana/` | `git pull` on the mini (file provisioning) |

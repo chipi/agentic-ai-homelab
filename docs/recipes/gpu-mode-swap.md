@@ -19,14 +19,15 @@ override any of them via env vars or `~/.config/gpu-mode.env`, see
 > | Knob | Default | Env var |
 > |---|---|---|
 > | Coder compose dir | `<repo>/infra/vllm/coder-next` | `GPU_MODE_CODER_DIR` |
-> | Research compose dir | `<repo>/infra/vllm/autoresearch` | `GPU_MODE_RESEARCH_DIR` |
+> | Research compose dir | `~/chipi-infra/infra/ai/vllm/autoresearch` | `GPU_MODE_RESEARCH_DIR` |
+> | Prod / translate compose dirs | `~/chipi-infra/infra/ai/vllm/{prod-vllm,translate}` | `GPU_MODE_PRODVLLM_DIR`, `GPU_MODE_TRANSLATE_DIR` |
 > | Coder vLLM port | `9000` | `GPU_MODE_CODER_PORT` |
 > | Research vLLM port | `8003` | `GPU_MODE_RESEARCH_PORT` |
 > | Coder service name | `vllm-coder-next` | `GPU_MODE_CODER_SVC` |
 > | Research service name | `vllm-autoresearch` | `GPU_MODE_RESEARCH_SVC` |
 > | Docker command | `sudo docker` | `GPU_MODE_DOCKER` |
 > | Privilege prefix (host cmds) | `sudo` | `GPU_MODE_SUDO` |
-> | Start timeout (s) | `120` | `GPU_MODE_START_TIMEOUT` |
+> | Start timeout (s) | `300` | `GPU_MODE_START_TIMEOUT` |
 
 ---
 

@@ -150,11 +150,11 @@ Where each fleet stands: [fleet architecture → Rollout status](../fleet-archit
 
 The infra session writes the plan in chipi/infra and moves nothing before its arc B. When infra
 adopts a piece, delete homelab's copy in the same change (dashboards share uids).
-- [ ] `infra/delivery/` (whole) → chipi/infra.
-- [ ] `infra/observability/hosts/prod-podcast/` → adopted by chipi/infra, then deleted here.
+- [x] `infra/delivery/` (whole) → chipi/infra (removed here 2026-10-30, PR B).
+- [x] `infra/observability/hosts/prod-podcast/` → adopted by chipi/infra, deleted here (PR B).
 - [ ] Podcast Player, Podcast Operator and Production Infra (host, containers, edge-security)
       dashboards → chipi/infra, an o11y folder.
-- [ ] `infra/vllm/prod-vllm`, `translate`, `autoresearch` → chipi/infra, an ai folder.
+- [x] `infra/vllm/prod-vllm`, `translate`, `autoresearch` → chipi/infra `infra/ai/vllm/` (PR B).
 - [ ] Product-only skills (corpus-migration, prod-batch-chain, prod-deploy, prod-job-progress,
       extraction-rebase, infra-preflight) → chipi/infra; `install.sh` has to keep linking them.
 

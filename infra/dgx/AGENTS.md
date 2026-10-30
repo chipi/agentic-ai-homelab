@@ -55,7 +55,7 @@ whoever lands there next. Do NOT create a second checkout or a personal
 **Obsolete, ignore if referenced:**
 `~/Projects/podcast_scraper/infra/dgx/vllm-autoresearch` — the pre-July path,
 gone; only a stale script backup pointed there. The current script defaults to
-`$REPO_ROOT/infra/vllm/autoresearch`.
+`<checkout parent>/chipi-infra/infra/ai/vllm/autoresearch` (chipi/infra, since 2026-10-30).
 
 *Incident of record 2026-08-30:* a handover concluded "the autoresearch vLLM is
 MISSING — missing infrastructure, not a wrong GPU mode" after checking only
