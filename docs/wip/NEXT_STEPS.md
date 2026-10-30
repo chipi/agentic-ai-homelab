@@ -57,9 +57,10 @@ state was last verified against the live system.
       [`tailscale-exit-node-mini.md`](tailscale-exit-node-mini.md), not executed. The ACL now
       lives in **chipi/infra** (`tailscale/policy.hujson`, `tailscale-acl.yml`); the mini runs
       the standalone macsys build, which can be an exit node (checked 2026-10-29).
-- [ ] **Pin the mini's floating images** (found by `infra-drift`, 2026-10-17): Langfuse's
-      `clickhouse-server` and `chainguard/minio` run untagged. Pin each to its running digest,
-      as Umami was (4cafb0c), and recreate in a window.
+- [x] ~~**Pin the mini's floating images** (found by `infra-drift`, 2026-10-17): Langfuse's
+      `clickhouse-server` and `chainguard/minio` run untagged.~~ — *done 2026-10-30 (c983964):
+      pinned to the running digests (ClickHouse 26.7.3.19, MinIO RELEASE.2026-07-17), so no
+      recreate was needed; `infra-drift` on the mini → `DRIFT: 0 finding(s)`.*
 - [ ] **Prove a login-less reboot** since the Tailscale fix (2026-09-10). The 2026-09-08 power
       cut brought containers back in 81 s but left the host off the tailnet for 30 h; the fix
       has not been through a real reboot. check: `last reboot | head -3; tail -20
@@ -83,8 +84,11 @@ state was last verified against the live system.
 
 ## DGX
 
-State on 2026-10-17, checked: the `ops` checkout is current with `origin/main` and clean; every
-container runs the image its compose names; mode `prod`, Ollama stopped and disabled.
+State on 2026-10-30, checked: the `ops` checkouts of homelab and chipi-infra are current and
+clean (`infra-drift` → `DRIFT: 0`); prod-vllm and translate run from `/home/ops/chipi-infra`;
+Ollama 0.40.13 (upgraded 2026-10-30, old binary in `/usr/local/ollama-backup-0.30.10`), its
+journal shipped to VictoriaLogs, the `ollama-metrics` sidecar running. On 2026-10-30 the GPU was
+in `ollama` mode for eval-harness's runs, due back in `prod` before 22:00Z.
 
 **Rule:** deploy to the DGX by pulling as `ops`, never by copying files in:
 `sudo -u ops git -C /home/ops/agentic-ai-homelab pull --ff-only`.
@@ -105,6 +109,16 @@ gateway (`proj-podcast-dev`, the DGX model).
       forensics possible. Home-automation's call.
 
 ## Observability
+
+- [ ] **Research bench, remaining pieces** (bench built 2026-10-30: collectors on the DGX, X3 and
+      MacBook, board `research-bench`): run start/end marks on the board from eval-harness's run
+      ids; MacBook GPU utilisation (only via root `powermetrics`); a loaded-model metric on X3 and
+      the MacBook (the `ollama-metrics` sidecar is a container; neither runs Docker). check:
+      `count({instance=~"x3|macbook"})` in VictoriaMetrics, and the board's host selector.
+- [ ] **Unexplained delivery timeouts, 2026-10-28 16:15–16:30Z** — only the delivery containers
+      timed out (to prod and to the local VictoriaTraces); mini CPU/load normal, no other
+      container affected. The 10-29 02:44 window matched a UniFi/LAN event; 10-21 the obs
+      restart. Read-only dig next.
 
 - [ ] **Telemetry pipeline, remaining steps** —
       [`otel-pipeline-end-to-end.md`](otel-pipeline-end-to-end.md), issue #99: ADR-0010 phases B
@@ -127,7 +141,9 @@ Where each fleet stands: [fleet architecture → Rollout status](../fleet-archit
 - [ ] **Ground-truth labels for STAGING-2/3/4** (`signal-fleet/reference/glitchtip-ORRERY-STAGING-*.json`,
       `ground_truth.disposition` is null).
 - [ ] **`muted-class` label** for bugs whose fingerprint keeps changing (guide, Known gaps).
-- [ ] Delete the stale `~/signal-fleet/fleet.env` on the mini (fleetd loads `fleet-gateway.env`).
+- [x] ~~Delete the stale `~/signal-fleet/fleet.env` on the mini~~ — *done 2026-10-30 (c739792):
+      every live value was in `fleet-gateway.env` or the litellm `.env`, its GitHub and Langfuse
+      values were dead; `ls` → No such file.*
 
 **Bug-fix fleet (Fleet 1)** — paused by the operator after one real batch
 - [ ] **Resume B1/B2** (shadow on the real backlog, then PR mode), and **B3**: add
@@ -152,11 +168,15 @@ The infra session writes the plan in chipi/infra and moves nothing before its ar
 adopts a piece, delete homelab's copy in the same change (dashboards share uids).
 - [x] `infra/delivery/` (whole) → chipi/infra (removed here 2026-10-30, PR B).
 - [x] `infra/observability/hosts/prod-podcast/` → adopted by chipi/infra, deleted here (PR B).
-- [ ] Podcast Player, Podcast Operator and Production Infra (host, containers, edge-security)
-      dashboards → chipi/infra, an o11y folder.
+- [x] ~~Podcast Player, Podcast Operator and Production Infra (host, containers, edge-security)
+      dashboards → chipi/infra, an o11y folder.~~ — *done 2026-10-30 (#119 + runbook S3):
+      `grafana_sync --tenant o11y` → six UNCHANGED; the three emptied folders deleted.*
 - [x] `infra/vllm/prod-vllm`, `translate`, `autoresearch` → chipi/infra `infra/ai/vllm/` (PR B).
-- [ ] Product-only skills (corpus-migration, prod-batch-chain, prod-deploy, prod-job-progress,
-      extraction-rebase, infra-preflight) → chipi/infra; `install.sh` has to keep linking them.
+- [x] ~~Product-only skills (corpus-migration, prod-batch-chain, prod-deploy, prod-job-progress,
+      extraction-rebase, infra-preflight) → chipi/infra; `install.sh` has to keep linking them.~~ —
+      *done 2026-10-30 (#119 linking, #123 removal): on the X3 each `~/.claude/skills/<name>` →
+      `/work/infra/main/skills/<name>` with a SKILL.md; the mini's claude account done in S6.*
+- **The app move is closed** — [history 0008](../history/0008-app-move-and-research-bench.md).
 
 ## X3 (operator picks the window; layout codified 2026-10-16)
 

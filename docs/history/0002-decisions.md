@@ -309,3 +309,38 @@ folded into the living doc, open items move to `NEXT_STEPS.md`, links are repoin
 deleted and recorded in a `docs/history/` entry. Procedure in `docs/wip/README.md`.
 **Why:** only `NEXT_STEPS.md` had a rule, so every handover and plan stayed forever; 25 of 32
 notes were finished when this was decided (history 0007).
+
+## D-0017 — eval-harness bills its own OpenRouter key
+
+**Date:** 2026-10-30
+**Decided by:** operator ("the key we just added that is evals specific OPENROUTER_API_KEY_EVALS")
+**Decision:** every `eval-*` LiteLLM alias (config.yaml and the DB) routes on
+`OPENROUTER_API_KEY_EVALS`, the operator's experiments workspace, instead of the podcast key; the
+`eval-harness` virtual key's cap is $100 / 30d.
+**Why:** the arms now measure the triage fleet and outside models, not podcast work, so the
+podcast vertical was the wrong place for their spend.
+**How:** ab67072 (config + README), the DB aliases PATCHed on the gateway, a LiteLLM recreate on
+the same image. That workspace enforces zero data retention: a model without a ZDR endpoint 404s.
+
+## D-0018 — Every machine that runs local models ships research telemetry
+
+**Date:** 2026-10-30
+**Decided by:** operator ("whatever we do on DGX in terms of research, we should also have for X3
+and Mac")
+**Decision:** the DGX, the X3 and the MacBook each send host metrics, the Ollama log and whatever
+GPU signal the OS exposes to the mini, with the same series names, viewed on one board with a host
+selector (`research-bench`). On the laptops the collector is a user-level Alloy (no root, no system
+package); the MacBook's config is deployed from git with `git show`, never by pulling its working
+copy.
+**Why:** model research needs the machine's behaviour next to the result; before this only the DGX
+sent anything, and not even its Ollama log.
+
+## D-0019 — Leftovers are deleted as part of the work
+
+**Date:** 2026-10-30
+**Decided by:** operator ("If you don't need things, just delete as part of the work")
+**Decision:** what a change leaves behind (emptied folders, superseded secret files, backups of
+files being removed, caches) is checked (nothing tracked, nothing running uses it) and deleted in
+the same piece of work, not handed back as a question.
+**Why:** handing them back left trash that nobody owned (three empty Grafana folders, eleven
+untracked secret backups in removed directories).
