@@ -179,7 +179,7 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
 - [ ] **Dedup project AGENTS.md files** against the global one (genesis open thread #5):
       podcast_scraper (1,320 lines), orrery (994), chemigram, oceancanvas. Keep only
       project-specific content in each.
-- [ ] **Python 3.11 on the mini, and a written standard.** Every Python script that runs on the
+- [ ] **Decide a Python standard, then move the mini off 3.9.** Every Python script that runs on the
       mini's host uses macOS's system Python 3.9.6 (Xcode's, `/usr/bin/python3`): the triage
       fleet (fleetd's `python3 orchestrator.py`), hetzner-status, cloudflare-edge, ci-ops-poller,
       the backups, host-run's `.py` scripts. Python 3.9 has been end-of-life since October 2025.
@@ -187,11 +187,17 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
       21bc902). What the rest uses (checked 2026-10-30): podcast_scraper `.python-version`
       3.11.8, CI 3.11.8, containers 3.12, `requires-python >=3.10`; eval-harness 3.11
       everywhere; homelab's delivery container 3.11; DGX system 3.12.3; X3 3.14.7, plus
-      3.11.16 via mise. The de facto standard is 3.11 (supported until 2027-10).
-      To do: write the standard down (global AGENTS.md); install 3.11 on the mini (Homebrew
-      `python@3.11` or a uv-managed one; a shared-environment install, so the operator's go
-      first); point the launchd plists, fleetd's `cycle_cmd` and host-run at it; run every gate
-      under 3.11 before switching. Not checked: the prod box's host Python (prod's lane; its
+      3.11.16 via mise. There is **no written standard**: the projects mostly pin and test on
+      3.11 while podcast_scraper's containers already run 3.12, and the machines' own Pythons
+      (3.9 macOS, 3.12 Ubuntu, 3.14 Arch) are whatever their OS ships.
+      **Operator decision first:** which version is the standard, as two numbers: the minimum
+      code must support, and the one we run and test on. Candidates: 3.11 (most code tested on
+      it today; end of support 2027-10), 3.12 (podcast containers and the DGX already; 2028-10),
+      3.13+ (longer, but ML wheels may lag: not checked). Support dates are from memory, not
+      verified against python.org. Homelab's suggestion: 3.12.
+      Then: write it down (global AGENTS.md); install it on the mini (Homebrew or uv-managed; a
+      shared-environment install, so the operator's go first); point the launchd plists,
+      fleetd's `cycle_cmd` and host-run at it; run every gate on it before switching. Not checked: the prod box's host Python (prod's lane; its
       apps run in 3.12 containers).
 
 ## Deferred (intentional)
