@@ -22,7 +22,7 @@ Facts below were checked against the running system on 2026-10-02, and re-checke
 
 ### `~/signal-fleet/fleet-gateway.env`
 
-This is the **only** env file fleetd loads for the triage fleet; `fleet.env` next to it is a stale leftover. Values are secrets: never print them or commit them.
+This is the **only** env file fleetd loads for the triage fleet; the old `fleet.env` next to it was a stale leftover and was deleted 2026-10-30 (nothing read it; its live values were all in this file or elsewhere). Values are secrets: never print them or commit them.
 
 | Variable | Read by | What it is |
 |---|---|---|

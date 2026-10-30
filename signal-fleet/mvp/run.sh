@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 # not other projects' .envs). Least-privilege set: a scoped GlitchTip token, a
 # Grafana Viewer service-account token, the OpenRouter key, and the triage-fleet
 # Langfuse keys. VictoriaMetrics/Logs/Traces need no auth on the tailnet.
-FLEET_ENV="${SF_FLEET_ENV:-$HOME/signal-fleet/fleet.env}"
+FLEET_ENV="${SF_FLEET_ENV:-$HOME/signal-fleet/fleet-gateway.env}"
 set -a
 [ -f "$FLEET_ENV" ] && . "$FLEET_ENV"
 set +a
