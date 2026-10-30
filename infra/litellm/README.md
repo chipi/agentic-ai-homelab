@@ -49,24 +49,30 @@ note). Current consumers:
 | `fleet-bugfix` | `fleet-bugfix-flash`, `fleet-bugfix-pro`, `fleet-bugfix-reviewer` | $100 | bugfix-fleet — routes via the gateway (`LLM_BASE_URL=http://localhost:4001/v1` + `LLM_API_KEY=LITELLM_FLEET_BUGFIX_KEY`), was OpenRouter-direct |
 | `proj-podcast-dev` | `NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4` (the DGX alias, named as the real model id) | $1 (the alias is $0; the cap only stops a mispriced alias) | podcast_scraper dev on the DGX profiles (`dev_dgx_full`): laptop → this gateway → the DGX vLLM, so dev calls reach Langfuse like prod's (podcast_scraper#2342). Restricted to the DGX alias, so a dev run can never reach a paid model. Minted 2026-10-13, but its value was never stored, so it was deleted unused (spend 0) and re-minted 2026-10-17 with the same settings and logging. **The value lives in `~/podcast-litellm-dev.env` on the mini** (`LITELLM_API_KEY`, `LITELLM_API_BASE`, mode 600); copy it into a checkout's gitignored `.env`. Store a key's value the moment you mint it: LiteLLM shows it only once |
 | `proj-podcast-dev` logging | — | — | The key carries `metadata.logging` (Langfuse `callback_vars`) so its calls are traced in the **`podcast-dev`** project, not `agents` (per-key logging is not Enterprise-gated in LiteLLM 1.96; verified 2026-10-13). Keyless pass-throughs (`/tokenize`, `/v1/translate/...`) go to this gateway's default project, `agents`. |
-| `eval-harness` | `eval-claude-opus`, `eval-claude-sonnet`, `eval-claude-haiku`, `homelab-flash` | $35 / 30d | [chipi/eval-harness](https://github.com/chipi/eval-harness) — golden references + model sweeps (`LITELLM_BASE_URL` + `LITELLM_API_KEY` in its `.env`). The key name stays `eval-harness`; only the consumer moved. |
+| `eval-harness` | 36 `eval-*` aliases (`/key/info` lists them) | $100 / 30d | [chipi/eval-harness](https://github.com/chipi/eval-harness) — golden references + model sweeps (`LITELLM_BASE_URL` + `LITELLM_API_KEY` in its `.env`). The key name stays `eval-harness`; only the consumer moved. |
 
 Both route to `openrouter/deepseek-v4-pro` via `OPENROUTER_API_KEY` (the shared
 key) — so their spend shows on the hub's **"Lab (shared key)"** OpenRouter vertical
 (and per-key via `/key/info`). `max_budget` is a hard lifetime cap (raise
 deliberately = auditable top-up).
 
-The `eval-harness` cap was raised $20 -> $35 on 2026-09-26: a 24-arm sweep over 200
+The `eval-harness` cap was raised $20 -> $35 on 2026-09-26, and $60 -> $100 on 2026-10-30 for the
+triage-model arms (operator's go): a 24-arm sweep over 200
 articles stopped mid-flight at 12 arms on `budget_exceeded`. Two things to know if it
 happens again — the harness's own `EVAL_MAX_COST_USD` is a PER-RUN cap and knows
 nothing about this one, and the enforced figure came back as exactly 2x what
 `/key/info` reported as spend, so raising by the apparent headroom under-shoots.
 
-`eval-harness` routes on the **podcast** OpenRouter key, not a fourth one: what
-its aliases measure IS the podcast work, so the cost of knowing sits in the same
-$25 as the thing being known about. Its own $20 virtual-key cap under that $25
-means the proxy refuses first, with an error naming the key, instead of
-OpenRouter returning a 402 that says nothing about which workload spent it.
+`eval-harness` routes on its **own** OpenRouter key, `OPENROUTER_API_KEY_EVALS` (the
+operator's experiments workspace), since 2026-10-30. Until then it rode the podcast key,
+on the grounds that its aliases measured podcast work; the triage-model arms measure the
+fleet and outside models, so that no longer held. Every `eval-*` alias uses it: the ones in
+`config.yaml` through `os.environ/`, the ones added at runtime with the key stored
+(encrypted) in the DB. Keep the virtual-key cap below the OpenRouter key's own limit, so
+the proxy refuses first, with an error naming the key, instead of OpenRouter returning a
+402 that says nothing about which workload spent it. That workspace enforces zero data
+retention: a model with no ZDR endpoint (Fable 5.1 on 2026-10-30) returns 404
+"ZDR violation (guardrail)" until its guardrail is changed.
 
 It is also the only key with a rolling `budget_duration` rather than a lifetime
 cap. A sweep is repeated work, not a one-off allowance; a lifetime cap on it

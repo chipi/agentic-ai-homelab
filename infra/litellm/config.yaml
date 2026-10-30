@@ -143,11 +143,10 @@ model_list:
   # ── eval-harness. Anthropic is reached THROUGH OpenRouter, so the gateway
   # holds no Anthropic credential of its own.
   #
-  # On the PODCAST key, deliberately: what these aliases evaluate IS the podcast
-  # work, so its spend belongs to the podcast vertical's $25 rather than to a
-  # fourth one. #1412 says a workload must not spend ANOTHER's budget — this is
-  # the same budget's own measurement, and splitting it would only hide what the
-  # podcast bake-off actually costs to know about.
+  # On eval-harness's OWN OpenRouter key (OPENROUTER_API_KEY_EVALS, the operator's
+  # experiments workspace) since 2026-10-30: its arms now measure the triage fleet
+  # and other models too, not just podcast work, so they no longer belong in the
+  # podcast vertical. Every eval-* alias, here and in the DB, uses this key.
   #
   # opus is the GOLDEN: references are authored once with the strongest model
   # available, and every cheaper arm is then scored against them. sonnet/haiku
@@ -156,15 +155,15 @@ model_list:
   - model_name: eval-claude-opus
     litellm_params:
       model: openrouter/anthropic/claude-opus-5.5
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
   - model_name: eval-claude-sonnet
     litellm_params:
       model: openrouter/anthropic/claude-sonnet-5
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
   - model_name: eval-claude-haiku
     litellm_params:
       model: openrouter/anthropic/claude-haiku-4.5
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
   # ── open-weight and OpenAI arms for the summarisation eval example ────────────
   #
@@ -179,37 +178,37 @@ model_list:
   - model_name: eval-llama-70b
     litellm_params:
       model: openrouter/meta-llama/llama-3.3-70b-instruct
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
   - model_name: eval-llama-scout
     litellm_params:
       model: openrouter/meta-llama/llama-4-scout
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
   - model_name: eval-gemma-31b
     litellm_params:
       model: openrouter/google/gemma-4-31b-it
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
   - model_name: eval-qwen-flash
     litellm_params:
       model: openrouter/qwen/qwen3.8-flash
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
   - model_name: eval-deepseek-pro
     litellm_params:
       model: openrouter/deepseek/deepseek-v4-pro
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
   - model_name: eval-gpt-mini
     litellm_params:
       model: openrouter/openai/gpt-5.4-mini
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
   - model_name: eval-gpt
     litellm_params:
       model: openrouter/openai/gpt-5.5
-      api_key: os.environ/OPENROUTER_API_KEY_PODCAST
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
 litellm_settings:
   # full-package observability from day one (operator requirement):
