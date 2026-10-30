@@ -7,10 +7,15 @@
 TM=/usr/local/bin/tmux; [ -x "$TM" ] || TM="$(command -v tmux)"   # Mac path first, else PATH
 S=main
 $TM has-session -t $S 2>/dev/null && exit 0
-$TM new-session -d -s $S -n abyss -c ~/projects/abyss
+# Close Listening first: the public split checkout, the private repos mounted in it at apps/<name>
+# (their make test needs that mount), infra, and the private eval data.
+$TM new-session -d -s $S -n cl-public -c ~/projects/podcast-player
+$TM new-window  -t $S -n cl-common       -c ~/projects/podcast-player/apps/common
+$TM new-window  -t $S -n cl-player       -c ~/projects/podcast-player/apps/player
+$TM new-window  -t $S -n cl-studio       -c ~/projects/podcast-player/apps/studio
+$TM new-window  -t $S -n infra           -c ~/projects/infra
 $TM new-window  -t $S -n podcast-eval    -c ~/projects/podcast-scraper-eval-data
-$TM new-window  -t $S -n podcast-private -c ~/projects/podcast_scraper-private
+$TM new-window  -t $S -n abyss           -c ~/projects/abyss
 $TM new-window  -t $S -n feed-ingest     -c ~/projects/podcast_scraper
-$TM new-window  -t $S -n player          -c ~/projects/podcast-player/web/learning-player
 $TM new-window  -t $S -n orrery          -c ~/projects/orrery
 $TM select-window -t $S:1
