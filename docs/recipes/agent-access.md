@@ -555,7 +555,7 @@ API runs in container `litellm` (master key in its env); run the calls from the 
   and `delivery_outbox_last_success_timestamp_seconds`.
 - Logs: `container:delivery-email` (or `-push`, `-events`) in VictoriaLogs.
 - Runs from the chipi/infra checkout since 2026-10-30 (runbook S4): `~/chipi-infra/infra/delivery`
-  on the mini. The old `~/agentic-ai-homelab/infra/delivery` is stopped; never `compose down` there.
+  on the mini; this repo no longer carries `infra/delivery/`.
 - Real test send (sends a REAL email): chipi/infra `infra/delivery/README.md` → "Deployed-service e2e".
 - Pause all sends: `cd ~/chipi-infra/infra/delivery && /usr/local/bin/docker compose stop` (outbox keeps the backlog).
 
@@ -620,7 +620,7 @@ ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh status 2>&1'     # which vLLMs own the GPU
 | `:8004` | moss | `/v1/models` |
 | `:8005` | vLLM (translate) | models `google/translategemma-12b-it`, alias `translate` |
 
-Both vLLMs need their API key (compose: `infra/vllm/{prod-vllm,translate}/` in the DGX's checkout):
+Both vLLMs need their API key (compose: chipi/infra `infra/ai/vllm/{prod-vllm,translate}/`, checked out at `/home/ops/chipi-infra` on the DGX):
 
 ```sh
 ssh dgx-llm-1 'K=$(docker exec vllm-prod-vllm printenv VLLM_API_KEY); curl -s -H "Authorization: Bearer $K" http://127.0.0.1:8003/v1/models'

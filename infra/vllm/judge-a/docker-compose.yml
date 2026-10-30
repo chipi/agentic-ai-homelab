@@ -1,5 +1,5 @@
 # vLLM judge-a — one of two sequential judge models for the autoresearch
-# multi-judge sweep. Sibling to autoresearch/ + coder-next/, sharing the
+# multi-judge sweep. Sibling to coder-next/ (autoresearch is in chipi/infra), sharing the
 # same GB10 GPU. ``gpu-mode-swap.sh`` enforces single-owner-at-a-time.
 #
 # Purpose: serve one specific model as JUDGE A during the multi-phase

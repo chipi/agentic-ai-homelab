@@ -266,25 +266,25 @@ chk "no systemd user manager: WARN, units still linked, no enable attempted" \
   "[ $(rc) = 0 ] && grep -q '^WARN  tmux persistence: no systemd user manager' '$H.out' && [ -L '$H/.config/systemd/user/wb-tmux-save.timer' ] && ! grep -q 'enable --now wb-tmux' '$S/calls'"
 
 echo "== product skills from a chipi/infra checkout"
-for s in prod-deploy infra-only; do
+for s in ci-watch infra-only; do
   mkdir -p "$T/infra/skills/$s"; printf -- '---\nname: %s\ndescription: x\n---\n' "$s" > "$T/infra/skills/$s/SKILL.md"
 done
 home sk-none "$BASE"; run
-chk "no infra checkout: SKIP line, homelab's own prod-deploy linked from this repo" \
-  "[ $(rc) = 0 ] && grep -q '^SKIP  chipi/infra skills' '$H.out' && [ \"\$(readlink '$H/.claude/skills/prod-deploy')\" = '$HERE/claude/skills/prod-deploy' ]"
+chk "no infra checkout: SKIP line, homelab's own ci-watch linked from this repo" \
+  "[ $(rc) = 0 ] && grep -q '^SKIP  chipi/infra skills' '$H.out' && [ \"\$(readlink '$H/.claude/skills/ci-watch')\" = '$HERE/claude/skills/ci-watch' ]"
 home sk-infra "$BASE"; INFRA_CHECKOUT="$T/infra" run
 chk "infra checkout: its skills linked; the same-named homelab skill not linked; others unchanged" \
-  "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/prod-deploy')\" = '$T/infra/skills/prod-deploy' ] && [ \"\$(readlink '$H/.claude/skills/infra-only')\" = '$T/infra/skills/infra-only' ] && grep -q '^INFRA prod-deploy' '$H.out' && [ \"\$(readlink '$H/.claude/skills/ship')\" = '$HERE/claude/skills/ship' ]"
+  "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/ci-watch')\" = '$T/infra/skills/ci-watch' ] && [ \"\$(readlink '$H/.claude/skills/infra-only')\" = '$T/infra/skills/infra-only' ] && grep -q '^INFRA ci-watch' '$H.out' && [ \"\$(readlink '$H/.claude/skills/ship')\" = '$HERE/claude/skills/ship' ]"
 INFRA_CHECKOUT="$T/infra" run
 chk "rerun with infra: already linked, no skill backed up (the two loops never relink each other)" \
-  "[ $(rc) = 0 ] && grep -q \"^OK    already linked: $H/.claude/skills/prod-deploy\$\" '$H.out' && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
+  "[ $(rc) = 0 ] && grep -q \"^OK    already linked: $H/.claude/skills/ci-watch\$\" '$H.out' && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
 # A skill backup left in ~/.claude/skills is itself loaded as a skill (same name, other copy).
 home sk-move "$BASE"; run; INFRA_CHECKOUT="$T/infra" run
 chk "homelab link re-pointed to the infra checkout, no backup left in ~/.claude/skills" \
-  "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/prod-deploy')\" = '$T/infra/skills/prod-deploy' ] && grep -q '^RELINK.*/.claude/skills/prod-deploy' '$H.out' && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
+  "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/ci-watch')\" = '$T/infra/skills/ci-watch' ] && grep -q '^RELINK.*/.claude/skills/ci-watch' '$H.out' && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
 run
 chk "undo: no infra checkout re-points it back to homelab's copy, no backup left" \
-  "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/prod-deploy')\" = '$HERE/claude/skills/prod-deploy' ] && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
+  "[ $(rc) = 0 ] && [ \"\$(readlink '$H/.claude/skills/ci-watch')\" = '$HERE/claude/skills/ci-watch' ] && [ -z \"\$(ls -d '$H'/.claude/skills/*.bak.* 2>/dev/null)\" ]"
 
 echo "== macOS path unchanged"
 home mac "$BASE" disabled; before=$(sig); OSV=macos run

@@ -30,7 +30,7 @@ ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh --mode-only'    # → prod | ollama | code
 ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh status --json'  # full machine-readable state
 ```
 
-- **prod** — the production serving vLLM on `:8003` (`infra/vllm/prod-vllm`), plus the
+- **prod** — the production serving vLLM on `:8003` (chipi/infra `infra/ai/vllm/prod-vllm`), plus the
   co-resident translation vLLM on `:8005`. Ollama and its `ollama-metrics` exporter are stopped.
   The DGX's normal state (2026-10-17).
 - **ollama** — the podcast_scraper pipeline's Ollama mode: no vLLM, Ollama warm on `:11434`.

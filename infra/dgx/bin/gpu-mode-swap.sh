@@ -7,7 +7,7 @@
 #
 # Modes: code | research | free | prod | ollama | status (default)
 #
-#   prod — production SERVING vLLM slot on :8003 (infra/vllm/prod-vllm).
+#   prod — production SERVING vLLM slot on :8003 (chipi/infra infra/ai/vllm/prod-vllm).
 #          A real vLLM, single-owner-at-a-time like research.
 #   ollama — podcast_scraper pipeline: NO vLLM, Ollama warm with the pinned
 #          summary/GI/KG model (see OLLAMA_LLM_MODEL), whisper + pyannote checked.
@@ -45,8 +45,8 @@
 #     * "the load/unload CYCLE is the trigger" does not fit wedge 2. The last
 #       ollama-metrics line before it reads "Refreshed metrics data: 0 models loaded"
 #       — ollama was already empty and idle. There was no cycle to blame.
-#     * "only PROD mode wedged" is EXPOSURE, not a property. infra/vllm/prod-vllm and
-#       infra/vllm/autoresearch are the same image (nvcr.io/nvidia/vllm:26.05-py3) and
+#     * "only PROD mode wedged" is EXPOSURE, not a property. prod-vllm and
+#       autoresearch are the same image (nvcr.io/nvidia/vllm:26.05-py3) and
 #       the same flags (--gpu-memory-utilization=0.75, --max-model-len=65536, ipc:host).
 #       prod is simply what has been running since the container was created 09-13; the
 #       other modes never had the opportunity.
@@ -258,12 +258,12 @@ CODER_DIR="${GPU_MODE_CODER_DIR:-$REPO_ROOT/infra/vllm/coder-next}"
 CODER_PORT="${GPU_MODE_CODER_PORT:-9000}"
 CODER_SVC="${GPU_MODE_CODER_SVC:-vllm-coder-next}"
 
-# Autoresearch compose lives under the homelab repo (same layout as
-# coder-next / judge-a / judge-b), NOT under a checked-out podcast_scraper.
-# The old default pointed at ``$HOME/Projects/podcast_scraper/infra/dgx/…``
-# which never existed for the operator user and resolved to
-# ``/opt/actions-runner/Projects/…`` for the GHA runner — both wrong.
-RESEARCH_DIR="${GPU_MODE_RESEARCH_DIR:-$REPO_ROOT/infra/vllm/autoresearch}"
+# autoresearch, prod-vllm and translate are product stacks: they live in chipi/infra
+# (infra/ai/vllm/) since 2026-10-30, checked out at ~/chipi-infra, and the DGX's
+# ~/.config/gpu-mode.env sets their GPU_MODE_*_DIR. The defaults name that checkout,
+# a sibling of this one (not $HOME: root or another user would resolve elsewhere).
+INFRA_ROOT="${GPU_MODE_INFRA_ROOT:-$(dirname "$REPO_ROOT")/chipi-infra}"
+RESEARCH_DIR="${GPU_MODE_RESEARCH_DIR:-$INFRA_ROOT/infra/ai/vllm/autoresearch}"
 RESEARCH_PORT="${GPU_MODE_RESEARCH_PORT:-8003}"
 RESEARCH_SVC="${GPU_MODE_RESEARCH_SVC:-vllm-autoresearch}"
 
@@ -292,15 +292,15 @@ JUDGE_NEMOTRON_DIR="${GPU_MODE_JUDGE_NEMOTRON_DIR:-$REPO_ROOT/infra/vllm/judge-n
 JUDGE_NEMOTRON_PORT="${GPU_MODE_JUDGE_NEMOTRON_PORT:-8003}"
 JUDGE_NEMOTRON_SVC="${GPU_MODE_JUDGE_NEMOTRON_SVC:-vllm-judge-nemotron}"
 
-# prod-vllm — production serving vLLM (infra/vllm/prod-vllm). A copy of the
+# prod-vllm — production serving vLLM (chipi/infra infra/ai/vllm/prod-vllm). A copy of the
 # autoresearch serving config kept as its own named slot. Same GB10 GPU, same
 # :8003 (single-owner-at-a-time) as the other vLLM slots. Distinct from the
 # `prod` pipeline mode, which runs no vLLM at all.
-PRODVLLM_DIR="${GPU_MODE_PRODVLLM_DIR:-$REPO_ROOT/infra/vllm/prod-vllm}"
+PRODVLLM_DIR="${GPU_MODE_PRODVLLM_DIR:-$INFRA_ROOT/infra/ai/vllm/prod-vllm}"
 PRODVLLM_PORT="${GPU_MODE_PRODVLLM_PORT:-8003}"
 PRODVLLM_SVC="${GPU_MODE_PRODVLLM_SVC:-vllm-prod-vllm}"
 
-# translate — the translation vLLM (infra/vllm/translate), TranslateGemma-12B.
+# translate — the translation vLLM (chipi/infra infra/ai/vllm/translate), TranslateGemma-12B.
 #
 # THE ONE STACK THAT IS NOT MUTUALLY EXCLUSIVE. Every other slot here shares :8003
 # and the single-owner rule; this one has its own port (:8005) and comes up
@@ -311,7 +311,7 @@ PRODVLLM_SVC="${GPU_MODE_PRODVLLM_SVC:-vllm-prod-vllm}"
 #
 # It is therefore brought up BY `prod` mode rather than being a mode of its own, and
 # stop_all_composes leaves it alone except when going to `free` (see there).
-TRANSLATE_DIR="${GPU_MODE_TRANSLATE_DIR:-$REPO_ROOT/infra/vllm/translate}"
+TRANSLATE_DIR="${GPU_MODE_TRANSLATE_DIR:-$INFRA_ROOT/infra/ai/vllm/translate}"
 TRANSLATE_PORT="${GPU_MODE_TRANSLATE_PORT:-8005}"
 TRANSLATE_SVC="${GPU_MODE_TRANSLATE_SVC:-vllm-translate}"
 # 1 (default) = `prod` mode also brings the translation vLLM up. Set 0 to serve
@@ -321,7 +321,10 @@ TRANSLATE_WITH_PROD="${GPU_MODE_TRANSLATE_WITH_PROD:-1}"
 
 DOCKER_CMD="${GPU_MODE_DOCKER:-sudo docker}"
 SUDO="${GPU_MODE_SUDO-sudo}"                    # host-privilege prefix; "" if root
-START_TIMEOUT="${GPU_MODE_START_TIMEOUT:-120}"
+# 300, not 120: after `free` a stack loads from a cold page cache. On 2026-10-30 prod-vllm
+# took 110 s for its weights plus warmup and translate ~3.5 min, so `prod` gave up at 120 s
+# before starting translate.
+START_TIMEOUT="${GPU_MODE_START_TIMEOUT:-300}"
 
 # research-mode GPU prep — Ollama shares the GPU and is flushed before vLLM
 RESEARCH_MIN_FREE_GIB="${GPU_MODE_RESEARCH_MIN_FREE_GIB:-73}"
@@ -585,8 +588,8 @@ stop_all_composes_including_translate() {
 # recently-served models even when idle, which OOM-crashes a vLLM boot that
 # expects ~73 GB free. We unload every resident model via Ollama's own
 # /api/generate {keep_alive: 0} — no daemon restart, no root required
-# (the previous ``sudo systemctl restart ollama`` broke the GHA self-hosted
-# runner because its systemd unit sets NoNewPrivileges=true, blocking sudo).
+# (``sudo systemctl restart ollama`` fails under a systemd unit that sets
+# NoNewPrivileges=true, which blocks sudo).
 # Models reload cold on the next inference request (~30-60 s each), same
 # cost as the old restart path.
 #
@@ -678,7 +681,7 @@ stop_ollama_daemon() {
         return 0
     fi
     # Same constraint flush_ollama documents: a systemd unit with NoNewPrivileges=true
-    # blocks sudo, which is how the GHA self-hosted runner broke before. Do NOT abort the
+    # blocks sudo. Do NOT abort the
     # swap over it — prod vLLM still comes up — but be loud, because the wedge risk is back.
     warn "could not stop ollama (no sudo / absent). Models are flushed but the DAEMON IS UP:"
     warn "  a single inference request will reload a model and re-open the wedge window (#63)."

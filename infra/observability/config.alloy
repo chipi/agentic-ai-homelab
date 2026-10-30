@@ -101,7 +101,7 @@ prometheus.relabel "cadvisor_keep" {
     // this box's live cadvisor 2026-08-31). RSS was requested and never collected.
     // Do NOT re-fold it in.
     //
-    // Widened 2026-08-31 to match prod (hosts/prod-podcast/config.d/base.alloy):
+    // Widened 2026-08-31 to match prod (chipi/infra infra/observability/vps-observability/, base.alloy):
     // PSI is the direct starvation signal and is DIRECTLY relevant to #1886 GPU
     // co-tenancy — it shows an ASR container being starved while the LLM saturates
     // the box, which utilisation alone will not.

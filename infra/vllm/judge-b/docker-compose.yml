@@ -1,5 +1,5 @@
 # vLLM judge-b — second sequential judge model for the autoresearch
-# multi-judge sweep. Sibling to judge-a/ + autoresearch/ + coder-next/,
+# multi-judge sweep. Sibling to judge-a/ + coder-next/,
 # sharing the same GB10 GPU (only one may be up at a time).
 #
 # Model: Llama-3.3-70B-Instruct (RedHatAI NVFP4-quant — the BF16 70B

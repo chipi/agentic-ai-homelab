@@ -17,7 +17,8 @@ Grafana) lives in [`backend/`](backend/) and runs on the **Mac mini**
 > [`../dgx-scrape/`](../dgx-scrape/README.md) loop no longer scrapes exporters; it
 > only pushes `dgx_service_up` (TCP reachability of each DGX service) plus a
 > container inventory. The mini runs the [`hosts/homelab/`](hosts/homelab/) variant
-> of this collector for its own host, and prod runs [`hosts/prod-podcast/`](hosts/prod-podcast/).
+> of this collector for its own host, and prod's collector config lives in chipi/infra
+> (`infra/observability/vps-observability/`).
 > See the [host map](../README.md) for who runs what. To check all of it in one go:
 > the `obs-boot` skill (`workstation/claude/skills/obs-boot/scripts/check.sh`).
 

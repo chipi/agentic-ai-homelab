@@ -101,10 +101,11 @@ run. The 2026 production defaults converged.
   Different code path entirely; can't mix-and-match with vLLM
   formats.
 
-Both paths are documented end-to-end in the homelab's existing
-[`autoresearch/KV_CACHE_SIZING.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/autoresearch/KV_CACHE_SIZING.md)
+Both paths are documented end-to-end in
+[`gb10_serving/KV_CACHE_SIZING.md`](https://github.com/chipi/podcast-scraper-eval-data/blob/master/autoresearch/gb10_serving/KV_CACHE_SIZING.md)
 and the GB10-specific decisions in
-[`autoresearch/decisions/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/vllm/autoresearch/decisions).
+[`gb10_serving/decisions/`](https://github.com/chipi/podcast-scraper-eval-data/tree/master/autoresearch/gb10_serving/decisions) (both in the private
+`chipi/podcast-scraper-eval-data` since 2026-10-30).
 
 ---
 
@@ -178,7 +179,7 @@ typically with a routing layer (LiteLLM, OpenRouter-style) in front.
 |---|---|---|
 | ★ | [Self-Hosting Open-Weight LLMs: 2026 Decision Guide](https://www.digitalapplied.com/blog/self-hosting-open-weight-llms-2026-deployment-decision-guide) — Digital Applied | The most thorough 2026 production deployment guide. Covers infra, monitoring, scaling.<br>**Why ★:** primary 2026 practitioner reference; covers the questions the smaller blogs don't (capacity planning, observability, model lifecycle). |
 | ★ | [Self-Hosted LLM Guide: Setup, Tools & Cost Comparison (2026)](https://dev.to/jaipalsingh/self-hosted-llm-guide-setup-tools-cost-comparison-2026-3m34) — DEV Community | Practical setup with cost tracking baked in. Pairs with the Decision Guide above. |
-| ★ | The homelab's own [`infra/vllm/autoresearch/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/vllm/autoresearch) + [`infra/vllm/coder-next/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/vllm/coder-next) | Working production composes with `.env` discipline, healthchecks, decisions/ records, KV cache sizing methodology. Concrete reference implementation.<br>**Why ★:** *the* primary source — you can clone, customize, deploy. |
+| ★ | chipi/infra's [`infra/ai/vllm/autoresearch/`](https://github.com/chipi/infra/tree/main/infra/ai/vllm/autoresearch) (private) + the homelab's [`infra/vllm/coder-next/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/vllm/coder-next) | Working production composes with `.env` discipline, healthchecks, decisions/ records, KV cache sizing methodology. Concrete reference implementation.<br>**Why ★:** *the* primary source — you can clone, customize, deploy. |
 | ☆ | [Self-Hosting LLMs in 2026: The Complete Guide](https://codersera.com/blog/self-hosting-llms-complete-guide-2026/) — Codersera | Tour-of-options reference covering hardware → model → quant → framework. |
 | ☆ | [Self-Hosted LLM: Run, Train & Deploy (2026)](https://solguruz.com/blog/how-to-run-llm-locally/) — SolGuruz | Less original but complete walkthrough; useful as a sanity-check second source. |
 
@@ -209,7 +210,7 @@ Once you're running, the operational reality includes things the
 | ★ | Lilian Weng — [Large Transformer Model Inference Optimization](https://lilianweng.github.io/posts/2023-01-10-inference-optimization/) | Production-optimization survey (already in [`llm-end-to-end.md`](llm-end-to-end.md) § 11). Quantization, distillation, MoE serving, spec-dec — read this for the "why is my flag doing what it's doing" understanding. |
 | ★ | The homelab's [observability stack docs](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/observability) | Grafana Alloy → Cloud, scraping vLLM `/metrics` at port 8003, KV cache usage tracking, GPU mode-swap state. Concrete monitoring recipe.<br>**Why ★:** working example of the observability gap most "self-host" guides skip. |
 | ☆ | [Self-Hosted LLM Costs 2026 — Pricing Comparison](https://www.sitepoint.com/self-hosted-llm-costs-2026/) — SitePoint | Calibrates the ongoing costs (electricity, depreciation, ops time) against your initial estimate. |
-| ☆ | The homelab's [`autoresearch/decisions/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/vllm/autoresearch/decisions) durable-records pattern | When-and-why a workload-driven decision was made. Pattern is more important than the specific entries. |
+| ☆ | The [`gb10_serving/decisions/`](https://github.com/chipi/podcast-scraper-eval-data/tree/master/autoresearch/gb10_serving/decisions) durable-records pattern (private eval-data repo) | When-and-why a workload-driven decision was made. Pattern is more important than the specific entries. |
 
 ---
 
@@ -221,7 +222,7 @@ For "should I and how do I self-host":
 2. ★ Kunal Ganglani's hardware tiers — match VRAM to your model
 3. ★ InsiderLLM "One user vs many" — pick your framework class
 4. ★ vLLM vs Ollama benchmark — see the actual concurrency numbers
-5. Skim the homelab's [`infra/vllm/autoresearch/README.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/vllm/autoresearch/README.md) — a working concrete example
+5. Skim [`gb10_serving/README.md`](https://github.com/chipi/podcast-scraper-eval-data/blob/master/autoresearch/gb10_serving/README.md) (private eval-data repo) — a working concrete example
 
 After that, depth on specifics by topic.
 

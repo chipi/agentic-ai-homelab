@@ -150,9 +150,10 @@ the env vars in the calling shell or drop a `~/.config/gpu-mode.env`:
 
 ```bash
 # ~/.config/gpu-mode.env (sourced if present, gitignored — operator-local).
-# Usually EMPTY now: the script derives every dir from its own location in the
-# ops checkout, so overrides are only for a non-standard layout.
-# e.g. GPU_MODE_RESEARCH_DIR=/home/ops/agentic-ai-homelab/infra/vllm/autoresearch
+# Homelab stacks (coder-next, judges) derive from the script's own checkout; the product
+# stacks (prod-vllm, translate, autoresearch) live in chipi/infra and default to
+# <checkout parent>/chipi-infra/infra/ai/vllm/<stack>. The DGX sets them explicitly:
+# GPU_MODE_PRODVLLM_DIR=/home/ops/chipi-infra/infra/ai/vllm/prod-vllm  (same for TRANSLATE, RESEARCH)
 GPU_MODE_CODER_PORT=9000
 GPU_MODE_RESEARCH_PORT=8003
 GPU_MODE_DOCKER="sudo docker"
@@ -171,7 +172,7 @@ Available variables (all optional):
 | `GPU_MODE_RESEARCH_SVC` | `vllm-autoresearch` | Autoresearch service name |
 | `GPU_MODE_DOCKER` | `sudo docker` | Docker command prefix |
 | `GPU_MODE_SUDO` | `sudo` | Privilege prefix for host cmds (e.g. `systemctl restart ollama`); `""` if root/passwordless |
-| `GPU_MODE_START_TIMEOUT` | `120` | Seconds to wait for target port |
+| `GPU_MODE_START_TIMEOUT` | `300` | Seconds to wait for target port (cold loads after `free` take 2-4 min) |
 
 ### Common failure modes
 
