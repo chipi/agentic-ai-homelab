@@ -65,8 +65,17 @@ def main():
         body = {"dashboardUID": BOARD, "time": ms(start), "tags": tags,
                 "text": f"{run_id}<br>{model} on {host}{note}"}
         if end_iso:
-            body["timeEnd"] = ms(end_iso)
+            # "stopped HH:MMZ" has minute precision; a run stopped in its first minute would end
+            # before it started, which Grafana does not store as sent.
+            body["timeEnd"] = max(ms(end_iso), body["time"])
         existing = call("GET", f"/api/annotations?tags=run:{run_id}&limit=5")
+        # Write only what changed. Rewriting every mark on every 10-minute re-sync was a burst of
+        # PATCHes into Grafana's SQLite; at 23:30:45Z on 2026-10-30 one met a held lock and got
+        # 500 "database is locked" (sqlstore.max-retries-reached).
+        if existing and (existing[0].get("time"), existing[0].get("timeEnd"), existing[0].get("text"),
+                         sorted(existing[0].get("tags") or [])) == (
+                body["time"], body.get("timeEnd", body["time"]), body["text"], sorted(tags)):
+            continue
         verb = "UPDATE" if existing else "CREATE"
         print(f"{verb} {run_id} {host} {model} {start} -> {end or 'running'}")
         if not apply:
