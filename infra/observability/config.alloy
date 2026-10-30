@@ -291,6 +291,18 @@ loki.source.journal "kernel" {
   forward_to = [loki.relabel.naming.receiver]
 }
 
+// ---------- LOGS: the ollama systemd service (journal, ollama.service only) ----------
+// Ollama runs as a host service, not a container, so loki.source.docker never sees it.
+// Its log is the research record for a model run: load time, GPU vs CPU split, OOMs, and
+// per-request generation speed ("print_timing ... tg = 41.6 t/s"). ~2k lines/h while a
+// model serves (2026-10-30); nothing when the GPU is in another mode. service = ollama.
+loki.source.journal "ollama" {
+  path       = "/rootfs/var/log/journal"
+  matches    = "_SYSTEMD_UNIT=ollama.service"
+  labels     = { job = "ollama" }
+  forward_to = [loki.relabel.naming.receiver]
+}
+
 // ---------- PUSH logs to VictoriaLogs (Loki push protocol) ----------
 // VictoriaLogs accepts the Loki push API at /insert/loki/api/v1/push. Target is
 // env-driven; on the tailnet point LOGS_WRITE_URL at the backend host's
