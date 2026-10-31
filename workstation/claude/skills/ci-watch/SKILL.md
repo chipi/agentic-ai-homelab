@@ -15,6 +15,8 @@ way every time, so the failures that happened when the loop was hand-written can
 | A fix's `app-unit` job was **cancelled** twice before it ran, and a cancelled check read as "done" | Prints `NOT RUN — cancelled; the next commit on <branch> is <sha>`; the verdict is INCOMPLETE, never GREEN |
 | The cause of a red job took several commands to find | Prints the failing job's log tail on the first failure, `##[error]` lines first |
 | A green drill hid a failed `tofu destroy` (a fallback said "teardown OK") and a Node 20 deprecation, 2026-10-28; nobody read them | Prints each check's warning and failure annotations under it; the GREEN verdict line counts warnings and names failures inside green checks as HIDDEN |
+| On private repos a fine-grained token gets **403** on check-runs (it cannot hold Checks: read), so the watch saw nothing, 2026-10-31 | Falls back to the Actions jobs of the commit's workflow runs (a job id is its check-run id, so the log tail still works); the verdict says `Actions jobs only` |
+| The log tail never printed: `gh` 2.96 has no `--allow-escape-sequences` flag, so every fetch failed | Plain `gh api` on the logs endpoint; ANSI codes are stripped afterwards |
 
 ## Run it under the Monitor tool
 
@@ -76,3 +78,15 @@ in CI against ~1 s locally, and its tests hit the 5 s default.
   after everything else has finished. If the verdict lands while a gate is still to come, the
   next arm picks it up.
 - The log tail is the job log only; artifacts (test reports, screenshots) are not fetched.
+- In the Actions-jobs fallback: annotations (warnings, failures hidden in green jobs) and checks
+  from other apps (a GitHub App, a commit status) are not read. The verdict line says so; it does
+  not mean they were clean. A classic token or a GitHub App with Checks: read closes it.
+
+## Tested 2026-10-31 (gh 2.96.0, a fine-grained token without Checks: read)
+
+- Private repo, green commit: fallback line, three jobs, `VERDICT GREEN … Actions jobs only`, exit 0.
+- Private repo, a commit whose job a newer push cancelled: `NOT RUN — cancelled; the next commit
+  on main is …`, `VERDICT INCOMPLETE`, exit 2.
+- Private repo, red commit: `VERDICT RED`, and the log tail shows the `ERROR:` and `##[error]`
+  lines of the failing job.
+- Public repo: check-runs read as before, no fallback line.

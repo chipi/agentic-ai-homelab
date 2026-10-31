@@ -16,6 +16,10 @@ own. Read-only: GitHub API reads through an already-authenticated `gh`.
   green check can carry a swallowed failure (`|| true`, a non-fatal step, a retry that passed)
   or a deprecation that will break it later; those are only visible as annotations, and the
   verdict line counts them, naming failures inside green checks as hidden.
+- A fine-grained token cannot hold Checks: read, so on a repo where check-runs answers 403 the
+  watch falls back to the Actions jobs of the commit's workflow runs (a job id is its check-run
+  id, so the log tail still works). That mode cannot see checks from other apps or annotations;
+  the verdict line says so instead of implying they were clean.
 - The last line is the verdict, classified like podcast_scraper's ci-gate.yml: RED on
   failure/timed_out; INCOMPLETE on anything that did not run (cancelled, stale, still running at
   the deadline); else GREEN.
@@ -99,6 +103,20 @@ def check_runs(repo: str, sha: str) -> list[dict]:
     return gh_items(f"repos/{repo}/commits/{sha}/check-runs?per_page=100", ".check_runs[]")
 
 
+def is_forbidden(exc: RuntimeError) -> bool:
+    return "HTTP 403" in str(exc) or "Resource not accessible" in str(exc)
+
+
+def job_runs(repo: str, wruns: list[dict]) -> list[dict]:
+    """The Actions jobs of ``wruns``, shaped like check runs (a job's id is its check-run id)."""
+    jobs: list[dict] = []
+    for w in wruns:
+        for j in gh_items(f"repos/{repo}/actions/runs/{w['id']}/jobs?per_page=100", ".jobs[]"):
+            j["name"] = f"{w.get('name', '')} / {j.get('name', '')}"
+            jobs.append(j)
+    return jobs
+
+
 def workflow_runs(repo: str, sha: str) -> list[dict]:
     return gh_items(f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100", ".workflow_runs[]")
 
@@ -128,7 +146,7 @@ def superseded_by(repo: str, sha: str, branch: str | None) -> tuple[str, str]:
 
 def log_tail(repo: str, job_id: int, lines: int = 25) -> list[str]:
     out = subprocess.run(
-        ["gh", "api", "--allow-escape-sequences", f"repos/{repo}/actions/jobs/{job_id}/logs"],
+        ["gh", "api", f"repos/{repo}/actions/jobs/{job_id}/logs"],
         capture_output=True,
         text=True,
     )
@@ -164,10 +182,21 @@ def main(argv: list[str]) -> int:
     hidden: list[str] = []
     showed_failure = False
     branch: str | None = None
+    jobs_only = False
     while True:
         try:
-            runs = check_runs(repo, sha)
             wruns = workflow_runs(repo, sha)
+            if not jobs_only:
+                try:
+                    runs = check_runs(repo, sha)
+                except RuntimeError as exc:
+                    if not is_forbidden(exc):
+                        raise
+                    jobs_only = True
+                    say("(check-runs refused (403): the token has no Checks: read; watching the "
+                        "Actions jobs instead — no annotations, no checks from other apps)")
+            if jobs_only:
+                runs = job_runs(repo, wruns)
         except RuntimeError as exc:
             say(f"(transient: {exc}; retrying)")
             runs, wruns = [], []
@@ -191,7 +220,7 @@ def main(argv: list[str]) -> int:
                 say(f"{r['name']}: NOT RUN — {why}")
             else:
                 say(f"{r['name']}: {c}")
-                for a in annotations(repo, int(r["id"])):
+                for a in [] if jobs_only else annotations(repo, int(r["id"])):
                     level = a.get("annotation_level")
                     msg = " ".join(str(a.get("message", "")).split())[:300]
                     say(f"  {level}: {msg}")
@@ -222,7 +251,7 @@ def main(argv: list[str]) -> int:
             f"{', '.join(still)}; {counts or 'nothing completed'}. RE-ARM ci-watch.")
         return 3
     if failed:
-        say(f"VERDICT RED — {counts}")
+        say(f"VERDICT RED — {counts}" + ("; Actions jobs only" if jobs_only else ""))
         return 1
     if not_run:
         say(f"VERDICT INCOMPLETE — {counts} (cancelled/stale checks did not run; they are not a pass)")
@@ -233,7 +262,10 @@ def main(argv: list[str]) -> int:
                      f"{', '.join(sorted(set(hidden)))}")
     if warned:
         notes.append(f"{len(warned)} warning(s) in {', '.join(sorted(set(warned)))}")
-    say(f"VERDICT GREEN — {counts}" + (f"; {'; '.join(notes)} — read them above" if notes else ""))
+    tail = f"; {'; '.join(notes)} — read them above" if notes else ""
+    if jobs_only:
+        tail += "; Actions jobs only: annotations and checks from other apps NOT read (no Checks: read)"
+    say(f"VERDICT GREEN — {counts}{tail}")
     return 0
 
 
