@@ -62,7 +62,10 @@ groups:
         # 2026-09-30 NoData replay — every real outage was already alerted by
         # dgx-silent / prod-silent / mini-forward-down (host or pipeline dark).
         noDataState: OK
-        labels: { severity: critical, kind: infra }
+        # warning, not critical, since 2026-11-01: criticals now push to Slack #ops-critical,
+        # and this fired 59 times in the 30 days before, mostly exporters flapping. A real
+        # outage is still critical through dgx-silent / prod-silent / logs-dark.
+        labels: { severity: warning, kind: infra }
         annotations:
           summary: "Target down (up==0) for 5m — {{ $labels.job }} / {{ $labels.instance }}."
         data:
@@ -775,7 +778,9 @@ groups:
         for: 0m
         noDataState: OK
         execErrState: Alerting
-        labels: { tenant: common, severity: critical, kind: security }
+        # warning since 2026-11-01 (operator): a ban is fail2ban doing its job, not an
+        # "act now" page; criticals push to Slack #ops-critical. Still emailed.
+        labels: { tenant: common, severity: warning, kind: security }
         annotations:
           summary: "fail2ban banned a host on prod-podcast — a jail tripped."
         data:

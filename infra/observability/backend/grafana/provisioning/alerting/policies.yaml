@@ -22,6 +22,14 @@ policies:
           - alertname =~ "DatasourceNoData|DatasourceError|Watchdog"
         mute_time_intervals: [always]
         continue: false
+      # CRITICALS -> email + Slack #ops-critical (contact point `critical`). Before the meta
+      # route on purpose: a critical substrate or household alert (fleetd silent, home
+      # internet down) is still "act now". Warnings fall through to email only and reach
+      # Slack solely through the #ops-daily morning summary. (Operator, 2026-11-01.)
+      - receiver: critical
+        matchers:
+          - severity = "critical"
+        continue: false
       # SUBSTRATE alerts (meta=true: fleetd/VM/Grafana health) terminate at the
       # operator surface ONLY. Deliberately NOT routed to GlitchTip: GlitchTip is
       # a triage-fleet SOURCE, so a critical meta alert would re-enter the fleet

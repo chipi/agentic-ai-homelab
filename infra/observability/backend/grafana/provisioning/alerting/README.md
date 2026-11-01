@@ -10,7 +10,7 @@ Rules are grouped by domain. Thresholds are tuned against real baselines observe
 |---|---|---|---|
 | **Scrape target down** `infra-target-down` | `up == 0` for 5m | VictoriaMetrics | Critical scrape target lost. Excludes on-demand GPU services (vllm, vllm-autoresearch, ollama — they swap with gpu-mode-swap). |
 | **Host disk low** `infra-disk-low` | Free space < 10% for 10m | VictoriaMetrics | Warning: filesystem usage elevated. Current baselines 33–58% free; 10% is pure headroom. |
-| **Host disk critical** `infra-disk-crit` | Free space < 5% for 5m | VictoriaMetrics | Critical: imminent fill risk. Opens a GlitchTip issue. |
+| **Host disk critical** `infra-disk-crit` | Free space < 5% for 5m | VictoriaMetrics | Critical: imminent fill risk. Emailed and pushed to Slack #ops-critical. |
 | **FastAPI 5xx errors elevated** `app-http-5xx` | Rate > 0.01 req/s for 5m | VictoriaMetrics | Application error spike. Covers api, pyannote, moss (all instrumented). Baseline is 0/h; 0.01 req/s ≈ 3+ errors in 5m. |
 | **SSH auth failures / probes spiking** `sec-ssh-authfail` | Count > 15 in 5m | VictoriaLogs | Security: SSH probe/auth-failure burst. Prod-podcast is tailnet-only; normal ~0/5m; >15 signals a loop or unexpected exposure. |
 | **fail2ban issued a ban** `sec-fail2ban-ban` | Count > 0 (immediately) | VictoriaLogs | Security: confirmed hostile event. Any ban is worth surfacing; fires with no delay. Opens a GlitchTip issue. |
@@ -25,11 +25,14 @@ Each channel is **pluggable** — its secret is sourced from the backend `.env` 
 - **`default`** (email)  
   Recipient configured in `.env` as `ALERT_EMAIL_TO`. SMTP transport is wired via `GF_SMTP_*` env vars.
 
+- **`critical`** (email + Slack #ops-critical, since 2026-11-01)  
+  Every `severity=critical` alert. Both integrations in one contact point, so a critical is emailed AND pushed. Slack goes to the Homelab Ops app's `#ops-critical` incoming webhook, `ALERT_SLACK_WEBHOOK_URL` in `.env`; message `[CRITICAL]` / `[RESOLVED]` + alert + host, the summary, a Grafana link. Design: [`docs/recipes/slack-ops.md`](../../../../../../docs/recipes/slack-ops.md).
+
 - **`slack`** (incoming webhook)  
-  Webhook URL configured in `.env` as `ALERT_SLACK_WEBHOOK_URL`. Formatted as `[alertname] [severity]`.
+  Same webhook, plain format `[alertname] [severity]`. No route uses it; kept for ad-hoc tests.
 
 - **`glitchtip`** (webhook → issue ingestion)  
-  GlitchTip webhook URL configured in `.env` as `ALERT_GLITCHTIP_WEBHOOK_URL`. Receives critical-severity alerts only; each one opens a GlitchTip issue for investigation.
+  GlitchTip webhook URL configured in `.env` as `ALERT_GLITCHTIP_WEBHOOK_URL`. Unused since 2026-08-05 (see "No GlitchTip route" below).
 
 ## Notification policies
 
@@ -37,8 +40,10 @@ Routing model: **route by severity, not by channel**. The tree stays stable as c
 
 - **Root receiver:** `default`, email to `$ALERT_EMAIL_TO`. Grouped by `alertname` and `job`; group wait 30s, group interval 5m, **repeat every 24h**.
 - **Plumbing states** (`DatasourceNoData`, `DatasourceError`, `Watchdog`): muted. They are wiring problems, not incidents; still visible in Grafana and on the hub banner.
-- **`meta: "true"`** (fleetd, the VM, Grafana's own health): matched first, email only, never to the triage fleet.
-- **No GlitchTip route.** The old `severity=critical → glitchtip` route was removed on 2026-08-05: a matched child route stops the fall-back to the root receiver, so every critical was swallowed, and GlitchTip is a triage-fleet source, so bridging alerts into it would ingest each event twice. The `slack` and `glitchtip` contact points still exist with placeholder values; no route uses them.
+- **`severity: critical`** → contact point `critical` (email + Slack #ops-critical). Matched before the meta route, so a critical substrate or household alert (fleetd silent, home internet down) still pushes. Warnings never reach Slack directly; they appear in the #ops-daily morning summary.
+- **`meta: "true"`** (fleetd, the VM, Grafana's own health): non-critical ones matched next, email only, never to the triage fleet.
+- **No GlitchTip route.** The old `severity=critical → glitchtip` route was removed on 2026-08-05: a matched child route stops the fall-back to the root receiver, so every critical was swallowed, and GlitchTip is a triage-fleet source, so bridging alerts into it would ingest each event twice. The `glitchtip` contact point still exists with a placeholder value; no route uses it.
+- **What is critical** (2026-11-01 review, 30 days of firings): 20 rules. `infra-target-down` (59 firings, mostly flapping exporters) and `sec-fail2ban-ban` (routine) were demoted to warning.
 
 **Who acts on a firing alert.** The triage fleet (signal-fleet) reads every firing Grafana alert, not a list. When you add a rule:
 

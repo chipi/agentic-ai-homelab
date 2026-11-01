@@ -89,6 +89,7 @@ nav:
     - colima/lima forwarding — break & recovery: recipes/colima-lima-forwarding-recovery.md
     - Dev Docker engine (on demand): recipes/dev-docker-engine.md
     - Agent operations handbook: recipes/agent-access.md
+    - Slack for operations: recipes/slack-ops.md
     - Observability endpoints (obs name): recipes/observability-endpoints.md
     - Observability dependency & blast-radius map: observability-dependency-map.md
     - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md

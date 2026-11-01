@@ -25,6 +25,28 @@ contactPoints:
           addresses: "$__env{ALERT_EMAIL_TO}"
         disableResolveMessage: false
 
+  # critical — every severity=critical alert: email (the record) AND Slack #ops-critical
+  # (the "act now" channel, push on). One contact point with both integrations, because a
+  # matched child route stops the fallback to the root receiver (see policies.yaml), so
+  # routing criticals to Slack alone would have dropped their email. Webhook: the Homelab
+  # Ops Slack app's #ops-critical incoming webhook, ALERT_SLACK_WEBHOOK_URL in the backend
+  # .env (set 2026-11-01; never committed). Design: docs/recipes/slack-ops.md.
+  - orgId: 1
+    name: critical
+    receivers:
+      - uid: cp-critical-email
+        type: email
+        settings:
+          addresses: "$__env{ALERT_EMAIL_TO}"
+        disableResolveMessage: false
+      - uid: cp-critical-slack
+        type: slack
+        settings:
+          url: "$__env{ALERT_SLACK_WEBHOOK_URL}"
+          title: '{{ if eq .Status "firing" }}[CRITICAL]{{ else }}[RESOLVED]{{ end }} {{ .CommonLabels.alertname }}{{ with .CommonLabels.host }} — {{ . }}{{ end }}{{ with .CommonLabels.instance }} ({{ . }}){{ end }}'
+          text: '{{ range .Alerts }}{{ if eq .Status "firing" }}{{ .Annotations.summary }}{{ else }}Cleared at {{ .EndsAt.UTC.Format "15:04Z" }}.{{ end }}{{ "\n" }}{{ end }}<{{ .ExternalURL }}/alerting/list?search=state:firing|Open firing alerts in Grafana>'
+        disableResolveMessage: false
+
   # slack — set ALERT_SLACK_WEBHOOK_URL (an incoming-webhook URL) to activate.
   - orgId: 1
     name: slack
