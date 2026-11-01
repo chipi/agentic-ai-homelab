@@ -536,9 +536,15 @@ curl -s $LL/health/liveliness
 curl -s -H "$M" $LL/v1/models                                  # model aliases
 # A scoped virtual key (expires, budget-capped), its info, and deletion:
 curl -s -H "$M" -H 'Content-Type: application/json' -d '{"key_alias":"<name>","duration":"7d","max_budget":5}' $LL/key/generate
-curl -s -H "$M" "$LL/key/info?key=<sk-…>"
+curl -s -H 'Authorization: Bearer <sk-…>' $LL/key/info         # 200 = live, 401 = unknown or wiped
+curl -s -H "$M" -H 'Content-Type: application/json' -d '{"keys":["<sk-…>"]}' $LL/v2/key/info   # same, as the master key
 curl -s -H "$M" -H 'Content-Type: application/json' -d '{"keys":["<sk-…>"]}' $LL/key/delete
 ```
+
+**Never put a key in a URL** (`/key/info?key=sk-…`): LiteLLM's access log prints the full
+URL and Alloy ships it to VictoriaLogs, where it stays for 30 days and cannot be deleted. On
+2026-11-01, 18 such lines were found (4 keys, on the mini and the VPS). Both forms above keep
+the key in a header or the body; tested on the mini's v1.96.2 the same day.
 
 Spend lives in `litellm-postgres` (`psql -U litellm -d litellm`). On the VPS, the same
 API runs in container `litellm` (master key in its env); run the calls from the VPS.

@@ -93,7 +93,8 @@ curl -s http://localhost:4001/key/generate -H "Authorization: Bearer $LITELLM_MA
 ```
 Incident 2026-08-18: the colima/DB recreate wiped both keys → every triager call
 `401`'d → the fleet failed **open** and filed ~90 escalations onto
-`chipi/podcast_scraper`. Detect with `/key/info?key=…` (`404` = wiped); a triage
+`chipi/podcast_scraper`. Detect with `/key/info` called with the virtual key as the bearer (`401` = wiped; never
+`?key=…`, the access log ships the URL to VictoriaLogs); a triage
 call 401s with a body naming `LiteLLM_VerificationTokenTable`.
 
 ## Observability (full package, day one)
