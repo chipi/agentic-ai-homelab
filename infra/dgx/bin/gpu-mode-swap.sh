@@ -5,13 +5,22 @@
 # the same time (both want ~90% of VRAM). This script is the explicit,
 # scriptable contract for who owns the GPU right now.
 #
-# Modes: code | research | free | prod | ollama | status (default)
+# Modes (operator's design, 2026-11-01; the speech services — faster-whisper :8000,
+# pyannote :8001, moss :8004 — run in every mode and are never touched):
 #
-#   prod — production SERVING vLLM slot on :8003 (chipi/infra infra/ai/vllm/prod-vllm).
-#          A real vLLM, single-owner-at-a-time like research.
-#   ollama — podcast_scraper pipeline: NO vLLM, Ollama warm with the pinned
-#          summary/GI/KG model (see OLLAMA_LLM_MODEL), whisper + pyannote checked.
-#          Starts the daemon, since any vLLM mode will have stopped it.
+#   mode             main LLM                             translate :8005   Ollama daemon
+#   prod             prod-vllm :8003                      started           stopped
+#   ollama           Ollama, pinned OLLAMA_LLM_MODEL warm started           started
+#   research-vllm    autoresearch vLLM :8003              stopped           stopped
+#   research-ollama  Ollama, any model (room for ~90 GiB) stopped           started
+#   code             coder-next vLLM :9000                stopped           stopped
+#   judging {a|b|n|x} one judge vLLM :8003                stopped           stopped
+#   free             —                                    stopped           left as is
+#   status (default) read-only
+#
+#   prod — production serving + the nightly. ollama — the podcast pipeline on Ollama.
+#   research-ollama — research/eval runs, including the large models (translate's 29 GiB
+#   freed). `research` is still accepted as the old name of research-vllm.
 #
 # OLLAMA vs vLLM — who may hold the GPU:
 #
@@ -377,7 +386,8 @@ while (( $# )); do
             sed -n '2,30p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
-        code|research|free|prod|ollama|status) MODE="$1" ;;
+        code|research-vllm|research-ollama|free|prod|ollama|status) MODE="$1" ;;
+        research)     MODE="research-vllm" ;;   # the pre-2026-11-01 name, still accepted
         judging)
             MODE="judging"
             # judging requires a sub-arg: a, b, n (qwen-next), or x (nemotron)
@@ -389,7 +399,7 @@ while (( $# )); do
             JUDGING_SUB="$1"
             ;;
         *)
-            echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b|n|x}] [--json] [--mode-only] [--no-color] [--force] [--foreground]" >&2
+            echo "usage: $0 [prod|ollama|research-vllm|research-ollama|code|judging {a|b|n|x}|free|status] [--json] [--mode-only] [--no-color] [--force] [--foreground]" >&2
             echo "  prod = serving vLLM on :$PRODVLLM_PORT PLUS the co-resident translate vLLM on :$TRANSLATE_PORT" >&2
             echo "         (GPU_MODE_TRANSLATE_WITH_PROD=0 brings up the serving vLLM only)" >&2
             exit 2
@@ -548,7 +558,7 @@ current_mode() {
     local total=$((code_up + research_up + prodvllm_up + judge_a_up + judge_b_up + judge_qwen_next_up + judge_nemotron_up))
     if   (( total > 1 ));           then echo "BROKEN-BOTH"
     elif (( code_up ));             then echo "code"
-    elif (( research_up ));         then echo "research"
+    elif (( research_up ));         then echo "research-vllm"
     elif (( prodvllm_up ));         then echo "prod"
     elif (( judge_a_up ));          then echo "judging-a"
     elif (( judge_b_up ));          then echo "judging-b"
@@ -785,7 +795,7 @@ action_status() {
     log "current state"
     case "$mode" in
         code)         ok "coder-next vLLM up on :$CODER_PORT" ;;
-        research)     ok "autoresearch vLLM up on :$RESEARCH_PORT" ;;
+        research-vllm) ok "autoresearch vLLM up on :$RESEARCH_PORT" ;;
         prod)         ok "prod serving vLLM up on :$PRODVLLM_PORT" ;;
         judging-a)    ok "judge-a vLLM up on :$JUDGE_A_PORT" ;;
         judging-b)    ok "judge-b vLLM up on :$JUDGE_B_PORT" ;;
@@ -803,17 +813,38 @@ action_status() {
     else
         dim "translate vLLM down (:$TRANSLATE_PORT) — translation unavailable"
     fi
+    # "free" above only means no vLLM; ollama and research-ollama also run none.
+    if systemctl is-active --quiet ollama 2>/dev/null; then
+        ok "ollama daemon up (:11434) — ollama or research-ollama mode"
+    else
+        dim "ollama daemon stopped"
+    fi
     dim "GPU: $(gpu_state_line)"
     ((JSON)) && emit_json "$mode" true || true
 }
 
-# Single-slot modes: done when that slot serves. do_swap fails the run otherwise.
+# Single-slot modes (code, research-vllm, judging-*): only their main vLLM holds the GPU, so
+# the co-resident translator is stopped too (29 GiB measured 2026-11-01) — before the slot
+# starts, so the memory is free for it. Done when the slot serves and translate is down.
+# Operator's mode design, 2026-11-01: translate runs only in prod and ollama.
+STOP_TRANSLATE=0
 swap_slot() {  # <mode> <dir> <port> <container> [model]
+    STOP_TRANSLATE=1
     do_swap "$@"
+    grep -qx "$TRANSLATE_SVC" <<<"$(running_containers)" \
+        && fail "end-state check: translate still running in $1 mode"
     ((JSON)) && emit_json "$1" true "port=$3" || true
 }
-action_code()     { swap_slot "code"     "$CODER_DIR"    "$CODER_PORT"    "$CODER_SVC"; }
-action_research() { swap_slot "research" "$RESEARCH_DIR" "$RESEARCH_PORT" "$RESEARCH_SVC"; }
+action_code()     { swap_slot "code"          "$CODER_DIR"    "$CODER_PORT"    "$CODER_SVC"; }
+action_research() { swap_slot "research-vllm" "$RESEARCH_DIR" "$RESEARCH_PORT" "$RESEARCH_SVC"; }
+
+# Stop the translator if it runs. Idempotent; fails the mode if it will not go down.
+stop_translate() {
+    grep -qx "$TRANSLATE_SVC" <<<"$(running_containers)" || return 0
+    [[ -d "$TRANSLATE_DIR" ]] || fail "translate runs but its stack dir is missing: $TRANSLATE_DIR"
+    log "stopping translate vLLM (:$TRANSLATE_PORT) — this mode runs without it"
+    compose_down "$TRANSLATE_DIR" || fail "compose down failed for $TRANSLATE_DIR"
+}
 
 # prod = the serving vLLM on :8003 AND the co-resident translation vLLM on :8005, and it
 # is done only when BOTH serve their models. It used to report success with translate down
@@ -927,33 +958,72 @@ action_ollama() {
         fi
     fi
 
+    # The pipeline translates before it summarises, so ollama mode runs the translator too
+    # (operator, 2026-11-01). ~58 GiB with the pinned model and the speech services.
+    local tr_ok=1
+    start_translate || tr_ok=0
+
     local svc_ok=1
+    speech_services_ok || svc_ok=0
+
+    local apps_after; apps_after=$(gpu_compute_app_count)
+    ok "compute apps ${apps_before}→${apps_after}; now: $(gpu_state_line)"
+
+    local all_ok=false
+    [[ $llm_ok -eq 1 && $svc_ok -eq 1 && $tr_ok -eq 1 ]] && all_ok=true
+    ((JSON)) && emit_json "ollama" "$all_ok" "llm=${OLLAMA_LLM_MODEL}" "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
+    if [[ "$all_ok" != true ]]; then
+        FAIL_REASON="ollama mode incomplete: llm warm=$llm_ok, translate serving=$tr_ok, whisper+pyannote up=$svc_ok"
+        return 1
+    fi
+}
+
+# The always-on speech services, never started or stopped by this script (they are their
+# own stacks under /opt/…): whisper and pyannote must answer, MOSS is optional.
+speech_services_ok() {
+    local rc=0
     if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${OLLAMA_WHISPER_PORT}/v1/models" 2>/dev/null; then
         ok "faster-whisper up on :${OLLAMA_WHISPER_PORT}"
     else
-        warn "faster-whisper NOT responding on :${OLLAMA_WHISPER_PORT}"; svc_ok=0
+        warn "faster-whisper NOT responding on :${OLLAMA_WHISPER_PORT}"; rc=1
     fi
     if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${OLLAMA_DIARIZE_PORT}/v1/models" 2>/dev/null; then
         ok "pyannote up on :${OLLAMA_DIARIZE_PORT}"
     else
-        warn "pyannote NOT responding on :${OLLAMA_DIARIZE_PORT}"; svc_ok=0
+        warn "pyannote NOT responding on :${OLLAMA_DIARIZE_PORT}"; rc=1
     fi
     if curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${OLLAMA_MOSS_PORT}/v1/models" 2>/dev/null; then
         ok "MOSS up on :${OLLAMA_MOSS_PORT}"
     else
         warn "MOSS NOT responding on :${OLLAMA_MOSS_PORT} (transcription falls back to faster-whisper)"
     fi
+    return $rc
+}
 
+# research-ollama: Ollama for research and eval runs, with room for the large models. No
+# vLLM and no translator (stopped: 29 GiB), so a ~90 GiB model fits beside the speech
+# services (~5 GiB): measured 2026-10-30/31, nemotron-super 120B and mistral-medium 128B
+# ran at ~98 GiB allocated with translate stopped by hand. No pinned model is warmed — the
+# eval runner loads what it needs (one at a time: OLLAMA_MAX_LOADED_MODELS=1).
+action_research_ollama() {
+    log "→ research-ollama (no vLLM, no translator; Ollama for research/eval models)"
+    local apps_before; apps_before=$(gpu_compute_app_count)
+    stop_all_composes_including_translate
+    sleep 2
+    start_ollama_daemon
+    local host="${OLLAMA_HOST:-http://127.0.0.1:11434}"
+    curl -fsS --max-time 5 "${host}/api/ps" >/dev/null 2>&1 \
+        || fail "Ollama not answering at ${host} after start"
+    ok "Ollama answering at ${host}"
+    speech_services_ok || fail "research-ollama: whisper/pyannote not answering (they are never stopped by this script — check /opt/faster-whisper, /opt/pyannote-server)"
+    local left="" svc names; names="$(running_containers)"
+    for svc in "$CODER_SVC" "$RESEARCH_SVC" "$PRODVLLM_SVC" "$TRANSLATE_SVC" "$JUDGE_A_SVC" "$JUDGE_B_SVC" "$JUDGE_QWEN_NEXT_SVC" "$JUDGE_NEMOTRON_SVC"; do
+        grep -qx "$svc" <<<"$names" && left+=" $svc"
+    done
+    [[ -z "$left" ]] || fail "end-state check: still running in research-ollama:$left"
     local apps_after; apps_after=$(gpu_compute_app_count)
-    ok "compute apps ${apps_before}→${apps_after}; now: $(gpu_state_line)"
-
-    local all_ok=false
-    [[ $llm_ok -eq 1 && $svc_ok -eq 1 ]] && all_ok=true
-    ((JSON)) && emit_json "ollama" "$all_ok" "llm=${OLLAMA_LLM_MODEL}" "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
-    if [[ "$all_ok" != true ]]; then
-        FAIL_REASON="ollama mode incomplete: llm warm=$llm_ok, whisper+pyannote up=$svc_ok"
-        return 1
-    fi
+    ok "research-ollama complete; compute apps ${apps_before}→${apps_after}; $(gpu_state_line)"
+    ((JSON)) && emit_json "research-ollama" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
 }
 
 do_swap() {
@@ -968,6 +1038,7 @@ do_swap() {
     # manually, a model loaded) still reports the same mode; --force is the reset.
     if [[ "$current" == "$target" && $FORCE -eq 0 ]]; then
         log "already in $target mode — checking it serves (use --force to re-run the full swap)"
+        (( STOP_TRANSLATE )) && stop_translate
         wait_serving "$target vLLM" "$start_port" "$start_dir" "$start_svc" "$start_model" \
             || fail "$target vLLM not serving on :$start_port"
         return 0
@@ -995,11 +1066,12 @@ do_swap() {
     # slot added later; keying off "a vLLM is about to own the GPU" cannot drift.
     # The modes where Ollama legitimately runs — `ollama` and `free` — never reach here.
     stop_ollama_daemon
+    (( STOP_TRANSLATE )) && stop_translate
 
     # research + prod are the heavy same-size vLLMs sharing the GPU with
     # Ollama — flush it + clear any stale container before starting. Code slot
     # is intentionally untouched here.
-    if [[ "$target" == "research" || "$target" == "prod" ]]; then
+    if [[ "$target" == "research-vllm" || "$target" == "prod" ]]; then
         prepare_gpu_for_research
         remove_stale_container "${start_svc:-$RESEARCH_SVC}"
     fi
@@ -1076,7 +1148,8 @@ fi
 case "$MODE" in
     status)    action_status ;;
     code)      action_code ;;
-    research)  action_research ;;
+    research-vllm)   action_research ;;
+    research-ollama) action_research_ollama ;;
     free)      action_free ;;
     prod)      action_prodvllm ;;
     ollama)    action_ollama ;;
@@ -1090,7 +1163,7 @@ case "$MODE" in
         esac
         ;;
     *)
-        echo "usage: $0 [code|research|free|prod|ollama|status|judging {a|b}] [--json] [--mode-only] [--no-color] [--force]" >&2
+        echo "usage: $0 [prod|ollama|research-vllm|research-ollama|code|judging {a|b|n|x}|free|status] [--json] [--mode-only] [--no-color] [--force] [--foreground]" >&2
         exit 2
         ;;
 esac

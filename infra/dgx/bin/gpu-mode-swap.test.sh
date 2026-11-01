@@ -20,7 +20,7 @@ mkstack() {  # <dir name> <container> <port> <model> <load delay s>
     mkdir -p "$T/stacks/$1"
     echo "$2" >"$T/stacks/$1/.svc"
     echo "VLLM_API_KEY=k-$1" >"$T/stacks/$1/.env"
-    echo "$2" >"$FAKE/ports/$3"
+    echo "$2" >>"$FAKE/ports/$3"   # several slots share :8003; curl picks the running one
     echo "$4" >"$FAKE/model/$2"
     echo "$5" >"$FAKE/delay/$2"
 }
@@ -45,11 +45,18 @@ esac
 EOF
 cat >"$T/bin/curl" <<'EOF'
 #!/usr/bin/env bash
-url="${!#}"
+url=""; for a in "$@"; do [[ "$a" == http://* || "$a" == https://* ]] && url="$a"; done
 port="$(sed -E 's#^https?://[^:/]+:([0-9]+).*#\1#' <<<"$url")"
 [[ "$url" == *-K* ]] && true
 cat >/dev/null 2>&1 </dev/stdin &
-name="$(cat "$FAKE/ports/$port" 2>/dev/null)" || exit 7
+if [[ "$port" == 11434 ]]; then   # the ollama daemon: answers while "active"
+    [[ -f "$FAKE/ollama-active" ]] || exit 7
+    case "$url" in */api/ps) echo '{"models":[]}' ;; */api/generate) echo '{"done":true}' ;; esac
+    exit 0
+fi
+name=""
+while read -r n; do [[ "$(cut -d' ' -f1 "$FAKE/containers/$n" 2>/dev/null)" == running ]] && { name=$n; break; }; done <"$FAKE/ports/$port" 2>/dev/null
+[[ -n "$name" ]] || exit 7
 st="$(cat "$FAKE/containers/$name" 2>/dev/null)" || exit 7
 [[ "${st%% *}" == running ]] || exit 7
 (( $(date +%s) - ${st##* } >= $(cat "$FAKE/delay/$name") )) || exit 22
@@ -70,16 +77,22 @@ EOF
 printf '#!/usr/bin/env bash\ncase "$*" in *utilization.gpu*) echo 0;; esac\n' >"$T/bin/nvidia-smi"
 chmod +x "$T/bin"/*
 
-mkstack prod-vllm vllm-prod-vllm 8003 Model/Prod 6
-mkstack translate vllm-translate 8005 google/translategemma-12b-it 9
+mkstack prod-vllm vllm-prod-vllm 8003 Model/Prod 2
+mkstack translate vllm-translate 8005 google/translategemma-12b-it 3
+mkstack autoresearch vllm-autoresearch 8003 Model/Research 1
+mkstack coder vllm-coder-next 9000 Model/Coder 1
+# the always-on speech services: containers that answer at once and no mode touches
+for s in faster-whisper:8000 pyannote:8001 moss:8004; do echo "${s%%:*}" >"$FAKE/ports/${s##*:}"; echo 0 >"$FAKE/delay/${s%%:*}"; echo speech >"$FAKE/model/${s%%:*}"; done
+speech_up() { for s in faster-whisper pyannote moss; do echo "running 0" >"$FAKE/containers/$s"; done; }
+vllms() { ls "$FAKE/containers" | grep '^vllm-' | tr '\n' ' '; }
 
 export PATH="$T/bin:$PATH" HOME="$T/home"
 export GPU_MODE_DOCKER=docker GPU_MODE_SUDO="" GPU_MODE_STATE_DIR="$T/state"
 export GPU_MODE_PRODVLLM_DIR="$T/stacks/prod-vllm" GPU_MODE_TRANSLATE_DIR="$T/stacks/translate"
 export GPU_MODE_PRODVLLM_MODEL=Model/Prod GPU_MODE_START_TIMEOUT=40
-export GPU_MODE_INFRA_ROOT="$T/none" GPU_MODE_CODER_DIR="$T/none/c"
+export GPU_MODE_INFRA_ROOT="$T/none" GPU_MODE_CODER_DIR="$T/stacks/coder" GPU_MODE_RESEARCH_DIR="$T/stacks/autoresearch"
 
-reset() { rm -f "$FAKE"/containers/* "$FAKE/calls" "$FAKE"/fail-up-*; touch "$FAKE/ollama-active"; }
+reset() { rm -f "$FAKE"/containers/* "$FAKE/calls" "$FAKE"/fail-up-*; touch "$FAKE/ollama-active"; speech_up; }
 lastline() { tail -1 "$T/state/last.log"; }
 
 # 1. ollama -> prod: both stacks serve, exit 0, OK line; ollama stopped and not restarted
@@ -128,11 +141,39 @@ wait "$first"
 
 # 7. free leaves no vLLM running; --json prints one result object on stdout
 json="$("$SWAP" free --json 2>/dev/null)"; rc=$?
-[[ $rc == 0 && -z "$(ls "$FAKE/containers")" && "$json" == '{"mode":"free","success":true'* ]] \
-    && pass "free: nothing left, json ok" || bad "free: rc=$rc left=$(ls "$FAKE/containers") json=$json"
+[[ $rc == 0 && -z "$(vllms)" && -f "$FAKE/containers/pyannote" && "$json" == '{"mode":"free","success":true'* ]] \
+    && pass "free: no vLLM left, speech untouched, json ok" || bad "free: rc=$rc vllms='$(vllms)' json=$json"
 
 # 8. status never detaches
 "$SWAP" status 2>&1 | grep -q 'running detached' && bad "status detached" || pass "status runs inline"
 
-echo "$(( 8 - FAILS > 0 ? 1 : 0 ))" >/dev/null
+# --- the 2026-11-01 mode design: translate runs only in prod and ollama ---
+# 9. prod -> research-vllm: autoresearch serves, translate and prod-vllm down, ollama stopped
+reset; "$SWAP" prod >/dev/null 2>&1
+"$SWAP" research-vllm >/dev/null 2>&1; rc=$?
+[[ $rc == 0 && "$(vllms)" == "vllm-autoresearch " && ! -f "$FAKE/ollama-active" && "$(lastline)" == "MODE=research-vllm OK" ]] \
+    && pass "research-vllm: autoresearch only, translate stopped" || bad "research-vllm: rc=$rc vllms='$(vllms)' last='$(lastline)'"
+# 10. the old name still works and lands in the same mode (already there: re-check only)
+"$SWAP" research >/dev/null 2>&1; rc=$?
+[[ $rc == 0 && "$(lastline)" == "MODE=research-vllm OK" ]] && pass "'research' is accepted as research-vllm" || bad "research alias: rc=$rc last='$(lastline)'"
+# 11. code from prod: coder serves on :9000, translate down
+reset; "$SWAP" prod >/dev/null 2>&1
+"$SWAP" code >/dev/null 2>&1; rc=$?
+[[ $rc == 0 && "$(vllms)" == "vllm-coder-next " && -f "$FAKE/containers/faster-whisper" ]] \
+    && pass "code: coder only, translate stopped, speech untouched" || bad "code: rc=$rc vllms='$(vllms)'"
+# 12. research-ollama from prod: no vLLM at all, ollama daemon up, speech untouched
+reset; "$SWAP" prod >/dev/null 2>&1
+"$SWAP" research-ollama >/dev/null 2>&1; rc=$?
+[[ $rc == 0 && -z "$(vllms)" && -f "$FAKE/ollama-active" && -f "$FAKE/containers/pyannote" && "$(lastline)" == "MODE=research-ollama OK" ]] \
+    && pass "research-ollama: no vLLM, no translate, ollama up" || bad "research-ollama: rc=$rc vllms='$(vllms)' last='$(lastline)'"
+# 13. ollama from free: translate started and serving, ollama up, no :8003 vLLM
+reset; rm -f "$FAKE/ollama-active"
+"$SWAP" ollama >/dev/null 2>&1; rc=$?
+[[ $rc == 0 && "$(vllms)" == "vllm-translate " && -f "$FAKE/ollama-active" && "$(lastline)" == "MODE=ollama OK" ]] \
+    && pass "ollama: translate started, ollama up" || bad "ollama: rc=$rc vllms='$(vllms)' last='$(lastline)'"
+# 14. research-ollama -> prod: ollama stopped, prod-vllm + translate serving
+"$SWAP" research-ollama >/dev/null 2>&1
+"$SWAP" prod >/dev/null 2>&1; rc=$?
+[[ $rc == 0 && "$(vllms)" == "vllm-prod-vllm vllm-translate " && ! -f "$FAKE/ollama-active" ]] \
+    && pass "research-ollama -> prod: both back, ollama stopped" || bad "back to prod: rc=$rc vllms='$(vllms)'"
 (( FAILS == 0 )) && echo "ALL PASS" || { echo "$FAILS FAILED"; exit 1; }

@@ -109,7 +109,7 @@ Mode-swap is the explicit toggle:
 
 ```bash
 gpu-mode code         # bring coder-next up, ensure others down
-gpu-mode research     # autoresearch instead
+gpu-mode research-vllm     # autoresearch instead
 gpu-mode idle         # both down
 ```
 

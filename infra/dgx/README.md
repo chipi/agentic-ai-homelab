@@ -45,7 +45,7 @@ any local vLLM endpoint:
 ```bash
 ~/bin/gpu-mode-swap.sh --mode-only     # → code | research | idle | BROKEN-BOTH
 ~/bin/gpu-mode-swap.sh code --json     # bring coder-next up
-~/bin/gpu-mode-swap.sh research --json # bring autoresearch up
+~/bin/gpu-mode-swap.sh research-vllm --json # bring autoresearch up
 ~/bin/gpu-mode-swap.sh idle --json     # both down
 ```
 

@@ -39,37 +39,46 @@ config is needed after a `git pull`.
 
 ### The modes — what each one is about
 
-The single GPU has **one vLLM slot**. Every mode is really "**what occupies the
-vLLM slot**" (plus, for `prod`, whether the pinned Ollama model is warmed).
+Each mode decides three things: which **main LLM** holds the GPU, whether the
+**translate vLLM** (:8005, 29 GiB) runs beside it, and whether the **Ollama daemon**
+runs. Only one main LLM at a time, and Ollama never beside a vLLM (#63). Operator's
+design, 2026-11-01:
 
-**The always-on ML services — `pyannote` (:8001), `faster-whisper`/speaches
-(:8000), `moss` (:8004) — are NEVER touched by any mode.** They are the podcast
-pipeline's production inference services and stay running in every mode; the
-script only *checks* they're up. Only the vLLM composes (and the pinned Ollama
-model) are swapped.
-
-| Mode | vLLM slot | Pinned Ollama model | Frees the ~78 GB vLLM? | Use it for |
+| Mode | Main LLM | translate :8005 | Ollama daemon | Use it for |
 |---|---|---|---|---|
-| `code` | coder-next vLLM (:9000, `Qwen3-Coder-Next-FP8`) | — | no (coder occupies it) | coding assistants |
-| `research` | autoresearch vLLM (:8003, `Qwen3-30B-A3B FP4`) | — | no (research occupies it) | the autoresearch pipeline |
-| `judging {a\|b\|n\|x}` | one judge vLLM (a=Qwen3-30B, b=Llama-3.3-70B, n=Qwen3-Next-80B, x=Nemotron-120B) | — | no | the multi-judge sweep |
-| `prod` | **empty** | **warm** (`qwen3.5:35b`, keep_alive 24h) | yes | the podcast pipeline (LLM served by Ollama, not vLLM) |
-| `free` | **empty** | cold | yes (**max free memory**) | reclaim the whole GPU — before a fresh vLLM start, or to park the box |
-| `status` *(default)* | — (read-only) | — | — | print the current mode |
+| `prod` | prod-vllm :8003 (`Qwen3-30B-A3B FP4`) | started | stopped | prod serving + the nightly |
+| `ollama` | Ollama :11434, pinned `qwen3.5:35b` warmed (24h) | started | started | the podcast pipeline on Ollama |
+| `research-vllm` | autoresearch vLLM :8003 (`Qwen3-30B-A3B FP4`) | stopped | stopped | the autoresearch pipeline |
+| `research-ollama` | Ollama :11434, any model, room for ~90 GiB | stopped | started | research and eval runs, incl. the large models |
+| `code` | coder-next vLLM :9000 (`Qwen3-Coder-Next-FP8`) | stopped | stopped | coding assistants |
+| `judging {a\|b\|n\|x}` | one judge vLLM :8003 (a=Qwen3-30B, b=Llama-3.3-70B, n=Qwen3-Next-80B, x=Nemotron-120B) | stopped | stopped | the multi-judge sweep |
+| `free` | — | stopped | left as is | free the GPU (all but the speech services) |
+| `status` *(default)* | read-only | | | print the current state |
 
-**`prod` vs `free`:** identical at the vLLM level (both empty the slot, both leave
-the ML services up). The *only* difference is `prod` warms the pinned Ollama model
-(~30 GB) for the pipeline; `free` leaves Ollama cold for **maximum free memory**.
-Because the mode is detected from *which vLLM owns the GPU*, `status`/`--mode-only`
-reports **`free`** for both (it can't see the Ollama warm) — expected, not a bug.
+**The speech services — `faster-whisper` (:8000), `pyannote` (:8001), `moss` (:8004)
+— run in every mode and no mode touches them** (own stacks under `/opt/…`, ~5 GiB
+together; prod's nightly needs them, so they stay up even in code/judging). The
+script only checks they answer.
+
+GPU memory measured 2026-11-01: translate 29 GiB, prod-vllm 25 GiB, the three speech
+services ~5 GiB together, ~121 GiB usable. That is why the large Ollama models
+(nemotron-super 120B, mistral-medium 128B, ~90 GiB) belong in `research-ollama`, where
+translate is stopped.
+
+`status` / `--mode-only` reports the mode from which vLLM runs, so `ollama` and
+`research-ollama` both read `free` there; `status` also prints whether the Ollama
+daemon and translate are up. `research` is still accepted as the old name of
+`research-vllm`.
 
 ```bash
-gpu-mode-swap.sh                # show current state (default = status)
-gpu-mode-swap.sh code           # coder-next vLLM up, others down
-gpu-mode-swap.sh research       # autoresearch vLLM up, others down
-gpu-mode-swap.sh prod           # prod-serving vLLM up, others down (:8003, 64k)
-gpu-mode-swap.sh ollama         # no vLLM; Ollama warm (podcast pipeline); ML services checked
-gpu-mode-swap.sh free           # no vLLM, Ollama cold — maximum free memory
+gpu-mode-swap.sh                    # show current state (default = status)
+gpu-mode-swap.sh prod               # prod-vllm + translate
+gpu-mode-swap.sh ollama             # Ollama (pinned model warm) + translate
+gpu-mode-swap.sh research-vllm      # autoresearch vLLM only
+gpu-mode-swap.sh research-ollama    # Ollama only, room for the large models
+gpu-mode-swap.sh code               # coder-next vLLM only
+gpu-mode-swap.sh judging x          # one judge vLLM only
+gpu-mode-swap.sh free               # no vLLM, no translate
 ```
 
 ### Agent usage (the contract)

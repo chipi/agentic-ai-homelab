@@ -50,7 +50,8 @@ Modes (only one vLLM owns the GPU at a time):
 | Mode | What's up | When |
 |---|---|---|
 | `code` | coder-next vLLM (:9000) | Day-to-day opencode / Claude Code work with local model |
-| `research` | autoresearch vLLM (:8003) | podcast_scraper eval / sweep harness |
+| `research-vllm` | autoresearch vLLM (:8003), translate stopped | podcast_scraper eval / sweep harness |
+| `research-ollama` | no vLLM; Ollama, any model, translate stopped | research and eval runs, incl. the ~90 GiB models |
 | `prod` | prod serving vLLM (:8003, 64k) | production serving — an identical EMPTY drop-in for autoresearch |
 | `ollama` | no vLLM; Ollama warm (podcast pipeline) | pipeline runtime — whisper/pyannote/moss + the pinned summary model |
 | `judging {a\|b\|n\|x}` | one judge vLLM (:8003) | multi-judge sweep phases (a / b / qwen-next / nemotron) |
@@ -63,12 +64,13 @@ Modes (only one vLLM owns the GPU at a time):
 ```bash
 gpu-mode                       # → show current state
 gpu-mode code                  # → switch to coder-next
-gpu-mode research              # → switch to autoresearch
+gpu-mode research-vllm         # → switch to autoresearch (translate stopped)
+gpu-mode research-ollama       # → Ollama only, room for the large models (translate stopped)
 gpu-mode prod                  # → switch to the prod serving vLLM (:8003, 64k)
 gpu-mode ollama                # → no vLLM; Ollama warm for the podcast pipeline
 gpu-mode free                  # → bring all vLLM down
 gpu-mode status                # → same as no-arg
-gpu-mode status --mode-only    # → just "code" / "research" / "prod" / "ollama" / "free" (agent-friendly)
+gpu-mode status --mode-only    # → just "code" / "research-vllm" / "prod" / "ollama" / "free" (agent-friendly)
 gpu-mode code --json           # → switch + machine-readable result on stdout
 ```
 
@@ -215,7 +217,8 @@ another container) is bound to that port.
 ```
 gpu-mode               # show status
 gpu-mode code          # coder-next vLLM up (:9000), others down
-gpu-mode research      # autoresearch vLLM up (:8003), others down
+gpu-mode research-vllm   # autoresearch vLLM up (:8003), others and translate down
+gpu-mode research-ollama # Ollama only (no vLLM, no translate), room for the large models
 gpu-mode prod          # prod serving vLLM up (:8003, 64k), others down
 gpu-mode ollama        # no vLLM; Ollama warm (podcast pipeline)
 gpu-mode free          # all vLLM down

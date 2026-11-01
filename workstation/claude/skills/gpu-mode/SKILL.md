@@ -54,7 +54,7 @@ the GPU right now (a sweep, a training job, Ollama). Treat the DGX as production
 - Only after an explicit go, and by absolute path:
   ```bash
   ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh code --json'      # coder-next up, autoresearch down
-  ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh research --json'  # autoresearch up, coder-next down
+  ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh research-vllm --json'  # autoresearch up, coder-next down
   ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh idle --json'      # both down
   ```
 
