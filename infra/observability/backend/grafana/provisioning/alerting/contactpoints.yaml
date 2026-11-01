@@ -49,16 +49,16 @@ contactPoints:
           # alertname); a test notification has no rule page, so it falls back to the firing list.
           title: '<{{ with index .Alerts 0 }}{{ if .GeneratorURL }}{{ .GeneratorURL }}{{ else }}{{ reReplaceAll "/$" "" $.ExternalURL }}/alerting/groups{{ end }}{{ end }}|{{ if eq .Status "firing" }}[CRITICAL]{{ else }}[RESOLVED]{{ end }} {{ .CommonLabels.alertname }}{{ with .CommonLabels.host }} — {{ . }}{{ end }}{{ with .CommonLabels.instance }} ({{ . }}){{ end }}>'
           # Every link is named after the action it serves, one page each (operator, 2026-11-01):
-          #   See this alert     .GeneratorURL  this alert rule's own page: query, graph, instance, history
+          #   (the title)        .GeneratorURL  this alert rule's own page: query, graph, instance, history
           #   Mute this alert…   .SilenceURL    the silence form pre-filled for this alert only; pick a
           #                                     duration (default 2h; the form takes none from the URL),
           #                                     Save. The "…" says it is a form, not an instant mute.
           #   All firing alerts  /alerting/groups  Active notifications: every alert firing now (not
           #                                     /alerting/list, which is the rules page)
-          # Resolved messages carry only "See this alert". .ExternalURL ends in "/", hence the
-          # reReplaceAll (it produced //alerting/groups). The message TITLE links to
-          # /alerting/list; Grafana's Slack integration sets that itself, not configurable.
-          text: '{{ range .Alerts }}{{ if eq .Status "firing" }}{{ .Annotations.summary }}{{ "\n" }}{{ if .GeneratorURL }}What is happening: <{{ .GeneratorURL }}|See this alert>{{ "\n" }}{{ end }}Known and being handled? <{{ .SilenceURL }}|Mute this alert…>{{ "\n" }}{{ else }}Cleared at {{ .EndsAt.UTC.Format "15:04Z" }}.{{ if .GeneratorURL }} <{{ .GeneratorURL }}|See this alert>{{ end }}{{ "\n" }}{{ end }}{{ end }}{{ if eq .Status "firing" }}Anything else broken? <{{ reReplaceAll "/$" "" .ExternalURL }}/alerting/groups|All firing alerts>{{ end }}'
+          # A resolved message is the title (still linking to the alert) plus "Cleared at". No separate
+          # "See this alert" line: the title is the same link (operator, 2026-11-01). .ExternalURL
+          # ends in "/", hence the reReplaceAll (it produced //alerting/groups).
+          text: '{{ range .Alerts }}{{ if eq .Status "firing" }}{{ .Annotations.summary }}{{ "\n" }}Known and being handled? <{{ .SilenceURL }}|Mute this alert…>{{ "\n" }}{{ else }}Cleared at {{ .EndsAt.UTC.Format "15:04Z" }}.{{ "\n" }}{{ end }}{{ end }}{{ if eq .Status "firing" }}Anything else broken? <{{ reReplaceAll "/$" "" .ExternalURL }}/alerting/groups|All firing alerts>{{ end }}'
         disableResolveMessage: false
 
   # slack — set ALERT_SLACK_WEBHOOK_URL (an incoming-webhook URL) to activate.

@@ -33,16 +33,19 @@ Everything runs in Grafana's own alerting on the Mac mini:
   (`ALERT_EMAIL_TO`) and Slack (`ALERT_SLACK_WEBHOOK_URL`). One contact point, because a matched
   route stops the fall-back to the root receiver: a Slack-only route would have dropped the email.
 - **Message:** `[CRITICAL]` or `[RESOLVED]`, the alert name, host and instance; the rule's summary
-  (what broke, the first thing to check); then three links, each named after its action:
+  (what broke, the first thing to check); the links, each named after its action:
 
   | Link | Opens | You |
   |---|---|---|
-  | See this alert | this alert's page: query, graph, instance, earlier firings | judge new or repeat |
+  | the title | this alert's page: query, graph, instance, earlier firings | judge new or repeat |
   | Mute this alert… | the silence form, pre-filled for this alert only | pick a duration, Save |
   | All firing alerts | Active notifications (`/alerting/groups`): everything firing now | see if it is part of something bigger |
 
-  Resolved messages carry only "See this alert". Grafana is tailnet-only, so the links work where
-  Tailscale runs.
+  A resolved message is the title (still a link to the alert) and "Cleared at". The title is a
+  Slack link (`<url|text>`) because that overrides the title link Grafana sets itself
+  (`/alerting/list`, grafana/alerting#96). Grafana is tailnet-only, so the links work where
+  Tailscale runs. Verified 2026-11-01 with a real temporary critical rule: title, mute form
+  (1 affected instance) and the firing list all correct.
 - **Silencing a known critical:** the Silence link opens Grafana's silence form with that alert's
   labels filled in. Choose the duration there (default 2h; the form takes none from the URL) and
   save. Notifications stop until it expires; the alert still evaluates and shows as firing. Use it
