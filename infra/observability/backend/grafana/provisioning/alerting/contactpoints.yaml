@@ -51,8 +51,10 @@ contactPoints:
           #                                     Save. The "…" says it is a form, not an instant mute.
           #   All firing alerts  /alerting/groups  Active notifications: every alert firing now (not
           #                                     /alerting/list, which is the rules page)
-          # Resolved messages carry only "See this alert".
-          text: '{{ range .Alerts }}{{ if eq .Status "firing" }}{{ .Annotations.summary }}{{ "\n" }}{{ if .GeneratorURL }}What is happening: <{{ .GeneratorURL }}|See this alert>{{ "\n" }}{{ end }}Known and being handled? <{{ .SilenceURL }}|Mute this alert…>{{ "\n" }}{{ else }}Cleared at {{ .EndsAt.UTC.Format "15:04Z" }}.{{ if .GeneratorURL }} <{{ .GeneratorURL }}|See this alert>{{ end }}{{ "\n" }}{{ end }}{{ end }}{{ if eq .Status "firing" }}Anything else broken? <{{ .ExternalURL }}/alerting/groups|All firing alerts>{{ end }}'
+          # Resolved messages carry only "See this alert". .ExternalURL ends in "/", hence the
+          # reReplaceAll (it produced //alerting/groups). The message TITLE links to
+          # /alerting/list; Grafana's Slack integration sets that itself, not configurable.
+          text: '{{ range .Alerts }}{{ if eq .Status "firing" }}{{ .Annotations.summary }}{{ "\n" }}{{ if .GeneratorURL }}What is happening: <{{ .GeneratorURL }}|See this alert>{{ "\n" }}{{ end }}Known and being handled? <{{ .SilenceURL }}|Mute this alert…>{{ "\n" }}{{ else }}Cleared at {{ .EndsAt.UTC.Format "15:04Z" }}.{{ if .GeneratorURL }} <{{ .GeneratorURL }}|See this alert>{{ end }}{{ "\n" }}{{ end }}{{ end }}{{ if eq .Status "firing" }}Anything else broken? <{{ reReplaceAll "/$" "" .ExternalURL }}/alerting/groups|All firing alerts>{{ end }}'
         disableResolveMessage: false
 
   # slack — set ALERT_SLACK_WEBHOOK_URL (an incoming-webhook URL) to activate.
