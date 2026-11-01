@@ -33,7 +33,12 @@ Everything runs in Grafana's own alerting on the Mac mini:
   (`ALERT_EMAIL_TO`) and Slack (`ALERT_SLACK_WEBHOOK_URL`). One contact point, because a matched
   route stops the fall-back to the root receiver: a Slack-only route would have dropped the email.
 - **Message:** `[CRITICAL]` or `[RESOLVED]`, the alert name, host and instance; the rule's summary
-  (what broke, the first thing to check); a link to the firing alerts in Grafana (tailnet only).
+  (what broke, the first thing to check); a **Silence** link per firing alert; a link to the firing
+  alerts in Grafana. Grafana is tailnet-only, so the links work where Tailscale runs.
+- **Silencing a known critical:** the Silence link opens Grafana's silence form with that alert's
+  labels filled in. Choose the duration there (default 2h; the form takes none from the URL) and
+  save. Notifications stop until it expires; the alert still evaluates and shows as firing. Use it
+  for something already being worked on, so `#ops-critical` keeps meaning "act".
 
 What counts as critical was reviewed on 2026-11-01 against 30 days of firings: 20 rules.
 `infra-target-down` (59 firings, mostly flapping exporters) and `sec-fail2ban-ban` (routine
@@ -60,8 +65,9 @@ through), so after changing it: `docker compose up -d grafana` in `infra/observa
 ## Checks
 
 - Both webhooks: one test post each from the mini, 2026-11-01, Slack answered `200 ok`.
-- A test alert through the `critical` contact point: Grafana UI, Alerting, Contact points,
-  `critical`, Test. It sends to both email and `#ops-critical`.
+- A test alert through the `critical` contact point (Grafana's receiver test API; in the UI:
+  Alerting, Contact points, `critical`, Test): 2026-11-01, Grafana returned `ok` for both
+  integrations and the operator received it in `#ops-critical` and by email.
 
 ## Rotating a webhook
 
