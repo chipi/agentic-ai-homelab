@@ -44,11 +44,13 @@ contactPoints:
         settings:
           url: "$__env{ALERT_SLACK_WEBHOOK_URL}"
           title: '{{ if eq .Status "firing" }}[CRITICAL]{{ else }}[RESOLVED]{{ end }} {{ .CommonLabels.alertname }}{{ with .CommonLabels.host }} — {{ . }}{{ end }}{{ with .CommonLabels.instance }} ({{ . }}){{ end }}'
-          # Each firing alert carries a Silence link (Grafana's .SilenceURL: the silence form with
-          # this alert's labels filled in; the duration is chosen on the page, default 2h — the
-          # form takes no duration from the URL). For a known, already-worked-on critical, so the
-          # channel stays one where every message means "act". Silences expire on their own.
-          text: '{{ range .Alerts }}{{ if eq .Status "firing" }}{{ .Annotations.summary }} <{{ .SilenceURL }}|Silence>{{ else }}Cleared at {{ .EndsAt.UTC.Format "15:04Z" }}.{{ end }}{{ "\n" }}{{ end }}<{{ .ExternalURL }}/alerting/list?search=state:firing|Open firing alerts in Grafana>'
+          # Per alert: Details = Grafana's .GeneratorURL, that alert rule's own page (query, graph,
+          # this instance, state history); Silence = .SilenceURL, the silence form with this alert's
+          # labels filled in (duration chosen on the page, default 2h; the form takes none from the
+          # URL). Silence is for a known, already-worked-on critical, so the channel keeps meaning
+          # "act"; silences expire on their own. (A generic "all firing alerts" link was replaced:
+          # it landed on the rule list, not the alert, and Grafana dropped its state filter.)
+          text: '{{ range .Alerts }}{{ if eq .Status "firing" }}{{ .Annotations.summary }}{{ "\n" }}{{ if .GeneratorURL }}<{{ .GeneratorURL }}|Details> · {{ end }}<{{ .SilenceURL }}|Silence>{{ else }}Cleared at {{ .EndsAt.UTC.Format "15:04Z" }}. {{ if .GeneratorURL }}<{{ .GeneratorURL }}|Details>{{ end }}{{ end }}{{ "\n" }}{{ end }}'
         disableResolveMessage: false
 
   # slack — set ALERT_SLACK_WEBHOOK_URL (an incoming-webhook URL) to activate.
