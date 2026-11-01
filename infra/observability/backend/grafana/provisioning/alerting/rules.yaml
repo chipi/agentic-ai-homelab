@@ -867,6 +867,35 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+      # A certificate that stops renewing gives weeks of warning and then takes the site down
+      # at once. The site probes already read every served chain's earliest expiry; nothing
+      # alerted on it. All certs here auto-renew (Google Trust Services via Cloudflare, Let's
+      # Encrypt at the prod Caddy) at ~30 days left, so 14 days means renewal has failed.
+      # Added 2026-11-01 with the post-outage review (no expiry alert existed for any credential).
+      - uid: site-cert-expiring
+        title: "TLS certificate expires within 14 days"
+        condition: threshold
+        for: 1h
+        noDataState: OK
+        execErrState: OK
+        labels: { tenant: common, severity: warning, kind: availability }
+        annotations:
+          summary: "The certificate served for {{ $labels.host }} expires in {{ $values.q }} days; it should have renewed at ~30 days. Drill-down: VictoriaMetrics probe_ssl_earliest_cert_expiry{job=\"site-probe\",host=\"{{ $labels.host }}\"}, probe_ssl_last_chain_info for the issuer; then the issuer's renewal (Cloudflare edge cert, or the prod Caddy's ACME log)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'round((min by (host) (probe_ssl_earliest_cert_expiry{job="site-probe"}) - time()) / 86400, 0.1)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [14] } }]
+
   # --- Orrery (orrerylearn.com VPS) --------------------------------------------
   # The launch manifest is refreshed by an on-VPS cron every 6h (Orrery RFC-035),
   # which logs `[refresh-prod-data] … ok — launches.json <n> bytes` on success

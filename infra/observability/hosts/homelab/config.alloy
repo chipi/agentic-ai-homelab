@@ -194,6 +194,17 @@ modules:
       preferred_ip_protocol: ip4
       valid_status_codes: [405]
       fail_if_body_not_matches_regexp: ["Method not allowed"]
+  umami_send:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: "{}"
+      valid_status_codes: [400]
+      fail_if_body_not_matches_regexp: ["\"code\":\\s*\"bad-request\""]
 `
 
   target {
@@ -205,11 +216,6 @@ modules:
     name    = "www.devwhateverops.com"
     address = "https://www.devwhateverops.com/"
     module  = "page_devwhateverops"
-  }
-  target {
-    name    = "analytics.humancopilot.eu"
-    address = "https://analytics.humancopilot.eu/script.js"
-    module  = "http_200"
   }
   // GlitchTip ingest hosts: a GET on an ingest path is answered 405 by GlitchTip itself
   // (Caddy alone answers 404), so this proves the edge -> Caddy -> GlitchTip path without
@@ -263,16 +269,34 @@ modules:
     address = "https://mcp.orrerylearn.com/health"
     module  = "json_ok"
   }
-  // Umami tracker script on the product domains.
+  // Umami tracker hosts: an empty POST /api/send must be refused by Umami itself (400
+  // bad-request, nothing stored). Not GET /script.js: Cloudflare caches it for 24h, so on
+  // 2026-10-31/11-01 the script probes kept passing on the cached copy while every send got
+  // 502 for ~14h (prod had lost its tailnet path to the umami node); orrery's never failed.
   target {
     name    = "analytics.closelistening.app"
-    address = "https://analytics.closelistening.app/script.js"
-    module  = "http_200"
+    address = "https://analytics.closelistening.app/api/send"
+    module  = "umami_send"
   }
   target {
     name    = "analytics.orrerylearn.com"
-    address = "https://analytics.orrerylearn.com/script.js"
-    module  = "http_200"
+    address = "https://analytics.orrerylearn.com/api/send"
+    module  = "umami_send"
+  }
+  target {
+    name    = "analytics.humancopilot.eu"
+    address = "https://analytics.humancopilot.eu/api/send"
+    module  = "umami_send"
+  }
+  target {
+    name    = "analytics.markodragoljevic.com"
+    address = "https://analytics.markodragoljevic.com/api/send"
+    module  = "umami_send"
+  }
+  target {
+    name    = "analytics.airandspacehistory.com"
+    address = "https://analytics.airandspacehistory.com/api/send"
+    module  = "umami_send"
   }
   target {
     name    = "evals.humancopilot.eu"
