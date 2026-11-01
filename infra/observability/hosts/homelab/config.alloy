@@ -423,6 +423,15 @@ loki.relabel "service" {
 // pipeline), and traceparent / sentry-trace headers. Same pattern as the Grafana
 // VictoriaLogs derived field — keep the two identical.
 loki.process "homelab_std" {
+  // Secret redaction, every container: a LiteLLM or OpenRouter key (`sk-...`) never
+  // reaches VictoriaLogs, which keeps 30 days and cannot delete. LiteLLM's access log
+  // prints full URLs, and `/key/info?key=sk-...` put 4 keys there before 2026-11-01.
+  // The minimum length leaves words like `sk-learn` alone.
+  stage.replace {
+    expression = "(sk-[A-Za-z0-9_-]{16,})"
+    replace    = "sk-REDACTED"
+  }
+
   // Alloy's own graph-evaluation logs carry a `trace_id=` for traces it never
   // exports; skip its container so they don't get a dead trace_id field.
   stage.match {
