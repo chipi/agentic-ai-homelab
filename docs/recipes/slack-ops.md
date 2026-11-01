@@ -34,8 +34,13 @@ webhook stay ready if an off-the-shelf way appears.
 
 1. **Done (2026-11-01):** critical alerts with action-named links; `#ops-deploys` and
    `#ops-triage` via the GitHub app.
-2. **Claude in Slack** in the ops channels, answering from the observability MCP. Not started:
-   first check that it can reach our own MCP servers; drop it if not.
+2. **Asking ops questions in Slack: parked, and it will be our own agent, not Claude Tag**
+   (operator, 2026-11-01). Claude Tag (Anthropic's Claude in Slack) was ruled out: it needs a
+   Claude Team or Enterprise plan, runs in Anthropic's cloud sandbox with default-deny egress (so
+   it cannot reach the tailnet: Grafana, VictoriaMetrics, the mini), and its use of a custom remote
+   MCP connector is not documented. The operator prefers agents hosted on the DGX for this, when
+   that capability exists there; it would answer in the ops channels from the homelab's own
+   observability. Not designed yet.
 3. **Small builds, design first:** the triage fleet replies in a critical's thread ("known issue
    #…" or "new"); `#ops-decisions` with one "needs your go" format for every agent session.
 
