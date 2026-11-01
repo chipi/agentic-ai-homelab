@@ -9,17 +9,38 @@ night. Scope: operations only.
 holds the full record (every alert, warnings included); Slack gets the few things worth acting
 on, and stays quiet enough that every notification means "act".
 
-| Channel | What lands there | Notifications | Volume |
-|---|---|---|---|
-| `#ops-critical` | every `severity=critical` alert, firing and resolved | on (push) | about 40 in the 30 days before the switch, mostly prod OOM kills and the mini's disk, both being fixed |
-| `#ops-daily` | reserved for a morning summary; **nothing posts here yet** | off | 0 |
+Principles: one channel = one purpose = one feeding system; only `#ops-critical` and
+`#ops-decisions` notify; reuse what runs (Grafana alerting, the official GitHub app, the triage
+fleet), custom code only where nothing off the shelf exists; stay inside the free plan's 10
+integrations (Homelab Ops and GitHub use 2).
+
+| Channel | What lands there | Fed by | Notifications | Status |
+|---|---|---|---|---|
+| `#ops-critical` | every `severity=critical` alert, firing and resolved | Grafana alerting | on (push) | live |
+| `#ops-deploys` | every prod deploy run (started, passed, failed); deploy gates can be approved from Slack | GitHub app, workflow subscriptions | off | live |
+| `#ops-triage` | issues the triage fleet files or comments on | GitHub app, issues with label `triage-fleet/filed` | off | live |
+| `#ops-decisions` | agents' "needs your go" | agents (not built) | on | channel exists, phase 3 |
+| `#ops-daily` | reserved for a morning summary; nothing posts | — | off | parked |
+
+`#ops-critical` volume: about 40 messages in the 30 days before the switch, mostly prod OOM kills
+and the mini's disk, both being fixed.
 
 The morning summary is deliberately not built. Grafana cannot send digests, so it would be a new
 custom job, and the operator's rule is to minimise custom software and reuse what runs: warnings
 are already in email, and the homelab start page shows what is firing. The channel and its
 webhook stay ready if an off-the-shelf way appears.
 
-Later, if wanted: `#ops-decisions`, where agents post "needs your go". Not set up.
+### Phases
+
+1. **Done (2026-11-01):** critical alerts with action-named links; `#ops-deploys` and
+   `#ops-triage` via the GitHub app.
+2. **Claude in Slack** in the ops channels, answering from the observability MCP. Not started:
+   first check that it can reach our own MCP servers; drop it if not.
+3. **Small builds, design first:** the triage fleet replies in a critical's thread ("known issue
+   #…" or "new"); `#ops-decisions` with one "needs your go" format for every agent session.
+
+Monthly: count messages per channel. `#ops-critical` should average under one a day; an alert that
+pushes without needing action is fixed or demoted.
 
 ## How it is wired
 
@@ -73,12 +94,48 @@ OPS_DAILY_SLACK_WEBHOOK_URL=…    # #ops-daily
 Grafana reads `ALERT_SLACK_WEBHOOK_URL` at container start (`docker-compose.yml` passes it
 through), so after changing it: `docker compose up -d grafana` in `infra/observability/backend`.
 
+### The GitHub app (`#ops-deploys`, `#ops-triage`)
+
+The official GitHub app for Slack. Three connections, all needed: the app added to the workspace;
+`/github signin` (links the Slack user to GitHub `chipi`); and on GitHub, Settings,
+Applications, Slack, repository access to `infra`, `orrery`, `eval-harness`, `podcast_scraper` and
+`agentic-ai-homelab`. In a private channel, `/invite @GitHub` first. Slack runs one slash command
+per message: paste each line separately.
+
+`#ops-deploys` (the prod deploy workflows of each repo; Close Listening deploys from `infra`):
+
+```text
+/github subscribe chipi/infra workflows:{name:"Deploy ALL prod surfaces at ONE sha","Deploy player — PUBLIC surface","Deploy operator — PUBLIC surface","Deploy operator — CONTROL plane (tailnet · privileged)","Deploy config (by surface)","Deploy litellm — PROD gateway (tailnet · ADR-142)","Deploy vps-observability endpoints (prod Alloy → TLS)"}
+/github subscribe chipi/orrery workflows:{name:"Deploy to prod VPS (orrery)"}
+/github subscribe chipi/eval-harness workflows:{name:"Deploy evals to prod VPS"}
+/github unsubscribe chipi/<repo> issues pulls commits releases deployments     (each of the three)
+```
+
+`#ops-triage` (the repos holding the fleet's `triage-fleet/filed` issues):
+
+```text
+/github subscribe chipi/podcast_scraper issues comments +label:"triage-fleet/filed"
+/github subscribe chipi/agentic-ai-homelab issues comments +label:"triage-fleet/filed"
+/github subscribe chipi/orrery issues comments +label:"triage-fleet/filed"
+/github subscribe chipi/eval-harness issues comments +label:"triage-fleet/filed"
+/github unsubscribe chipi/<repo> pulls commits releases deployments            (each of the four)
+```
+
+**The name filter splits on commas and has no escape.** A workflow whose name contains a comma
+can never match: two infra workflows were renamed for this on 2026-11-01 (chipi/infra 7fc747d,
+`(tailnet, privileged)` to `(tailnet · privileged)`, `(tailnet, ADR-142)` to `(tailnet · ADR-142)`).
+Keep deploy workflow names comma-free, and copy names exactly (em-dash, middle dot, arrow).
+`/github subscribe list features` shows what is active.
+
 ## Checks
 
 - Both webhooks: one test post each from the mini, 2026-11-01, Slack answered `200 ok`.
 - A test alert through the `critical` contact point (Grafana's receiver test API; in the UI:
   Alerting, Contact points, `critical`, Test): 2026-11-01, Grafana returned `ok` for both
   integrations and the operator received it in `#ops-critical` and by email.
+- `#ops-deploys`: an Orrery prod deploy posted there, 2026-11-01 (operator).
+- `#ops-triage`: `/github subscribe list features` showed the four repos with
+  `issues, comments, +label:'triage-fleet/filed'`; no fleet issue had posted yet when written.
 
 ## Rotating a webhook
 
