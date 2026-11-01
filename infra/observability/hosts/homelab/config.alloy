@@ -45,6 +45,19 @@ prometheus.scrape "litellm_postgres" {
   scrape_interval = "30s"
 }
 
+// ---------- VictoriaTraces' own counters (trace intake freshness) ----------
+// Nothing showed whether traces still ARRIVE: prod's apis push OTLP straight to the mini
+// (:10428, no TLS node, no Alloy in between), so a broken path is silent. VictoriaTraces
+// counts what it ingests (vt_bytes_ingested_total{type="opentelemetry_traces_otlphttp_protobuf"});
+// alert ingest-traces-stalled fires when it stops growing. Container name, same network
+// as victoriametrics/victorialogs. Added 2026-11-01 (post-outage ingest review).
+prometheus.scrape "victoriatraces_self" {
+  targets         = [{ __address__ = "victoriatraces:10428", instance = "homelab", service = "victoriatraces" }]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "victoriatraces"
+  scrape_interval = "60s"
+}
+
 // ---------- Langfuse datastores (redis + postgres) ----------
 // Both exporters had been up 8 days serving /metrics that NOTHING scraped: a check for
 // `redis_*` in VictoriaMetrics returned ZERO series, so the LLM-observability stack's own

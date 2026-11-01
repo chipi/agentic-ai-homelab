@@ -2003,6 +2003,75 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+      # --- traces stalled (no trace data ingested 15m) -----------------------------
+      # Traces had no arrival check at all: prod's apis push OTLP straight to the mini's
+      # VictoriaTraces (:10428, raw, no Alloy in between), so a broken path was silent.
+      # VictoriaTraces' own byte counter (scraped as job=victoriatraces) stops growing when
+      # nothing arrives. Prod's apis trace their own /metrics scrape every minute, so a quiet
+      # 15m means intake stopped, not low traffic. Total across sources: it says intake
+      # stopped, not which sender. Absent series (scrape broken) is NOT this alert's job:
+      # infra-target-down covers job=victoriatraces. Added 2026-11-01, post-outage review.
+      - uid: ingest-traces-stalled
+        title: "Traces stalled (no trace data ingested 15m)"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        execErrState: OK
+        labels: { severity: warning, kind: telemetry, service: telemetry }
+        annotations:
+          summary: "VictoriaTraces ingested no OTLP trace data for 15 minutes. Check that victoriatraces runs on the mini, then that prod's apis can reach homelab:10428 over the tailnet (OTEL_EXPORTER_OTLP_TRACES_ENDPOINT), then the ACL grant tag:prod -> tag:homelab-host:10428."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(increase(vt_bytes_ingested_total{job="victoriatraces",type="opentelemetry_traces_otlphttp_protobuf"}[15m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # --- analytics events stalled (no Umami event stored 8h, any site) ----------
+      # The backstop behind the umami_send site probes (which catch a broken path in 3m):
+      # this checks events are actually STORED. 30 days to 2026-11-01: the longest normal
+      # gap between consecutive events across all sites was 5.9h (nights); the 10-31/11-01
+      # outage was 14.3h. 8h sits above every normal gap and would have fired ~01:45Z that
+      # night. Reads Umami's DB through the read-only umami-pg datasource (role grafana_ro).
+      - uid: ingest-umami-events-stalled
+        title: "Analytics: no event stored from any site for 8h"
+        condition: threshold
+        for: 0m
+        noDataState: Alerting
+        execErrState: OK
+        labels: { severity: warning, kind: telemetry, service: umami }
+        annotations:
+          summary: "Umami stored no event from any site for {{ $values.reduced }} hours (normal nights stay under 6h). Check the umami_send site probes first (probe_success{job=\"site-probe\",host=~\"analytics.*\"}): if they fail, the path edge -> tailnet -> umami node is broken; if they pass, check the umami container's log."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: umami-pg
+            model:
+              rawSql: 'select round(extract(epoch from now() - max(created_at)) / 3600.0, 1) as value from website_event'
+              rawQuery: true
+              editorMode: code
+              format: table
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [8] } }]
+
       # --- homelab logs dark ------------------------------------------------------
       # Highest-volume source and the collector host itself. Partially self-defeating
       # (Grafana runs here, so a total homelab outage takes the alerting with it) —
