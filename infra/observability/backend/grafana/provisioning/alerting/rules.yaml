@@ -1700,6 +1700,42 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [129600] } }]
 
+      # --- Nightly corpus index step failed (2026-11-01) ------------------------------
+      # The nightly logs the index subprocess dying as "non-fatal" and still reports
+      # overall_ok, so podcast-ingest-stalled cannot see it. On 2026-11-01 01:21Z a global
+      # OOM killed it ("exited -9"); with mem_limits on the pipeline container the next
+      # blow-up dies inside it the same way. Matches any exit code, not only -9. One hit
+      # in the 7 days before this rule (that night). The 2h window keeps it firing long
+      # enough to be read, then it resolves on its own.
+      - uid: podcast-index-step-failed
+        title: "Podcast nightly: corpus index step failed"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
+        annotations:
+          summary: "The nightly's corpus index subprocess exited non-zero (logged as non-fatal; the run still says overall_ok). Search and vector results miss the new episodes until a reindex. Find the exit code in VictoriaLogs: instance:prod-podcast service:podcast-pipeline \"Corpus index subprocess exited\". -9 is an OOM kill."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 7200, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast service:podcast-pipeline "Corpus index subprocess exited" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
       # --- Naming coverage (#2304 S8) -----------------------------------------------
       # The batch finalize measures how many served episodes publish no named voice and the api
       # serves it on /metrics (podcast_corpus_episodes_no_named_voice, from the nightly's
