@@ -426,9 +426,11 @@ loki.process "homelab_std" {
   // Secret redaction, every container: a LiteLLM or OpenRouter key (`sk-...`) never
   // reaches VictoriaLogs, which keeps 30 days and cannot delete. LiteLLM's access log
   // prints full URLs, and `/key/info?key=sk-...` put 4 keys there before 2026-11-01.
-  // The minimum length leaves words like `sk-learn` alone.
+  // The minimum length leaves words like `sk-learn` alone; the word boundary leaves
+  // topic ids like `topic:risk-...` and `task-...` alone (they contain "sk-", and the
+  // unbounded first version rewrote them, 2026-11-01).
   stage.replace {
-    expression = "(sk-[A-Za-z0-9_-]{16,})"
+    expression = "\\b(sk-[A-Za-z0-9_-]{16,})"
     replace    = "sk-REDACTED"
   }
 
