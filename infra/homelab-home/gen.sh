@@ -75,6 +75,12 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 h3.sectitle{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:16px 0 6px;border-bottom:1px solid #22223a;padding-bottom:4px}
 table.ctbl td{padding:4px 10px;border-bottom:1px solid #1a1a2b;font-size:13px;vertical-align:middle}
 table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
+.strip{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 12px;font-size:13.5px}
+.strip a{color:#c8c8e0;text-decoration:none;white-space:nowrap}.strip a:hover{color:#7aa2ff}.strip b{color:#e6e6ef}
+.tabs{display:flex;gap:2px;margin:0 0 18px;border-bottom:1px solid #26263a}
+.tabs a{padding:8px 14px;color:#9a9ac2;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500}
+.tabs a.on{color:#e6e6ef;border-bottom-color:#7aa2ff}.tabs a:hover{color:#e6e6ef}
+section.tab{display:none}section.tab.on{display:block}
 @media(max-width:640px){
   body{margin:14px}
   h1{font-size:20px;margin-bottom:14px}
@@ -84,28 +90,38 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
   table{font-size:13px}th,td{padding:6px 8px}
   table.uptime th:nth-child(n+5),table.uptime td:nth-child(n+5){display:none}
   table.uptime td:first-child{overflow-wrap:anywhere}
+  .strip{gap:6px 12px;font-size:12.5px}
+  .tabs a{padding:8px 9px;font-size:14px}
   code{word-break:break-all}
   .sysrow,.dock,.sec,.health{font-size:12.5px}
 }</style></head><body>
 <h1>homelab</h1>
 <div id=hetznerbar></div>
-<!-- Uptime: outside-in probes from the mini (job site-probe, every minute through Cloudflare)
-     plus Cloudflare's own count of errors for every visitor (infra/cloudflare-edge). -->
-<div style="margin:0 0 22px" id=uptime>
-  <h2><span class="dot stale" id=up_agg></span><a href="$DASH_UPTIME">Uptime &mdash; prod endpoints &rarr;</a></h2>
-  <div id=cfbar></div>
-  <div class=charts>
-    <a class=card href="$DASH_UPTIME"><h3>Up now</h3><div id=up_now>&hellip;</div></a>
-    <a class=card href="$DASH_UPTIME"><h3>Availability 24h</h3><div id=up_24h>&hellip;</div></a>
-    <a class=card href="$DASH_UPTIME"><h3>Availability 7d</h3><div id=up_7d>&hellip;</div></a>
-    <a class=card href="$DASH_UPTIME"><h3>Availability 30d</h3><div id=up_30d>&hellip;</div></a>
-    <a class=card href="$DASH_UPTIME"><h3>Edge 5xx 1h</h3><div id=up_edge>&hellip;</div></a>
-    <a class=card href="$DASH_UPTIME"><h3>Security blocks 24h</h3><div id=up_sec>&hellip;</div></a>
-  </div>
-  <table class="ctbl uptime"><thead><tr><th>Endpoint</th><th>Now</th><th>24h</th><th>7d</th><th>30d</th><th title="Cloudflare: 5xx answered to all visitors, 24h">Edge 5xx 24h</th><th>Check</th></tr></thead><tbody id=uptbl></tbody></table>
-  <p class=sec>Checked from the mini (home internet) through Cloudflare every minute; minutes when the mini itself was offline are left out. Edge 5xx = Cloudflare's count for every visitor (520-530: it could not reach our origin).</p>
-</div>
+<div id=cfbar></div>
 <div id=alertbar></div>
+<!-- Always on top: one line per area. Each dot copies the state of that area's own dot in its
+     tab (mirror() below), so there is one source of truth per signal. Green everywhere = done. -->
+<div class=strip>
+  <a href="#sites" target=_self><span class="dot stale" data-dot=up_agg></span>Sites</a>
+  <a href="#overview" target=_self><span class="dot stale" data-dot=ph_agg></span>Podcast prod</a>
+  <a href="#hosts" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a>
+  <a href="#hosts" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a>
+  <a href="#hosts" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a>
+  <a href="#fleets" target=_self>Needs you <b data-text=f_inbox>&hellip;</b></a>
+  <a href="#spend" target=_self>Credit left <b id=ov_credit_s>&hellip;</b></a>
+</div>
+<nav class=tabs>
+  <a href="#overview" target=_self>Overview</a><a href="#sites" target=_self>Sites</a><a href="#spend" target=_self>Spend</a><a href="#fleets" target=_self>Fleets</a><a href="#hosts" target=_self>Hosts</a>
+</nav>
+<section class=tab id=t-overview>
+<div class=charts style="max-width:1140px">
+  <a class=card href="#sites" target=_self><h3>Sites up now</h3><div data-mirror=up_now>&hellip;</div></a>
+  <a class=card href="#sites" target=_self><h3>Availability 24h</h3><div data-mirror=up_24h>&hellip;</div></a>
+  <a class=card href="#fleets" target=_self><h3>Triage needs you</h3><div data-mirror=f_inbox>&hellip;</div></a>
+  <a class=card href="#spend" target=_self><h3>OpenRouter this month</h3><div id=ov_month>&hellip;</div></a>
+  <a class=card href="#spend" target=_self><h3>OpenRouter credit left</h3><div id=ov_credit>&hellip;</div></a>
+  <a class=card href="#hosts" target=_self><h3>Delivery workers</h3><div data-mirror=dl_up>&hellip;</div></a>
+</div>
 <!-- Production apps — the operator's FIRST impression of app health, above the fleets and
      machine columns. Fed by each app's prod-ops-health run (podcast_scraper #1876) pushing
      prod_ops_health_* gauges into this VM; per-app template — clone the block and swap the
@@ -124,6 +140,25 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
     <a class=card href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml"><h3>Last check</h3><div id=ph_age>&hellip;</div></a>
   </div>
 </div>
+</section>
+<section class=tab id=t-sites>
+<!-- Uptime: outside-in probes from the mini (job site-probe, every minute through Cloudflare)
+     plus Cloudflare's own count of errors for every visitor (infra/cloudflare-edge). -->
+<div style="margin:0 0 22px" id=uptime>
+  <h2><span class="dot stale" id=up_agg></span><a href="$DASH_UPTIME">Uptime &mdash; prod endpoints &rarr;</a></h2>
+  <div class=charts>
+    <a class=card href="$DASH_UPTIME"><h3>Up now</h3><div id=up_now>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Availability 24h</h3><div id=up_24h>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Availability 7d</h3><div id=up_7d>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Availability 30d</h3><div id=up_30d>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Edge 5xx 1h</h3><div id=up_edge>&hellip;</div></a>
+    <a class=card href="$DASH_UPTIME"><h3>Security blocks 24h</h3><div id=up_sec>&hellip;</div></a>
+  </div>
+  <table class="ctbl uptime"><thead><tr><th>Endpoint</th><th>Now</th><th>24h</th><th>7d</th><th>30d</th><th title="Cloudflare: 5xx answered to all visitors, 24h">Edge 5xx 24h</th><th>Check</th></tr></thead><tbody id=uptbl></tbody></table>
+  <p class=sec>Checked from the mini (home internet) through Cloudflare every minute; minutes when the mini itself was offline are left out. Edge 5xx = Cloudflare's count for every visitor (520-530: it could not reach our origin).</p>
+</div>
+</section>
+<section class=tab id=t-fleets>
 <div style="margin:0 0 22px">
   <h2><a href="$DASH_FLEET">Triage fleet &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
@@ -146,6 +181,21 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
     <a class=card href="https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22"><h3>Routable now</h3><div id=b_route>&hellip;</div></a>
   </div>
 
+</div>
+</section>
+<section class=tab id=t-spend>
+  <h2><a href="$G/d/llm-gateway">LLM spend by key &middot; OpenRouter billing &rarr;</a></h2>
+  <div class=charts style="max-width:1140px" id=v_keys>&hellip;</div>
+  <h2>Fleet spend</h2>
+  <div class=charts style="max-width:1140px">
+    <a class=card href="$DASH_FLEET"><h3>Triage this month</h3><div data-mirror=f_month>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Triage total</h3><div data-mirror=f_total>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Bug-fix this month</h3><div data-mirror=b_month>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Bug-fix total</h3><div data-mirror=b_total>&hellip;</div></a>
+  </div>
+</section>
+<section class=tab id=t-hosts>
+<div style="margin:0 0 22px">
   <h2><a href="$DASH_DELIVERY">Delivery &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
     <a class=card href="$DASH_DELIVERY"><h3>Workers up</h3><div id=dl_up>&hellip;</div></a>
@@ -156,8 +206,6 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
     <a class=card href="$DASH_DELIVERY"><h3>Cursor age</h3><div id=dl_cursor>&hellip;</div></a>
   </div>
 
-  <h2><a href="$G/d/llm-gateway">LLM spend by key &middot; OpenRouter billing &rarr;</a></h2>
-  <div class=charts style="max-width:1140px" id=v_keys>&hellip;</div>
 </div>
 <div class=cols>
 <div class=col>
@@ -247,6 +295,7 @@ cat <<MID3
 </div>
 </div>
 <p class=sec id=fresh></p>
+</section>
 MID3
 cat <<TOK
 <script>const GTOK="$GF_VIEW";</script>
@@ -552,7 +601,28 @@ async function podcastHealth(){
   if(ts){const h=Math.floor((now-+ts[1])/3600);set('ph_age','<div class=cv>'+(h<1?'&lt;1':h)+'h ago</div>'+(stale?'<div class=muted style="font-size:12px">STALE &mdash; check not running</div>':''));}
   else set('ph_age','<div class=cv>&mdash;</div><div class=muted style="font-size:12px">no run in 28h</div>');
 }
-function refresh(){hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
+// Tabs: the hash picks one (#overview default), so links and the back button work.
+const TABS=['overview','sites','spend','fleets','hosts'];
+function showTab(){const h=location.hash.slice(1),t=TABS.includes(h)?h:'overview';
+  document.querySelectorAll('section.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
+  document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+t));}
+addEventListener('hashchange',showTab);showTab();
+// Overview cards and the strip copy what the tabs already show: one query per signal.
+function mirror(){
+  document.querySelectorAll('[data-mirror]').forEach(e=>{const s=document.getElementById(e.dataset.mirror);if(s&&e.innerHTML!==s.innerHTML)e.innerHTML=s.innerHTML;});
+  document.querySelectorAll('[data-dot]').forEach(e=>{const s=document.getElementById(e.dataset.dot);if(s)e.className=s.className;});
+  document.querySelectorAll('[data-text]').forEach(e=>{const s=document.getElementById(e.dataset.text);if(s)e.textContent=s.textContent.trim();});}
+setInterval(mirror,2000);
+async function overview(){
+  const set=(id,h)=>{const e=document.getElementById(id);if(e)e.innerHTML=h;};
+  const m=await g1('sum(max by (key, workspace) (last_over_time(openrouter_key_usd{window="month"}[2h])))');
+  const c=await g1('max(last_over_time(openrouter_account_usd{kind="credits"}[2h])) - max(last_over_time(openrouter_account_usd{kind="usage"}[2h]))');
+  const usd=x=>x?'$'+(+x[1]).toFixed(2):'&mdash;';
+  set('ov_month','<div class=cv>'+usd(m)+'</div><div class=muted style="font-size:12px">all keys, UTC month</div>');
+  const low=c&&+c[1]<10;
+  set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
+  set('ov_credit_s',usd(c));}
+function refresh(){overview();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
