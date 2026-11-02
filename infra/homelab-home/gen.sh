@@ -778,8 +778,9 @@ const PROJ=[
   edge:'(www\\.)?(humancopilot\\.eu|markodragoljevic\\.com|airandspacehistory\\.com|devwhateverops\\.com)'}];
 // Umami visitors per site (24h distinct sessions, pageviews), through Grafana's umami-pg
 // datasource with the hub's viewer token. Cached 10 minutes: the numbers move slowly.
-function spark(d){if(!d||!d.length)return '';const mx=Math.max(1,...d),w=56,h=16;
-  const pts=d.map((x,i)=>(i*(w-2)/(d.length-1)+1).toFixed(1)+','+(h-1-x/mx*(h-2)).toFixed(1)).join(' ');
+function spark(d,lo,hi){if(!d||!d.some(x=>x!=null))return '';const xs=d.filter(x=>x!=null),w=56,h=16;
+  const mn=lo!=null?Math.min(lo,...xs):0,mx=hi!=null?hi:Math.max(mn+1e-9,...xs,mn===0?1:mn);
+  const pts=d.map((x,i)=>x==null?null:(i*(w-2)/(d.length-1)+1).toFixed(1)+','+(h-1-(x-mn)/(mx-mn||1)*(h-2)).toFixed(1)).filter(Boolean).join(' ');
   return ' <svg width='+w+' height='+h+' viewBox="0 0 '+w+' '+h+'" style="vertical-align:middle;margin-left:4px" aria-label="daily visitors, 14 days"><polyline points="'+pts+'" fill=none stroke=#7aa2ff stroke-width=1.5 vector-effect=non-scaling-stroke /></svg>';}
 async function umami(){
   if(umami.c&&Date.now()-umami.t<600000)return umami.c;
@@ -804,6 +805,15 @@ async function umami(){
   }catch(e){return umami.c||null;}
   umami.c=out;umami.t=Date.now();return out;
 }
+// 14 daily points (oldest first) of an instant expression, via query_range at a 1-day step
+// ending now. Cached 10 minutes per expression: these move slowly and the subqueries cost.
+async function daily(expr){
+  daily.c=daily.c||{};const c=daily.c[expr];if(c&&Date.now()-c.t<600000)return c.v;
+  const e=Math.floor(Date.now()/1000),st=e-13*86400;let v=null;
+  try{const j=await(await fetch('/vm/api/v1/query_range?query='+encodeURIComponent(expr)+'&start='+st+'&end='+e+'&step=86400')).json();
+    const r=j.data.result[0];if(r){v=Array(14).fill(null);r.values.forEach(([t,x])=>{const i=Math.round((+t-st)/86400);if(i>=0&&i<14)v[i]=+x;});}}catch(x){}
+  daily.c[expr]={t:Date.now(),v};return v;
+}
 async function projects(){
   const el=document.getElementById('projblocks');if(!el)return;
   const um=await umami();
@@ -816,6 +826,10 @@ async function projects(){
   let html='';
   for(const p of PROJ){
     const E='{instance="homelab",window="24h",host=~`'+p.edge+'`';
+    const hostRe=p.hosts.map(h=>h.replace(/\./g,'\\.')).join('|');
+    const sAv=await daily('min(avg_over_time((max by (host) (probe_success{job="site-probe",run_id="",host=~`'+hostRe+'`}) and on () (last_over_time(mini_vm_egress_ok{instance="homelab",target="internet"}[5m]) == 1))[1d:5m]))');
+    const sRq=await daily('sum(last_over_time(cloudflare_edge_requests'+E+'}[15m]))');
+    const s5=await daily('sum(last_over_time(cloudflare_edge_requests'+E+',class=~"5xx_unreachable|5xx_server"}[15m]))');
     const req=await g1('sum(last_over_time(cloudflare_edge_requests'+E+'}[15m]))');
     const e5=await g1('sum(last_over_time(cloudflare_edge_requests'+E+',class=~"5xx_unreachable|5xx_server"}[15m]))');
     const dn=p.hosts.filter(h=>now[h]===0),av=p.hosts.map(h=>d1[h]).filter(x=>x!=null),a=av.length?Math.min(...av):null;
@@ -823,10 +837,10 @@ async function projects(){
     const sl=SVCLAMP[p.group]||'stale';
     const lamp=dn.length||sl==='down'?'down':((a!=null&&a<0.999)||sl==='mid'?'mid':(sl==='stale'&&!av.length?'stale':'up'));
     let cards=card('Sites up now','<span style="'+(dn.length?'color:#f85149':'')+'">'+(p.hosts.length-dn.length)+'/'+p.hosts.length+'</span>',dn.length?'down: '+dn.join(', '):(worstMs?'slowest '+Math.round(worstMs*1000)+' ms':''),'#sites')
-      +card('Availability 24h',pct(a),'worst of its hosts','#sites')
+      +card('Availability 24h',pct(a)+spark(sAv,0.99,1),'worst of its hosts','#sites')
       +card('Containers',(()=>{const c=SVCCTR[p.group];return c&&c.tot?'<span style="'+(c.run<c.tot?'color:#f85149':'')+'">'+c.run+'/'+c.tot+'</span>':'&mdash;';})(),'running on prod','#hosts/prod')
-      +card('Requests 24h',req?Math.round(+req[1]).toLocaleString():'&mdash;','Cloudflare, its hosts','#sites')
-      +card('Edge 5xx 24h',e5?Math.round(+e5[1]):(req?'0':'&mdash;'),'could not reach origin / server error','#sites');
+      +card('Requests 24h',(req?Math.round(+req[1]).toLocaleString():'&mdash;')+spark(sRq),'Cloudflare, its hosts','#sites')
+      +card('Edge 5xx 24h',(e5?Math.round(+e5[1]):(req?'0':'&mdash;'))+spark(s5&&sRq&&s5.map((x,i)=>sRq[i]==null?null:(x==null?0:x))),'could not reach origin / server error','#sites');
     const vv=vis(p.umami);
     cards+=card('Visitors 24h',vv?vv.v24+spark(vv.d):'&mdash;',vv?vv.p24+' views &middot; 7d '+vv.v7+' visitors':'Umami','#sites');
     if(p.id==='orrery'){const u=await g1('sum(up{job="orrery"})'),t=await g1('count(up{job="orrery"})');
