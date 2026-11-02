@@ -84,31 +84,49 @@ if pk:
             lab = f'key="{esc(k.get("name"))}",workspace="{esc(w.get("name"))}",disabled="{str(bool(k.get("disabled"))).lower()}",service="openrouter-spend",environment="operations"'
             for win, f in (("total", "usage"), ("day", "usage_daily"), ("week", "usage_weekly"), ("month", "usage_monthly")):
                 print(f'openrouter_key_usd{{{lab},window="{win}"}} {k.get(f) or 0}')
-    # Per model and provider, account-wide (every key): GET /activity returns one row per
-    # day x model x provider endpoint for the last 30 COMPLETED UTC days (today is not in it).
-    # vendor = the model's maker (anthropic/...), provider = who served it (amazon-bedrock,
-    # novita/fp8 -> novita). Windows: 30d, 7d, and the latest completed day ("yesterday").
+    # Per key x model x provider: GET /activity returns one row per day x model x provider
+    # endpoint for the last 30 COMPLETED UTC days (today is never in it); ?api_key_hash=<hash>
+    # narrows it to one key (found by trying names 2026-11-02: it returned 140 of 536 rows for
+    # evals-harness; key_hash and key are ignored). vendor = the maker (anthropic/...),
+    # provider = who served it (novita/fp8 -> novita).
+    # Windows, the same for every series so the hub can compare them: "month" = this UTC
+    # calendar month's completed days, "30d", "7d", "yesterday" = the latest completed day.
+    # Spend on keys that no longer exist stays in the account-wide /activity only; it is
+    # emitted as key="(deleted keys)" so the per-key series always sum to the account.
     from collections import defaultdict
-    rows = get("/activity")
-    days = sorted({r["date"][:10] for r in rows})
+    import datetime
+    allrows = get("/activity")
+    days = sorted({r["date"][:10] for r in allrows})
+    month = datetime.datetime.utcnow().strftime("%Y-%m")
+    wins = lambda d: [w for w, ok in (("30d", True), ("7d", d in days[-7:]), ("yesterday", bool(days) and d == days[-1]),
+                                       ("month", d.startswith(month))) if ok]
     agg = defaultdict(lambda: defaultdict(float))
+    def add(rows, keyname, wsname, sign=1):
+        for r in rows:
+            d, m = r["date"][:10], r.get("model") or "-"
+            base = (keyname, wsname, m, m.split("/")[0], (r.get("provider_name") or "-").split("/")[0])
+            for w in wins(d):
+                a = agg[base + (w,)]
+                a["usd"] += sign * float(r.get("usage") or 0); a["req"] += sign * int(r.get("requests") or 0)
+                a["prompt"] += sign * int(r.get("prompt_tokens") or 0); a["completion"] += sign * int(r.get("completion_tokens") or 0)
+    add(allrows, "(deleted keys)", "-")
+    for w in get("/workspaces"):
+        for k in get(f"/keys?include_disabled=true&workspace_id={w['id']}"):
+            rows = get(f"/activity?api_key_hash={k['hash']}")
+            add(rows, k.get("name"), w.get("name"))
+            add(rows, "(deleted keys)", "-", -1)
+    for (key, ws, m, ven, prov, w), a in agg.items():
+        if key == "(deleted keys)" and abs(a["usd"]) < 1e-6 and abs(a["req"]) < 1: continue
+        lab = (f'key="{esc(key)}",workspace="{esc(ws)}",model="{esc(m)}",vendor="{esc(ven)}",provider="{esc(prov)}",'
+               f'window="{w}",service="openrouter-spend",environment="operations"')
+        print(f'openrouter_model_usd{{{lab}}} {round(a["usd"], 6)}')
+        print(f'openrouter_model_requests{{{lab}}} {int(a["req"])}')
+        print(f'openrouter_model_tokens{{{lab},kind="prompt"}} {int(a["prompt"])}')
+        print(f'openrouter_model_tokens{{{lab},kind="completion"}} {int(a["completion"])}')
+    # one gauge per vendor per day, account-wide, for the Spend tab's daily sparklines
     vday = defaultdict(float)
-    for r in rows:
-        d, m = r["date"][:10], r.get("model") or "-"
-        key = (m, m.split("/")[0], (r.get("provider_name") or "-").split("/")[0])
-        for win, ok in (("30d", True), ("7d", d in days[-7:]), ("yesterday", days and d == days[-1])):
-            if not ok: continue
-            a = agg[key + (win,)]
-            a["usd"] += float(r.get("usage") or 0); a["req"] += int(r.get("requests") or 0)
-            a["prompt"] += int(r.get("prompt_tokens") or 0); a["completion"] += int(r.get("completion_tokens") or 0)
-        vday[(key[1], d)] += float(r.get("usage") or 0)
-    for (m, ven, prov, win), a in agg.items():
-        lab = f'model="{esc(m)}",vendor="{esc(ven)}",provider="{esc(prov)}",window="{win}",service="openrouter-spend",environment="operations"'
-        print(f'openrouter_model_usd{{{lab}}} {a["usd"]}')
-        print(f'openrouter_model_requests{{{lab}}} {a["req"]}')
-        print(f'openrouter_model_tokens{{{lab},kind="prompt"}} {a["prompt"]}')
-        print(f'openrouter_model_tokens{{{lab},kind="completion"}} {a["completion"]}')
-    # one gauge per vendor per day (30 series per vendor), for the Spend tab's daily sparklines
+    for r in allrows:
+        vday[((r.get("model") or "-").split("/")[0], r["date"][:10])] += float(r.get("usage") or 0)
     for (ven, d), usd in vday.items():
         print(f'openrouter_vendor_day_usd{{vendor="{esc(ven)}",day="{d}",service="openrouter-spend",environment="operations"}} {usd}')
 PY
