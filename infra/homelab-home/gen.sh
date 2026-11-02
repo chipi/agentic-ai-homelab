@@ -72,7 +72,7 @@ a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
 .abar.warn{background:#3a2d0e;border:1px solid #d29922}
 .abar.plumb{background:#16161f;border:1px solid #26263a;color:#8888aa}
 .abar .hz{font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.8;margin-right:6px}
-h3.sectitle{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:16px 0 6px;border-bottom:1px solid #22223a;padding-bottom:4px}
+h3.sectitle,summary.sectitle{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:16px 0 6px;border-bottom:1px solid #22223a;padding-bottom:4px}
 table.ctbl td{padding:4px 10px;border-bottom:1px solid #1a1a2b;font-size:13px;vertical-align:middle}
 table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
 .strip{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 12px;font-size:13.5px}
@@ -85,6 +85,8 @@ section.tab{display:none}section.tab.on{display:block}
 .subtabs a{padding:5px 12px;border:1px solid #26263a;border-radius:16px;color:#9a9ac2;text-decoration:none;font-size:13.5px}
 .subtabs a.on{color:#e6e6ef;border-color:#7aa2ff;background:#16182b}.subtabs a:hover{color:#e6e6ef}
 .sub{display:none}.sub.on{display:block}
+details.sect summary{cursor:pointer;list-style:none}details.sect summary::-webkit-details-marker{display:none}
+details.sect summary::before{content:"\25B8  "}details.sect[open] summary::before{content:"\25BE  "}
 #notices{margin:0 0 12px}#notices .abar.crit{display:none}
 #notices summary{cursor:pointer;font-size:13.5px;color:#d29922;list-style:none}
 #notices summary::-webkit-details-marker{display:none}
@@ -245,7 +247,7 @@ section.tab{display:none}section.tab.on{display:block}
   <h3 class=sectitle>Containers</h3>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
   <table class=ctbl><tbody id=mctr></tbody></table>
-  <h3 class=sectitle>Services &amp; credentials</h3>
+  <details class=sect><summary class=sectitle>Services &amp; credentials</summary>
   <table><thead><tr><th>Service</th><th>Port</th><th>User</th><th>Password</th></tr></thead><tbody>
 HDR
 row "Grafana"         "$G"            "$GF_U" "$GF_P" "3000"
@@ -259,6 +261,7 @@ row "VictoriaTraces"  "$VT"           "&mdash;" "tailnet" "10428"
 row "Home Assistant"  "https://homeassistant.$TS" "own account" "&mdash;" "8123"
 cat <<MID
   </tbody></table>
+  </details>
 </div>
 <div class="col sub" data-sub=dgx>
   <h2><span class="dot stale" id=st_dgx></span><a href="$DASH_GPU">DGX &middot; dgx-llm-1 &rarr;</a></h2>
@@ -280,7 +283,7 @@ cat <<MID
   <h3 class=sectitle>Containers</h3>
   <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
   <table class=ctbl><tbody id=dgxctr></tbody></table>
-  <h3 class=sectitle>Services</h3>
+  <details class=sect><summary class=sectitle>Services</summary>
   <table><thead><tr><th>Service</th><th>Port</th><th>Role</th></tr></thead><tbody>
 MID
 dsvc "ollama"         "11434" "LLM inference" "$DASH_DGX"
@@ -291,6 +294,7 @@ dsvc "cadvisor"       "8080"  "containers"    "$DASH_CAD"
 dsvc "dcgm"           "9400"  "GPU exporter"  "$DASH_GPU"
 cat <<MID2
   </tbody></table>
+  </details>
 </div>
 <div class="col sub" data-sub=prod>
   <h2><span class="dot stale" id=st_prod></span><a href="$DASH_PROD">Production &middot; prod-podcast &rarr;</a></h2>
@@ -305,7 +309,7 @@ cat <<MID2
   <h3 class=sectitle>Containers</h3>
   <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a></div>
   <table class=ctbl><tbody id=pctr></tbody></table>
-  <h3 class=sectitle>Services</h3>
+  <details class=sect><summary class=sectitle>Services</summary>
   <table><thead><tr><th>Service</th><th>Board</th><th>Role</th></tr></thead><tbody>
 MID2
 dsvc "podcast operator" "ops" "operator API + viewer"  "$DASH_OPER"
@@ -314,6 +318,7 @@ dsvc "edge / security"  "443" "shared Caddy + fail2ban" "$DASH_PEDGE"
 dsvc "containers"       "cA"  "cAdvisor"               "$DASH_PCON"
 cat <<MID3
   </tbody></table>
+  </details>
 </div>
 </div>
 <p class=sec id=fresh></p>
