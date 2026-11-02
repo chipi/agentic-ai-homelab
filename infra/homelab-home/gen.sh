@@ -132,7 +132,7 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
 <div id=alertbar></div>
 </details>
 <nav class=tabs>
-  <a href="#overview" target=_self>Overview</a><a href="#sites" target=_self>Sites</a><a href="#spend" target=_self>Spend</a><a href="#fleets" target=_self>Fleets</a><a href="#hosts" target=_self>Hosts</a>
+  <a href="#overview" target=_self>Overview</a><a href="#sites" target=_self>Sites</a><a href="#hosts" target=_self>Hosts</a><a href="#fleets" target=_self>Fleets</a><a href="#spend" target=_self>Spend</a>
 </nav>
 <section class=tab id=t-overview>
 <div class=charts style="max-width:1140px">
@@ -643,7 +643,7 @@ async function podcastHealth(){
 }
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
-const TABS=['overview','sites','spend','fleets','hosts'],SUBS=['prod','mini','dgx','delivery'];
+const TABS=['overview','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','delivery'];
 function showTab(){const [h,sb]=location.hash.slice(1).split('/'),t=TABS.includes(h)?h:'overview',u=SUBS.includes(sb)?sb:'prod';
   document.querySelectorAll('section.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
   document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+t));
