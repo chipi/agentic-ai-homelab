@@ -229,8 +229,10 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
   <div class=charts style="max-width:1140px" id=sp_vendor>&hellip;</div>
   <h2>By model</h2>
   <table class="ctbl models"><thead><tr><th>Model</th><th>Spend</th><th>Tokens in / out</th><th>Requests</th><th>Keys</th><th>Served by</th></tr></thead><tbody id=sp_models></tbody></table>
-  <h2>Local models &middot; DGX</h2>
+  <h2>Local models &middot; vLLM on the DGX</h2>
   <div class=charts style="max-width:1140px" id=sp_local>&hellip;</div>
+  <h2>Local models &middot; Ollama per machine</h2>
+  <div class=charts style="max-width:1140px" id=sp_ollama>&hellip;</div>
   <details class=sect><summary class=sectitle>Local models by consumer (mini gateway)</summary>
   <table class=ctbl><thead><tr><th>Key</th><th>Model</th><th>Tokens in / out</th><th>Requests</th></tr></thead><tbody id=sp_consumers></tbody></table>
   </details>
@@ -877,7 +879,8 @@ function spendRange(p){
   return {R:days*86400,O,days,label:days?f(mid-days*86400000)+' to '+f(mid-86400000)+' (UTC, '+days+' day'+(days>1?'s':'')+')':'no completed day this month yet'};
 }
 async function spendModels(){
-  const set=(id,h)=>{const e=document.getElementById(id);if(e&&e.innerHTML!==h)e.innerHTML=h;};
+  // a slower call for an earlier period must not overwrite the period now selected
+  const set=(id,h)=>{if(spendPeriod!==p)return;const e=document.getElementById(id);if(e&&e.innerHTML!==h)e.innerHTML=h;};
   const usd=x=>'$'+(x>=100?x.toFixed(0):x.toFixed(2));
   const tk=v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':String(Math.round(v));
   const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -897,7 +900,7 @@ async function spendModels(){
   const cr=await one('max(last_over_time(openrouter_account_usd{kind="credits"}'+L+')) - max(last_over_time(openrouter_account_usd{kind="usage"}'+L+'))');
   const card=(t,v,sub)=>'<a class=card><h3>'+t+'</h3><div class=cv>'+v+'</div>'+(sub?'<span class=muted>'+sub+'</span>':'')+'</a>';
   set('sp_totals',card('OpenRouter spend',usd(tUsd),Math.round(tReq).toLocaleString()+' requests')+card('Tokens (OpenRouter)',tk(tIn+tOut),tk(tIn)+' in / '+tk(tOut)+' out')
-    +card('Local tokens (DGX)',tk(lIn+lOut),tk(lIn)+' in / '+tk(lOut)+' out &middot; $0')+card('of which fleets',usd(fl),'triage + bug-fix')
+    +card('Local tokens (vLLM)',tk(lIn+lOut),tk(lIn)+' in / '+tk(lOut)+' out &middot; $0')+card('of which fleets',usd(fl),'triage + bug-fix')
     +card('Today so far',usd(today),'live, all keys')+card('Credit left','<span style="'+(cr<10?'color:#f85149':'')+'">'+usd(cr)+'</span>','OpenRouter account'));
   // by key: this period from activity; lifetime from the key itself
   const kU=await by('sum by (key, workspace) ('+M('openrouter_model_usd')+')',['key','workspace']);
@@ -923,6 +926,26 @@ async function spendModels(){
   const ms=Object.keys(mU).filter(m=>mU[m]>=0.005).sort((a,b)=>mU[b]-mU[a]);
   set('sp_models',ms.length?ms.map(m=>'<tr><td>'+hx(m)+'</td><td>'+usd(mU[m])+'</td><td>'+tk(mI[m]||0)+' / '+tk(mO[m]||0)+'</td><td>'+Math.round(mR[m]||0)+'</td><td class=u>'
     +hx((mK[m]||[]).sort((a,b)=>b[1]-a[1]).map(x=>x[0]).join(', '))+'</td><td class=u>'+hx((mP[m]||[]).sort((a,b)=>b[1]-a[1]).map(x=>x[0]).join(', '))+'</td></tr>').join(''):'<tr><td class=muted colspan=6>no spend in this period</td></tr>');
+  // Ollama on the DGX, the X3 and the MacBook: tokens from each request's llama.cpp print_timing
+  // lines ("prompt eval time = N ms / T tokens", "eval time = ..."), which the research-bench
+  // collectors ship to VictoriaLogs (job="ollama"). Per machine, not per model: the lines carry no
+  // model name. Queried through Grafana's VictoriaLogs datasource for exactly the period's days.
+  try{
+    const to=Date.now()-rg.O*1000,from=to-rg.R*1000;
+    const vls=async expr=>{const m={};if(!rg.R)return m;
+      const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+        body:JSON.stringify({queries:[{refId:'O',datasource:{uid:'victorialogs'},expr,queryType:'stats'}],from:String(from),to:String(to)})})).json();
+      (r.results.O.frames||[]).forEach(f=>{const fl=f.schema.fields[f.schema.fields.length-1],v=f.data.values[f.data.values.length-1];
+        if(fl&&fl.labels)m[fl.labels.instance]=(m[fl.labels.instance]||0)+ +(v[v.length-1]||0);});return m;};
+    const oi=await vls('job:"ollama" "prompt eval time =" | extract_regexp "prompt eval time = +[0-9.]+ ms / +(?P<n>[0-9]+) tokens" | stats by (instance) sum(n) as tokens');
+    const oo=await vls('job:"ollama" "eval time =" -"prompt eval time" | extract_regexp "eval time = +[0-9.]+ ms / +(?P<n>[0-9]+) tokens" | stats by (instance) sum(n) as tokens');
+    const orq=await vls('job:"ollama" "prompt eval time =" | stats by (instance) count() as tokens');
+    const names={'dgx-llm-1':'DGX','x3':'X3','macbook':'MacBook'};
+    const hs=Object.keys(names).filter(h=>oi[h]||oo[h]).concat(Object.keys(oi).filter(h=>!names[h]));
+    set('sp_ollama',hs.length?hs.map(h=>'<a class=card href="'+G+'/d/research-bench"><h3>'+hx(names[h]||h)+'</h3><div class=cv>'+tk((oi[h]||0)+(oo[h]||0))+'</div><span class=muted>'+tk(oi[h]||0)+' in / '+tk(oo[h]||0)+' out &middot; '+Math.round(orq[h]||0)+' requests &middot; $0</span></a>').join('')
+      :'<div class=muted>no Ollama requests in this period</div>');
+    spendModels.ollama=Object.values(oi).reduce((a,b)=>a+b,0)+Object.values(oo).reduce((a,b)=>a+b,0);
+  }catch(e){set('sp_ollama','<div class=muted>Ollama logs unavailable</div>');}
   // local models: vLLM's own counters (every caller), and the mini gateway's per-key log
   const gO=rg.R?await by(vm('sum by (model_name) (increase(vllm:generation_tokens_total{instance="dgx-llm-1"}[R]))'),['model_name']):{};
   const gI=rg.R?await by(vm('sum by (model_name) (increase(vllm:prompt_tokens_total{instance="dgx-llm-1"}[R]))'),['model_name']):{};
