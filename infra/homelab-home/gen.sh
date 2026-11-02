@@ -82,6 +82,8 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
   .charts{gap:8px}a.card{min-width:calc(50% - 4px);padding:9px 10px}
   .cv{font-size:17px}.spark{height:34px}
   table{font-size:13px}th,td{padding:6px 8px}
+  table.up th:nth-child(n+5),table.up td:nth-child(n+5){display:none}
+  table.up td:first-child{overflow-wrap:anywhere}
   code{word-break:break-all}
   .sysrow,.dock,.sec,.health{font-size:12.5px}
 }</style></head><body>
@@ -100,7 +102,7 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
     <a class=card href="$DASH_UPTIME"><h3>Edge 5xx 1h</h3><div id=up_edge>&hellip;</div></a>
     <a class=card href="$DASH_UPTIME"><h3>Security blocks 24h</h3><div id=up_sec>&hellip;</div></a>
   </div>
-  <table class=ctbl><thead><tr><th>Endpoint</th><th>Now</th><th>24h</th><th>7d</th><th>30d</th><th title="Cloudflare: 5xx answered to all visitors, 24h">Edge 5xx 24h</th><th>Check</th></tr></thead><tbody id=uptbl></tbody></table>
+  <table class="ctbl up"><thead><tr><th>Endpoint</th><th>Now</th><th>24h</th><th>7d</th><th>30d</th><th title="Cloudflare: 5xx answered to all visitors, 24h">Edge 5xx 24h</th><th>Check</th></tr></thead><tbody id=uptbl></tbody></table>
   <p class=sec>Checked from the mini (home internet) through Cloudflare every minute; minutes when the mini itself was offline are left out. Edge 5xx = Cloudflare's count for every visitor (520-530: it could not reach our origin).</p>
 </div>
 <div id=alertbar></div>
