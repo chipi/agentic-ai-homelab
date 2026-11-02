@@ -396,8 +396,11 @@ async function dgx(){
   const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
   const l1=await g1('node_load1'+D),l5=await g1('node_load5'+D),l15=await g1('node_load15'+D),up=await g1('node_time_seconds'+D+'-node_boot_time_seconds'+D);
   const dr=document.getElementById('dgxrow');if(dr)dr.innerHTML='Clock <b>'+(clk?(+clk[1]).toFixed(0)+' MHz':'&mdash;')+'</b> &middot; Mem-BW <b>'+(mbw?(+mbw[1]).toFixed(0)+'%':'&mdash;')+'</b> &middot; Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
-  const cc=await g1('count(container_last_seen{instance=\"dgx-llm-1\"})'),mem=await g1('sum(container_memory_usage_bytes{instance=\"dgx-llm-1\",id=\"/\"})');
-  const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b>';
+  // container_last_seen counts every cgroup cadvisor sees (system slices too) and id="/" is the
+  // whole host, so both read the inventory / named containers instead (62-77 "containers" vs 12).
+  const dr1=await g1('count(container_uptime_seconds{box="dgx",state="running"})'),dt1=await g1('count(container_uptime_seconds{box="dgx"})');
+  const mem=await g1('sum(container_memory_working_set_bytes{instance="dgx-llm-1",name!=""})');
+  const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(dr1?dr1[1]:'0')+'/'+(dt1?dt1[1]:'&mdash;')+'</b> running &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b> in containers';
   ctable('dgxctr','dgx');
 }
 async function prod(){
@@ -413,8 +416,8 @@ async function prod(){
   const l1=await g1('node_load1'+P),l5=await g1('node_load5'+P),l15=await g1('node_load15'+P);
   const up=await g1('node_time_seconds'+P+'-node_boot_time_seconds'+P);
   const pr=document.getElementById('prodrow');if(pr)pr.innerHTML='Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
-  const cc=await g1('count(container_last_seen'+P+')');
-  const pd=document.getElementById('pdocker');if(pd)pd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers';
+  const pr1=await g1('count(container_uptime_seconds{box="prod",state="running"})'),pt1=await g1('count(container_uptime_seconds{box="prod"})');
+  const pd=document.getElementById('pdocker');if(pd)pd.innerHTML='<b>'+(pr1?pr1[1]:'0')+'/'+(pt1?pt1[1]:'&mdash;')+'</b> running';
   ctable('pctr','prod');
 }
 async function fleet(){
