@@ -81,6 +81,7 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
 .tabs a{padding:8px 14px;color:#9a9ac2;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500}
 .tabs a.on{color:#e6e6ef;border-bottom-color:#7aa2ff}.tabs a:hover{color:#e6e6ef}
 section.tab{display:none}section.tab.on{display:block}
+table.proj td{vertical-align:middle}table.proj td .s{font-size:12px;color:#8888aa}table.proj td svg{vertical-align:middle}
 .subtabs{display:flex;gap:6px;margin:0 0 16px;flex-wrap:wrap}
 .subtabs a{padding:5px 12px;border:1px solid #26263a;border-radius:16px;color:#9a9ac2;text-decoration:none;font-size:13.5px}
 .subtabs a.on{color:#e6e6ef;border-color:#7aa2ff;background:#16182b}.subtabs a:hover{color:#e6e6ef}
@@ -110,6 +111,9 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
   table.uptime td:first-child{overflow-wrap:anywhere}
   table.models th:nth-child(n+3),table.models td:nth-child(n+3){display:none}
   table.models td:first-child{overflow-wrap:anywhere}
+  table.proj thead{display:none}table.proj tr{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;border:1px solid #26263a;border-radius:8px;padding:8px 10px;margin:0 0 8px;background:#14141f}
+  table.proj td{border:none;padding:0}table.proj td:first-child{grid-column:1/-1;font-weight:600}
+  table.proj td[data-l]::before{content:attr(data-l);display:block;font-size:10px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em}
   .strip{gap:6px 12px;font-size:12.5px}
   .tabs a{padding:8px 9px;font-size:14px}
   .subtabs{flex-wrap:nowrap;gap:4px}
@@ -158,6 +162,9 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
      app="..." label for the next production app. Traffic lights: 1 green / 0.5 orange
      (degraded, not customer-impacting) / 0 red; STALENESS IS A STATE — no run for >26h renders
      grey/stale, because a dead health check must never look healthy. -->
+<h2>Projects</h2>
+<table class="ctbl proj"><thead><tr><th>Project</th><th>Health</th><th>Sites</th><th>Requests 24h</th><th>Visitors 24h</th><th>Edge 5xx 24h</th><th>LLM spend (month)</th></tr></thead><tbody id=projrows></tbody></table>
+<details class=sect><summary class=sectitle>Close Listening &middot; health checks</summary>
 <div style="margin:0 0 22px" id=podcast_prod>
   <h2><span class="dot stale" id=ph_agg></span><a href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml">Podcast &mdash; production &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
@@ -170,7 +177,7 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
     <a class=card href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml"><h3>Last check</h3><div id=ph_age>&hellip;</div></a>
   </div>
 </div>
-<div id=projblocks></div>
+</details>
 </section>
 <section class=tab id=t-sites>
 <!-- Uptime: outside-in probes from the mini (job site-probe, every minute through Cloudflare)
@@ -785,10 +792,14 @@ async function services(){
 // the project's public hosts, its prod containers (the Hosts service cards' lamps), Cloudflare's
 // 24h request and 5xx counts for its hosts, and the app's own metrics where it exports any.
 const PROJ=[
- {id:'orrery',name:'Orrery',group:'Orrery',umami:['orrerylearn.com'],hosts:['www.orrerylearn.com','lab-api.orrerylearn.com','mcp.orrerylearn.com'],edge:'(www\\.)?orrerylearn\\.com|(lab-api|mcp)\\.orrerylearn\\.com'},
- {id:'evals',name:'Evals',group:'Evals',umami:['evals.humancopilot.eu'],hosts:['evals.humancopilot.eu'],edge:'evals\\.humancopilot\\.eu'},
- {id:'web',name:'Websites',group:'Websites',umami:['humancopilot.eu','markodragoljevic.com','airandspacehistory.com','devwhateverops.com'],hosts:['www.humancopilot.eu','www.markodragoljevic.com','airandspacehistory.com','www.devwhateverops.com'],
-  edge:'(www\\.)?(humancopilot\\.eu|markodragoljevic\\.com|airandspacehistory\\.com|devwhateverops\\.com)'}];
+ {id:'cl',name:'Close Listening',group:'Close Listening',hosts:['closelistening.app','mcp.closelistening.app','obs.closelistening.app'],
+  edge:'(www\\.)?closelistening\\.app|(mcp|obs)\\.closelistening\\.app',umami:['closelistening.app'],keys:['podcast-scraper-prod']},
+ {id:'orrery',name:'Orrery',group:'Orrery',hosts:['www.orrerylearn.com','lab-api.orrerylearn.com','mcp.orrerylearn.com'],
+  edge:'(www\\.)?orrerylearn\\.com|(lab-api|mcp)\\.orrerylearn\\.com',umami:['orrerylearn.com'],keys:['orrery lab key']},
+ {id:'evals',name:'Evals',group:'Evals',hosts:['evals.humancopilot.eu'],edge:'evals\\.humancopilot\\.eu',umami:['evals.humancopilot.eu'],keys:['evals-harness']},
+ {id:'web',name:'Websites',group:'Websites',hosts:['www.humancopilot.eu','www.markodragoljevic.com','airandspacehistory.com','www.devwhateverops.com'],
+  edge:'(www\\.)?(humancopilot\\.eu|markodragoljevic\\.com|airandspacehistory\\.com|devwhateverops\\.com)',
+  umami:['humancopilot.eu','markodragoljevic.com','airandspacehistory.com','devwhateverops.com'],keys:[]}];
 // Umami visitors per site (24h distinct sessions, pageviews), through Grafana's umami-pg
 // datasource with the hub's viewer token. Cached 10 minutes: the numbers move slowly.
 function spark(d,lo,hi){if(!d||!d.some(x=>x!=null))return '';const xs=d.filter(x=>x!=null),w=56,h=16;
@@ -827,44 +838,52 @@ async function daily(expr){
     const r=j.data.result[0];if(r){v=Array(14).fill(null);r.values.forEach(([t,x])=>{const i=Math.round((+t-st)/86400);if(i>=0&&i<14)v[i]=+x;});}}catch(x){}
   daily.c[expr]={t:Date.now(),v};return v;
 }
+// One row per project, the same columns for all: health (Close Listening: its daily health run;
+// the others have none, so containers running + sites up + their service cards), sites, requests,
+// visitors (Umami), edge 5xx, and LLM spend this month on the project's own OpenRouter key.
 async function projects(){
-  const el=document.getElementById('projblocks');if(!el)return;
-  const um=await umami();
-  const vis=doms=>{if(!um)return null;const xs=doms.map(d=>um[d]).filter(Boolean);return xs.length?xs.reduce((a,b)=>({v24:a.v24+b.v24,p24:a.p24+b.p24,v7:a.v7+b.v7,p7:a.p7+b.p7,d:a.d.map((x,i)=>x+b.d[i])})):null;};
-  const now={};(await q('max by (host) (last_over_time(probe_success{job="site-probe",run_id=""}[3m]))')).forEach(r=>now[r.metric.host]=+r.value[1]);
-  const ms={};(await q('max by (host) (last_over_time(probe_duration_seconds{job="site-probe"}[3m]))')).forEach(r=>ms[r.metric.host]=+r.value[1]);
-  const d1=(uptime.c&&uptime.c.d1)||{};
+  const el=document.getElementById('projrows');if(!el)return;
+  const um=await umami(),d1=(uptime.c&&uptime.c.d1)||{};
+  const now={},ms={};
+  (await q('max by (host) (last_over_time(probe_success{job="site-probe",run_id=""}[3m]))')).forEach(r=>now[r.metric.host]=+r.value[1]);
+  (await q('max by (host) (last_over_time(probe_duration_seconds{job="site-probe"}[3m]))')).forEach(r=>ms[r.metric.host]=+r.value[1]);
+  const kmon={};(await q('max by (key) (last_over_time(openrouter_key_usd{window="month"}[2h]))')).forEach(r=>kmon[r.metric.key]=+r.value[1]);
   const pct=v=>v==null?'&mdash;':(v>=0.99995?'100%':(v*100).toFixed(2)+'%');
-  const card=(t,v,sub,href)=>'<a class=card href="'+href+'" target=_self><h3>'+t+'</h3><div class=cv>'+v+'</div>'+(sub?'<span class=muted>'+sub+'</span>':'')+'</a>';
-  let html='';
+  const vis=doms=>{if(!um)return null;const xs=doms.map(d=>um[d]).filter(Boolean);return xs.length?xs.reduce((a,b)=>({v24:a.v24+b.v24,p24:a.p24+b.p24,v7:a.v7+b.v7,p7:a.p7+b.p7,d:a.d.map((x,i)=>x+b.d[i])})):null;};
+  // Close Listening health run
+  const A='{app="podcast"}',ts=await g1('last_over_time(prod_ops_health_last_run_timestamp'+A+'[28h])'),agg=await g1('last_over_time(prod_ops_health_aggregate'+A+'[28h])');
+  const chk=await q('last_over_time(prod_ops_health_check'+A+'[28h])'),nowS=Date.now()/1000,stale=!ts||nowS-(+ts[1])>26*3600;
+  const bad=chk.filter(r=>+r.value[1]!==1).map(r=>r.metric.check.replace(/_/g,' '));
+  let rows='';
   for(const p of PROJ){
     const E='{instance="homelab",window="24h",host=~`'+p.edge+'`';
-    const hostRe=p.hosts.map(h=>h.replace(/\./g,'\\.')).join('|');
-    const sAv=await daily('min(avg_over_time((max by (host) (probe_success{job="site-probe",run_id="",host=~`'+hostRe+'`}) and on () (last_over_time(mini_vm_egress_ok{instance="homelab",target="internet"}[5m]) == 1))[1d:5m]))');
-    const sRq=await daily('sum(last_over_time(cloudflare_edge_requests'+E+'}[15m]))');
-    const s5=await daily('sum(last_over_time(cloudflare_edge_requests'+E+',class=~"5xx_unreachable|5xx_server"}[15m]))');
     const req=await g1('sum(last_over_time(cloudflare_edge_requests'+E+'}[15m]))');
     const e5=await g1('sum(last_over_time(cloudflare_edge_requests'+E+',class=~"5xx_unreachable|5xx_server"}[15m]))');
+    const hostRe=p.hosts.map(h=>h.replace(/\./g,'\\.')).join('|');
+    const sRq=await daily('sum(last_over_time(cloudflare_edge_requests'+E+'}[15m]))');
     const dn=p.hosts.filter(h=>now[h]===0),av=p.hosts.map(h=>d1[h]).filter(x=>x!=null),a=av.length?Math.min(...av):null;
-    const worstMs=Math.max(0,...p.hosts.map(h=>ms[h]||0));
-    const sl=SVCLAMP[p.group]||'stale';
-    const lamp=dn.length||sl==='down'?'down':((a!=null&&a<0.999)||sl==='mid'?'mid':(sl==='stale'&&!av.length?'stale':'up'));
-    let cards=card('Sites up now','<span style="'+(dn.length?'color:#f85149':'')+'">'+(p.hosts.length-dn.length)+'/'+p.hosts.length+'</span>',dn.length?'down: '+dn.join(', '):(worstMs?'slowest '+Math.round(worstMs*1000)+' ms':''),'#sites')
-      +card('Availability 24h',pct(a)+spark(sAv,0.99,1),'worst of its hosts','#sites')
-      +card('Containers',(()=>{const c=SVCCTR[p.group];return c&&c.tot?'<span style="'+(c.run<c.tot?'color:#f85149':'')+'">'+c.run+'/'+c.tot+'</span>':'&mdash;';})(),'running on prod','#hosts/prod')
-      +card('Requests 24h',(req?Math.round(+req[1]).toLocaleString():'&mdash;')+spark(sRq),'Cloudflare, its hosts','#sites')
-      +card('Edge 5xx 24h',(e5?Math.round(+e5[1]):(req?'0':'&mdash;'))+spark(s5&&sRq&&s5.map((x,i)=>sRq[i]==null?null:(x==null?0:x))),'could not reach origin / server error','#sites');
-    const vv=vis(p.umami);
-    cards+=card('Visitors 24h',vv?vv.v24+spark(vv.d):'&mdash;',vv?vv.p24+' views &middot; 7d '+vv.v7+' visitors':'Umami','#sites');
-    if(p.id==='orrery'){const u=await g1('sum(up{job="orrery"})'),t=await g1('count(up{job="orrery"})');
-      cards+=card('Metrics scrape',(u?+u[1]:0)+'/'+(t?+t[1]:0),'orrery targets up','#hosts/prod');}
-    if(p.id==='evals'){const r=await g1('sum(increase(evals_inspector_requests_total[24h]))'),er=await g1('sum(increase(evals_inspector_errors_total[24h]))'),mc=await g1('sum(increase(evals_mcp_calls_total[24h]))');
-      cards+=card('Inspector 24h',r?Math.round(+r[1]).toLocaleString():'0',(er?Math.round(+er[1]):0)+' errors','#hosts/prod')
-        +card('MCP calls 24h',mc?Math.round(+mc[1]):'0','','#hosts/prod');}
-    const per='';
-    html+='<div style="margin:0 0 22px"><h2><span class="dot '+lamp+'"></span><a href="#hosts/prod" target=_self>'+p.name+' &rarr;</a></h2><div class=charts style="max-width:1140px">'+cards+'</div>'+per+'</div>';
+    const cc=SVCCTR[p.group],sl=SVCLAMP[p.group]||'stale';
+    let lamp,health;
+    if(p.id==='cl'){
+      lamp=agg==null?'stale':(stale?'stale':(+agg[1]===1?'up':(+agg[1]===0?'down':'mid')));
+      const h=ts?Math.floor((nowS-+ts[1])/3600):null;
+      health=stale?'health run stale':(bad.length?bad.join(', ')+' not green':(chk.length+'/'+chk.length+' checks'))+(h!=null?' &middot; '+(h<1?'&lt;1':h)+'h ago':'');
+      if(dn.length||sl==='down')lamp='down';else if(lamp==='up'&&(sl==='mid'||(a!=null&&a<0.999)))lamp='mid';
+    }else{
+      lamp=dn.length||sl==='down'?'down':((a!=null&&a<0.999)||sl==='mid'?'mid':(sl==='stale'?'stale':'up'));
+      health=(cc&&cc.tot?cc.run+'/'+cc.tot+' containers':'containers &mdash;')+(dn.length?' &middot; down: '+dn.join(', '):((a!=null&&a<0.999)?' &middot; 24h under 99.9%':''));
+    }
+    const vv=vis(p.umami),spend=p.keys.length?p.keys.reduce((x,k)=>x+(kmon[k]||0),0):null;
+    const worst=Math.max(0,...p.hosts.map(h=>ms[h]||0));
+    rows+='<tr><td><span class="dot '+lamp+'"></span>'+p.name+'</td>'
+      +'<td data-l=Health><span class=s>'+health+'</span></td>'
+      +'<td data-l=Sites>'+(p.hosts.length-dn.length)+'/'+p.hosts.length+' &middot; '+pct(a)+'<div class=s>slowest '+Math.round(worst*1000)+' ms</div></td>'
+      +'<td data-l="Requests 24h">'+(req?Math.round(+req[1]).toLocaleString():'&mdash;')+spark(sRq)+'</td>'
+      +'<td data-l="Visitors 24h">'+(vv?vv.v24+spark(vv.d)+'<div class=s>'+vv.p24+' views &middot; 7d '+vv.v7+'</div>':'&mdash;')+'</td>'
+      +'<td data-l="Edge 5xx 24h">'+(e5?Math.round(+e5[1]):(req?'0':'&mdash;'))+'</td>'
+      +'<td data-l="LLM spend (month)">'+(spend==null?'<span class=s>no key of its own</span>':'$'+spend.toFixed(2)+'<div class=s>'+p.keys.join(', ')+'</div>')+'</td></tr>';
   }
-  if(el.innerHTML!==html)el.innerHTML=html;
+  if(el.innerHTML!==rows)el.innerHTML=rows;
 }
 // ---- Spend tab. One period for every number: completed UTC days only, because OpenRouter's
 // activity API (spend per key/model/provider) has no partial day. month = this UTC month's
