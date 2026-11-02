@@ -117,6 +117,7 @@ section.tab{display:none}section.tab.on{display:block}
   <a href="#hosts/prod" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a>
   <a href="#hosts/mini" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a>
   <a href="#hosts/dgx" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a>
+  <a href="#hosts/delivery" target=_self><span class="dot stale" data-dot=st_delivery></span>Delivery</a>
   <a href="#fleets" target=_self>Needs you <b data-text=f_inbox>&hellip;</b></a>
   <a href="#spend" target=_self>Credit left <b id=ov_credit_s>&hellip;</b></a>
 </div>
@@ -211,10 +212,10 @@ section.tab{display:none}section.tab.on{display:block}
 </section>
 <section class=tab id=t-hosts>
 <nav class=subtabs>
-  <a href="#hosts/prod" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a><a href="#hosts/mini" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a><a href="#hosts/dgx" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a><a href="#hosts/delivery" target=_self>Delivery</a>
+  <a href="#hosts/prod" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a><a href="#hosts/mini" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a><a href="#hosts/dgx" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a><a href="#hosts/delivery" target=_self><span class="dot stale" data-dot=st_delivery></span>Delivery</a>
 </nav>
 <div class=sub data-sub=delivery style="margin:0 0 22px">
-  <h2><a href="$DASH_DELIVERY">Delivery &rarr;</a></h2>
+  <h2><span class="dot stale" id=st_delivery></span><a href="$DASH_DELIVERY">Delivery &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
     <a class=card href="$DASH_DELIVERY"><h3>Workers up</h3><div id=dl_up>&hellip;</div></a>
     <a class=card href="$DASH_DELIVERY"><h3>Sent 24h</h3><div id=dl_sent>&hellip;</div></a>
@@ -489,6 +490,16 @@ async function delivery(){
   set('dl_pending',cv(N(await g1('sum(delivery_batch_pending)'))));
   const ca=await g1('max(delivery_events_cursor_age_seconds)');
   set('dl_cursor',cv(ca?fmtUp(ca[1]):'&mdash;'));
+  // Lamp = the delivery alert rules (rules.yaml delivery-*): red when a worker is down; amber on
+  // bounce/complaint >5%, a dead-letter in the last hour, the events cursor older than 1h, or
+  // mail pending with nothing sent for 1h; grey when there are no workers to read.
+  const n=x=>x?+x[1]:0, t=tot?+tot[1]:0;
+  const dead1=await g1('sum(increase(delivery_sent_total{status="dead_lettered"}[1h]))');
+  const sent1=await g1('sum(increase(delivery_sent_total{status="delivered"}[1h]))');
+  const pend=await g1('sum(delivery_batch_pending)');
+  const amber=n(br)>5||n(dead1)>0||n(ca)>3600||(n(pend)>0&&n(sent1)===0);
+  const st=document.getElementById('st_delivery');
+  if(st)st.className='dot '+(!t?'stale':(n(up)<t?'down':(amber?'mid':'up')));
 }
 async function hetzner(){
   // Hetzner status bulletins that touch us (infra/hetzner-status: correlated with prod's
