@@ -194,27 +194,25 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
 </section>
 <section class=tab id=t-fleets>
 <div style="margin:0 0 22px">
-  <h2><a href="$DASH_FLEET">Triage fleet &rarr;</a></h2>
+  <h2><span class="dot stale" id=fl_tdot></span><a href="$DASH_FLEET">Triage fleet &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
-    <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div></a>
-    <a class=card href="$DASH_INBOX"><h3>Escalations 7d</h3><div id=f_esc>&hellip;</div></a>
-    <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=f_dec>&hellip;</div></a>
-    <a class=card href="$DASH_FLEET"><h3>Spend today</h3><div id=f_spend>&hellip;</div></a>
-    <a class=card href="$DASH_FLEET"><h3>Spend this month</h3><div id=f_month>&hellip;</div></a>
-    <a class=card href="$DASH_FLEET"><h3>Spend total</h3><div id=f_total>&hellip;</div></a>
+    <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div><div id=fl_backlog class=muted style="font-size:12px"></div></a>
+    <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=fl_dec>&hellip;</div></a>
+    <a class=card href="$DASH_INBOX"><h3>Escalations 7d</h3><div id=fl_esc>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Spend this month</h3><div id=fl_spend>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Last cycle</h3><div id=fl_cycle>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Sources</h3><div id=fl_src>&hellip;</div></a>
   </div>
 </div>
 <div style="margin:0 0 22px">
-  <h2><a href="$DASH_BUGFIX">Bug-fix fleet &rarr;</a></h2>
+  <h2><span class="dot stale" id=fl_bdot></span><a href="$DASH_BUGFIX">Bug-fix fleet &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
-    <a class=card href="$DASH_BUGFIX"><h3>Chains shipped 7d</h3><div id=b_ship>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Stuck / needs-info 7d</h3><div id=b_stuck>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Fix episodes 7d</h3><div id=b_ep>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Spend this month</h3><div id=b_month>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Spend total</h3><div id=b_total>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX" style="min-width:100%"><h3>Pipeline</h3><div id=fl_pipe>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Shipped</h3><div id=fl_ship>&hellip;</div></a>
+    <a class=card href="$DASH_BUGFIX"><h3>Stuck</h3><div id=fl_stuck>&hellip;</div></a>
     <a class=card href="https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22"><h3>Routable now</h3><div id=b_route>&hellip;</div></a>
   </div>
-
+  <p class=sec>The bug-fix fleet reports no spend of its own; its model calls are in the Spend tab under the key it uses.</p>
 </div>
 </section>
 <section class=tab id=t-spend>
@@ -991,6 +989,55 @@ async function siteGroups(){
         +(u?spark(u.d).replace(' <svg width=56 height=16','<svg preserveAspectRatio="none"'):'<svg></svg>')+'</a>';}).join('')+'</div>').join('');
   if(el.innerHTML!==html)el.innerHTML=html;
 }
+// ---- Fleets tab. Triage: needs-you (bug queue + escalations, as before) with the backlog beside
+// it, the decision mix, escalations, spend, the last fleetd cycle and the signal sources. Bug-fix:
+// issues per stage from bugfix_fleet_issues{flow} (the previous cards read bugfix_fleet_flow and
+// bugfix_fleet_cost_usd, which no collector writes, so they showed 0 while 7 issues existed).
+async function fleetCards(){
+  const set=(id,h)=>{const e=document.getElementById(id);if(e&&e.innerHTML!==h)e.innerHTML=h;};
+  const cv=v=>'<div class=cv>'+v+'</div>',mut=t=>'<div class=muted style="font-size:12px">'+t+'</div>';
+  const by=async(qq,k)=>{const m={};(await q(qq)).forEach(r=>m[r.metric[k]]=+r.value[1]);return m;};
+  const one=async qq=>{const r=await q(qq);return r.length?+r[0].value[1]:null;};
+  const usd=x=>'$'+(x||0).toFixed(2);
+  // backlog beside needs-you
+  const qd=await by('last_over_time(signal_fleet_queue_depth[2h])','kind'),old=await one('max(last_over_time(signal_fleet_queue_oldest_age_seconds[2h]))');
+  const bl=Object.entries(qd).filter(([k,v])=>k!=='bug'&&v>0);
+  set('fl_backlog',bl.length?'backlog '+bl.map(([k,v])=>v+' '+k).join(' &middot; ')+(old?' &middot; oldest '+fmtUp(old):''):'');
+  // decisions: 24h count, 14-day line, 7-day mix
+  const dec=await one('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[24h]))');
+  const decD=await daily('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[1d]))');
+  const mix=await by('sum by (disposition) (count_over_time(signal_fleet_disposition[7d]))','disposition');
+  const col={file:'#7aa2ff',recurrence:'#8888aa',escalate:'#d29922',dismiss:'#3d3d63'},tot=Object.values(mix).reduce((a,b)=>a+b,0);
+  const bar=tot?'<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">'+['file','recurrence','escalate','dismiss'].filter(k=>mix[k]).map(k=>'<span style="flex:'+mix[k]+';background:'+col[k]+'"></span>').join('')+'</div>'
+    +mut(['file','recurrence','escalate','dismiss'].filter(k=>mix[k]).map(k=>'<span style="color:'+col[k]+'">&#9632;</span> '+mix[k]+' '+k).join(' &middot; ')+' (7d)'):'';
+  set('fl_dec',cv((dec==null?'&mdash;':Math.round(dec))+spark(decD))+bar);
+  const esc=await one('sum(last_over_time(signal_fleet_escalations_7d[2h]))'),escD=await daily('sum(count_over_time(signal_fleet_disposition{disposition="escalate"}[1d]))');
+  set('fl_esc',cv((esc==null?'&mdash;':Math.round(esc))+spark(escD))+mut('line: escalations per day, 14 days'));
+  // spend: this month vs last month, daily line, cost per decision this month
+  const n=new Date(),mS=Math.max(3600,Math.floor((n-new Date(n.getFullYear(),n.getMonth(),1))/1000));
+  const pS=Math.floor((new Date(n.getFullYear(),n.getMonth(),1)-new Date(n.getFullYear(),n.getMonth()-1,1))/1000);
+  const mo=await one('sum(sum_over_time(signal_fleet_cost_usd['+mS+'s]))'),lm=await one('sum(sum_over_time(signal_fleet_cost_usd['+pS+'s] offset '+mS+'s))');
+  const decM=await one('sum(count_over_time(signal_fleet_disposition['+mS+'s]))'),spD=await daily('sum(sum_over_time(signal_fleet_cost_usd[1d]))');
+  set('fl_spend',cv(usd(mo)+spark(spD))+mut('last month '+usd(lm)+(decM?' &middot; $'+((mo||0)/decM).toFixed(4)+' per decision':'')));
+  // last fleetd cycle
+  const cy=(await q('last_over_time(fleetd_cycle[1d])'))[0],cs=await one('max(last_over_time(fleetd_cycle_seconds[1d]))'),ct=await one('max(tlast_over_time(fleetd_cycle[1d]))');
+  const ok=cy&&cy.metric.outcome==='ok',age=ct?Date.now()/1000-ct:null;
+  set('fl_cycle',cv(cy?'<span style="color:'+(ok?'#3fb950':'#f85149')+'">'+cy.metric.outcome+'</span>':'&mdash;')+mut((age!=null?fmtUp(age)+' ago':'no cycle in 24h')+(cs?' &middot; '+cs.toFixed(0)+' s':'')+(cy&&cy.metric.version?' &middot; '+cy.metric.version:'')));
+  // sources
+  const pr=await by('last_over_time(signal_fleet_probes[1d])','source'),gs=await by('last_over_time(signal_fleet_glitchtip_sync[1d])','kind');
+  set('fl_src',cv(Object.keys(pr).length+' sources')+mut('watching '+Object.keys(pr).sort().join(', ')+(gs.mapped!=null?'<br>GlitchTip: '+Math.round(gs.mapped||0)+' mapped &middot; '+Math.round(gs.merged||0)+' merged &middot; '+Math.round(gs.resolved||0)+' resolved'+(gs.errors?' &middot; <span style=color:#f85149>'+Math.round(gs.errors)+' errors</span>':''):'')));
+  const tdot=document.getElementById('fl_tdot');if(tdot)tdot.className='dot '+(!cy?'stale':(!ok?'down':(age!=null&&age>7200?'mid':'up')));
+  // bug-fix pipeline
+  const fl=await by('last_over_time(bugfix_fleet_issues[2h])','flow');
+  const stages=['untriaged','triaging','fixing','in-review','changes-requested','approved','fixed','shipped'],sc={shipped:'#3fb950',stuck:'#f85149'};
+  const all=stages.concat(['stuck']),total=all.reduce((a,k)=>a+(fl[k]||0),0);
+  set('fl_pipe',Object.keys(fl).length?'<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:8px 0 6px;background:#1a1a2b">'+all.filter(k=>fl[k]).map(k=>'<span title="'+k+'" style="flex:'+fl[k]+';background:'+(sc[k]||'#7aa2ff')+';opacity:'+(sc[k]?1:0.45+0.07*stages.indexOf(k))+'"></span>').join('')+'</div>'
+    +mut(stages.map(k=>'<span style="'+(fl[k]?'color:#c8c8e0':'')+'">'+k+' <b>'+(fl[k]||0)+'</b></span>').join(' &rarr; ')+(fl.stuck?' &middot; <span style="color:#f85149">stuck <b>'+fl.stuck+'</b></span>':'')+' &middot; '+total+' issues'):'<div class=muted>no data</div>');
+  const shD=await daily('max(last_over_time(bugfix_fleet_issues{flow="shipped"}[1d]))'),stD=await daily('max(last_over_time(bugfix_fleet_issues{flow="stuck"}[1d]))');
+  set('fl_ship',cv((fl.shipped||0)+spark(shD))+mut('issues shipped (line: 14 days)'));
+  set('fl_stuck',cv('<span style="'+((fl.stuck||0)?'color:#f85149':'')+'">'+(fl.stuck||0)+'</span>'+spark(stD))+mut('need you to unblock'));
+  const bdot=document.getElementById('fl_bdot');if(bdot)bdot.className='dot '+(!Object.keys(fl).length?'stale':((fl.stuck||0)?'mid':'up'));
+}
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
 const TABS=['overview','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','delivery'];
@@ -1029,7 +1076,7 @@ async function overview(){
   const low=c&&+c[1]<10;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();services().then(projects);spendModels();siteGroups();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
+function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
