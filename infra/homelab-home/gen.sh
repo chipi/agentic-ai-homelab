@@ -244,9 +244,10 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
     <a class=card href="$DASH_MINI"><h3>Network</h3><div id=c_net>&hellip;</div></a>
   </div>
   <div id=health class=health></div>
-  <h3 class=sectitle>Containers</h3>
-  <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
+  <details class=sect><summary class=sectitle>Containers</summary>
   <table class=ctbl><tbody id=mctr></tbody></table>
+  </details>
+  <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
   <details class=sect><summary class=sectitle>Services &amp; credentials</summary>
   <table><thead><tr><th>Service</th><th>Port</th><th>User</th><th>Password</th></tr></thead><tbody>
 HDR
@@ -280,9 +281,10 @@ cat <<MID
     <a class=card href="$DASH_DGXHOST"><h3>Network</h3><div id=d_net>&hellip;</div></a>
   </div>
   <div id=dgxhealth class=health></div>
-  <h3 class=sectitle>Containers</h3>
-  <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
+  <details class=sect><summary class=sectitle>Containers</summary>
   <table class=ctbl><tbody id=dgxctr></tbody></table>
+  </details>
+  <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
   <details class=sect><summary class=sectitle>Services</summary>
   <table><thead><tr><th>Service</th><th>Port</th><th>Role</th></tr></thead><tbody>
 MID
@@ -306,9 +308,10 @@ cat <<MID2
     <a class=card href="$DASH_PROD"><h3>Disk IO</h3><div id=p_io>&hellip;</div></a>
     <a class=card href="$DASH_PROD"><h3>Network</h3><div id=p_net>&hellip;</div></a>
   </div>
-  <h3 class=sectitle>Containers</h3>
-  <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a></div>
+  <details class=sect><summary class=sectitle>Containers</summary>
   <table class=ctbl><tbody id=pctr></tbody></table>
+  </details>
+  <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a></div>
   <details class=sect><summary class=sectitle>Services</summary>
   <table><thead><tr><th>Service</th><th>Board</th><th>Role</th></tr></thead><tbody>
 MID2
