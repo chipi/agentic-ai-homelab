@@ -230,7 +230,10 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
   <p class=sec id=sp_range style="margin:-8px 0 12px"></p>
   <h2>Totals</h2>
   <div class=charts style="max-width:1140px" id=sp_totals>&hellip;</div>
-  <h2>By key</h2>
+  <h2>By caller</h2>
+  <div class=charts style="max-width:1140px" id=sp_callers>&hellip;</div>
+  <p class=sec id=sp_callers_note></p>
+  <h2>By key (OpenRouter billing)</h2>
   <div class=charts style="max-width:1140px" id=sp_keys>&hellip;</div>
   <h2>By vendor</h2>
   <div class=charts style="max-width:1140px" id=sp_vendor>&hellip;</div>
@@ -849,7 +852,7 @@ async function projects(){
   // day, so spend uses the same days as tokens): OpenRouter per key, plus the project's local models
   // (prod-vllm's Qwen on the DGX for Close Listening; Ollama on all three machines for Evals, the only
   // Ollama user known). Translate on the DGX exports no token counter, so it is not in this.
-  const rg=spendRange('month'),kU={},kT={};
+  const rg=spendRange('month'),kU={},kT={};const cl=await gatewayCallers('month');
   (await q('sum by (key) (last_over_time(openrouter_model_usd{window="month",key!=""}[2h]))')).forEach(r=>kU[r.metric.key]=+r.value[1]);
   (await q('sum by (key) (last_over_time(openrouter_model_tokens{window="month",key!=""}[2h]))')).forEach(r=>kT[r.metric.key]=+r.value[1]);
   const vT={};if(rg.R)(await q('sum by (model_name) (increase(vllm:prompt_tokens_total{instance="dgx-llm-1"}['+rg.R+'s] offset '+rg.O+'s)) + sum by (model_name) (increase(vllm:generation_tokens_total{instance="dgx-llm-1"}['+rg.R+'s] offset '+rg.O+'s))')).forEach(r=>vT[r.metric.model_name]=+r.value[1]);
@@ -886,8 +889,8 @@ async function projects(){
       lamp=dn.length||sl==='down'?'down':((a!=null&&a<0.999)||sl==='mid'?'mid':(sl==='stale'?'stale':'up'));
       health=(cc&&cc.tot?cc.run+'/'+cc.tot+' containers':'containers &mdash;')+(dn.length?' &middot; down: '+dn.join(', '):((a!=null&&a<0.999)?' &middot; 24h under 99.9%':''));
     }
-    const vv=vis(p.umami),spend=p.keys.length?p.keys.reduce((x,k)=>x+(kU[k]||0),0):null;
-    const orT=p.keys.reduce((x,k)=>x+(kT[k]||0),0),loT=(p.vllm||[]).reduce((x,m)=>x+(vT[m]||0),0)+(p.ollama&&olT?olT:0),allT=orT+loT;
+    const mine=cl.filter(x=>x.proj===p.name),vv=vis(p.umami),spend=mine.length?mine.reduce((a,x)=>a+x.usd,0):null;
+    const orT=mine.reduce((a,x)=>a+x.tOR,0),loT=mine.reduce((a,x)=>a+x.tLoc,0)+(p.ollama&&olT?olT:0),allT=orT+loT;
     const worst=Math.max(0,...p.hosts.map(h=>ms[h]||0));
     rows+='<tr><td><span class="dot '+lamp+'"></span>'+p.name+'</td>'
       +'<td data-l=Health><span class=s>'+health+'</span></td>'
@@ -896,11 +899,11 @@ async function projects(){
       +'<td data-l="Visitors 24h">'+(vv?vv.v24+spark(vv.d)+'<div class=s>'+vv.p24+' views &middot; 7d '+vv.v7+'</div>':'&mdash;')+'</td>'
       +'<td data-l="Edge 5xx 24h">'+(e5?Math.round(+e5[1]):(req?'0':'&mdash;'))+'</td>'
       +'<td data-l="Edge 4xx 24h">'+(e4?Math.round(+e4[1]).toLocaleString():(req?'0':'&mdash;'))+'</td>'
-      +'<td data-l="LLM spend">'+(spend==null?'<span class=s>no key of its own</span>':'$'+spend.toFixed(2)+'<div class=s>'+p.keys.join(', ')+'</div>')+'</td>'
+      +'<td data-l="LLM spend">'+(spend==null?'<span class=s>no LLM calls</span>':'$'+spend.toFixed(2)+'<div class=s>'+mine.map(x=>x.key+' ('+x.gw+')').join(', ')+'</div>')+'</td>'
       +'<td data-l="LLM tokens">'+(allT?tk(allT)+'<div class=s>'+(orT?tk(orT)+' OpenRouter':'')+(orT&&loT?' &middot; ':'')+(loT?tk(loT)+' local':'')+'</div>':(p.keys.length||p.vllm||p.ollama?'0':'&mdash;'))+'</td></tr>';
   }
   if(el.innerHTML!==rows)el.innerHTML=rows;
-  const nt=document.getElementById('proj_llm_note');if(nt)nt.innerHTML='LLM spend and tokens: this month, '+rg.label+'. Local tokens: prod-vllm (Close Listening), Ollama on the DGX, X3 and MacBook (Evals). Edge counts: Cloudflare, last 24h.';
+  const nt=document.getElementById('proj_llm_note');if(nt)nt.innerHTML='LLM spend and tokens: this month, '+rg.label+', by the caller (the gateway key that made the call, mini and prod LiteLLM; dollars are LiteLLM&#39;s estimate), not the OpenRouter key that paid. Evals also gets Ollama on the DGX, X3 and MacBook. Edge counts: Cloudflare, last 24h.';
 }
 // ---- Spend tab. One period for every number: completed UTC days only, because OpenRouter's
 // activity API (spend per key/model/provider) has no partial day. month = this UTC month's
@@ -911,6 +914,36 @@ function spendRange(p){
   const O=Math.max(1,Math.floor((n-mid)/1000)),days={month:Math.round((mid-m0)/86400000),'30d':30,'7d':7,yesterday:1}[p];
   const f=t=>new Date(t).toISOString().slice(0,10);
   return {R:days*86400,O,days,label:days?f(mid-days*86400000)+' to '+f(mid-86400000)+' (UTC, '+days+' day'+(days>1?'s':'')+')':'no completed day this month yet'};
+}
+// ---- Who called: the gateway key (LiteLLM, mini and prod), not the OpenRouter key that paid.
+// OpenRouter only knows the paying key, and keys were shared (eval-harness's aliases used the
+// podcast key until 2026-10-30), so per-project spend comes from the gateways' own logs: the mini's
+// "LiteLLM_DailyUserSpend" (litellm-pg datasource) and prod's litellm_model_* (box="prod", pushed by
+// chipi/infra spend-to-vm.sh). Gateway dollars are LiteLLM's own price estimate, not OpenRouter's
+// bill. OpenRouter keys no gateway uses are "direct". Same completed UTC days as everything else.
+const CALLERPROJ=[[/^eval-harness$/,'Evals'],[/^fleet-/,'Fleets'],[/^(proj-podcast|podcast-)/,'Close Listening'],[/^proj-orrery/,'Orrery']];
+const DIRECTKEYS=['pi-key','photo-key','opencode-key','Default key'];
+async function gatewayCallers(p){
+  gatewayCallers.c=gatewayCallers.c||{};const c=gatewayCallers.c[p];if(c&&Date.now()-c.t<300000)return c.v;
+  const rg=spendRange(p),out=[];if(!rg.R){gatewayCallers.c[p]={t:Date.now(),v:out};return out;}
+  const get=(gw,key)=>{let r=out.find(x=>x.gw===gw&&x.key===key);if(!r){r={gw,key,usd:0,tOR:0,tLoc:0,req:0,proj:(CALLERPROJ.find(([re])=>re.test(key))||[0,'Other'])[1]};out.push(r);}return r;};
+  try{
+    const d0=new Date(Date.now()-rg.O*1000-rg.R*1000).toISOString().slice(0,10),d1=new Date(Date.now()-rg.O*1000).toISOString().slice(0,10);
+    const sql="SELECT COALESCE(v.key_alias, '(no alias)') AS k, CASE WHEN d.custom_llm_provider='openrouter' OR d.model LIKE 'openrouter/%' THEN 'or' ELSE 'loc' END AS s,"
+      +" SUM(d.spend) AS u, SUM(d.prompt_tokens)+SUM(d.completion_tokens) AS t, SUM(d.api_requests) AS r"
+      +" FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key"
+      +" WHERE d.date >= '"+d0+"' AND d.date < '"+d1+"' GROUP BY 1,2";
+    const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+      body:JSON.stringify({queries:[{refId:'G',datasource:{uid:'litellm-pg'},rawSql:sql,format:'table'}],from:'now-31d',to:'now'})})).json();
+    const f=r.results.G.frames[0],n=f.schema.fields.map(x=>x.name),col=k=>f.data.values[n.indexOf(k)]||[];
+    col('k').forEach((k,i)=>{const x=get('mini',k);x.usd+= +col('u')[i];x.req+= +col('r')[i];if(col('s')[i]==='or')x.tOR+= +col('t')[i];else x.tLoc+= +col('t')[i];});
+  }catch(e){}
+  const W='window="'+p+'"',by=async e=>q('sum by (key_alias, provider) (last_over_time('+e+'{box="prod",'+W+'}[2h]))');
+  (await by('litellm_model_usd')).forEach(r=>{get('prod',r.metric.key_alias).usd+= +r.value[1];});
+  (await by('litellm_model_tokens')).forEach(r=>{const x=get('prod',r.metric.key_alias);if(r.metric.provider==='openrouter')x.tOR+= +r.value[1];else x.tLoc+= +r.value[1];});
+  (await by('litellm_model_requests')).forEach(r=>{get('prod',r.metric.key_alias).req+= +r.value[1];});
+  const v=out.filter(x=>x.usd>=0.0005||x.tOR+x.tLoc>0);
+  gatewayCallers.c[p]={t:Date.now(),v};return v;
 }
 async function spendModels(){
   const p=spendPeriod;
@@ -963,6 +996,18 @@ async function spendModels(){
     +card('of which fleets',usd(fl),'triage + bug-fix, part of OpenRouter')
     +card('Today so far (OpenRouter)',usd(today),'live, all keys')
     +card('OpenRouter credit left','<span style="'+(cr<10?'color:#f85149':'')+'">'+usd(cr)+'</span>','top up at openrouter.ai'));
+  // ---- By caller ----
+  const cl=await gatewayCallers(p),dKeys={};
+  rows.filter(r=>r.src==='OpenRouter'&&DIRECTKEYS.includes(r.key)).forEach(r=>{const x=dKeys[r.key]=dKeys[r.key]||{usd:0,t:0};x.usd+=r.usd;x.t+=r.i+r.o;});
+  const orBill=sum(src('OpenRouter'),'usd'),gwOR=cl.reduce((a,x)=>a+x.usd,0),dir=Object.values(dKeys).reduce((a,x)=>a+x.usd,0);
+  const ccard=(t,u,tok,sub)=>'<a class="card site"><h3>'+t+'</h3><div class=cv>'+usd(u)+'</div><div class=kv>'+tok+'</div>'+(sub?'<span class=muted style="font-size:12px">'+sub+'</span>':'')+'</a>';
+  set('sp_callers',cl.sort((a,b)=>b.usd-a.usd||(b.tOR+b.tLoc)-(a.tOR+a.tLoc)).map(x=>ccard(hx(x.key),x.usd,'<span>Project</span><b>'+x.proj+'</b><span>Tokens</span><b>'+tk(x.tOR+x.tLoc)+(x.tLoc?' ('+tk(x.tLoc)+' local)':'')+'</b><span>Via</span><b>'+x.gw+' gateway &middot; '+Math.round(x.req).toLocaleString()+' req</b>')).join('')
+    +Object.entries(dKeys).filter(([k,x])=>x.usd>=0.005).map(([k,x])=>ccard(hx(k),x.usd,'<span>Project</span><b>Other</b><span>Tokens</span><b>'+tk(x.t)+'</b><span>Via</span><b>direct to OpenRouter</b>')).join('')
+    +(t('Ollama')?ccard('Ollama (no gateway)',0,'<span>Project</span><b>Evals</b><span>Tokens</span><b>'+tk(t('Ollama'))+' local</b><span>Via</span><b>straight to Ollama</b>'):'')
+    +(t('vLLM')?ccard('vLLM (all callers)',0,'<span>Tokens</span><b>'+tk(t('vLLM'))+' local</b><span>Note</span><b>gateway callers above are part of it</b>'):''));
+  const gap=orBill-gwOR-dir;
+  set('sp_callers_note','Gateway callers: '+usd(gwOR)+' (LiteLLM&#39;s own price estimate) + direct keys '+usd(dir)+' = '+usd(gwOR+dir)+' against OpenRouter&#39;s bill of '+usd(orBill)
+    +' ('+(gap>=0?'+':'')+usd(gap).replace('$','$')+' difference: pricing estimates, and calls by keys no gateway logs).');
   // ---- group helper ----
   const group=f=>{const g={};rows.forEach(r=>{const k=f(r);const x=g[k]=g[k]||{k,usd:0,i:0,o:0,req:0,src:new Set(),rows:[]};x.usd+=r.usd;x.i+=r.i;x.o+=r.o;x.req+=r.req;x.src.add(r.src);x.rows.push(r);});
     return Object.values(g).filter(x=>x.usd>=0.005||x.i+x.o>0).sort((a,b)=>b.usd-a.usd||(b.i+b.o)-(a.i+a.o));};
