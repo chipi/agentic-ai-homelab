@@ -108,6 +108,8 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
   table{font-size:13px}th,td{padding:6px 8px}
   table.uptime th:nth-child(n+5),table.uptime td:nth-child(n+5){display:none}
   table.uptime td:first-child{overflow-wrap:anywhere}
+  table.models th:nth-child(n+3),table.models td:nth-child(n+3){display:none}
+  table.models td:first-child{overflow-wrap:anywhere}
   .strip{gap:6px 12px;font-size:12.5px}
   .tabs a{padding:8px 9px;font-size:14px}
   .subtabs{flex-wrap:nowrap;gap:4px}
@@ -222,6 +224,13 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
     <a class=card href="$DASH_BUGFIX"><h3>Bug-fix this month</h3><div data-mirror=b_month>&hellip;</div></a>
     <a class=card href="$DASH_BUGFIX"><h3>Bug-fix total</h3><div data-mirror=b_total>&hellip;</div></a>
   </div>
+  <h2>By vendor &middot; OpenRouter, last 30 days</h2>
+  <div class=charts style="max-width:1140px" id=sp_vendor>&hellip;</div>
+  <h2>By model &middot; OpenRouter, last 30 days</h2>
+  <table class="ctbl models"><thead><tr><th>Model</th><th>30d</th><th>7d</th><th>Yesterday</th><th>Tokens in / out</th><th>Requests</th><th>Served by</th></tr></thead><tbody id=sp_models></tbody></table>
+  <p class=sec>OpenRouter's own billing for every key (prod, dev, evals, fleets), from its activity API: completed UTC days only, so today is not in it yet.</p>
+  <h2>Local models &middot; DGX</h2>
+  <div class=charts style="max-width:1140px" id=sp_local>&hellip;</div>
 </section>
 <section class=tab id=t-hosts>
 <nav class=subtabs>
@@ -869,6 +878,40 @@ async function projects(){
   }
   if(el.innerHTML!==html)el.innerHTML=html;
 }
+// ---- Spend by vendor / model (OpenRouter /activity, collected by openrouter-spend.sh) and the
+// DGX's local models (vLLM's own token counters; free, so tokens only).
+async function spendModels(){
+  const set=(id,h)=>{const e=document.getElementById(id);if(e&&e.innerHTML!==h)e.innerHTML=h;};
+  const usd=x=>'$'+(x>=100?x.toFixed(0):x.toFixed(2));
+  const tk=v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':String(Math.round(v));
+  const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const L='[2h]';
+  const by=async(qq,keys)=>{const m={};(await q(qq)).forEach(r=>m[keys.map(k=>r.metric[k]).join('|')]=+r.value[1]);return m;};
+  const v30=await by('sum by (vendor) (last_over_time(openrouter_model_usd{window="30d"}'+L+'))',['vendor']);
+  const v7=await by('sum by (vendor) (last_over_time(openrouter_model_usd{window="7d"}'+L+'))',['vendor']);
+  const vt=await by('sum by (vendor) (last_over_time(openrouter_model_tokens{window="30d"}'+L+'))',['vendor']);
+  const vd={};(await q('last_over_time(openrouter_vendor_day_usd'+L+')')).forEach(r=>{(vd[r.metric.vendor]=vd[r.metric.vendor]||{})[r.metric.day]=+r.value[1];});
+  const allDays=[...new Set(Object.values(vd).flatMap(o=>Object.keys(o)))].sort().slice(-14);
+  const vs=Object.keys(v30).sort((a,b)=>v30[b]-v30[a]);
+  set('sp_vendor',vs.length?vs.map(v=>'<a class=card href="'+G+'/d/llm-gateway"><h3>'+hx(v)+'</h3><div class=cv>'+usd(v30[v])+spark(allDays.map(d=>(vd[v]||{})[d]||0))+'</div>'
+    +'<span class=muted>7d '+usd(v7[v]||0)+' &middot; '+tk(vt[v]||0)+' tokens</span></a>').join(''):'<div class=muted>no data yet (collector runs every 10 min)</div>');
+  const m30=await by('sum by (model) (last_over_time(openrouter_model_usd{window="30d"}'+L+'))',['model']);
+  const m7=await by('sum by (model) (last_over_time(openrouter_model_usd{window="7d"}'+L+'))',['model']);
+  const my=await by('sum by (model) (last_over_time(openrouter_model_usd{window="yesterday"}'+L+'))',['model']);
+  const mi=await by('sum by (model) (last_over_time(openrouter_model_tokens{window="30d",kind="prompt"}'+L+'))',['model']);
+  const mo=await by('sum by (model) (last_over_time(openrouter_model_tokens{window="30d",kind="completion"}'+L+'))',['model']);
+  const mr=await by('sum by (model) (last_over_time(openrouter_model_requests{window="30d"}'+L+'))',['model']);
+  const mp={};(await q('sum by (model, provider) (last_over_time(openrouter_model_usd{window="30d"}'+L+'))')).forEach(r=>{(mp[r.metric.model]=mp[r.metric.model]||[]).push([r.metric.provider,+r.value[1]]);});
+  const ms=Object.keys(m30).filter(m=>m30[m]>=0.005).sort((a,b)=>m30[b]-m30[a]);
+  set('sp_models',ms.length?ms.map(m=>'<tr><td>'+hx(m)+'</td><td>'+usd(m30[m])+'</td><td>'+usd(m7[m]||0)+'</td><td>'+usd(my[m]||0)+'</td><td>'+tk(mi[m]||0)+' / '+tk(mo[m]||0)+'</td><td>'+Math.round(mr[m]||0)+'</td><td class=u>'
+    +hx((mp[m]||[]).sort((a,b)=>b[1]-a[1]).map(x=>x[0]).join(', '))+'</td></tr>').join(''):'<tr><td class=muted colspan=7>no data yet</td></tr>');
+  const g1d=await by('sum by (model_name) (increase(vllm:generation_tokens_total{instance="dgx-llm-1"}[1d]))',['model_name']);
+  const g30=await by('sum by (model_name) (increase(vllm:generation_tokens_total{instance="dgx-llm-1"}[30d]))',['model_name']);
+  const p30=await by('sum by (model_name) (increase(vllm:prompt_tokens_total{instance="dgx-llm-1"}[30d]))',['model_name']);
+  const lm=Object.keys(g30).filter(m=>g30[m]>0).sort((a,b)=>g30[b]-g30[a]);
+  set('sp_local',lm.length?lm.map(m=>'<a class=card href="'+G+'/d/dgx-services/dgx-e28094-services"><h3>'+hx(m.split('/').pop())+'</h3><div class=cv>'+tk(g1d[m]||0)+'</div>'
+    +'<span class=muted>tokens out today &middot; 30d '+tk(p30[m]||0)+' in / '+tk(g30[m])+' out &middot; $0</span></a>').join(''):'<div class=muted>no vLLM token data</div>');
+}
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
 const TABS=['overview','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','delivery'];
@@ -903,7 +946,7 @@ async function overview(){
   const low=c&&+c[1]<10;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();services().then(projects);hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
+function refresh(){overview();services().then(projects);spendModels();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
