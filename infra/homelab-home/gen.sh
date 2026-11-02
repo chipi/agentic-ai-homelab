@@ -163,7 +163,8 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
      (degraded, not customer-impacting) / 0 red; STALENESS IS A STATE — no run for >26h renders
      grey/stale, because a dead health check must never look healthy. -->
 <h2>Projects</h2>
-<table class="ctbl proj"><thead><tr><th>Project</th><th>Health</th><th>Sites</th><th>Requests 24h</th><th>Visitors 24h</th><th>Edge 5xx 24h</th><th>LLM spend (month)</th></tr></thead><tbody id=projrows></tbody></table>
+<table class="ctbl proj"><thead><tr><th>Project</th><th>Health</th><th>Sites</th><th>Requests 24h</th><th>Visitors 24h</th><th>Edge 5xx 24h</th><th>Edge 4xx 24h</th><th>LLM spend</th><th>LLM tokens</th></tr></thead><tbody id=projrows></tbody></table>
+<p class=sec id=proj_llm_note></p>
 <details class=sect><summary class=sectitle>Close Listening &middot; health checks</summary>
 <div style="margin:0 0 22px" id=podcast_prod>
   <h2><span class="dot stale" id=ph_agg></span><a href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml">Podcast &mdash; production &rarr;</a></h2>
@@ -793,10 +794,10 @@ async function services(){
 // 24h request and 5xx counts for its hosts, and the app's own metrics where it exports any.
 const PROJ=[
  {id:'cl',name:'Close Listening',group:'Close Listening',hosts:['closelistening.app','mcp.closelistening.app','obs.closelistening.app'],
-  edge:'(www\\.)?closelistening\\.app|(mcp|obs)\\.closelistening\\.app',umami:['closelistening.app'],keys:['podcast-scraper-prod']},
+  edge:'(www\\.)?closelistening\\.app|(mcp|obs)\\.closelistening\\.app',umami:['closelistening.app'],keys:['podcast-scraper-prod'],vllm:['NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4']},
  {id:'orrery',name:'Orrery',group:'Orrery',hosts:['www.orrerylearn.com','lab-api.orrerylearn.com','mcp.orrerylearn.com'],
   edge:'(www\\.)?orrerylearn\\.com|(lab-api|mcp)\\.orrerylearn\\.com',umami:['orrerylearn.com'],keys:['orrery lab key']},
- {id:'evals',name:'Evals',group:'Evals',hosts:['evals.humancopilot.eu'],edge:'evals\\.humancopilot\\.eu',umami:['evals.humancopilot.eu'],keys:['evals-harness']},
+ {id:'evals',name:'Evals',group:'Evals',hosts:['evals.humancopilot.eu'],edge:'evals\\.humancopilot\\.eu',umami:['evals.humancopilot.eu'],keys:['evals-harness'],ollama:true},
  {id:'web',name:'Websites',group:'Websites',hosts:['www.humancopilot.eu','www.markodragoljevic.com','airandspacehistory.com','www.devwhateverops.com'],
   edge:'(www\\.)?(humancopilot\\.eu|markodragoljevic\\.com|airandspacehistory\\.com|devwhateverops\\.com)',
   umami:['humancopilot.eu','markodragoljevic.com','airandspacehistory.com','devwhateverops.com'],keys:[]}];
@@ -847,7 +848,22 @@ async function projects(){
   const now={},ms={};
   (await q('max by (host) (last_over_time(probe_success{job="site-probe",run_id=""}[3m]))')).forEach(r=>now[r.metric.host]=+r.value[1]);
   (await q('max by (host) (last_over_time(probe_duration_seconds{job="site-probe"}[3m]))')).forEach(r=>ms[r.metric.host]=+r.value[1]);
-  const kmon={};(await q('max by (key) (last_over_time(openrouter_key_usd{window="month"}[2h]))')).forEach(r=>kmon[r.metric.key]=+r.value[1]);
+  // LLM spend and tokens over this month's COMPLETED UTC days (OpenRouter's activity has no partial
+  // day, so spend uses the same days as tokens): OpenRouter per key, plus the project's local models
+  // (prod-vllm's Qwen on the DGX for Close Listening; Ollama on all three machines for Evals, the only
+  // Ollama user known). Translate on the DGX exports no token counter, so it is not in this.
+  const rg=spendRange('month'),kU={},kT={};
+  (await q('sum by (key) (last_over_time(openrouter_model_usd{window="month",key!=""}[2h]))')).forEach(r=>kU[r.metric.key]=+r.value[1]);
+  (await q('sum by (key) (last_over_time(openrouter_model_tokens{window="month",key!=""}[2h]))')).forEach(r=>kT[r.metric.key]=+r.value[1]);
+  const vT={};if(rg.R)(await q('sum by (model_name) (increase(vllm:prompt_tokens_total{instance="dgx-llm-1"}['+rg.R+'s] offset '+rg.O+'s)) + sum by (model_name) (increase(vllm:generation_tokens_total{instance="dgx-llm-1"}['+rg.R+'s] offset '+rg.O+'s))')).forEach(r=>vT[r.metric.model_name]=+r.value[1]);
+  let olT=0;
+  if(rg.R)try{const to=Date.now()-rg.O*1000,from=to-rg.R*1000;
+    for(const ex of ['job:"ollama" "prompt eval time =" | extract_regexp "prompt eval time = +[0-9.]+ ms / +(?P<n>[0-9]+) tokens" | stats sum(n) as t',
+                     'job:"ollama" "eval time =" -"prompt eval time" | extract_regexp "eval time = +[0-9.]+ ms / +(?P<n>[0-9]+) tokens" | stats sum(n) as t']){
+      const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+        body:JSON.stringify({queries:[{refId:'O',datasource:{uid:'victorialogs'},expr:ex,queryType:'stats'}],from:String(from),to:String(to)})})).json();
+      (r.results.O.frames||[]).forEach(f=>{const v=f.data.values[f.data.values.length-1];olT+= +(v[v.length-1]||0);});}}catch(e){olT=null;}
+  const tk=v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':String(Math.round(v));
   const pct=v=>v==null?'&mdash;':(v>=0.99995?'100%':(v*100).toFixed(2)+'%');
   const vis=doms=>{if(!um)return null;const xs=doms.map(d=>um[d]).filter(Boolean);return xs.length?xs.reduce((a,b)=>({v24:a.v24+b.v24,p24:a.p24+b.p24,v7:a.v7+b.v7,p7:a.p7+b.p7,d:a.d.map((x,i)=>x+b.d[i])})):null;};
   // Close Listening health run
@@ -859,7 +875,7 @@ async function projects(){
     const E='{instance="homelab",window="24h",host=~`'+p.edge+'`';
     const req=await g1('sum(last_over_time(cloudflare_edge_requests'+E+'}[15m]))');
     const e5=await g1('sum(last_over_time(cloudflare_edge_requests'+E+',class=~"5xx_unreachable|5xx_server"}[15m]))');
-    const hostRe=p.hosts.map(h=>h.replace(/\./g,'\\.')).join('|');
+    const e4=await g1('sum(last_over_time(cloudflare_edge_requests'+E+',class="4xx"}[15m]))');
     const sRq=await daily('sum(last_over_time(cloudflare_edge_requests'+E+'}[15m]))');
     const dn=p.hosts.filter(h=>now[h]===0),av=p.hosts.map(h=>d1[h]).filter(x=>x!=null),a=av.length?Math.min(...av):null;
     const cc=SVCCTR[p.group],sl=SVCLAMP[p.group]||'stale';
@@ -873,7 +889,8 @@ async function projects(){
       lamp=dn.length||sl==='down'?'down':((a!=null&&a<0.999)||sl==='mid'?'mid':(sl==='stale'?'stale':'up'));
       health=(cc&&cc.tot?cc.run+'/'+cc.tot+' containers':'containers &mdash;')+(dn.length?' &middot; down: '+dn.join(', '):((a!=null&&a<0.999)?' &middot; 24h under 99.9%':''));
     }
-    const vv=vis(p.umami),spend=p.keys.length?p.keys.reduce((x,k)=>x+(kmon[k]||0),0):null;
+    const vv=vis(p.umami),spend=p.keys.length?p.keys.reduce((x,k)=>x+(kU[k]||0),0):null;
+    const orT=p.keys.reduce((x,k)=>x+(kT[k]||0),0),loT=(p.vllm||[]).reduce((x,m)=>x+(vT[m]||0),0)+(p.ollama&&olT?olT:0),allT=orT+loT;
     const worst=Math.max(0,...p.hosts.map(h=>ms[h]||0));
     rows+='<tr><td><span class="dot '+lamp+'"></span>'+p.name+'</td>'
       +'<td data-l=Health><span class=s>'+health+'</span></td>'
@@ -881,9 +898,12 @@ async function projects(){
       +'<td data-l="Requests 24h">'+(req?Math.round(+req[1]).toLocaleString():'&mdash;')+spark(sRq)+'</td>'
       +'<td data-l="Visitors 24h">'+(vv?vv.v24+spark(vv.d)+'<div class=s>'+vv.p24+' views &middot; 7d '+vv.v7+'</div>':'&mdash;')+'</td>'
       +'<td data-l="Edge 5xx 24h">'+(e5?Math.round(+e5[1]):(req?'0':'&mdash;'))+'</td>'
-      +'<td data-l="LLM spend (month)">'+(spend==null?'<span class=s>no key of its own</span>':'$'+spend.toFixed(2)+'<div class=s>'+p.keys.join(', ')+'</div>')+'</td></tr>';
+      +'<td data-l="Edge 4xx 24h">'+(e4?Math.round(+e4[1]).toLocaleString():(req?'0':'&mdash;'))+'</td>'
+      +'<td data-l="LLM spend">'+(spend==null?'<span class=s>no key of its own</span>':'$'+spend.toFixed(2)+'<div class=s>'+p.keys.join(', ')+'</div>')+'</td>'
+      +'<td data-l="LLM tokens">'+(allT?tk(allT)+'<div class=s>'+(orT?tk(orT)+' OpenRouter':'')+(orT&&loT?' &middot; ':'')+(loT?tk(loT)+' local':'')+'</div>':(p.keys.length||p.vllm||p.ollama?'0':'&mdash;'))+'</td></tr>';
   }
   if(el.innerHTML!==rows)el.innerHTML=rows;
+  const nt=document.getElementById('proj_llm_note');if(nt)nt.innerHTML='LLM spend and tokens: this month, '+rg.label+'. Local tokens: prod-vllm (Close Listening), Ollama on the DGX, X3 and MacBook (Evals). Edge counts: Cloudflare, last 24h.';
 }
 // ---- Spend tab. One period for every number: completed UTC days only, because OpenRouter's
 // activity API (spend per key/model/provider) has no partial day. month = this UTC month's
