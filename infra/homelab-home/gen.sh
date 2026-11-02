@@ -79,7 +79,7 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
   body{margin:14px}
   h1{font-size:20px;margin-bottom:14px}
   .cols{gap:18px}.col{min-width:0;flex-basis:100%}
-  .charts{gap:8px}a.card{min-width:calc(50% - 4px);padding:9px 10px}
+  .charts{gap:8px}a.card{min-width:calc(50% - 4px);padding:9px 10px;overflow-wrap:anywhere}
   .cv{font-size:17px}.spark{height:34px}
   table{font-size:13px}th,td{padding:6px 8px}
   table.up th:nth-child(n+5),table.up td:nth-child(n+5){display:none}
