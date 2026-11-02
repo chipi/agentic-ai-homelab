@@ -146,6 +146,25 @@
         { "refId": "D", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "legendFormat": "unattributed",
           "expr": "max(last_over_time(openrouter_account_usd{kind=\"usage\"}[2h])) - sum(max by (vertical) (last_over_time(openrouter_vertical_usd{window=\"total\"}[2h])))" }
       ]
+    },
+    {
+      "type": "table",
+      "title": "OpenRouter: every key on the account",
+      "description": "Every OpenRouter key in every workspace, from the provisioning key (infra/mini-metrics/openrouter-spend.sh, 10m). Lifetime and month-to-date as OpenRouter bills them. The lifetime column sums to the account's total spend.",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 32 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] },
+      "options": { "sortBy": [{ "displayName": "lifetime", "desc": true }] },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "format": "table",
+          "expr": "max by (key, workspace, disabled) (last_over_time(openrouter_key_usd{window=\"total\"}[2h]))" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "format": "table",
+          "expr": "max by (key, workspace, disabled) (last_over_time(openrouter_key_usd{window=\"month\"}[2h]))" }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "Value #A": "lifetime", "Value #B": "month" } } }
+      ]
     }
   ]
 }

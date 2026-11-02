@@ -27,6 +27,11 @@
 #   openrouter_account_usd{kind="credits|usage"}   account-wide, from /api/v1/credits (any key
 #     can read it). usage minus the sum of the vertical totals is spend on keys this file
 #     does not hold (the VPS, dev machines, deleted keys): $94 of $229.62 on 2026-11-02.
+#   openrouter_key_usd{key, workspace, disabled, window}   EVERY key on the account, from the
+#     provisioning key in openrouter-provisioning.env (gitignored, mode 600; it can create and
+#     delete keys, so it lives in its own file). GET /workspaces, then GET /keys per workspace:
+#     a provisioning key lists only its own workspace without workspace_id. The $94 was
+#     pi-key $72.75, photo-key $15.12, opencode-key $6.35 (2026-11-02).
 VM=http://localhost:8428/api/v1/import/prometheus
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ENVF="$HERE/openrouter-verticals.env"
@@ -63,6 +68,25 @@ openrouter_vertical_usd{vertical=\"$NAME\",window=\"month\",service=\"openrouter
 openrouter_account_usd{kind=\"usage\",service=\"openrouter-spend\",environment=\"operations\"} $U
 "
     fi
+  fi
+  local PF="$HERE/openrouter-provisioning.env"
+  if [ -f "$PF" ]; then
+    LINES+=$(OR_PROVISIONING_KEY="$(sed -n 's/^OR_PROVISIONING_KEY=//p' "$PF")" /usr/bin/python3 - <<'PY' 2>/dev/null
+import json, os, urllib.request
+pk = os.environ.get("OR_PROVISIONING_KEY", "").strip()
+def get(path):
+    req = urllib.request.Request("https://openrouter.ai/api/v1" + path, headers={"Authorization": "Bearer " + pk})
+    return json.load(urllib.request.urlopen(req, timeout=20))["data"]
+if pk:
+    esc = lambda s: str(s or "-").replace("\\", "").replace('"', "")
+    for w in get("/workspaces"):
+        for k in get(f"/keys?include_disabled=true&workspace_id={w['id']}"):
+            lab = f'key="{esc(k.get("name"))}",workspace="{esc(w.get("name"))}",disabled="{str(bool(k.get("disabled"))).lower()}",service="openrouter-spend",environment="operations"'
+            for win, f in (("total", "usage"), ("day", "usage_daily"), ("week", "usage_weekly"), ("month", "usage_monthly")):
+                print(f'openrouter_key_usd{{{lab},window="{win}"}} {k.get(f) or 0}')
+PY
+)
+    LINES+=$'\n'
   fi
   [ -n "$LINES" ] && printf '%s' "$LINES" | curl -s -o /dev/null --data-binary @- "$VM"
 }
