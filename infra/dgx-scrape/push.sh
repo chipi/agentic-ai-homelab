@@ -42,9 +42,14 @@ VMPLAIN="http://localhost:8428/api/v1/import/prometheus"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new)
 # Separates the two payloads inside one connection's stdout.
 SPLIT='@@dgx-scrape-split@@'
+MSPLIT='@@dgx-scrape-mode@@'
 # openai-whisper (:8002) retired — speaches (:8000) won the #952 transcription
-# bake-off; its files stay on the DGX but it's no longer a monitored service.
-SVCS="ollama:11434 whisper:8000 diarization:8001 moss:8004 cadvisor:8080 dcgm:9400"
+# bake-off; its files stay on the DGX but it's no longer a monitored service. The label
+# stays "whisper" so the series and the dgx-services dashboard keep their history.
+# :8003 is whichever vLLM the GPU mode puts there (prod-vllm, autoresearch, a judge),
+# :8005 the translate vLLM, :9000 coder-next; which of them SHOULD answer depends on the
+# mode, so the hub reads dgx_gpu_mode below before calling a closed port red.
+SVCS="ollama:11434 whisper:8000 diarization:8001 moss:8004 cadvisor:8080 dcgm:9400 vllm8003:8003 translate:8005 coder:9000"
 # The TCP health checks need no SSH and run every 20 s. Only the container inventory
 # SSHes in, and a container table does not need 20 s freshness: run it every 6th loop
 # (~120 s), cutting DGX login sessions from ~180/h to ~30/h (#66). The first loop runs it.
@@ -77,7 +82,21 @@ while true; do
       docker ps -a --format '{{.Label \"com.docker.compose.project\"}}|{{.State}}|{{.Status}}'
       echo '$SPLIT'
       docker inspect \$(docker ps -aq) --format '$CFMT'
+      echo '$MSPLIT'
+      ~/agentic-ai-homelab/infra/dgx/bin/gpu-mode-swap.sh status --mode-only --no-color 2>/dev/null || true
     " 2>/dev/null) || DGX_OUT=""
+  # The GPU mode, from gpu-mode-swap.sh's read-only status (no lock, ~40 ms): prod, code,
+  # research-vllm, judging-*, free, or BROKEN-BOTH. "free" covers both Ollama modes; the hub
+  # tells them apart by whether :11434 and :8005 answer.
+  case "$DGX_OUT" in
+    *"$MSPLIT"*)
+      MODE=$(printf '%s' "${DGX_OUT##*"$MSPLIT"}" | tr -d '[:space:]')
+      case "$MODE" in ''|*[!A-Za-z0-9-]*) ;; *)
+        printf 'dgx_gpu_mode{mode="%s"} 1\n' "$MODE" | curl -s -m8 -o /dev/null --data-binary @- "$VM" || true ;;
+      esac
+      DGX_OUT=${DGX_OUT%%"$MSPLIT"*}
+      ;;
+  esac
 
   printf '%s' "${DGX_OUT%%"$SPLIT"*}" \
     | awk -F'|' '$1!=""{a[$1]++; if($2=="running")r[$1]++; else if($3 ~ /^Exited \(0\)/)e0[$1]++}
