@@ -85,6 +85,9 @@ section.tab{display:none}section.tab.on{display:block}
 .subtabs a{padding:5px 12px;border:1px solid #26263a;border-radius:16px;color:#9a9ac2;text-decoration:none;font-size:13.5px}
 .subtabs a.on{color:#e6e6ef;border-color:#7aa2ff;background:#16182b}.subtabs a:hover{color:#e6e6ef}
 .sub{display:none}.sub.on{display:block}
+.svcs h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:14px 0 6px}
+.svcs .charts{margin-bottom:6px}.svcs a.card{min-width:150px}.svcs .cv{font-size:15px}
+.svcs .ln{font-size:12px;color:#8888aa;line-height:1.45}
 details.sect summary{cursor:pointer;list-style:none}details.sect summary::-webkit-details-marker{display:none}
 details.sect summary::before{content:"\25B8  "}details.sect[open] summary::before{content:"\25BE  "}
 #notices{margin:0 0 12px}#notices .abar.crit{display:none}
@@ -243,7 +246,7 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
     <a class=card href="$DASH_MINI"><h3>Disk IO</h3><div id=c_io>&hellip;</div></a>
     <a class=card href="$DASH_MINI"><h3>Network</h3><div id=c_net>&hellip;</div></a>
   </div>
-  <div id=health class=health></div>
+  <div id=svc_mini class=svcs></div>
   <details class=sect><summary class=sectitle>Containers</summary>
   <table class=ctbl><tbody id=mctr></tbody></table>
   </details>
@@ -280,7 +283,7 @@ cat <<MID
     <a class=card href="$DASH_DGXHOST"><h3>Disk IO</h3><div id=d_io>&hellip;</div></a>
     <a class=card href="$DASH_DGXHOST"><h3>Network</h3><div id=d_net>&hellip;</div></a>
   </div>
-  <div id=dgxhealth class=health></div>
+  <div id=svc_dgx class=svcs></div>
   <details class=sect><summary class=sectitle>Containers</summary>
   <table class=ctbl><tbody id=dgxctr></tbody></table>
   </details>
@@ -308,6 +311,7 @@ cat <<MID2
     <a class=card href="$DASH_PROD"><h3>Disk IO</h3><div id=p_io>&hellip;</div></a>
     <a class=card href="$DASH_PROD"><h3>Network</h3><div id=p_net>&hellip;</div></a>
   </div>
+  <div id=svc_prod class=svcs></div>
   <details class=sect><summary class=sectitle>Containers</summary>
   <table class=ctbl><tbody id=pctr></tbody></table>
   </details>
@@ -350,11 +354,6 @@ async function draw(id,qq,fmt,max){
   el.innerHTML='<div class=cv>'+fmt(vs[vs.length-1])+'</div><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio=none class=spark><polyline points="'+pts+'"/></svg>';
 }
 function fmtUp(s){s=+s;const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?d+'d '+h+'h':(h?h+'h '+m+'m':m+'m');}
-async function badges(elId,metric,order,linkFor){
-  const hs=await q(metric),map={},now=Date.now()/1000;hs.forEach(s=>map[s.metric.service]=s.value);
-  const el=document.getElementById(elId);if(!el)return;
-  el.innerHTML=order.map(n=>{let c='stale';const v=map[n];if(v){const a=now-+v[0];c=a>120?'stale':(+v[1]?'up':'down');}return '<a class=svc href="'+linkFor(n)+'"><span class="dot '+c+'"></span>'+n+'</a>';}).join('');
-}
 async function ctable(elId,box,cpuq,memq){
   const rows=await q('container_uptime_seconds{box=\"'+box+'\"}');
   const el=document.getElementById(elId);if(!el)return;
@@ -376,7 +375,6 @@ async function mini(){
   const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
   const l1=await g1('mini_load1'),l5=await g1('mini_load5'),l15=await g1('mini_load15'),sw=await g1('mini_swap_used_bytes'),up=await g1('mini_uptime_seconds');
   const sr=document.getElementById('sysrow');if(sr)sr.innerHTML='Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Swap <b>'+(sw?((+sw[1])/1048576).toFixed(0)+' MB':'&mdash;')+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
-  badges('health','service_up',['grafana','glitchtip','langfuse','umami','litellm','victoriametrics','victorialogs','victoriatraces'],n=>MINILINK[n]||G);
   const run=await g1('mini_docker_running'),tot=await g1('mini_docker_total'),rst=await g1('mini_docker_restarting'),unh=await g1('mini_docker_unhealthy');
   const md=document.getElementById('mdocker');if(md&&run)md.innerHTML='<b>'+run[1]+'/'+tot[1]+'</b> running'+(rst&&+rst[1]?' &middot; <span style=color:#f85149>'+rst[1]+' restarting</span>':'')+(unh&&+unh[1]?' &middot; <span style=color:#f85149>'+unh[1]+' unhealthy</span>':'');
   ctable('mctr','mini','mini_container_cpu_percent','mini_container_mem_bytes');
@@ -398,7 +396,6 @@ async function dgx(){
   const L=x=>x?(+x[1]).toFixed(2):'&mdash;';
   const l1=await g1('node_load1'+D),l5=await g1('node_load5'+D),l15=await g1('node_load15'+D),up=await g1('node_time_seconds'+D+'-node_boot_time_seconds'+D);
   const dr=document.getElementById('dgxrow');if(dr)dr.innerHTML='Clock <b>'+(clk?(+clk[1]).toFixed(0)+' MHz':'&mdash;')+'</b> &middot; Mem-BW <b>'+(mbw?(+mbw[1]).toFixed(0)+'%':'&mdash;')+'</b> &middot; Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
-  badges('dgxhealth','dgx_service_up',['ollama','whisper','diarization','moss','cadvisor','dcgm'],n=>DGXDASH);
   const cc=await g1('count(container_last_seen{instance=\"dgx-llm-1\"})'),mem=await g1('sum(container_memory_usage_bytes{instance=\"dgx-llm-1\",id=\"/\"})');
   const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(cc?cc[1]:'&mdash;')+'</b> containers &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b>';
   ctable('dgxctr','dgx');
@@ -641,6 +638,120 @@ async function podcastHealth(){
   if(ts){const h=Math.floor((now-+ts[1])/3600);set('ph_age','<div class=cv>'+(h<1?'&lt;1':h)+'h ago</div>'+(stale?'<div class=muted style="font-size:12px">STALE &mdash; check not running</div>':''));}
   else set('ph_age','<div class=cv>&mdash;</div><div class=muted style="font-size:12px">no run in 28h</div>');
 }
+// ---- Service cards (Hosts tab): one card per key service, grouped. Each reads the shared
+// container inventory (container_uptime_seconds{box}), memory/CPU (cadvisor on prod and the
+// DGX, mini_container_* on the mini), outside probes for public hosts, and the per-host health
+// checks. Lamp: red = a container not running, a probe failing now or a health check down;
+// amber = 24h availability under 99.9%, memory over 90% of its limit, or unhealthy/starting;
+// grey = no data, or (DGX) not expected in the current GPU mode.
+const DGXMODE={prod:'prod-vllm :8003','research-vllm':'autoresearch vLLM :8003',code:'coder-next :9000',
+  ollama:'Ollama :11434','research-ollama':'Ollama :11434',free:'nothing',
+  'judging-a':'judge A :8003','judging-b':'judge B :8003','judging-qwen-next':'judge Qwen-Next :8003','judging-nemotron':'judge Nemotron :8003'};
+const SVCS={
+ prod:[
+  ['Close Listening','Player app',['player-api-1'],['closelistening.app']],
+  ['Close Listening','MCP',['player-mcp-1'],['mcp.closelistening.app']],
+  ['Close Listening','Obs',['player-obs-1'],['obs.closelistening.app']],
+  ['Close Listening','Operator',['operator-api-1','operator-viewer-1'],[]],
+  ['Close Listening','Control plane',['compose-api-1','compose-viewer-1'],[]],
+  ['Close Listening','Learning app',['player-learning-app-1'],[]],
+  ['Close Listening','Background jobs',['player-board-summarizer-1','player-digest-scheduler-1'],[]],
+  ['Orrery','Web',['orrery-web'],['www.orrerylearn.com']],
+  ['Orrery','Lab API',['orrery-lab-api'],['lab-api.orrerylearn.com']],
+  ['Orrery','MCP',['orrery-mcp'],['mcp.orrerylearn.com']],
+  ['Evals','Evals',['evals-nginx','evals-inspector','evals-mcp'],['evals.humancopilot.eu']],
+  ['Websites','Static sites',['websites-nginx'],['www.humancopilot.eu','www.markodragoljevic.com','airandspacehistory.com','www.devwhateverops.com']],
+  ['Shared','LiteLLM (prod)',['litellm','litellm-postgres','litellm-spend-push'],[]],
+  ['Shared','Observability',['alloy','cadvisor'],[]]],
+ mini:[
+  ['Observability','Grafana',['grafana'],[],'grafana'],
+  ['Observability','VictoriaMetrics',['victoriametrics'],[],'victoriametrics'],
+  ['Observability','VictoriaLogs',['victorialogs'],[],'victorialogs'],
+  ['Observability','VictoriaTraces',['victoriatraces'],[],'victoriatraces'],
+  ['Observability','GlitchTip',['glitchtip-web-1','glitchtip-worker-1','glitchtip-postgres-1','glitchtip-redis-1'],['telemetry.closelistening.app','telemetry.orrerylearn.com','telemetry.humancopilot.eu'],'glitchtip'],
+  ['Observability','Langfuse',['langfuse-langfuse-web-1','langfuse-langfuse-worker-1','langfuse-clickhouse-1','langfuse-postgres-1','langfuse-redis-1','langfuse-minio-1'],[],'langfuse'],
+  ['Observability','Umami',['umami','umami-db'],['analytics.closelistening.app','analytics.orrerylearn.com','analytics.humancopilot.eu','analytics.markodragoljevic.com','analytics.airandspacehistory.com'],'umami'],
+  ['Observability','Alloy',['alloy-homelab'],[]],
+  ['Gateway','LiteLLM (dev)',['litellm','litellm-postgres'],[],'litellm'],
+  ['Apps','Delivery',['delivery-email','delivery-events','delivery-push'],[]],
+  ['Apps','Evals docs + compare',['evals-docs','evals-compare'],[]],
+  ['Apps','Edge (Caddy)',['caddy'],[]],
+  ['Apps','Hub',['homelab-home'],[]],
+  ['Home','Home automation',['home-assistant','mosquitto','unifi-poller'],[]]],
+ dgx:[
+  ['GPU','Main LLM',[],[],'MAIN'],
+  ['GPU','Translate',['vllm-translate'],[],'translate',['prod','ollama']],
+  ['Speech','Speaches',['faster-whisper'],[],'whisper'],
+  ['Speech','Diarization',['pyannote'],[],'diarization'],
+  ['Speech','MOSS',['moss'],[],'moss'],
+  ['Apps','LibreChat',['librechat-api','librechat-mongodb','librechat-meilisearch'],[]],
+  ['Collectors','Collectors',['alloy','cadvisor','dcgm-exporter'],[],'cadvisor']]};
+async function services(){
+  const byName=async(qq,key='name')=>{const m={};(await q(qq)).forEach(r=>m[r.metric[key]]=r);return m;};
+  const val=r=>r?+r.value[1]:null;
+  const gb=b=>b==null?'?':(b<1e9?Math.round(b/1e6)+' MB':(b/1e9>=10?(b/1e9).toFixed(0):(b/1e9).toFixed(1))+' GB');
+  const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const probeNow=await byName('max by (host) (last_over_time(probe_success{job="site-probe",run_id=""}[3m]))','host');
+  const probeMs=await byName('max by (host) (last_over_time(probe_duration_seconds{job="site-probe"}[3m]))','host');
+  const d1=(uptime.c&&uptime.c.d1)||{};
+  const mode0=(await q('last_over_time(dgx_gpu_mode[5m])'))[0];
+  const dsu=await byName('last_over_time(dgx_service_up[2m])','service');
+  const up=n=>dsu[n]?val(dsu[n])===1:null;
+  let mode=mode0?mode0.metric.mode:null;
+  if(mode==='free'&&up('ollama'))mode=up('translate')?'ollama':'research-ollama';
+  const msu=await byName('last_over_time(service_up[2m])','service');
+  for(const box of ['prod','mini','dgx']){
+    const el=document.getElementById('svc_'+box);if(!el)continue;
+    const inst={prod:'prod-podcast',dgx:'dgx-llm-1'}[box];
+    const st=await byName('container_uptime_seconds{box="'+box+'"}');
+    const mem=inst?await byName('max by (name) (container_memory_working_set_bytes{instance="'+inst+'",name!=""})'):await byName('mini_container_mem_bytes');
+    const lim=inst?await byName('max by (name) (container_spec_memory_limit_bytes{instance="'+inst+'",name!=""})'):{};
+    const cpu=inst?await byName('sum by (name) (rate(container_cpu_usage_seconds_total{instance="'+inst+'",name!=""}[5m]))*100'):await byName('mini_container_cpu_percent');
+    const groups={};
+    for(const [g,name,ctrs,hosts,check,modes] of SVCS[box]){
+      let title=name,lamp='up',lines=[],why=[];
+      if(check==='MAIN'){
+        const port=mode==='code'?'coder':(mode==='ollama'||mode==='research-ollama'?'ollama':'vllm8003');
+        title='Main LLM';lines.push('mode <b>'+hx(mode||'?')+'</b> &middot; '+hx(DGXMODE[mode]||'?'));
+        if(!mode)lamp='stale';else if(mode==='free')lamp='stale';else if(mode==='BROKEN-BOTH'){lamp='down';why.push('two LLMs');}
+        else if(up(port)===false){lamp='down';why.push('port closed');}
+        const mc={prod:'vllm-prod-vllm'}[mode];  // the other modes' container names are not mapped yet
+        if(mc&&st[mc]){lines.push('mem '+gb(val(mem[mc]))+' &middot; cpu '+(val(cpu[mc])||0).toFixed(0)+'%');lines.push('up '+fmtUp(val(st[mc])));}
+      }else{
+        const off=modes&&mode&&!modes.includes(mode);
+        const rows=ctrs.map(c=>st[c]);
+        const running=rows.filter(r=>r&&r.metric.state==='running').length;
+        if(ctrs.length){
+          if(!rows.some(Boolean))lamp='stale';
+          else if(running<ctrs.length&&!off){lamp='down';why.push(running+'/'+ctrs.length+' running');}
+          if(rows.some(r=>r&&/unhealthy|starting/.test(r.metric.health||''))&&lamp==='up'){lamp='mid';why.push('health check');}
+          const m=ctrs.reduce((a,c)=>a+(val(mem[c])||0),0),l=ctrs.map(c=>val(lim[c])).filter(x=>x&&x<1e15).reduce((a,b)=>a+b,0);
+          const c=ctrs.reduce((a,c)=>a+(val(cpu[c])||0),0);
+          if(m)lines.push('mem '+gb(m)+(l?' / '+gb(l):'')+' &middot; cpu '+c.toFixed(0)+'%');
+          if(l&&m/l>0.9&&lamp==='up'){lamp='mid';why.push('memory over 90% of limit');}
+          const upS=rows.filter(Boolean).map(r=>val(r)).filter(x=>x!=null);
+          if(upS.length&&running)lines.push('up '+fmtUp(Math.min(...upS)));
+        }
+        if(check){const ok=box==='dgx'?up(check):(msu[check]?val(msu[check])===1:null);
+          if(ok===false&&!off){lamp='down';why.push('health check failed');}}
+        if(hosts.length){
+          const dn=hosts.filter(h=>probeNow[h]&&val(probeNow[h])===0);
+          const av=hosts.map(h=>d1[h]).filter(x=>x!=null),ms=hosts.map(h=>val(probeMs[h])).filter(x=>x!=null);
+          const a=av.length?Math.min(...av):null;
+          lines.push((hosts.length>1?hosts.length+' hosts &middot; ':'')+'24h '+(a==null?'&mdash;':(a>=0.99995?'100%':(a*100).toFixed(2)+'%'))+(ms.length?' &middot; '+Math.round(Math.max(...ms)*1000)+' ms':''));
+          if(dn.length){lamp='down';why.push('down: '+dn.join(', '));}
+          else if(a!=null&&a<0.999&&lamp==='up'){lamp='mid';why.push('24h under 99.9%');}
+        }
+        if(off){lamp='stale';why=['off in mode '+mode];}
+      }
+      (groups[g]=groups[g]||[]).push('<a class=card href="'+(box==='prod'?G+'/d/prod-infra-containers/containers':(box==='dgx'?DGXDASH:G))+'"><h3><span class="dot '+lamp+'"></span>'+hx(title)+'</h3>'+
+        (why.length?'<div class=ln style="color:'+(lamp==='down'?'#f85149':(lamp==='mid'?'#d29922':'#8888aa'))+'">'+hx(why.join(' · '))+'</div>':'')+
+        lines.map(x=>'<div class=ln>'+x+'</div>').join('')+'</a>');
+    }
+    const html=Object.entries(groups).map(([g,c])=>'<h4>'+hx(g)+'</h4><div class=charts>'+c.join('')+'</div>').join('');
+    if(el.innerHTML!==html)el.innerHTML=html;
+  }
+}
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
 const TABS=['overview','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','delivery'];
@@ -675,7 +786,7 @@ async function overview(){
   const low=c&&+c[1]<10;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
+function refresh(){overview();services();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
