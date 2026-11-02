@@ -250,7 +250,7 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
   <details class=sect><summary class=sectitle>Containers</summary>
   <table class=ctbl><tbody id=mctr></tbody></table>
   </details>
-  <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
+  <div class=dock><a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
   <details class=sect><summary class=sectitle>Services &amp; credentials</summary>
   <table><thead><tr><th>Service</th><th>Port</th><th>User</th><th>Password</th></tr></thead><tbody>
 HDR
@@ -287,7 +287,7 @@ cat <<MID
   <details class=sect><summary class=sectitle>Containers</summary>
   <table class=ctbl><tbody id=dgxctr></tbody></table>
   </details>
-  <div class=dock>&#128051; <a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
+  <div class=dock><a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
   <details class=sect><summary class=sectitle>Services</summary>
   <table><thead><tr><th>Service</th><th>Port</th><th>Role</th></tr></thead><tbody>
 MID
@@ -315,7 +315,7 @@ cat <<MID2
   <details class=sect><summary class=sectitle>Containers</summary>
   <table class=ctbl><tbody id=pctr></tbody></table>
   </details>
-  <div class=dock>&#128051; <a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a></div>
+  <div class=dock><a href="$DASH_PCON" style=color:inherit;text-decoration:none><span id=pdocker>&hellip;</span></a></div>
   <details class=sect><summary class=sectitle>Services</summary>
   <table><thead><tr><th>Service</th><th>Board</th><th>Role</th></tr></thead><tbody>
 MID2
