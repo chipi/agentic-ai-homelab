@@ -236,8 +236,8 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
   <div class=charts style="max-width:1140px" id=sp_vendor>&hellip;</div>
   <h2>By model</h2>
   <table class="ctbl models"><thead><tr><th>Vendor</th><th>Model</th><th>Source</th><th>Spend</th><th>Tokens in / out</th><th>Requests</th><th>Keys</th><th>Served by</th></tr></thead><tbody id=sp_models></tbody></table>
-  <details class=sect><summary class=sectitle>Local models by consumer (mini gateway)</summary>
-  <table class=ctbl><thead><tr><th>Key</th><th>Model</th><th>Tokens in / out</th><th>Requests</th></tr></thead><tbody id=sp_consumers></tbody></table>
+  <details class=sect><summary class=sectitle>Local models by consumer (both gateways)</summary>
+  <table class=ctbl><thead><tr><th>Gateway</th><th>Key</th><th>Model</th><th>Tokens in / out</th><th>Requests</th></tr></thead><tbody id=sp_consumers></tbody></table>
   </details>
   <p class=sec>Every number covers the same completed UTC days; only "Today so far" is live. Sources: OpenRouter (every key: prod, dev, evals, fleets; billed), vLLM on the DGX (its own token counters, all callers, $0), Ollama on the DGX, X3 and MacBook (its per-request log lines, $0; the lines carry no model or key). Fleet spend is part of OpenRouter, not extra.</p>
 </section>
@@ -991,8 +991,13 @@ async function spendModels(){
     const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
       body:JSON.stringify({queries:[{refId:'L',datasource:{uid:'litellm-pg'},rawSql:sql,format:'table'}],from:'now-31d',to:'now'})})).json();
     const f=r.results.L.frames[0],n=f.schema.fields.map(x=>x.name),c=k=>f.data.values[n.indexOf(k)];
-    set('sp_consumers',(c('k')||[]).length?c('k').map((k,i)=>'<tr><td>'+hx(k)+'</td><td>'+hx(String(c('m')[i]).replace(/^hosted_vllm\//,''))+'</td><td>'+tk(+c('i')[i])+' / '+tk(+c('o')[i])+'</td><td>'+Math.round(+c('r')[i])+'</td></tr>').join(''):'<tr><td class=muted colspan=4>no local-model calls through the mini gateway in this period</td></tr>');
-  }catch(e){set('sp_consumers','<tr><td class=muted colspan=4>gateway log unavailable</td></tr>');}
+    // prod's gateway: per key x model series pushed by chipi/infra spend-to-vm.sh (box="prod")
+    const pr={};for(const [kind,f] of [['prompt','i'],['completion','o']])(await q('sum by (key_alias, model) (last_over_time(litellm_model_tokens{box="prod",window="'+p+'",kind="'+kind+'",provider!="openrouter"}[2h]))')).forEach(r=>{const k=r.metric.key_alias+'|'+r.metric.model;(pr[k]=pr[k]||{i:0,o:0,r:0})[f]+= +r.value[1];});
+    (await q('sum by (key_alias, model) (last_over_time(litellm_model_requests{box="prod",window="'+p+'",provider!="openrouter"}[2h]))')).forEach(r=>{const k=r.metric.key_alias+'|'+r.metric.model;(pr[k]=pr[k]||{i:0,o:0,r:0}).r+= +r.value[1];});
+    const rowsC=Object.entries(pr).filter(([k,v])=>v.i+v.o>0).sort((a,b)=>(b[1].i+b[1].o)-(a[1].i+a[1].o)).map(([k,v])=>{const [ka,m]=k.split('|');return '<tr><td>prod</td><td>'+hx(ka)+'</td><td>'+hx(m.replace(/^hosted_vllm\//,''))+'</td><td>'+tk(v.i)+' / '+tk(v.o)+'</td><td>'+Math.round(v.r)+'</td></tr>';})
+      .concat((c('k')||[]).map((k,i)=>'<tr><td>mini</td><td>'+hx(k)+'</td><td>'+hx(String(c('m')[i]).replace(/^hosted_vllm\//,''))+'</td><td>'+tk(+c('i')[i])+' / '+tk(+c('o')[i])+'</td><td>'+Math.round(+c('r')[i])+'</td></tr>'));
+    set('sp_consumers',rowsC.length?rowsC.join(''):'<tr><td class=muted colspan=5>no local-model calls through either gateway in this period</td></tr>');
+  }catch(e){set('sp_consumers','<tr><td class=muted colspan=5>gateway logs unavailable</td></tr>');}
 }
 // ---- Sites tab: one card per probed host, grouped by project, in the Overview card layout.
 const SITEGROUPS=[['Close Listening',/closelistening\.app$/],['Orrery',/orrerylearn\.com$/],['Evals',/^evals\.humancopilot\.eu$/],
