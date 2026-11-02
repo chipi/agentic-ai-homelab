@@ -89,9 +89,10 @@ table.proj td{vertical-align:middle}table.proj td .s{font-size:12px;color:#8888a
 .svcs h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:14px 0 6px}
 .svcs .charts{margin-bottom:6px}.svcs a.card{min-width:150px}.svcs .cv{font-size:15px}
 .svcs .ln{font-size:12px;color:#8888aa;line-height:1.45}
+a.card.site{flex:1 1 230px;min-width:230px;max-width:420px}
 a.card.site h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 a.card.site .kv{display:grid;grid-template-columns:58px 1fr;gap:0 6px;font-size:12px;color:#8888aa;line-height:1.55}
-a.card.site .kv b{color:#c8c8e0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+a.card.site .kv b{color:#c8c8e0;font-weight:500;overflow-wrap:anywhere}
 a.card.site svg{display:block;width:100%;height:18px;margin-top:6px}
 details.sect summary{cursor:pointer;list-style:none}details.sect summary::-webkit-details-marker{display:none}
 details.sect summary::before{content:"\25B8  "}details.sect[open] summary::before{content:"\25BE  "}
@@ -109,8 +110,9 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
   table{font-size:13px}th,td{padding:6px 8px}
   table.uptime th:nth-child(n+5),table.uptime td:nth-child(n+5){display:none}
   table.uptime td:first-child{overflow-wrap:anywhere}
-  table.models th:nth-child(n+5),table.models td:nth-child(n+5){display:none}table.models th:nth-child(3),table.models td:nth-child(3){display:none}
+  table.models th:nth-child(n+6),table.models td:nth-child(n+6){display:none}table.models th:nth-child(3),table.models td:nth-child(3){display:none}
   table.models td:first-child{overflow-wrap:anywhere}
+  a.card.site{min-width:calc(50% - 4px);flex:1 1 calc(50% - 4px);max-width:none}
   table.proj thead{display:none}table.proj tr{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;border:1px solid #26263a;border-radius:8px;padding:8px 10px;margin:0 0 8px;background:#14141f}
   table.proj td{border:none;padding:0}table.proj td:first-child{grid-column:1/-1;font-weight:600}
   table.proj td[data-l]::before{content:attr(data-l);display:block;font-size:10px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em}
@@ -238,7 +240,13 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
   <h2>By vendor</h2>
   <div class=charts style="max-width:1140px" id=sp_vendor>&hellip;</div>
   <h2>By model</h2>
-  <table class="ctbl models"><thead><tr><th>Vendor</th><th>Model</th><th>Source</th><th>Spend</th><th>Tokens in / out</th><th>Requests</th><th>Keys</th><th>Served by</th></tr></thead><tbody id=sp_models></tbody></table>
+  <div id=sp_mfilter style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px;font-size:13px">
+    <span class=subtabs style="margin:0" id=sp_msrc><a data-v="" class=on>All</a><a data-v=OpenRouter>OpenRouter</a><a data-v=vLLM>vLLM</a><a data-v=Ollama>Ollama</a></span>
+    <select id=sp_mven style="background:#14141f;color:#c8c8e0;border:1px solid #26263a;border-radius:6px;padding:4px 8px"><option value="">All vendors</option></select>
+    <input id=sp_mq placeholder="Filter models" style="background:#14141f;color:#e6e6ef;border:1px solid #26263a;border-radius:6px;padding:4px 8px;min-width:140px">
+  </div>
+  <table class="ctbl models"><thead><tr><th>Vendor</th><th>Model</th><th>Source</th><th>Spend</th><th>Tokens</th><th>In / out</th><th>Requests</th><th>Keys</th><th>Served by</th></tr></thead><tbody id=sp_models></tbody>
+  <tfoot><tr id=sp_mtotal style="font-weight:600;border-top:2px solid #34344e"></tr></tfoot></table>
   <details class=sect><summary class=sectitle>Local models by consumer (both gateways)</summary>
   <table class=ctbl><thead><tr><th>Gateway</th><th>Key</th><th>Model</th><th>Tokens in / out</th><th>Requests</th></tr></thead><tbody id=sp_consumers></tbody></table>
   </details>
@@ -990,21 +998,37 @@ async function spendModels(){
   const cr=await one('max(last_over_time(openrouter_account_usd{kind="credits"}'+L+')) - max(last_over_time(openrouter_account_usd{kind="usage"}'+L+'))');
   const t=n=>sum(src(n),'i')+sum(src(n),'o'),card=(ti,v,sub)=>'<a class=card><h3>'+ti+'</h3><div class=cv>'+v+'</div>'+(sub?'<span class=muted>'+sub+'</span>':'')+'</a>';
   const allT=t('OpenRouter')+t('vLLM')+t('Ollama');
-  set('sp_totals',card('Spend (OpenRouter)',usd(sum(src('OpenRouter'),'usd')),Math.round(sum(src('OpenRouter'),'req')).toLocaleString()+' requests &middot; local $0')
+  // 14-day daily lines: OpenRouter spend (account, from the vendor-day gauges), vLLM tokens, Ollama tokens
+  const vdd={};(await q('last_over_time(openrouter_vendor_day_usd'+L+')')).forEach(r=>vdd[r.metric.day]=(vdd[r.metric.day]||0)+ +r.value[1]);
+  const dd=Object.keys(vdd).sort().slice(-14),orLine=dd.map(d=>vdd[d]);
+  const vLine=await daily('sum(increase(vllm:prompt_tokens_total{instance="dgx-llm-1"}[1d])) + sum(increase(vllm:generation_tokens_total{instance="dgx-llm-1"}[1d]))');
+  let oLine=null;try{const e=Date.now(),st=e-14*86400000;
+    const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+      body:JSON.stringify({queries:[{refId:'D',datasource:{uid:'victorialogs'},expr:'job:"ollama" "eval time =" | extract_regexp "eval time = +[0-9.]+ ms / +(?P<n>[0-9]+) tokens" | stats sum(n) as t',queryType:'statsRange',step:'1d'}],from:String(st),to:String(e)})})).json();
+    const f=(r.results.D.frames||[])[0];if(f){const ts=f.data.values[0],vs=f.data.values[f.data.values.length-1];oLine=Array(14).fill(0);ts.forEach((t0,i)=>{const k=Math.floor((+t0-st)/86400000);if(k>=0&&k<14)oLine[k]+= +vs[i]||0;});}}catch(x){}
+  set('sp_totals',card('Spend (OpenRouter)',usd(sum(src('OpenRouter'),'usd'))+spark(orLine),Math.round(sum(src('OpenRouter'),'req')).toLocaleString()+' requests &middot; local $0')
     +card('Tokens, all sources',tk(allT),'OpenRouter '+tk(t('OpenRouter'))+' &middot; vLLM '+tk(t('vLLM'))+' &middot; Ollama '+tk(t('Ollama')))
-    +card('Local tokens',tk(t('vLLM')+t('Ollama')),'vLLM '+tk(t('vLLM'))+' ('+Math.round(sum(src('vLLM'),'req'))+' req) &middot; Ollama '+tk(t('Ollama'))+' ('+Math.round(sum(src('Ollama'),'req'))+' req)')
+    +card('Local tokens',tk(t('vLLM')+t('Ollama'))+spark(vLine&&oLine?vLine.map((x,i)=>(x||0)+(oLine[i]||0)):vLine),'vLLM '+tk(t('vLLM'))+' ('+Math.round(sum(src('vLLM'),'req'))+' req) &middot; Ollama '+tk(t('Ollama'))+' ('+Math.round(sum(src('Ollama'),'req'))+' req)')
     +card('of which fleets',usd(fl),'triage + bug-fix, part of OpenRouter')
     +card('Today so far (OpenRouter)',usd(today),'live, all keys')
     +card('OpenRouter credit left','<span style="'+(cr<10?'color:#f85149':'')+'">'+usd(cr)+'</span>','top up at openrouter.ai'));
   // ---- By caller ----
   const cl=await gatewayCallers(p),dKeys={};
+  // mini callers' daily tokens over 14 days, one query (prod's gateway pushes period totals only)
+  const cLine={};try{const st=new Date(Date.now()-14*86400000).toISOString().slice(0,10);
+    const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+      body:JSON.stringify({queries:[{refId:'C',datasource:{uid:'litellm-pg'},rawSql:"SELECT COALESCE(v.key_alias,'(no alias)') AS k, d.date AS dt, SUM(d.prompt_tokens)+SUM(d.completion_tokens) AS t FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key WHERE d.date >= '"+st+"' GROUP BY 1,2",format:'table'}],from:'now-15d',to:'now'})})).json();
+    const f=r.results.C.frames[0],n=f.schema.fields.map(x=>x.name),c=k=>f.data.values[n.indexOf(k)]||[],base=Date.now()-14*86400000;
+    c('k').forEach((k,i)=>{const di=Math.floor((Date.parse(String(c('dt')[i]).slice(0,10))-base)/86400000)+1;if(di>=0&&di<14)(cLine[k]=cLine[k]||Array(14).fill(0))[di]+= +c('t')[i];});}catch(x){}
   rows.filter(r=>r.src==='OpenRouter'&&DIRECTKEYS.includes(r.key)).forEach(r=>{const x=dKeys[r.key]=dKeys[r.key]||{usd:0,t:0};x.usd+=r.usd;x.t+=r.i+r.o;});
   const orBill=sum(src('OpenRouter'),'usd'),gwOR=cl.reduce((a,x)=>a+x.usd,0),dir=Object.values(dKeys).reduce((a,x)=>a+x.usd,0);
-  const ccard=(t,u,tok,sub)=>'<a class="card site"><h3>'+t+'</h3><div class=cv>'+usd(u)+'</div><div class=kv>'+tok+'</div>'+(sub?'<span class=muted style="font-size:12px">'+sub+'</span>':'')+'</a>';
-  set('sp_callers',cl.sort((a,b)=>b.usd-a.usd||(b.tOR+b.tLoc)-(a.tOR+a.tLoc)).map(x=>ccard(hx(x.key),x.usd,'<span>Project</span><b>'+x.proj+'</b><span>Tokens</span><b>'+tk(x.tOR+x.tLoc)+(x.tLoc?' ('+tk(x.tLoc)+' local)':'')+'</b><span>Via</span><b>'+x.gw+' gateway &middot; '+Math.round(x.req).toLocaleString()+' req</b>')).join('')
-    +Object.entries(dKeys).filter(([k,x])=>x.usd>=0.005).map(([k,x])=>ccard(hx(k),x.usd,'<span>Project</span><b>Other</b><span>Tokens</span><b>'+tk(x.t)+'</b><span>Via</span><b>direct to OpenRouter</b>')).join('')
-    +(t('Ollama')?ccard('Ollama (no gateway)',0,'<span>Project</span><b>Evals</b><span>Tokens</span><b>'+tk(t('Ollama'))+' local</b><span>Via</span><b>straight to Ollama</b>'):'')
-    +(t('vLLM')?ccard('vLLM (all callers)',0,'<span>Tokens</span><b>'+tk(t('vLLM'))+' local</b><span>Note</span><b>gateway callers above are part of it</b>'):''));
+  // local-only (vLLM / Ollama) costs nothing: its big number is tokens, not $0
+  const big=(u,t)=>u>=0.005||!t?usd(u):tk(t)+' <span class=muted style="font-size:12px;font-weight:400">tokens &middot; $0</span>';
+  const ccard=(t,b,tok,sub)=>'<a class="card site"><h3>'+t+'</h3><div class=cv>'+b+'</div><div class=kv>'+tok+'</div>'+(sub?'<span class=muted style="font-size:12px">'+sub+'</span>':'')+'</a>';
+  set('sp_callers',cl.sort((a,b)=>b.usd-a.usd||(b.tOR+b.tLoc)-(a.tOR+a.tLoc)).map(x=>ccard(hx(x.key),big(x.usd,x.tOR+x.tLoc)+(x.gw==='mini'&&cLine[x.key]?spark(cLine[x.key]):''),'<span>Project</span><b>'+x.proj+'</b><span>Tokens</span><b>'+tk(x.tOR+x.tLoc)+(x.tLoc?' ('+tk(x.tLoc)+' local)':'')+'</b><span>Via</span><b>'+x.gw+' gateway &middot; '+Math.round(x.req).toLocaleString()+' req</b>')).join('')
+    +Object.entries(dKeys).filter(([k,x])=>x.usd>=0.005).map(([k,x])=>ccard(hx(k),usd(x.usd),'<span>Project</span><b>Other</b><span>Tokens</span><b>'+tk(x.t)+'</b><span>Via</span><b>direct to OpenRouter</b>')).join('')
+    +(t('Ollama')?ccard('Ollama (no gateway)',big(0,t('Ollama'))+spark(oLine),'<span>Project</span><b>Evals</b><span>Requests</span><b>'+Math.round(sum(src('Ollama'),'req')).toLocaleString()+'</b><span>Via</span><b>straight to Ollama</b>'):'')
+    +(t('vLLM')?ccard('vLLM (all callers)',big(0,t('vLLM'))+spark(vLine),'<span>Requests</span><b>'+Math.round(sum(src('vLLM'),'req')).toLocaleString()+'</b><span>Note</span><b>gateway callers above are part of it</b>'):''));
   const gap=orBill-gwOR-dir;
   set('sp_callers_note','Gateway callers: '+usd(gwOR)+' (LiteLLM&#39;s own price estimate) + direct keys '+usd(dir)+' = '+usd(gwOR+dir)+' against OpenRouter&#39;s bill of '+usd(orBill)
     +' ('+(gap>=0?'+':'')+usd(gap).replace('$','$')+' difference: pricing estimates, and calls by keys no gateway logs).');
@@ -1016,16 +1040,20 @@ async function spendModels(){
   const life={};(await q('max by (key) (last_over_time(openrouter_key_usd{window="total"}'+L+'))')).forEach(r=>life[r.metric.key]=+r.value[1]);
   set('sp_keys',group(r=>r.key).map(x=>{const top={};x.rows.forEach(r=>top[r.model]=(top[r.model]||0)+r.usd+(r.i+r.o)*1e-9);
     const tops=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,2).map(e=>hx(e[0]));
-    return '<a class="card site"><h3>'+hx(x.k)+'</h3><div class=cv>'+usd(x.usd)+'</div><div class=kv><span>Tokens</span><b>'+tk(x.i+x.o)+'</b><span>Top</span><b>'+(tops.join(', ')||'&mdash;')+'</b>'
+    return '<a class="card site"><h3>'+hx(x.k)+'</h3><div class=cv>'+(x.src.has('OpenRouter')?usd(x.usd):big(0,x.i+x.o))+'</div><div class=kv><span>Tokens</span><b>'+tk(x.i+x.o)+'</b><span>Top</span><b>'+(tops.join(', ')||'&mdash;')+'</b>'
       +'<span>Source</span><b>'+srcTag(x)+'</b>'+(life[x.k]!=null?'<span>Lifetime</span><b>'+usd(life[x.k])+'</b>':'')+'</div></a>';}).join('')||'<div class=muted>nothing in this period</div>');
   // ---- By vendor ----
   const vd={};(await q('last_over_time(openrouter_vendor_day_usd'+L+')')).forEach(r=>{(vd[r.metric.vendor]=vd[r.metric.vendor]||{})[r.metric.day]=+r.value[1];});
   const days=[...new Set(Object.values(vd).flatMap(o=>Object.keys(o)))].sort().slice(-14);
-  set('sp_vendor',group(r=>r.ven).map(x=>'<a class=card><h3>'+hx(x.k)+'</h3><div class=cv>'+usd(x.usd)+(vd[x.k]?spark(days.map(d=>vd[x.k][d]||0)):'')+'</div><span class=muted>'+tk(x.i+x.o)+' tokens &middot; '+srcTag(x)+'</span></a>').join('')||'<div class=muted>nothing in this period</div>');
+  set('sp_vendor',group(r=>r.ven).map(x=>'<a class=card><h3>'+hx(x.k)+'</h3><div class=cv>'+(x.src.has('OpenRouter')?usd(x.usd):big(0,x.i+x.o))+(vd[x.k]?spark(days.map(d=>vd[x.k][d]||0)):'')+'</div><span class=muted>'+tk(x.i+x.o)+' tokens &middot; '+srcTag(x)+'</span></a>').join('')||'<div class=muted>nothing in this period</div>');
   // ---- By model: vendor and model in their own columns ----
-  set('sp_models',group(r=>r.src+'|'+r.ven+'|'+r.model).map(x=>{const r0=x.rows[0],keys=[...new Set(x.rows.filter(r=>r.usd>0||r.i+r.o>0).map(r=>r.key))],by=[...new Set(x.rows.map(r=>r.by))];
-    return '<tr><td>'+hx(r0.ven)+'</td><td>'+hx(r0.model)+'</td><td class=u>'+r0.src+'</td><td>'+(r0.src==='OpenRouter'?usd(x.usd):'$0')+'</td><td>'+tk(x.i)+' / '+tk(x.o)+'</td><td>'+Math.round(x.req).toLocaleString()+'</td><td class=u>'+hx(keys.join(', '))+'</td><td class=u>'+hx(by.join(', '))+'</td></tr>';}).join('')
-    ||'<tr><td class=muted colspan=8>nothing in this period</td></tr>');
+  const mg=group(r=>r.src+'|'+r.ven+'|'+r.model);
+  set('sp_models',mg.map(x=>{const r0=x.rows[0],keys=[...new Set(x.rows.filter(r=>r.usd>0||r.i+r.o>0).map(r=>r.key))],by=[...new Set(x.rows.map(r=>r.by))];
+    return '<tr data-src="'+r0.src+'" data-ven="'+hx(r0.ven)+'" data-m="'+hx(r0.model.toLowerCase())+'" data-u="'+x.usd+'" data-i="'+x.i+'" data-o="'+x.o+'" data-r="'+x.req+'"><td>'+hx(r0.ven)+'</td><td>'+hx(r0.model)+'</td><td class=u>'+r0.src+'</td><td>'+(r0.src==='OpenRouter'?usd(x.usd):'$0')+'</td><td>'+tk(x.i+x.o)+'</td><td>'+tk(x.i)+' / '+tk(x.o)+'</td><td>'+Math.round(x.req).toLocaleString()+'</td><td class=u>'+hx(keys.join(', '))+'</td><td class=u>'+hx(by.join(', '))+'</td></tr>';}).join('')
+    ||'<tr><td class=muted colspan=9>nothing in this period</td></tr>');
+  const sel=document.getElementById('sp_mven'),vens=[...new Set(mg.map(x=>x.rows[0].ven))].sort(),cur=sel?sel.value:'';
+  if(sel){const h='<option value="">All vendors</option>'+vens.map(v=>'<option'+(v===cur?' selected':'')+'>'+hx(v)+'</option>').join('');if(sel.innerHTML!==h)sel.innerHTML=h;}
+  modelFilter();
   // ---- local models by consumer (mini gateway log) ----
   try{
     const d0=new Date(Date.now()-rg.O*1000-rg.R*1000).toISOString().slice(0,10),d1=new Date(Date.now()-rg.O*1000).toISOString().slice(0,10);
@@ -1121,6 +1149,20 @@ async function fleetCards(){
   set('fl_stuck',cv('<span style="'+((fl.stuck||0)?'color:#f85149':'')+'">'+(fl.stuck||0)+'</span>'+spark(stD))+mut('need you to unblock'));
   const bdot=document.getElementById('fl_bdot');if(bdot)bdot.className='dot '+(!Object.keys(fl).length?'stale':((fl.stuck||0)?'mid':'up'));
 }
+// By model filters (source, vendor, text) and the totals row that follows them; client-side only.
+let modelSrc='';
+function modelFilter(){
+  const ven=(document.getElementById('sp_mven')||{}).value||'',txt=((document.getElementById('sp_mq')||{}).value||'').toLowerCase();
+  let u=0,i=0,o=0,r=0,n=0;
+  document.querySelectorAll('#sp_models tr[data-src]').forEach(tr=>{const d=tr.dataset,show=(!modelSrc||d.src===modelSrc)&&(!ven||d.ven===ven)&&(!txt||d.m.includes(txt));
+    tr.style.display=show?'':'none';if(show){u+= +d.u;i+= +d.i;o+= +d.o;r+= +d.r;n++;}});
+  const tk=v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':String(Math.round(v));
+  const f=document.getElementById('sp_mtotal');if(f)f.innerHTML='<td>Total</td><td>'+n+' models</td><td></td><td>$'+u.toFixed(2)+'</td><td>'+tk(i+o)+'</td><td>'+tk(i)+' / '+tk(o)+'</td><td>'+Math.round(r).toLocaleString()+'</td><td></td><td></td>';
+}
+document.getElementById('sp_msrc')?.addEventListener('click',e=>{const a=e.target.closest('a');if(!a)return;modelSrc=a.dataset.v;
+  document.querySelectorAll('#sp_msrc a').forEach(x=>x.classList.toggle('on',x===a));modelFilter();});
+document.getElementById('sp_mven')?.addEventListener('change',modelFilter);
+document.getElementById('sp_mq')?.addEventListener('input',modelFilter);
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
 const TABS=['overview','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','delivery'];
