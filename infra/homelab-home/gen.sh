@@ -88,6 +88,10 @@ section.tab{display:none}section.tab.on{display:block}
 .svcs h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:14px 0 6px}
 .svcs .charts{margin-bottom:6px}.svcs a.card{min-width:150px}.svcs .cv{font-size:15px}
 .svcs .ln{font-size:12px;color:#8888aa;line-height:1.45}
+a.card.site h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+a.card.site .kv{display:grid;grid-template-columns:58px 1fr;gap:0 6px;font-size:12px;color:#8888aa;line-height:1.55}
+a.card.site .kv b{color:#c8c8e0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+a.card.site svg{display:block;width:100%;height:18px;margin-top:6px}
 details.sect summary{cursor:pointer;list-style:none}details.sect summary::-webkit-details-marker{display:none}
 details.sect summary::before{content:"\25B8  "}details.sect[open] summary::before{content:"\25BE  "}
 #notices{margin:0 0 12px}#notices .abar.crit{display:none}
@@ -332,8 +336,11 @@ cat <<MID3
 <p class=sec id=fresh></p>
 </section>
 MID3
+UMAMI_SITES=$(/usr/local/bin/docker exec umami-db psql -U umami -d umami -At -F '|' \
+  -c "select domain, website_id from website where deleted_at is null and domain <> 'localhost'" 2>/dev/null \
+  | awk -F'|' 'NF==2{printf "%s[\"%s\",\"%s\"]", (n++?",":""), $1, $2}')
 cat <<TOK
-<script>const GTOK="$GF_VIEW";</script>
+<script>const GTOK="$GF_VIEW";const UMAMI_SITES=[${UMAMI_SITES}];</script>
 TOK
 cat <<'SCRIPT'
 <script>
@@ -765,12 +772,42 @@ async function services(){
 // the project's public hosts, its prod containers (the Hosts service cards' lamps), Cloudflare's
 // 24h request and 5xx counts for its hosts, and the app's own metrics where it exports any.
 const PROJ=[
- {id:'orrery',name:'Orrery',group:'Orrery',hosts:['www.orrerylearn.com','lab-api.orrerylearn.com','mcp.orrerylearn.com'],edge:'(www\\.)?orrerylearn\\.com|(lab-api|mcp)\\.orrerylearn\\.com'},
- {id:'evals',name:'Evals',group:'Evals',hosts:['evals.humancopilot.eu'],edge:'evals\\.humancopilot\\.eu'},
- {id:'web',name:'Websites',group:'Websites',hosts:['www.humancopilot.eu','www.markodragoljevic.com','airandspacehistory.com','www.devwhateverops.com'],
+ {id:'orrery',name:'Orrery',group:'Orrery',umami:['orrerylearn.com'],hosts:['www.orrerylearn.com','lab-api.orrerylearn.com','mcp.orrerylearn.com'],edge:'(www\\.)?orrerylearn\\.com|(lab-api|mcp)\\.orrerylearn\\.com'},
+ {id:'evals',name:'Evals',group:'Evals',umami:['evals.humancopilot.eu'],hosts:['evals.humancopilot.eu'],edge:'evals\\.humancopilot\\.eu'},
+ {id:'web',name:'Websites',group:'Websites',umami:['humancopilot.eu','markodragoljevic.com','airandspacehistory.com','devwhateverops.com'],hosts:['www.humancopilot.eu','www.markodragoljevic.com','airandspacehistory.com','www.devwhateverops.com'],
   edge:'(www\\.)?(humancopilot\\.eu|markodragoljevic\\.com|airandspacehistory\\.com|devwhateverops\\.com)'}];
+// Umami visitors per site (24h distinct sessions, pageviews), through Grafana's umami-pg
+// datasource with the hub's viewer token. Cached 10 minutes: the numbers move slowly.
+function spark(d){if(!d||!d.length)return '';const mx=Math.max(1,...d),w=56,h=16;
+  const pts=d.map((x,i)=>(i*(w-2)/(d.length-1)+1).toFixed(1)+','+(h-1-x/mx*(h-2)).toFixed(1)).join(' ');
+  return ' <svg width='+w+' height='+h+' viewBox="0 0 '+w+' '+h+'" style="vertical-align:middle;margin-left:4px" aria-label="daily visitors, 14 days"><polyline points="'+pts+'" fill=none stroke=#7aa2ff stroke-width=1.5 vector-effect=non-scaling-stroke /></svg>';}
+async function umami(){
+  if(umami.c&&Date.now()-umami.t<600000)return umami.c;
+  const sql="select website_id::text as id, count(distinct session_id) filter (where created_at > now() - interval '24 hours') as v24,"
+    +" count(*) filter (where created_at > now() - interval '24 hours' and event_type = 1) as p24,"
+    +" count(distinct session_id) as v7, count(*) filter (where event_type = 1) as p7"
+    +" from website_event where created_at > now() - interval '7 days' group by 1";
+  const out={};
+  try{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+      body:JSON.stringify({queries:[{refId:'A',datasource:{uid:'umami-pg'},rawSql:sql,format:'table'}],from:'now-7d',to:'now'})})).json();
+    const f=r.results.A.frames[0],n=f.schema.fields.map(x=>x.name),v=f.data.values,col=k=>v[n.indexOf(k)];
+    const byId={};col('id').forEach((id,i)=>byId[id]={v24:+col('v24')[i],p24:+col('p24')[i],v7:+col('v7')[i],p7:+col('p7')[i]});
+    const dsql="select website_id::text as id, (now()::date - created_at::date) as ago, count(distinct session_id) as v"
+      +" from website_event where created_at > now()::date - 13 group by 1, 2";
+    const r2=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+      body:JSON.stringify({queries:[{refId:'B',datasource:{uid:'umami-pg'},rawSql:dsql,format:'table'}],from:'now-14d',to:'now'})})).json();
+    const f2=r2.results.B.frames[0],n2=f2.schema.fields.map(x=>x.name),v2=f2.data.values,c2=k=>v2[n2.indexOf(k)];
+    const days={};c2('id').forEach((id,i)=>{const a=+c2('ago')[i];if(a>=0&&a<14)(days[id]=days[id]||Array(14).fill(0))[13-a]+= +c2('v')[i];});
+    for(const [dom,id] of UMAMI_SITES){const s=byId[id]||{v24:0,p24:0,v7:0,p7:0},k=dom.replace(/^www\./,''),o=out[k]=out[k]||{v24:0,p24:0,v7:0,p7:0,d:Array(14).fill(0)};
+      for(const x of ['v24','p24','v7','p7'])o[x]+=s[x];
+      (days[id]||[]).forEach((x,i)=>o.d[i]+=x);}
+  }catch(e){return umami.c||null;}
+  umami.c=out;umami.t=Date.now();return out;
+}
 async function projects(){
   const el=document.getElementById('projblocks');if(!el)return;
+  const um=await umami();
+  const vis=doms=>{if(!um)return null;const xs=doms.map(d=>um[d]).filter(Boolean);return xs.length?xs.reduce((a,b)=>({v24:a.v24+b.v24,p24:a.p24+b.p24,v7:a.v7+b.v7,p7:a.p7+b.p7,d:a.d.map((x,i)=>x+b.d[i])})):null;};
   const now={};(await q('max by (host) (last_over_time(probe_success{job="site-probe",run_id=""}[3m]))')).forEach(r=>now[r.metric.host]=+r.value[1]);
   const ms={};(await q('max by (host) (last_over_time(probe_duration_seconds{job="site-probe"}[3m]))')).forEach(r=>ms[r.metric.host]=+r.value[1]);
   const d1=(uptime.c&&uptime.c.d1)||{};
@@ -790,12 +827,31 @@ async function projects(){
       +card('Containers',(()=>{const c=SVCCTR[p.group];return c&&c.tot?'<span style="'+(c.run<c.tot?'color:#f85149':'')+'">'+c.run+'/'+c.tot+'</span>':'&mdash;';})(),'running on prod','#hosts/prod')
       +card('Requests 24h',req?Math.round(+req[1]).toLocaleString():'&mdash;','Cloudflare, its hosts','#sites')
       +card('Edge 5xx 24h',e5?Math.round(+e5[1]):(req?'0':'&mdash;'),'could not reach origin / server error','#sites');
+    const vv=vis(p.umami);
+    cards+=card('Visitors 24h',vv?vv.v24+spark(vv.d):'&mdash;',vv?vv.p24+' views &middot; 7d '+vv.v7+' visitors':'Umami','#sites');
     if(p.id==='orrery'){const u=await g1('sum(up{job="orrery"})'),t=await g1('count(up{job="orrery"})');
       cards+=card('Metrics scrape',(u?+u[1]:0)+'/'+(t?+t[1]:0),'orrery targets up','#hosts/prod');}
     if(p.id==='evals'){const r=await g1('sum(increase(evals_inspector_requests_total[24h]))'),er=await g1('sum(increase(evals_inspector_errors_total[24h]))'),mc=await g1('sum(increase(evals_mcp_calls_total[24h]))');
       cards+=card('Inspector 24h',r?Math.round(+r[1]).toLocaleString():'0',(er?Math.round(+er[1]):0)+' errors','#hosts/prod')
         +card('MCP calls 24h',mc?Math.round(+mc[1]):'0','','#hosts/prod');}
-    html+='<div style="margin:0 0 22px"><h2><span class="dot '+lamp+'"></span><a href="#hosts/prod" target=_self>'+p.name+' &rarr;</a></h2><div class=charts style="max-width:1140px">'+cards+'</div></div>';
+    let per='';
+    if(p.id==='web'){
+      // per site: the apex and www count as one site (Cloudflare reports them as separate hosts)
+      const site=h=>h.replace(/^www\./,'');
+      const rq={},er={};
+      (await q('sum by (host) (last_over_time(cloudflare_edge_requests'+E+'}[15m]))')).forEach(r=>rq[site(r.metric.host)]=(rq[site(r.metric.host)]||0)+ +r.value[1]);
+      (await q('sum by (host) (last_over_time(cloudflare_edge_requests'+E+',class=~"5xx_unreachable|5xx_server"}[15m]))')).forEach(r=>er[site(r.metric.host)]=(er[site(r.metric.host)]||0)+ +r.value[1]);
+      per='<h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;margin:4px 0 6px">Per site</h4><div class=charts style="max-width:1140px">'+p.hosts.map(h=>{
+        const v=d1[h],l=now[h]===0?'down':(v!=null&&v<0.999?'mid':(v==null?'stale':'up'));
+        const k=site(h),u=um&&um[k],n=rq[k];
+        const row=(a,b)=>'<span>'+a+'</span><b>'+b+'</b>';
+        return '<a class="card site" href="https://'+h+'" title="'+k+'"><h3><span class="dot '+l+'"></span>'+k+'</h3><div class=kv>'
+          +row('Uptime',pct(v)+(ms[h]?' &middot; '+Math.round(ms[h]*1000)+' ms':''))
+          +row('Requests',(n!=null?Math.round(n).toLocaleString():'&mdash;')+' &middot; '+(er[k]?Math.round(er[k]):(n!=null?0:'&mdash;'))+' 5xx')
+          +row('Visitors',u?u.v24+' &middot; '+u.p24+' views':'&mdash;')+'</div>'
+          +(u?spark(u.d).replace(' <svg width=56 height=16','<svg preserveAspectRatio="none"'):'<svg></svg>')+'</a>';}).join('')+'</div>';
+    }
+    html+='<div style="margin:0 0 22px"><h2><span class="dot '+lamp+'"></span><a href="#hosts/prod" target=_self>'+p.name+' &rarr;</a></h2><div class=charts style="max-width:1140px">'+cards+'</div>'+per+'</div>';
   }
   if(el.innerHTML!==html)el.innerHTML=html;
 }
