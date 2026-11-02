@@ -101,6 +101,9 @@ section.tab{display:none}section.tab.on{display:block}
   table.uptime td:first-child{overflow-wrap:anywhere}
   .strip{gap:6px 12px;font-size:12.5px}
   .tabs a{padding:8px 9px;font-size:14px}
+  .subtabs{flex-wrap:nowrap;gap:4px}
+  .subtabs a{flex:1;text-align:center;white-space:nowrap;padding:5px 4px;font-size:12.5px}
+  .subtabs .dot{width:7px;height:7px;margin-right:4px}
   code{word-break:break-all}
   .sysrow,.dock,.sec,.health{font-size:12.5px}
 }</style></head><body>
