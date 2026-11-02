@@ -81,6 +81,11 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
 .tabs a{padding:8px 14px;color:#9a9ac2;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500}
 .tabs a.on{color:#e6e6ef;border-bottom-color:#7aa2ff}.tabs a:hover{color:#e6e6ef}
 section.tab{display:none}section.tab.on{display:block}
+#notices{margin:0 0 12px}#notices .abar.crit{display:none}
+#notices summary{cursor:pointer;font-size:13.5px;color:#d29922;list-style:none}
+#notices summary::-webkit-details-marker{display:none}
+#notices summary::before{content:'\25B8  '}#notices[open] summary::before{content:'\25BE  '}
+#notices[open] summary{margin-bottom:8px}
 @media(max-width:640px){
   body{margin:14px}
   h1{font-size:20px;margin-bottom:14px}
@@ -96,9 +101,10 @@ section.tab{display:none}section.tab.on{display:block}
   .sysrow,.dock,.sec,.health{font-size:12.5px}
 }</style></head><body>
 <h1>homelab</h1>
-<div id=hetznerbar></div>
-<div id=cfbar></div>
-<div id=alertbar></div>
+<!-- Banners: critical ones are copied to #critbar and always shown; the rest fold into one
+     line (#notices) so they never push the strip and tabs off a phone screen. The three bars
+     are still filled by hetzner(), cloudflare() and alerts(); notices() only reads them. -->
+<div id=critbar></div>
 <!-- Always on top: one line per area. Each dot copies the state of that area's own dot in its
      tab (mirror() below), so there is one source of truth per signal. Green everywhere = done. -->
 <div class=strip>
@@ -110,6 +116,11 @@ section.tab{display:none}section.tab.on{display:block}
   <a href="#fleets" target=_self>Needs you <b data-text=f_inbox>&hellip;</b></a>
   <a href="#spend" target=_self>Credit left <b id=ov_credit_s>&hellip;</b></a>
 </div>
+<details id=notices hidden><summary id=nsum></summary>
+<div id=hetznerbar></div>
+<div id=cfbar></div>
+<div id=alertbar></div>
+</details>
 <nav class=tabs>
   <a href="#overview" target=_self>Overview</a><a href="#sites" target=_self>Sites</a><a href="#spend" target=_self>Spend</a><a href="#fleets" target=_self>Fleets</a><a href="#hosts" target=_self>Hosts</a>
 </nav>
@@ -563,7 +574,7 @@ async function alerts(){
   if(crit.length)html+='<a class="abar crit" href="'+G+'/alerting/list">&#128308; '+crit.map(line).join('<br>')+'</a>';
   if(warn.length)html+='<a class="abar warn" href="'+G+'/alerting/list">&#9888;&#65039; '+warn.map(line).join('<br>')+'</a>';
   if(plumb.length)html+='<a class="abar plumb" href="'+G+'/alerting/list">'+plumb.length+' plumbing alert(s) (NoData/Error) — observability wiring, not incidents</a>';
-  el.innerHTML=html;
+  el.innerHTML=html;el.dataset.warn=warn.length;el.dataset.plumb=plumb.length;
 }
 async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);
   // box traffic lights: green = fresh samples (<3m), gray = lagging (VM's
@@ -612,7 +623,17 @@ function mirror(){
   document.querySelectorAll('[data-mirror]').forEach(e=>{const s=document.getElementById(e.dataset.mirror);if(s&&e.innerHTML!==s.innerHTML)e.innerHTML=s.innerHTML;});
   document.querySelectorAll('[data-dot]').forEach(e=>{const s=document.getElementById(e.dataset.dot);if(s)e.className=s.className;});
   document.querySelectorAll('[data-text]').forEach(e=>{const s=document.getElementById(e.dataset.text);if(s)e.textContent=s.textContent.trim();});}
-setInterval(mirror,2000);
+function notices(){
+  const bars=['hetznerbar','cfbar','alertbar'].map(i=>document.getElementById(i));
+  const crit=bars.flatMap(b=>[...b.querySelectorAll('.abar.crit')]).map(e=>e.outerHTML).join('');
+  const cb=document.getElementById('critbar');if(cb.innerHTML!==crit)cb.innerHTML=crit;
+  const n=(b,sel)=>b.querySelectorAll(sel).length,a=bars[2].dataset;
+  const parts=[[+(a.warn||0),'alert'],[n(bars[0],'.abar:not(.crit)'),'Hetzner'],[n(bars[1],'.abar:not(.crit)'),'Cloudflare'],[+(a.plumb||0),'plumbing']]
+    .filter(p=>p[0]).map(p=>p[0]+' '+p[1]+(p[1]==='alert'&&p[0]>1?'s':''));
+  const det=document.getElementById('notices');det.hidden=!parts.length;
+  const t=parts.length?'Notices: '+parts.join(' &middot; '):'';
+  const sm=document.getElementById('nsum');if(sm.innerHTML!==t)sm.innerHTML=t;}
+setInterval(()=>{mirror();notices();},2000);
 async function overview(){
   const set=(id,h)=>{const e=document.getElementById(id);if(e)e.innerHTML=h;};
   const m=await g1('sum(max by (key, workspace) (last_over_time(openrouter_key_usd{window="month"}[2h])))');
