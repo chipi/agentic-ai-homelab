@@ -185,7 +185,10 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
     <a class=card href="$DASH_UPTIME"><h3>Edge 5xx 1h</h3><div id=up_edge>&hellip;</div></a>
     <a class=card href="$DASH_UPTIME"><h3>Security blocks 24h</h3><div id=up_sec>&hellip;</div></a>
   </div>
+  <div id=site_groups></div>
+  <details class=sect><summary class=sectitle>All endpoints (table)</summary>
   <table class="ctbl uptime"><thead><tr><th>Endpoint</th><th>Now</th><th>24h</th><th>7d</th><th>30d</th><th title="Cloudflare: 5xx answered to all visitors, 24h">Edge 5xx 24h</th><th>Check</th></tr></thead><tbody id=uptbl></tbody></table>
+  </details>
   <p class=sec>Checked from the mini (home internet) through Cloudflare every minute; minutes when the mini itself was offline are left out. Edge 5xx = Cloudflare's count for every visitor (520-530: it could not reach our origin).</p>
 </div>
 </section>
@@ -215,22 +218,23 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
 </div>
 </section>
 <section class=tab id=t-spend>
-  <h2><a href="$G/d/llm-gateway">LLM spend by key &middot; OpenRouter billing &rarr;</a></h2>
-  <div class=charts style="max-width:1140px" id=v_keys>&hellip;</div>
-  <h2>Fleet spend</h2>
-  <div class=charts style="max-width:1140px">
-    <a class=card href="$DASH_FLEET"><h3>Triage this month</h3><div data-mirror=f_month>&hellip;</div></a>
-    <a class=card href="$DASH_FLEET"><h3>Triage total</h3><div data-mirror=f_total>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Bug-fix this month</h3><div data-mirror=b_month>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Bug-fix total</h3><div data-mirror=b_total>&hellip;</div></a>
-  </div>
-  <h2>By vendor &middot; OpenRouter, last 30 days</h2>
+  <nav class=subtabs id=sp_period>
+    <a href="#spend/month" target=_self>This month</a><a href="#spend/30d" target=_self>Last 30 days</a><a href="#spend/7d" target=_self>Last 7 days</a><a href="#spend/yesterday" target=_self>Yesterday</a>
+  </nav>
+  <p class=sec id=sp_range style="margin:-8px 0 12px"></p>
+  <div class=charts style="max-width:1140px" id=sp_totals>&hellip;</div>
+  <h2><a href="$G/d/llm-gateway">By key &rarr;</a></h2>
+  <div class=charts style="max-width:1140px" id=sp_keys>&hellip;</div>
+  <h2>By vendor</h2>
   <div class=charts style="max-width:1140px" id=sp_vendor>&hellip;</div>
-  <h2>By model &middot; OpenRouter, last 30 days</h2>
-  <table class="ctbl models"><thead><tr><th>Model</th><th>30d</th><th>7d</th><th>Yesterday</th><th>Tokens in / out</th><th>Requests</th><th>Served by</th></tr></thead><tbody id=sp_models></tbody></table>
-  <p class=sec>OpenRouter's own billing for every key (prod, dev, evals, fleets), from its activity API: completed UTC days only, so today is not in it yet.</p>
+  <h2>By model</h2>
+  <table class="ctbl models"><thead><tr><th>Model</th><th>Spend</th><th>Tokens in / out</th><th>Requests</th><th>Keys</th><th>Served by</th></tr></thead><tbody id=sp_models></tbody></table>
   <h2>Local models &middot; DGX</h2>
   <div class=charts style="max-width:1140px" id=sp_local>&hellip;</div>
+  <details class=sect><summary class=sectitle>Local models by consumer (mini gateway)</summary>
+  <table class=ctbl><thead><tr><th>Key</th><th>Model</th><th>Tokens in / out</th><th>Requests</th></tr></thead><tbody id=sp_consumers></tbody></table>
+  </details>
+  <p class=sec>Every number on this tab covers the same completed UTC days (OpenRouter reports no partial day); only "Today so far" is live. OpenRouter covers every key: prod, dev, evals, fleets. Fleet spend is part of it, not extra.</p>
 </section>
 <section class=tab id=t-hosts>
 <nav class=subtabs>
@@ -857,60 +861,112 @@ async function projects(){
     if(p.id==='evals'){const r=await g1('sum(increase(evals_inspector_requests_total[24h]))'),er=await g1('sum(increase(evals_inspector_errors_total[24h]))'),mc=await g1('sum(increase(evals_mcp_calls_total[24h]))');
       cards+=card('Inspector 24h',r?Math.round(+r[1]).toLocaleString():'0',(er?Math.round(+er[1]):0)+' errors','#hosts/prod')
         +card('MCP calls 24h',mc?Math.round(+mc[1]):'0','','#hosts/prod');}
-    let per='';
-    if(p.id==='web'){
-      // per site: the apex and www count as one site (Cloudflare reports them as separate hosts)
-      const site=h=>h.replace(/^www\./,'');
-      const rq={},er={};
-      (await q('sum by (host) (last_over_time(cloudflare_edge_requests'+E+'}[15m]))')).forEach(r=>rq[site(r.metric.host)]=(rq[site(r.metric.host)]||0)+ +r.value[1]);
-      (await q('sum by (host) (last_over_time(cloudflare_edge_requests'+E+',class=~"5xx_unreachable|5xx_server"}[15m]))')).forEach(r=>er[site(r.metric.host)]=(er[site(r.metric.host)]||0)+ +r.value[1]);
-      per='<h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;margin:4px 0 6px">Per site</h4><div class=charts style="max-width:1140px">'+p.hosts.map(h=>{
-        const v=d1[h],l=now[h]===0?'down':(v!=null&&v<0.999?'mid':(v==null?'stale':'up'));
-        const k=site(h),u=um&&um[k],n=rq[k];
-        const row=(a,b)=>'<span>'+a+'</span><b>'+b+'</b>';
-        return '<a class="card site" href="https://'+h+'" title="'+k+'"><h3><span class="dot '+l+'"></span>'+k+'</h3><div class=kv>'
-          +row('Uptime',pct(v)+(ms[h]?' &middot; '+Math.round(ms[h]*1000)+' ms':''))
-          +row('Requests',(n!=null?Math.round(n).toLocaleString():'&mdash;')+' &middot; '+(er[k]?Math.round(er[k]):(n!=null?0:'&mdash;'))+' 5xx')
-          +row('Visitors',u?u.v24+' &middot; '+u.p24+' views':'&mdash;')+'</div>'
-          +(u?spark(u.d).replace(' <svg width=56 height=16','<svg preserveAspectRatio="none"'):'<svg></svg>')+'</a>';}).join('')+'</div>';
-    }
+    const per='';
     html+='<div style="margin:0 0 22px"><h2><span class="dot '+lamp+'"></span><a href="#hosts/prod" target=_self>'+p.name+' &rarr;</a></h2><div class=charts style="max-width:1140px">'+cards+'</div>'+per+'</div>';
   }
   if(el.innerHTML!==html)el.innerHTML=html;
 }
-// ---- Spend by vendor / model (OpenRouter /activity, collected by openrouter-spend.sh) and the
-// DGX's local models (vLLM's own token counters; free, so tokens only).
+// ---- Spend tab. One period for every number: completed UTC days only, because OpenRouter's
+// activity API (spend per key/model/provider) has no partial day. month = this UTC month's
+// completed days, 30d / 7d = that many completed days, yesterday = the last completed day.
+// VM-based numbers (fleets, DGX tokens) use the same range: [R] offset <seconds since UTC midnight>.
+function spendRange(p){
+  const n=new Date(),mid=Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate()),m0=Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),1);
+  const O=Math.max(1,Math.floor((n-mid)/1000)),days={month:Math.round((mid-m0)/86400000),'30d':30,'7d':7,yesterday:1}[p];
+  const f=t=>new Date(t).toISOString().slice(0,10);
+  return {R:days*86400,O,days,label:days?f(mid-days*86400000)+' to '+f(mid-86400000)+' (UTC, '+days+' day'+(days>1?'s':'')+')':'no completed day this month yet'};
+}
 async function spendModels(){
   const set=(id,h)=>{const e=document.getElementById(id);if(e&&e.innerHTML!==h)e.innerHTML=h;};
   const usd=x=>'$'+(x>=100?x.toFixed(0):x.toFixed(2));
   const tk=v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':String(Math.round(v));
   const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const L='[2h]';
+  const p=spendPeriod,rg=spendRange(p),W='window="'+p+'"',L='[2h]';
+  set('sp_range',rg.label);
   const by=async(qq,keys)=>{const m={};(await q(qq)).forEach(r=>m[keys.map(k=>r.metric[k]).join('|')]=+r.value[1]);return m;};
-  const v30=await by('sum by (vendor) (last_over_time(openrouter_model_usd{window="30d"}'+L+'))',['vendor']);
-  const v7=await by('sum by (vendor) (last_over_time(openrouter_model_usd{window="7d"}'+L+'))',['vendor']);
-  const vt=await by('sum by (vendor) (last_over_time(openrouter_model_tokens{window="30d"}'+L+'))',['vendor']);
+  const one=async qq=>{const r=await q(qq);return r.length?+r[0].value[1]:0;};
+  const M=(name,extra)=>'last_over_time('+name+'{'+W+',key!=""'+(extra?','+extra:'')+'}'+L+')';  // key!="": series from before the per-key collector (2026-11-02) had no key
+  const vm=(expr)=>rg.R?expr.replace(/\[R\]/g,'['+rg.R+'s] offset '+rg.O+'s'):null;
+  // totals
+  const tUsd=await one('sum('+M('openrouter_model_usd')+')'),tIn=await one('sum('+M('openrouter_model_tokens','kind="prompt"')+')'),
+        tOut=await one('sum('+M('openrouter_model_tokens','kind="completion"')+')'),tReq=await one('sum('+M('openrouter_model_requests')+')');
+  const today=await one('sum(last_over_time(openrouter_key_usd{window="day"}'+L+'))');
+  const lOut=rg.R?await one(vm('sum(increase(vllm:generation_tokens_total{instance="dgx-llm-1"}[R]))')):0;
+  const lIn=rg.R?await one(vm('sum(increase(vllm:prompt_tokens_total{instance="dgx-llm-1"}[R]))')):0;
+  const fl=rg.R?await one(vm('sum(sum_over_time(signal_fleet_cost_usd[R]))'))+await one(vm('sum(sum_over_time(bugfix_fleet_cost_usd[R]))')):0;
+  const cr=await one('max(last_over_time(openrouter_account_usd{kind="credits"}'+L+')) - max(last_over_time(openrouter_account_usd{kind="usage"}'+L+'))');
+  const card=(t,v,sub)=>'<a class=card><h3>'+t+'</h3><div class=cv>'+v+'</div>'+(sub?'<span class=muted>'+sub+'</span>':'')+'</a>';
+  set('sp_totals',card('OpenRouter spend',usd(tUsd),Math.round(tReq).toLocaleString()+' requests')+card('Tokens (OpenRouter)',tk(tIn+tOut),tk(tIn)+' in / '+tk(tOut)+' out')
+    +card('Local tokens (DGX)',tk(lIn+lOut),tk(lIn)+' in / '+tk(lOut)+' out &middot; $0')+card('of which fleets',usd(fl),'triage + bug-fix')
+    +card('Today so far',usd(today),'live, all keys')+card('Credit left','<span style="'+(cr<10?'color:#f85149':'')+'">'+usd(cr)+'</span>','OpenRouter account'));
+  // by key: this period from activity; lifetime from the key itself
+  const kU=await by('sum by (key, workspace) ('+M('openrouter_model_usd')+')',['key','workspace']);
+  const kT=await by('sum by (key) ('+M('openrouter_model_tokens')+')',['key']);
+  const kTop={};(await q('sum by (key, model) ('+M('openrouter_model_usd')+')')).forEach(r=>(kTop[r.metric.key]=kTop[r.metric.key]||[]).push([r.metric.model,+r.value[1]]));
+  const life=await by('max by (key) (last_over_time(openrouter_key_usd{window="total"}'+L+'))',['key']);
+  const keys=Object.keys(kU).sort((a,b)=>kU[b]-kU[a]);
+  set('sp_keys',keys.length?keys.map(k=>{const [key,ws]=k.split('|'),top=(kTop[key]||[]).sort((a,b)=>b[1]-a[1]).filter(x=>x[1]>=0.005).slice(0,2);
+    return '<a class="card site"><h3>'+hx(key)+'</h3><div class=cv>'+usd(kU[k])+'</div><div class=kv>'
+      +'<span>Tokens</span><b>'+tk(kT[key]||0)+'</b><span>Top</span><b>'+(top.length?top.map(x=>hx(x[0].split('/').pop())).join(', '):'&mdash;')+'</b>'
+      +'<span>Lifetime</span><b>'+(life[key]!=null?usd(life[key]):'&mdash;')+' &middot; '+hx(ws)+'</b></div></a>';}).join(''):'<div class=muted>no data</div>');
+  // by vendor
+  const v=await by('sum by (vendor) ('+M('openrouter_model_usd')+')',['vendor']),vt=await by('sum by (vendor) ('+M('openrouter_model_tokens')+')',['vendor']);
   const vd={};(await q('last_over_time(openrouter_vendor_day_usd'+L+')')).forEach(r=>{(vd[r.metric.vendor]=vd[r.metric.vendor]||{})[r.metric.day]=+r.value[1];});
   const allDays=[...new Set(Object.values(vd).flatMap(o=>Object.keys(o)))].sort().slice(-14);
-  const vs=Object.keys(v30).sort((a,b)=>v30[b]-v30[a]);
-  set('sp_vendor',vs.length?vs.map(v=>'<a class=card href="'+G+'/d/llm-gateway"><h3>'+hx(v)+'</h3><div class=cv>'+usd(v30[v])+spark(allDays.map(d=>(vd[v]||{})[d]||0))+'</div>'
-    +'<span class=muted>7d '+usd(v7[v]||0)+' &middot; '+tk(vt[v]||0)+' tokens</span></a>').join(''):'<div class=muted>no data yet (collector runs every 10 min)</div>');
-  const m30=await by('sum by (model) (last_over_time(openrouter_model_usd{window="30d"}'+L+'))',['model']);
-  const m7=await by('sum by (model) (last_over_time(openrouter_model_usd{window="7d"}'+L+'))',['model']);
-  const my=await by('sum by (model) (last_over_time(openrouter_model_usd{window="yesterday"}'+L+'))',['model']);
-  const mi=await by('sum by (model) (last_over_time(openrouter_model_tokens{window="30d",kind="prompt"}'+L+'))',['model']);
-  const mo=await by('sum by (model) (last_over_time(openrouter_model_tokens{window="30d",kind="completion"}'+L+'))',['model']);
-  const mr=await by('sum by (model) (last_over_time(openrouter_model_requests{window="30d"}'+L+'))',['model']);
-  const mp={};(await q('sum by (model, provider) (last_over_time(openrouter_model_usd{window="30d"}'+L+'))')).forEach(r=>{(mp[r.metric.model]=mp[r.metric.model]||[]).push([r.metric.provider,+r.value[1]]);});
-  const ms=Object.keys(m30).filter(m=>m30[m]>=0.005).sort((a,b)=>m30[b]-m30[a]);
-  set('sp_models',ms.length?ms.map(m=>'<tr><td>'+hx(m)+'</td><td>'+usd(m30[m])+'</td><td>'+usd(m7[m]||0)+'</td><td>'+usd(my[m]||0)+'</td><td>'+tk(mi[m]||0)+' / '+tk(mo[m]||0)+'</td><td>'+Math.round(mr[m]||0)+'</td><td class=u>'
-    +hx((mp[m]||[]).sort((a,b)=>b[1]-a[1]).map(x=>x[0]).join(', '))+'</td></tr>').join(''):'<tr><td class=muted colspan=7>no data yet</td></tr>');
-  const g1d=await by('sum by (model_name) (increase(vllm:generation_tokens_total{instance="dgx-llm-1"}[1d]))',['model_name']);
-  const g30=await by('sum by (model_name) (increase(vllm:generation_tokens_total{instance="dgx-llm-1"}[30d]))',['model_name']);
-  const p30=await by('sum by (model_name) (increase(vllm:prompt_tokens_total{instance="dgx-llm-1"}[30d]))',['model_name']);
-  const lm=Object.keys(g30).filter(m=>g30[m]>0).sort((a,b)=>g30[b]-g30[a]);
-  set('sp_local',lm.length?lm.map(m=>'<a class=card href="'+G+'/d/dgx-services/dgx-e28094-services"><h3>'+hx(m.split('/').pop())+'</h3><div class=cv>'+tk(g1d[m]||0)+'</div>'
-    +'<span class=muted>tokens out today &middot; 30d '+tk(p30[m]||0)+' in / '+tk(g30[m])+' out &middot; $0</span></a>').join(''):'<div class=muted>no vLLM token data</div>');
+  const vs=Object.keys(v).filter(x=>v[x]>=0.005).sort((a,b)=>v[b]-v[a]);
+  set('sp_vendor',vs.length?vs.map(x=>'<a class=card><h3>'+hx(x)+'</h3><div class=cv>'+usd(v[x])+spark(allDays.map(d=>(vd[x]||{})[d]||0))+'</div><span class=muted>'+tk(vt[x]||0)+' tokens &middot; line: 14 days</span></a>').join(''):'<div class=muted>no spend in this period</div>');
+  // by model
+  const mU=await by('sum by (model) ('+M('openrouter_model_usd')+')',['model']),mI=await by('sum by (model) ('+M('openrouter_model_tokens','kind="prompt"')+')',['model']),
+        mO=await by('sum by (model) ('+M('openrouter_model_tokens','kind="completion"')+')',['model']),mR=await by('sum by (model) ('+M('openrouter_model_requests')+')',['model']);
+  const mP={},mK={};(await q('sum by (model, provider) ('+M('openrouter_model_usd')+')')).forEach(r=>(mP[r.metric.model]=mP[r.metric.model]||[]).push([r.metric.provider,+r.value[1]]));
+  (await q('sum by (model, key) ('+M('openrouter_model_usd')+')')).forEach(r=>{if(+r.value[1]>=0.005)(mK[r.metric.model]=mK[r.metric.model]||[]).push([r.metric.key,+r.value[1]]);});
+  const ms=Object.keys(mU).filter(m=>mU[m]>=0.005).sort((a,b)=>mU[b]-mU[a]);
+  set('sp_models',ms.length?ms.map(m=>'<tr><td>'+hx(m)+'</td><td>'+usd(mU[m])+'</td><td>'+tk(mI[m]||0)+' / '+tk(mO[m]||0)+'</td><td>'+Math.round(mR[m]||0)+'</td><td class=u>'
+    +hx((mK[m]||[]).sort((a,b)=>b[1]-a[1]).map(x=>x[0]).join(', '))+'</td><td class=u>'+hx((mP[m]||[]).sort((a,b)=>b[1]-a[1]).map(x=>x[0]).join(', '))+'</td></tr>').join(''):'<tr><td class=muted colspan=6>no spend in this period</td></tr>');
+  // local models: vLLM's own counters (every caller), and the mini gateway's per-key log
+  const gO=rg.R?await by(vm('sum by (model_name) (increase(vllm:generation_tokens_total{instance="dgx-llm-1"}[R]))'),['model_name']):{};
+  const gI=rg.R?await by(vm('sum by (model_name) (increase(vllm:prompt_tokens_total{instance="dgx-llm-1"}[R]))'),['model_name']):{};
+  const lm=Object.keys(gO).filter(m=>gO[m]>0||gI[m]>0).sort((a,b)=>gO[b]-gO[a]);
+  set('sp_local',lm.length?lm.map(m=>'<a class=card><h3>'+hx(m.split('/').pop())+'</h3><div class=cv>'+tk((gI[m]||0)+(gO[m]||0))+'</div><span class=muted>'+tk(gI[m]||0)+' in / '+tk(gO[m]||0)+' out &middot; $0</span></a>').join(''):'<div class=muted>no vLLM tokens in this period</div>');
+  try{
+    const d0=new Date(Date.now()-rg.O*1000-rg.R*1000).toISOString().slice(0,10),d1=new Date(Date.now()-rg.O*1000).toISOString().slice(0,10);
+    const sql="SELECT COALESCE(v.key_alias, LEFT(d.api_key,8)) AS k, d.model AS m, SUM(d.prompt_tokens) AS i, SUM(d.completion_tokens) AS o, SUM(d.api_requests) AS r"
+      +" FROM \"LiteLLM_DailyUserSpend\" d LEFT JOIN \"LiteLLM_VerificationToken\" v ON v.token = d.api_key"
+      +" WHERE d.date >= '"+d0+"' AND d.date < '"+d1+"' AND COALESCE(d.custom_llm_provider,'') <> 'openrouter' AND d.model NOT LIKE 'openrouter/%'"
+      +" GROUP BY 1,2 HAVING SUM(d.prompt_tokens)+SUM(d.completion_tokens) > 0 ORDER BY 3 DESC";
+    const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+      body:JSON.stringify({queries:[{refId:'L',datasource:{uid:'litellm-pg'},rawSql:sql,format:'table'}],from:'now-31d',to:'now'})})).json();
+    const f=r.results.L.frames[0],n=f.schema.fields.map(x=>x.name),c=k=>f.data.values[n.indexOf(k)];
+    set('sp_consumers',(c('k')||[]).length?c('k').map((k,i)=>'<tr><td>'+hx(k)+'</td><td>'+hx(String(c('m')[i]).replace(/^hosted_vllm\//,''))+'</td><td>'+tk(+c('i')[i])+' / '+tk(+c('o')[i])+'</td><td>'+Math.round(+c('r')[i])+'</td></tr>').join(''):'<tr><td class=muted colspan=4>no local-model calls through the mini gateway in this period</td></tr>');
+  }catch(e){set('sp_consumers','<tr><td class=muted colspan=4>gateway log unavailable</td></tr>');}
+}
+// ---- Sites tab: one card per probed host, grouped by project, in the Overview card layout.
+const SITEGROUPS=[['Close Listening',/closelistening\.app$/],['Orrery',/orrerylearn\.com$/],['Evals',/^evals\.humancopilot\.eu$/],
+  ['Websites',/(humancopilot\.eu|markodragoljevic\.com|airandspacehistory\.com|devwhateverops\.com)$/]];
+async function siteGroups(){
+  const el=document.getElementById('site_groups');if(!el)return;
+  const now={},ms={},rq={},er={};
+  (await q('max by (host) (last_over_time(probe_success{job="site-probe",run_id=""}[3m]))')).forEach(r=>now[r.metric.host]=+r.value[1]);
+  (await q('max by (host) (last_over_time(probe_duration_seconds{job="site-probe"}[3m]))')).forEach(r=>ms[r.metric.host]=+r.value[1]);
+  const E='{instance="homelab",window="24h"';
+  (await q('sum by (host) (last_over_time(cloudflare_edge_requests'+E+'}[15m]))')).forEach(r=>rq[r.metric.host]=+r.value[1]);
+  (await q('sum by (host) (last_over_time(cloudflare_edge_requests'+E+',class=~"5xx_unreachable|5xx_server"}[15m]))')).forEach(r=>er[r.metric.host]=+r.value[1]);
+  const um=await umami(),d1=(uptime.c&&uptime.c.d1)||{};
+  const pct=v=>v==null?'&mdash;':(v>=0.99995?'100%':(v*100).toFixed(2)+'%');
+  const site=h=>h.replace(/^www\./,''),both=(m,h)=>{const a=m[h],b=h.startsWith('www.')?m[site(h)]:m['www.'+h];return a==null&&b==null?null:(a||0)+(b||0);};
+  const hosts=Object.keys(now).sort(),groups={};
+  for(const h of hosts){const g=(SITEGROUPS.find(([n,re])=>re.test(h))||['Other'])[0];(groups[g]=groups[g]||[]).push(h);}
+  const order=SITEGROUPS.map(x=>x[0]).concat(['Other']);
+  const html=order.filter(g=>groups[g]).map(g=>'<h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;margin:14px 0 6px">'+g+'</h4><div class=charts style="max-width:1140px">'
+    +groups[g].sort((a,b)=>(um&&um[site(b)]?1:0)-(um&&um[site(a)]?1:0)||a.localeCompare(b)).map(h=>{
+      const k=site(h),u=um&&um[k],n=both(rq,h),e=both(er,h),v=d1[h],l=now[h]===0?'down':(v!=null&&v<0.999?'mid':(v==null?'stale':'up'));
+      const row=(a,b)=>'<span>'+a+'</span><b>'+b+'</b>';
+      return '<a class="card site" href="https://'+h+'" title="'+h+'"><h3><span class="dot '+l+'"></span>'+k+'</h3><div class=kv>'
+        +row('Uptime',pct(v)+(ms[h]?' &middot; '+Math.round(ms[h]*1000)+' ms':''))
+        +row('Requests',(n!=null?Math.round(n).toLocaleString():'&mdash;')+' &middot; '+(e?Math.round(e):(n!=null?0:'&mdash;'))+' 5xx')
+        +row('Visitors',u?u.v24+' &middot; '+u.p24+' views':'&mdash;')+'</div>'
+        +(u?spark(u.d).replace(' <svg width=56 height=16','<svg preserveAspectRatio="none"'):'<svg></svg>')+'</a>';}).join('')+'</div>').join('');
+  if(el.innerHTML!==html)el.innerHTML=html;
 }
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
@@ -919,7 +975,11 @@ function showTab(){const [h,sb]=location.hash.slice(1).split('/'),t=TABS.include
   document.querySelectorAll('section.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
   document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+t));
   document.querySelectorAll('.sub').forEach(e=>e.classList.toggle('on',e.dataset.sub===u));
-  document.querySelectorAll('.subtabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#hosts/'+u));}
+  document.querySelectorAll('#t-hosts .subtabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#hosts/'+u));
+  const pv=['month','30d','7d','yesterday'].includes(sb)?sb:'30d';
+  document.querySelectorAll('#sp_period a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#spend/'+pv));
+  if(t==='spend'&&spendPeriod!==pv){spendPeriod=pv;spendModels();}}
+let spendPeriod='30d';
 addEventListener('hashchange',showTab);showTab();
 // Overview cards and the strip copy what the tabs already show: one query per signal.
 function mirror(){
@@ -946,7 +1006,7 @@ async function overview(){
   const low=c&&+c[1]<10;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();services().then(projects);spendModels();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
+function refresh(){overview();services().then(projects);spendModels();siteGroups();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
