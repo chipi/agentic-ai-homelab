@@ -60,6 +60,15 @@ $R homelab $V compare --project orrery --since 2026-10-17T08:21:00Z --sourcemaps
 - `litellm-acompletion` traces are LiteLLM's own, so they're ignored;
 - dev lines are INFO, not FAIL.
 
+**2026-11-02, orrery v0.9.3 (`sha-b4ddf1e`):** PASS (58 of 58 live JS with a debugId, 56 matched,
+2 stubs as INFO; `up{job=orrery}` 1 on both targets). Two gaps fixed first:
+- served orrery JS carries the id as `sentry-dbid-<uuid>` (sentryVitePlugin; only the artifact
+  copy has `//# debugId=`), so the check found 0 ids and still passed. It now reads both forms
+  and fails when no live file has an id;
+- the orrery profile had no scrape job, so metrics were skipped; it now checks `orrery`.
+- A service with no traffic since the deploy shows 0 traces (mcp, 20 min after this deploy):
+  send it one request and re-run before calling tracing broken.
+
 ## Not covered
 
 - **App behaviour** (user-facing smoke tests): the deploy workflows' own smoke steps do that.

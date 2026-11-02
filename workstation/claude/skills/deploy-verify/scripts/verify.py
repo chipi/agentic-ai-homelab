@@ -39,7 +39,7 @@ PROFILES = {
     "orrery": {
         "log_services": ["orrery-web", "orrery-mcp", "orrery-lab-api"],
         "trace_services": ["orrery-mcp", "orrery-lab-api"],
-        "scrape_jobs": [],
+        "scrape_jobs": ["orrery"],
         "counters": [],
         "glitchtip": ["orrery-prod", "orrery-lab-api", "orrery-mcp"],
         "langfuse_keys": None,
@@ -222,7 +222,9 @@ def sourcemaps(prof):
     for p in paths:
         js = get(base + p, {"Cache-Control": "no-cache"})
         sizes[p] = len(js)
-        m = re.findall(r"debugId=([0-9a-fA-F-]{36})", js)
+        # Served files carry the id as sentryVitePlugin's `sentry-dbid-<uuid>` snippet; only the
+        # artifact copy gets a `//# debugId=` comment (orrery scripts/sourcemaps/package.mjs).
+        m = re.findall(r"(?:debugId=|sentry-dbid-)([0-9a-fA-F-]{36})", js)
         if m:
             ids[p] = m[-1].lower()
         else:
@@ -238,7 +240,8 @@ def sourcemaps(prof):
     # 379 B and 439 B). Deployed files carry no sourceMappingURL, so size is the only signal here.
     stubs = [p for p in unmatched if sizes.get(p, 0) < 1024]
     real = [p for p in unmatched if p not in stubs]
-    check(not real, f"{len(paths)} live JS files: {len(ids)} with a debugId, {len(ids) - len(unmatched)} matched to a bundle"
+    # No id in any live file means injection stopped or the pattern is stale; never a pass.
+    check(bool(ids) and not real, f"{len(paths)} live JS files: {len(ids)} with a debugId, {len(ids) - len(unmatched)} matched to a bundle"
           + (f"; UNMATCHED: {real[:5]}" if real else ""))
     if stubs:
         print(f"  [INFO] {len(stubs)} unmatched stubs under 1 KB (no map shipped, expected): {stubs[:5]}")
