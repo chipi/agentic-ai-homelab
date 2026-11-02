@@ -710,7 +710,7 @@ groups:
         noDataState: OK
         labels: { severity: warning, kind: billing }
         annotations:
-          summary: "OpenRouter account has USD {{ $values.q }} of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits."
+          summary: "OpenRouter account has USD {{ printf `%.2f` $values.q.Value }} of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits."
         data:
           - refId: q
             relativeTimeRange: { from: 7200, to: 0 }
