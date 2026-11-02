@@ -164,6 +164,7 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
     <a class=card href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml"><h3>Last check</h3><div id=ph_age>&hellip;</div></a>
   </div>
 </div>
+<div id=projblocks></div>
 </section>
 <section class=tab id=t-sites>
 <!-- Uptime: outside-in probes from the mini (job site-probe, every minute through Cloudflare)
@@ -689,6 +690,7 @@ const SVCS={
   ['Speech','MOSS',['moss'],[],'moss'],
   ['Apps','LibreChat',['librechat-api','librechat-mongodb','librechat-meilisearch'],[]],
   ['Collectors','Collectors',['alloy','cadvisor','dcgm-exporter'],[],'cadvisor']]};
+const SVCLAMP={},SVCCTR={};
 async function services(){
   const byName=async(qq,key='name')=>{const m={};(await q(qq)).forEach(r=>m[r.metric[key]]=r);return m;};
   const val=r=>r?+r.value[1]:null;
@@ -711,6 +713,7 @@ async function services(){
     const lim=inst?await byName('max by (name) (container_spec_memory_limit_bytes{instance="'+inst+'",name!=""})'):{};
     const cpu=inst?await byName('sum by (name) (rate(container_cpu_usage_seconds_total{instance="'+inst+'",name!=""}[5m]))*100'):await byName('mini_container_cpu_percent');
     const groups={};
+    for(const g of new Set(SVCS[box].map(x=>x[0])))if(!SVCCTR[g]||SVCCTR[g].box===box)SVCCTR[g]={run:0,tot:0,box};
     for(const [g,name,ctrs,hosts,check,modes] of SVCS[box]){
       let title=name,lamp='up',lines=[],why=[];
       if(check==='MAIN'){
@@ -724,6 +727,7 @@ async function services(){
         const off=modes&&mode&&!modes.includes(mode);
         const rows=ctrs.map(c=>st[c]);
         const running=rows.filter(r=>r&&r.metric.state==='running').length;
+        const cc=SVCCTR[g]=SVCCTR[g]||{run:0,tot:0,box};if(cc.box===box){cc.run+=running;cc.tot+=ctrs.length;}
         if(ctrs.length){
           if(!rows.some(Boolean))lamp='stale';
           else if(running<ctrs.length&&!off){lamp='down';why.push(running+'/'+ctrs.length+' running');}
@@ -751,9 +755,49 @@ async function services(){
         (why.length?'<div class=ln style="color:'+(lamp==='down'?'#f85149':(lamp==='mid'?'#d29922':'#8888aa'))+'">'+hx(why.join(' · '))+'</div>':'')+
         lines.map(x=>'<div class=ln>'+x+'</div>').join('')+'</a>');
     }
+    for(const [g,c] of Object.entries(groups)){const ls=c.join('');SVCLAMP[g]=/dot down/.test(ls)?'down':(/dot mid/.test(ls)?'mid':(/dot up/.test(ls)?'up':'stale'));}
     const html=Object.entries(groups).map(([g,c])=>'<h4>'+hx(g)+'</h4><div class=charts>'+c.join('')+'</div>').join('');
     if(el.innerHTML!==html)el.innerHTML=html;
   }
+}
+// ---- Overview project blocks (Orrery, Evals, Websites), shaped like the Podcast block. No
+// health run reports these apps, so a block is built from what is collected: outside probes of
+// the project's public hosts, its prod containers (the Hosts service cards' lamps), Cloudflare's
+// 24h request and 5xx counts for its hosts, and the app's own metrics where it exports any.
+const PROJ=[
+ {id:'orrery',name:'Orrery',group:'Orrery',hosts:['www.orrerylearn.com','lab-api.orrerylearn.com','mcp.orrerylearn.com'],edge:'(www\\.)?orrerylearn\\.com|(lab-api|mcp)\\.orrerylearn\\.com'},
+ {id:'evals',name:'Evals',group:'Evals',hosts:['evals.humancopilot.eu'],edge:'evals\\.humancopilot\\.eu'},
+ {id:'web',name:'Websites',group:'Websites',hosts:['www.humancopilot.eu','www.markodragoljevic.com','airandspacehistory.com','www.devwhateverops.com'],
+  edge:'(www\\.)?(humancopilot\\.eu|markodragoljevic\\.com|airandspacehistory\\.com|devwhateverops\\.com)'}];
+async function projects(){
+  const el=document.getElementById('projblocks');if(!el)return;
+  const now={};(await q('max by (host) (last_over_time(probe_success{job="site-probe",run_id=""}[3m]))')).forEach(r=>now[r.metric.host]=+r.value[1]);
+  const ms={};(await q('max by (host) (last_over_time(probe_duration_seconds{job="site-probe"}[3m]))')).forEach(r=>ms[r.metric.host]=+r.value[1]);
+  const d1=(uptime.c&&uptime.c.d1)||{};
+  const pct=v=>v==null?'&mdash;':(v>=0.99995?'100%':(v*100).toFixed(2)+'%');
+  const card=(t,v,sub,href)=>'<a class=card href="'+href+'" target=_self><h3>'+t+'</h3><div class=cv>'+v+'</div>'+(sub?'<span class=muted>'+sub+'</span>':'')+'</a>';
+  let html='';
+  for(const p of PROJ){
+    const E='{instance="homelab",window="24h",host=~`'+p.edge+'`';
+    const req=await g1('sum(last_over_time(cloudflare_edge_requests'+E+'}[15m]))');
+    const e5=await g1('sum(last_over_time(cloudflare_edge_requests'+E+',class=~"5xx_unreachable|5xx_server"}[15m]))');
+    const dn=p.hosts.filter(h=>now[h]===0),av=p.hosts.map(h=>d1[h]).filter(x=>x!=null),a=av.length?Math.min(...av):null;
+    const worstMs=Math.max(0,...p.hosts.map(h=>ms[h]||0));
+    const sl=SVCLAMP[p.group]||'stale';
+    const lamp=dn.length||sl==='down'?'down':((a!=null&&a<0.999)||sl==='mid'?'mid':(sl==='stale'&&!av.length?'stale':'up'));
+    let cards=card('Sites up now','<span style="'+(dn.length?'color:#f85149':'')+'">'+(p.hosts.length-dn.length)+'/'+p.hosts.length+'</span>',dn.length?'down: '+dn.join(', '):(worstMs?'slowest '+Math.round(worstMs*1000)+' ms':''),'#sites')
+      +card('Availability 24h',pct(a),'worst of its hosts','#sites')
+      +card('Containers',(()=>{const c=SVCCTR[p.group];return c&&c.tot?'<span style="'+(c.run<c.tot?'color:#f85149':'')+'">'+c.run+'/'+c.tot+'</span>':'&mdash;';})(),'running on prod','#hosts/prod')
+      +card('Requests 24h',req?Math.round(+req[1]).toLocaleString():'&mdash;','Cloudflare, its hosts','#sites')
+      +card('Edge 5xx 24h',e5?Math.round(+e5[1]):(req?'0':'&mdash;'),'could not reach origin / server error','#sites');
+    if(p.id==='orrery'){const u=await g1('sum(up{job="orrery"})'),t=await g1('count(up{job="orrery"})');
+      cards+=card('Metrics scrape',(u?+u[1]:0)+'/'+(t?+t[1]:0),'orrery targets up','#hosts/prod');}
+    if(p.id==='evals'){const r=await g1('sum(increase(evals_inspector_requests_total[24h]))'),er=await g1('sum(increase(evals_inspector_errors_total[24h]))'),mc=await g1('sum(increase(evals_mcp_calls_total[24h]))');
+      cards+=card('Inspector 24h',r?Math.round(+r[1]).toLocaleString():'0',(er?Math.round(+er[1]):0)+' errors','#hosts/prod')
+        +card('MCP calls 24h',mc?Math.round(+mc[1]):'0','','#hosts/prod');}
+    html+='<div style="margin:0 0 22px"><h2><span class="dot '+lamp+'"></span><a href="#hosts/prod" target=_self>'+p.name+' &rarr;</a></h2><div class=charts style="max-width:1140px">'+cards+'</div></div>';
+  }
+  if(el.innerHTML!==html)el.innerHTML=html;
 }
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
@@ -789,7 +833,7 @@ async function overview(){
   const low=c&&+c[1]<10;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();services();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
+function refresh(){overview();services().then(projects);hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
