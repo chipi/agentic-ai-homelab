@@ -388,8 +388,8 @@ async function fleet(){
   const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   kt.sort((a,b)=>b.value[1]-a.value[1]);
   set('v_keys', kt.length ? kt.map(r=>'<a class=card href="'+G+'/d/llm-gateway"><h3>'+hx(r.metric.key)+'</h3>'+
-    cv($(mon[r.metric.key+'|'+r.metric.workspace]))+'<div class=muted style="font-size:12px">'+hx(r.metric.workspace)+
-    ' &middot; '+$(r.value)+' total</div></a>').join('') : '<div class=muted>no key data</div>');
+    cv($(mon[r.metric.key+'|'+r.metric.workspace])+' <span class=muted style="font-size:12px;font-weight:400">this month</span>')+
+    '<div class=muted style="font-size:12px">'+$(r.value)+' lifetime &middot; '+hx(r.metric.workspace)+'</div></a>').join('') : '<div class=muted>no key data</div>');
 }
 async function delivery(){
   const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
