@@ -81,6 +81,10 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
 .tabs a{padding:8px 14px;color:#9a9ac2;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500}
 .tabs a.on{color:#e6e6ef;border-bottom-color:#7aa2ff}.tabs a:hover{color:#e6e6ef}
 section.tab{display:none}section.tab.on{display:block}
+.subtabs{display:flex;gap:6px;margin:0 0 16px;flex-wrap:wrap}
+.subtabs a{padding:5px 12px;border:1px solid #26263a;border-radius:16px;color:#9a9ac2;text-decoration:none;font-size:13.5px}
+.subtabs a.on{color:#e6e6ef;border-color:#7aa2ff;background:#16182b}.subtabs a:hover{color:#e6e6ef}
+.sub{display:none}.sub.on{display:block}
 #notices{margin:0 0 12px}#notices .abar.crit{display:none}
 #notices summary{cursor:pointer;font-size:13.5px;color:#d29922;list-style:none}
 #notices summary::-webkit-details-marker{display:none}
@@ -110,9 +114,9 @@ section.tab{display:none}section.tab.on{display:block}
 <div class=strip>
   <a href="#sites" target=_self><span class="dot stale" data-dot=up_agg></span>Sites</a>
   <a href="#overview" target=_self><span class="dot stale" data-dot=ph_agg></span>Podcast prod</a>
-  <a href="#hosts" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a>
-  <a href="#hosts" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a>
-  <a href="#hosts" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a>
+  <a href="#hosts/prod" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a>
+  <a href="#hosts/mini" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a>
+  <a href="#hosts/dgx" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a>
   <a href="#fleets" target=_self>Needs you <b data-text=f_inbox>&hellip;</b></a>
   <a href="#spend" target=_self>Credit left <b id=ov_credit_s>&hellip;</b></a>
 </div>
@@ -131,7 +135,7 @@ section.tab{display:none}section.tab.on{display:block}
   <a class=card href="#fleets" target=_self><h3>Triage needs you</h3><div data-mirror=f_inbox>&hellip;</div></a>
   <a class=card href="#spend" target=_self><h3>OpenRouter this month</h3><div id=ov_month>&hellip;</div></a>
   <a class=card href="#spend" target=_self><h3>OpenRouter credit left</h3><div id=ov_credit>&hellip;</div></a>
-  <a class=card href="#hosts" target=_self><h3>Delivery workers</h3><div data-mirror=dl_up>&hellip;</div></a>
+  <a class=card href="#hosts/delivery" target=_self><h3>Delivery workers</h3><div data-mirror=dl_up>&hellip;</div></a>
 </div>
 <!-- Production apps — the operator's FIRST impression of app health, above the fleets and
      machine columns. Fed by each app's prod-ops-health run (podcast_scraper #1876) pushing
@@ -206,7 +210,10 @@ section.tab{display:none}section.tab.on{display:block}
   </div>
 </section>
 <section class=tab id=t-hosts>
-<div style="margin:0 0 22px">
+<nav class=subtabs>
+  <a href="#hosts/prod" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a><a href="#hosts/mini" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a><a href="#hosts/dgx" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a><a href="#hosts/delivery" target=_self>Delivery</a>
+</nav>
+<div class=sub data-sub=delivery style="margin:0 0 22px">
   <h2><a href="$DASH_DELIVERY">Delivery &rarr;</a></h2>
   <div class=charts style="max-width:1140px">
     <a class=card href="$DASH_DELIVERY"><h3>Workers up</h3><div id=dl_up>&hellip;</div></a>
@@ -219,7 +226,7 @@ section.tab{display:none}section.tab.on{display:block}
 
 </div>
 <div class=cols>
-<div class=col>
+<div class="col sub" data-sub=mini>
   <h2><span class="dot stale" id=st_mini></span><a href="$DASH_MINI">Mac mini &rarr;</a></h2>
   <div id=sysrow class=sysrow>&hellip;</div>
   <div class=charts>
@@ -249,7 +256,7 @@ row "Home Assistant"  "https://homeassistant.$TS" "own account" "&mdash;" "8123"
 cat <<MID
   </tbody></table>
 </div>
-<div class=col>
+<div class="col sub" data-sub=dgx>
   <h2><span class="dot stale" id=st_dgx></span><a href="$DASH_GPU">DGX &middot; dgx-llm-1 &rarr;</a></h2>
   <div id=dgxrow class=sysrow>&hellip;</div>
   <div class=charts>
@@ -281,7 +288,7 @@ dsvc "dcgm"           "9400"  "GPU exporter"  "$DASH_GPU"
 cat <<MID2
   </tbody></table>
 </div>
-<div class=col>
+<div class="col sub" data-sub=prod>
   <h2><span class="dot stale" id=st_prod></span><a href="$DASH_PROD">Production &middot; prod-podcast &rarr;</a></h2>
   <div id=prodrow class=sysrow>&hellip;</div>
   <div class=charts>
@@ -613,10 +620,13 @@ async function podcastHealth(){
   else set('ph_age','<div class=cv>&mdash;</div><div class=muted style="font-size:12px">no run in 28h</div>');
 }
 // Tabs: the hash picks one (#overview default), so links and the back button work.
-const TABS=['overview','sites','spend','fleets','hosts'];
-function showTab(){const h=location.hash.slice(1),t=TABS.includes(h)?h:'overview';
+// Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
+const TABS=['overview','sites','spend','fleets','hosts'],SUBS=['prod','mini','dgx','delivery'];
+function showTab(){const [h,sb]=location.hash.slice(1).split('/'),t=TABS.includes(h)?h:'overview',u=SUBS.includes(sb)?sb:'prod';
   document.querySelectorAll('section.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
-  document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+t));}
+  document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+t));
+  document.querySelectorAll('.sub').forEach(e=>e.classList.toggle('on',e.dataset.sub===u));
+  document.querySelectorAll('.subtabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#hosts/'+u));}
 addEventListener('hashchange',showTab);showTab();
 // Overview cards and the strip copy what the tabs already show: one query per signal.
 function mirror(){
