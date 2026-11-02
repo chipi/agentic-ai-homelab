@@ -154,12 +154,8 @@ table.ctbl td.u{color:#8888aa}table.ctbl code{font-size:12px}
     <a class=card href="$DASH_DELIVERY"><h3>Cursor age</h3><div id=dl_cursor>&hellip;</div></a>
   </div>
 
-  <h2><a href="$G/d/llm-gateway">LLM spend by vertical &middot; OpenRouter billing &rarr;</a></h2>
-  <div class=charts style="max-width:1140px">
-    <a class=card href="$G/d/llm-gateway"><h3>Lab (shared key)</h3><div id=v_gateway>&hellip;</div></a>
-    <a class=card href="$G/d/llm-gateway"><h3>Podcast</h3><div id=v_podcast>&hellip;</div></a>
-    <a class=card href="$G/d/llm-gateway"><h3>Orrery</h3><div id=v_orrery>&hellip;</div></a>
-  </div>
+  <h2><a href="$G/d/llm-gateway">LLM spend by key &middot; OpenRouter billing &rarr;</a></h2>
+  <div class=charts style="max-width:1140px" id=v_keys>&hellip;</div>
 </div>
 <div class=cols>
 <div class=col>
@@ -381,17 +377,17 @@ async function fleet(){
   try{const r=await(await fetch('https://api.github.com/search/issues?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')).json();
     set('b_route',cv(typeof r.total_count==='number'?String(r.total_count):'&rarr;'));}
   catch(e){set('b_route',cv('&rarr;'));}
-  // per-vertical OpenRouter billing (openrouter-spend.sh collector, 10m cadence):
-  // big number = month-to-date as OpenRouter bills it; small = lifetime total.
-  // 'gateway' is the SHARED key (litellm gateway + triage fleet + bugfix-fleet
-  // pi/opencode bake-off all use it); 'podcast' and 'orrery' each have their own
-  // dedicated OpenRouter key. pi/opencode get their own cards once they're minted
-  // their own keys (until then their spend lands under 'gateway').
-  for (const vt of ['gateway','podcast','orrery']) {
-    const vm=await g1('last_over_time(openrouter_vertical_usd{vertical="'+vt+'",window="month"}[2h])');
-    const vtot=await g1('last_over_time(openrouter_vertical_usd{vertical="'+vt+'",window="total"}[2h])');
-    set('v_'+vt, cv($(vm))+'<div class=muted style="font-size:12px">'+$(vtot)+' total</div>');
-  }
+  // One card per OpenRouter key, every workspace (openrouter-spend.sh, provisioning key,
+  // 10m cadence): big number = month-to-date as OpenRouter bills it; small = workspace and
+  // lifetime total. Sorted by lifetime spend; the lifetime column sums to the account total.
+  const ksel='max by (key, workspace) (last_over_time(openrouter_key_usd{window="WIN"}[2h]))';
+  const kt=await q(ksel.replace('WIN','total')), km=await q(ksel.replace('WIN','month'));
+  const mon={};for(const r of km)mon[r.metric.key+'|'+r.metric.workspace]=r.value;
+  const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  kt.sort((a,b)=>b.value[1]-a.value[1]);
+  set('v_keys', kt.length ? kt.map(r=>'<a class=card href="'+G+'/d/llm-gateway"><h3>'+hx(r.metric.key)+'</h3>'+
+    cv($(mon[r.metric.key+'|'+r.metric.workspace]))+'<div class=muted style="font-size:12px">'+hx(r.metric.workspace)+
+    ' &middot; '+$(r.value)+' total</div></a>').join('') : '<div class=muted>no key data</div>');
 }
 async function delivery(){
   const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
