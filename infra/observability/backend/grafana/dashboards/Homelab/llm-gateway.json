@@ -127,6 +127,25 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name" },
       "targets": [{ "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "legendFormat": "{{vertical}}",
         "expr": "max by (vertical) (last_over_time(openrouter_vertical_usd{window=\"total\"}[2h]))" }]
+    },
+    {
+      "type": "stat",
+      "title": "OpenRouter account: credits, spend, left, unattributed",
+      "description": "Account-wide numbers from OpenRouter's /api/v1/credits, polled every 10m by infra/mini-metrics/openrouter-spend.sh. 'unattributed' is lifetime spend minus the lifetime totals of the keys the collector holds: spend on keys it does not know (the VPS, dev machines, deleted keys). 'left' at 0 means every OpenRouter call fails.",
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 27 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "legendFormat": "credits bought",
+          "expr": "max(last_over_time(openrouter_account_usd{kind=\"credits\"}[2h]))" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "legendFormat": "spent (lifetime)",
+          "expr": "max(last_over_time(openrouter_account_usd{kind=\"usage\"}[2h]))" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "legendFormat": "left",
+          "expr": "max(last_over_time(openrouter_account_usd{kind=\"credits\"}[2h])) - max(last_over_time(openrouter_account_usd{kind=\"usage\"}[2h]))" },
+        { "refId": "D", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "instant": true, "legendFormat": "unattributed",
+          "expr": "max(last_over_time(openrouter_account_usd{kind=\"usage\"}[2h])) - sum(max by (vertical) (last_over_time(openrouter_vertical_usd{window=\"total\"}[2h])))" }
+      ]
     }
   ]
 }

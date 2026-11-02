@@ -15,6 +15,8 @@
 #   OR_KEY_ORRERY=sk-or-...      (== OPENROUTER_API_KEY_ORRERY; the orrery /ask vertical,
 #                                 dedicated key on both the prod + mini litellm — /auth/key
 #                                 reports its GLOBAL usage across both instances)
+#   OR_KEY_EVALS=sk-or-...       (== OPENROUTER_API_KEY_EVALS; eval-harness sweeps, added
+#                                 2026-11-02 after $16.64 of its spend went uncollected)
 #   OR_KEY_PI=                   (blank until pi gets its own key)
 #   OR_KEY_OPENCODE=             (blank until opencode gets its own key)
 #
@@ -22,6 +24,9 @@
 # must be present here; there is no list-all endpoint on a normal key.
 # Metrics (gauges, absolute USD as OpenRouter reports them):
 #   openrouter_vertical_usd{vertical, window="day|week|month|total"}
+#   openrouter_account_usd{kind="credits|usage"}   account-wide, from /api/v1/credits (any key
+#     can read it). usage minus the sum of the vertical totals is spend on keys this file
+#     does not hold (the VPS, dev machines, deleted keys): $94 of $229.62 on 2026-11-02.
 VM=http://localhost:8428/api/v1/import/prometheus
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ENVF="$HERE/openrouter-verticals.env"
@@ -31,7 +36,7 @@ poll() {
   # shellcheck disable=SC1090
   . "$ENVF"
   local LINES=""
-  for V in pi:$OR_KEY_PI opencode:$OR_KEY_OPENCODE gateway:$OR_KEY_GATEWAY podcast:$OR_KEY_PODCAST orrery:$OR_KEY_ORRERY; do
+  for V in pi:$OR_KEY_PI opencode:$OR_KEY_OPENCODE gateway:$OR_KEY_GATEWAY podcast:$OR_KEY_PODCAST orrery:$OR_KEY_ORRERY evals:$OR_KEY_EVALS; do
     local NAME="${V%%:*}" KEY="${V#*:}"
     [ -n "$KEY" ] || continue
     local J
@@ -48,6 +53,17 @@ openrouter_vertical_usd{vertical=\"$NAME\",window=\"week\",service=\"openrouter-
 openrouter_vertical_usd{vertical=\"$NAME\",window=\"month\",service=\"openrouter-spend\",environment=\"operations\"} $M
 "
   done
+  local AK="${OR_KEY_GATEWAY:-$OR_KEY_PODCAST}" CJ C U
+  if [ -n "$AK" ]; then
+    CJ=$(curl -s -m 15 https://openrouter.ai/api/v1/credits -H "Authorization: Bearer $AK")
+    C=$(echo "$CJ" | /usr/bin/python3 -c "import json,sys; print(json.load(sys.stdin)['data']['total_credits'])" 2>/dev/null)
+    U=$(echo "$CJ" | /usr/bin/python3 -c "import json,sys; print(json.load(sys.stdin)['data']['total_usage'])" 2>/dev/null)
+    if [ -n "$C" ] && [ -n "$U" ]; then
+      LINES+="openrouter_account_usd{kind=\"credits\",service=\"openrouter-spend\",environment=\"operations\"} $C
+openrouter_account_usd{kind=\"usage\",service=\"openrouter-spend\",environment=\"operations\"} $U
+"
+    fi
+  fi
   [ -n "$LINES" ] && printf '%s' "$LINES" | curl -s -o /dev/null --data-binary @- "$VM"
 }
 
