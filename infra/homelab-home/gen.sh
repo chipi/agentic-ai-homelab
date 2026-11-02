@@ -55,7 +55,7 @@ code{background:#1a1a2b;padding:2px 7px;border-radius:4px;font-size:13px}
 .sec{color:#8888aa;font-size:12.5px;margin-top:6px}
 .sysrow{color:#c8c8e0;font-size:13.5px;margin:8px 0 12px}.sysrow b{color:#e6e6ef}
 .charts{display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap}
-a.card{background:#14141f;border:1px solid #26263a;border-radius:8px;padding:10px 12px;flex:1;min-width:110px;display:block;text-decoration:none;color:inherit}
+a.card{box-sizing:border-box;background:#14141f;border:1px solid #26263a;border-radius:8px;padding:10px 12px;flex:1;min-width:110px;display:block;text-decoration:none;color:inherit}
 a.card:hover{border-color:#3d3d63}
 .card h3{margin:0 0 3px;font-size:10px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em}
 .cv{font-size:19px;font-weight:600;margin-bottom:2px}
