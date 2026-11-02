@@ -364,7 +364,12 @@ async function fleet(){
   const $=x=>x?'$'+(+x[1]).toFixed(2):'$0.00';
   const T=x=>{if(!x)return '0';const v=+x[1];return v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':v.toFixed(0);};
   const duo=(c,t)=>cv($(c))+'<div class=muted style="font-size:12px">'+T(t)+' tok</div>';
-  set('f_spend',duo(sp,tkD));set('f_month',duo(mo,tkM));set('f_total',duo(al,tkA));
+  // previous calendar month: a window of its length that ends at this month's start
+  const pS=Math.floor((new Date(d.getFullYear(),d.getMonth(),1)-new Date(d.getFullYear(),d.getMonth()-1,1))/1000);
+  const prevSum=m=>g1('sum(sum_over_time('+m+'['+pS+'s] offset '+mS+'s))');
+  const last=(c,t)=>'<div class=muted style="font-size:12px">last month '+$(c)+' &middot; '+T(t)+' tok</div>';
+  const moP=await prevSum('signal_fleet_cost_usd'),tkP=await prevSum('signal_fleet_tokens');
+  set('f_spend',duo(sp,tkD));set('f_month',duo(mo,tkM)+last(moP,tkP));set('f_total',duo(al,tkA));
   // bug-fix fleet row — zeros until chains run; same accounting shape
   const bs=await g1('sum(count_over_time(bugfix_fleet_flow{state="shipped"}[7d]))');
   const bx=await g1('sum(count_over_time(bugfix_fleet_flow{state=~"stuck|needs-info"}[7d]))');
@@ -375,7 +380,8 @@ async function fleet(){
   const btA=await g1('sum(sum_over_time(bugfix_fleet_tokens[180d]))');
   const N0=x=>x?(+x[1]).toFixed(0):'0'; // no series = no chains yet; the dashboard shows 0 too (or vector(0))
   set('b_ship',cv(N0(bs)));set('b_stuck',cv(N0(bx)));set('b_ep',cv(N0(be)));
-  set('b_month',duo(bmo,btM));set('b_total',duo(bal,btA));
+  const bmoP=await prevSum('bugfix_fleet_cost_usd'),btP=await prevSum('bugfix_fleet_tokens');
+  set('b_month',duo(bmo,btM)+last(bmoP,btP));set('b_total',duo(bal,btA));
   try{const r=await(await fetch('https://api.github.com/search/issues?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')).json();
     set('b_route',cv(typeof r.total_count==='number'?String(r.total_count):'&rarr;'));}
   catch(e){set('b_route',cv('&rarr;'));}
@@ -385,10 +391,22 @@ async function fleet(){
   const ksel='max by (key, workspace) (last_over_time(openrouter_key_usd{window="WIN"}[2h]))';
   const kt=await q(ksel.replace('WIN','total')), km=await q(ksel.replace('WIN','month'));
   const mon={};for(const r of km)mon[r.metric.key+'|'+r.metric.workspace]=r.value;
+  // Last month = the final month-to-date sample before the UTC month turned (OpenRouter's
+  // month is UTC; the collector samples every 10m, so up to ~10m of the month's end is missed).
+  // Per-key series start 2026-11-02; until they span a whole month, keys that had a vertical
+  // series fall back to it. No history at all shows a dash, never a made-up 0.
+  const u0=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1),uS=Math.max(60,Math.floor((d-u0)/1000));
+  const upS=Math.floor((u0-Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-1,1))/1000);
+  const prevQ=sel=>q('max by (key, workspace, vertical) (last_over_time('+sel+'['+upS+'s] offset '+uS+'s))');
+  const prv={};for(const r of await prevQ('openrouter_key_usd{window="month"}'))prv[r.metric.key+'|'+r.metric.workspace]=r.value;
+  const vtk={gateway:'bugfleet-key',podcast:'podcast-scraper-prod',orrery:'orrery lab key',evals:'evals-harness'};
+  const prvV={};for(const r of await prevQ('openrouter_vertical_usd{window="month"}'))if(vtk[r.metric.vertical])prvV[vtk[r.metric.vertical]]=r.value;
+  const lastK=r=>{const k=r.metric.key+'|'+r.metric.workspace,v=prv[k]||prvV[r.metric.key];return v?$(v):'&mdash;';};
   const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   kt.sort((a,b)=>b.value[1]-a.value[1]);
   set('v_keys', kt.length ? kt.map(r=>'<a class=card href="'+G+'/d/llm-gateway"><h3>'+hx(r.metric.key)+'</h3>'+
     cv($(mon[r.metric.key+'|'+r.metric.workspace])+' <span class=muted style="font-size:12px;font-weight:400">this month</span>')+
+    '<div class=muted style="font-size:12px">last month '+lastK(r)+'</div>'+
     '<div class=muted style="font-size:12px">'+$(r.value)+' lifetime &middot; '+hx(r.metric.workspace)+'</div></a>').join('') : '<div class=muted>no key data</div>');
 }
 async function delivery(){
