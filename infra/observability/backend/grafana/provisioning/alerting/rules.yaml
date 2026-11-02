@@ -698,6 +698,34 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [100] } }]
 
+      # --- OpenRouter credit running out (2026-11-02) --------------------------------
+      # Source: openrouter_account_usd (mini-metrics/openrouter-spend.sh, account-wide
+      # /api/v1/credits). At 0 every OpenRouter call on every key fails (fleet, podcast,
+      # evals, orrery /ask). $5.38 left when this was written, so it fires on day one.
+      # noDataState OK: pushed metric — a paused collector isn't an empty account.
+      - uid: billing-openrouter-credit-low
+        title: "OpenRouter credit low (under USD 10 left)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: billing }
+        annotations:
+          summary: "OpenRouter account has USD {{ $values.q }} of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 7200, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(last_over_time(openrouter_account_usd{kind="credits"}[2h])) - max(last_over_time(openrouter_account_usd{kind="usage"}[2h]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [10] } }]
+
   - orgId: 1
     name: app-health
     folder: "Alerts"
