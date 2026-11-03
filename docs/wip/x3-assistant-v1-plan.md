@@ -18,7 +18,7 @@ comes up. A go for one step does not cover the next.
 |---|---|---|
 | 0.1 | Retire the leftover LibreChat on the DGX: stop its containers, keep its data dir until confirmed unneeded, remove its row from the hub (`gen.sh`, the `Apps` list). **(go)**: a DGX change | `docker ps` on the DGX shows no `librechat-*`; the hub's DGX lamps stay green |
 | 0.2 | Check whether the OpenAI / Anthropic / Google keys named in its `.env` are live; rotate the live ones. **(go)** | each key listed as live or dead; live ones rotated |
-| 0.3 | The briefing's goal, time, delivery and shape (RFC table), with the operator | written into the RFC |
+| 0.3 | The briefing's push channel: check whether Home Assistant's companion app is on the phone (the operator); otherwise the hub page alone until a channel is chosen | the RFC's briefing table says which |
 | 0.4 | Off the critical path: the X3's GPU memory to 128 GB (the operator, with a restart): both the GTT size and `ttm.pages_limit` | `mem_info_gtt_total`, `/sys/module/ttm/parameters/pages_limit` and Ollama's `library=ROCm total=` all show the new size |
 
 ## Phase 1 — feasibility test on the X3 (about an hour) **(go)**
@@ -50,10 +50,14 @@ No dependency on the X3, the UI or MCP, so the briefing works in week 1.
 2. A Node job on the mini (launchd, every 5 minutes) runs the module against localhost, writes
    `status.json` (served by the hub at `/status.json`) and logs each snapshot with its timestamp to
    VictoriaLogs. **(go)**: a new launchd job.
-3. The briefing job (launchd, at the agreed time): the status history for the window, plus alerts,
-   deploys and GlitchTip; the model writes it, through LiteLLM on the failover model
-   (`qwen/qwen3-30b-a3b-instruct-2507` on OpenRouter) with its own capped key; delivered to a
-   "Briefing" page on the hub, then the chosen channel. **(go)**: a launchd job and a key.
+3. The briefing job (launchd, 07:00 local, the window since 19:00, Mondays since Friday 19:00):
+   the status history for the window, plus alerts, deploys and GlitchTip, in the order and shape of
+   the RFC's briefing table; the model writes it, through LiteLLM on the failover model
+   (`qwen/qwen3-30b-a3b-instruct-2507` on OpenRouter) with its own capped key; if the model call
+   fails, a plain template version from the same data. Delivered to a "Briefing" page on the hub
+   (the last 30 kept), and as a push with the headline and a link once the channel is settled.
+   **(go)**: a launchd job and a key.
+4. A heartbeat: no briefing by 07:15 raises an alert.
 
 **Check:**
 - the hub looks and behaves as before, and its tests pass;
@@ -63,20 +67,27 @@ No dependency on the X3, the UI or MCP, so the briefing works in week 1.
 
 ## Phase 3 — chat UI: LibreChat and Open WebUI side by side
 
-Where the throwaway pair runs is the operator's call (RFC section 4): the X3's Docker (the phone
-reaches it over the tailnet; plain HTTP) or the mini's dev engine (the final platform; phone access
-needs extra plumbing).
+On the mini's dev engine (operator; RFC section 4), for a bounded window of about 3 days.
 
-1. Both UIs, pinned image versions, LiteLLM as the only endpoint, on the failover model through a
-   capped dev key; memory caps per container. **(go)**: image pulls and a key.
-2. The status tool (one GET on `status.json`) and Grafana's MCP server (viewer token) wired into
+1. `devengine start` (it refuses if the mini is short of memory). Both UIs in the `dev` context,
+   pinned image versions, memory caps per container (LibreChat's three containers and Open WebUI
+   within the engine's 6 GiB), published on two fixed loopback ports on the mini (a recorded
+   exception to the random-port rule), LiteLLM as the only endpoint, on the failover model through
+   a capped dev key. **(go)**: the engine, image pulls and a key.
+2. Phone access: `tailscale serve` on the mini publishes the two ports over HTTPS on 8443
+   (LibreChat) and 8444 (Open WebUI) **(go)**, and a temporary ACL rule in chipi/infra,
+   `autogroup:admin` → `tag:homelab-host:8443,8444` **(go: the PR's merge)**. Check first where the
+   mini's `tailscale` command lives and what it already serves (not found at the usual paths).
+3. The status tool (one GET on `status.json`) and Grafana's MCP server (viewer token) wired into
    both. **(go)**: an install and a token.
-3. The same tasks in both, desktop and phone: X1 (a general chat with a pasted document), H4 (is
+4. The same tasks in both, desktop and phone: X1 (a general chat with a pasted document), H4 (is
    prod healthy), H2 (explain a real alert).
-4. Judged on: tool calls that work, use on the phone, upkeep (config, upgrades, backups).
+5. Judged on: tool calls that work, use on the phone (including the microphone), upkeep (config,
+   upgrades, backups).
+6. Teardown: serve off, the ACL rule reverted, containers removed, `devengine stop`.
 
 **Check:** a recorded decision (a `D-NNNN` entry superseding D-0007, or an ADR) naming the UI; the
-throwaway pair removed.
+teardown done (no serve config, no ACL rule, the dev engine stopped).
 
 ## Phase 4 — the X3 as a deployment surface, and the assistant
 

@@ -87,15 +87,16 @@ Notes:
   states already flow into VictoriaMetrics (the mini's Alloy, job `home-assistant`), so X4 reads
   them there, read-only by construction.
 
-### The morning briefing, to define with the operator
+### The morning briefing (first version; the operator accepted it as a start, easy to change)
 
-| Question | Options |
+| | Decided |
 |---|---|
-| Goal | what to act on today, first; or everything that happened |
-| When | a fixed time (e.g. 07:00) for the window since the evening before (e.g. 18:00) |
-| Where it waits | a push notification to the phone with a link; a "Briefing" page on the hub; a conversation in the chat UI; email. The push could come through Home Assistant's companion app, ntfy, or Telegram |
-| Inputs | the hub's status history for the window, alerts, deploys, GlitchTip, spend and credit, capacity, home |
-| Length and shape | a headline ("2 things need you"), then sections; links to the hub, Grafana and GitHub per item |
+| Goal | what needs the operator today, first; then a short account of the night |
+| When | 07:00 local time, for the 12 hours since 19:00; on Mondays since Friday 19:00 |
+| Where it waits | a "Briefing" page on the hub (the last 30 kept), and a push to the phone with the headline and a link, through Home Assistant's companion app if it is on the phone (not checked; otherwise the hub page alone until a push channel is chosen) |
+| Content, in order | **headline** "N things need you"; **needs you** (at most 5, each linked): lamps not green and since when, new GlitchTip issues, the fleet's "Needs you" and new escalations, OpenRouter credit below $10; **overnight**: alerts fired and resolved with times, deploys; **numbers**: OpenRouter spend yesterday against the 7-day average, local tokens, credit left, the busiest caller; **capacity**: warnings only (disk, memory, swap); **all green**: one line |
+| Home | joins with wave 3 (X4), exceptions only (devices offline) |
+| Robustness | every number from the status snapshot; the model only writes; if the model call fails, a plain template version is delivered, so no morning is skipped silently |
 
 ### Later (the catalogue)
 
@@ -197,12 +198,19 @@ worth calling and the use cases above. The cost that matters is wiring the tools
 
 **The evaluation:** the same tasks in both (X1, H4 through the status tool, H2 with Grafana's MCP
 server), from the desktop and the phone, against the OpenRouter Qwen through a capped key; judged on
-tool use, phone use and upkeep. Where to run the throwaway pair is open:
-- **on the X3's Docker:** always on, plenty of memory, the phone reaches it over the tailnet with no
-  ACL change; but plain HTTP on the phone (no microphone or home-screen install), and not the final
-  host;
-- **on the mini's dev engine** (ADR-0009): the final host's platform, but reaching it from the phone
-  needs extra plumbing, and while up it holds 26 of the mini's 32 GiB in VMs.
+tool use, phone use and upkeep.
+
+**Where (operator): the mini's dev engine** (ADR-0009), the final host's platform. The phone is on
+the tailnet, but the dev engine is a VM whose container ports are forwarded only to the mini's
+`127.0.0.1`, which nothing on the tailnet reaches, and the tailnet policy lets the operator's
+devices reach the mini only on listed ports. The bridge, for the evaluation only:
+- both UIs on two fixed loopback ports on the mini (a recorded exception to the dev engine's
+  random-port rule), with memory caps;
+- `tailscale serve` on the mini publishes them over HTTPS on ports 8443 and 8444 (real HTTPS, so
+  the phone allows the microphone and the home-screen install);
+- a temporary ACL rule (PR in chipi/infra): `autogroup:admin` → `tag:homelab-host:8443,8444`;
+- a bounded window (about 3 days; while up, the dev engine holds 26 of the mini's 32 GiB in VMs);
+  afterwards serve off, the ACL reverted, `devengine stop`.
 
 The winner moves to the mini's production engine; the decision is recorded and supersedes D-0007.
 
@@ -273,8 +281,8 @@ Which use cases move, and how, is decided once step 2 runs.
 
 ## Open questions
 
-1. **LibreChat or Open WebUI**, and where the comparison runs (X3 Docker or the mini's dev engine).
-2. **The briefing's goal, time, delivery and shape** (table above).
+1. **LibreChat or Open WebUI** (the comparison runs on the mini's dev engine).
+2. **The briefing's push channel**, if Home Assistant's companion app is not on the phone.
 3. **Separation from the eval harness:** the rule, after the feasibility test.
 4. **Memory caps** on the X3: whether they count model memory, and what to set.
 5. **Tracing private chats** (X1): separate Langfuse project or none.
@@ -345,3 +353,6 @@ below was checked against the system.
 - 2026-11-03 — Second review. Operator: the hub's semantics must not be duplicated (the status
   module); add step 2 (the same model in Grafana, Langfuse and Home Assistant) and step 3 (use cases
   rebuilt around them). The nine use cases are delivered in three waves.
+- 2026-11-03 — Operator: the UI comparison runs on the mini's dev engine, reached from the phone
+  over the tailnet (bridge: `tailscale serve` + a temporary ACL). The briefing's first version as
+  proposed (07:00, needs-you first, hub page + phone push), easy to change later.
