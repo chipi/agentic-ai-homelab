@@ -1,0 +1,5 @@
+{
+  "prompt": [
+    "\\b(ux (review|baseline|audit|inventory)|design review|clickable mockup|prototype (the|this|these) (ux|ui|change)|walk me through the new (ui|app))\\b"
+  ]
+}
