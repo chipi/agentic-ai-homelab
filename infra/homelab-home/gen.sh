@@ -55,7 +55,7 @@ code{background:#1a1a2b;padding:2px 7px;border-radius:4px;font-size:13px}
 .sec{color:#8888aa;font-size:12.5px;margin-top:6px}
 .sysrow{color:#c8c8e0;font-size:13.5px;margin:8px 0 12px}.sysrow b{color:#e6e6ef}
 .charts{display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap}
-a.card{box-sizing:border-box;background:#14141f;border:1px solid #26263a;border-radius:8px;padding:10px 12px;flex:1;min-width:110px;display:block;text-decoration:none;color:inherit}
+a.card{box-sizing:border-box;background:#14141f;border:1px solid #26263a;border-radius:8px;padding:10px 12px;flex:0 1 180px;min-width:110px;overflow-wrap:anywhere;display:block;text-decoration:none;color:inherit}
 a.card:hover{border-color:#3d3d63}
 .card h3{margin:0 0 3px;font-size:10px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em}
 .cv{font-size:19px;font-weight:600;margin-bottom:2px}
@@ -89,7 +89,7 @@ table.proj td{vertical-align:middle}table.proj td .s{font-size:12px;color:#8888a
 .svcs h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:14px 0 6px}
 .svcs .charts{margin-bottom:6px}.svcs a.card{min-width:150px}.svcs .cv{font-size:15px}
 .svcs .ln{font-size:12px;color:#8888aa;line-height:1.45}
-a.card.site{flex:1 1 230px;min-width:230px;max-width:420px}
+a.card.site{flex:0 1 250px;min-width:230px;max-width:250px}
 a.card.site h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 a.card.site .kv{display:grid;grid-template-columns:58px 1fr;gap:0 6px;font-size:12px;color:#8888aa;line-height:1.55}
 a.card.site .kv b{color:#c8c8e0;font-weight:500;overflow-wrap:anywhere}
@@ -102,7 +102,7 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
 #notices summary::before{content:'\25B8  '}#notices[open] summary::before{content:'\25BE  '}
 #notices[open] summary{margin-bottom:8px}
 table.models td{white-space:nowrap}table.models th,table.models td{padding-left:7px;padding-right:7px}table.models td.ven img{margin-right:6px}
-.mstats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:0 0 18px}.mstats div{background:#14141f;border:1px solid #26263a;border-radius:8px;padding:9px 11px}.mstats span{display:block;font-size:11px;color:#8888aa;text-transform:uppercase;letter-spacing:.04em}.mstats b{display:block;font-size:18px;font-weight:600;color:#e6e6ef;margin-top:2px}.mstats i{display:block;font-style:normal;font-size:11px;color:#8888aa}
+.mstats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,170px));gap:8px;margin:0 0 18px}.mstats div{background:#14141f;border:1px solid #26263a;border-radius:8px;padding:9px 11px}.mstats span{display:block;font-size:11px;color:#8888aa;text-transform:uppercase;letter-spacing:.04em}.mstats b{display:block;font-size:18px;font-weight:600;color:#e6e6ef;margin-top:2px}.mstats i{display:block;font-style:normal;font-size:11px;color:#8888aa}
 @media(max-width:640px){
   body{margin:14px}
   h1{font-size:20px;margin-bottom:14px}
@@ -1294,6 +1294,7 @@ function modelPage(){const main=document.getElementById('sp_main'),pg=document.g
     +'<div class=charts style="max-width:1140px">'
     +(paid?'<a class="card site"><h3>Spend, 14 days</h3><div class=cv>'+usd((line||[]).reduce((a,b)=>a+(b||0),0))+sparkT(line)+'</div></a>':'')
     +'<a class="card site"><h3>Tokens, 14 days</h3><div class=cv>'+tk((tline||[]).reduce((a,b)=>a+(b||0),0))+sparkT(tline)+'</div>'+(r0.src!=='OpenRouter'?'<span class=muted style="font-size:12px">all '+r0.src+' models together</span>':'')+'</a></div>'
+    +(r0.src==='vLLM'||r0.src==='Ollama'?'<div id=sp_rt><h2>How it runs</h2><p class=muted>loading&hellip;</p></div>':'')
     +'<h2>By key</h2>'+tbl('Key',split(r=>r.key))
     +'<h2>'+(paid?'Served by (OpenRouter provider)':'Served by')+'</h2>'+tbl('Provider',split(r=>r.by))
     +'<h2>The model</h2><table class=ctbl><tbody>'
@@ -1304,7 +1305,91 @@ function modelPage(){const main=document.getElementById('sp_main'),pg=document.g
       +kv('Memory to load the weights',m?ap+gb(m[0])+' at 4-bit &middot; '+ap+gb(m[1])+' at 8-bit &middot; '+ap+gb(Math.ceil(F.p*2))+' at 16-bit (BF16); the KV cache for the context comes on top':'&mdash;')
       +kv('Source',hx(F.src)+', checked 2026-11-03'+(F.approx?'. Stored as packed integer weights, so the count is not confirmed':''))
      :(w==='open'?kv('Size','not in the facts table yet'):''))
-    +'</tbody></table>';}
+    +'</tbody></table>';
+  if(r0.src==='vLLM'||r0.src==='Ollama')runtime(r0,MODEL_ID,spendPeriod);}
+// ---- How a local model runs, over the selected period (same completed UTC days as everything else).
+// vLLM: its own /metrics (latency histograms, KV and prefix cache, queue) and DCGM for the GPU.
+// Ollama: no metrics endpoint; its llama.cpp timing lines in VictoriaLogs, per machine, no model name.
+async function runtime(r0,id,per){
+  const box=()=>MODEL_ID===id&&spendPeriod===per?document.getElementById('sp_rt'):null;
+  const rg=spendRange(per);if(!rg.R){const b=box();if(b)b.innerHTML='<h2>How it runs</h2><p class=muted>no completed day in this period yet</p>';return;}
+  const end=Math.floor(Date.now()/1000)-rg.O,start=end-rg.R,step=rg.R>=6*86400?86400:(rg.R>=2*86400?21600:3600),n=Math.round(rg.R/step);
+  const W='['+rg.R+'s] offset '+rg.O+'s',SQ='['+rg.R+'s:5m] offset '+rg.O+'s';
+  const one=async e=>{const r=await q(e);return r.length&&isFinite(+r[0].value[1])?+r[0].value[1]:null;};
+  const line=async e=>{try{const j=await(await fetch('/vm/api/v1/query_range?query='+encodeURIComponent(e)+'&start='+(start+step)+'&end='+end+'&step='+step)).json();
+    const r=j.data.result[0];if(!r)return null;const v=Array(n).fill(null);r.values.forEach(([t,x])=>{const i=Math.round((+t-start)/step)-1;if(i>=0&&i<n&&isFinite(+x))v[i]=+x;});return v;}catch(x){return null;}};
+  const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const tk=v=>v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(1)+'k':String(Math.round(v));
+  const sec=v=>v==null?'&mdash;':(v<1?Math.round(v*1000)+' ms':v.toFixed(v<10?2:1)+' s'),pc=v=>v==null?'&mdash;':(v>0&&v<0.01?'&lt;1%':Math.round(v*100)+'%'),nm=(v,d)=>v==null?'&mdash;':(+v).toFixed(d||0);
+  const per_='per '+(step===86400?'day':(step===21600?'6 hours':'hour'));
+  const crd=(t,v,l,sub)=>'<a class="card site"><h3>'+t+'</h3><div class=cv>'+v+(l?sparkT(l.length>=14?l:l):'')+'</div>'+(sub?'<span class=muted style="font-size:12px">'+sub+'</span>':'')+'</a>';
+  const grp=(t,cards)=>'<h3 style="margin:14px 0 6px;font-size:13px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em">'+t+'</h3><div class=charts style="max-width:1140px">'+cards.join('')+'</div>';
+  if(r0.src==='vLLM'){
+    const F='{instance="dgx-llm-1",model_name="'+r0.full+'"}',G='{instance="dgx-llm-1"}',busy='and on() sum(vllm:num_requests_running'+F+') > 0';
+    const hq=(qq,m,w)=>'histogram_quantile('+qq+', sum by (le) (increase(vllm:'+m+'_bucket'+F+(w||W)+')))';
+    const ratio=(a,b,w)=>'sum(increase(vllm:'+a+F+(w||W)+')) / sum(increase(vllm:'+b+F+(w||W)+'))';
+    const S='['+step+'s]';
+    const [req,len,ttft50,ttft95,itl50,e2e50,e2e95,q95,pre95,pin,pin95,gout,hit,cachedsh,preempt,kvmax,kv95,wait,waitmax,run,tps,gpu,pw,pwmax,temp,kwh,toks,mem,cfg]=await Promise.all([
+      one('sum(increase(vllm:request_success_total'+F+W+'))'),one('sum(increase(vllm:request_success_total{instance="dgx-llm-1",model_name="'+r0.full+'",finished_reason="length"}'+W+'))'),
+      one(hq(0.5,'time_to_first_token_seconds')),one(hq(0.95,'time_to_first_token_seconds')),one(hq(0.5,'inter_token_latency_seconds')),
+      one(hq(0.5,'e2e_request_latency_seconds')),one(hq(0.95,'e2e_request_latency_seconds')),one(hq(0.95,'request_queue_time_seconds')),one(hq(0.95,'request_prefill_time_seconds')),
+      one(ratio('request_prompt_tokens_sum','request_prompt_tokens_count')),one(hq(0.95,'request_prompt_tokens')),one(ratio('request_generation_tokens_sum','request_generation_tokens_count')),
+      one(ratio('prefix_cache_hits_total','prefix_cache_queries_total')),one(ratio('prompt_tokens_cached_total','prompt_tokens_total')),one('sum(increase(vllm:num_preemptions_total'+F+W+'))'),
+      one('max_over_time(max(vllm:kv_cache_usage_perc'+F+')'+SQ+')'),one('quantile_over_time(0.95, (max(vllm:kv_cache_usage_perc'+F+') '+busy+')'+SQ+')'),
+      one('sum_over_time((sum(vllm:num_requests_waiting'+F+') > bool 0)'+SQ+') / count_over_time((sum(vllm:num_requests_running'+F+') > 0)'+SQ+')'),one('max_over_time(sum(vllm:num_requests_waiting'+F+')'+SQ+')'),
+      one('max_over_time(sum(vllm:num_requests_running'+F+')'+SQ+')'),one('quantile_over_time(0.5, (sum(rate(vllm:generation_tokens_total'+F+'[5m])) > 1)'+SQ+')'),
+      one('avg_over_time((avg(DCGM_FI_DEV_GPU_UTIL'+G+') '+busy+')'+SQ+')'),one('avg_over_time((avg(DCGM_FI_DEV_POWER_USAGE'+G+') '+busy+')'+SQ+')'),
+      one('max_over_time(max(DCGM_FI_DEV_POWER_USAGE'+G+')'+SQ+')'),one('max_over_time(max(DCGM_FI_DEV_GPU_TEMP'+G+')'+SQ+')'),
+      one('sum(increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION'+G+W+')) / 3.6e9'),
+      one('sum(increase(vllm:prompt_tokens_total'+F+W+')) + sum(increase(vllm:generation_tokens_total'+F+W+'))'),
+      one('sum(dgx_gpu_process_memory_bytes{instance="dgx-llm-1",container="vllm-prod-vllm"})'),q('vllm:cache_config_info'+G)]);
+    const [lReq,lTtft,lE2e,lTps,lKv,lGpu,lPw,lHit]=await Promise.all([
+      line('sum(increase(vllm:request_success_total'+F+S+'))'),line(hq(0.95,'time_to_first_token_seconds',S)),line(hq(0.95,'e2e_request_latency_seconds',S)),
+      line('quantile_over_time(0.5, (sum(rate(vllm:generation_tokens_total'+F+'[5m])) > 1)['+step+'s:5m])'),line('max_over_time(max(vllm:kv_cache_usage_perc'+F+')['+step+'s:5m])'),
+      line('avg_over_time((avg(DCGM_FI_DEV_GPU_UTIL'+G+') '+busy+')['+step+'s:5m])'),line('avg_over_time(avg(DCGM_FI_DEV_POWER_USAGE'+G+')['+step+'s:5m])'),
+      line(ratio('prefix_cache_hits_total','prefix_cache_queries_total',S))]);
+    const c=(cfg[0]||{}).metric||{},kvTok=c.num_gpu_blocks&&c.block_size?+c.num_gpu_blocks*+c.block_size:null;
+    const b=box();if(!b)return;
+    if(!req){b.innerHTML='<h2>How it runs</h2><p class=muted>no requests to this model in '+hx(rg.label)+'</p>';return;}
+    // what the numbers point at: each line states its rule and the measured values it rests on
+    const notes=[];
+    if(kvmax!=null&&kvmax>=0.9)notes.push('The KV cache filled to '+pc(kvmax)+' at its peak'+(preempt?' and '+nm(preempt)+' request'+(preempt>1?'s were':' was')+' preempted (recomputed)':'')+', while its 95th percentile when busy was '+pc(kv95)+'. The cache is '+(c.kv_cache_memory_bytes?(c.kv_cache_memory_bytes/2**30).toFixed(1)+' GiB':'?')+(kvTok?' ('+tk(kvTok)+' tokens)':'')+' at gpu_memory_utilization '+hx(c.gpu_memory_utilization||'?')+'. Peaks come from long prompts (95th percentile '+tk(pin95||0)+' tokens) running together: more KV memory, or a lower max_num_seqs / max context for this caller, removes the preemptions.');
+    if(cachedsh!=null)notes.push(pc(cachedsh)+' of prompt tokens were served from the prefix cache (block hit rate '+pc(hit)+'). Prompts that start with the same text (system prompt, instructions, shared context) and put the varying part last raise this, and cut prefill (95th percentile '+sec(pre95)+').');
+    if(len)notes.push(nm(len)+' request'+(len>1?'s':'')+' ('+(len/req*100).toFixed(1)+'%) stopped at max_tokens, so their answers are cut off; the caller sets the limit.');
+    if(wait!=null)notes.push(wait<0.02?'Requests almost never queued (a wait in '+pc(wait)+' of busy 5-minute windows, at most '+nm(waitmax)+' waiting; up to '+nm(run)+' ran at once): capacity is not the limit.':'Requests waited in '+pc(wait)+' of busy 5-minute windows (at most '+nm(waitmax)+' waiting): at those times the server is the bottleneck.');
+    if(e2e95!=null&&itl50)notes.push('One stream decodes at about '+Math.round(1/itl50)+' tokens/s (inter-token '+sec(itl50)+'), so end-to-end time is mostly output length: 95th percentile '+sec(e2e95)+' for '+tk(gout||0)+' output tokens on average.');
+    b.innerHTML='<h2>How it runs &middot; vLLM on the DGX</h2><p class=sec>'+hx(rg.label)+'; lines '+per_+'. Container vllm-prod-vllm, port 8003. GPU figures are the whole GPU (DCGM), shared with the other DGX services.</p>'
+      +grp('Traffic',[crd('Requests',Math.round(req).toLocaleString(),lReq,len?nm(len)+' cut at max_tokens':'none cut at max_tokens'),
+        crd('Prompt / request',tk(pin||0),null,'95th percentile '+tk(pin95||0)),crd('Output / request',tk(gout||0),null,'mean'),crd('Most at once',nm(run),null,'running; '+nm(waitmax)+' waiting at most')])
+      +grp('Latency',[crd('First token, p95',sec(ttft95),lTtft,'median '+sec(ttft50)),crd('End to end, p95',sec(e2e95),lE2e,'median '+sec(e2e50)),
+        crd('Per token',sec(itl50),null,'median inter-token = '+(itl50?Math.round(1/itl50):'?')+' tokens/s per stream'),crd('Queue, p95',sec(q95),null,'prefill p95 '+sec(pre95))])
+      +grp('Throughput and caches',[crd('Output tokens/s',nm(tps),lTps,'median while generating'),crd('Prefix cache hits',pc(hit),lHit,pc(cachedsh)+' of prompt tokens cached'),
+        crd('KV cache peak',pc(kvmax),lKv,'p95 when busy '+pc(kv95)+' &middot; '+nm(preempt)+' preemptions'),crd('KV cache size',c.kv_cache_memory_bytes?(c.kv_cache_memory_bytes/2**30).toFixed(1)+' GiB':'&mdash;',null,(kvTok?tk(kvTok)+' tokens &middot; ':'')+hx(c.cache_dtype||'')+(c.enable_prefix_caching==='True'?' &middot; prefix caching on':''))])
+      +grp('GPU (NVIDIA GB10, whole GPU)',[crd('GPU busy while serving',gpu==null?'&mdash;':Math.round(gpu)+'%',lGpu,'average utilisation while requests run'),
+        crd('Power',pw==null?'&mdash;':Math.round(pw)+' W',lPw,'while serving; peak '+(pwmax==null?'?':Math.round(pwmax))+' W, max '+(temp==null?'?':Math.round(temp))+' &deg;C'),
+        crd('Energy',kwh==null?'&mdash;':kwh.toFixed(1)+' kWh',null,kwh&&toks?'whole GPU; '+(kwh*1000/(toks/1e6)).toFixed(0)+' Wh per 1M tokens of this model, upper bound':'whole GPU'),
+        crd('GPU memory',mem?(mem/1e9).toFixed(1)+' GB':'&mdash;',null,'vllm-prod-vllm now (weights + KV cache)')])
+      +(notes.length?'<h3 style="margin:14px 0 6px;font-size:13px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em">What the numbers point at</h3><ul style="max-width:900px;line-height:1.55;color:#c8c8e0;font-size:13px;padding-left:18px">'+notes.map(x=>'<li>'+x+'</li>').join('')+'</ul>':'');
+    return;}
+  // Ollama: three per-machine stats queries over the period's log lines
+  const lq=async(expr,type)=>{try{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+      body:JSON.stringify({queries:[{refId:'A',datasource:{uid:'victorialogs'},expr,queryType:type||'stats',step:step+'s'}],from:String(start*1000),to:String(end*1000)})})).json();
+    const o={};((r.results.A||{}).frames||[]).forEach(f=>{const l=f.schema.fields[1].labels||{},vs=f.data.values;(o[l.instance]=o[l.instance]||{})[l.__name__]=type==='statsRange'?{t:vs[0],v:vs[1]}:+vs[1][vs[1].length-1];});return o;}catch(x){return {};}};
+  const TL=p=>'job:"ollama" '+p+' | extract_regexp "= +(?P<ms>[0-9.]+) ms / +(?P<n>[0-9]+) tokens( \\\\( *[0-9.]+ ms per token, +(?P<tps>[0-9.]+) tokens per second)?"';
+  const [gen,pro,tot,rng]=await Promise.all([
+    lq(TL('"eval time =" -"prompt eval time"')+' | stats by (instance) count() as req, quantile(0.5, tps) as tps50, avg(n) as outn'),
+    lq(TL('"prompt eval time ="')+' | stats by (instance) quantile(0.5, tps) as ptps50, avg(n) as inn'),
+    lq(TL('"total time ="')+' | stats by (instance) quantile(0.5, ms) as t50, quantile(0.95, ms) as t95'),
+    lq(TL('"eval time =" -"prompt eval time"')+' | stats by (instance) quantile(0.5, tps) as tps50','statsRange')]);
+  const b=box();if(!b)return;const ins=Object.keys(gen).sort();
+  if(!ins.length){b.innerHTML='<h2>How it runs</h2><p class=muted>no Ollama requests in '+hx(rg.label)+'</p>';return;}
+  const toLine=o=>{if(!o)return null;const v=Array(n).fill(null);o.t.forEach((t,i)=>{const k=Math.floor((t/1000-start)/step);if(k>=0&&k<n)v[k]=+o.v[i];});return v;};
+  const NAME={'dgx-llm-1':'DGX','x3':'X3 (omarchy)','macbook':'MacBook'};
+  b.innerHTML='<h2>How it runs &middot; Ollama</h2><p class=sec>'+hx(rg.label)+'; per machine, from Ollama&rsquo;s own timing lines (they name no model, so this is every model on that machine). Lines: median output speed '+per_+'.</p>'
+    +grp('By machine',ins.map(i=>{const g=gen[i]||{},p=pro[i]||{},t=tot[i]||{};
+      return crd(hx(NAME[i]||i),nm(g.tps50,1)+' <span class=muted style="font-size:12px;font-weight:400">tokens/s out</span>',toLine((rng[i]||{}).tps50),
+        Math.round(g.req||0).toLocaleString()+' requests &middot; prompt '+nm(p.ptps50,0)+' tokens/s &middot; '+tk(p.inn||0)+' in / '+tk(g.outn||0)+' out per request &middot; total '+sec((t.t50||0)/1000)+' median, '+sec((t.t95||0)/1000)+' p95');}));
+}
 addEventListener('hashchange',showTab);showTab();
 // Overview cards and the strip copy what the tabs already show: one query per signal.
 function mirror(){
