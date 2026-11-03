@@ -41,3 +41,4 @@ landed on an answer.
 - [RFC-0005 — Fleet 3 v1: unattended recovery of prod after a reboot](RFC-0005-remediation-fleet-post-reboot-recovery.md) — *Proposed*
 - [RFC-0006 — Self-hosted Infisical on the Mac mini for engineering secrets](RFC-0006-self-hosted-infisical-engineering-secrets.md) — *Proposed*
 - [RFC-0007 — Engineering secrets in sops + age, per project and environment](RFC-0007-sops-age-engineering-secrets.md) — *Proposed* (counter-proposal to RFC-0006)
+- [RFC-0008 — A local assistant on the X3, and the X3 as a deployment surface](RFC-0008-x3-local-assistant.md) — *Proposed*
