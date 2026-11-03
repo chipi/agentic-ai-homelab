@@ -1070,13 +1070,15 @@ async function spendModels(){
     const ls=async expr=>{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
         body:JSON.stringify({queries:[{refId:'W',datasource:{uid:'victorialogs'},expr,queryType:'stats'}],from:String(from),to:String(to)})})).json();
       const o={};((r.results.W||{}).frames||[]).forEach(f=>{const l=f.schema.fields[1].labels||{},v=f.data.values[1];o[l.__name__]=+v[v.length-1]||0;});return o;};
-    const [dz,ms,wq,wa]=await Promise.all([n1('sum(increase(http_requests_total{job="pyannote-app",handler="/v1/diarize"}[R]))'),
+    const [dz,ms,wq,wa,dza,msa]=await Promise.all([n1('sum(increase(http_requests_total{job="pyannote-app",handler="/v1/diarize"}[R]))'),
       n1('sum(increase(http_requests_total{job="moss-app",handler="/v1/transcribe"}[R]))'),
       ls('container:"faster-whisper" "POST /v1/audio/transcriptions" | stats count() as n'),
-      ls(WHISPER_AUDIO+' | stats sum(sec) as sec')]);
+      ls(WHISPER_AUDIO+' | stats sum(sec) as sec'),
+      n1('sum(increase(audio_seconds_total{job="pyannote-app",endpoint="/v1/diarize"}[R]))'),
+      n1('sum(increase(audio_seconds_total{job="moss-app",endpoint="/v1/transcribe"}[R]))')]);
     const sp=(ven,full,req,audio)=>{if(!req)return;const r=get('Speech','DGX speech (all callers)',ven,full.split('/').pop(),'DGX',full);r.req+=req;r.audio=(r.audio||0)+(audio||0);};
     sp('openai','deepdml/faster-whisper-large-v3-turbo-ct2',wq.n,wa.sec||0);
-    sp('pyannote','pyannote/speaker-diarization-community-1',dz);sp('openmoss','OpenMOSS-Team/MOSS-Transcribe-Diarize',ms);
+    sp('pyannote','pyannote/speaker-diarization-community-1',dz,dza);sp('openmoss','OpenMOSS-Team/MOSS-Transcribe-Diarize',ms,msa);
   }catch(e){}
   const sum=(xs,f)=>xs.reduce((a,x)=>a+(x[f]||0),0),src=n=>rows.filter(r=>r.src===n);
   // ---- Totals ----
@@ -1413,13 +1415,23 @@ async function runtime(r0,id,per){
     let cards,head;
     if(JOB){const H='{job="'+JOB[0]+'",handler="'+JOB[1]+'"}',hq=(qq,w)=>'histogram_quantile('+qq+', sum by (le) (increase(http_request_duration_seconds_bucket'+H+(w||W)+')))';
       const mean=w=>'sum(increase(http_request_duration_seconds_sum'+H+w+')) / sum(increase(http_request_duration_seconds_count'+H+w+'))';
-      const [req,err,avg,busy,lReq,lAvg,gm,cm,cpu,lMem]=await Promise.all([one('sum(increase(http_requests_total'+H+W+'))'),one('sum(increase(http_requests_total{job="'+JOB[0]+'",handler="'+JOB[1]+'",status=~"5.."}'+W+'))'),
-        one(mean(W)),one('sum(increase(http_request_duration_seconds_sum'+H+W+'))'),line('sum(increase(http_requests_total'+H+S+'))'),line(mean(S)),...common]);
-      head='its own /metrics (requests and their duration, per endpoint '+JOB[1]+')';
-      cards=grp('Traffic and latency',[crd('Requests',Math.round(req||0).toLocaleString(),lReq,(err?nm(err)+' failed (5xx)':'none failed')),crd('Time per request',sec(avg),lAvg,'mean, the whole file end to end; '+(busy?(busy/3600).toFixed(1)+' h busy in the period':''))])
+      const A='{job="'+JOB[0]+'",endpoint="'+JOB[1]+'"}',aq=qq=>'histogram_quantile('+qq+', sum by (le) (increase(audio_duration_seconds_bucket'+A+W+')))';
+      const [req,err,avg,busy,lReq,lAvg,gm,cm,cpu,lMem,aud,proc,c50,c95,lAud,lRtf,areq]=await Promise.all([one('sum(increase(http_requests_total'+H+W+'))'),one('sum(increase(http_requests_total{job="'+JOB[0]+'",handler="'+JOB[1]+'",status=~"5.."}'+W+'))'),
+        one(mean(W)),one('sum(increase(http_request_duration_seconds_sum'+H+W+'))'),line('sum(increase(http_requests_total'+H+S+'))'),line(mean(S)),...common,
+        one('sum(increase(audio_seconds_total'+A+W+'))'),one('sum(increase(audio_processing_seconds_total'+A+W+'))'),one(aq(0.5)),one(aq(0.95)),
+        line('sum(increase(audio_seconds_total'+A+S+'))'),line('sum(increase(audio_processing_seconds_total'+A+S+')) / sum(increase(audio_seconds_total'+A+S+'))'),
+        one('sum(increase(audio_requests_total'+A+W+'))')]);
+      const mm=v=>v==null?'&mdash;':(v>=3600?(v/3600).toFixed(1)+' h':(v>=60?(v/60).toFixed(v<600?1:0)+' min':Math.round(v)+' s'));
+      // processing per successful request from the audio counters (decode + inference); the HTTP
+      // duration metric only where those do not exist yet (moss's HTTP duration sum does not grow)
+      const per=areq&&proc!=null?proc/areq:avg,perSub=areq&&proc!=null?'mean per successful request: decode + inference, not the upload':'mean, the whole request end to end';
+      const rtf=aud&&proc!=null?proc/aud:null,xr=v=>v==null?'&mdash;':v.toFixed(3)+' <span class=muted style="font-size:12px;font-weight:400">('+Math.round(1/v)+'&times; real time)</span>';
+      head='its own /metrics (requests and their duration per endpoint '+JOB[1]+'; audio length per counted request since 2026-11-03)';
+      cards=grp('Traffic and latency',[crd('Requests',Math.round(req||0).toLocaleString(),lReq,(err?nm(err)+' failed (5xx)':'none failed')),crd('Time per request',sec(per),areq&&proc!=null?null:lAvg,perSub)])
+        +grp('Audio and speed',[crd('Audio processed',aud?mm(aud):'&mdash;',lAud,aud?'clip length, approximate (buckets): median ~'+mm(c50)+', 95th percentile ~'+mm(c95):'reported since 2026-11-03'),
+          crd('Real-time factor',xr(rtf),lRtf,'processing time / audio length, successful requests')])
         +grp('Resources',[crd('GPU memory',gm?(gm/1e9).toFixed(1)+' GB':'&mdash;',null,CT+' now'),crd('Container memory',cm?(cm/1e9).toFixed(1)+' GB':'&mdash;',lMem,'peak in the period (RAM)'),
-          crd('CPU',cpu==null?'&mdash;':(cpu).toFixed(2)+' cores',null,'average over the period')])
-        +'<p class=muted style="font-size:12px;max-width:900px">Audio hours and the real-time factor need the length of the audio each request carried; '+hx(CT)+' does not report it yet.</p>';}
+          crd('CPU',cpu==null?'&mdash;':(cpu).toFixed(2)+' cores',null,'average over the period')]);}
     else{// whisper: log lines
       const lq2=async(expr,type)=>{try{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
           body:JSON.stringify({queries:[{refId:'A',datasource:{uid:'victorialogs'},expr,queryType:type||'stats',step:step+'s'}],from:String(start*1000),to:String(end*1000)})})).json();
