@@ -1,0 +1,30 @@
+# LibreChat config for the RFC-0008 UI evaluation (v0.8.8, config version 1.3.17).
+version: 1.3.17
+cache: true
+
+interface:
+  customWelcome: "Homelab assistant (evaluation). Model: assistant-cloud through the homelab gateway. Tools: Grafana (read-only)."
+
+endpoints:
+  custom:
+    - name: "Homelab gateway"
+      apiKey: "${LITELLM_API_KEY}"
+      baseURL: "http://homelab:4001/v1"
+      models:
+        default: ["assistant-cloud"]
+        fetch: false
+      titleConvo: true
+      titleModel: "assistant-cloud"
+      modelDisplayLabel: "Homelab"
+
+# The MCP server is on the stack's internal network: an SSRF exemption for exactly that host and port
+# (allowedAddresses), not a whitelist (allowedDomains would block every public destination).
+mcpSettings:
+  allowedAddresses:
+    - 'mcp-grafana:8000'
+
+mcpServers:
+  grafana:
+    type: streamable-http
+    url: http://mcp-grafana:8000/mcp
+    timeout: 60000

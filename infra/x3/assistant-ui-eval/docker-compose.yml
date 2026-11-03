@@ -1,0 +1,89 @@
+# RFC-0008 plan phase 3: LibreChat and Open WebUI side by side, on the X3, for a few days, then removed.
+# Throwaway: the chosen UI is set up again on the mini. Both talk to the mini's LiteLLM (model
+# assistant-cloud, the capped key assistant-ui-eval) and to Grafana's MCP server (Viewer token).
+# Ports on loopback only; `tailscale serve` publishes them over HTTPS on the tailnet (README).
+# Secrets in .env next to this file (gitignored; see .env.example).
+name: assistant-ui-eval
+
+services:
+  librechat:
+    image: registry.librechat.ai/librechat-ai/librechat:v0.8.8
+    container_name: assistant-eval-librechat
+    restart: unless-stopped
+    mem_limit: 1536m
+    depends_on: [mongodb, meilisearch, mcp-grafana]
+    ports: ["127.0.0.1:3080:3080"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3080"
+      DOMAIN_CLIENT: https://omarchy.tail6d0ed4.ts.net:8443
+      DOMAIN_SERVER: https://omarchy.tail6d0ed4.ts.net:8443
+      TRUST_PROXY: "1"
+      MONGO_URI: mongodb://mongodb:27017/LibreChat
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      CREDS_KEY: ${CREDS_KEY}
+      CREDS_IV: ${CREDS_IV}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      ALLOW_REGISTRATION: ${LIBRECHAT_ALLOW_REGISTRATION:-true}
+      ALLOW_SOCIAL_LOGIN: "false"
+      LITELLM_API_KEY: ${LITELLM_API_KEY}
+      APP_TITLE: "Homelab assistant (LibreChat, evaluation)"
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml:ro
+
+  mongodb:
+    image: mongo:8.0.20
+    container_name: assistant-eval-mongodb
+    restart: unless-stopped
+    mem_limit: 768m
+    command: mongod --noauth --wiredTigerCacheSizeGB 0.25
+    volumes: [mongo:/data/db]
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.35.1
+    container_name: assistant-eval-meilisearch
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_NO_ANALYTICS: "true"
+    volumes: [meili:/meili_data]
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:v0.12.5
+    container_name: assistant-eval-openwebui
+    restart: unless-stopped
+    mem_limit: 2g
+    depends_on: [mcp-grafana]
+    ports: ["127.0.0.1:3081:8080"]
+    environment:
+      WEBUI_NAME: "Homelab assistant (Open WebUI, evaluation)"
+      WEBUI_URL: https://omarchy.tail6d0ed4.ts.net:8444
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      ENABLE_OLLAMA_API: "false"
+      OPENAI_API_BASE_URL: http://homelab:4001/v1
+      OPENAI_API_KEY: ${LITELLM_API_KEY}
+      ENABLE_SIGNUP: ${OPENWEBUI_ENABLE_SIGNUP:-true}
+      DEFAULT_MODELS: assistant-cloud
+      ANONYMIZED_TELEMETRY: "false"
+      SCARF_NO_ANALYTICS: "true"
+      DO_NOT_TRACK: "true"
+    volumes: [openwebui:/app/backend/data]
+
+  mcp-grafana:
+    image: grafana/mcp-grafana:2.1.1
+    container_name: assistant-eval-mcp-grafana
+    restart: unless-stopped
+    mem_limit: 256m
+    command: ["-t", "streamable-http", "--address", "0.0.0.0:8000", "--allowed-hosts", "mcp-grafana:8000", "--usage-stats", "disabled", "--disable-write", "--enabled-tools", "search,datasource,prometheus,alerting,dashboard"]
+    environment:
+      GRAFANA_URL: https://grafana.tail6d0ed4.ts.net
+      GRAFANA_ORG_ID: "1"
+      GRAFANA_SERVICE_ACCOUNT_TOKEN: ${GRAFANA_SERVICE_ACCOUNT_TOKEN}
+
+volumes:
+  mongo:
+  meili:
+  openwebui:
