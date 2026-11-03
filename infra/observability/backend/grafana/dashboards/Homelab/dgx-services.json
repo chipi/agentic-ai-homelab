@@ -279,7 +279,7 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "vLLM autoresearch \u2014 running / waiting",
+      "title": "vLLM (prod-vllm :8003, translate :8005) \u2014 running / waiting",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -316,8 +316,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(vllm:num_requests_running{job=\"vllm-autoresearch\"})",
-          "legendFormat": "running"
+          "expr": "sum by (model_name) (vllm:num_requests_running{job=~\"vllm-autoresearch|vllm-translate\"})",
+          "legendFormat": "running {{model_name}}"
         },
         {
           "refId": "B",
@@ -325,8 +325,8 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(vllm:num_requests_waiting{job=\"vllm-autoresearch\"})",
-          "legendFormat": "waiting"
+          "expr": "sum by (model_name) (vllm:num_requests_waiting{job=~\"vllm-autoresearch|vllm-translate\"})",
+          "legendFormat": "waiting {{model_name}}"
         }
       ]
     },
@@ -533,7 +533,7 @@
       },
       "targets": [
         {
-          "expr": "container_memory_working_set_bytes{instance=\"dgx-llm-1\",name=~\"pyannote|faster-whisper|moss|vllm-autoresearch\"}",
+          "expr": "container_memory_working_set_bytes{instance=\"dgx-llm-1\",name=~\"pyannote|faster-whisper|moss|vllm-prod-vllm|vllm-translate\"}",
           "refId": "A",
           "legendFormat": "{{name}}"
         }

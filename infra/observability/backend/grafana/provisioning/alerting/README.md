@@ -8,7 +8,7 @@ Rules are grouped by domain. Thresholds are tuned against real baselines observe
 
 | Rule | Fires when (threshold + for) | Datasource | Intent |
 |---|---|---|---|
-| **Scrape target down** `infra-target-down` | `up == 0` for 5m | VictoriaMetrics | Critical scrape target lost. Excludes on-demand GPU services (vllm, vllm-autoresearch, ollama — they swap with gpu-mode-swap). |
+| **Scrape target down** `infra-target-down` | `up == 0` for 5m | VictoriaMetrics | Critical scrape target lost. Excludes on-demand GPU services (vllm, vllm-autoresearch, vllm-translate, ollama — they swap with gpu-mode-swap). |
 | **Host disk low** `infra-disk-low` | Free space < 10% for 10m | VictoriaMetrics | Warning: filesystem usage elevated. Current baselines 33–58% free; 10% is pure headroom. |
 | **Host disk critical** `infra-disk-crit` | Free space < 5% for 5m | VictoriaMetrics | Critical: imminent fill risk. Emailed and pushed to Slack #ops-critical. |
 | **FastAPI 5xx errors elevated** `app-http-5xx` | Rate > 0.01 req/s for 5m | VictoriaMetrics | Application error spike. Covers api, pyannote, moss (all instrumented). Baseline is 0/h; 0.01 req/s ≈ 3+ errors in 5m. |

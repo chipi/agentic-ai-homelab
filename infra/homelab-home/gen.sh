@@ -243,7 +243,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <div class=charts style="max-width:1140px" id=sp_vendor>&hellip;</div>
   <h2>By model</h2>
   <div id=sp_mfilter style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px;font-size:13px">
-    <span class=subtabs style="margin:0" id=sp_msrc><a data-v="" class=on>All</a><a data-v=OpenRouter>OpenRouter</a><a data-v=vLLM>vLLM</a><a data-v=Ollama>Ollama</a></span>
+    <span class=subtabs style="margin:0" id=sp_msrc><a data-v="" class=on>All</a><a data-v=OpenRouter>OpenRouter</a><a data-v=vLLM>vLLM</a><a data-v=Ollama>Ollama</a><a data-v=Speech>Speech</a></span>
     <select id=sp_mw style="background:#14141f;color:#c8c8e0;border:1px solid #26263a;border-radius:6px;padding:4px 8px"><option value="">Open + proprietary</option><option value=open>Open weights</option><option value=proprietary>Proprietary</option><option value="?">Not known</option></select>
     <select id=sp_ma style="background:#14141f;color:#c8c8e0;border:1px solid #26263a;border-radius:6px;padding:4px 8px"><option value="">Any architecture</option><option value=moe>MoE</option><option value=dense>Dense</option><option value=none>Not published</option></select>
     <select id=sp_mven style="background:#14141f;color:#c8c8e0;border:1px solid #26263a;border-radius:6px;padding:4px 8px"><option value="">All vendors</option></select>
@@ -944,7 +944,7 @@ async function dayGauge(metric,by){const m={};(await q('last_over_time('+metric+
   const o={};for(const k in m)o[k]=dayArr(m[k]);return o;}
 // logos: the site's own icon through DuckDuckGo's icon service; gone quietly if it fails
 const VENDOR_SITE={anthropic:'anthropic.com',openai:'openai.com',google:'deepmind.google',deepseek:'deepseek.com',qwen:'qwen.ai','meta-llama':'llama.com',
-  mistralai:'mistral.ai',moonshotai:'moonshot.ai','z-ai':'z.ai',nvidia:'nvidia.com',microsoft:'microsoft.com','x-ai':'x.ai',cohere:'cohere.com'};
+  mistralai:'mistral.ai',moonshotai:'moonshot.ai',pyannote:'pyannote.ai','z-ai':'z.ai',nvidia:'nvidia.com',microsoft:'microsoft.com','x-ai':'x.ai',cohere:'cohere.com'};
 const PROJECT_SITE={'Close Listening':'closelistening.app','Orrery':'orrerylearn.com','Evals':'humancopilot.eu','Websites':'humancopilot.eu','Fleets':'github.com'};
 const ico=dom=>dom?'<img src="https://icons.duckduckgo.com/ip3/'+dom+'.ico" width=14 height=14 alt="" loading=lazy style="vertical-align:-2px;margin-right:5px;border-radius:3px" onerror="this.remove()">':'';
 // Open weights or proprietary: an official weights repo on Hugging Face = open (checked 2026-11-03
@@ -956,7 +956,7 @@ function weights(full,src){if(src!=='OpenRouter')return 'open';if(OPEN_RE.test(f
 // where a click on a model goes: open models to their Hugging Face organisation, proprietary ones to
 // OpenRouter's model page (vendors do not all have a page per model); vendors to their own site
 const HF_ORG={deepseek:'deepseek-ai',moonshotai:'moonshotai','z-ai':'zai-org',mistralai:'mistralai',qwen:'Qwen',google:'google',openai:'openai','meta-llama':'meta-llama',nvidia:'nvidia',microsoft:'microsoft'};
-function modelUrl(full,src,model){if(src==='vLLM')return 'https://huggingface.co/'+full;if(src==='Ollama')return 'https://ollama.com/library';
+function modelUrl(full,src,model){if(src==='vLLM'||src==='Speech')return 'https://huggingface.co/'+full;if(src==='Ollama')return 'https://ollama.com/library';
   const [v,m]=[full.split('/')[0],full.split('/').slice(1).join('/')];
   return weights(full,src)==='open'&&HF_ORG[v]?'https://huggingface.co/'+HF_ORG[v]+'?search_models='+encodeURIComponent(m):'https://openrouter.ai/'+full;}
 // Ollama's token lines are in VictoriaLogs from 2026-10-30; earlier days are unknown, not zero
@@ -966,6 +966,18 @@ const OLLAMA_LOGS_FROM=Date.UTC(2026,9,30);
 // experts (config.json), ctx = context length. approx = stored as packed int weights, so the count
 // is not confirmed. Proprietary models publish none of this. Add a model here when it shows up.
 const MODEL_FACTS={"deepseek/deepseek-v4-pro":{"p":1598.8,"arch":"MoE","e":"384 experts, 6 per token","ctx":1048576,"src":"HF parameter count (packed int weights: not confirmed); HF config.json","approx":1},"deepseek/deepseek-v4-flash":{"p":290.9,"arch":"MoE","e":"256 experts, 6 per token","ctx":1048576,"src":"HF parameter count (packed int weights: not confirmed); HF config.json","approx":1},"deepseek/deepseek-v4.1-flash":{"p":763.2,"arch":"MoE","e":"384 experts, 6 per token","ctx":1048576,"src":"HF parameter count (packed int weights: not confirmed); HF config.json","approx":1},"moonshotai/kimi-k3":{"p":2779.9,"arch":"MoE","e":"896 experts, 16 per token","ctx":1048576,"src":"HF parameter count (packed int weights: not confirmed); HF config.json","approx":1},"z-ai/glm-4.5-air":{"p":110.5,"arch":"MoE","e":"128 experts, 8 per token","ctx":131072,"src":"HF parameter count; HF config.json"},"z-ai/glm-4.6":{"p":356.8,"arch":"MoE","e":"160 experts, 8 per token","ctx":202752,"src":"HF parameter count; HF config.json"},"z-ai/glm-5":{"p":753.9,"arch":"MoE","e":"256 experts, 8 per token","ctx":202752,"src":"HF parameter count; HF config.json"},"z-ai/glm-5.3-flash":{"p":321.3,"arch":"MoE","e":"288 experts, 8 per token","ctx":1048576,"src":"HF parameter count; HF config.json"},"mistralai/mistral-large-2512":{"arch":"MoE","e":"128 experts, 4 per token","ctx":294912,"p":675,"src":"HF config.json; model name"},"mistralai/mistral-large-4-0":{"arch":"MoE","e":"128 experts, 4 per token","ctx":1048576,"p":1000,"a":52,"src":"HF config.json; model name"},"mistralai/mistral-medium-3-5":{"p":127.7,"arch":"dense","ctx":262144,"src":"HF parameter count; HF config.json"},"mistralai/mistral-small-3.2-24b-instruct":{"p":24.0,"arch":"dense","ctx":131072,"src":"HF parameter count; HF config.json"},"qwen/qwen3-30b-a3b-instruct-2507":{"p":30.5,"arch":"MoE","e":"128 experts, 8 per token","ctx":262144,"a":3.0,"src":"HF parameter count; HF config.json"},"qwen/qwen3.5-122b-a10b":{"p":125.1,"arch":"MoE","e":"256 experts, 8 per token","ctx":262144,"a":10.0,"src":"HF parameter count; HF config.json"},"qwen/qwen3.5-397b-a17b":{"p":403.4,"arch":"MoE","e":"512 experts, 10 per token","ctx":262144,"a":17.0,"src":"HF parameter count; HF config.json"},"qwen/qwen3.6-35b-a3b":{"p":36.0,"arch":"MoE","e":"256 experts, 8 per token","ctx":262144,"a":3.0,"src":"HF parameter count; HF config.json"},"google/gemma-3-27b-it":{"p":27.4,"arch":"dense","src":"HF parameter count; model name"},"google/gemma-4-26b-a4b-it":{"p":25.8,"arch":"MoE","e":"128 experts","ctx":262144,"a":4.0,"src":"HF parameter count; HF config.json"},"google/gemma-4-31b-it":{"p":31.3,"arch":"dense","ctx":262144,"src":"HF parameter count; HF config.json"},"openai/gpt-oss-120b":{"p":116.8,"arch":"MoE","e":"128 experts, 4 per token","ctx":131072,"src":"HF parameter count; HF config.json"},"meta-llama/llama-3.3-70b-instruct":{"p":70.6,"arch":"dense","src":"HF parameter count; model name"},"meta-llama/llama-4-scout":{"p":108.6,"a":17,"arch":"MoE","e":"16 experts","src":"HF parameter count; model name"},"meta-llama/llama-4-maverick":{"p":401.6,"a":17,"arch":"MoE","e":"128 experts","src":"HF parameter count; model name"},"NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4":{"p":30.5,"arch":"MoE","e":"128 experts, 8 per token","ctx":262144,"a":3.0,"src":"HF parameter count; HF config.json"}};
+// The DGX's other models. whisper: the served CTranslate2 conversion has no parameter count on HF; its
+// upstream openai/whisper-large-v3-turbo has 808.9M (32 encoder, 4 decoder layers). translategemma's
+// config is gated; it is Gemma 3 based (dense). pyannote publishes no count: a pipeline of models.
+Object.assign(MODEL_FACTS,{'google/translategemma-12b-it':{p:12.2,arch:'dense',src:'HF parameter count; Gemma 3 family (config gated)'},
+  'deepdml/faster-whisper-large-v3-turbo-ct2':{p:0.81,arch:'encoder-decoder',e:'32 encoder + 4 decoder layers',src:'HF openai/whisper-large-v3-turbo (served as a CTranslate2 int8 conversion)'},
+  'OpenMOSS-Team/MOSS-Transcribe-Diarize':{p:0.91,arch:'audio LM',ctx:131072,src:'HF parameter count; HF config.json'},
+  'pyannote/speaker-diarization-community-1':{arch:'pipeline',e:'segmentation + speaker embedding + PLDA clustering',src:'HF model card files'}});
+// which container serves which DGX model (port for the reader)
+// whisper prints a clip's length as mm:ss.sss, or hh:mm:ss.sss from an hour up; both read as seconds
+const WHISPER_AUDIO='container:"faster-whisper" "Processing audio with duration" | extract_regexp "duration (?:(?P<h>[0-9]+):)?(?P<m>[0-9]+):(?P<s>[0-9.]+)$" | format if (h:"") "0" as h | math h*3600 + m*60 + s as sec';
+const DGX_CT={'NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4':['vllm-prod-vllm',8003],'google/translategemma-12b-it':['vllm-translate',8005],
+  'deepdml/faster-whisper-large-v3-turbo-ct2':['faster-whisper',8000],'pyannote/speaker-diarization-community-1':['pyannote',8001],'OpenMOSS-Team/MOSS-Transcribe-Diarize':['moss',8004]};
 const mfact=full=>MODEL_FACTS[String(full).replace(/:.*$/,'')]||null;
 // weights-only memory: 4-bit ~0.56 B/param (scales add ~12%), 8-bit ~1.05; an MoE loads every expert,
 // so it needs memory for its total size, not its active size. KV cache for the context comes on top.
@@ -1051,7 +1063,23 @@ async function spendModels(){
     const oq=await vls('job:"ollama" "prompt eval time =" | stats by (instance) count() as t');
     for(const h of new Set([...Object.keys(oi),...Object.keys(oo)])){const r=get('Ollama','Ollama (no key)','unknown','Ollama models (not logged)',names[h]||h);r.i+=oi[h]||0;r.o+=oo[h]||0;r.req+=oq[h]||0;}
   }catch(e){}
-  const sum=(xs,f)=>xs.reduce((a,x)=>a+x[f],0),src=n=>rows.filter(r=>r.src===n);
+  // Speech on the DGX: pyannote and moss count their own requests (/metrics); faster-whisper has no
+  // /metrics, so its access and "Processing audio with duration" log lines give requests and audio.
+  if(rg.R)try{
+    const n1=async e=>{const r=await q(vm(e));return r.length?+r[0].value[1]:0;};
+    const to=Date.now()-rg.O*1000,from=to-rg.R*1000;
+    const ls=async expr=>{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+        body:JSON.stringify({queries:[{refId:'W',datasource:{uid:'victorialogs'},expr,queryType:'stats'}],from:String(from),to:String(to)})})).json();
+      const o={};((r.results.W||{}).frames||[]).forEach(f=>{const l=f.schema.fields[1].labels||{},v=f.data.values[1];o[l.__name__]=+v[v.length-1]||0;});return o;};
+    const [dz,ms,wq,wa]=await Promise.all([n1('sum(increase(http_requests_total{job="pyannote-app",handler="/v1/diarize"}[R]))'),
+      n1('sum(increase(http_requests_total{job="moss-app",handler="/v1/transcribe"}[R]))'),
+      ls('container:"faster-whisper" "POST /v1/audio/transcriptions" | stats count() as n'),
+      ls(WHISPER_AUDIO+' | stats sum(sec) as sec')]);
+    const sp=(ven,full,req,audio)=>{if(!req)return;const r=get('Speech','DGX speech (all callers)',ven,full.split('/').pop(),'DGX',full);r.req+=req;r.audio=(r.audio||0)+(audio||0);};
+    sp('openai','deepdml/faster-whisper-large-v3-turbo-ct2',wq.n,wa.sec||0);
+    sp('pyannote','pyannote/speaker-diarization-community-1',dz);sp('openmoss','OpenMOSS-Team/MOSS-Transcribe-Diarize',ms);
+  }catch(e){}
+  const sum=(xs,f)=>xs.reduce((a,x)=>a+(x[f]||0),0),src=n=>rows.filter(r=>r.src===n);
   // ---- Totals ----
   const today=await one('sum(last_over_time(openrouter_key_usd{window="day"}'+L+'))');
   const fl=rg.R?await one(vm('sum(sum_over_time(signal_fleet_cost_usd[R]))'))+await one(vm('sum(sum_over_time(bugfix_fleet_cost_usd[R]))')):0;
@@ -1073,6 +1101,8 @@ async function spendModels(){
   set('sp_totals',card('Spend (OpenRouter)',usd(sum(src('OpenRouter'),'usd'))+sparkT(orLine),Math.round(sum(src('OpenRouter'),'req')).toLocaleString()+' requests &middot; local $0')
     +card('Tokens, all sources',tk(allT)+sparkT(add(vtk,vLine,oLine)),'OpenRouter '+tk(t('OpenRouter'))+' &middot; vLLM '+tk(t('vLLM'))+' &middot; Ollama '+tk(t('Ollama')))
     +card('Local tokens',tk(t('vLLM')+t('Ollama'))+sparkT(add(vLine,oLine)),'vLLM '+tk(t('vLLM'))+' ('+Math.round(sum(src('vLLM'),'req'))+' req) &middot; Ollama '+tk(t('Ollama'))+' ('+Math.round(sum(src('Ollama'),'req'))+' req)')
+    +(sum(src('Speech'),'req')?card('Speech (DGX)',Math.round(sum(src('Speech'),'req')).toLocaleString()+' <span class=muted style="font-size:12px;font-weight:400">requests &middot; $0</span>',
+      src('Speech').map(r=>hx(r.model.replace(/-(large-v3-turbo-ct2|community-1)$/,''))+' '+Math.round(r.req).toLocaleString()+(r.audio?' ('+Math.round(r.audio/3600)+' h audio)':'')).join(' &middot; ')):'')
     +card('of which fleets',usd(fl),'triage + bug-fix, part of OpenRouter')
     +card('Today so far (OpenRouter)',usd(today),'live, all keys')
     +card('OpenRouter credit left','<span style="'+(cr<10?'color:#f85149':'')+'">'+usd(cr)+'</span>','top up at openrouter.ai'));
@@ -1097,8 +1127,8 @@ async function spendModels(){
   set('sp_callers_note','Gateway callers: '+usd(gwOR)+' (LiteLLM&#39;s own price estimate) + direct keys '+usd(dir)+' = '+usd(gwOR+dir)+' against OpenRouter&#39;s bill of '+usd(orBill)
     +' ('+(gap>=0?'+':'')+usd(gap).replace('$','$')+' difference: pricing estimates, and calls by keys no gateway logs).');
   // ---- group helper ----
-  const group=f=>{const g={};rows.forEach(r=>{const k=f(r);const x=g[k]=g[k]||{k,usd:0,i:0,o:0,req:0,src:new Set(),rows:[]};x.usd+=r.usd;x.i+=r.i;x.o+=r.o;x.req+=r.req;x.src.add(r.src);x.rows.push(r);});
-    return Object.values(g).filter(x=>x.usd>=0.005||x.i+x.o>0).sort((a,b)=>b.usd-a.usd||(b.i+b.o)-(a.i+a.o));};
+  const group=f=>{const g={};rows.forEach(r=>{const k=f(r);const x=g[k]=g[k]||{k,usd:0,i:0,o:0,req:0,src:new Set(),rows:[]};x.usd+=r.usd;x.i+=r.i;x.o+=r.o;x.req+=r.req;x.audio=(x.audio||0)+(r.audio||0);x.src.add(r.src);x.rows.push(r);});
+    return Object.values(g).filter(x=>x.usd>=0.005||x.i+x.o>0||x.req>0).sort((a,b)=>b.usd-a.usd||(b.i+b.o)-(a.i+a.o));};
   const srcTag=x=>[...x.src].join(' + ');
   // ---- By key ----
   const life={};(await q('max by (key) (last_over_time(openrouter_key_usd{window="total"}'+L+'))')).forEach(r=>life[r.metric.key]=+r.value[1]);
@@ -1116,12 +1146,12 @@ async function spendModels(){
   const mTok=await dayGauge('openrouter_model_day_tokens','model');
   const MM={};
   set('sp_models',mg.map(x=>{const r0=x.rows[0],id=x.k;
-    const w=weights(r0.full,r0.src),F=mfact(r0.full),line=r0.src==='OpenRouter'?mDay[r0.full]:(r0.src==='vLLM'?vLine:oLine);
+    const w=weights(r0.full,r0.src),F=mfact(r0.full),line=r0.src==='OpenRouter'?mDay[r0.full]:(r0.src==='vLLM'?vLine:(r0.src==='Ollama'?oLine:null));
     MM[id]={x,r0,w,F,line,tline:r0.src==='OpenRouter'?mTok[r0.full]:line};
     return '<tr data-src="'+r0.src+'" data-ven="'+hx(r0.ven)+'" data-m="'+hx(r0.model.toLowerCase())+'" data-w="'+w+'" data-u="'+x.usd+'" data-t="'+(x.i+x.o)+'" data-i="'+x.i+'" data-o="'+x.o+'" data-r="'+x.req+'" data-p="'+(F&&F.p||'')+'" data-mem="'+(F&&F.p||'')+'" data-c="'+(F&&F.ctx||'')+'" data-a="'+(F&&F.arch?F.arch.toLowerCase():'none')+'">'
       +'<td class=ven><a href="https://'+(VENDOR_SITE[r0.ven]||'openrouter.ai')+'" title="'+hx(r0.ven)+'">'+ico(VENDOR_SITE[r0.ven])+'<span class=vn>'+hx(r0.ven)+'</span></a></td>'
       +'<td class=mod><a href="#spend/'+p+'/m/'+encodeURIComponent(id)+'" target=_self>'+hx(r0.model)+'</a></td><td>'+sparkT(line)+'</td>'
-      +'<td>'+(r0.src==='OpenRouter'?usd(x.usd):'$0')+'</td><td>'+tk(x.i+x.o)+'</td><td>'+tk(x.i)+' / '+tk(x.o)+'</td><td>'+Math.round(x.req).toLocaleString()+'</td>'
+      +'<td>'+(r0.src==='OpenRouter'?usd(x.usd):'$0')+'</td><td>'+(r0.src==='Speech'?(x.audio?Math.round(x.audio/3600)+' h audio':'&mdash;'):tk(x.i+x.o))+'</td><td>'+(r0.src==='Speech'?'&mdash;':tk(x.i)+' / '+tk(x.o))+'</td><td>'+Math.round(x.req).toLocaleString()+'</td>'
       +'<td class=u>'+r0.src+'</td><td class=u style="color:'+(w==='open'?'#3fb950':(w==='proprietary'?'#c8c8e0':'#d29922'))+'">'+w+'</td>'+factCells(F)+'</tr>';}).join('')
     ||'<tr><td class=muted colspan=13>nothing in this period</td></tr>');
   if(spendPeriod===p){MODELS=MM;MODELS_P=p;MODELS_LABEL=rg.label;modelPage();}
@@ -1294,19 +1324,19 @@ function modelPage(){const main=document.getElementById('sp_main'),pg=document.g
     +'<div class=charts style="max-width:1140px">'
     +(paid?'<a class="card site"><h3>Spend, 14 days</h3><div class=cv>'+usd((line||[]).reduce((a,b)=>a+(b||0),0))+sparkT(line)+'</div></a>':'')
     +'<a class="card site"><h3>Tokens, 14 days</h3><div class=cv>'+tk((tline||[]).reduce((a,b)=>a+(b||0),0))+sparkT(tline)+'</div>'+(r0.src!=='OpenRouter'?'<span class=muted style="font-size:12px">all '+r0.src+' models together</span>':'')+'</a></div>'
-    +(r0.src==='vLLM'||r0.src==='Ollama'?'<div id=sp_rt><h2>How it runs</h2><p class=muted>loading&hellip;</p></div>':'')
+    +(r0.src==='vLLM'||r0.src==='Ollama'||r0.src==='Speech'?'<div id=sp_rt><h2>How it runs</h2><p class=muted>loading&hellip;</p></div>':'')
     +'<h2>By key</h2>'+tbl('Key',split(r=>r.key))
     +'<h2>'+(paid?'Served by (OpenRouter provider)':'Served by')+'</h2>'+tbl('Provider',split(r=>r.by))
     +'<h2>The model</h2><table class=ctbl><tbody>'
     +kv('Weights',w==='open'?'open (published on Hugging Face)':(w==='proprietary'?'proprietary: size and architecture not published':'not known'))
     +(F?kv('Parameters',F.p?ap+sz(F.p)+' total'+(F.a?', '+F.a+' B active per token':''):'&mdash;')
-      +kv('Architecture',F.arch==='MoE'?'Mixture of experts (MoE)'+(F.e?': '+hx(F.e):'')+'. A router sends each token to a few experts, so it computes like a smaller model but must hold all of it in memory.':(F.arch==='dense'?'Dense: every parameter works on every token.':'&mdash;'))
+      +kv('Architecture',F.arch&&F.arch!=='MoE'&&F.arch!=='dense'?hx(F.arch)+(F.e?': '+hx(F.e):''):F.arch==='MoE'?'Mixture of experts (MoE)'+(F.e?': '+hx(F.e):'')+'. A router sends each token to a few experts, so it computes like a smaller model but must hold all of it in memory.':(F.arch==='dense'?'Dense: every parameter works on every token.':'&mdash;'))
       +kv('Context',F.ctx?F.ctx.toLocaleString()+' tokens':'&mdash;')
       +kv('Memory to load the weights',m?ap+gb(m[0])+' at 4-bit &middot; '+ap+gb(m[1])+' at 8-bit &middot; '+ap+gb(Math.ceil(F.p*2))+' at 16-bit (BF16); the KV cache for the context comes on top':'&mdash;')
       +kv('Source',hx(F.src)+', checked 2026-11-03'+(F.approx?'. Stored as packed integer weights, so the count is not confirmed':''))
      :(w==='open'?kv('Size','not in the facts table yet'):''))
     +'</tbody></table>';
-  if(r0.src==='vLLM'||r0.src==='Ollama')runtime(r0,MODEL_ID,spendPeriod);}
+  if(r0.src==='vLLM'||r0.src==='Ollama'||r0.src==='Speech')runtime(r0,MODEL_ID,spendPeriod);}
 // ---- How a local model runs, over the selected period (same completed UTC days as everything else).
 // vLLM: its own /metrics (latency histograms, KV and prefix cache, queue) and DCGM for the GPU.
 // Ollama: no metrics endpoint; its llama.cpp timing lines in VictoriaLogs, per machine, no model name.
@@ -1325,6 +1355,7 @@ async function runtime(r0,id,per){
   const crd=(t,v,l,sub)=>'<a class="card site"><h3>'+t+'</h3><div class=cv>'+v+(l?sparkT(l.length>=14?l:l):'')+'</div>'+(sub?'<span class=muted style="font-size:12px">'+sub+'</span>':'')+'</a>';
   const grp=(t,cards)=>'<h3 style="margin:14px 0 6px;font-size:13px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em">'+t+'</h3><div class=charts style="max-width:1140px">'+cards.join('')+'</div>';
   if(r0.src==='vLLM'){
+    const [CT,PORT]=DGX_CT[r0.full]||['?','?'];
     const F='{instance="dgx-llm-1",model_name="'+r0.full+'"}',G='{instance="dgx-llm-1"}',busy='and on() sum(vllm:num_requests_running'+F+') > 0';
     const hq=(qq,m,w)=>'histogram_quantile('+qq+', sum by (le) (increase(vllm:'+m+'_bucket'+F+(w||W)+')))';
     const ratio=(a,b,w)=>'sum(increase(vllm:'+a+F+(w||W)+')) / sum(increase(vllm:'+b+F+(w||W)+'))';
@@ -1342,7 +1373,7 @@ async function runtime(r0,id,per){
       one('max_over_time(max(DCGM_FI_DEV_POWER_USAGE'+G+')'+SQ+')'),one('max_over_time(max(DCGM_FI_DEV_GPU_TEMP'+G+')'+SQ+')'),
       one('sum(increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION'+G+W+')) / 3.6e9'),
       one('sum(increase(vllm:prompt_tokens_total'+F+W+')) + sum(increase(vllm:generation_tokens_total'+F+W+'))'),
-      one('sum(dgx_gpu_process_memory_bytes{instance="dgx-llm-1",container="vllm-prod-vllm"})'),q('vllm:cache_config_info'+G)]);
+      one('sum(dgx_gpu_process_memory_bytes{instance="dgx-llm-1",container="'+CT+'"})'),q('vllm:cache_config_info{instance="dgx-llm-1",job="'+(CT==='vllm-translate'?'vllm-translate':'vllm-autoresearch')+'"}')]);
     const [lReq,lTtft,lE2e,lTps,lKv,lGpu,lPw,lHit]=await Promise.all([
       line('sum(increase(vllm:request_success_total'+F+S+'))'),line(hq(0.95,'time_to_first_token_seconds',S)),line(hq(0.95,'e2e_request_latency_seconds',S)),
       line('quantile_over_time(0.5, (sum(rate(vllm:generation_tokens_total'+F+'[5m])) > 1)['+step+'s:5m])'),line('max_over_time(max(vllm:kv_cache_usage_perc'+F+')['+step+'s:5m])'),
@@ -1358,7 +1389,7 @@ async function runtime(r0,id,per){
     if(len)notes.push(nm(len)+' request'+(len>1?'s':'')+' ('+(len/req*100).toFixed(1)+'%) stopped at max_tokens, so their answers are cut off; the caller sets the limit.');
     if(wait!=null)notes.push(wait<0.02?'Requests almost never queued (a wait in '+pc(wait)+' of busy 5-minute windows, at most '+nm(waitmax)+' waiting; up to '+nm(run)+' ran at once): capacity is not the limit.':'Requests waited in '+pc(wait)+' of busy 5-minute windows (at most '+nm(waitmax)+' waiting): at those times the server is the bottleneck.');
     if(e2e95!=null&&itl50)notes.push('One stream decodes at about '+Math.round(1/itl50)+' tokens/s (inter-token '+sec(itl50)+'), so end-to-end time is mostly output length: 95th percentile '+sec(e2e95)+' for '+tk(gout||0)+' output tokens on average.');
-    b.innerHTML='<h2>How it runs &middot; vLLM on the DGX</h2><p class=sec>'+hx(rg.label)+'; lines '+per_+'. Container vllm-prod-vllm, port 8003. GPU figures are the whole GPU (DCGM), shared with the other DGX services.</p>'
+    b.innerHTML='<h2>How it runs &middot; vLLM on the DGX</h2><p class=sec>'+hx(rg.label)+'; lines '+per_+'. Container '+CT+', port '+PORT+'. GPU figures are the whole GPU (DCGM), shared with the other DGX services.</p>'
       +grp('Traffic',[crd('Requests',Math.round(req).toLocaleString(),lReq,len?nm(len)+' cut at max_tokens':'none cut at max_tokens'),
         crd('Prompt / request',tk(pin||0),null,'95th percentile '+tk(pin95||0)),crd('Output / request',tk(gout||0),null,'mean'),crd('Most at once',nm(run),null,'running; '+nm(waitmax)+' waiting at most')])
       +grp('Latency',[crd('First token, p95',sec(ttft95),lTtft,'median '+sec(ttft50)),crd('End to end, p95',sec(e2e95),lE2e,'median '+sec(e2e50)),
@@ -1368,8 +1399,40 @@ async function runtime(r0,id,per){
       +grp('GPU (NVIDIA GB10, whole GPU)',[crd('GPU busy while serving',gpu==null?'&mdash;':Math.round(gpu)+'%',lGpu,'average utilisation while requests run'),
         crd('Power',pw==null?'&mdash;':Math.round(pw)+' W',lPw,'while serving; peak '+(pwmax==null?'?':Math.round(pwmax))+' W, max '+(temp==null?'?':Math.round(temp))+' &deg;C'),
         crd('Energy',kwh==null?'&mdash;':kwh.toFixed(1)+' kWh',null,kwh&&toks?'whole GPU; '+(kwh*1000/(toks/1e6)).toFixed(0)+' Wh per 1M tokens of this model, upper bound':'whole GPU'),
-        crd('GPU memory',mem?(mem/1e9).toFixed(1)+' GB':'&mdash;',null,'vllm-prod-vllm now (weights + KV cache)')])
+        crd('GPU memory',mem?(mem/1e9).toFixed(1)+' GB':'&mdash;',null,CT+' now (weights + KV cache)')])
       +(notes.length?'<h3 style="margin:14px 0 6px;font-size:13px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em">What the numbers point at</h3><ul style="max-width:900px;line-height:1.55;color:#c8c8e0;font-size:13px;padding-left:18px">'+notes.map(x=>'<li>'+x+'</li>').join('')+'</ul>':'');
+    return;}
+  if(r0.src==='Speech'){
+    const [CT,PORT]=DGX_CT[r0.full]||['?','?'],JOB={pyannote:['pyannote-app','/v1/diarize'],moss:['moss-app','/v1/transcribe']}[CT];
+    const S='['+step+'s]',N='{instance="dgx-llm-1",name="'+CT+'"}';
+    const common=[one('sum(dgx_gpu_process_memory_bytes{instance="dgx-llm-1",container="'+CT+'"})'),one('max_over_time(max(container_memory_working_set_bytes'+N+')'+SQ+')'),
+      one('sum(rate(container_cpu_usage_seconds_total'+N+W+'))'),line('max_over_time(max(container_memory_working_set_bytes'+N+')['+step+'s:5m])')];
+    let cards,head;
+    if(JOB){const H='{job="'+JOB[0]+'",handler="'+JOB[1]+'"}',hq=(qq,w)=>'histogram_quantile('+qq+', sum by (le) (increase(http_request_duration_seconds_bucket'+H+(w||W)+')))';
+      const mean=w=>'sum(increase(http_request_duration_seconds_sum'+H+w+')) / sum(increase(http_request_duration_seconds_count'+H+w+'))';
+      const [req,err,avg,busy,lReq,lAvg,gm,cm,cpu,lMem]=await Promise.all([one('sum(increase(http_requests_total'+H+W+'))'),one('sum(increase(http_requests_total{job="'+JOB[0]+'",handler="'+JOB[1]+'",status=~"5.."}'+W+'))'),
+        one(mean(W)),one('sum(increase(http_request_duration_seconds_sum'+H+W+'))'),line('sum(increase(http_requests_total'+H+S+'))'),line(mean(S)),...common]);
+      head='its own /metrics (requests and their duration, per endpoint '+JOB[1]+')';
+      cards=grp('Traffic and latency',[crd('Requests',Math.round(req||0).toLocaleString(),lReq,(err?nm(err)+' failed (5xx)':'none failed')),crd('Time per request',sec(avg),lAvg,'mean, the whole file end to end; '+(busy?(busy/3600).toFixed(1)+' h busy in the period':''))])
+        +grp('Resources',[crd('GPU memory',gm?(gm/1e9).toFixed(1)+' GB':'&mdash;',null,CT+' now'),crd('Container memory',cm?(cm/1e9).toFixed(1)+' GB':'&mdash;',lMem,'peak in the period (RAM)'),
+          crd('CPU',cpu==null?'&mdash;':(cpu).toFixed(2)+' cores',null,'average over the period')]);}
+    else{// whisper: log lines
+      const lq2=async(expr,type)=>{try{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+          body:JSON.stringify({queries:[{refId:'A',datasource:{uid:'victorialogs'},expr,queryType:type||'stats',step:step+'s'}],from:String(start*1000),to:String(end*1000)})})).json();
+        const o={};((r.results.A||{}).frames||[]).forEach(f=>{const l=f.schema.fields[1].labels||{},vs=f.data.values;o[l.__name__]=type==='statsRange'?{t:vs[0],v:vs[1]}:+vs[1][vs[1].length-1];});return o;}catch(x){return {};}};
+      const AU=WHISPER_AUDIO;
+      const [a,rq,rl,al,err,gm,cm,cpu,lMem]=await Promise.all([lq2(AU+' | stats count() as n, sum(sec) as sec, quantile(0.5, sec) as p50, quantile(0.95, sec) as p95'),
+        lq2('container:"faster-whisper" "POST /v1/audio/transcriptions" | stats count() as n'),lq2('container:"faster-whisper" "POST /v1/audio/transcriptions" | stats count() as n','statsRange'),
+        lq2(AU+' | stats sum(sec) as sec','statsRange'),lq2('container:"faster-whisper" "POST /v1/audio/transcriptions" -"200 OK" | stats count() as n'),...common]);
+      const toLine=o=>{if(!o)return null;const v=Array(n).fill(null);o.t.forEach((t,i)=>{const k=Math.floor((t/1000-start)/step);if(k>=0&&k<n)v[k]=+o.v[i];});return v;};
+      const mm=v=>v==null?'&mdash;':(v>=3600?(v/3600).toFixed(1)+' h':(v>=60?Math.round(v/60)+' min':Math.round(v)+' s'));
+      head='its log lines (faster-whisper serves no /metrics): each request and the length of its audio';
+      cards=grp('Traffic',[crd('Requests',Math.round(rq.n||0).toLocaleString(),toLine(rl.n),(err.n?nm(err.n)+' not 200 OK':'all 200 OK')),
+          crd('Audio transcribed',mm(a.sec),toLine(al.sec),'median clip '+mm(a.p50)+', 95th percentile '+mm(a.p95))])
+        +grp('Resources',[crd('GPU memory',gm?(gm/1e9).toFixed(1)+' GB':'&mdash;',null,CT+' now'),crd('Container memory',cm?(cm/1e9).toFixed(1)+' GB':'&mdash;',lMem,'peak in the period (RAM)'),
+          crd('CPU',cpu==null?'&mdash;':(cpu).toFixed(2)+' cores',null,'average over the period')]);}
+    const b=box();if(!b)return;
+    b.innerHTML='<h2>How it runs &middot; '+hx(CT)+' on the DGX</h2><p class=sec>'+hx(rg.label)+'; lines '+per_+'. Port '+PORT+'. From '+head+', cAdvisor (container) and the GPU process list.</p>'+cards;
     return;}
   // Ollama: three per-machine stats queries over the period's log lines
   const lq=async(expr,type)=>{try{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},

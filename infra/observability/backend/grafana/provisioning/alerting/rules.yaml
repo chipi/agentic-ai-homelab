@@ -73,7 +73,7 @@ groups:
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min by (job, instance) (up{job!~"vllm|vllm-autoresearch|ollama|pyannote-app|moss-app"}) or min by (job, instance) (max_over_time(up{job=~"pyannote-app|moss-app"}[15m]))'
+              expr: 'min by (job, instance) (up{job!~"vllm|vllm-autoresearch|vllm-translate|ollama|pyannote-app|moss-app"}) or min by (job, instance) (max_over_time(up{job=~"pyannote-app|moss-app"}[15m]))'
               instant: true
               queryType: instant
           - refId: threshold

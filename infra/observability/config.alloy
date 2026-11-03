@@ -197,6 +197,16 @@ prometheus.scrape "vllm_autoresearch" {
   scrape_interval = "15s"
 }
 
+// ---------- LLM SERVING: translate vLLM on port 8005 ----------
+// TranslateGemma-12B (chipi/infra infra/ai/vllm/translate). Runs beside prod-vllm in prod mode
+// only; gpu-mode-swap stops it in the other modes, so up=0 there is expected.
+prometheus.scrape "vllm_translate" {
+  targets         = [{ __address__ = "localhost:8005", instance = coalesce(sys.env("HOMELAB_INSTANCE"), "homelab-1") }]
+  forward_to      = [prometheus.remote_write.sink.receiver]
+  job_name        = "vllm-translate"
+  scrape_interval = "15s"
+}
+
 // ---------- Optional: project FastAPI servers with prometheus_client wired in ----------
 // Uncomment + adjust ports/services after wiring prometheus_client into your app.
 // prometheus.scrape "fastapi" {
