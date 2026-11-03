@@ -20,16 +20,16 @@ D=~/.claude/skills/infra-drift/scripts/drift.py
 R=~/.claude/skills/host-run/scripts/run.sh
 
 $R homelab $D --checkout '~/agentic-ai-homelab'
-$R dgx     $D --checkout /home/ops/agentic-ai-homelab --as ops --allow-unpinned librechat-api
+$R dgx     $D --checkout /home/ops/agentic-ai-homelab --as ops
 # --checkout repeats: one run covers every checkout on the host (homelab + chipi/infra)
 $R homelab $D --checkout '~/agentic-ai-homelab' --checkout '~/chipi-infra'
-$R dgx     $D --checkout /home/ops/agentic-ai-homelab --checkout /home/ops/chipi-infra --as ops --allow-unpinned librechat-api
+$R dgx     $D --checkout /home/ops/agentic-ai-homelab --checkout /home/ops/chipi-infra --as ops
 ```
 
 - `--as USER`: git and compose run as the checkout's owner. On the DGX that's `ops`, which owns
   the stacks and their `.env` files.
-- `--allow-unpinned a,b`: containers the operator has decided may float. `librechat-api` is
-  being evaluated on `:latest` (2026-10-17). Allowed containers are listed, not counted.
+- `--allow-unpinned a,b`: containers the operator has decided may float. Allowed containers are
+  listed, not counted. (`librechat-api` was allowed until the DGX LibreChat was retired, 2026-11-03.)
 
 It's read-only: `git fetch` plus `docker ps`, `inspect` and `compose config`. It ends with
 `DRIFT: N finding(s)`, exit 1 if N > 0.

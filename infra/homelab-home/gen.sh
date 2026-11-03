@@ -730,7 +730,6 @@ const SVCS={
   ['Speech','Speaches',['faster-whisper'],[],'whisper'],
   ['Speech','Diarization',['pyannote'],[],'diarization'],
   ['Speech','MOSS',['moss'],[],'moss'],
-  ['Apps','LibreChat',['librechat-api','librechat-mongodb','librechat-meilisearch'],[]],
   ['Collectors','Collectors',['alloy','cadvisor','dcgm-exporter'],[],'cadvisor']]};
 const SVCLAMP={},SVCCTR={};
 async function services(){

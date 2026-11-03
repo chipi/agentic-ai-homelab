@@ -16,8 +16,8 @@ comes up. A go for one step does not cover the next.
 
 | # | Step | Check |
 |---|---|---|
-| 0.1 | Retire the leftover LibreChat on the DGX: stop its containers, keep its data dir until confirmed unneeded, remove its row from the hub (`gen.sh`, the `Apps` list). **(go)**: a DGX change | `docker ps` on the DGX shows no `librechat-*`; the hub's DGX lamps stay green |
-| 0.2 | Check whether the OpenAI / Anthropic / Google keys named in its `.env` are live; rotate the live ones. **(go)** | each key listed as live or dead; live ones rotated |
+| 0.1 | ~~Retire the leftover LibreChat on the DGX~~ — **done 2026-11-03**: no API requests in 7 days, no connections; its database held 0 users, 0 keys, 0 conversations; `compose down` removed the containers and network; the folder `/home/ops/agentic-ai-homelab/infra/librechat` deleted (operator: "like it was never there"); its hub row, `.gitignore` block and `infra-drift` allowance removed. Left: its anonymous MongoDB volume and three images (~2.7 GB), unused, pending the operator's go | `docker ps -a` on the DGX shows no `librechat-*`; the folder is gone; the ops checkout is clean |
+| 0.2 | ~~Check its provider keys~~ — **done 2026-11-03**: none stored. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` and `GOOGLE_KEY` were unset or `user_provided`, and the database's `keys` collection was empty, so nothing to rotate | — |
 | 0.3 | ~~The briefing's push channel~~: Home Assistant's companion app, on the operator's phone (confirmed 2026-11-03). The briefing job calls HA's notify service for that device with a token kept on the mini | — |
 | 0.4 | Off the critical path: the X3's GPU memory to 128 GB (the operator, with a restart): both the GTT size and `ttm.pages_limit` | `mem_info_gtt_total`, `/sys/module/ttm/parameters/pages_limit` and Ollama's `library=ROCm total=` all show the new size |
 
