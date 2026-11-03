@@ -32,7 +32,7 @@
   }
 
   // Boxes: a collector is fresh under 3 minutes, lagging after, gone when no sample comes back.
-  const BOX_SIGNAL = { mini: 'mini_cpu_used_percent', dgx: 'DCGM_FI_DEV_GPU_TEMP', prod: 'node_load1{instance="prod-podcast"}' };
+  const BOX_SIGNAL = { mini: 'mini_cpu_used_percent', dgx: 'DCGM_FI_DEV_GPU_TEMP', x3: 'node_load1{instance="x3"}', prod: 'node_load1{instance="prod-podcast"}' };
   async function boxes(src) {
     const out = {};
     for (const [box, e] of Object.entries(BOX_SIGNAL)) {

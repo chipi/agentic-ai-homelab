@@ -34,8 +34,9 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('sites: no probe data is stale', s.state === 'stale' && s.total === 0, s);
 
   // boxes
-  const b = await HS.boxes(src([['mini_cpu_used_percent', [vec(5, {}, NOW - 30)]], ['DCGM_FI_DEV_GPU_TEMP', [vec(40, {}, NOW - 400)]]]));
+  const b = await HS.boxes(src([['mini_cpu_used_percent', [vec(5, {}, NOW - 30)]], ['DCGM_FI_DEV_GPU_TEMP', [vec(40, {}, NOW - 400)]], ['node_load1{instance="x3"}', [vec(1, {}, NOW - 60)]]]));
   check('boxes: 30 s old is up, 400 s old is stale, none is down', b.mini.state === 'up' && b.dgx.state === 'stale' && b.prod.state === 'down', b);
+  check('boxes: the X3 reads its own collector', b.x3.state === 'up' && b.x3.ageSeconds === 60, b.x3);
 
   // podcast
   const ph = (tsAgo, agg, checks) => [

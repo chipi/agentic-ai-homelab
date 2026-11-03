@@ -27,6 +27,7 @@ DASH_GPU=$G/d/gpu-dcgm/gpu-e28094-dcgm
 DASH_DGX=$G/d/dgx-services/dgx-e28094-services
 # GPU dashboards have no host CPU/disk/IO/net panels; Node Exporter Full does, pinned to the DGX.
 DASH_DGXHOST="$G/d/rYdddlPWk/node-exporter-full?var-job=integrations%2Funix&var-nodename=spark-2c14&var-node=dgx-llm-1"
+DASH_X3="$G/d/rYdddlPWk/node-exporter-full?var-job=integrations%2Funix&var-node=x3"
 DASH_CAD=$G/d/containers-cadvisor/containers-e28094-cadvisor
 DASH_PROD=$G/d/prod-infra-host-overview/host-overview
 DASH_PCON=$G/d/prod-infra-containers/containers
@@ -140,6 +141,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <a href="#hosts/prod" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a>
   <a href="#hosts/mini" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a>
   <a href="#hosts/dgx" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a>
+  <a href="#hosts/x3" target=_self><span class="dot stale" data-dot=st_x3></span>X3</a>
   <a href="#hosts/delivery" target=_self><span class="dot stale" data-dot=st_delivery></span>Delivery</a>
   <a href="#fleets" target=_self>Needs you <b data-text=f_inbox>&hellip;</b></a>
   <a href="#spend" target=_self>Credit left <b id=ov_credit_s>&hellip;</b></a>
@@ -263,7 +265,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 </section>
 <section class=tab id=t-hosts>
 <nav class=subtabs>
-  <a href="#hosts/prod" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a><a href="#hosts/mini" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a><a href="#hosts/dgx" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a><a href="#hosts/delivery" target=_self><span class="dot stale" data-dot=st_delivery></span>Delivery</a>
+  <a href="#hosts/prod" target=_self><span class="dot stale" data-dot=st_prod></span>Prod box</a><a href="#hosts/mini" target=_self><span class="dot stale" data-dot=st_mini></span>Mac mini</a><a href="#hosts/dgx" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a><a href="#hosts/x3" target=_self><span class="dot stale" data-dot=st_x3></span>X3</a><a href="#hosts/delivery" target=_self><span class="dot stale" data-dot=st_delivery></span>Delivery</a>
 </nav>
 <div class=sub data-sub=delivery style="margin:0 0 22px">
   <h2><span class="dot stale" id=st_delivery></span><a href="$DASH_DELIVERY">Delivery &rarr;</a></h2>
@@ -345,6 +347,22 @@ dsvc "dcgm"           "9400"  "GPU exporter"  "$DASH_GPU"
 cat <<MID2
   </tbody></table>
   </details>
+</div>
+<div class="col sub" data-sub=x3>
+  <h2><span class="dot stale" id=st_x3></span><a href="$DASH_X3">X3 &middot; omarchy (GMKtec EVO-X3) &rarr;</a></h2>
+  <div id=x3row class=sysrow>&hellip;</div>
+  <div class=charts>
+    <a class=card href="$DASH_X3"><h3>CPU</h3><div id=x_cpu>&hellip;</div></a>
+    <a class=card href="$DASH_X3"><h3>Memory</h3><div id=x_mem>&hellip;</div></a>
+    <a class=card href="$DASH_X3"><h3>GPU busy</h3><div id=x_gpu>&hellip;</div></a>
+    <a class=card href="$DASH_X3"><h3>GPU memory</h3><div id=x_gtt>&hellip;</div></a>
+  </div>
+  <div class=charts>
+    <a class=card href="$DASH_X3"><h3>Disk</h3><div id=x_disk>&hellip;</div></a>
+    <a class=card href="$DASH_X3"><h3>Disk IO</h3><div id=x_io>&hellip;</div></a>
+    <a class=card href="$DASH_X3"><h3>Network</h3><div id=x_net>&hellip;</div></a>
+  </div>
+  <p class=sec>The operator's workstation; also runs the eval harness's Ollama and, from RFC-0008 phase 4, the local assistant. No container inventory from this box yet.</p>
 </div>
 <div class="col sub" data-sub=prod>
   <h2><span class="dot stale" id=st_prod></span><a href="$DASH_PROD">Production &middot; prod-podcast &rarr;</a></h2>
@@ -458,6 +476,23 @@ async function dgx(){
   const mem=await g1('sum(container_memory_working_set_bytes{instance="dgx-llm-1",name!=""})');
   const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(dr1?dr1[1]:'0')+'/'+(dt1?dt1[1]:'&mdash;')+'</b> running &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b> in containers';
   ctable('dgxctr','dgx');
+}
+async function x3(){
+  const X='{instance="x3"}',L=x=>x?(+x[1]).toFixed(2):'&mdash;',GB=v=>(v/1073741824).toFixed(0)+' GB';
+  draw('x_cpu','100-avg(rate(node_cpu_seconds_total{instance="x3",mode="idle"}[5m]))*100',x=>x.toFixed(0)+'%',100);
+  {const mt=await g1('node_memory_MemTotal_bytes'+X),gb=mt?GB(+mt[1]):'?';
+   draw('x_mem','100-node_memory_MemAvailable_bytes'+X+'/node_memory_MemTotal_bytes'+X+'*100',x=>x.toFixed(0)+'% <span class=muted>/ '+gb+'</span>',100);}
+  draw('x_gpu','max(node_drm_gpu_busy_percent'+X+')',x=>x.toFixed(0)+'%',100);
+  {const gs=await g1('max(node_drm_memory_gtt_size_bytes'+X+')');
+   draw('x_gtt','max(node_drm_memory_gtt_used_bytes'+X+')',x=>(x/1073741824).toFixed(1)+' GB'+(gs?' <span class=muted>/ '+GB(+gs[1])+'</span>':''));}
+  {const pu=await g1('100*(1-node_filesystem_avail_bytes{instance="x3",mountpoint="/"}/node_filesystem_size_bytes{instance="x3",mountpoint="/"})');
+   draw('x_disk','node_filesystem_avail_bytes{instance="x3",mountpoint="/"}',x=>GB(x)+(pu?' <span class=muted>'+(+pu[1]).toFixed(0)+'% used</span>':''));}
+  draw('x_io','sum(rate(node_disk_read_bytes_total'+X+'[2m]))+sum(rate(node_disk_written_bytes_total'+X+'[2m]))',x=>(x/1048576).toFixed(1)+' MB/s');
+  draw('x_net','sum(rate(node_network_receive_bytes_total'+X+'[2m]))+sum(rate(node_network_transmit_bytes_total'+X+'[2m]))',x=>(x/1048576).toFixed(2)+' MB/s');
+  const l1=await g1('node_load1'+X),l5=await g1('node_load5'+X),l15=await g1('node_load15'+X);
+  const sw=await g1('node_memory_SwapTotal_bytes'+X+'-node_memory_SwapFree_bytes'+X),ps=await g1('rate(node_pressure_memory_waiting_seconds_total'+X+'[5m])*100');
+  const up=await g1('node_time_seconds'+X+'-node_boot_time_seconds'+X);
+  const r=document.getElementById('x3row');if(r)r.innerHTML='Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Swap used <b>'+(sw?GB(+sw[1]):'&mdash;')+'</b> &middot; Memory pressure <b>'+(ps?(+ps[1]).toFixed(1)+'%':'&mdash;')+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
 }
 async function prod(){
   const P='{instance="prod-podcast"}';
@@ -648,8 +683,8 @@ async function alerts(){
 async function fresh(){
   // box lamps from HubStatus.boxes: green under 3 minutes since the last sample, grey lagging, red gone
   const B=await HubStatus.boxes(HS),age=b=>b.ageSeconds==null?'no data':b.ageSeconds+'s ago';
-  const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(B.mini)+' &middot; dgx '+age(B.dgx)+' &middot; prod '+age(B.prod);
-  for(const [id,b] of [['st_mini',B.mini],['st_dgx',B.dgx],['st_prod',B.prod]]){const e=document.getElementById(id);if(!e)continue;
+  const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(B.mini)+' &middot; dgx '+age(B.dgx)+' &middot; x3 '+age(B.x3)+' &middot; prod '+age(B.prod);
+  for(const [id,b] of [['st_mini',B.mini],['st_dgx',B.dgx],['st_x3',B.x3],['st_prod',B.prod]]){const e=document.getElementById(id);if(!e)continue;
     e.className='dot '+b.state;e.title=b.ageSeconds!=null?b.ageSeconds+'s since last sample':'no samples >5m — box dark?';}}
 async function podcastHealth(){
   // prod-ops-health traffic lights, decided in HubStatus.podcast (staleness overrides green).
@@ -1269,7 +1304,7 @@ document.getElementById('sp_mven')?.addEventListener('change',modelFilter);
 document.getElementById('sp_mq')?.addEventListener('input',modelFilter);
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
-const TABS=['overview','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','delivery'];
+const TABS=['overview','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','x3','delivery'];
 function showTab(){const [h,sb,mk,...mr]=location.hash.slice(1).split('/'),t=TABS.includes(h)?h:'overview',u=SUBS.includes(sb)?sb:'prod';
   MODEL_ID=t==='spend'&&mk==='m'?decodeURIComponent(mr.join('/')):'';
   document.querySelectorAll('section.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
@@ -1497,7 +1532,7 @@ async function overview(){
   const low=C.low;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
+function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
