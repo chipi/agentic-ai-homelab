@@ -88,6 +88,11 @@ _OPERATIONAL_REASON = {
     "upstream-rate-limit": ("operational state (upstream-rate-limit) — the provider's shared "
                             "pool refused upstream of us; nothing in our code or config to fix "
                             "(homelab #17). Acknowledged, not ticketed."),
+    "assistant-failover": ("operational state (assistant-failover) — LiteLLM's call to the X3 "
+                           "assistant failed (stopped, hung or unreachable) and the `assistant` "
+                           "alias failed over to OpenRouter, so the caller got its answer "
+                           "(RFC-0008). An outage of the X3 is the x3-assistant-down alert's job. "
+                           "Acknowledged, not ticketed."),
 }
 
 
@@ -103,6 +108,11 @@ def operational_class(signal):
     meta = ((signal.get("raw") or {}).get("metadata") or {}).get("value", "")
     if UPSTREAM_LIMIT_MARKER.search(hay + " " + str(meta)):
         return "upstream-rate-limit"
+    # The latest event names the X3 assistant and nothing else (sources.attach_backend): a call
+    # the `assistant` alias failed over. Any other backend, or none found, reaches the triager.
+    if (signal.get("labels") or {}).get("project") == "litellm" and \
+            (signal.get("raw") or {}).get("_backends") == [config.ASSISTANT_BACKEND]:
+        return "assistant-failover"
     return None
 
 

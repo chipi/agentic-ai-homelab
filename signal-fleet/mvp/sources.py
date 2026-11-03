@@ -4,6 +4,7 @@ The first slice reacts to one signal: the *orrery launch-data-stale* Grafana
 alert. `firing_alerts()` is the general poll; `orrery_staleness()` picks the one.
 """
 import hashlib
+import json
 import re
 import time
 
@@ -136,6 +137,30 @@ def orrery_staleness():
 def _gt(path):
     return get_json(f"{config.GLITCHTIP_URL}/api/0{path}",
                     headers={"Authorization": f"Bearer {config.GLITCHTIP_TOKEN}"})
+
+
+# host:port of a backend, as LiteLLM's events name it: "('100.92.54.65', 11435)" in a refused
+# connection, "http://100.92.54.65:11435/v1/..." in a timed-out request.
+_BACKEND_RX = re.compile(r"\b(\d{1,3}(?:\.\d{1,3}){3})(?:', |:)(\d{2,5})\b")
+
+
+def event_backends(event):
+    """The backends (host:port) a GlitchTip event names anywhere in its entries, sorted. The whole
+    event, not only its exceptions: any second backend keeps the signal with the triager."""
+    return sorted({f"{h}:{p}" for h, p in _BACKEND_RX.findall(json.dumps((event or {}).get("entries") or []))})
+
+
+def attach_backend(sig):
+    """For a LiteLLM issue, record the backends its latest event names (raw._backends), so the
+    operational gate can tell a failed-over call to the X3 assistant from a gateway error. The
+    issue list carries only the generic message ("Connection error.", "Request timed out.")."""
+    if (sig.get("labels") or {}).get("project") != "litellm" or not sig.get("issue_id"):
+        return sig
+    try:
+        sig["raw"]["_backends"] = event_backends(_gt(f"/issues/{sig['issue_id']}/events/latest/"))
+    except Exception as e:  # a missing event must not stop the cycle; the triager decides then
+        print(f"  [backend lookup failed] {sig.get('fingerprint')}: {str(e)[:100]}")
+    return sig
 
 
 def glitchtip_unresolved(limit=10):

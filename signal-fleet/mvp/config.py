@@ -37,6 +37,8 @@ GLITCHTIP_URL = env("SF_GLITCHTIP_URL", f"http://{HOST}:8090")
 GLITCHTIP_TOKEN = env("GLITCHTIP_TOKEN")                   # signal-fleet token (read-only)
 GLITCHTIP_WRITE_TOKEN = env("GLITCHTIP_WRITE_TOKEN")       # event:write — sync + notes (#100)
 GLITCHTIP_SYNC = env("SF_GLITCHTIP_SYNC", "") == "1"       # mirror GitHub closes into GlitchTip
+# The X3 assistant behind LiteLLM's `assistant` alias (RFC-0008): its failures fail over to OpenRouter.
+ASSISTANT_BACKEND = env("SF_ASSISTANT_BACKEND", "100.92.54.65:11435")
 
 # triager (OpenRouter — reuse the bug-fleet key)
 OPENROUTER_KEY = env("OPENROUTER_API_KEY")

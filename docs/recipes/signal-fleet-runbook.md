@@ -224,6 +224,7 @@ Since 2026-09-30 every behaviour change has gone through the same loop, and the 
 | `eval_duplicate_follow_replay.py` | a recurrence on an issue closed as a duplicate goes to its canonical issue |
 | `eval_identity_replay.py` | reused GlitchTip short ids are ignored (filing and sync); fatal events never go to a rollup; one provider-auth failure is one issue per project |
 | `eval_promotion_replay.py` | a filed-but-rolled-up signal re-triages on its first recurrence (977 historical recurrences; exactly 12 change) |
+| `eval_assistant_failover_replay.py` | a LiteLLM error whose latest event names only the X3 assistant (`assistant` alias failed over) is dismissed, never ticketed; another backend, two backends, another project or a failed lookup still reach the triager (2026-11-03: #133-#137) |
 | `test_units.py` | unit tests (119 on 2026-10-17) |
 
 Alert-rule changes have their own checks under [`infra/observability/rules-drift/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/observability/rules-drift):

@@ -189,6 +189,7 @@ def run_glitchtip(limit=5, dry_run=True):
                 print(f"  idempotent: {sig['occurrence_id']} -> {prior_occ}; skip")
                 continue
         print(f"--- {sig['alertname'][:60]} (fp {sig['fingerprint']}) ---")
+        sources.attach_backend(sig)    # LiteLLM only: which backend failed (assistant failover)
         disp = _triage_or_defer(sig)   # investigation self-probes (§7.3)
         if disp is None:
             continue

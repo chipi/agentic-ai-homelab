@@ -70,7 +70,8 @@ Test and synthetic signals are suppressed at this stage.
     - cost cap;
     - provider budget / HTTP 402;
     - failed fallbacks;
-    - upstream shared-pool rate limits (`upstream-rate-limit`: OpenRouter 429 with `limit_source=upstream_provider_shared_pool`, operator call on homelab #17).
+    - upstream shared-pool rate limits (`upstream-rate-limit`: OpenRouter 429 with `limit_source=upstream_provider_shared_pool`, operator call on homelab #17);
+    - a call to the X3 assistant that LiteLLM failed over (`assistant-failover`, RFC-0008): a `litellm` issue whose latest event names only the assistant's backend (`config.ASSISTANT_BACKEND`, 100.92.54.65:11435). The orchestrator reads that event just before triage (`sources.attach_backend`).
 
     These are states, not bugs, and they hold even while the triager is down.
 
@@ -226,6 +227,7 @@ These rules came from incidents. Keep them unless the evidence changes.
 10. **A GlitchTip short id is not an identity on its own.** A recreated project restarts the counter, so a ledger row counts only if it was filed after the issue now holding that id was first seen. A manual retire step was forgotten for four projects; the rule needs no step.
 11. **A crash is never a rollup line.** Fatal events skip the low-signal gate, and a signal the fleet decided to file is promoted on its first recurrence. The rollup exists to quiet one-off noise, not to hold bugs the fleet already recognised.
 12. **GitHub decides, GlitchTip follows.** The sync copies the operator's call and never makes one; a merge needs the same error, not just a duplicate link, because an umbrella issue can hold several errors.
+13. **A failover that worked is not an error.** LiteLLM reports every failed deployment call, including the X3 assistant's when the `assistant` alias then answers from OpenRouter; LiteLLM 1.96 has no hook to skip that. So the fleet reads the event: only the X3's address, and nothing else, makes it `assistant-failover`. A second backend, another project or a failed lookup leaves it with the triager. The X3 being down is the `x3-assistant-down` alert's job. On 2026-11-03 the failover tests filed five issues (#133-#137) before this rule.
 
 ## Known gaps (as of 2026-10-17)
 
@@ -242,4 +244,5 @@ These rules came from incidents. Keep them unless the evidence changes.
 | Homelab filesystem series are **pushed twice** to VictoriaMetrics | double storage; hidden by `min by` in rules | not investigated |
 | `~/signal-fleet/fleet.env` | a stale duplicate of `fleet-gateway.env`; fleetd does not load it | delete when convenient |
 | **No way to mute a fragmenting bug** | a bug whose fingerprint keeps changing files new issues; `triage-fleet/muted` only silences one fingerprint, and fuzzy matches never inherit a mute | needs a `muted-class` label (2026-08-28 design, never built) |
+| **`assistant-failover` reads one event** | an issue grouping both X3 failovers and real errors is judged by its latest event only | GlitchTip groups by message, so "Connection error." from the X3 and from another backend share one issue; the latest event decides each time it is triaged. Not seen yet |
 | **Chained-exception ordering is spec-only** | the cause-chain handling (2026-08-27 enhancement #5) was built against the spec; no real chained exception has passed through it yet | re-check when the first real chain appears |

@@ -1443,5 +1443,43 @@ class TestEdgeGate(unittest.TestCase):
         self.assertEqual(d["disposition"], "escalate")
 
 
+class TestAssistantFailover(unittest.TestCase):
+    """RFC-0008: a LiteLLM error whose event names only the X3 assistant is a failed-over call."""
+
+    def _ev(self, text):
+        return {"entries": [{"type": "exception", "data": {"values": [{"type": "X", "value": text}]}}]}
+
+    def _sig(self, project, backends):
+        return {"source": "glitchtip", "alertname": "APIConnectionError: Connection error.", "summary": "",
+                "labels": {"project": project}, "raw": {"_backends": backends}}
+
+    def test_event_backends_both_forms(self):
+        import sources
+        ev = self._ev("Connect call failed ('100.92.54.65', 11435); POST http://100.69.49.126:8003/v1")
+        self.assertEqual(sources.event_backends(ev), ["100.69.49.126:8003", "100.92.54.65:11435"])
+        self.assertEqual(sources.event_backends({}), [])
+
+    def test_gate(self):
+        import triage
+        x3 = triage.config.ASSISTANT_BACKEND
+        self.assertEqual(triage.operational_class(self._sig("litellm", [x3])), "assistant-failover")
+        self.assertIsNone(triage.operational_class(self._sig("litellm", [x3, "100.69.49.126:8003"])))
+        self.assertIsNone(triage.operational_class(self._sig("litellm", [])))
+        self.assertIsNone(triage.operational_class(self._sig("podcast", [x3])))
+
+    def test_attach_backend_reads_litellm_only(self):
+        import sources
+        seen = []
+        old = sources._gt
+        sources._gt = lambda p: seen.append(p) or self._ev("('100.92.54.65', 11435)")
+        try:
+            s = sources.attach_backend({"labels": {"project": "litellm"}, "issue_id": 7, "raw": {}})
+            self.assertEqual(s["raw"]["_backends"], ["100.92.54.65:11435"])
+            sources.attach_backend({"labels": {"project": "podcast"}, "issue_id": 8, "raw": {}})
+            self.assertEqual(seen, ["/issues/7/events/latest/"])
+        finally:
+            sources._gt = old
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
