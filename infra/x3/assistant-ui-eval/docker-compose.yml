@@ -3,6 +3,11 @@
 # assistant-cloud, the capped key assistant-ui-eval) and to Grafana's MCP server (Viewer token).
 # Ports on loopback only; `tailscale serve` publishes them over HTTPS on the tailnet (README).
 # Secrets in .env next to this file (gitignored; see .env.example).
+# o11y: LLM calls are traced in Langfuse by the gateway (project agents, key assistant-ui-eval); the
+# UIs send their own traces to VictoriaTraces (services librechat, open-webui); the X3 collector
+# ships these containers' logs and scrapes LibreChat's and mcp-grafana's /metrics
+# (infra/observability/hosts/x3/config.alloy); Open WebUI pushes its metrics over OTLP.
+# Gateway by its full tailnet name: LibreChat's image (musl) ignores the search domain.
 name: assistant-ui-eval
 
 services:
@@ -30,6 +35,11 @@ services:
       ALLOW_SOCIAL_LOGIN: "false"
       LITELLM_API_KEY: ${LITELLM_API_KEY}
       APP_TITLE: "Homelab assistant (LibreChat, evaluation)"
+      METRICS_SECRET: ${LIBRECHAT_METRICS_SECRET}
+      OTEL_TRACING_ENABLED: "true"
+      OTEL_SERVICE_NAME: librechat
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=eval,host.name=x3
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: https://vtraces.tail6d0ed4.ts.net/insert/opentelemetry/v1/traces
     volumes:
       - ./librechat.yaml:/app/librechat.yaml:ro
 
@@ -63,13 +73,23 @@ services:
       WEBUI_URL: https://omarchy.tail6d0ed4.ts.net:8444
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       ENABLE_OLLAMA_API: "false"
-      OPENAI_API_BASE_URL: http://homelab:4001/v1
+      OPENAI_API_BASE_URL: http://homelab.tail6d0ed4.ts.net:4001/v1
       OPENAI_API_KEY: ${LITELLM_API_KEY}
       ENABLE_SIGNUP: ${OPENWEBUI_ENABLE_SIGNUP:-true}
       DEFAULT_MODELS: assistant-cloud
       ANONYMIZED_TELEMETRY: "false"
       SCARF_NO_ANALYTICS: "true"
       DO_NOT_TRACK: "true"
+      ENABLE_OTEL: "true"
+      ENABLE_OTEL_TRACES: "true"
+      ENABLE_OTEL_METRICS: "true"
+      OTEL_SERVICE_NAME: open-webui
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=eval,host.name=x3
+      OTEL_OTLP_SPAN_EXPORTER: http
+      OTEL_METRICS_OTLP_SPAN_EXPORTER: http
+      OTEL_EXPORTER_OTLP_ENDPOINT: https://vtraces.tail6d0ed4.ts.net/insert/opentelemetry/v1/traces
+      OTEL_METRICS_EXPORTER_OTLP_ENDPOINT: https://vm.tail6d0ed4.ts.net/opentelemetry/v1/metrics
+      OTEL_METRICS_EXPORT_INTERVAL_MILLIS: "30000"
     volumes: [openwebui:/app/backend/data]
 
   mcp-grafana:
@@ -77,7 +97,8 @@ services:
     container_name: assistant-eval-mcp-grafana
     restart: unless-stopped
     mem_limit: 256m
-    command: ["-t", "streamable-http", "--address", "0.0.0.0:8000", "--allowed-hosts", "mcp-grafana:8000", "--usage-stats", "disabled", "--disable-write", "--enabled-tools", "search,datasource,prometheus,alerting,dashboard"]
+    ports: ["127.0.0.1:3082:9090"]
+    command: ["-t", "streamable-http", "--address", "0.0.0.0:8000", "--metrics", "--metrics-address", "0.0.0.0:9090", "--allowed-hosts", "mcp-grafana:8000", "--usage-stats", "disabled", "--disable-write", "--enabled-tools", "search,datasource,prometheus,alerting,dashboard"]
     environment:
       GRAFANA_URL: https://grafana.tail6d0ed4.ts.net
       GRAFANA_ORG_ID: "1"

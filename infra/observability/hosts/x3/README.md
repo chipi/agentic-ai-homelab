@@ -8,9 +8,17 @@ tailnet with the same series names as the DGX (`instance="x3"`, `cluster="workst
 | CPU, memory, memory pressure (PSI) | `prometheus.exporter.unix` (`job="integrations/unix"`) |
 | AMD Strix Halo GPU busy % and VRAM | the exporter's `drm` collector (`node_drm_*`) |
 | Ollama log (loads, offload, per-request `tg = N t/s`) | the long-job file eval-harness runs `ollama serve` under (`job="ollama"`) |
+| Assistant UI evaluation containers' logs (`assistant-*` only) | `loki.source.docker` (`service` = container name) |
+| LibreChat and mcp-grafana metrics | `/metrics` on `127.0.0.1:3080` (bearer secret in `~/.config/assistant-ui-eval/metrics-secret`) and `:3082` (`job="librechat"`, `job="mcp-grafana"`) |
 
-No Ollama metrics exporter here: the `ollama-metrics` sidecar is a container, and the X3 runs no
-Docker. The log carries the model and speed lines.
+The evaluation UIs also send their own traces to VictoriaTraces (services `librechat`,
+`open-webui`), and Open WebUI pushes its metrics over OTLP (label `service.name="open-webui"`);
+see `infra/x3/assistant-ui-eval/docker-compose.yml`. Their LLM calls are traced in Langfuse by
+the gateway (project `agents`, key `assistant-ui-eval`).
+
+No Ollama metrics exporter here: the `ollama-metrics` sidecar is a container, and the X3's
+Docker holds only the operator's dev work and the evaluation stack. The log carries the model
+and speed lines.
 
 ## Install (user level, no root)
 

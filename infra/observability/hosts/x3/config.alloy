@@ -49,6 +49,59 @@ loki.source.file "ollama" {
   forward_to    = [loki.write.sink.receiver]
 }
 
+// The assistant UI evaluation stack (infra/x3/assistant-ui-eval, RFC-0008 phase 3): its containers'
+// logs, LibreChat's /metrics (bearer secret) and mcp-grafana's. Only assistant-* containers: the
+// rest of this box's Docker is the operator's dev work.
+discovery.docker "assistant" {
+  host = "unix:///var/run/docker.sock"
+  filter {
+    name   = "name"
+    values = ["assistant-"]
+  }
+}
+
+discovery.relabel "assistant" {
+  targets = discovery.docker.assistant.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "assistant" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.assistant.output
+  forward_to = [loki.relabel.assistant.receiver]
+}
+
+// service set after the source (target labels key read positions; see the mini's config).
+loki.relabel "assistant" {
+  rule {
+    source_labels = ["container"]
+    target_label  = "service"
+  }
+  forward_to = [loki.write.sink.receiver]
+}
+
+prometheus.scrape "librechat" {
+  targets         = [{ __address__ = "127.0.0.1:3080" }]
+  job_name        = "librechat"
+  scrape_interval = "30s"
+  authorization {
+    type             = "Bearer"
+    credentials_file = "/home/marko/.config/assistant-ui-eval/metrics-secret"
+  }
+  forward_to = [prometheus.relabel.instance.receiver]
+}
+
+prometheus.scrape "mcp_grafana" {
+  targets         = [{ __address__ = "127.0.0.1:3082" }]
+  job_name        = "mcp-grafana"
+  scrape_interval = "30s"
+  forward_to      = [prometheus.relabel.instance.receiver]
+}
+
 loki.write "sink" {
   endpoint {
     url = "https://vlogs.tail6d0ed4.ts.net/insert/loki/api/v1/push"
