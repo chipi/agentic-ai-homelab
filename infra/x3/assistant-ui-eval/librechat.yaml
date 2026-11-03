@@ -3,7 +3,7 @@ version: 1.3.17
 cache: true
 
 interface:
-  customWelcome: "Homelab assistant (evaluation). Model: assistant-cloud through the homelab gateway. Tools: Grafana (read-only)."
+  customWelcome: "Homelab assistant (evaluation). Model: assistant through the homelab gateway. Tools: Grafana (read-only)."
 
 endpoints:
   custom:
@@ -11,10 +11,10 @@ endpoints:
       apiKey: "${LITELLM_API_KEY}"
       baseURL: "http://homelab.tail6d0ed4.ts.net:4001/v1"
       models:
-        default: ["assistant-cloud"]
+        default: ["assistant"]
         fetch: false
       titleConvo: true
-      titleModel: "assistant-cloud"
+      titleModel: "assistant"
       modelDisplayLabel: "Homelab"
 
 # The MCP server is on the stack's internal network: an SSRF exemption for exactly that host and port

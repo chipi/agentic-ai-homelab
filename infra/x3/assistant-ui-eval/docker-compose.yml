@@ -1,6 +1,6 @@
-# RFC-0008 plan phase 3: LibreChat and Open WebUI side by side, on the X3, for a few days, then removed.
-# Throwaway: the chosen UI is set up again on the mini. Both talk to the mini's LiteLLM (model
-# assistant-cloud, the capped key assistant-ui-eval) and to Grafana's MCP server (Viewer token).
+# RFC-0008 plan phase 3: LibreChat and Open WebUI side by side, on the X3, while the operator tests
+# them; then the chosen one moves to the mini. Both talk to the mini's LiteLLM (model `assistant`: the
+# X3 first, OpenRouter as failover; key assistant-ui-eval, `assistant` only) and to Grafana's MCP server.
 # Ports on loopback only; `tailscale serve` publishes them over HTTPS on the tailnet (README).
 # Secrets in .env next to this file (gitignored; see .env.example).
 # o11y: LLM calls are traced in Langfuse by the gateway (project agents, key assistant-ui-eval); the
@@ -76,7 +76,7 @@ services:
       OPENAI_API_BASE_URL: http://homelab.tail6d0ed4.ts.net:4001/v1
       OPENAI_API_KEY: ${LITELLM_API_KEY}
       ENABLE_SIGNUP: ${OPENWEBUI_ENABLE_SIGNUP:-true}
-      DEFAULT_MODELS: assistant-cloud
+      DEFAULT_MODELS: assistant
       ANONYMIZED_TELEMETRY: "false"
       SCARF_NO_ANALYTICS: "true"
       DO_NOT_TRACK: "true"
