@@ -147,15 +147,36 @@ returns data, not HTML.
 | Upgrades | per stack | per stack | Ollama is a hand-installed binary; Omarchy's rolling updates (kernel, Mesa, ROCm) can break it; the README names who upgrades it and how to roll back |
 | Undo | per stack | per stack | `systemctl --user disable --now <unit>`, remove the link, revert the ufw and ACL rules |
 
+**Feasibility test (plan phase 1, 2026-11-03, on the X3).** A throwaway second Ollama on
+`127.0.0.1:11435`, `qwen3:30b-a3b-instruct-2507-q4_K_M` at a 32k context, in a transient systemd
+unit with `MemoryHigh=28G` / `MemoryMax=32G`:
+
+| Measured | Result |
+|---|---|
+| Load | 5.8 s from a warm page cache; 21 GB, 100% on the GPU |
+| Memory cap | **does not see the model**: the unit's `memory.current` stayed under 1 GB while GPU-mapped memory (`mem_info_gtt_used`) rose by 22 GB and system RAM in use from 50 to 70 GB. A systemd cap cannot protect the workstation from the model |
+| 3.3k-token prompt | 1,532 tokens/s prompt processing, **2.2 s to the first word**, 61 tokens/s out |
+| 16.4k-token prompt | 1,032 tokens/s, **15.9 s to the first word**, 47 tokens/s out |
+| With the eval harness loading gpt-oss:120b (65 GB) beside it | the harness's model got the remaining GPU memory only: **37% on the CPU**, 78 s to load; system RAM in use 121 of 124 GB and swap from 16 to 41 GB, so the workstation itself was under pressure. Unloaded at once; RAM recovered (58 GB used) |
+| After that | the assistant answered as before (2.3 s, 61 tokens/s) |
+
+What it decides:
+- **No memory cap on the unit** (it would only cap the small CPU side); the protection is one
+  resident model, a fixed 32k context and the GPU memory limit.
+- **The eval harness and the assistant share one memory pool.** Raising the GPU limit to 128 GB
+  does not add RAM: the assistant's 21 GB plus a 65 GB model plus the desktop and the dev agents
+  already filled 124 GB. **Rule:** before a harness run of a model that does not fit beside the
+  assistant (over ~35 GB), the assistant unit is stopped (the gateway fails over to OpenRouter),
+  and started again after the run.
+- **Prompts stay compact.** At 20k tokens the first word takes ~16 s, so the briefing and the tools
+  send structured summaries (the status file), not raw logs.
+
 Rules that come with it:
 - **One model in version 1** (operator).
-- **Separate from the eval harness, with a rule, not just a port.** Both Ollama instances share
-  one GPU: the harness loading a large model can evict the assistant's, and the assistant's
-  resident model changes the harness's timings. The feasibility test measures it; a written rule
-  follows (e.g. the assistant pauses during a harness run, or memory is split).
-- **The workstation comes first.** A systemd memory cap may not count GPU-mapped model memory
-  (the `dmem` controller here covers only the 1 GiB VRAM); the feasibility test checks it before
-  any cap is relied on.
+- **Separate from the eval harness, with a rule, not just a port:** the rule above (stop the
+  assistant for harness runs of models over ~35 GB). Harness runs of small models can share.
+- **The workstation comes first:** one resident model, 32k context; no systemd memory cap, since
+  the test showed it does not count the model.
 
 ### 2. The model
 

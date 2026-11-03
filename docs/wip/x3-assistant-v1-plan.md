@@ -21,7 +21,13 @@ comes up. A go for one step does not cover the next.
 | 0.3 | ~~The briefing's push channel~~: Home Assistant's companion app, on the operator's phone (confirmed 2026-11-03). The briefing job calls HA's notify service for that device with a token kept on the mini | — |
 | 0.4 | Off the critical path: the X3's GPU memory to 128 GB (the operator, with a restart): both the GTT size and `ttm.pages_limit` | `mem_info_gtt_total`, `/sys/module/ttm/parameters/pages_limit` and Ollama's `library=ROCm total=` all show the new size |
 
-## Phase 1 — feasibility test on the X3 (about an hour) **(go)**
+## Phase 1 — feasibility test on the X3 (about an hour) **(go)** — **done 2026-11-03**
+
+Results and what they decide are in the RFC (section 1, "Feasibility test"): the memory cap does not
+see the model (so no cap; one model and a 32k context instead); 2.2 s to the first word at 3.3k
+tokens, 15.9 s at 16.4k; the eval harness loading a 65 GB model beside the assistant pushed the
+workstation to 121 of 124 GB and into swap, so harness runs of models over ~35 GB stop the
+assistant first. The test unit was removed afterwards.
 
 A throwaway second Ollama on `127.0.0.1:11435` (same binary, same model directory), with
 `qwen3:30b-a3b-instruct-2507-q4_K_M` loaded, in a transient systemd user scope with a memory cap.
@@ -97,7 +103,9 @@ teardown done (no serve config, no ACL rule, the dev engine stopped).
    (it runs from the dev tree today).
 3. `infra/x3/ollama-assistant.service` (systemd user unit), with the settings phase 1 measured:
    port 11435 on the tailnet address, ordered after `tailscaled`, the shared model directory, 32k
-   context, the one model kept loaded, the cap if phase 1 showed it works. **(go)**: a new
+   context, the one model kept loaded, no memory cap (phase 1: it does not count the model). The
+   README states the eval-harness rule (stop the assistant before a harness run of a model over
+   ~35 GB, start it after) and the eval harness's runbook gets the same line. **(go)**: a new
    always-on service on the workstation.
 4. Network: a ufw rule for 11435 on `tailscale0` **(go)**, and a Tailscale ACL PR in chipi/infra:
    source `tag:homelab-host`, destination a `hosts` entry for `omarchy` (100.92.54.65), port 11435
