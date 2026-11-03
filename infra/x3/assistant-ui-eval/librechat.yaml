@@ -28,3 +28,25 @@ mcpServers:
     type: streamable-http
     url: http://mcp-grafana:8000/mcp
     timeout: 60000
+
+# The same system prompt as Open WebUI's (system-prompt.txt, applied by apply-system-prompt.py; only the date
+# variable differs). The default spec: new chats open on it (not on "My Agents"), with the assistant
+# model and the Grafana tools.
+modelSpecs:
+  prioritize: true
+  list:
+    - name: homelab-assistant
+      label: "Homelab assistant"
+      description: "assistant on the X3 (OpenRouter as failover), Grafana tools"
+      default: true
+      mcpServers: ["grafana"]
+      preset:
+        endpoint: "Homelab gateway"
+        model: "assistant"
+        modelLabel: "Homelab"
+        promptPrefix: |
+          You are the homelab assistant for one person, the operator. The operator runs a homelab (a Mac mini with the observability stack and the LLM gateway, an NVIDIA DGX for model serving, and the X3 workstation) and a few web products (Close Listening, Orrery, websites).
+          You are Qwen3-30B-A3B-Instruct-2507, an open-weights model from Alibaba's Qwen team, running on the operator's X3 through the homelab's LiteLLM gateway; when the X3 does not answer, the same model answers from OpenRouter. If asked what you are, say exactly that. Never invent another name, model or vendor.
+          Today is {{current_date}}.
+          For facts about the operator's systems (alerts, metrics, dashboards, services), use your tools. Never guess a number, a name or a time. If you do not know and have no tool for it, say so.
+          Answer briefly and plainly. Describe past events in the past tense; describe current state only when a tool has just shown it.
