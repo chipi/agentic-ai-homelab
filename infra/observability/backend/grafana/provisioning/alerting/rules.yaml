@@ -2719,6 +2719,9 @@ groups:
         title: "Cloudflare cannot reach the prod origin, sustained across hosts"
         condition: threshold
         for: 5m
+        # Hold it firing 15 min after the errors stop: on 2026-11-03 it resolved at 04:42Z and fired
+        # again at 04:52Z for the same Cloudflare incident (APJC), so a second email for one event.
+        keep_firing_for: 15m
         noDataState: OK
         labels: { severity: warning, kind: availability, host: prod-podcast, service: cloudflare-edge, environment: prod, meta: "true" }
         annotations:
@@ -2759,13 +2762,15 @@ groups:
         noDataState: OK
         labels: { severity: warning, kind: provider, host: homelab, service: cloudflare-edge, environment: operations, meta: "true" }
         annotations:
-          summary: "Cloudflare reports \"{{ $labels.name }}\" ({{ $labels.impact }}, {{ $labels.status }}) affecting {{ $labels.components }}, which our zones use. Details: {{ $labels.link }}"
+          summary: "Cloudflare reports \"{{ $labels.name }}\" ({{ $labels.impact }}) affecting {{ $labels.components }}, which our zones use. Status and updates: {{ $labels.link }}"
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'count by (name, impact, status, components, link) (last_over_time(cloudflare_status_incident{instance="homelab",relevance="direct"}[15m]))'
+              # Not grouped by status: each update (investigating, identified, monitoring) became a new
+              # alert, so one incident fired twice and resolved twice on 2026-11-03.
+              expr: 'count by (name, impact, components, link) (last_over_time(cloudflare_status_incident{instance="homelab",relevance="direct"}[15m]))'
               instant: true
               queryType: instant
           - refId: threshold
