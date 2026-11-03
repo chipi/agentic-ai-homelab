@@ -2719,19 +2719,20 @@ groups:
         title: "Cloudflare cannot reach the prod origin, sustained across hosts"
         condition: threshold
         for: 5m
-        # Hold it firing 15 min after the errors stop: on 2026-11-03 it resolved at 04:42Z and fired
-        # again at 04:52Z for the same Cloudflare incident (APJC), so a second email for one event.
-        keep_firing_for: 15m
         noDataState: OK
         labels: { severity: warning, kind: availability, host: prod-podcast, service: cloudflare-edge, environment: prod, meta: "true" }
         annotations:
-          summary: "Cloudflare answered {{ $values.q }} requests with 520/522/525 across the prod server's hosts in the last 5 minutes, two polls in a row: it could not connect to, handshake with or read the origin. Prod TCP retransmits now {{ $values.r }}/s, 1h median {{ $values.m }}/s. Grab on the box while it lasts: `nstat -az | grep -i retrans` and `ss -ti 'sport = :443'`. Per host: cloudflare_edge_5xx{window=\"5m\"}; Caddy's journal: VictoriaLogs unit:\"caddy.service\"."
+          summary: "Cloudflare answered up to {{ $values.q }} requests per 5 minutes with 520/522/525 across the prod server's hosts in the last 15 minutes: it could not connect to, handshake with or read the origin. Prod TCP retransmits now {{ $values.r }}/s, 1h median {{ $values.m }}/s. Grab on the box while it lasts: `nstat -az | grep -i retrans` and `ss -ti 'sport = :443'`. Per host: cloudflare_edge_5xx{window=\"5m\"}; Caddy's journal: VictoriaLogs unit:\"caddy.service\"."
         data:
           - refId: q
             relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'sum(last_over_time(cloudflare_edge_5xx{instance="homelab",window="5m",status=~"520|522|525",host!~".*:.*|mail\\..*|(www\\.)?airandspacehistory\\.com|(www\\.)?markodragoljevic\\.com"}[6m]))'
+              # The highest 5-minute count of the last 15 minutes, so the alert holds until the errors
+              # have been gone 15 minutes: on 2026-11-03 it resolved at 04:42Z and fired again at
+              # 04:52Z for the same Cloudflare incident. Grafana 11.6 has no keep_firing_for.
+              # Replayed on that night: two alerts (03:35-04:37, 04:43-05:19) become one (03:35-05:33).
+              expr: 'max_over_time(sum(last_over_time(cloudflare_edge_5xx{instance="homelab",window="5m",status=~"520|522|525",host!~".*:.*|mail\\..*|(www\\.)?airandspacehistory\\.com|(www\\.)?markodragoljevic\\.com"}[6m]))[15m:1m])'
               instant: true
               queryType: instant
           - refId: r
