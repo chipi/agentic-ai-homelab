@@ -101,6 +101,7 @@ if pk:
     wins = lambda d: [w for w, ok in (("30d", True), ("7d", d in days[-7:]), ("yesterday", bool(days) and d == days[-1]),
                                        ("month", d.startswith(month))) if ok]
     agg = defaultdict(lambda: defaultdict(float))
+    kday = defaultdict(lambda: [0.0, 0])
     def add(rows, keyname, wsname, sign=1):
         for r in rows:
             d, m = r["date"][:10], r.get("model") or "-"
@@ -114,6 +115,9 @@ if pk:
         for k in get(f"/keys?include_disabled=true&workspace_id={w['id']}"):
             rows = get(f"/activity?api_key_hash={k['hash']}")
             add(rows, k.get("name"), w.get("name"))
+            for r in rows:
+                kd = kday[(k.get("name"), r["date"][:10])]
+                kd[0] += float(r.get("usage") or 0); kd[1] += int(r.get("prompt_tokens") or 0) + int(r.get("completion_tokens") or 0)
             add(rows, "(deleted keys)", "-", -1)
     for (key, ws, m, ven, prov, w), a in agg.items():
         if key == "(deleted keys)" and abs(a["usd"]) < 1e-6 and abs(a["req"]) < 1: continue
@@ -123,12 +127,24 @@ if pk:
         print(f'openrouter_model_requests{{{lab}}} {int(a["req"])}')
         print(f'openrouter_model_tokens{{{lab},kind="prompt"}} {int(a["prompt"])}')
         print(f'openrouter_model_tokens{{{lab},kind="completion"}} {int(a["completion"])}')
-    # one gauge per vendor per day, account-wide, for the Spend tab's daily sparklines
-    vday = defaultdict(float)
+    # Daily gauges (one series per thing per day, 30 days) for the Spend tab's sparklines and
+    # trend arrows: per vendor and per model account-wide, per key from that key's own rows.
+    vday, vtok, mday, mtok = defaultdict(float), defaultdict(float), defaultdict(float), defaultdict(float)
     for r in allrows:
-        vday[((r.get("model") or "-").split("/")[0], r["date"][:10])] += float(r.get("usage") or 0)
+        m, d = r.get("model") or "-", r["date"][:10]
+        t = int(r.get("prompt_tokens") or 0) + int(r.get("completion_tokens") or 0)
+        vday[(m.split("/")[0], d)] += float(r.get("usage") or 0); vtok[(m.split("/")[0], d)] += t
+        mday[(m, d)] += float(r.get("usage") or 0); mtok[(m, d)] += t
+    lab = 'service="openrouter-spend",environment="operations"'
     for (ven, d), usd in vday.items():
-        print(f'openrouter_vendor_day_usd{{vendor="{esc(ven)}",day="{d}",service="openrouter-spend",environment="operations"}} {usd}')
+        print(f'openrouter_vendor_day_usd{{vendor="{esc(ven)}",day="{d}",{lab}}} {usd}')
+        print(f'openrouter_vendor_day_tokens{{vendor="{esc(ven)}",day="{d}",{lab}}} {vtok[(ven, d)]}')
+    for (m, d), usd in mday.items():
+        print(f'openrouter_model_day_usd{{model="{esc(m)}",day="{d}",{lab}}} {usd}')
+        print(f'openrouter_model_day_tokens{{model="{esc(m)}",day="{d}",{lab}}} {mtok[(m, d)]}')
+    for (key, d), v in kday.items():
+        print(f'openrouter_key_day_usd{{key="{esc(key)}",day="{d}",{lab}}} {v[0]}')
+        print(f'openrouter_key_day_tokens{{key="{esc(key)}",day="{d}",{lab}}} {v[1]}')
 PY
 )
     LINES+=$'\n'
