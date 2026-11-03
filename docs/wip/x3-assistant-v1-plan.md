@@ -99,7 +99,16 @@ On the X3's Docker (option A, the operator's choice: the mini's `tailscale` is a
 **Check:** a recorded decision (a `D-NNNN` entry superseding D-0007, or an ADR) naming the UI; the
 teardown done (no serve config on 8443/8444, no eval containers or volumes, the key revoked).
 
-## Phase 4 — the X3 as a deployment surface, and the assistant — **in progress 2026-11-03**
+## Phase 4 — the X3 as a deployment surface, and the assistant — **done 2026-11-03**
+
+Results: `ollama-assistant` (user unit, from `~/deploy/agentic-ai-homelab`) holds
+`qwen3:30b-a3b-instruct-2507-q4_K_M` loaded, 21.8 GB all on the GPU, 32k context, on
+100.92.54.65:11435 only; ufw allows 11435 on `tailscale0` (the operator); chipi/infra f74785f lets
+`tag:homelab-host` reach `omarchy:11435`. From the mini: 11435 answers 200; :22, :11434 and :3080
+time out. The harness's Ollama kept its PID (1520051). Probe `job="assistant-probe"` reads 1; the
+alert `x3-assistant-down` is loaded. The eval harness wrote the stop/start rule into its
+`examples/triage-fleet/README.md` (pending the operator's push there). Not done: log rotation for
+the assistant's log file.
 
 1. `infra/x3/`: an `AGENTS.md` (the deploy checkout, user units only, the rule for the eval
    harness from phase 1, who upgrades Ollama) and a README; a row in the root `AGENTS.md` table.
@@ -126,7 +135,22 @@ teardown done (no serve config on 8443/8444, no eval containers or volumes, the 
   assistant's requests;
 - the eval harness's instance is untouched (same PID, same port).
 
-## Phase 5 — one gateway, with the failover
+## Phase 5 — one gateway, with the failover — **done 2026-11-03**
+
+Results (LiteLLM 1.96.2, `assistant` = the X3, 30 s, no retries, fallback `assistant-cloud`; each
+call checked by its `x-litellm-model-api-base` / `x-litellm-attempted-fallbacks` headers):
+
+| X3 | Result |
+|---|---|
+| up | served by the X3 in 0.1–0.2 s |
+| stopped | 200 from OpenRouter in 2.7 s, then 0.5 s |
+| hung (SIGSTOP) | 200 from OpenRouter in ~31 s, **on every call**: LiteLLM does not cool down a group's only deployment |
+| started / resumed | the next call served by the X3 again |
+
+The briefing writes with `assistant` and says which side wrote it ("the X3, local" or
+"OpenRouter, failover"). The chat UI key for the evaluation (`assistant-ui-eval`) has `assistant`
+too; the UI's own key comes with phase 6. Open: the Spend tab's explicit "N local / $X failover"
+line (today the callers card splits each key's tokens into local and OpenRouter).
 
 1. LiteLLM (mini): the alias `assistant` → the X3 by IP, a ~30 s timeout and no retries on the
    local deployment, a fallback to `qwen/qwen3-30b-a3b-instruct-2507` on OpenRouter (the key from

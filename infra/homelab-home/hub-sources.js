@@ -37,8 +37,10 @@ function secret(file, name) {
 }
 
 async function getJson(url, opts = {}, timeoutMs = 30000) {
-  const r = await fetch(url, Object.assign({ signal: AbortSignal.timeout(timeoutMs) }, opts));
+  const { onHeaders, ...init } = opts;
+  const r = await fetch(url, Object.assign({ signal: AbortSignal.timeout(timeoutMs) }, init));
   if (!r.ok) throw new Error(url.split('?')[0] + ' -> HTTP ' + r.status);
+  if (onHeaders) onHeaders(r.headers);
   return r.json();
 }
 

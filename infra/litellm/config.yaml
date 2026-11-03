@@ -83,9 +83,10 @@ model_list:
 
   # `assistant`: the X3's local copy first (infra/x3/ollama-assistant.service, Ollama's
   # OpenAI-compatible /v1, reachable from the mini only), `assistant-cloud` when it does not answer
-  # (the fallbacks below). 30 s and no retries on the local one, so a stopped, slow or hung X3
-  # costs a caller ~30 s once, not the gateway's 6 retries; then the cooldown keeps calls on the
-  # failover until the X3 answers again. Local calls cost nothing.
+  # (the fallbacks below). 30 s and no retries on the local one. Measured 2026-11-03: a stopped X3
+  # fails over in ~3 s; a hung one (SIGSTOP) costs ~31 s on EVERY call, because LiteLLM does not
+  # cool down the only deployment of a group, until the X3 recovers or is stopped (the
+  # x3-assistant-down alert); a recovered X3 serves the next call. Local calls cost nothing.
   - model_name: assistant
     litellm_params:
       model: openai/qwen3:30b-a3b-instruct-2507-q4_K_M

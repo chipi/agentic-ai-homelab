@@ -7,7 +7,7 @@
 // phone through Home Assistant's companion app, and records its last success in VictoriaMetrics.
 //
 // --dry-run: build and write the page, but no push, no metric. Env: HUB_BRIEFING_DIR, HUB_PUBLIC,
-// HUB_BRIEFING_MODEL (assistant-cloud), HUB_BRIEFING_NOTIFY (mobile_app_iphone); sources: hub-sources.js.
+// HUB_BRIEFING_MODEL (assistant: the X3, failing over to OpenRouter), HUB_BRIEFING_NOTIFY (mobile_app_iphone); sources: hub-sources.js.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -17,7 +17,7 @@ const S = require('./hub-sources.js');
 const DRY = process.argv.includes('--dry-run');
 const DIR = process.env.HUB_BRIEFING_DIR || path.join(__dirname, 'www/briefing');
 const PUBLIC = process.env.HUB_PUBLIC || 'https://hub.tail6d0ed4.ts.net';
-const MODEL = process.env.HUB_BRIEFING_MODEL || 'assistant-cloud';
+const MODEL = process.env.HUB_BRIEFING_MODEL || 'assistant';
 const NOTIFY = process.env.HUB_BRIEFING_NOTIFY || 'mobile_app_iphone';
 const KEEP = 30;
 const PLUMB = new Set(['DatasourceNoData', 'DatasourceError', 'Watchdog']);
@@ -93,19 +93,28 @@ function needsYou(st, errors) {
   return { items: items.slice(0, 5), more: Math.max(0, items.length - 5) };
 }
 
+// Which deployment behind the alias wrote it, from LiteLLM's response headers: the X3's address in
+// x-litellm-model-api-base is local; a fallback taken (x-litellm-attempted-fallbacks > 0) is OpenRouter.
+const where = h => {
+  const base = h.get('x-litellm-model-api-base') || '', fb = +(h.get('x-litellm-attempted-fallbacks') || 0);
+  return base.includes('100.92.54.65') ? 'the X3, local' : (fb > 0 ? 'OpenRouter, failover' : null);
+};
+
 // the model's two sentences; null when it fails (the briefing does not depend on it)
 async function opening(facts) {
   const key = S.secret(S.FILES.briefing, 'LITELLM_API_KEY');
   if (!key) return { text: null, why: 'no key in ' + S.FILES.briefing };
   try {
+    let served = null;
     const d = await S.getJson(S.URLS.litellm + '/v1/chat/completions', {
+      onHeaders: h => { served = where(h); },
       method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: 160, messages: [
         { role: 'system', content: 'You write the opening of a morning operations briefing for one person who runs a homelab and a few web products. Two sentences, plain English, no greeting, no lists. Use only the facts given; do not add or change any number, name or time. Lead with what needs attention; if nothing does, say so.' },
         { role: 'user', content: JSON.stringify(facts) }] }),
     }, 60000);
     const text = ((d.choices || [])[0] || {}).message && d.choices[0].message.content;
-    return { text: text ? text.trim() : null, model: d.model || MODEL, why: text ? null : 'empty reply' };
+    return { text: text ? text.trim() : null, model: (d.model || MODEL) + (served ? ' (' + served + ')' : ''), why: text ? null : 'empty reply' };
   } catch (e) { return { text: null, why: e.message }; }
 }
 
