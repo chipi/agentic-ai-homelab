@@ -55,10 +55,10 @@ code{background:#1a1a2b;padding:2px 7px;border-radius:4px;font-size:13px}
 .sec{color:#8888aa;font-size:12.5px;margin-top:6px}
 .sysrow{color:#c8c8e0;font-size:13.5px;margin:8px 0 12px}.sysrow b{color:#e6e6ef}
 .charts{display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap}
-a.card{box-sizing:border-box;background:#14141f;border:1px solid #26263a;border-radius:8px;padding:10px 12px;flex:0 1 180px;min-width:110px;overflow-wrap:anywhere;display:block;text-decoration:none;color:inherit}
+a.card{box-sizing:border-box;background:#14141f;border:1px solid #26263a;border-radius:8px;padding:10px 12px;flex:0 1 200px;min-width:110px;overflow-wrap:anywhere;display:block;text-decoration:none;color:inherit}
 a.card:hover{border-color:#3d3d63}
 .card h3{margin:0 0 3px;font-size:10px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em}
-.cv{font-size:19px;font-weight:600;margin-bottom:2px}
+.cv{font-size:19px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:6px;white-space:nowrap;min-height:26px}.cv .tr{order:-1}.cv .sl{order:9;margin-left:auto;flex:none}a.card.site .cv svg.sl{display:block;width:56px;height:16px;margin-top:0}
 .spark{width:100%;height:40px;display:block}.spark polyline{fill:none;stroke:#7aa2ff;stroke-width:2;vector-effect:non-scaling-stroke}
 .health{display:flex;gap:14px;margin:0 0 12px;flex-wrap:wrap;font-size:13px}
 a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
@@ -107,8 +107,8 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   body{margin:14px}
   h1{font-size:20px;margin-bottom:14px}
   .cols{gap:18px}.col{min-width:0;flex-basis:100%}
-  .charts{gap:8px}a.card{min-width:calc(50% - 4px);padding:9px 10px;overflow-wrap:anywhere}
-  .cv{font-size:17px}.spark{height:34px}
+  .charts{gap:8px}a.card{flex:0 0 calc(50% - 4px);min-width:calc(50% - 4px);padding:9px 10px;overflow-wrap:anywhere}
+  .cv{font-size:17px}.spark{height:34px}.cv{gap:4px}.cv .sl,a.card.site .cv svg.sl{width:40px}.cv .tr{font-size:10px!important;margin:0!important}.cv>span.muted{min-width:0;overflow:hidden;text-overflow:ellipsis}
   table{font-size:13px}th,td{padding:6px 8px}
   table.uptime th:nth-child(n+5),table.uptime td:nth-child(n+5){display:none}
   table.uptime td:first-child{overflow-wrap:anywhere}
@@ -151,7 +151,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <a href="#overview" target=_self>Overview</a><a href="#sites" target=_self>Sites</a><a href="#hosts" target=_self>Hosts</a><a href="#fleets" target=_self>Fleets</a><a href="#spend" target=_self>Spend</a>
 </nav>
 <section class=tab id=t-overview>
-<div class=charts style="max-width:1140px">
+<div class=charts>
   <a class=card href="#sites" target=_self><h3>Sites up now</h3><div data-mirror=up_now>&hellip;</div></a>
   <a class=card href="#sites" target=_self><h3>Availability 24h</h3><div data-mirror=up_24h>&hellip;</div></a>
   <a class=card href="#fleets" target=_self><h3>Triage needs you</h3><div data-mirror=f_inbox>&hellip;</div></a>
@@ -171,7 +171,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <details class=sect><summary class=sectitle>Close Listening &middot; health checks</summary>
 <div style="margin:0 0 22px" id=podcast_prod>
   <h2><span class="dot stale" id=ph_agg></span><a href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml">Podcast &mdash; production &rarr;</a></h2>
-  <div class=charts style="max-width:1140px">
+  <div class=charts>
     <a class=card href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml"><h3>App health</h3><div id=ph_overall>&hellip;</div></a>
     <a class=card href="https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml"><h3>LLM gateway</h3><div id=ph_gateway>&hellip;</div></a>
     <a class=card href="$VL"><h3>Logs flowing</h3><div id=ph_o11y_logs>&hellip;</div></a>
@@ -206,7 +206,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <section class=tab id=t-fleets>
 <div style="margin:0 0 22px">
   <h2><span class="dot stale" id=fl_tdot></span><a href="$DASH_FLEET">Triage fleet &rarr;</a></h2>
-  <div class=charts style="max-width:1140px">
+  <div class=charts>
     <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div><div id=fl_backlog class=muted style="font-size:12px"></div></a>
     <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=fl_dec>&hellip;</div></a>
     <a class=card href="$DASH_INBOX"><h3>Escalations 7d</h3><div id=fl_esc>&hellip;</div></a>
@@ -217,7 +217,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 </div>
 <div style="margin:0 0 22px">
   <h2><span class="dot stale" id=fl_bdot></span><a href="$DASH_BUGFIX">Bug-fix fleet &rarr;</a></h2>
-  <div class=charts style="max-width:1140px">
+  <div class=charts>
     <a class=card href="$DASH_BUGFIX" style="min-width:100%"><h3>Pipeline</h3><div id=fl_pipe>&hellip;</div></a>
     <a class=card href="$DASH_BUGFIX"><h3>Shipped</h3><div id=fl_ship>&hellip;</div></a>
     <a class=card href="$DASH_BUGFIX"><h3>Stuck</h3><div id=fl_stuck>&hellip;</div></a>
@@ -233,14 +233,14 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <p class=sec id=sp_range style="margin:-8px 0 12px"></p>
   <div id=sp_main>
   <h2>Totals</h2>
-  <div class=charts style="max-width:1140px" id=sp_totals>&hellip;</div>
+  <div class=charts id=sp_totals>&hellip;</div>
   <h2>By caller</h2>
-  <div class=charts style="max-width:1140px" id=sp_callers>&hellip;</div>
+  <div class=charts id=sp_callers>&hellip;</div>
   <p class=sec id=sp_callers_note></p>
   <h2>By key (OpenRouter billing)</h2>
-  <div class=charts style="max-width:1140px" id=sp_keys>&hellip;</div>
+  <div class=charts id=sp_keys>&hellip;</div>
   <h2>By vendor</h2>
-  <div class=charts style="max-width:1140px" id=sp_vendor>&hellip;</div>
+  <div class=charts id=sp_vendor>&hellip;</div>
   <h2>By model</h2>
   <div id=sp_mfilter style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px;font-size:13px">
     <span class=subtabs style="margin:0" id=sp_msrc><a data-v="" class=on>All</a><a data-v=OpenRouter>OpenRouter</a><a data-v=vLLM>vLLM</a><a data-v=Ollama>Ollama</a><a data-v=Speech>Speech</a></span>
@@ -256,7 +256,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   </details>
   <p class=sec>Every number covers the same completed UTC days; only "Today so far" is live. Sources: OpenRouter (every key: prod, dev, evals, fleets; billed), vLLM on the DGX (its own token counters, all callers, $0), Ollama on the DGX, X3 and MacBook (its per-request log lines, $0; the lines carry no model or key). Fleet spend is part of OpenRouter, not extra.</p>
   </div>
-  <div id=sp_model style="display:none;max-width:1140px"></div>
+  <div id=sp_model style="display:none"></div>
 </section>
 <section class=tab id=t-hosts>
 <nav class=subtabs>
@@ -264,7 +264,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 </nav>
 <div class=sub data-sub=delivery style="margin:0 0 22px">
   <h2><span class="dot stale" id=st_delivery></span><a href="$DASH_DELIVERY">Delivery &rarr;</a></h2>
-  <div class=charts style="max-width:1140px">
+  <div class=charts>
     <a class=card href="$DASH_DELIVERY"><h3>Workers up</h3><div id=dl_up>&hellip;</div></a>
     <a class=card href="$DASH_DELIVERY"><h3>Sent 24h</h3><div id=dl_sent>&hellip;</div></a>
     <a class=card href="$DASH_DELIVERY"><h3>Bounce/complaint 1h</h3><div id=dl_bounce>&hellip;</div></a>
@@ -820,7 +820,7 @@ const PROJ=[
 function spark(d,lo,hi){if(!d||!d.some(x=>x!=null))return '';const xs=d.filter(x=>x!=null),w=56,h=16;
   const mn=lo!=null?Math.min(lo,...xs):0,mx=hi!=null?hi:Math.max(mn+1e-9,...xs,mn===0?1:mn);
   const pts=d.map((x,i)=>x==null?null:(i*(w-2)/(d.length-1)+1).toFixed(1)+','+(h-1-(x-mn)/(mx-mn||1)*(h-2)).toFixed(1)).filter(Boolean).join(' ');
-  return ' <svg width='+w+' height='+h+' viewBox="0 0 '+w+' '+h+'" style="vertical-align:middle;margin-left:4px" aria-label="daily visitors, 14 days"><polyline points="'+pts+'" fill=none stroke=#7aa2ff stroke-width=1.5 vector-effect=non-scaling-stroke /></svg>';}
+  return ' <svg width='+w+' height='+h+' viewBox="0 0 '+w+' '+h+'" class=sl style="vertical-align:middle" aria-label="daily values, 14 days"><polyline points="'+pts+'" fill=none stroke=#7aa2ff stroke-width=1.5 vector-effect=non-scaling-stroke /></svg>';}
 async function umami(){
   if(umami.c&&Date.now()-umami.t<600000)return umami.c;
   const sql="select website_id::text as id, count(distinct session_id) filter (where created_at > now() - interval '24 hours') as v24,"
@@ -935,7 +935,7 @@ function trend(d){if(!d||d.length<14)return '';const a=d.slice(-7),b=d.slice(-14
   if(!a.some(x=>x!=null)||!b.some(x=>x!=null))return '';const sa=a.reduce((p,x)=>p+(x||0),0),sb=b.reduce((p,x)=>p+(x||0),0);
   if(!sb&&!sa)return '';const ch=sb?(sa-sb)/sb:1,t='last 7 days vs the 7 before: '+(sb?(ch>=0?'+':'')+(ch*100).toFixed(0)+'%':'from 0');
   const ar=Math.abs(ch)<0.1?'&#8594;':(ch>0?'&#9650;':'&#9660;'),txt=!sb?' new':(Math.abs(ch)<0.1?'':(ch>10?'&gt;10&times;':Math.abs(ch*100).toFixed(0)+'%'));
-  return '<span title="'+t+'" style="color:#9a9ac2;font-size:11px;font-weight:500;margin-left:4px;vertical-align:middle;white-space:nowrap">'+ar+txt+'</span>';}
+  return '<span class=tr title="'+t+'" style="color:#9a9ac2;font-size:11px;font-weight:500;margin:0 2px;vertical-align:middle;white-space:nowrap">'+ar+txt+'</span>';}
 const sparkT=(d,lo,hi)=>spark(d,lo,hi)+trend(d);
 // 14 completed UTC days (oldest first) from gauges that carry a day="YYYY-MM-DD" label
 function dayArr(byDay){const out=[],n=new Date(),mid=Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate());
@@ -1098,13 +1098,13 @@ async function spendModels(){
     const f=(r.results.D.frames||[])[0];if(f){const ts=f.data.values[0],vs=f.data.values[f.data.values.length-1];oLine=Array(14).fill(0);ts.forEach((t0,i)=>{const k=Math.floor((+t0-st)/86400000);if(k>=0&&k<14)oLine[k]+= +vs[i]||0;});
       oLine=oLine.map((v,k)=>st+(k+1)*86400000<=OLLAMA_LOGS_FROM?null:v);}}catch(x){}
   const add=(...ls)=>{const ok=ls.filter(Boolean);return ok.length?ok[0].map((_,i)=>ok.some(l=>l[i]!=null)?ok.reduce((p,l)=>p+(l[i]||0),0):null):null;};
-  set('sp_totals',card('Spend (OpenRouter)',usd(sum(src('OpenRouter'),'usd'))+sparkT(orLine),Math.round(sum(src('OpenRouter'),'req')).toLocaleString()+' requests &middot; local $0')
-    +card('Tokens, all sources',tk(allT)+sparkT(add(vtk,vLine,oLine)),'OpenRouter '+tk(t('OpenRouter'))+' &middot; vLLM '+tk(t('vLLM'))+' &middot; Ollama '+tk(t('Ollama')))
-    +card('Local tokens',tk(t('vLLM')+t('Ollama'))+sparkT(add(vLine,oLine)),'vLLM '+tk(t('vLLM'))+' ('+Math.round(sum(src('vLLM'),'req'))+' req) &middot; Ollama '+tk(t('Ollama'))+' ('+Math.round(sum(src('Ollama'),'req'))+' req)')
-    +(sum(src('Speech'),'req')?card('Speech (DGX)',Math.round(sum(src('Speech'),'req')).toLocaleString()+' <span class=muted style="font-size:12px;font-weight:400">requests &middot; $0</span>',
-      src('Speech').map(r=>hx(r.model.replace(/-(large-v3-turbo-ct2|community-1)$/,''))+' '+Math.round(r.req).toLocaleString()+(r.audio?' ('+Math.round(r.audio/3600)+' h audio)':'')).join(' &middot; ')):'')
-    +card('of which fleets',usd(fl),'triage + bug-fix, part of OpenRouter')
-    +card('Today so far (OpenRouter)',usd(today),'live, all keys')
+  set('sp_totals',card('All tokens',tk(allT)+sparkT(add(vtk,vLine,oLine)),'OpenRouter '+tk(t('OpenRouter'))+' &middot; vLLM '+tk(t('vLLM'))+' &middot; Ollama '+tk(t('Ollama')))
+    +card('Local tokens',tk(t('vLLM')+t('Ollama'))+sparkT(add(vLine,oLine)),'vLLM '+tk(t('vLLM'))+' ('+Math.round(sum(src('vLLM'),'req'))+' req) &middot; Ollama '+tk(t('Ollama'))+' ('+Math.round(sum(src('Ollama'),'req'))+' req) &middot; $0')
+    +(sum(src('Speech'),'req')?card('Speech requests',Math.round(sum(src('Speech'),'req')).toLocaleString(),
+      src('Speech').map(r=>hx(r.model.replace(/-(large-v3-turbo-ct2|community-1)$/,''))+' '+Math.round(r.req).toLocaleString()+(r.audio?' ('+Math.round(r.audio/3600)+' h audio)':'')).join(' &middot; ')+' &middot; $0'):'')
+    +card('OpenRouter spend',usd(sum(src('OpenRouter'),'usd'))+sparkT(orLine),Math.round(sum(src('OpenRouter'),'req')).toLocaleString()+' requests')
+    +card('OpenRouter today',usd(today),'so far today (live), all keys')
+    +card('OpenRouter fleets',usd(fl),'triage + bug-fix share of the spend')
     +card('OpenRouter credit left','<span style="'+(cr<10?'color:#f85149':'')+'">'+usd(cr)+'</span>','top up at openrouter.ai'));
   // ---- By caller ----
   const cl=await gatewayCallers(p),dKeys={};
@@ -1117,9 +1117,9 @@ async function spendModels(){
   rows.filter(r=>r.src==='OpenRouter'&&DIRECTKEYS.includes(r.key)).forEach(r=>{const x=dKeys[r.key]=dKeys[r.key]||{usd:0,t:0};x.usd+=r.usd;x.t+=r.i+r.o;});
   const orBill=sum(src('OpenRouter'),'usd'),gwOR=cl.reduce((a,x)=>a+x.usd,0),dir=Object.values(dKeys).reduce((a,x)=>a+x.usd,0);
   // local-only (vLLM / Ollama) costs nothing: its big number is tokens, not $0
-  const big=(u,t)=>u>=0.005||!t?usd(u):tk(t)+' <span class=muted style="font-size:12px;font-weight:400">tokens &middot; $0</span>';
+  const big=(u,t)=>u>=0.005||!t?usd(u):tk(t)+' <span class=muted style="font-size:12px;font-weight:400">tokens</span>';
   const ccard=(t,b,tok,sub)=>'<a class="card site"><h3>'+t+'</h3><div class=cv>'+b+'</div><div class=kv>'+tok+'</div>'+(sub?'<span class=muted style="font-size:12px">'+sub+'</span>':'')+'</a>';
-  set('sp_callers',cl.sort((a,b)=>b.usd-a.usd||(b.tOR+b.tLoc)-(a.tOR+a.tLoc)).map(x=>ccard(hx(x.key),big(x.usd,x.tOR+x.tLoc)+(x.gw==='mini'&&cLine[x.key]?sparkT(cLine[x.key]):''),'<span>Project</span><b>'+ico(PROJECT_SITE[x.proj])+x.proj+'</b><span>Tokens</span><b>'+tk(x.tOR+x.tLoc)+(x.tLoc?' ('+tk(x.tLoc)+' local)':'')+'</b><span>Via</span><b>'+x.gw+' gateway &middot; '+Math.round(x.req).toLocaleString()+' req</b>')).join('')
+  set('sp_callers',cl.sort((a,b)=>b.usd-a.usd||(b.tOR+b.tLoc)-(a.tOR+a.tLoc)).map(x=>ccard(hx(x.key),big(x.usd,x.tOR+x.tLoc)+(x.gw==='mini'&&cLine[x.key]?sparkT(cLine[x.key]):''),'<span>Project</span><b>'+x.proj+'</b><span>Tokens</span><b>'+tk(x.tOR+x.tLoc)+(x.tLoc?' ('+tk(x.tLoc)+' local)':'')+'</b><span>Via</span><b>'+x.gw+' gateway &middot; '+Math.round(x.req).toLocaleString()+' req</b>')).join('')
     +Object.entries(dKeys).filter(([k,x])=>x.usd>=0.005).map(([k,x])=>ccard(hx(k),usd(x.usd),'<span>Project</span><b>Other</b><span>Tokens</span><b>'+tk(x.t)+'</b><span>Via</span><b>direct to OpenRouter</b>')).join('')
     +(t('Ollama')?ccard('Ollama (no gateway)',big(0,t('Ollama'))+sparkT(oLine),'<span>Project</span><b>Evals</b><span>Requests</span><b>'+Math.round(sum(src('Ollama'),'req')).toLocaleString()+'</b><span>Via</span><b>straight to Ollama</b>'):'')
     +(t('vLLM')?ccard('vLLM (all callers)',big(0,t('vLLM'))+sparkT(vLine),'<span>Requests</span><b>'+Math.round(sum(src('vLLM'),'req')).toLocaleString()+'</b><span>Note</span><b>gateway callers above are part of it</b>'):''));
@@ -1135,7 +1135,7 @@ async function spendModels(){
   set('sp_keys',group(r=>r.key).map(x=>{const top={};x.rows.forEach(r=>top[r.model]=(top[r.model]||0)+r.usd+(r.i+r.o)*1e-9);
     const tops=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,2).map(e=>hx(e[0]));
     const kl=x.src.has('OpenRouter')?kDay[x.k]:(x.src.has('vLLM')?vLine:oLine);
-    return '<a class="card site"><h3>'+hx(x.k)+'</h3><div class=cv>'+(x.src.has('OpenRouter')?usd(x.usd):big(0,x.i+x.o))+sparkT(kl)+'</div><div class=kv><span>Tokens</span><b>'+tk(x.i+x.o)+'</b><span>Top</span><b>'+(tops.join(', ')||'&mdash;')+'</b>'
+    return '<a class="card site"><h3>'+hx(x.k)+'</h3><div class=cv>'+(x.src.has('OpenRouter')?usd(x.usd):(x.src.has('Speech')?Math.round(x.req).toLocaleString()+' <span class=muted style="font-size:12px;font-weight:400">requests</span>':big(0,x.i+x.o)))+sparkT(kl)+'</div><div class=kv><span>Tokens</span><b>'+tk(x.i+x.o)+'</b><span>Top</span><b>'+(tops.join(', ')||'&mdash;')+'</b>'
       +'<span>Source</span><b>'+srcTag(x)+'</b>'+(life[x.k]!=null?'<span>Lifetime</span><b>'+usd(life[x.k])+'</b>':'')+'</div></a>';}).join('')||'<div class=muted>nothing in this period</div>');
   // ---- By vendor ----
   const vd={};(await q('last_over_time(openrouter_vendor_day_usd'+L+')')).forEach(r=>{(vd[r.metric.vendor]=vd[r.metric.vendor]||{})[r.metric.day]=+r.value[1];});
@@ -1193,7 +1193,7 @@ async function siteGroups(){
   const hosts=Object.keys(now).sort(),groups={};
   for(const h of hosts){const g=(SITEGROUPS.find(([n,re])=>re.test(h))||['Other'])[0];(groups[g]=groups[g]||[]).push(h);}
   const order=SITEGROUPS.map(x=>x[0]).concat(['Other']);
-  const html=order.filter(g=>groups[g]).map(g=>'<h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;margin:14px 0 6px">'+g+'</h4><div class=charts style="max-width:1140px">'
+  const html=order.filter(g=>groups[g]).map(g=>'<h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;margin:14px 0 6px">'+g+'</h4><div class=charts>'
     +groups[g].sort((a,b)=>(um&&um[site(b)]?1:0)-(um&&um[site(a)]?1:0)||a.localeCompare(b)).map(h=>{
       const k=site(h),u=um&&um[k],n=both(rq,h),e=both(er,h),v=d1[h],l=now[h]===0?'down':(v!=null&&v<0.999?'mid':(v==null?'stale':'up'));
       const row=(a,b)=>'<span>'+a+'</span><b>'+b+'</b>';
@@ -1321,7 +1321,7 @@ function modelPage(){const main=document.getElementById('sp_main'),pg=document.g
     +stat('Spend',paid?usd(x.usd):'$0',paid?'':'local, no cost')+stat('Tokens',tk(T),tk(x.i)+' in / '+tk(x.o)+' out')+stat('Requests',Math.round(x.req).toLocaleString())
     +stat('$ per 1M tokens',paid&&T?usd(x.usd/T*1e6):'&mdash;')+stat('Tokens per request',x.req?tk(T/x.req):'&mdash;',x.req?tk(x.i/x.req)+' in / '+tk(x.o/x.req)+' out':'')
     +stat('Cost per request',paid&&x.req?'$'+(x.usd/x.req).toFixed(4):'&mdash;')+'</div>'
-    +'<div class=charts style="max-width:1140px">'
+    +'<div class=charts>'
     +(paid?'<a class="card site"><h3>Spend, 14 days</h3><div class=cv>'+usd((line||[]).reduce((a,b)=>a+(b||0),0))+sparkT(line)+'</div></a>':'')
     +'<a class="card site"><h3>Tokens, 14 days</h3><div class=cv>'+tk((tline||[]).reduce((a,b)=>a+(b||0),0))+sparkT(tline)+'</div>'+(r0.src!=='OpenRouter'?'<span class=muted style="font-size:12px">all '+r0.src+' models together</span>':'')+'</a></div>'
     +(r0.src==='vLLM'||r0.src==='Ollama'||r0.src==='Speech'?'<div id=sp_rt><h2>How it runs</h2><p class=muted>loading&hellip;</p></div>':'')
@@ -1353,7 +1353,7 @@ async function runtime(r0,id,per){
   const sec=v=>v==null?'&mdash;':(v<1?Math.round(v*1000)+' ms':v.toFixed(v<10?2:1)+' s'),pc=v=>v==null?'&mdash;':(v>0&&v<0.01?'&lt;1%':Math.round(v*100)+'%'),nm=(v,d)=>v==null?'&mdash;':(+v).toFixed(d||0);
   const per_='per '+(step===86400?'day':(step===21600?'6 hours':'hour'));
   const crd=(t,v,l,sub)=>'<a class="card site"><h3>'+t+'</h3><div class=cv>'+v+(l?sparkT(l.length>=14?l:l):'')+'</div>'+(sub?'<span class=muted style="font-size:12px">'+sub+'</span>':'')+'</a>';
-  const grp=(t,cards)=>'<h3 style="margin:14px 0 6px;font-size:13px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em">'+t+'</h3><div class=charts style="max-width:1140px">'+cards.join('')+'</div>';
+  const grp=(t,cards)=>'<h3 style="margin:14px 0 6px;font-size:13px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em">'+t+'</h3><div class=charts>'+cards.join('')+'</div>';
   if(r0.src==='vLLM'){
     const [CT,PORT]=DGX_CT[r0.full]||['?','?'];
     const F='{instance="dgx-llm-1",model_name="'+r0.full+'"}',G='{instance="dgx-llm-1"}',busy='and on() sum(vllm:num_requests_running'+F+') > 0';
