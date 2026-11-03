@@ -34,4 +34,10 @@ jobs:
         run: bash -n infra/homelab-home/gen.sh
 
       - name: page JS tests
-        run: node infra/homelab-home/test_page.js
+        run: |
+          node infra/homelab-home/test_page.js
+          node infra/homelab-home/test_uptime.js
+          node infra/homelab-home/test_hetzner_bar.js
+
+      - name: status module tests
+        run: node infra/homelab-home/test_status.js

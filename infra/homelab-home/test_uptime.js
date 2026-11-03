@@ -6,6 +6,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const HubStatus = require('./hub-status.js'); // the page's status semantics (gen.sh inlines the same file)
 
 const src = fs.readFileSync(path.join(__dirname, 'gen.sh'), 'utf8');
 const grab = (name) => {
@@ -24,7 +25,7 @@ const q = async (query) => {
   return [];
 };
 const g1 = async (m) => { const r = await q(m); return r.length ? r[0].value : null; };
-const fns = new Function('document', 'q', 'g1', grab('cloudflare') + '\n' + grab('uptime') + '\nreturn {cloudflare, uptime};')(document, q, g1);
+const fns = new Function('document', 'q', 'g1', 'HubStatus', 'HS', grab('cloudflare') + '\n' + grab('uptime') + '\nreturn {cloudflare, uptime};')(document, q, g1, HubStatus, { q, alerts: async () => [], get now() { return Date.now() / 1000; } });
 
 let failed = 0;
 const check = (name, cond) => { if (!cond) { failed++; console.error('FAIL: ' + name); } else console.log('ok   ' + name); };

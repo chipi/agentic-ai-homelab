@@ -6,6 +6,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const HubStatus = require('./hub-status.js'); // the page's status semantics (gen.sh inlines the same file)
 
 const src = fs.readFileSync(path.join(__dirname, 'gen.sh'), 'utf8');
 const m = src.match(/async function podcastHealth\(\)\{[\s\S]*?\n\}/);
@@ -65,9 +66,9 @@ function runScenario(fixtures) {
   };
   const g1 = async (mq) => { const r = await q(mq); return r.length ? r[0].value : null; };
   const FrozenDate = { now: () => NOW * 1000 };
-  const fn = new Function('q', 'g1', 'document', 'Date',
+  const fn = new Function('q', 'g1', 'document', 'Date', 'HubStatus', 'HS',
     m[0] + '\nreturn podcastHealth();');
-  return fn(q, g1, document, FrozenDate).then(() => ({ byId, chartsRow }));
+  return fn(q, g1, document, FrozenDate, HubStatus, { q, now: NOW, alerts: async () => [] }).then(() => ({ byId, chartsRow }));
 }
 
 const CHECKS = ['gateway', 'o11y_logs', 'o11y_metrics', 'o11y_traces', 'o11y_glitchtip', 'selftest'];
@@ -160,8 +161,8 @@ const check = (name, cond, detail) => {
     ];
     const q = async (query) => { for (const [n, r] of fixtures) if (query.includes(n)) return r; return []; };
     const g1 = async (mq) => { const r = await q(mq); return r.length ? r[0].value : null; };
-    const fn = new Function('q', 'g1', 'document', 'Date', m[0] + '\nreturn podcastHealth;');
-    const ph = fn(q, g1, document, { now: () => NOW * 1000 });
+    const fn = new Function('q', 'g1', 'document', 'Date', 'HubStatus', 'HS', m[0] + '\nreturn podcastHealth;');
+    const ph = fn(q, g1, document, { now: () => NOW * 1000 }, HubStatus, { q, now: NOW, alerts: async () => [] });
     await ph(); await ph();
     check('one selftest card after two refreshes', chartsRow.cards.length === 2, String(chartsRow.cards.length));
     check('selftest still GREEN', /GREEN/.test(byId.ph_selftest.innerHTML), byId.ph_selftest.innerHTML);

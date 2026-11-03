@@ -377,6 +377,8 @@ UMAMI_SITES=$(/usr/local/bin/docker exec umami-db psql -U umami -d umami -At -F 
 cat <<TOK
 <script>const GTOK="$GF_VIEW";const UMAMI_SITES=[${UMAMI_SITES}];</script>
 TOK
+# the status semantics (hub-status.js), shared with the status.json job on the mini
+echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-status.js"; echo '</script>'
 cat <<'SCRIPT'
 <script>
 const W=260,H=40,TS='tail6d0ed4.ts.net',G='https://grafana.'+TS;
@@ -387,6 +389,12 @@ const MINILINK={grafana:G,glitchtip:'https://glitchtip.'+TS,langfuse:'https://la
 const DGXDASH=G+'/d/dgx-services/dgx-e28094-services';
 async function q(query){try{const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(query))).json();return j.data.result;}catch(e){return[];}}
 const g1=async m=>{const r=await q(m);return r.length?r[0].value:null;};
+// hub-status.js's sources in the browser: the same-origin VictoriaMetrics proxy, Grafana's alertmanager
+// with the viewer token. Long subqueries (24h / 7d / 30d of 1-minute steps) are cached for 5 minutes.
+const HSC={};
+const HS={q:async e=>{if(!/\[(24h|7d|30d):1m\]/.test(e))return q(e);const c=HSC[e];if(c&&Date.now()-c.t<300000)return c.v;const v=await q(e);HSC[e]={t:Date.now(),v};return v;},
+  alerts:async()=>{const r=await fetch('/grafana/api/alertmanager/grafana/api/v2/alerts',{headers:{Authorization:'Bearer '+GTOK}});if(!r.ok)throw new Error('alertmanager '+r.status);return r.json();},
+  get now(){return Date.now()/1000;}};
 async function draw(id,qq,fmt,max){
   const e=Math.floor(Date.now()/1000),s=e-3600;
   let j;try{j=await(await fetch('/vm/api/v1/query_range?query='+encodeURIComponent(qq)+'&start='+s+'&end='+e+'&step=60')).json();}catch(x){return;}
@@ -467,8 +475,7 @@ async function fleet(){
   const N=x=>x?(+x[1]).toFixed(0):'&mdash;';
   // needs-you = actionable-now only (bug queue + escalations); config-enhancement
   // and cleanup drafts are Fleet-3 BACKLOG, not operator debt (2026-08-05)
-  const qd=await g1('sum(last_over_time(signal_fleet_queue_depth{kind="bug"}[2h]))');
-  const esc=await g1('sum(last_over_time(signal_fleet_escalations_7d[2h]))');
+  const NY=await HubStatus.needsYou(HS);
   const dec=await g1('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[24h]))');
   const sp=await g1('sum(last_over_time(fleetd_spend_day[2h]))');
   const d=new Date(),mS=Math.max(3600,Math.floor((d-new Date(d.getFullYear(),d.getMonth(),1))/1000));
@@ -479,10 +486,9 @@ async function fleet(){
   const tkM=await g1('sum(sum_over_time(signal_fleet_tokens['+mS+'s]))');
   const tkA=await g1('sum(sum_over_time(signal_fleet_tokens[180d]))');
   const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
-  const tot=(qd?+qd[1]:0)+(esc?+esc[1]:0);
   const cv=v=>'<div class=cv>'+v+'</div>';
-  set('f_inbox',cv((qd||esc)?String(tot):'&mdash;'));
-  set('f_esc',cv(N(esc)));set('f_dec',cv(N(dec)));
+  set('f_inbox',cv(NY.total==null?'&mdash;':String(NY.total)));
+  set('f_esc',cv(NY.escalations7d==null?'&mdash;':NY.escalations7d.toFixed(0)));set('f_dec',cv(N(dec)));
   const $=x=>x?'$'+(+x[1]).toFixed(2):'$0.00';
   const T=x=>{if(!x)return '0';const v=+x[1];return v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':v.toFixed(0);};
   const duo=(c,t)=>cv($(c))+'<div class=muted style="font-size:12px">'+T(t)+' tok</div>';
@@ -547,13 +553,8 @@ async function delivery(){
   // Lamp = the delivery alert rules (rules.yaml delivery-*): red when a worker is down; amber on
   // bounce/complaint >5%, a dead-letter in the last hour, the events cursor older than 1h, or
   // mail pending with nothing sent for 1h; grey when there are no workers to read.
-  const n=x=>x?+x[1]:0, t=tot?+tot[1]:0;
-  const dead1=await g1('sum(increase(delivery_sent_total{status="dead_lettered"}[1h]))');
-  const sent1=await g1('sum(increase(delivery_sent_total{status="delivered"}[1h]))');
-  const pend=await g1('sum(delivery_batch_pending)');
-  const amber=n(br)>5||n(dead1)>0||n(ca)>3600||(n(pend)>0&&n(sent1)===0);
-  const st=document.getElementById('st_delivery');
-  if(st)st.className='dot '+(!t?'stale':(n(up)<t?'down':(amber?'mid':'up')));
+  const D=await HubStatus.delivery(HS),st=document.getElementById('st_delivery');
+  if(st){st.className='dot '+D.state;st.title=D.reasons.join('; ');}
 }
 async function hetzner(){
   // Hetzner status bulletins that touch us (infra/hetzner-status: correlated with prod's
@@ -604,18 +605,16 @@ async function uptime(){
   const e24=await byHost('sum by (host) (last_over_time(cloudflare_edge_requests'+E+'24h"}[15m]))');
   const e1=await g1('sum(last_over_time(cloudflare_edge_requests'+E+'1h"}[15m]))');
   const sec=await g1('sum(last_over_time(cloudflare_security_events{instance="homelab"}[15m]))');
-  const eg=await g1('last_over_time(mini_vm_egress_ok{instance="homelab",target="internet"}[5m])');
   const set=(id,h)=>{const el=document.getElementById(id);if(el)el.innerHTML=h;};
   const hosts=Object.keys(cur).sort();
   const col=v=>v==null?'':(v>=0.999?'':(v>=0.99?'color:#d29922':'color:#f85149'));
   const pct=v=>v==null||isNaN(v)?'&mdash;':(v>=0.99995?'100%':(v*100).toFixed(2)+'%');
   const avg=m=>{const v=hosts.map(h=>m[h]).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
   const worst=m=>{let w=null;hosts.forEach(h=>{if(m[h]!=null&&(w==null||m[h]<m[w]))w=h;});return w;};
-  const offline=eg&&+eg[1]===0;
-  const down=hosts.filter(h=>cur[h]===0);
+  const S=await HubStatus.sites(HS),offline=S.offline,down=S.down;
   const agg=document.getElementById('up_agg');
-  if(agg)agg.className='dot '+(!hosts.length||offline?'stale':(down.length?'down':(hosts.some(h=>c.d1[h]!=null&&c.d1[h]<0.999)?'mid':'up')));
-  set('up_now',!hosts.length?'<div class=cv>&mdash;</div>':'<div class=cv style="'+(down.length?'color:#f85149':'')+'">'+(hosts.length-down.length)+'/'+hosts.length+'</div><span class=muted>'+(offline?'mini offline: unknown':(down.length?'down: '+down.join(', '):'all answering'))+'</span>');
+  if(agg)agg.className='dot '+S.state;
+  set('up_now',!S.total?'<div class=cv>&mdash;</div>':'<div class=cv style="'+(down.length?'color:#f85149':'')+'">'+S.up+'/'+S.total+'</div><span class=muted>'+(offline?'mini offline: unknown':(down.length?'down: '+down.join(', '):'all answering'))+'</span>');
   for(const [id,k] of [['up_24h','d1'],['up_7d','d7'],['up_30d','d30']]){const a=avg(c[k]),w=worst(c[k]);
     set(id,'<div class=cv style="'+col(a)+'">'+pct(a)+'</div><span class=muted>'+(w&&c[k][w]<0.99995?'lowest: '+w+' '+pct(c[k][w]):'every endpoint')+'</span>');}
   set('up_edge','<div class=cv>'+(e1?(+e1[1]).toFixed(0):'&mdash;')+'</div><span class=muted>all hosts, Cloudflare</span>');
@@ -632,56 +631,35 @@ async function alerts(){
   // platform integrations. Plumbing states (DatasourceNoData/Error) are
   // wiring problems: shown muted, never as incidents.
   const el=document.getElementById('alertbar');if(!el)return;
-  let list=[];
-  try{list=await(await fetch('/grafana/api/alertmanager/grafana/api/v2/alerts',{headers:{Authorization:'Bearer '+GTOK}})).json();}catch(e){el.innerHTML='';return;}
-  const PLUMB=new Set(['DatasourceNoData','DatasourceError','Watchdog']);
-  const act=list.filter(a=>(a.status||{}).state==='active');
-  const seen=new Set(),uniq=[];
-  for(const a of act){const k=(a.labels||{}).alertname+'|'+((a.labels||{}).instance||'');if(!seen.has(k)){seen.add(k);uniq.push(a);}}
-  const plumb=uniq.filter(a=>PLUMB.has((a.labels||{}).alertname));
-  const crit=uniq.filter(a=>!PLUMB.has((a.labels||{}).alertname)&&(a.labels||{}).severity==='critical');
-  const warn=uniq.filter(a=>!PLUMB.has((a.labels||{}).alertname)&&(a.labels||{}).severity!=='critical');
-  const line=a=>{const l=a.labels||{},an=(a.annotations||{});let t=l.alertname;if(l.instance)t+=' · '+l.instance;const s=an.summary?' — '+an.summary.slice(0,110):'';return '<b>'+t+'</b>'+s+(l.meta==='true'?' <span style="opacity:.7">[substrate — yours alone]</span>':'');};
+  const A=await HubStatus.alerts(HS);if(!A.ok){el.innerHTML='';return;}
+  const crit=A.critical,warn=A.warning,plumb={length:A.plumbing};
+  const line=a=>'<b>'+a.name+(a.instance?' · '+a.instance:'')+'</b>'+(a.summary?' — '+a.summary.slice(0,110):'')+(a.substrate?' <span style="opacity:.7">[substrate — yours alone]</span>':'');
   let html='';
   if(crit.length)html+='<a class="abar crit" href="'+G+'/alerting/list">&#128308; '+crit.map(line).join('<br>')+'</a>';
   if(warn.length)html+='<a class="abar warn" href="'+G+'/alerting/list">&#9888;&#65039; '+warn.map(line).join('<br>')+'</a>';
   if(plumb.length)html+='<a class="abar plumb" href="'+G+'/alerting/list">'+plumb.length+' plumbing alert(s) (NoData/Error) — observability wiring, not incidents</a>';
   el.innerHTML=html;el.dataset.warn=warn.length;el.dataset.plumb=plumb.length;
 }
-async function fresh(){const now=Date.now()/1000,age=x=>x?Math.round(now-+x[0])+'s ago':'no data';const mc=await g1('mini_cpu_used_percent'),dg=await g1('DCGM_FI_DEV_GPU_TEMP'),pc=await g1('node_load1{instance="prod-podcast"}');const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(mc)+' &middot; dgx '+age(dg)+' &middot; prod '+age(pc);
-  // box traffic lights: green = fresh samples (<3m), gray = lagging (VM's
-  // instant lookback still returns it), red = gone (no sample in ~5m —
-  // exactly how a dark box like the DGX presents)
-  const dot=(id,v)=>{const e=document.getElementById(id);if(!e)return;let c='down';if(v){const a=now-+v[0];c=a<180?'up':'stale';}e.className='dot '+c;e.title=v?Math.round(now-+v[0])+'s since last sample':'no samples >5m — box dark?';};
-  dot('st_mini',mc);dot('st_dgx',dg);dot('st_prod',pc);}
+async function fresh(){
+  // box lamps from HubStatus.boxes: green under 3 minutes since the last sample, grey lagging, red gone
+  const B=await HubStatus.boxes(HS),age=b=>b.ageSeconds==null?'no data':b.ageSeconds+'s ago';
+  const el=document.getElementById('fresh');if(el)el.innerHTML='collectors &middot; mini '+age(B.mini)+' &middot; dgx '+age(B.dgx)+' &middot; prod '+age(B.prod);
+  for(const [id,b] of [['st_mini',B.mini],['st_dgx',B.dgx],['st_prod',B.prod]]){const e=document.getElementById(id);if(!e)continue;
+    e.className='dot '+b.state;e.title=b.ageSeconds!=null?b.ageSeconds+'s since last sample':'no samples >5m — box dark?';}}
 async function podcastHealth(){
-  // prod-ops-health traffic lights (podcast_scraper #1876). Values: 1 green / 0.5 orange
-  // (failed but not customer-impacting) / 0 red. STALENESS OVERRIDES GREEN: the pusher runs
-  // daily at 06:00 UTC, so >26h without a sample means the health check itself is dead — render
-  // grey "STALE", never a reassuring green from old data. last_over_time(28h) still finds the
-  // sample; the timestamp metric carries when it was really taken.
-  const A='{app="podcast"}';
-  const ts=await g1('last_over_time(prod_ops_health_last_run_timestamp'+A+'[28h])');
-  const agg=await g1('last_over_time(prod_ops_health_aggregate'+A+'[28h])');
-  const now=Date.now()/1000, stale=!ts||now-(+ts[1])>26*3600;
-  const cls=v=>stale?'stale':(+v===1?'up':(+v===0?'down':'mid'));
-  const word=v=>stale?'STALE':(+v===1?'GREEN':(+v===0?'RED':'ORANGE'));
+  // prod-ops-health traffic lights, decided in HubStatus.podcast (staleness overrides green).
+  const P=await HubStatus.podcast(HS),word={up:'GREEN',down:'RED',mid:'ORANGE',stale:'STALE'};
   const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
-  const light=(id,v)=>set(id,'<div class=cv><span class="dot '+(v==null?'stale':cls(v[1]))+'"></span>'+(v==null?'&mdash;':word(v[1]))+'</div>');
-  light('ph_overall',agg);
-  const hd=document.getElementById('ph_agg');if(hd)hd.className='dot '+(agg==null?'stale':cls(agg[1]));
-  const checks=await q('last_over_time(prod_ops_health_check'+A+'[28h])');
-  // The pusher owns the check list — a check it adds that this page doesn't know yet must
-  // still be VISIBLE, so grow a card for it (before "Last check") instead of dropping it.
+  const light=(id,st)=>set(id,'<div class=cv><span class="dot '+(st||'stale')+'"></span>'+(st?word[st]:'&mdash;')+'</div>');
+  light('ph_overall',P.known?P.state:null);
+  const hd=document.getElementById('ph_agg');if(hd)hd.className='dot '+P.state;
+  // The pusher owns the check list: a check this page does not know yet gets a card (before "Last check").
   const grow=id=>{const row=document.querySelector('#podcast_prod .charts');const age=document.getElementById('ph_age');if(!row||!age)return;
     const a=document.createElement('a');a.className='card';a.href='https://github.com/chipi/infra/actions/workflows/prod-ops-health.yml';
     a.innerHTML='<h3></h3><div id="'+id+'">&hellip;</div>';a.querySelector('h3').textContent=id.slice(3).replace(/_/g,' ');
     row.insertBefore(a,age.closest('a.card'));};
-  const seen=new Set();
-  for(const r of checks){const id='ph_'+r.metric.check;seen.add(id);if(!document.getElementById(id))grow(id);light(id,r.value);}
-  // checks the page expects but VM didn't return → grey dash, never a stuck ellipsis
-  for(const c of ['gateway','o11y_logs','o11y_metrics','o11y_traces','o11y_glitchtip'])if(!seen.has('ph_'+c))light('ph_'+c,null);
-  if(ts){const h=Math.floor((now-+ts[1])/3600);set('ph_age','<div class=cv>'+(h<1?'&lt;1':h)+'h ago</div>'+(stale?'<div class=muted style="font-size:12px">STALE &mdash; check not running</div>':''));}
+  for(const [c,st] of Object.entries(P.checks)){const id='ph_'+c;if(!document.getElementById(id))grow(id);light(id,st);}
+  if(P.ageHours!=null)set('ph_age','<div class=cv>'+(P.ageHours<1?'&lt;1':P.ageHours)+'h ago</div>'+(P.stale?'<div class=muted style="font-size:12px">STALE &mdash; check not running</div>':''));
   else set('ph_age','<div class=cv>&mdash;</div><div class=muted style="font-size:12px">no run in 28h</div>');
 }
 // ---- Service cards (Hosts tab): one card per key service, grouped. Each reads the shared
@@ -1507,10 +1485,10 @@ setInterval(()=>{mirror();notices();},2000);
 async function overview(){
   const set=(id,h)=>{const e=document.getElementById(id);if(e)e.innerHTML=h;};
   const m=await g1('sum(max by (key, workspace) (last_over_time(openrouter_key_usd{window="month"}[2h])))');
-  const c=await g1('max(last_over_time(openrouter_account_usd{kind="credits"}[2h])) - max(last_over_time(openrouter_account_usd{kind="usage"}[2h]))');
+  const C=await HubStatus.credit(HS),c=C.leftUsd==null?null:[0,C.leftUsd];
   const usd=x=>x?'$'+(+x[1]).toFixed(2):'&mdash;';
   set('ov_month','<div class=cv>'+usd(m)+'</div><div class=muted style="font-size:12px">all keys, UTC month</div>');
-  const low=c&&+c[1]<10;
+  const low=C.low;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
 function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();cloudflare();uptime();alerts();podcastHealth();mini();dgx();prod();fleet();delivery();fresh();}
