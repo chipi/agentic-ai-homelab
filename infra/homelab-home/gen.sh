@@ -58,7 +58,7 @@ code{background:#1a1a2b;padding:2px 7px;border-radius:4px;font-size:13px}
 a.card{box-sizing:border-box;background:#14141f;border:1px solid #26263a;border-radius:8px;padding:10px 12px;flex:0 1 200px;min-width:110px;overflow-wrap:anywhere;display:block;text-decoration:none;color:inherit}
 a.card:hover{border-color:#3d3d63}
 .card h3{margin:0 0 3px;font-size:10px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em}
-.cv{font-size:19px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:6px;white-space:nowrap;min-height:26px}.cv .tr{order:-1}.cv .sl{order:9;margin-left:auto;flex:none}a.card.site .cv svg.sl{display:block;width:56px;height:16px;margin-top:0}
+.cv{font-size:19px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:6px;white-space:nowrap;min-height:26px}.subkv{display:grid;grid-template-columns:auto 1fr;gap:1px 12px;font-size:12px;line-height:1.55;margin-top:4px}.subkv span{color:#8888aa}.subkv b{color:#b8b8d0;font-weight:500;text-align:right;font-variant-numeric:tabular-nums}a.card[data-msrc]{cursor:pointer}.cv .tr{order:-1}.cv .sl{order:9;margin-left:auto;flex:none}a.card.site .cv svg.sl{display:block;width:56px;height:16px;margin-top:0}
 .spark{width:100%;height:40px;display:block}.spark polyline{fill:none;stroke:#7aa2ff;stroke-width:2;vector-effect:non-scaling-stroke}
 .health{display:flex;gap:14px;margin:0 0 12px;flex-wrap:wrap;font-size:13px}
 a.svc{color:#c8c8e0;text-decoration:none}a.svc:hover{text-decoration:underline}
@@ -1084,7 +1084,8 @@ async function spendModels(){
   const today=await one('sum(last_over_time(openrouter_key_usd{window="day"}'+L+'))');
   const fl=rg.R?await one(vm('sum(sum_over_time(signal_fleet_cost_usd[R]))'))+await one(vm('sum(sum_over_time(bugfix_fleet_cost_usd[R]))')):0;
   const cr=await one('max(last_over_time(openrouter_account_usd{kind="credits"}'+L+')) - max(last_over_time(openrouter_account_usd{kind="usage"}'+L+'))');
-  const t=n=>sum(src(n),'i')+sum(src(n),'o'),card=(ti,v,sub)=>'<a class=card><h3>'+ti+'</h3><div class=cv>'+v+'</div>'+(sub?'<span class=muted>'+sub+'</span>':'')+'</a>';
+  const t=n=>sum(src(n),'i')+sum(src(n),'o'),card=(ti,v,sub,ms)=>'<a class=card'+(ms!=null?' data-msrc="'+ms+'"':'')+'><h3>'+ti+'</h3><div class=cv>'+v+'</div>'
+    +(Array.isArray(sub)?'<div class=subkv>'+sub.filter(Boolean).map(([l,x])=>'<span>'+l+'</span><b>'+x+'</b>').join('')+'</div>':(sub?'<span class=muted>'+sub+'</span>':''))+'</a>';
   const allT=t('OpenRouter')+t('vLLM')+t('Ollama');
   // 14-day daily lines: OpenRouter spend (account, from the vendor-day gauges), vLLM tokens, Ollama tokens
   const vdd={};(await q('last_over_time(openrouter_vendor_day_usd'+L+')')).forEach(r=>vdd[r.metric.day]=(vdd[r.metric.day]||0)+ +r.value[1]);
@@ -1098,14 +1099,15 @@ async function spendModels(){
     const f=(r.results.D.frames||[])[0];if(f){const ts=f.data.values[0],vs=f.data.values[f.data.values.length-1];oLine=Array(14).fill(0);ts.forEach((t0,i)=>{const k=Math.floor((+t0-st)/86400000);if(k>=0&&k<14)oLine[k]+= +vs[i]||0;});
       oLine=oLine.map((v,k)=>st+(k+1)*86400000<=OLLAMA_LOGS_FROM?null:v);}}catch(x){}
   const add=(...ls)=>{const ok=ls.filter(Boolean);return ok.length?ok[0].map((_,i)=>ok.some(l=>l[i]!=null)?ok.reduce((p,l)=>p+(l[i]||0),0):null):null;};
-  set('sp_totals',card('All tokens',tk(allT)+sparkT(add(vtk,vLine,oLine)),'OpenRouter '+tk(t('OpenRouter'))+' &middot; vLLM '+tk(t('vLLM'))+' &middot; Ollama '+tk(t('Ollama')))
-    +card('Local tokens',tk(t('vLLM')+t('Ollama'))+sparkT(add(vLine,oLine)),'vLLM '+tk(t('vLLM'))+' ('+Math.round(sum(src('vLLM'),'req'))+' req) &middot; Ollama '+tk(t('Ollama'))+' ('+Math.round(sum(src('Ollama'),'req'))+' req) &middot; $0')
+  const spR=n=>src('Speech').find(r=>r.model.startsWith(n))||{},orU=sum(src('OpenRouter'),'usd');
+  set('sp_totals',card('All tokens',tk(allT)+sparkT(add(vtk,vLine,oLine)),[['OpenRouter',tk(t('OpenRouter'))],['vLLM',tk(t('vLLM'))],['Ollama',tk(t('Ollama'))]],'')
+    +card('Local tokens',tk(t('vLLM')+t('Ollama'))+sparkT(add(vLine,oLine)),[['vLLM',tk(t('vLLM'))],['Ollama',tk(t('Ollama'))],['Cost','$0']],'vLLM')
     +(sum(src('Speech'),'req')?card('Speech requests',Math.round(sum(src('Speech'),'req')).toLocaleString(),
-      src('Speech').map(r=>hx(r.model.replace(/-(large-v3-turbo-ct2|community-1)$/,''))+' '+Math.round(r.req).toLocaleString()+(r.audio?' ('+Math.round(r.audio/3600)+' h audio)':'')).join(' &middot; ')+' &middot; $0'):'')
-    +card('OpenRouter spend',usd(sum(src('OpenRouter'),'usd'))+sparkT(orLine),Math.round(sum(src('OpenRouter'),'req')).toLocaleString()+' requests')
-    +card('OpenRouter today',usd(today),'so far today (live), all keys')
-    +card('OpenRouter fleets',usd(fl),'triage + bug-fix share of the spend')
-    +card('OpenRouter credit left','<span style="'+(cr<10?'color:#f85149':'')+'">'+usd(cr)+'</span>','top up at openrouter.ai'));
+      [['Whisper',Math.round(spR('faster-whisper').req||0).toLocaleString()],['Audio',Math.round((spR('faster-whisper').audio||0)/3600).toLocaleString()+' h'],
+       ['Diarization',Math.round(spR('speaker-diarization').req||0).toLocaleString()],spR('MOSS').req?['MOSS',Math.round(spR('MOSS').req).toLocaleString()]:null],'Speech'):'')
+    +card('OpenRouter spend',usd(orU)+sparkT(orLine),[['Requests',Math.round(sum(src('OpenRouter'),'req')).toLocaleString()],['Today (live)',usd(today)]],'OpenRouter')
+    +card('OpenRouter fleets',usd(fl),[['Share',orU?(fl/orU*100).toFixed(1)+'%':'&mdash;'],['Fleets','triage + bug-fix']])
+    +card('OpenRouter credit left','<span style="'+(cr<10?'color:#f85149':'')+'">'+usd(cr)+'</span>',[['Top up','openrouter.ai']]));
   // ---- By caller ----
   const cl=await gatewayCallers(p),dKeys={};
   // mini callers' daily tokens over 14 days, one query (prod's gateway pushes period totals only)
@@ -1275,6 +1277,8 @@ document.querySelector('table.models thead')?.addEventListener('click',e=>{const
   const k=th.dataset.k;if(k===mSortK)mSortDir=-mSortDir;else{mSortK=k;mSortDir=M_NUM.includes(k)?-1:1;}modelSort();});
 document.getElementById('sp_mw')?.addEventListener('change',modelFilter);
 document.getElementById('sp_ma')?.addEventListener('change',modelFilter);
+document.getElementById('sp_totals')?.addEventListener('click',e=>{const c=e.target.closest('a.card[data-msrc]');if(!c)return;
+  const a=document.querySelector('#sp_msrc a[data-v="'+c.dataset.msrc+'"]');if(a)a.click();document.getElementById('sp_mfilter')?.scrollIntoView({behavior:'smooth',block:'start'});});
 document.getElementById('sp_msrc')?.addEventListener('click',e=>{const a=e.target.closest('a');if(!a)return;modelSrc=a.dataset.v;
   document.querySelectorAll('#sp_msrc a').forEach(x=>x.classList.toggle('on',x===a));modelFilter();});
 document.getElementById('sp_mven')?.addEventListener('change',modelFilter);
