@@ -1415,7 +1415,8 @@ async function runtime(r0,id,per){
       head='its own /metrics (requests and their duration, per endpoint '+JOB[1]+')';
       cards=grp('Traffic and latency',[crd('Requests',Math.round(req||0).toLocaleString(),lReq,(err?nm(err)+' failed (5xx)':'none failed')),crd('Time per request',sec(avg),lAvg,'mean, the whole file end to end; '+(busy?(busy/3600).toFixed(1)+' h busy in the period':''))])
         +grp('Resources',[crd('GPU memory',gm?(gm/1e9).toFixed(1)+' GB':'&mdash;',null,CT+' now'),crd('Container memory',cm?(cm/1e9).toFixed(1)+' GB':'&mdash;',lMem,'peak in the period (RAM)'),
-          crd('CPU',cpu==null?'&mdash;':(cpu).toFixed(2)+' cores',null,'average over the period')]);}
+          crd('CPU',cpu==null?'&mdash;':(cpu).toFixed(2)+' cores',null,'average over the period')])
+        +'<p class=muted style="font-size:12px;max-width:900px">Audio hours and the real-time factor need the length of the audio each request carried; '+hx(CT)+' does not report it yet.</p>';}
     else{// whisper: log lines
       const lq2=async(expr,type)=>{try{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
           body:JSON.stringify({queries:[{refId:'A',datasource:{uid:'victorialogs'},expr,queryType:type||'stats',step:step+'s'}],from:String(start*1000),to:String(end*1000)})})).json();
@@ -1425,10 +1426,28 @@ async function runtime(r0,id,per){
         lq2('container:"faster-whisper" "POST /v1/audio/transcriptions" | stats count() as n'),lq2('container:"faster-whisper" "POST /v1/audio/transcriptions" | stats count() as n','statsRange'),
         lq2(AU+' | stats sum(sec) as sec','statsRange'),lq2('container:"faster-whisper" "POST /v1/audio/transcriptions" -"200 OK" | stats count() as n'),...common]);
       const toLine=o=>{if(!o)return null;const v=Array(n).fill(null);o.t.forEach((t,i)=>{const k=Math.floor((t/1000-start)/step);if(k>=0&&k<n)v[k]=+o.v[i];});return v;};
+      // real-time factor: processing wall time / audio length. Start = "Processing audio with duration",
+      // end = the next "is idle" (logged when no request is left running); overlapping requests count as
+      // one busy stretch for their audio together.
+      let rtf=null,rtfLine=null,longMed=null,shortMed=null,busyS=0;
+      try{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+          body:JSON.stringify({queries:[{refId:'A',datasource:{uid:'victorialogs'},expr:'container:"faster-whisper" ("Processing audio with duration" or "is idle") | extract_regexp "duration (?P<d>[0-9:.]+)$" | fields _time, d',queryType:'instant',maxLines:100000}],from:String(start*1000),to:String(end*1000)})})).json();
+        const f=((r.results.A||{}).frames||[])[0];
+        if(f){const fi=k=>f.schema.fields.findIndex(x=>x.name===k),T=f.data.values[fi('Time')],Lb=f.data.values[fi('labels')];
+          const ev=T.map((t,i)=>({t:+t,d:(Lb[i]||{}).d})).sort((a,b)=>a.t-b.t),toS=d=>d.split(':').reduce((a,x)=>a*60+ +x,0);
+          const bs=Array(n).fill(0),as=Array(n).fill(0),one=[],shortR=[];let open=[],audio=0;
+          for(const e of ev){if(e.d){open.push({t:e.t,a:toS(e.d)});continue;}if(!open.length)continue;
+            const w=(e.t-open[0].t)/1000,a=open.reduce((p,x)=>p+x.a,0),k=Math.floor((open[0].t/1000-start)/step);
+            if(w>=0&&a>0){busyS+=w;audio+=a;if(k>=0&&k<n){bs[k]+=w;as[k]+=a;}if(open.length===1)(a>=60?one:shortR).push(w/a);}open=[];}
+          const med=l=>{if(!l.length)return null;const x=[...l].sort((p,q)=>p-q);return x[Math.floor(x.length/2)];};
+          if(audio){rtf=busyS/audio;rtfLine=bs.map((b,i)=>as[i]?b/as[i]:null);longMed=med(one);shortMed=med(shortR);}}}catch(x){}
+      const xr=v=>v==null?'&mdash;':v.toFixed(3)+' <span class=muted style="font-size:12px;font-weight:400">('+Math.round(1/v)+'&times; real time)</span>';
       const mm=v=>v==null?'&mdash;':(v>=3600?(v/3600).toFixed(1)+' h':(v>=60?Math.round(v/60)+' min':Math.round(v)+' s'));
       head='its log lines (faster-whisper serves no /metrics): each request and the length of its audio';
       cards=grp('Traffic',[crd('Requests',Math.round(rq.n||0).toLocaleString(),toLine(rl.n),(err.n?nm(err.n)+' not 200 OK':'all 200 OK')),
           crd('Audio transcribed',mm(a.sec),toLine(al.sec),'median clip '+mm(a.p50)+', 95th percentile '+mm(a.p95))])
+        +grp('Speed',[crd('Real-time factor',xr(rtf),rtfLine,'processing time / audio length, all requests; '+(busyS/3600).toFixed(1)+' h busy'),
+          crd('Clips of 1 min or more',xr(longMed),null,'median per clip'),crd('Clips under 1 min',xr(shortMed),null,'median per clip: fixed overhead per request dominates')])
         +grp('Resources',[crd('GPU memory',gm?(gm/1e9).toFixed(1)+' GB':'&mdash;',null,CT+' now'),crd('Container memory',cm?(cm/1e9).toFixed(1)+' GB':'&mdash;',lMem,'peak in the period (RAM)'),
           crd('CPU',cpu==null?'&mdash;':(cpu).toFixed(2)+' cores',null,'average over the period')]);}
     const b=box();if(!b)return;
