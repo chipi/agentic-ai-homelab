@@ -9,6 +9,8 @@ GT_U=$(get "$REPO/glitchtip/.env" DJANGO_SUPERUSER_EMAIL); GT_P=$(get "$REPO/gli
 LF_U=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_EMAIL); LF_P=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_PASSWORD)
 UM_U=admin; UM_P=$(get ~/umami/.env UMAMI_ADMIN_PASSWORD)
 LL_K=$(get "$REPO/litellm/.env" LITELLM_MASTER_KEY)
+# the RFC-0008 chat UI evaluation on the X3 (both UIs, one login; mode-600 file on the mini)
+AE_U=$(get ~/assistant-ui-eval-accounts.env ASSISTANT_EVAL_USER); AE_P=$(get ~/assistant-ui-eval-accounts.env ASSISTANT_EVAL_PASSWORD)
 # Grafana VIEWER service-account token (read-only) — powers the alert banner.
 # Embedding follows the page's existing trust model (admin creds are already
 # on it; the page itself is tailnet-only, no basic auth since 2026-10-24).
@@ -303,6 +305,8 @@ row "LiteLLM"         "$LL/ui/"       "admin" "$LL_K" "4001"
 row "VictoriaMetrics" "$VM/vmui"      "&mdash;" "tailnet" "8428"
 row "VictoriaLogs"    "$VL"           "&mdash;" "tailnet" "9428"
 row "VictoriaTraces"  "$VT"           "&mdash;" "tailnet" "10428"
+row "LibreChat (evaluation, X3)"  "https://omarchy.$TS:8443" "$AE_U" "$AE_P" "8443"
+row "Open WebUI (evaluation, X3)" "https://omarchy.$TS:8444" "$AE_U" "$AE_P" "8444"
 row "Home Assistant"  "https://homeassistant.$TS" "own account" "&mdash;" "8123"
 cat <<MID
   </tbody></table>
