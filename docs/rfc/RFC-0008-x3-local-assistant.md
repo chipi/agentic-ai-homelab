@@ -1,12 +1,12 @@
 # RFC-0008 — A local assistant on the X3, and the X3 as a deployment surface
 
-**Status:** Proposed (2026-11-03; revised the same day after the operator's decisions and an
-independent review)
+**Status:** Proposed (2026-11-03; revised twice the same day after the operator's decisions and
+two independent reviews)
 **Relates to:** D-0005 and D-0007 (LibreChat picked, then removed from scope),
 [`infra/observability/hosts/x3/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/observability/hosts/x3)
 (the X3's collector), the [agent access handbook](../recipes/agent-access.md), ADR-0009 (Docker on
 the mini), the eval harness's triage results (`eval-harness/research/internal/TRIAGE_RESULTS_LIVE.md`).
-**Plan:** [X3 assistant, version 1](../wip/x3-assistant-v1-plan.md).
+**Plan:** [X3 assistant: implementation plan](../wip/x3-assistant-v1-plan.md).
 
 ## Motivation
 
@@ -15,6 +15,7 @@ The operator wants a smaller LLM running on owned hardware as a day-to-day assis
 - for the homelab: what happened, what is red, what it costs, what needs them;
 - as a personal assistant: a private, general-purpose chat (like ChatGPT, on our own model);
 - around the house and the projects;
+- and the same model inside the tools that can use one (Grafana, Langfuse, Home Assistant);
 
 on their own infrastructure, private by default, reachable from the phone.
 
@@ -24,54 +25,67 @@ always-on assistant there makes it a third deployment surface next to the Mac mi
 and that needs the same treatment the other two have: from the repo, through deploy, to running
 and watching it.
 
+## The three steps
+
+1. **The assistant (version 1):** the model on the X3, one gateway with a failover, a chat UI on
+   the mini, the phone, and the version 1 use cases led by the morning briefing.
+2. **The same model inside our tools:** Grafana's LLM plugin, Langfuse's LLM connection and
+   evaluators, Home Assistant's conversation agent.
+3. **Use cases rebuilt around the tools:** with step 2 in place, move each use case to where it
+   works best: inside the tool, in the chat, or in the briefing.
+
+Then: evaluate the model against the use cases (labelled sets), and benchmarks.
+
 ## Facts this rests on (measured 2026-11-03)
 
 | | DGX Spark (NVIDIA GB10) | X3 (AMD Ryzen AI Max+ 395, Radeon 8060S) |
 |---|---|---|
-| Memory | 121 GB unified, **16 GB available** in prod mode (`free -g`) | 124 GB RAM; the GPU can address **62.2 GiB** (`mem_info_gtt_total`; Ollama: `library=ROCm total="62.2 GiB"`). The operator will raise it to the full 128 GB with an X3 restart. 16 GB of swap already in use under dev load |
+| Memory | 121 GB unified, **16 GB available** in prod mode (`free -g`) | 124 GB RAM; the GPU can address **62.2 GiB** (`mem_info_gtt_total`, and `ttm.pages_limit` = 16,310,633 pages). Raising it takes both the GTT size and `ttm.pages_limit`; the operator plans it with a restart. The 18 GB assistant does not need it. 16 GB of swap already in use under dev load |
 | In use | prod-vllm 26 GB, translate 30 GB, pyannote 3 GB, moss 2 GB, whisper 1.4 GB (`nvidia-smi`) | the desktop, the operator's dev agents, the eval harness's Ollama |
 | Always serving? | No: `gpu-mode-swap` changes what runs (prod / ollama / code / research) | Yes: the operator says it is never off or asleep |
 | Engine | vLLM: fast prefill, prefix cache, batching | Ollama 0.40.13 (llama.cpp, ROCm), run by the eval harness as a long-job on `127.0.0.1:11434` |
-| Speed | Qwen3-30B-A3B on vLLM, 30 days: first token 230 ms median / 1.8 s p95 on 4.3k-token prompts, 53 tokens/s per stream | Ollama, all models, 30 days: output 47 tokens/s. Prompts in the log are short (none above 3k tokens), so long-prompt speed on the X3 is **not measured**; the review estimates ~18 s to the first word for a 20k-token prompt |
-| Tailnet | `dgx-llm-1` | **`omarchy`** (100.92.54.65), an untagged user device; reaching it from the mini's services needs an ACL |
-| Docker | yes | yes (`websites-preview` runs); the X3 collector's README says it runs none, which is out of date |
+| Speed | Qwen3-30B-A3B on vLLM, 30 days: first token 230 ms median / 1.8 s p95 on 4.3k-token prompts, 53 tokens/s per stream | Ollama, all models, 30 days: output 47 tokens/s. No prompt above 3k tokens in the log, so long-prompt speed is **not measured** (a review estimates ~18 s to the first word at 20k) |
+| Network | tailnet `dgx-llm-1`, tagged | tailnet **`omarchy`** (100.92.54.65), untagged; **ufw drops inbound** by default (only 22/tcp on `tailscale0` and one app port open) |
+| Docker | yes | yes (`websites-preview` runs); the X3 collector's README says none, which is out of date |
+
+Where things already run on the mini: LiteLLM, Grafana, Langfuse, GlitchTip, Umami, the hub, and
+**Home Assistant** (the home-automation repo's `deploy/homelab`, port 8123). The mini's services
+reach the tailnet as the host node, **`tag:homelab-host`** (the rule that lets LiteLLM reach the
+DGX today has that source). The tailnet policy lives in git (chipi/infra `tailscale/policy.hujson`,
+applied by its `tailscale-acl.yml` workflow), so an ACL change is a PR.
 
 Quality: the eval harness's triage experiment has no assistant-style task. On triage, the same
-model served by vLLM on the DGX leads (0.400), but the X3's Ollama 4-bit copy scored 0.723 (rank
-29) and the OpenRouter copy 0.708. The harness says the order is not a ranking at 65 decisions.
-**The model is not chosen on this eval.** Per the operator, it is evaluated later against the use
-cases, once they exist.
+model served by vLLM on the DGX leads (0.400); the X3's Ollama 4-bit copy scored 0.723 (rank 29)
+and the OpenRouter copy 0.708. **The model is not chosen on this eval**; it is evaluated later
+against the use cases (operator).
 
 ## Use cases
 
-### Version 1 (operator, 2026-11-03)
+### Version 1 (operator, 2026-11-03), delivered in three waves
 
-| # | Use case | What it is | Inputs | Done when |
-|---|---|---|---|---|
-| **H1** | **Morning briefing** (first, the key one) | waiting every morning, without being asked: what happened overnight and what needs the operator today | alerts fired and cleared, deploys, new GlitchTip issues, prod health, fleet queue, spend and credit, capacity | a briefing arrives at the agreed time, every number in it matches the hub, and it says what to look at first |
-| **H2** | **Alert explainer** | a Grafana alert fires → "is this real, what do I do?" | the alert rule and its query, recent logs and metrics for the target, the matching runbook | it reads the rule, says whether it looks real with the evidence, and names the next step |
-| **H4** | **Is prod healthy** | "anything red on Close Listening / Orrery?", "safe to deploy?" | probes, the Close Listening o11y MCP, GlitchTip, recent deploys | the answer matches the hub's lamps, with the reason for anything not green |
-| **H5** | **Spend and capacity** | "what did OpenRouter cost this week, who called it, how much credit is left?", "how much memory is free on the DGX?" | the hub's series (spend, callers, credit, DCGM, node) | the numbers match the hub's Spend and Hosts tabs |
-| **H6** | **Fleet queue** | "what does the triage fleet want from me?" | GitHub issues with the fleet's labels | the list matches the hub's "Needs you" count, with one line per item |
-| **H7** | **Incident write-up draft** | "draft a timeline of last night's Cloudflare alerts" | alert history, logs, deploys in the window | a timeline the operator can edit, every timestamp traceable to a source |
-| **X1** | **Private chat** | general-purpose chat about anything, like ChatGPT, on our own model; drafting, summaries, pasted text and files | the conversation itself | it answers from the X3 model (or says it came from the failover) |
-| **X3** | **Translation** | "translate this into Serbian / German" | TranslateGemma on the DGX, through the gateway | a translation comes back; limits stated (below) |
-| **X4** | **Home status** | "is anything offline at home?", "is the garage open?" | Home Assistant, UniFi (reads only) | the answer matches Home Assistant |
+| Wave | # | Use case | What it is | Inputs | Done when |
+|---|---|---|---|---|---|
+| 1 | **H1** | **Morning briefing** (the key one) | waiting every morning: what happened overnight and what needs the operator today | the hub's status (below), alerts, deploys, GlitchTip | it arrives on time, every number matches the hub's status snapshot for that hour, and it says what to look at first |
+| 1 | **X1** | **Private chat** | general-purpose chat about anything, like ChatGPT, on our own model; drafting, summaries, pasted text and files | the conversation | it answers from the X3 model; failover use is visible on the hub |
+| 1 | **H4** | **Is prod healthy** | "anything red on Close Listening / Orrery?", "safe to deploy?" | the hub's status | the answer matches the hub's lamps, with the reason for anything not green |
+| 1 | **H5** | **Spend and capacity** | "what did OpenRouter cost this week, who called it, credit left?", "memory free on the DGX?" | the hub's status | the numbers match the hub's Spend and Hosts tabs |
+| 1 | **H6** | **Fleet queue** | "what does the triage fleet want from me?" | the hub's status for the count; GitHub for the items | the count matches the hub's "Needs you"; each item links to its issue (the list can differ from the count by design: the count is the fleet's metric) |
+| 2 | **H2** | **Alert explainer** | a Grafana alert fires → "is this real, what do I do?" | the alert rule and query, recent logs and metrics, the alert's runbook link if it has one | it says whether it looks real, with the evidence, and the next step |
+| 2 | **H7** | **Incident write-up draft** | "draft a timeline of last night's Cloudflare alerts" | alert history, logs, deploys in the window | an editable timeline, every timestamp traceable to a source |
+| 3 | **X3** | **Translation** | "translate this into Serbian / German" | TranslateGemma on the DGX | a translation comes back; limits below |
+| 3 | **X4** | **Home status** | "is anything offline at home?", "is the garage open?" | Home Assistant's states, already in VictoriaMetrics | the answer matches Home Assistant |
 
-Dropped from version 1: **runbook lookup** (operator: not a good choice).
+Wave 1 proves every layer (phone, UI, gateway, X3 model, the status module, the briefing), and H4,
+H5 and H6 come almost free from the same status data. Dropped from version 1: **runbook lookup**
+(operator).
 
 Notes:
-- **H1 reuses H4, H5 and H6.** The briefing is those reads plus alerts and GlitchTip, run on a
-  schedule. Building the tools for H4–H6 builds most of H1.
-- **Numbers come from code, not the model.** For H1, H4, H5 and H6, a script gathers the data
-  with fixed queries, the same ones the hub uses. The model writes and orders; it does not compute.
-  That is how "every number matches the hub" can hold.
-- **X3 limits:** TranslateGemma serves only in prod GPU mode (`gpu-mode-swap` stops it otherwise).
-  It is a production service for Close Listening. It runs with `--max-model-len=4096`, so texts
-  must be short. Assistant use adds load to a production model; acceptable at personal volume,
-  measured once used.
-- **X4 needs** Home Assistant's address and a read-only token, and the read tools (Home Assistant's
-  MCP server integration). Not checked yet.
+- **X3 limits:** TranslateGemma serves only in prod GPU mode, is a production service for Close
+  Listening, runs with `--max-model-len=4096` (short texts only), and expects its own prompt format;
+  chat completions through a gateway alias are unverified.
+- **X4 without an admin token:** every Home Assistant long-lived token is full admin, but its
+  states already flow into VictoriaMetrics (the mini's Alloy, job `home-assistant`), so X4 reads
+  them there, read-only by construction.
 
 ### The morning briefing, to define with the operator
 
@@ -79,143 +93,175 @@ Notes:
 |---|---|
 | Goal | what to act on today, first; or everything that happened |
 | When | a fixed time (e.g. 07:00) for the window since the evening before (e.g. 18:00) |
-| Where it waits | a push notification to the phone with a link; a "Briefing" page on the hub; a conversation in the chat UI; email. The phone push could come through Home Assistant's companion app, ntfy, or Telegram |
-| Inputs | alerts, deploys, GlitchTip, prod health, fleet queue, spend and credit, capacity, home (X4) |
-| Length and shape | a headline ("2 things need you"), then sections; links to the hub, Grafana and GitHub for each item |
+| Where it waits | a push notification to the phone with a link; a "Briefing" page on the hub; a conversation in the chat UI; email. The push could come through Home Assistant's companion app, ntfy, or Telegram |
+| Inputs | the hub's status history for the window, alerts, deploys, GlitchTip, spend and credit, capacity, home |
+| Length and shape | a headline ("2 things need you"), then sections; links to the hub, Grafana and GitHub per item |
 
 ### Later (the catalogue)
 
 | # | Use case | Notes |
 |---|---|---|
 | H3 | Runbook lookup | dropped from version 1 |
-| — | "Why did spend spike?" | over LiteLLM and Langfuse data (from the review) |
+| — | "Why did spend spike?" | over LiteLLM and Langfuse data |
 | P1 | Ask the podcast corpus | the Close Listening corpus MCP exists |
 | P2 | Site and product stats | Umami |
 | P3 | Eval results | the harness's results docs |
 | P4 | Design and code questions | weak locally; Claude / opencode stay the tools |
 | X2 | Voice notes | phone recording → faster-whisper → summary and to-dos |
-| X5 | Home actions | needs a confirmation design |
-
-### Inside our tools (the tools call the model)
-
-| # | Use case | How | Notes |
-|---|---|---|---|
-| I1 | **Grafana LLM plugin** | available for self-hosted Grafana; takes any OpenAI-compatible URL, so the `assistant` alias | "Grafana Assistant" itself is Cloud-only; support for our Grafana 11.6.16 not checked |
-| I2 | **Langfuse evaluators** | LLM-as-a-judge is in the free self-hosted Langfuse; an OpenAI-compatible connection to LiteLLM | could score the assistant's answers and the fleet's decisions; needs tool calling through the gateway |
-| I3 | **Home Assistant Assist** | HA's official Ollama integration, pointed at the X3's assistant Ollama (Ollama API, not the gateway) | device control is experimental in HA; fewer than 25 exposed entities suggested |
-
-Umami and GlitchTip have no LLM features of their own; the assistant reads them instead.
+| X5 | Home actions | needs a confirmation design; Home Assistant's own agent (step 2) may be the place |
 
 ## Proposal
+
+### 0. One source of truth for the hub's semantics
+
+The hub decides what is green, amber or red, what "Needs you" counts, what spend means, in its
+browser JavaScript (`infra/homelab-home/gen.sh`): each function runs the queries, applies the rules
+and draws HTML in one go. A briefing script with its own copies of those queries would drift.
+
+Split deciding from drawing:
+- **`hub-status.js`**, plain JavaScript with no page code: one function per area returns data
+  (`{ id, label, state, value, reason, since, link }`). The queries, thresholds and rules live
+  only here.
+- **The page** imports it and only draws.
+- **A Node job on the mini** (launchd, every 5 minutes; Node is installed there) runs the same file
+  against localhost and writes `status.json`, served by the hub at `/status.json`. Each run's
+  snapshot goes to VictoriaLogs with its timestamp, so any hour can be checked afterwards.
+- **Everything else reads `status.json`:** the briefing, the assistant's H4 / H5 / H6 (one tool,
+  one HTTP GET), later alerts.
+
+Moved area by area: version 1 needs prod health, "Needs you", spend and credit, and capacity. The
+rest of the hub stays as it is until there is a reason to move it. Tests get simpler: the module
+returns data, not HTML.
 
 ### 1. The X3 becomes a deployment surface
 
 | Concern | Mini | DGX | X3 (proposed) |
 |---|---|---|---|
 | Where it lives in the repo | `infra/mini-*`, `infra/observability/backend/` | `infra/dgx/`, `infra/vllm/` | **`infra/x3/`** with its own `AGENTS.md` and README |
-| Deploy checkout | `~/agentic-ai-homelab` | `/home/ops/agentic-ai-homelab` (user `ops`) | **a separate checkout on `main`** (e.g. `~/deploy/agentic-ai-homelab`), never the dev tree at `/work/agentic-ai-homelab` |
-| How services run | launchd + Docker (prod engine) | Docker compose in place | **systemd user units** linked from the deploy checkout, as `alloy-research` already does |
+| Deploy checkout | `~/agentic-ai-homelab` | `/home/ops/agentic-ai-homelab` (user `ops`) | **a separate checkout on `main`** (`~/deploy/agentic-ai-homelab`), never the dev tree. The X3's Alloy (`alloy-research`) runs from the dev tree today and is re-linked |
+| How services run | launchd + Docker (prod engine) | Docker compose in place | **systemd user units** linked from the deploy checkout; ordered after `tailscaled` when they bind the tailnet address |
 | Deploy | `git pull` + kickstart / compose | `git pull` + compose | `git pull` + `systemctl --user restart <unit>` |
-| Observability | Alloy, VictoriaMetrics | Alloy, DCGM, cAdvisor | Alloy already runs (`alloy-research`): add the assistant's Ollama log (to a file the existing `*ollama*.log` source reads, with its own `service` label) and a probe |
-| Health | probes, alerts | probes, alerts, `gpu-mode` | a probe on the assistant endpoint, an alert, a lamp on the hub (Hosts → X3) |
-| Network | tailnet, tagged | tailnet, tagged | tailnet name `omarchy`; **Tailscale ACLs** let the mini's services reach the assistant port, nothing else |
-| Upgrades | per stack | per stack | Ollama is a hand-installed binary; Omarchy's rolling updates (kernel, Mesa, ROCm) can break it, so the README names who upgrades it and how to roll back |
-| Undo | per stack | per stack | `systemctl --user disable --now <unit>`, remove the link |
+| Observability | Alloy, VictoriaMetrics | Alloy, DCGM, cAdvisor | the assistant logs to its own file, read by a second block in the X3 collector with `service="assistant"` (the existing block's label is fixed); a probe from the mini, an alert, a lamp under Hosts on the hub |
+| Network | tailnet, tagged | tailnet, tagged | an ACL rule (PR in chipi/infra): source `tag:homelab-host`, destination a `hosts` entry for `omarchy` (100.92.54.65), port 11435 only; and a ufw rule for that port on `tailscale0` |
+| Upgrades | per stack | per stack | Ollama is a hand-installed binary; Omarchy's rolling updates (kernel, Mesa, ROCm) can break it; the README names who upgrades it and how to roll back |
+| Undo | per stack | per stack | `systemctl --user disable --now <unit>`, remove the link, revert the ufw and ACL rules |
 
 Rules that come with it:
-- **One model in version 1** (operator): Qwen3-30B only; no heavy or small second model.
-- **Separate from the eval harness, with a rule, not just a port.** Both Ollama instances share one
-  GPU: when the harness loads a large model, the assistant's model can be evicted, and the
-  assistant's resident model changes the harness's timings. The feasibility test (plan, phase 1)
-  measures this; the outcome is a written rule, e.g. the assistant pauses while a harness run is
-  on, or memory is split.
-- **The workstation comes first.** Whether a systemd memory cap even counts GPU-mapped model
-  memory on this kernel is unverified; the feasibility test checks it before a cap is relied on.
+- **One model in version 1** (operator).
+- **Separate from the eval harness, with a rule, not just a port.** Both Ollama instances share
+  one GPU: the harness loading a large model can evict the assistant's, and the assistant's
+  resident model changes the harness's timings. The feasibility test measures it; a written rule
+  follows (e.g. the assistant pauses during a harness run, or memory is split).
+- **The workstation comes first.** A systemd memory cap may not count GPU-mapped model memory
+  (the `dmem` controller here covers only the 1 GiB VRAM); the feasibility test checks it before
+  any cap is relied on.
 
 ### 2. The model
 
 `qwen3:30b-a3b-instruct-2507-q4_K_M` (18 GB, already on disk): 3B active parameters, tool calling,
-262k native context (run at 32k). Chosen as a start, not on an eval; the use cases are evaluated
-later with a labelled set per use case, and the model with them.
+262k native context (run at 32k). A start, not an eval result.
 
 ### 3. One gateway, with a failover
 
-The mini's LiteLLM gets an alias, `assistant`, routed to the X3 over the tailnet (by IP: the
-mini's LiteLLM container cannot resolve MagicDNS names), each client with its own capped virtual
-key. Every client uses the same endpoint; Langfuse traces it; the hub's Spend tab shows it.
+The mini's LiteLLM gets an alias, `assistant`, routed to the X3 by IP (its container cannot resolve
+MagicDNS), each client with its own capped virtual key; Langfuse traces it.
 
-**Failover (operator):** to `qwen/qwen3-30b-a3b-instruct-2507` on OpenRouter, the same model, so
-prompts and tool calls behave the same:
-- a fallback on the `assistant` alias only (not router-wide), with its own capped key and budget;
-- a per-alias timeout (~30 s) and few retries; with the gateway's global settings (120 s, 6
-  retries) a hung X3 would take minutes to fail over;
-- a cold model load (15–22 s in the logs) is latency, not failure;
-- **provenance:** LiteLLM reports the model that answered; the chat UI has to show it, so "local
-  and private" is never silently untrue. How each UI shows it is part of the UI evaluation;
-- tested for a stopped, a slow and a hung X3.
+**Failover (operator):** to `qwen/qwen3-30b-a3b-instruct-2507` on OpenRouter, the same model:
+- a fallback on the `assistant` alias only, its own capped key and budget;
+- the local deployment with a ~30 s timeout and **no retries**, so a stopped or hung X3 fails over
+  within about 35 s (the gateway's global 120 s and 6 retries would take minutes);
+- a cold model load (15–22 s in the logs) is latency, not failure; after a failure, LiteLLM's
+  cooldown keeps traffic on the failover for a while, so "the next call is local again" holds only
+  after the cooldown;
+- **provenance on the hub, not in the UI:** neither UI shows LiteLLM's fallback (they display the
+  alias). The hub's Spend tab already splits OpenRouter from local per key; it gets a line
+  "assistant: N local / $X failover", and Langfuse shows each call's model.
 
 ### 4. Chat UI: LibreChat and Open WebUI, side by side
 
-Both are self-hosted chat harnesses: no model of their own. They hold conversations, route to
+Both are self-hosted chat harnesses with no model of their own: they hold conversations, route to
 models, call tools and run agents.
 
 - **LibreChat** (three containers: API, MongoDB, Meilisearch). Per its documentation:
-  - OpenAI-compatible endpoints, so LiteLLM and everything behind it;
-  - MCP servers, configured in `librechat.yaml` or at runtime, used in chat or by agents (a saved
-    prompt, model and toolset);
-  - chat with files (a RAG API and a vector database, extra services);
-  - email, LDAP, SAML or OIDC sign-in, with registration closable.
+  - OpenAI-compatible endpoints (LiteLLM and everything behind it);
+  - MCP servers in `librechat.yaml` or at runtime, in chat or in agents (a saved prompt, model and
+    toolset);
+  - chat with files (an extra RAG API and vector database);
+  - email, LDAP, SAML or OIDC sign-in, registration closable.
 - **Open WebUI** (one container): chat, files and RAG built in; MCP support in recent versions,
-  not verified yet.
+  not verified.
 
-**Why D-0007 dropped LibreChat, and what changed.** In June it fronted one coder model, and
-Chatbox (a phone app, no server) did the same with nothing to maintain. Now there is a gateway
-with every model behind it, tools worth calling, and the use cases above. The cost that matters
-is wiring the tools, which both UIs need, more than the number of containers.
+**Why D-0007 dropped LibreChat, and what changed.** In June it fronted one coder model and Chatbox
+did the same with nothing to maintain. Now there is a gateway with every model behind it, tools
+worth calling and the use cases above. The cost that matters is wiring the tools, which both need.
 
-**The evaluation:** both on the mini's dev Docker engine (ADR-0009: on demand, 6 GiB, memory cap
-per container), against LiteLLM with the OpenRouter Qwen and Grafana's MCP server. The same tasks
-in both: H2, H4 and X1, from the desktop and the phone. Judged on tool use, showing which model
-answered, phone use, and upkeep (config, upgrades, backups). The winner moves to the mini's
-production engine; the decision is recorded and supersedes D-0007.
+**The evaluation:** the same tasks in both (X1, H4 through the status tool, H2 with Grafana's MCP
+server), from the desktop and the phone, against the OpenRouter Qwen through a capped key; judged on
+tool use, phone use and upkeep. Where to run the throwaway pair is open:
+- **on the X3's Docker:** always on, plenty of memory, the phone reaches it over the tailnet with no
+  ACL change; but plain HTTP on the phone (no microphone or home-screen install), and not the final
+  host;
+- **on the mini's dev engine** (ADR-0009): the final host's platform, but reaching it from the phone
+  needs extra plumbing, and while up it holds 26 of the mini's 32 GiB in VMs.
 
-**Placement (operator):** the chosen UI on the mini (always-on service host); the model on the X3.
+The winner moves to the mini's production engine; the decision is recorded and supersedes D-0007.
 
-**The LibreChat running on the DGX today** is a leftover from June, never really used (operator).
-Its files are untracked, the image is a floating `librechat-dev-api:latest` (v0.8.6), it points
-only at coder-next (down in prod mode), and its `.env` names OpenAI, Anthropic and Google API keys
-(names checked, values not read). It is retired first, and the keys checked and rotated if live.
+**Placement (operator):** the chosen UI on the mini; the model on the X3.
+
+**The LibreChat on the DGX today** is a leftover from June, never really used (operator): untracked
+files, a floating `librechat-dev-api:latest` (v0.8.6), pointed only at coder-next, an `.env` naming
+OpenAI, Anthropic and Google API keys (names checked, values not read). It is retired first, its
+keys checked and rotated if live, and its row removed from the hub (`gen.sh` watches its three
+containers, so the lamp would turn red).
 
 ### 5. Mobile
 
-The phone is on the tailnet (Tailscale app). The UI gets a tailnet HTTPS name and is installed as a
-home-screen web app. The hub uses Caddy and a tailnet node of its own (`infra/reverse-proxy`), not
-`tailscale serve`; the UI follows one of the two, decided when it is deployed. Nothing is exposed
-to the internet. Chatbox on the `assistant` alias stays the zero-maintenance fallback (no tools).
+The phone is on the tailnet. The chosen UI gets a tailnet HTTPS name following the hub's pattern
+(Caddy with a tailnet node of its own, `infra/reverse-proxy`: a new `bind tailscale/<name>` and a
+network join, so a restart of the production Caddy) and is installed as a home-screen web app.
+Nothing is exposed to the internet. Chatbox on the `assistant` alias stays the zero-maintenance
+fallback (no tools).
 
-### 6. Tools, read-only in version 1
+### 6. Tools, read-only
 
 | Tool | Serves | How |
 |---|---|---|
-| Grafana MCP server (viewer token) | H2, H4, H5, H7, H1 | alerts, rules, Prometheus-style queries on VictoriaMetrics |
-| GlitchTip (read-only token) | H1, H4, H7 | its Sentry-compatible API |
-| GitHub (read-only token) | H6, H1 | issues with the fleet's labels |
-| Close Listening o11y MCP | H4, H1 | exists; how the UI authenticates to it is open |
-| Home Assistant (read-only token) | X4 | Home Assistant's MCP server integration |
-| `translate` alias in LiteLLM | X3 | TranslateGemma on the DGX |
-| The briefing script | H1 | fixed queries, then the model writes; runs on a schedule on the mini |
+| The hub's `status.json` | H1, H4, H5, H6 | one HTTP GET on the hub |
+| GitHub (read-only token) | H6 items, H1 | issues with the fleet's labels |
+| Grafana MCP server (viewer token) | H2, H7, X4 | alerts, rules, Prometheus-style queries on VictoriaMetrics (Home Assistant's states included) |
+| GlitchTip (read-only token) | H1, H2, H7 | its Sentry-compatible API |
+| `translate` alias in LiteLLM | X3 | TranslateGemma on the DGX; format and chat completions to verify |
+| The briefing job | H1 | reads `status.json` history and the sources above; the model writes; runs on a schedule on the mini |
 
-**Where MCP servers run:** LibreChat runs stdio servers inside its own container; Grafana's MCP
-server is a separate binary, so its own container with its own token. Tokens live in mode-600
-files on the mini and get rows in the handbook's credentials table.
+MCP servers: LibreChat runs stdio servers in its own container; Grafana's MCP server is a separate
+binary, so a container with its own token. Tokens live in mode-600 files on the mini, with rows in
+the handbook's credentials table.
 
-**Security:** read-only tools bound writes, not exfiltration: a tool result (a log line, an issue)
-can carry instructions that make the model repeat other tool results into the chat. For a single
-operator on a private tailnet that is acceptable, and stated. Write tools (Home Assistant
-actions, GitHub writes) wait for a confirm-each-action design.
+**Security:** read-only tools bound writes, not exfiltration: a tool result can carry instructions
+that make the model repeat other tool results into the chat. Acceptable for a single operator on a
+private tailnet, and stated. Write tools wait for a confirm-each-action design.
 
-**Privacy:** Langfuse would store private chats (X1). Decided before X1 goes live: a separate
+**Privacy:** Langfuse would store private chats (X1); decided before X1 goes live: a separate
 Langfuse project, or no tracing for X1.
+
+### 7. Step 2 — the same model inside our tools
+
+| Tool | What it gives | How | Notes |
+|---|---|---|---|
+| **Grafana** | Grafana's AI features (writing and explaining panels, queries, dashboards) on our model | the Grafana LLM plugin (available for self-hosted Grafana), pointed at LiteLLM's `assistant` alias with its own capped key | "Grafana Assistant" itself is Cloud-only; plugin support for our Grafana 11.6.16 is checked first |
+| **Langfuse** | the model scores traces automatically: the assistant's answers, the briefing, the triage fleet's decisions | an LLM connection (OpenAI-compatible base URL = LiteLLM) and LLM-as-a-judge evaluators, free in self-hosted Langfuse | the gateway must pass tool calls; the judge's own calls are traced too, so its key is tagged and kept out of the scores |
+| **Home Assistant** | chat and voice at home (Assist) on our model, through HA's companion app | HA's official Ollama integration, pointed at the X3's assistant Ollama; HA runs on the mini, so it reaches the X3 through the same ACL rule | HA speaks the Ollama API, so it bypasses LiteLLM: no failover and no Langfuse trace for these calls; start with device control off, then fewer than 25 exposed entities |
+
+### 8. Step 3 — use cases rebuilt around the tools
+
+With step 2 in place, each use case moves to where it works best, for example:
+- **H2 alert explainer** inside Grafana, next to the alert, instead of only in the chat;
+- **home status and actions (X4, X5)** through Home Assistant's own agent and its voice app, with
+  HA's exposed-entity list as the control boundary;
+- **evaluation** through Langfuse's evaluators on real traces, feeding the labelled sets;
+- **the briefing** keeps its own job, and links into each tool.
+
+Which use cases move, and how, is decided once step 2 runs.
 
 ## Non-goals
 
@@ -227,56 +273,75 @@ Langfuse project, or no tracing for X1.
 
 ## Open questions
 
-1. **LibreChat or Open WebUI:** the side-by-side evaluation decides. Fallback: Chatbox and the
-   gateway, no tools.
+1. **LibreChat or Open WebUI**, and where the comparison runs (X3 Docker or the mini's dev engine).
 2. **The briefing's goal, time, delivery and shape** (table above).
 3. **Separation from the eval harness:** the rule, after the feasibility test.
 4. **Memory caps** on the X3: whether they count model memory, and what to set.
 5. **Tracing private chats** (X1): separate Langfuse project or none.
-6. **Home Assistant access** for X4: address, token, MCP integration.
+6. **Grafana LLM plugin** support for Grafana 11.6.16.
 7. **Voice:** speech to text through our faster-whisper, not tested.
 
 Settled: the UI on the mini and the model on the X3; the X3 always on; failover to OpenRouter
-Qwen3-30B; one model; the version 1 use cases; the X3's GPU memory raised to 128 GB by the
-operator; Tailscale ACLs added for access.
+Qwen3-30B; one model; the version 1 use cases and their waves; the hub's status module as the one
+source of the briefing's numbers; Tailscale ACLs for access; step 2 (Grafana, Langfuse, Home
+Assistant) and step 3 (use cases around them).
 
 ## Alternatives considered
 
 - **Host it on the DGX.** Best engine and prefill, but 16 GB free in prod mode and swapping GPU
-  modes. Rejected for the always-on assistant; the DGX stays the heavy-batch and production host.
-- **Use the production Qwen on the DGX through LiteLLM.** No new memory, but it shares a
-  production KV cache that already peaked at 99%. Rejected.
-- **Chatbox only (D-0007).** Zero maintenance, no tools, so most version 1 use cases are out.
-  Kept as the fallback.
-- **vLLM on ROCm on the X3.** Better prefill and batching than Ollama, but less proven on this
-  APU. Revisit at the benchmark stage.
+  modes. Rejected for the always-on assistant.
+- **Use the production Qwen on the DGX through LiteLLM.** Shares a production KV cache that already
+  peaked at 99%. Rejected.
+- **The briefing with its own copies of the hub's queries.** Drifts from the hub. Rejected for the
+  status module.
+- **Run the hub's functions in Node against a fake page (as `test_page.js` does), or scrape the
+  rendered hub with a headless browser.** Brittle: the output is HTML, or depends on the layout.
+- **VictoriaMetrics recording rules for the hub's semantics.** Fits the metric-only rules, not the
+  parts on logs, Umami's SQL or Grafana. Possible later for a few headline signals.
+- **Chatbox only (D-0007).** No tools. Kept as the fallback.
+- **vLLM on ROCm on the X3.** Less proven on this APU. Revisit at the benchmark stage.
 
-## Review (2026-11-03, independent advisor, Fable 5.1)
+## Reviews
 
-Verdict: proceed with changes. What it found, and what was done:
+**First review** (2026-11-03, independent advisor, Fable 5.1): proceed with changes.
 
 | Finding | Status |
 |---|---|
-| The RFC said the local model "leads the triage eval"; the leader is the vLLM copy on the DGX, the X3's Ollama copy is rank 29 | corrected; the operator chooses the model by use-case evaluation later |
-| The X3's GPU can address 62.2 GiB, not 128 GB; a 65 GB model evicted the loaded one on 10-31 | corrected; one model only; the operator raises the limit to 128 GB with a restart |
-| Long-prompt speed on the X3 is not measured | the feasibility test measures 4k and 20k |
-| The tailnet name is `omarchy`, untagged; the mini's LiteLLM needs the IP and an ACL | corrected; ACLs in the plan |
-| Memory caps may not count GPU-mapped memory | the feasibility test checks |
-| Two Ollama instances on one GPU evict each other | the feasibility test measures; a rule follows |
-| Failover timing (120 s, 6 retries) and provenance | per-alias timeout, provenance shown, slow and hung tests |
-| Gaps: UI backups and versions, secrets, MCP hosting and auth, tracing of private chats, agent design, a labelled test set | in the plan |
-| Order: test feasibility first; retire the DGX LibreChat first; decide the UI independently of the X3 | the plan's phases follow this |
-| Use cases: the briefing as a scheduled push; "why did spend spike" | adopted |
+| The RFC said the local model "leads the triage eval" | corrected |
+| The X3's GPU addresses 62.2 GiB; a 65 GB model evicted the loaded one | corrected; one model |
+| Long-prompt speed on the X3 unmeasured | the feasibility test |
+| Tailnet name `omarchy`, untagged | corrected |
+| Memory caps may not count GPU-mapped memory | the feasibility test |
+| Two Ollama instances evict each other | the feasibility test, then a rule |
+| Failover timing and provenance | redesigned (section 3) |
+| Gaps: UI backups, secrets, MCP hosting, tracing of private chats, agent design, a labelled set | in the plan |
+
+**Second review** (2026-11-03, independent advisor, Fable 5.1): proceed with changes. Each item
+below was checked against the system.
+
+| Finding | Status |
+|---|---|
+| The ACL source is `tag:homelab-host`, not `tag:homelab-svc`; the policy is a PR in chipi/infra; `omarchy` needs a `hosts` entry | corrected (section 1) |
+| ufw drops inbound on the X3; no step opened the port | added |
+| The GPU raise needs `ttm.pages_limit` too; the assistant does not need it | corrected; off the critical path |
+| "Every number matches the hub" cannot hold with copied queries | the status module (section 0) |
+| H6's list and count come from different sources | done-criterion restated |
+| Neither UI shows LiteLLM's fallback | provenance on the hub and in Langfuse |
+| Phone access to the dev engine is unsolved | the comparison's location is open, with the X3 as the alternative |
+| No read-only Home Assistant token exists | X4 reads HA's states in VictoriaMetrics |
+| TranslateGemma through a chat alias unverified | wave 3, verify first |
+| Retiring the DGX LibreChat turns a hub lamp red | its row removed with it |
+| Failover check needs no retries; cooldown; unit after tailscaled; a second collector block; the X3's Alloy runs from the dev tree | added |
+| Nine use cases is too many at once | delivered in three waves; wave 1 proves every layer |
 
 ## Discussion
 
-- 2026-11-03 — Written from the session that measured both hosts. The operator asked to treat
-  the X3 as a full deployment surface, to start with one model, focus on use cases, then return
-  to benchmarks; LibreChat to be considered as the UI, including from the phone.
-- 2026-11-03 — Operator: the UI on the mini, the model on the X3; the X3 is never off, but plan a
-  failover to OpenRouter (`qwen/qwen3-30b-a3b-instruct-2507`). Use cases replaced with a
-  catalogue; tools with their own LLM features added (I1–I3).
-- 2026-11-03 — Review (above). Operator: evaluate the model later against the use cases; raise the
-  X3's GPU memory to 128 GB; add Tailscale ACLs; a feasibility test as the MVP start; one model;
-  retire the DGX LibreChat; compare LibreChat and Open WebUI side by side; the briefing waits
-  every morning. Version 1 use cases: H1, H2, H4, H5, H6, H7, X1, X3, X4; runbook lookup dropped.
+- 2026-11-03 — Written from the session that measured both hosts.
+- 2026-11-03 — Operator: the UI on the mini, the model on the X3; failover to OpenRouter
+  (`qwen/qwen3-30b-a3b-instruct-2507`). Use-case catalogue; tools with their own LLM features.
+- 2026-11-03 — First review. Operator: evaluate the model later; raise the X3's GPU memory; add
+  ACLs; a feasibility test as the MVP start; one model; retire the DGX LibreChat; compare the two
+  UIs; the briefing waits every morning. Version 1: H1, H2, H4, H5, H6, H7, X1, X3, X4.
+- 2026-11-03 — Second review. Operator: the hub's semantics must not be duplicated (the status
+  module); add step 2 (the same model in Grafana, Langfuse and Home Assistant) and step 3 (use cases
+  rebuilt around them). The nine use cases are delivered in three waves.

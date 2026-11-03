@@ -11,7 +11,7 @@ here is tracked in git, so it's findable and diffable.
 - `colima-vcpu-8-to-4-runbook.md` — resize the mini's VM and turn Spotlight off. Not run yet.
 - `tailscale-exit-node-mini.md` — the mini as an NL exit node. Not run yet.
 - `otel-pipeline-end-to-end.md` — telemetry map, gaps and the remaining plan (issue #99).
-- `x3-assistant-v1-plan.md` — the local assistant on the X3, version 1 (RFC-0008): phases 0–7, a check per phase, the steps that need a go.
+- `x3-assistant-v1-plan.md` — the local assistant on the X3 (RFC-0008): step 1 (the assistant, phases 0–7), step 2 (the model in Grafana, Langfuse, Home Assistant), step 3 (use cases around them).
 
 ## Closing a note
 
