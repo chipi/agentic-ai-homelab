@@ -979,7 +979,7 @@ function short(l,n=2){const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','
 // "LiteLLM_DailyUserSpend" (litellm-pg datasource) and prod's litellm_model_* (box="prod", pushed by
 // chipi/infra spend-to-vm.sh). Gateway dollars are LiteLLM's own price estimate, not OpenRouter's
 // bill. OpenRouter keys no gateway uses are "direct". Same completed UTC days as everything else.
-const CALLERPROJ=[[/^eval-harness$/,'Evals'],[/^fleet-/,'Fleets'],[/^(proj-podcast|podcast-)/,'Close Listening'],[/^proj-orrery/,'Orrery']];
+const CALLERPROJ=[[/^eval-harness$/,'Evals'],[/^fleet-/,'Fleets'],[/^(proj-podcast|podcast-)/,'Close Listening'],[/^proj-orrery/,'Orrery'],[/^hub-/,'Homelab']];
 const DIRECTKEYS=['pi-key','photo-key','opencode-key','Default key'];
 async function gatewayCallers(p){
   gatewayCallers.c=gatewayCallers.c||{};const c=gatewayCallers.c[p];if(c&&Date.now()-c.t<300000)return c.v;

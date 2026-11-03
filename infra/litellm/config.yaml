@@ -72,11 +72,13 @@ model_list:
   # --- the local assistant (RFC-0008) ----------------------------------------
   # The same model as the X3's local assistant (Qwen3-30B-A3B-Instruct-2507), on OpenRouter. The
   # morning briefing writes with it until the X3 assistant is behind `assistant`; then it becomes
-  # that alias's failover. A short timeout: a briefing waits for it.
+  # that alias's failover. A short timeout: a briefing waits for it. Its own OpenRouter key
+  # (`assistant-cloud`, workspace misc-experiments, $10 a month): the bugfix-fleet workspace's
+  # guardrail behind OPENROUTER_API_KEY excludes every provider of this model.
   - model_name: assistant-cloud
     litellm_params:
       model: openrouter/qwen/qwen3-30b-a3b-instruct-2507
-      api_key: os.environ/OPENROUTER_API_KEY
+      api_key: os.environ/OPENROUTER_API_KEY_ASSISTANT
       timeout: 60
 
   - model_name: homelab-qwen37-flash
