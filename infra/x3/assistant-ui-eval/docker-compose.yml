@@ -7,7 +7,8 @@
 # UIs send their own traces to VictoriaTraces (services librechat, open-webui); the X3 collector
 # ships these containers' logs and scrapes LibreChat's and mcp-grafana's /metrics
 # (infra/observability/hosts/x3/config.alloy); Open WebUI pushes its metrics over OTLP.
-# Gateway by its full tailnet name: LibreChat's image (musl) ignores the search domain.
+# Gateway by its TLS tailnet name (litellm.tail6d0ed4.ts.net): the mini's plain host port goes through
+# lima's forwarder, which drops connections (Open WebUI: "Server disconnected", 2026-11-03).
 name: assistant-ui-eval
 
 services:
@@ -73,7 +74,7 @@ services:
       WEBUI_URL: https://omarchy.tail6d0ed4.ts.net:8444
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       ENABLE_OLLAMA_API: "false"
-      OPENAI_API_BASE_URL: http://homelab.tail6d0ed4.ts.net:4001/v1
+      OPENAI_API_BASE_URL: https://litellm.tail6d0ed4.ts.net/v1
       OPENAI_API_KEY: ${LITELLM_API_KEY}
       ENABLE_SIGNUP: ${OPENWEBUI_ENABLE_SIGNUP:-true}
       DEFAULT_MODELS: assistant

@@ -1,0 +1,6086 @@
+{
+ "set": "h4-h5",
+ "ui": "librechat",
+ "at": "2026-11-03T2202Z",
+ "model": "assistant",
+ "score": "13/13",
+ "results": [
+  {
+   "id": "h4-1",
+   "use": "H4",
+   "q": "Is prod healthy right now? Answer in at most three sentences, with the numbers.",
+   "answer": "Yes, prod is healthy. All 19 sites are up, with 99.9% availability over 24 hours. OpenRouter credit is low at $4.12.",
+   "toolCalled": true,
+   "seconds": 10.7,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "sites up",
+     "want": 19,
+     "ok": true
+    },
+    {
+     "label": "sites total",
+     "want": 19,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h4-2",
+   "use": "H4",
+   "q": "Is any of our websites down right now? If so, which?",
+   "answer": "None of the websites are down. All sites and hosts are up.",
+   "toolCalled": true,
+   "seconds": 11.1,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "none down",
+     "want": [
+      "no ",
+      "none",
+      "not ",
+      "all "
+     ],
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h4-3",
+   "use": "H4",
+   "q": "Which of our websites had the lowest availability over the last 24 hours, and what was it, in percent?",
+   "answer": "The website with the lowest availability over the last 24 hours was evals.humancopilot.eu, with an availability of 99.79%.",
+   "toolCalled": true,
+   "seconds": 11,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "lowest host",
+     "want": [
+      "evals.humancopilot.eu"
+     ],
+     "ok": true
+    },
+    {
+     "label": "its availability %",
+     "want": 99.79,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h4-4",
+   "use": "H4",
+   "q": "How many of our websites were below 99.9% availability over the last 24 hours?",
+   "answer": "Six of our websites were below 99.9% availability over the last 24 hours:\n\nairandspacehistory.com (99.86%)\nanalytics.markodragoljevic.com (99.86%)\ncloselistening.app (99.86%)\nevals.humancopilot.eu (99.79%)\nlab-api.orrerylearn.com (99.86%)\nmcp.closelistening.app (99.86%)",
+   "toolCalled": true,
+   "seconds": 12.6,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "sites below 99.9%",
+     "want": 6,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h4-5",
+   "use": "H4",
+   "q": "Is the Close Listening prod health check green, and how many hours old is it?",
+   "answer": "The Close Listening prod health check is green. It is 15 hours old.",
+   "toolCalled": true,
+   "seconds": 10.1,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "state up",
+     "want": [
+      "green",
+      "healthy",
+      "passing",
+      " up",
+      "ok"
+     ],
+     "ok": true
+    },
+    {
+     "label": "age hours",
+     "want": 15,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h4-6",
+   "use": "H4",
+   "q": "Which alerts are firing right now? Give their names.",
+   "answer": "The only alert currently firing is \"OpenRouter credit low (under USD 10 left)\".",
+   "toolCalled": false,
+   "seconds": 9.6,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "OpenRouter credit low (under USD 10 left)",
+     "want": [
+      "openrouter credit"
+     ],
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h4-7",
+   "use": "H4",
+   "q": "Are all four hosts (the Mac mini, the DGX, the X3 and the prod box) reporting? Answer per host.",
+   "answer": "All four hosts are reporting:\n\nMac mini: up\nDGX: up\nX3: up\nprod box: up",
+   "toolCalled": true,
+   "seconds": 11.1,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "mini up",
+     "want": [
+      "mini"
+     ],
+     "ok": true
+    },
+    {
+     "label": "dgx up",
+     "want": [
+      "dgx"
+     ],
+     "ok": true
+    },
+    {
+     "label": "x3 up",
+     "want": [
+      "x3"
+     ],
+     "ok": true
+    },
+    {
+     "label": "prod up",
+     "want": [
+      "prod"
+     ],
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h5-1",
+   "use": "H5",
+   "q": "How much OpenRouter credit is left, in dollars?",
+   "answer": "OpenRouter has $4.12 in credit left.",
+   "toolCalled": true,
+   "seconds": 10.6,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "credit $",
+     "want": 4.12,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h5-2",
+   "use": "H5",
+   "q": "How much did we spend on OpenRouter yesterday?",
+   "answer": "We spent $1.78 on OpenRouter yesterday.",
+   "toolCalled": true,
+   "seconds": 10.1,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "yesterday $",
+     "want": 1.78,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h5-3",
+   "use": "H5",
+   "q": "What is our average daily OpenRouter spend over the last 7 days?",
+   "answer": "Our average daily OpenRouter spend over the last 7 days is $2.59.",
+   "toolCalled": true,
+   "seconds": 10,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "7-day average $/day",
+     "want": 2.59,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h5-4",
+   "use": "H5",
+   "q": "How much have we spent on OpenRouter so far this month?",
+   "answer": "We have spent $2.59 this month on OpenRouter.",
+   "toolCalled": true,
+   "seconds": 9.6,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T21:56:50.075Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "month $",
+     "want": 2.59,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h5-5",
+   "use": "H5",
+   "q": "How much disk is free, in percent, on the mini, the DGX and the prod box?",
+   "answer": "On the Mac mini: 22.48% disk free.\nOn the DGX: 21.40% disk free.\nOn the prod box: 39.52% disk free.",
+   "toolCalled": true,
+   "seconds": 12.7,
+   "takenAt": [
+    "2026-11-03T21:56:50.075Z",
+    "2026-11-03T22:01:51.294Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "mini disk free %",
+     "want": 22.5,
+     "ok": true
+    },
+    {
+     "label": "dgx disk free %",
+     "want": 21.4,
+     "ok": true
+    },
+    {
+     "label": "prod disk free %",
+     "want": 39.5,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T21:56:50.075Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 15,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.48032673282041,
+       "memUsedPct": 57.61,
+       "swapBytes": 7990411264
+      },
+      "dgx": {
+       "diskFreePct": 21.399693890032456,
+       "memUsedPct": 86.94123984101293
+      },
+      "prod": {
+       "diskFreePct": 39.51626102154904,
+       "memUsedPct": 57.07043035770576
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T22:01:51.294Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 16,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.82388601362191,
+       "memUsedPct": 42.51,
+       "swapBytes": 7386169344
+      },
+      "dgx": {
+       "diskFreePct": 21.39968037849091,
+       "memUsedPct": 86.96692619793046
+      },
+      "prod": {
+       "diskFreePct": 39.51570884993187,
+       "memUsedPct": 56.97783915499583
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "h5-6",
+   "use": "H5",
+   "q": "Which host uses the most memory right now, and how much, in percent?",
+   "answer": "The DGX host uses the most memory right now, at 86.97%.",
+   "toolCalled": true,
+   "seconds": 10.1,
+   "takenAt": [
+    "2026-11-03T22:01:51.294Z",
+    "2026-11-03T22:01:51.294Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "host dgx",
+     "want": [
+      "dgx"
+     ],
+     "ok": true
+    },
+    {
+     "label": "dgx memory %",
+     "want": 87,
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-03T22:01:51.294Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 16,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.82388601362191,
+       "memUsedPct": 42.51,
+       "swapBytes": 7386169344
+      },
+      "dgx": {
+       "diskFreePct": 21.39968037849091,
+       "memUsedPct": 86.96692619793046
+      },
+      "prod": {
+       "diskFreePct": 39.51570884993187,
+       "memUsedPct": 56.97783915499583
+      }
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-03T22:01:51.294Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.9992685231537581,
+      "lowest": {
+       "host": "evals.humancopilot.eu",
+       "avail24h": 0.9979166666666667
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "avail24h": 0.9986101459346769
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9986091794158554
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993045897079277
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 16,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.12 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.116777743,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 1.7831540000000001,
+      "avg7dUsd": 2.5879381428571415,
+      "monthUsd": 2.591959
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 22.82388601362191,
+       "memUsedPct": 42.51,
+       "swapBytes": 7386169344
+      },
+      "dgx": {
+       "diskFreePct": 21.39968037849091,
+       "memUsedPct": 86.96692619793046
+      },
+      "prod": {
+       "diskFreePct": 39.51570884993187,
+       "memUsedPct": 56.97783915499583
+      }
+     }
+    }
+   }
+  }
+ ],
+ "rescored": "2026-11-03T22:05:31.123Z"
+}

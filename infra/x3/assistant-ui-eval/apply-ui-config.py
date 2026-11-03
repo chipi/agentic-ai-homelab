@@ -130,6 +130,13 @@ def librechat():
     if librechat_yaml(agent["id"]):
         restart_librechat()
         tok = token()
+    # the container must see the file as it is on disk: an editor or `sed -i` replaces the file, and the
+    # single-file bind mount keeps the old one until a restart
+    seen = subprocess.run(["docker", "exec", "assistant-eval-librechat", "cat", "/app/librechat.yaml"], capture_output=True, text=True).stdout
+    if seen != open(os.path.join(HERE, "librechat.yaml")).read():
+        restart_librechat()
+        tok = token()
+        print("LibreChat: restarted (the container saw an older librechat.yaml)")
     got = call(LIBRECHAT, "GET", f"/api/agents/{agent['id']}", tok)
     print(f"LibreChat: agent {got['id']} ({got.get('model')} on {got.get('provider')}), tools {got.get('tools')}, "
           f"instructions match system-prompt.txt: {got.get('instructions') == body['instructions']}; default spec opens on it")
@@ -137,8 +144,17 @@ def librechat():
 
 # ---------- Open WebUI ----------
 
+GATEWAY = "https://litellm.tail6d0ed4.ts.net/v1"   # the TLS name; the mini's plain :4001 drops connections
+
+
 def openwebui():
     tok = call(OPENWEBUI, "POST", "/api/v1/auths/signin", body={"email": ACC["ASSISTANT_EVAL_USER"], "password": ACC["ASSISTANT_EVAL_PASSWORD"]})["token"]
+    # the connection URL lives in Open WebUI's database (the env only seeds a fresh install); keys unchanged
+    oc = call(OPENWEBUI, "GET", "/openai/config", tok)
+    if oc.get("OPENAI_API_BASE_URLS") != [GATEWAY]:
+        call(OPENWEBUI, "POST", "/openai/config/update", tok, {"ENABLE_OPENAI_API": True, "OPENAI_API_BASE_URLS": [GATEWAY],
+             "OPENAI_API_KEYS": oc.get("OPENAI_API_KEYS") or [], "OPENAI_API_CONFIGS": oc.get("OPENAI_API_CONFIGS") or {}})
+    print(f"Open WebUI: gateway {call(OPENWEBUI, 'GET', '/openai/config', tok).get('OPENAI_API_BASE_URLS')}")
     servers = [
         {"url": "http://mcp-grafana:8000/mcp", "path": "", "type": "mcp", "auth_type": "none", "key": "",
          "config": {"enable": True},

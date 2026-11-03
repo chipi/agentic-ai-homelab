@@ -9,7 +9,7 @@ endpoints:
   custom:
     - name: "Homelab gateway"
       apiKey: "${LITELLM_API_KEY}"
-      baseURL: "http://homelab.tail6d0ed4.ts.net:4001/v1"
+      baseURL: "https://litellm.tail6d0ed4.ts.net/v1"
       models:
         default: ["assistant"]
         fetch: false

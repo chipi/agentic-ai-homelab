@@ -1,0 +1,19 @@
+{
+  "name": "h4-h5",
+  "about": "RFC-0008 phase 7, wave 1: H4 (is prod healthy) and H5 (spend and capacity). Each question's expected facts come from the hub's status.json fetched just before it is asked (the same file the assistant's status tool reads), by the rule named in `expect` (run-evalset.mjs). An answer passes when every expected fact is in it. One new chat per question.",
+  "questions": [
+    {"id": "h4-1", "use": "H4", "q": "Is prod healthy right now? Answer in at most three sentences, with the numbers.", "expect": "sites_up_total"},
+    {"id": "h4-2", "use": "H4", "q": "Is any of our websites down right now? If so, which?", "expect": "sites_down"},
+    {"id": "h4-3", "use": "H4", "q": "Which of our websites had the lowest availability over the last 24 hours, and what was it, in percent?", "expect": "lowest_site"},
+    {"id": "h4-4", "use": "H4", "q": "How many of our websites were below 99.9% availability over the last 24 hours?", "expect": "below999_count"},
+    {"id": "h4-5", "use": "H4", "q": "Is the Close Listening prod health check green, and how many hours old is it?", "expect": "podcast_health"},
+    {"id": "h4-6", "use": "H4", "q": "Which alerts are firing right now? Give their names.", "expect": "alert_names"},
+    {"id": "h4-7", "use": "H4", "q": "Are all four hosts (the Mac mini, the DGX, the X3 and the prod box) reporting? Answer per host.", "expect": "boxes"},
+    {"id": "h5-1", "use": "H5", "q": "How much OpenRouter credit is left, in dollars?", "expect": "credit"},
+    {"id": "h5-2", "use": "H5", "q": "How much did we spend on OpenRouter yesterday?", "expect": "spend_yesterday"},
+    {"id": "h5-3", "use": "H5", "q": "What is our average daily OpenRouter spend over the last 7 days?", "expect": "spend_avg7d"},
+    {"id": "h5-4", "use": "H5", "q": "How much have we spent on OpenRouter so far this month?", "expect": "spend_month"},
+    {"id": "h5-5", "use": "H5", "q": "How much disk is free, in percent, on the mini, the DGX and the prod box?", "expect": "disk_free"},
+    {"id": "h5-6", "use": "H5", "q": "Which host uses the most memory right now, and how much, in percent?", "expect": "max_mem"}
+  ]
+}
