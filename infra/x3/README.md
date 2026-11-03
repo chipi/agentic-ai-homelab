@@ -10,8 +10,8 @@ What runs on the X3 (`omarchy`, 100.92.54.65) for the homelab, and how. Rules fo
 | `assistant-ui-eval/` (compose) | LibreChat and Open WebUI side by side, until the UI decision; both on `assistant` with the same system prompt | loopback, published by `tailscale serve` on 8443/8444 |
 
 The assistant's system prompt has one source, `assistant-ui-eval/system-prompt.txt` (versioned here).
-Edit it, then run `./apply-system-prompt.py` in that directory: it writes LibreChat's default model spec
-and Open WebUI's model setting, and checks Open WebUI stored exactly that text.
+Edit it, then run `./apply-ui-config.py` in that directory: it writes LibreChat's "Homelab assistant" agent and default spec
+and Open WebUI's `assistant` model, with the same tools in both (Grafana MCP, and the hub status from `infra/homelab-home/openapi.json`), and checks what each stored.
 
 The eval harness's own Ollama (`127.0.0.1:11434`, started by its long-job runs) is not ours: same
 binary and model directory, separate process. See the GPU memory rule in `AGENTS.md`.
