@@ -141,6 +141,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <a href="#hosts/delivery" target=_self><span class="dot stale" data-dot=st_delivery></span>Delivery</a>
   <a href="#fleets" target=_self>Needs you <b data-text=f_inbox>&hellip;</b></a>
   <a href="#spend" target=_self>Credit left <b id=ov_credit_s>&hellip;</b></a>
+  <a href="briefing/" target=_self>Briefing</a>
 </div>
 <details id=notices hidden><summary id=nsum></summary>
 <div id=hetznerbar></div>

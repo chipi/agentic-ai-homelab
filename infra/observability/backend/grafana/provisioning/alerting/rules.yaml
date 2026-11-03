@@ -726,6 +726,56 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [10] } }]
 
+      # --- hub jobs (RFC-0008): the morning briefing and the status file ----------
+      # Each job records its last success in VictoriaMetrics (infra/homelab-home). The briefing
+      # runs at 07:00; 24.5 h without a success means this morning's did not arrive (fires ~07:30).
+      # The status job runs every 5 minutes; 20 minutes without one means status.json is stale.
+      # noDataState OK: before a job's first run there is nothing to miss.
+      - uid: hub-briefing-missing
+        title: "Morning briefing missing"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: hub }
+        annotations:
+          summary: "No morning briefing for {{ printf `%.1f` $values.q.Value }} h (it runs at 07:00 on the mini). Check /tmp/hub-briefing.log there."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 259200, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '(time() - max(last_over_time(hub_briefing_last_success_timestamp[3d]))) / 3600'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [24.5] } }]
+      - uid: hub-status-stale
+        title: "Hub status file stale"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: hub }
+        annotations:
+          summary: "status.json not written for {{ printf `%.0f` $values.q.Value }} min (the status job runs every 5 minutes on the mini). Check /tmp/hub-status.log there."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '(time() - max(last_over_time(hub_status_last_success_timestamp[1d]))) / 60'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [20] } }]
+
   - orgId: 1
     name: app-health
     folder: "Alerts"

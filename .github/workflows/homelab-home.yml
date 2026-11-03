@@ -1,10 +1,12 @@
 # Merge-time gate for the homelab home page (infra/homelab-home).
 #
-# The page's traffic-light JS is tested by test_page.js (dependency-free node:
-# extracts podcastHealth() from gen.sh, stub DOM + fixture VM vectors). Running
-# it here means anything that reaches origin/main has passed the test on
-# neutral infrastructure — no laptop involved, and the mini stays node-free
-# (its deploy remains pull + gen.sh, trusting main because CI gated the merge).
+# The page's JS and the status module are tested here (dependency-free node:
+# test_page.js / test_uptime.js / test_hetzner_bar.js extract page functions from
+# gen.sh with a stub DOM and fixture VM vectors; test_status.js tests
+# hub-status.js's data). Anything that reaches origin/main has passed them on
+# neutral infrastructure. The mini's deploy stays pull + gen.sh; since
+# 2026-11-03 (operator decision, RFC-0008) the mini also runs node for the
+# status and briefing jobs (status-job.js, briefing-job.js).
 
 name: homelab-home
 

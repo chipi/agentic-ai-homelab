@@ -17,6 +17,35 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   reverse-proxy to `victoriametrics:8428` (same-origin, so the page's JS queries
   VM without CORS).
 
+- `hub-status.js` — the hub's status semantics in one place (RFC-0008): what is green, amber or
+  red for sites, boxes, Close Listening health, alerts, Needs you, delivery, credit, spend and
+  capacity. It returns data; `gen.sh` inlines it and the page draws from it. Tests:
+  `test_status.js` (the module), `test_page.js` / `test_uptime.js` (the page on top of it).
+- `status-job.js` — runs the same module on the mini every 5 minutes (launchd
+  `com.homelab.hub-status`), writes `www/status.json` (served at `/status.json`), logs each
+  snapshot to VictoriaLogs (`job:hub-status`), and records `hub_status_last_success_timestamp`
+  (alert `hub-status-stale`).
+- `briefing-job.js` — the morning briefing (RFC-0008 use case H1), at 07:00 (launchd
+  `com.homelab.hub-briefing`): needs-you first, then the night (alert changes from Grafana's state
+  history, containers started, new GlitchTip issues), numbers, all-green. Every number comes from
+  code; the model (`assistant-cloud` through the mini's LiteLLM, key `~/hub-briefing-litellm.env`)
+  writes only the two-sentence opening, and the briefing goes out without it if it fails. Writes
+  `www/briefing/<date>.html` and `index.html` (the last 30 kept; `https://hub.tail6d0ed4.ts.net/briefing/`),
+  pushes the headline to the phone through Home Assistant (`notify.mobile_app_iphone`, token
+  `~/home-automation-secrets/ha-token`), records `hub_briefing_last_success_timestamp` (alert
+  `hub-briefing-missing`). `node briefing-job.js --dry-run` builds the page without pushing.
+- `hub-sources.js` — where both jobs read from (the mini's localhost services and token files).
+
+Install the two jobs (system LaunchDaemons running as the operator, from this checkout, as the
+mini-metrics jobs do):
+```sh
+for j in hub-status hub-briefing; do
+  sudo cp com.homelab.$j.plist /Library/LaunchDaemons/ && sudo chown root:wheel /Library/LaunchDaemons/com.homelab.$j.plist
+  sudo chmod 644 /Library/LaunchDaemons/com.homelab.$j.plist && sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.$j.plist
+done
+# undo: sudo launchctl bootout system/com.homelab.<job>; sudo rm /Library/LaunchDaemons/com.homelab.<job>.plist
+```
+
 ## Not in git (mini-local, gitignored)
 `www/index.html` (generated), `.env`. (`.htpasswd` and `.basic-auth-cred` are left over from the basic auth removed on 2026-10-24.)
 
