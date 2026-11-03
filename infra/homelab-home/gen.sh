@@ -1049,8 +1049,8 @@ async function spendModels(){
     const ls=async expr=>{const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
         body:JSON.stringify({queries:[{refId:'W',datasource:{uid:'victorialogs'},expr,queryType:'stats'}],from:String(from),to:String(to)})})).json();
       const o={};((r.results.W||{}).frames||[]).forEach(f=>{const l=f.schema.fields[1].labels||{},v=f.data.values[1];o[l.__name__]=+v[v.length-1]||0;});return o;};
-    const [dz,ms,wq,wa,dza,msa]=await Promise.all([n1('sum(increase(http_requests_total{job="pyannote-app",handler="/v1/diarize"}[R]))'),
-      n1('sum(increase(http_requests_total{job="moss-app",handler="/v1/transcribe"}[R]))'),
+    const [dz,ms,wq,wa,dza,msa]=await Promise.all([n1('sum(increase_pure(http_requests_total{job="pyannote-app",handler="/v1/diarize"}[R]))'),
+      n1('sum(increase_pure(http_requests_total{job="moss-app",handler="/v1/transcribe"}[R]))'),
       ls('container:"faster-whisper" "POST /v1/audio/transcriptions" | stats count() as n'),
       ls(WHISPER_AUDIO+' | stats sum(sec) as sec'),
       n1('sum(increase(audio_seconds_total{job="pyannote-app",endpoint="/v1/diarize"}[R]))'),
@@ -1392,17 +1392,18 @@ async function runtime(r0,id,per){
     const common=[one('sum(dgx_gpu_process_memory_bytes{instance="dgx-llm-1",container="'+CT+'"})'),one('max_over_time(max(container_memory_working_set_bytes'+N+')'+SQ+')'),
       one('sum(rate(container_cpu_usage_seconds_total'+N+W+'))'),line('max_over_time(max(container_memory_working_set_bytes'+N+')['+step+'s:5m])')];
     let cards,head;
-    if(JOB){const H='{job="'+JOB[0]+'",handler="'+JOB[1]+'"}',hq=(qq,w)=>'histogram_quantile('+qq+', sum by (le) (increase(http_request_duration_seconds_bucket'+H+(w||W)+')))';
-      const mean=w=>'sum(increase(http_request_duration_seconds_sum'+H+w+')) / sum(increase(http_request_duration_seconds_count'+H+w+'))';
+    if(JOB){const H='{job="'+JOB[0]+'",handler="'+JOB[1]+'"}',hq=(qq,w)=>'histogram_quantile('+qq+', sum by (le) (increase_pure(http_request_duration_seconds_bucket'+H+(w||W)+')))';
+      const mean=w=>'sum(increase_pure(http_request_duration_seconds_sum'+H+w+')) / sum(increase_pure(http_request_duration_seconds_count'+H+w+'))';
       const A='{job="'+JOB[0]+'",endpoint="'+JOB[1]+'"}',aq=qq=>'histogram_quantile('+qq+', sum by (le) (increase(audio_duration_seconds_bucket'+A+W+')))';
-      const [req,err,avg,busy,lReq,lAvg,gm,cm,cpu,lMem,aud,proc,c50,c95,lAud,lRtf,areq]=await Promise.all([one('sum(increase(http_requests_total'+H+W+'))'),one('sum(increase(http_requests_total{job="'+JOB[0]+'",handler="'+JOB[1]+'",status=~"5.."}'+W+'))'),
-        one(mean(W)),one('sum(increase(http_request_duration_seconds_sum'+H+W+'))'),line('sum(increase(http_requests_total'+H+S+'))'),line(mean(S)),...common,
+      const [req,err,avg,busy,lReq,lAvg,gm,cm,cpu,lMem,aud,proc,c50,c95,lAud,lRtf,areq]=await Promise.all([one('sum(increase_pure(http_requests_total'+H+W+'))'),one('sum(increase_pure(http_requests_total{job="'+JOB[0]+'",handler="'+JOB[1]+'",status=~"5.."}'+W+'))'),
+        one(mean(W)),one('sum(increase_pure(http_request_duration_seconds_sum'+H+W+'))'),line('sum(increase_pure(http_requests_total'+H+S+'))'),line(mean(S)),...common,
         one('sum(increase(audio_seconds_total'+A+W+'))'),one('sum(increase(audio_processing_seconds_total'+A+W+'))'),one(aq(0.5)),one(aq(0.95)),
         line('sum(increase(audio_seconds_total'+A+S+'))'),line('sum(increase(audio_processing_seconds_total'+A+S+')) / sum(increase(audio_seconds_total'+A+S+'))'),
         one('sum(increase(audio_requests_total'+A+W+'))')]);
       const mm=v=>v==null?'&mdash;':(v>=3600?(v/3600).toFixed(1)+' h':(v>=60?(v/60).toFixed(v<600?1:0)+' min':Math.round(v)+' s'));
       // processing per successful request from the audio counters (decode + inference); the HTTP
-      // duration metric only where those do not exist yet (moss's HTTP duration sum does not grow)
+      // duration metric only where those do not exist yet. The http_* series are created on a handler's
+      // first request, so increase() would drop that first value after each restart: increase_pure.
       const per=areq&&proc!=null?proc/areq:avg,perSub=areq&&proc!=null?'mean per successful request: decode + inference, not the upload':'mean, the whole request end to end';
       const rtf=aud&&proc!=null?proc/aud:null,xr=v=>v==null?'&mdash;':v.toFixed(3)+' <span class=muted style="font-size:12px;font-weight:400">('+Math.round(1/v)+'&times; real time)</span>';
       head='its own /metrics (requests and their duration per endpoint '+JOB[1]+'; audio length per counted request since 2026-11-03)';

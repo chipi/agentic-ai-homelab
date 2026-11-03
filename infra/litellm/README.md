@@ -18,6 +18,7 @@ up -d` (recreates litellm only). A change to `config.yaml` ALONE is not a compos
 change, so `up -d` leaves the running container on the old config: use
 `docker compose restart litellm`, then confirm with `GET /model/info`
 (2026-10-13: `up -d` reported nothing to do and the new alias was absent until the restart).
+A restart is a cold start of about 2 minutes (2026-11-03: 17:31:15 → 17:33:12Z before `/health/liveliness` answered), and calls in that window fail: restart at a quiet moment.
 
 **Config drift — the file is not the whole truth.** Two ways aliases land: (a)
 committed in `config.yaml` (the `homelab-*` / `fleet-*` set, reconciled to the
@@ -47,6 +48,7 @@ note). Current consumers:
 |---|---|---|---|
 | `fleet-triage` | `fleet-triage-flash`, `fleet-triage-pro` | $50 | signal-fleet triager (`OPENROUTER_API_KEY` in `~/signal-fleet/fleet-gateway.env`) |
 | `fleet-bugfix` | `fleet-bugfix-flash`, `fleet-bugfix-pro`, `fleet-bugfix-reviewer` | $100 | bugfix-fleet — routes via the gateway (`LLM_BASE_URL=http://localhost:4001/v1` + `LLM_API_KEY=LITELLM_FLEET_BUGFIX_KEY`), was OpenRouter-direct |
+| `hub-briefing` | `assistant-cloud` | $2 | the hub's morning briefing (`infra/homelab-home/briefing-job.js`), key in `~/hub-briefing-litellm.env` (mode 600); minted 2026-11-03. **Blocked until** the OpenRouter workspace guardrail of `OPENROUTER_API_KEY` (bugfix-fleet) allows a provider of `qwen/qwen3-30b-a3b-instruct-2507` (404 "provider not allowed by guardrail") |
 | `proj-podcast-dev` | `NVFP4/Qwen3-30B-A3B-Instruct-2507-FP4` (the DGX alias, named as the real model id) | $1 (the alias is $0; the cap only stops a mispriced alias) | podcast_scraper dev on the DGX profiles (`dev_dgx_full`): laptop → this gateway → the DGX vLLM, so dev calls reach Langfuse like prod's (podcast_scraper#2342). Restricted to the DGX alias, so a dev run can never reach a paid model. Minted 2026-10-13, but its value was never stored, so it was deleted unused (spend 0) and re-minted 2026-10-17 with the same settings and logging. **The value lives in `~/podcast-litellm-dev.env` on the mini** (`LITELLM_API_KEY`, `LITELLM_API_BASE`, mode 600); copy it into a checkout's gitignored `.env`. Store a key's value the moment you mint it: LiteLLM shows it only once |
 | `proj-podcast-dev` logging | — | — | The key carries `metadata.logging` (Langfuse `callback_vars`) so its calls are traced in the **`podcast-dev`** project, not `agents` (per-key logging is not Enterprise-gated in LiteLLM 1.96; verified 2026-10-13). Keyless pass-throughs (`/tokenize`, `/v1/translate/...`) go to this gateway's default project, `agents`. |
 | `eval-harness` | the `eval-*` aliases (40 models on the key on 2026-10-30; `/key/info` lists them) | $100 / 30d | [chipi/eval-harness](https://github.com/chipi/eval-harness) — golden references + model sweeps (`LITELLM_BASE_URL` + `LITELLM_API_KEY` in its `.env`). The key name stays `eval-harness`; only the consumer moved. |
