@@ -97,6 +97,7 @@ nav:
     - Chrome DevTools MCP agent loop: recipes/chrome-devtools-mcp-agent-loop.md
     - fleetd — build, deploy, operate: recipes/fleetd-deploy.md
     - Triage fleet — install, run, review, improve: recipes/signal-fleet-runbook.md
+    - X3 deploy (the assistant and the collector): recipes/x3-deploy.md
     - X3 storage separation (one-time migration): recipes/x3-storage-separation.md
     - X3 storage safety-copy retirement: recipes/x3-storage-safety-copy-retirement.md
   - Reading:

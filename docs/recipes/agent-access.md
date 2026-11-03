@@ -24,6 +24,7 @@ Do not create logins, publish ports or change groups to "get access".
 | Mac mini, `claude` account | where agents on the mini run; dev engine only | `ssh homelab-claude` |
 | Prod VPS (`prod-podcast`) | Close Listening (player, operator, viewer, MCP, obs), Orrery, LiteLLM (prod) | `ssh deploy@prod-podcast` |
 | DGX (`dgx-llm-1`) | vLLM (prod + translate), faster-whisper, pyannote, moss | `ssh dgx-llm-1` |
+| X3 (`omarchy`, the operator's workstation) | the assistant model (Ollama, `:11435` on the tailnet), the X3 collector; agents usually run here | local; from the mini nothing but `100.92.54.65:11435` is reachable |
 
 - Plain `ssh homelab` is refused: no `Host homelab` alias exists; the key flags are required.
 - From the Omarchy workstation (X3, local login `marko`) the remote user must be explicit:
@@ -31,7 +32,7 @@ Do not create logins, publish ports or change groups to "get access".
   login is `marko` and fails with "Too many authentication failures".
 - From the mini's `claude` account, plain `ssh dgx-llm-1` logs in as the DGX user `claude`
   (since 2026-10-23). Tailscale SSH authorises it by the mini's `tag:homelab-host`, no key:
-  the user list is podcast_scraper `tailscale/policy.hujson` (commit 28f709fa1). On the DGX,
+  the user list is chipi/infra `tailscale/policy.hujson` (it moved there from podcast_scraper). On the DGX,
   `claude` is in the `docker` group (it can restart containers) and `~/bin/gpu-mode-swap.sh`
   only reads the mode: `/etc/sudoers.d/claude-gpu-mode-status` allows `status` and
   `--mode-only`, so a switch fails with "sudo: a password is required". No other sudo.
@@ -658,6 +659,20 @@ A real run restarts services: ask the operator for a window.
 **Careful:** switching GPU modes or restarting a model server interrupts the pipeline —
 use the `gpu-mode` skill and ask first. Never unload or kill a whisper request mid-flight:
 on 2026-10-09 an interrupted request plus an unload hung the server until a restart.
+
+## 13b. X3 services (`omarchy`, 100.92.54.65)
+
+| Port | Service | Notes |
+|---|---|---|
+| `100.92.54.65:11435` | the assistant (user unit `ollama-assistant`) | Ollama API; `qwen3:30b-a3b-instruct-2507-q4_K_M` kept loaded; reachable from `tag:homelab-host` (the mini) only. Use it through LiteLLM's `assistant` alias, which fails over to OpenRouter |
+| `127.0.0.1:11434` | the eval harness's Ollama | not a service: started by the harness's long-job runs; leave it alone |
+
+```sh
+systemctl --user status ollama-assistant        # on the X3
+curl -s http://100.92.54.65:11435/api/ps        # what is loaded (from the X3 or the mini)
+```
+
+Deploy, logs, undo, and the GPU memory rule against the eval harness: `recipes/x3-deploy.md`.
 
 ## 14. Docker engines and databases
 

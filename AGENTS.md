@@ -33,6 +33,7 @@ folder wins (e.g. `infra/dgx/` over `infra/` over root).
 | [`infra/AGENTS.md`](infra/AGENTS.md) | Infra stacks — run composes in place, symlink operator scripts |
 | [`infra/dgx/AGENTS.md`](infra/dgx/AGENTS.md) | DGX-host work, GPU mode coordination |
 | [`infra/vllm/AGENTS.md`](infra/vllm/AGENTS.md) | Local vLLM stacks — ports, dummy key, GPU sizing |
+| [`infra/x3/AGENTS.md`](infra/x3/AGENTS.md) | The X3 workstation as a deployment surface — deploy checkout, user units, the eval-harness GPU rule |
 | [`provider-bakeoff/AGENTS.md`](provider-bakeoff/AGENTS.md) | provider-bakeoff sub-project |
 | [`bugfix-fleet/AGENTS.md`](bugfix-fleet/AGENTS.md) | autonomous bug-fix fleet MVP (RFC-0002) — Pi vs opencode bake-off |
 

@@ -1208,6 +1208,33 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [3600] } }]
 
+      # --- The X3 assistant (RFC-0008) --------------------------------------------
+      # The mini's probe of 100.92.54.65:11435/api/ps (green = the model is loaded). Warning, not
+      # critical: LiteLLM's assistant alias fails over to OpenRouter, so nothing stops; the cost
+      # moves to the failover. Expected while the operator stops it for a big eval-harness run.
+      - uid: x3-assistant-down
+        title: "X3 assistant model not loaded"
+        condition: threshold
+        for: 15m
+        noDataState: OK
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "The X3 assistant (omarchy:11435) has not had its model loaded for 15 minutes; chats and the briefing run on the OpenRouter failover. On the X3: systemctl --user status ollama-assistant (stopped for an eval-harness run is expected). docs/recipes/x3-deploy.md."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(max_over_time(probe_success{job="assistant-probe"}[5m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
       # --- LiteLLM gateway down ----------------------------------------------------
       # The production LLM gateway (infra/litellm). LiteLLM's own /metrics is
       # enterprise-gated, so the probe is the stack's postgres-exporter: if it

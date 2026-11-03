@@ -357,6 +357,52 @@ prometheus.scrape "sites" {
   scrape_interval = "60s"
 }
 
+// ---------- The X3 assistant (RFC-0008, infra/x3/ollama-assistant.service) ----------
+// Green only when the assistant model is loaded (Ollama's /api/ps lists it), not merely when the
+// port answers: an empty /api/ps means the first chat waits for a load, or the X3 is out of GPU
+// memory. The mini is the only tailnet source the ACL lets reach 100.92.54.65:11435.
+// Alert: x3-assistant-down (rules.yaml); LiteLLM's assistant alias fails over meanwhile.
+prometheus.exporter.blackbox "assistant" {
+  config = `
+modules:
+  model_loaded:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      fail_if_body_not_matches_regexp: ["qwen3:30b-a3b-instruct-2507"]
+`
+  target {
+    name    = "x3-assistant"
+    address = "http://100.92.54.65:11435/api/ps"
+    module  = "model_loaded"
+  }
+}
+
+discovery.relabel "assistant" {
+  targets = prometheus.exporter.blackbox.assistant.targets
+  rule {
+    target_label = "instance"
+    replacement  = "x3"
+  }
+  rule {
+    target_label = "service"
+    replacement  = "assistant"
+  }
+  rule {
+    target_label = "job"
+    replacement  = "assistant-probe"
+  }
+}
+
+prometheus.scrape "assistant" {
+  targets         = discovery.relabel.assistant.output
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "assistant-probe"
+  scrape_interval = "60s"
+}
+
 // NOTE: cAdvisor was tried here for per-container cpu/mem/io but doesn't work on
 // colima (cgroup v2 + cgroupfs + cgroupns — it only sees system/systemd cgroups, not
 // the docker container scopes). Covered instead by an inline `docker stats` block in

@@ -42,6 +42,21 @@ local.file_match "ollama" {
   }]
 }
 
+// The assistant (infra/x3/ollama-assistant.service, port 11435): the same Ollama log shape.
+local.file_match "assistant" {
+  path_targets = [{
+    "__path__" = "/home/marko/.local/state/log/ollama-assistant/ollama.log",
+    "job"      = "ollama",
+    "service"  = "assistant",
+  }]
+}
+
+loki.source.file "assistant" {
+  targets       = local.file_match.assistant.targets
+  tail_from_end = true
+  forward_to    = [loki.write.sink.receiver]
+}
+
 loki.source.file "ollama" {
   targets       = local.file_match.ollama.targets
   // Start at the end: the file predates the collector, and a backfill would arrive stamped "now".

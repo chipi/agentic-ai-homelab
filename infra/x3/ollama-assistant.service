@@ -1,0 +1,26 @@
+[Unit]
+Description=Homelab assistant model (Ollama, qwen3 30B-A3B) on the tailnet, port 11435 (RFC-0008)
+After=network-online.target
+
+[Service]
+# A second Ollama next to the eval harness's (127.0.0.1:11434): same binary and model directory,
+# its own port, bound to the tailnet address only (ufw allows 11435 on tailscale0; the ACL lets only
+# tag:homelab-host in). Binding fails while tailscaled is down, so it restarts until the address exists.
+Environment=OLLAMA_HOST=100.92.54.65:11435
+Environment=OLLAMA_MODELS=%h/.ollama/models
+Environment=OLLAMA_CONTEXT_LENGTH=32768
+Environment=OLLAMA_KEEP_ALIVE=-1
+Environment=OLLAMA_MAX_LOADED_MODELS=1
+Environment=ASSISTANT_MODEL=qwen3:30b-a3b-instruct-2507-q4_K_M
+ExecStart=%h/.local/opt/ollama-0.40.13/bin/ollama serve
+# Load the model once at start (keep_alive -1 keeps it), so the first chat does not wait for it.
+ExecStartPost=/bin/sh -c 'for i in $(seq 60); do curl -sf -o /dev/null http://100.92.54.65:11435/api/version && break; sleep 1; done; curl -sf -o /dev/null http://100.92.54.65:11435/api/generate -d "{\"model\":\"$ASSISTANT_MODEL\",\"keep_alive\":-1}" || true'
+# No memory cap: phase 1 measured that the cgroup does not count the model (GPU memory, GTT).
+LogsDirectory=ollama-assistant
+StandardOutput=append:%L/ollama-assistant/ollama.log
+StandardError=append:%L/ollama-assistant/ollama.log
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target

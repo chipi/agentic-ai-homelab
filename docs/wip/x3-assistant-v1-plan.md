@@ -42,7 +42,10 @@ It measures:
 Stopped and removed afterwards. The numbers decide the unit's settings and the rule for sharing the
 GPU with the harness, and go into the RFC.
 
-## Phase 2 — the hub's status module, and the briefing on the failover model (in parallel with 1)
+## Phase 2 — the hub's status module, and the briefing on the failover model (in parallel with 1) — **live 2026-11-03**
+
+`status.json` every 5 minutes and the 07:00 briefing (page + push to the phone) are live, with their
+heartbeat alerts. Open: the week of briefings in the check below.
 
 No dependency on the X3, the UI or MCP, so the briefing works in week 1.
 
@@ -71,31 +74,32 @@ No dependency on the X3, the UI or MCP, so the briefing works in week 1.
 - a week of briefings: each on time, every number matching the logged status snapshot for that hour
   (checked with VictoriaMetrics' `time=`), and the operator says what to change.
 
-## Phase 3 — chat UI: LibreChat and Open WebUI side by side
+## Phase 3 — chat UI: LibreChat and Open WebUI side by side — **running since 2026-11-03**
 
-On the mini's dev engine (operator; RFC section 4), for a bounded window of about 3 days.
+On the X3's Docker (option A, the operator's choice: the mini's `tailscale` is a shim without
+`serve`), `infra/x3/assistant-ui-eval/`, for a bounded window of about 3 days.
 
-1. `devengine start` (it refuses if the mini is short of memory). Both UIs in the `dev` context,
-   pinned image versions, memory caps per container (LibreChat's three containers and Open WebUI
-   within the engine's 6 GiB), published on two fixed loopback ports on the mini (a recorded
-   exception to the random-port rule), LiteLLM as the only endpoint, on the failover model through
-   a capped dev key. **(go)**: the engine, image pulls and a key.
-2. Phone access: `tailscale serve` on the mini publishes the two ports over HTTPS on 8443
-   (LibreChat) and 8444 (Open WebUI) **(go)**, and a temporary ACL rule in chipi/infra,
-   `autogroup:admin` → `tag:homelab-host:8443,8444` **(go: the PR's merge)**. Check first where the
-   mini's `tailscale` command lives and what it already serves (not found at the usual paths).
-3. The status tool (one GET on `status.json`) and Grafana's MCP server (viewer token) wired into
-   both. **(go)**: an install and a token.
+1. ~~Both UIs, pinned images, memory caps, loopback ports 3080/3081, LiteLLM as the only endpoint
+   on the failover model through the capped key `assistant-ui-eval`~~ — done. LibreChat reaches the
+   gateway by its full tailnet name (its musl resolver ignores the search domain).
+2. ~~Phone access: `tailscale serve` on the X3 publishes them over HTTPS on 8443 (LibreChat) and
+   8444 (Open WebUI)~~ — done by the operator; the operator's devices reach the X3 already
+   (`autogroup:member` → `autogroup:self`), so no ACL change. Accounts on the operator's Gmail,
+   sign-ups closed, logins in the hub's credentials table.
+3. ~~Grafana's MCP server (viewer token, read-only, 19 tools) wired into both~~ — done. The status
+   tool (one GET on `status.json`) is not wired yet. o11y: Langfuse through the gateway, both UIs'
+   traces in VictoriaTraces, their logs and metrics through the X3 collector.
 4. The same tasks in both, desktop and phone: X1 (a general chat with a pasted document), H4 (is
    prod healthy), H2 (explain a real alert).
 5. Judged on: tool calls that work, use on the phone (including the microphone), upkeep (config,
    upgrades, backups).
-6. Teardown: serve off, the ACL rule reverted, containers removed, `devengine stop`.
+6. Teardown: `tailscale serve --https=8443 off` and `--https=8444 off` on the X3 (the operator),
+   `docker compose down -v` in `infra/x3/assistant-ui-eval/`, the key `assistant-ui-eval` revoked.
 
 **Check:** a recorded decision (a `D-NNNN` entry superseding D-0007, or an ADR) naming the UI; the
-teardown done (no serve config, no ACL rule, the dev engine stopped).
+teardown done (no serve config on 8443/8444, no eval containers or volumes, the key revoked).
 
-## Phase 4 — the X3 as a deployment surface, and the assistant
+## Phase 4 — the X3 as a deployment surface, and the assistant — **in progress 2026-11-03**
 
 1. `infra/x3/`: an `AGENTS.md` (the deploy checkout, user units only, the rule for the eval
    harness from phase 1, who upgrades Ollama) and a README; a row in the root `AGENTS.md` table.
