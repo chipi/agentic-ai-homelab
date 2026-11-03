@@ -93,7 +93,7 @@ Notes:
 |---|---|
 | Goal | what needs the operator today, first; then a short account of the night |
 | When | 07:00 local time, for the 12 hours since 19:00; on Mondays since Friday 19:00 |
-| Where it waits | a "Briefing" page on the hub (the last 30 kept), and a push to the phone with the headline and a link, through Home Assistant's companion app if it is on the phone (not checked; otherwise the hub page alone until a push channel is chosen) |
+| Where it waits | a "Briefing" page on the hub (the last 30 kept), and a push to the phone with the headline and a link, through Home Assistant's companion app (on the operator's phone, confirmed 2026-11-03; HA runs on the mini) |
 | Content, in order | **headline** "N things need you"; **needs you** (at most 5, each linked): lamps not green and since when, new GlitchTip issues, the fleet's "Needs you" and new escalations, OpenRouter credit below $10; **overnight**: alerts fired and resolved with times, deploys; **numbers**: OpenRouter spend yesterday against the 7-day average, local tokens, credit left, the busiest caller; **capacity**: warnings only (disk, memory, swap); **all green**: one line |
 | Home | joins with wave 3 (X4), exceptions only (devices offline) |
 | Robustness | every number from the status snapshot; the model only writes; if the model call fails, a plain template version is delivered, so no morning is skipped silently |
@@ -282,7 +282,7 @@ Which use cases move, and how, is decided once step 2 runs.
 ## Open questions
 
 1. **LibreChat or Open WebUI** (the comparison runs on the mini's dev engine).
-2. **The briefing's push channel**, if Home Assistant's companion app is not on the phone.
+2. ~~The briefing's push channel~~: Home Assistant's companion app (on the phone).
 3. **Separation from the eval harness:** the rule, after the feasibility test.
 4. **Memory caps** on the X3: whether they count model memory, and what to set.
 5. **Tracing private chats** (X1): separate Langfuse project or none.
