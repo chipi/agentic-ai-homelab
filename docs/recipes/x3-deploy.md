@@ -14,7 +14,7 @@ services are systemd **user** units, linked from a deploy checkout on `main`, so
 | deploy a change | `git -C ~/deploy/agentic-ai-homelab pull --ff-only && systemctl --user daemon-reload && systemctl --user restart ollama-assistant alloy-research` |
 | status | `systemctl --user status ollama-assistant alloy-research` |
 | what is loaded | `curl -s http://100.92.54.65:11435/api/ps` |
-| logs | `tail -f ~/.local/state/log/ollama-assistant/ollama.log`; in VictoriaLogs `instance:x3 service:assistant` |
+| logs | `tail -f ~/.local/state/ollama-assistant/ollama.log`; in VictoriaLogs `instance:x3 service:assistant` |
 | before a big eval-harness run | `systemctl --user stop ollama-assistant` (models over ~35 GB), `start` after |
 
 ## One-time setup
@@ -64,4 +64,4 @@ Then revert the ACL rule in chipi/infra, and point LiteLLM's `assistant` alias a
 - **Slow answers, swap rising:** something else holds GPU memory (GTT 62 GiB), usually an eval
   harness model. `curl -s http://127.0.0.1:11434/api/ps` shows it; see the rule above.
 - **The log grows without bound:** it is an append file with no rotation. Truncate it with
-  `: > ~/.local/state/log/ollama-assistant/ollama.log` (the collector tails from the end).
+  `: > ~/.local/state/ollama-assistant/ollama.log` (the collector tails from the end).

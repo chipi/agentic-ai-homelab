@@ -45,7 +45,7 @@ local.file_match "ollama" {
 // The assistant (infra/x3/ollama-assistant.service, port 11435): the same Ollama log shape.
 local.file_match "assistant" {
   path_targets = [{
-    "__path__" = "/home/marko/.local/state/log/ollama-assistant/ollama.log",
+    "__path__" = "/home/marko/.local/state/ollama-assistant/ollama.log",
     "job"      = "ollama",
     "service"  = "assistant",
   }]

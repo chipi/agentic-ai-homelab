@@ -11,14 +11,14 @@ Environment=OLLAMA_MODELS=%h/.ollama/models
 Environment=OLLAMA_CONTEXT_LENGTH=32768
 Environment=OLLAMA_KEEP_ALIVE=-1
 Environment=OLLAMA_MAX_LOADED_MODELS=1
-Environment=ASSISTANT_MODEL=qwen3:30b-a3b-instruct-2507-q4_K_M
-ExecStart=%h/.local/opt/ollama-0.40.13/bin/ollama serve
+Environment='LOAD={"model":"qwen3:30b-a3b-instruct-2507-q4_K_M","keep_alive":-1}'
+Environment=LOG_DIR=%h/.local/state/ollama-assistant
+# The log goes to a file the X3 collector tails. The shell makes the directory first: systemd's
+# StandardOutput=append: is opened before LogsDirectory= exists, and the unit then cannot start.
+ExecStart=/bin/sh -c 'mkdir -p "$$LOG_DIR" && exec %h/.local/opt/ollama-0.40.13/bin/ollama serve >>"$$LOG_DIR/ollama.log" 2>&1'
 # Load the model once at start (keep_alive -1 keeps it), so the first chat does not wait for it.
-ExecStartPost=/bin/sh -c 'for i in $(seq 60); do curl -sf -o /dev/null http://100.92.54.65:11435/api/version && break; sleep 1; done; curl -sf -o /dev/null http://100.92.54.65:11435/api/generate -d "{\"model\":\"$ASSISTANT_MODEL\",\"keep_alive\":-1}" || true'
+ExecStartPost=/bin/sh -c 'for i in $$(seq 60); do curl -sf -o /dev/null http://100.92.54.65:11435/api/version && break; sleep 1; done; curl -sf -o /dev/null http://100.92.54.65:11435/api/generate -d "$$LOAD" || true'
 # No memory cap: phase 1 measured that the cgroup does not count the model (GPU memory, GTT).
-LogsDirectory=ollama-assistant
-StandardOutput=append:%L/ollama-assistant/ollama.log
-StandardError=append:%L/ollama-assistant/ollama.log
 Restart=always
 RestartSec=15
 
