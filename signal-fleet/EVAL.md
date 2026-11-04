@@ -150,6 +150,13 @@ input only the operator can give; (3) seed real defects from Fleet-1 bugs (§3.2
   re-polls the same test issues (idempotency skips them). On-demand `--poll` for
   the build/eval phase; daemon on later.
 
+## What the evaluation found (2026-10-30)
+
+[`EVAL-LESSONS-0.6.0.md`](EVAL-LESSONS-0.6.0.md): findings from eval-harness's replay of the 233 Orrery
+decisions (the dismiss gate makes 39 of 49 escalations; the brief files every error-shaped signal; the
+release's age is fetched but not shown to the model; an empty last-turn reply returns `None`), six
+changes each measurable as one arm, and how to measure one. None of the changes has been tried.
+
 ## 7. Open (needs operator)
 - The **ground-truth labels** on the ~20–30 real cases (§4 sourcing #2).
 - The **escalate-rate tolerance** for the autonomy-Dismiss gate (§3.4) — operator's number.
