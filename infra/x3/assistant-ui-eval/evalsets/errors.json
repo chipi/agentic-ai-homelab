@@ -1,0 +1,7 @@
+{
+  "name": "errors",
+  "about": "RFC-0008 phase 7, wave 2: new errors (GlitchTip). The expected issues are status.json's errors.new (GlitchTip issues first seen in the last 24 h, computed by the hub), fetched just before and after the question; the answer passes when it names every one by its short id.",
+  "questions": [
+    {"id": "err-1", "use": "H2", "q": "Which new errors appeared in GlitchTip in the last 24 hours? For each: short id, project, and how many times it happened.", "expect": "errors_new24h"}
+  ]
+}

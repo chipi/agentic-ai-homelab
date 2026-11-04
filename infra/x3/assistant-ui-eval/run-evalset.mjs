@@ -38,6 +38,8 @@ const RULES = {
   spend_avg7d: s => [num("7-day average $/day", +s.spend.avg7dUsd.toFixed(2), 0.011)],
   spend_month: s => [num("month $", +s.spend.monthUsd.toFixed(2), 0.011)],
   disk_free: s => ["mini", "dgx", "prod"].map(b => num(`${b} disk free %`, +s.capacity[b].diskFreePct.toFixed(1), 0.6)),
+  // every new GlitchTip issue of the last 24 h (status.json's errors.new) named by its short id
+  errors_new24h: s => (s.errors && s.errors.ok ? s.errors.new.map(e => text(e.id, [e.id])) : [text("errors area missing", ["\u0000"])]),
   max_mem: s => { const [b, v] = Object.entries(s.capacity).sort((x, y) => y[1].memUsedPct - x[1].memUsedPct)[0];
                   return [text("host " + b, HOSTS[b] || [b]), num(`${b} memory %`, +v.memUsedPct.toFixed(1), 0.6)]; },
 };
