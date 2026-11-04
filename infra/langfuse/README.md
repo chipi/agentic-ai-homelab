@@ -91,6 +91,35 @@ Steady state at 30 days is roughly **0.5 GB ClickHouse + ~3.6 GB MinIO events**.
 MinIO event blobs (~120 MB/day) are now the dominant Langfuse consumer — they are
 raw ingestion payloads kept for replay, not needed to render the UI.
 
+## The briefing judge (LLM-as-a-judge, RFC-0008)
+
+Langfuse scores every morning briefing for faithfulness: does the model's two-sentence opening say only
+what the briefing's facts say? It was set up by hand on 2026-11-03; the three calls that made it are in
+`judge/` and rebuild it after a fresh Langfuse. Run them on the mini, in order; each reads its secrets
+from files there and prints none.
+
+| Script | What it makes | API |
+|---|---|---|
+| `judge/1-llm-connection.sh` | LLM connection `homelab-gateway` (OpenAI adapter, base URL `http://host.docker.internal:4001/v1`, model `assistant`), key from `~/langfuse-judge-litellm.env` | public (`PUT /api/public/llm-connections`, project keys from `~/signal-fleet/fleet-gateway.env`): stable |
+| `judge/2-default-model.sh` | the project's default evaluation model: `homelab-gateway` / `assistant`, temperature 0, `max_tokens` 3000 (800 cut the judge's reasoning off: "No output generated") | internal tRPC `defaultLlmModel.upsertDefaultModel`, logged in as the init user from `.env` |
+| `judge/3-evaluator.sh` | evaluator `briefing-faithfulness`: template Faithfulness v2 (`cmal6wart010lynrdtpv6olfv2`), on traces tagged `hub-briefing`, context = trace input (the facts), answer = trace output (the opening), new traces only, 30 s delay | internal tRPC `evals.createJob` |
+
+- **Prerequisite:** Langfuse refuses LLM connections to private addresses unless they are allow-listed:
+  `LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST=host.docker.internal` and `_IPS=192.168.5.2` in
+  `docker-compose.yml` (3726acb).
+- **The two tRPC scripts are fragile:** tRPC is Langfuse's internal UI API, not a public one; its routes
+  and payloads can change between versions. After a Langfuse upgrade, check them before relying on them.
+  If one fails, the same setting is in the UI: Settings → LLM connections, Settings → Default evaluation
+  model, Evaluators → New.
+- **The template id** (`cmal6wart010lynrdtpv6olfv2`) is Langfuse's managed Faithfulness template on this
+  instance. A fresh instance may give it another id: look it up under Evaluators → Templates first.
+- **Verify:** the next briefing trace (07:00, tag `hub-briefing`) gets a `briefing-faithfulness` score
+  within a minute or so of its 30 s delay. See it in Langfuse (project `agents`) → Traces, filter tag
+  `hub-briefing`, column Scores. It flagged the resolved-alerts-stated-as-current openings that 509c0d0
+  (2026-11-04) fixed.
+- **Known:** the judge's scores vary between runs on the same facts (recorded in
+  `docs/wip/x3-assistant-evals.md`).
+
 ## Notes
 
 - `langfuse` images pinned; datastores at upstream tags — **pin after first good boot**.

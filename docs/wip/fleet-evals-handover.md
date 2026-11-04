@@ -66,6 +66,21 @@ site-level totals, not per-error user spread, so whether it helps F1 is untested
 - **Check the scorer before trusting it:** hand-made answers (correct, one item missing, an invented one)
   over live data must score as intended. Twice today the check found a scorer bug first.
 
+## Also yours (added 2026-11-04, the operator)
+
+In NEXT_STEPS, "X3 assistant (RFC-0008), known gaps", marked "(fleet session)":
+
+- **A hung X3 costs ~31 s on every call** and **the 30 s timeout may be short for long answers.** They are
+  one setting in the mini's LiteLLM (`assistant` alias, `timeout: 30`, one deployment, so no cooldown), so
+  decide them together: a health check that takes the X3 out, or a different timeout, measured per call.
+  The gateway serves every app.
+- **Re-measure H6, H7 and analytics** in both UIs: H6 after the open-only "needs you" count (6a59983;
+  its last run was on the 9-item count), more rounds of H7 (two per UI) and analytics (one per UI). Sets
+  and runner: `infra/x3/assistant-ui-eval/`; what each showed: `docs/wip/x3-assistant-evals.md`.
+- **The Langfuse briefing judge** is now scripted in `infra/langfuse/judge/` (README "The briefing judge").
+  Two of its three calls use Langfuse's internal tRPC API: rebuild-test them after the next Langfuse
+  upgrade or on a throwaway instance.
+
 ## Working rules here
 
 - Two checkouts commit to the same `main`: fetch and look at `git log HEAD..origin/main` before every

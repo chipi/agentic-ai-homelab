@@ -133,26 +133,30 @@ gateway (`proj-podcast-dev`, the DGX model).
 
 ## X3 assistant (RFC-0008), known gaps (recorded 2026-11-04)
 
-- [ ] **A hung X3 costs ~31 s on every call.** LiteLLM's `assistant` has one deployment, so it never cools
+- [ ] **(fleet session) A hung X3 costs ~31 s on every call.** LiteLLM's `assistant` has one deployment, so it never cools
       down: each call waits the 30 s timeout, then fails over (measured 2026-11-03; a stopped X3 fails over in
       2.7 s). Options: a health check that takes the deployment out, or a shorter connect timeout.
-- [ ] **The 30 s timeout is short for long answers** (the H7 timelines take up to ~90 s in the UIs end to end;
+- [ ] **(fleet session) The 30 s timeout is short for long answers** (the H7 timelines take up to ~90 s in the UIs end to end;
       a single slow generation can hit the timeout and fail over mid-answer). Not measured per call.
 - [ ] **`status.json` short read** (HTTP/2 stream error) once during its 5-minute rewrite, 2026-11-03.
       Unresolved; the eval runner retries. Theory, unverified: the bind mount sees the rename mid-read.
 - [ ] **LibreChat conversation titles invent dates.** Its title model writes a date the conversation does not
       contain.
-- [ ] **Langfuse setup is not in a repo script:** the `homelab-gateway` LLM connection, the default eval model
-      and the `briefing-faithfulness` evaluator were made through its API by hand (2026-11-03).
+- [x] ~~**Langfuse setup is not in a repo script**~~ — *done 2026-11-04: the three calls are `infra/langfuse/judge/`,
+      explained in its README ("The briefing judge"); two are internal tRPC, fragile across upgrades.*
+- [ ] **(fleet session) Rebuild-test the Langfuse judge scripts** (`infra/langfuse/judge/`) on a throwaway
+      Langfuse, or after the next Langfuse upgrade: the tRPC payloads were last run on 3.225.11.
 - [x] ~~**No log rotation** for `~/.local/state/ollama-assistant/ollama.log` on the X3.~~ — *done 2026-11-04 (eb4e57b):
       `x3-host.sh` caps it at 50 MB (copy to `.1`, truncate in place); tested with a writer still appending.*
 - [x] ~~**No X3 container inventory**~~ — *done 2026-11-04 (eb4e57b): `x3-host.timer` sends the X3's containers
       through the shared `ctr.py` (6, `box="x3"`) and `service_up{box="x3"}` for the assistant and its collector;
       the hub's X3 pane has service cards (checked in a headless browser) and x3 joins capacity.
       check: `curl -s https://vm.tail6d0ed4.ts.net/api/v1/query --data-urlencode 'query=time()-x3_host_last_push_timestamp'` under 120.*
-- [ ] **Spend has no local / failover line:** how many `assistant` calls the X3 answered against OpenRouter
-      (RFC-0008 lists it; the headers and Langfuse have it, nothing aggregates it).
-- [ ] **For the eval agent:** re-measure H6 after the open-only count (6a59983; the last run was on the 9-item
+- [x] ~~**Spend has no local / failover line:** how many `assistant` calls the X3 answered against OpenRouter
+      (RFC-0008 lists it; the headers and Langfuse have it, nothing aggregates it).~~ — *done 2026-11-04 (449c7af):
+      `status.json` `assistantSpend` and the Spend tab's "Assistant: local or OpenRouter" cards, from LiteLLM's spend
+      log per Spend-tab window; 7 days: 491 X3 answers, 31 OpenRouter ($0.0078), 94% local.*
+- [ ] **(fleet session) For the eval agent:** re-measure H6 after the open-only count (6a59983; the last run was on the 9-item
       count), and more rounds of H7 (two per UI) and analytics (one per UI). Sets in
       `infra/x3/assistant-ui-eval/evalsets/`, notes in `docs/wip/x3-assistant-evals.md`.
 
