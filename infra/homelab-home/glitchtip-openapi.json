@@ -28,7 +28,7 @@
       "get": {
         "operationId": "listGlitchtipIssues",
         "summary": "List error issues (newest activity first): short id, title, project, count, first and last seen, status",
-        "description": "Each issue groups repeated occurrences of one error. `count` is how many times it happened; `firstSeen`/`lastSeen` are UTC times. There is NO time filter: to find issues new in a period, call with sort=-first_seen and limit=25, then keep those whose firstSeen falls in the period. A `shortId` like PODCAST-PIPELINE-DL names the project (PODCAST-PIPELINE, PLAYER, ORRERY, LITELLM, ...).",
+        "description": "Each issue groups repeated occurrences of one error. `count` is how many times it happened; `firstSeen`/`lastSeen` are UTC times. There is NO time filter: to find issues new in a period, call with sort=-first_seen and limit=50, then keep those whose firstSeen falls in the period. A `shortId` like PODCAST-PIPELINE-DL names the project (PODCAST-PIPELINE, PLAYER, ORRERY, LITELLM, ...).",
         "parameters": [
           {
             "name": "query",
@@ -48,12 +48,12 @@
             "name": "limit",
             "in": "query",
             "required": false,
-            "description": "How many issues (1-50)",
+            "description": "How many issues (1-50; 50 issues are about 55 KB)",
             "schema": {
               "type": "integer",
               "default": 25,
               "minimum": 1,
-              "maximum": 25
+              "maximum": 50
             }
           },
           {
