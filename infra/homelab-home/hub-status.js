@@ -246,15 +246,20 @@
       return { visitors: s.visitors, pageviews: s.pageviews, visits: s.visits, bouncePct: s.visits ? Math.round(100 * s.bounces / s.visits) : null }; };
     const top = async (id, type, n) => (await src.umami('/api/websites/' + id + '/metrics?startAt=' + wk + '&endAt=' + now + '&type=' + type + '&limit=' + n))
       .map(m => ({ name: m.x == null || m.x === '' ? '(none)' : m.x, count: m.y }));
-    const out = await Promise.all(sites.map(async w => {
+    // one request at a time: the first live run sent ~60 at once through the lima port forward, and the
+    // forward broke ~1.5 min later (2026-11-04 10:44Z). Not shown to be the cause; not worth the risk.
+    const out = [];
+    for (const w of sites) {
       try {
-        const [t, y, l7, p7] = await Promise.all([stat(w.id, today, now), stat(w.id, yday.getTime(), today), stat(w.id, wk, now), stat(w.id, wk - 7 * 86400e3, wk)]);
-        const [pages, referrers, countries, events] = await Promise.all([top(w.id, 'path', 10), top(w.id, 'referrer', 10), top(w.id, 'country', 10), top(w.id, 'event', 10)]);
+        const t = await stat(w.id, today, now), y = await stat(w.id, yday.getTime(), today);
+        const l7 = await stat(w.id, wk, now), p7 = await stat(w.id, wk - 7 * 86400e3, wk);
+        const pages = await top(w.id, 'path', 10), referrers = await top(w.id, 'referrer', 10);
+        const countries = await top(w.id, 'country', 10), events = await top(w.id, 'event', 10);
         const active = (await src.umami('/api/websites/' + w.id + '/active')).visitors;
-        return { site: w.name, domain: w.domain, activeNow: active ?? null, today: t, yesterday: y, last7d: l7, previous7d: p7,
-                 top7d: { pages, referrers: referrers.filter(r => r.name !== '(none)'), countries, events } };
-      } catch (e) { return { site: w.name, domain: w.domain, error: String(e && e.message || e) }; }
-    }));
+        out.push({ site: w.name, domain: w.domain, activeNow: active ?? null, today: t, yesterday: y, last7d: l7, previous7d: p7,
+                   top7d: { pages, referrers: referrers.filter(r => r.name !== '(none)'), countries, events } });
+      } catch (e) { out.push({ site: w.name, domain: w.domain, error: String(e && e.message || e) }); }
+    }
     const lt = ms => new Date(ms).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     return { ok: true, takenAt: new Date(now).toISOString(),
              periods: { today: lt(today) + ' to now', yesterday: lt(yday.getTime()) + ' to ' + lt(today), last7d: lt(wk) + ' to now', previous7d: lt(wk - 7 * 86400e3) + ' to ' + lt(wk) },

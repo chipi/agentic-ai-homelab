@@ -172,6 +172,10 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('analytics: today starts at local midnight, yesterday is the local day before', asked2.some(p => p.includes('/a/stats?startAt=' + L(4, 0) + '&endAt=' + L(4, 11))) && asked2.some(p => p.includes('/a/stats?startAt=' + L(3, 0) + '&endAt=' + L(4, 0))), asked2.filter(p => p.includes('/a/stats')));
   check('analytics: direct traffic is not listed as a referrer; pages, countries, events, active kept', an.sites[0].top7d.referrers.map(r => r.name).join() === 'google.com' && an.sites[0].top7d.pages[0].name === '/' && an.sites[0].activeNow === 1 && /^\w{3} \d{1,2} \w{3}, 00:00 to now$/.test(an.periods.today), an.sites[0]);
   check('analytics: without an Umami source (the page) it says so', (await HS.analytics({ now: NOW })).ok === false);
+  let inFlight = 0, maxInFlight = 0;
+  await HS.analytics({ now: usrc.now, umami: async p => { inFlight++; maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise(r => setTimeout(r, 1)); try { return await usrc.umami(p); } finally { inFlight--; } } });
+  check('analytics: one Umami request at a time (a burst of ~60 preceded the 2026-11-04 forward break)', maxInFlight === 1, maxInFlight);
 
   // all: one failing area does not hide the rest
   const all = await HS.all({ now: NOW, q: async e => { if (e.includes('delivery')) throw new Error('boom'); return []; }, alerts: async () => [] });
