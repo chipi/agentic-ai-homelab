@@ -1,0 +1,7 @@
+[Unit]
+Description=X3 host jobs: container inventory, unit health, assistant log cap (-> the mini)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash %h/deploy/agentic-ai-homelab/infra/x3/x3-host.sh

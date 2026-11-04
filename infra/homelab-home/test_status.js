@@ -219,6 +219,12 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('fleetQueue: one open-escalated line per open issue, with its age and link', fq.openEscalatedLines.length === fq.openEscalatedCount &&
     fq.openEscalatedLines[0] === 'chipi/a#9 — boom issue — open 2 days — https://github.com/chipi/a/issues/9', fq.openEscalatedLines);
 
+  // capacity: every host, the X3 included (2026-11-04), from node metrics with its instance label
+  const capAsked = [];
+  const cap = await HS.capacity({ now: NOW, q: async e => { capAsked.push(e); return [vec(42)]; } });
+  check('capacity: mini, dgx, prod and x3, each with disk free and memory used', ['mini', 'dgx', 'prod', 'x3'].every(b => cap[b] && cap[b].diskFreePct === 42 && cap[b].memUsedPct === 42), cap);
+  check('capacity: the X3 reads its own instance', capAsked.some(e => /instance="x3",mountpoint="\/"/.test(e)) && capAsked.some(e => /MemAvailable_bytes\{instance="x3"\}/.test(e)), capAsked.filter(e => /x3/.test(e)));
+
   // all: one failing area does not hide the rest
   const all = await HS.all({ now: NOW, q: async e => { if (e.includes('delivery')) throw new Error('boom'); return []; }, alerts: async () => [] });
   check('all: a throwing area is reported as an error, the others still present', all.delivery.error === 'boom' && all.sites.state === 'stale' && all.takenAt, all.delivery);

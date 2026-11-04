@@ -138,6 +138,10 @@
         diskFreePct: await pct('100*node_filesystem_avail_bytes{instance="prod-podcast",mountpoint="/"}/node_filesystem_size_bytes{instance="prod-podcast",mountpoint="/"}'),
         memUsedPct: await pct('100-node_memory_MemAvailable_bytes{instance="prod-podcast"}/node_memory_MemTotal_bytes{instance="prod-podcast"}*100'),
       },
+      x3: {
+        diskFreePct: await pct('100*node_filesystem_avail_bytes{instance="x3",mountpoint="/"}/node_filesystem_size_bytes{instance="x3",mountpoint="/"}'),
+        memUsedPct: await pct('100-node_memory_MemAvailable_bytes{instance="x3"}/node_memory_MemTotal_bytes{instance="x3"}*100'),
+      },
     };
   }
 

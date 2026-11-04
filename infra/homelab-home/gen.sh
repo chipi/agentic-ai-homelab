@@ -364,7 +364,8 @@ cat <<MID2
     <a class=card href="$DASH_X3"><h3>Disk IO</h3><div id=x_io>&hellip;</div></a>
     <a class=card href="$DASH_X3"><h3>Network</h3><div id=x_net>&hellip;</div></a>
   </div>
-  <p class=sec>The operator's workstation; also runs the eval harness's Ollama and, from RFC-0008 phase 4, the local assistant. No container inventory from this box yet.</p>
+  <div id=svc_x3 class=svcs></div>
+  <p class=sec>The operator's workstation; also runs the eval harness's Ollama and the local assistant (RFC-0008). Containers and unit health come from <code>infra/x3/x3-host.sh</code> (a user timer, every minute); no cAdvisor here, so the cards show state and uptime, not memory or CPU.</p>
 </div>
 <div class="col sub" data-sub=prod>
   <h2><span class="dot stale" id=st_prod></span><a href="$DASH_PROD">Production &middot; prod-podcast &rarr;</a></h2>
@@ -412,6 +413,7 @@ const W=260,H=40,TS='tail6d0ed4.ts.net',G='https://grafana.'+TS;
 // those to the backends; they must NOT become cross-origin (CORS).
 const MINILINK={grafana:G,glitchtip:'https://glitchtip.'+TS,langfuse:'https://langfuse.'+TS,umami:'https://umami.'+TS,litellm:'https://litellm.'+TS+'/ui/',victoriametrics:'https://vm.'+TS+'/vmui',victorialogs:'https://vlogs.'+TS,victoriatraces:'https://vtraces.'+TS};
 const DGXDASH=G+'/d/dgx-services/dgx-e28094-services';
+const X3DASH=G+'/d/rYdddlPWk/node-exporter-full?var-job=integrations%2Funix&var-node=x3';
 async function q(query){try{const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(query))).json();return j.data.result;}catch(e){return[];}}
 const g1=async m=>{const r=await q(m);return r.length?r[0].value:null;};
 // hub-status.js's sources in the browser: the same-origin VictoriaMetrics proxy, Grafana's alertmanager
@@ -750,7 +752,13 @@ const SVCS={
   ['Speech','Speaches',['faster-whisper'],[],'whisper'],
   ['Speech','Diarization',['pyannote'],[],'diarization'],
   ['Speech','MOSS',['moss'],[],'moss'],
-  ['Collectors','Collectors',['alloy','cadvisor','dcgm-exporter'],[],'cadvisor']]};
+  ['Collectors','Collectors',['alloy','cadvisor','dcgm-exporter'],[],'cadvisor']],
+ x3:[
+  ['Assistant','Local model (ollama-assistant, :11435)',[],[],'assistant'],
+  ['Assistant eval UIs','LibreChat',['assistant-eval-librechat','assistant-eval-mongodb','assistant-eval-meilisearch'],[]],
+  ['Assistant eval UIs','Open WebUI',['assistant-eval-openwebui'],[]],
+  ['Assistant eval UIs','Grafana MCP',['assistant-eval-mcp-grafana'],[]],
+  ['X3 collectors','Alloy (research)',[],[],'alloy-research']]};
 const SVCLAMP={},SVCCTR={};
 async function services(){
   const byName=async(qq,key='name')=>{const m={};(await q(qq)).forEach(r=>m[r.metric[key]]=r);return m;};
@@ -766,13 +774,15 @@ async function services(){
   let mode=mode0?mode0.metric.mode:null;
   if(mode==='free'&&up('ollama'))mode=up('translate')?'ollama':'research-ollama';
   const msu=await byName('last_over_time(service_up[2m])','service');
-  for(const box of ['prod','mini','dgx']){
+  const xsu=await byName('last_over_time(service_up{box="x3"}[3m])','service');
+  for(const box of ['prod','mini','dgx','x3']){
     const el=document.getElementById('svc_'+box);if(!el)continue;
     const inst={prod:'prod-podcast',dgx:'dgx-llm-1'}[box];
     const st=await byName('container_uptime_seconds{box="'+box+'"}');
-    const mem=inst?await byName('max by (name) (container_memory_working_set_bytes{instance="'+inst+'",name!=""})'):await byName('mini_container_mem_bytes');
-    const lim=inst?await byName('max by (name) (container_spec_memory_limit_bytes{instance="'+inst+'",name!=""})'):{};
-    const cpu=inst?await byName('sum by (name) (rate(container_cpu_usage_seconds_total{instance="'+inst+'",name!=""}[5m]))*100'):await byName('mini_container_cpu_percent');
+    const x3=box==='x3';
+    const mem=x3?{}:inst?await byName('max by (name) (container_memory_working_set_bytes{instance="'+inst+'",name!=""})'):await byName('mini_container_mem_bytes');
+    const lim=x3?{}:inst?await byName('max by (name) (container_spec_memory_limit_bytes{instance="'+inst+'",name!=""})'):{};
+    const cpu=x3?{}:inst?await byName('sum by (name) (rate(container_cpu_usage_seconds_total{instance="'+inst+'",name!=""}[5m]))*100'):await byName('mini_container_cpu_percent');
     const groups={};
     for(const g of new Set(SVCS[box].map(x=>x[0])))if(!SVCCTR[g]||SVCCTR[g].box===box)SVCCTR[g]={run:0,tot:0,box};
     for(const [g,name,ctrs,hosts,check,modes] of SVCS[box]){
@@ -800,7 +810,8 @@ async function services(){
           const upS=rows.filter(Boolean).map(r=>val(r)).filter(x=>x!=null);
           if(upS.length&&running)lines.push('up '+fmtUp(Math.min(...upS)));
         }
-        if(check){const ok=box==='dgx'?up(check):(msu[check]?val(msu[check])===1:null);
+        if(check){const ok=box==='dgx'?up(check):(box==='x3'?(xsu[check]?val(xsu[check])===1:null):(msu[check]?val(msu[check])===1:null));
+          if(box==='x3'&&!ctrs.length&&ok===null)lamp='stale';
           if(ok===false&&!off){lamp='down';why.push('health check failed');}}
         if(hosts.length){
           const dn=hosts.filter(h=>probeNow[h]&&val(probeNow[h])===0);
@@ -812,7 +823,7 @@ async function services(){
         }
         if(off){lamp='stale';why=['off in mode '+mode];}
       }
-      (groups[g]=groups[g]||[]).push('<a class=card href="'+(box==='prod'?G+'/d/prod-infra-containers/containers':(box==='dgx'?DGXDASH:G))+'"><h3><span class="dot '+lamp+'"></span>'+hx(title)+'</h3>'+
+      (groups[g]=groups[g]||[]).push('<a class=card href="'+(box==='prod'?G+'/d/prod-infra-containers/containers':(box==='dgx'?DGXDASH:(box==='x3'?X3DASH:G)))+'"><h3><span class="dot '+lamp+'"></span>'+hx(title)+'</h3>'+
         (why.length?'<div class=ln style="color:'+(lamp==='down'?'#f85149':(lamp==='mid'?'#d29922':'#8888aa'))+'">'+hx(why.join(' · '))+'</div>':'')+
         lines.map(x=>'<div class=ln>'+x+'</div>').join('')+'</a>');
     }

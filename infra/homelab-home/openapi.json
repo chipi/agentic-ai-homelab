@@ -62,7 +62,7 @@
                     },
                     "capacity": {
                       "type": "object",
-                      "description": "Per host (mini, dgx, prod): diskFreePct, memUsedPct (mini also swapBytes); numbers only, the alert rules decide warnings"
+                      "description": "Per host (mini, dgx, prod, x3): diskFreePct, memUsedPct (mini also swapBytes); numbers only, the alert rules decide warnings"
                     },
                     "errors": {
                       "type": "object",
