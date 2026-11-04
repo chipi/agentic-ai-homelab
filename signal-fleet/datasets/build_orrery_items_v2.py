@@ -115,6 +115,8 @@ def fix(row, stats):
                 old = raw.get(k)
                 if old and new and ts(old.get("dateCreated") or "1970-01-01") == ts(new["dateCreated"]):
                     continue  # the same release: v1's object, byte for byte
+                if not old and not new:
+                    continue  # no release either way: nothing changed (the 2026-11-04 build logged these)
                 changes.append(f"{k}.dateCreated {(old or {}).get('dateCreated')} -> "
                                f"{(new or {}).get('dateCreated')} (the release of the event at/before the decision)")
                 raw[k] = dict(new, dateReleased=None) if new else None
