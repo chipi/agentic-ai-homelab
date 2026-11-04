@@ -83,7 +83,30 @@ def _scan_queue():
     return items
 
 
-def _recent_escalations(days=7):
+def _issue_closed(fingerprint, state_of, cache):
+    """True when the newest issue filed for this fingerprint is closed. Unfiled, or GitHub not
+    answering: False, so the escalation stays counted (a failed read never hides one)."""
+    import filing
+    row = filing.ledger_lookup(fingerprint)
+    if not row or not row.get("repo") or not row.get("issue"):
+        return False
+    key = (row["repo"], row["issue"])
+    if key not in cache:
+        try:
+            cache[key] = (state_of(*key) or {}).get("state") == "closed"
+        except Exception as ex:  # noqa: BLE001
+            print(f"  inbox: issue state {key[0]}#{key[1]} unreadable, counted: {ex}")
+            cache[key] = False
+    return cache[key]
+
+
+def _recent_escalations(days=7, state_of=None):
+    """Escalate rows of the last `days` days that still need the operator: an escalation whose
+    filed issue is closed is done ("needs me" means open, operator 2026-11-04)."""
+    if state_of is None:
+        import filing
+        state_of = filing.issue_state
+    cache = {}
     cutoff = datetime.now(timezone.utc).timestamp() - days * 86400
     rows = []
     try:
@@ -98,7 +121,7 @@ def _recent_escalations(days=7):
                     ts = datetime.fromisoformat(c[idx["ts"]]).timestamp()
                 except ValueError:
                     continue
-                if ts >= cutoff:
+                if ts >= cutoff and not _issue_closed(c[idx["fingerprint"]], state_of, cache):
                     rows.append({
                         "id": "esc:" + c[idx["ts"]],
                         "ts": c[idx["ts"]],

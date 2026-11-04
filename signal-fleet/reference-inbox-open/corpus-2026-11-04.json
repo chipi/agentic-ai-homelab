@@ -1,0 +1,97 @@
+{
+ "frozen_at": "2026-11-04T12:50:58.526099+00:00",
+ "fleet_metric_escalations_7d": 9,
+ "escalations": [
+  {
+   "age_s": 421637.783,
+   "fingerprint": "grafana:967522c0a1b455ad",
+   "disposition": "escalate"
+  },
+  {
+   "age_s": 340559.999,
+   "fingerprint": "glitchtip:LITELLM-V",
+   "disposition": "escalate"
+  },
+  {
+   "age_s": 254232.285,
+   "fingerprint": "glitchtip:LITELLM-10",
+   "disposition": "escalate"
+  },
+  {
+   "age_s": 253633.954,
+   "fingerprint": "glitchtip:LITELLM-11",
+   "disposition": "escalate"
+  },
+  {
+   "age_s": 249431.139,
+   "fingerprint": "glitchtip:LITELLM-PROD-6",
+   "disposition": "escalate"
+  },
+  {
+   "age_s": 68821.61,
+   "fingerprint": "glitchtip:LITELLM-15",
+   "disposition": "escalate"
+  },
+  {
+   "age_s": 60420.224,
+   "fingerprint": "glitchtip:LITELLM-19",
+   "disposition": "escalate"
+  },
+  {
+   "age_s": 60365.324,
+   "fingerprint": "glitchtip:LITELLM-18",
+   "disposition": "escalate"
+  },
+  {
+   "age_s": 59843.415,
+   "fingerprint": "glitchtip:LITELLM-1A",
+   "disposition": "escalate"
+  }
+ ],
+ "filed": [
+  {
+   "fingerprint": "grafana:967522c0a1b455ad",
+   "repo": "chipi/agentic-ai-homelab",
+   "issue": "86",
+   "filed_at": "2026-10-05T16:52:35.703553+00:00"
+  },
+  {
+   "fingerprint": "glitchtip:LITELLM-V",
+   "repo": "chipi/agentic-ai-homelab",
+   "issue": "127",
+   "filed_at": "2026-10-31T14:14:58.367326+00:00"
+  },
+  {
+   "fingerprint": "glitchtip:LITELLM-15",
+   "repo": "chipi/agentic-ai-homelab",
+   "issue": "132",
+   "filed_at": "2026-11-03T17:43:56.365178+00:00"
+  },
+  {
+   "fingerprint": "glitchtip:LITELLM-19",
+   "repo": "chipi/agentic-ai-homelab",
+   "issue": "133",
+   "filed_at": "2026-11-03T20:03:57.301887+00:00"
+  },
+  {
+   "fingerprint": "glitchtip:LITELLM-18",
+   "repo": "chipi/agentic-ai-homelab",
+   "issue": "134",
+   "filed_at": "2026-11-03T20:04:52.978782+00:00"
+  },
+  {
+   "fingerprint": "glitchtip:LITELLM-1A",
+   "repo": "chipi/agentic-ai-homelab",
+   "issue": "137",
+   "filed_at": "2026-11-03T20:13:34.848251+00:00"
+  }
+ ],
+ "issue_states": {
+  "chipi/agentic-ai-homelab#86": "open",
+  "chipi/agentic-ai-homelab#127": "open",
+  "chipi/agentic-ai-homelab#132": "open",
+  "chipi/agentic-ai-homelab#133": "closed",
+  "chipi/agentic-ai-homelab#134": "closed",
+  "chipi/agentic-ai-homelab#137": "closed"
+ }
+}
