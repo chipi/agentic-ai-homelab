@@ -109,7 +109,7 @@ async function opening(facts) {
       // named in Langfuse (LiteLLM passes these through), so its faithfulness evaluator can target them
       body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: 160,
         metadata: { trace_name: 'hub-briefing', generation_name: 'briefing-opening', tags: ['hub-briefing'] }, messages: [
-        { role: 'system', content: 'You write the opening of a morning operations briefing for one person who runs a homelab and a few web products. Two sentences, plain English, no greeting, no lists. Use only the facts given; do not add or change any number, name or time. Overnight events are over: describe them in the past tense, and call something current only when the facts list it as current. Lead with what needs attention; if nothing does, say so.' },
+        { role: 'system', content: 'You write the opening of a morning operations briefing for one person who runs a homelab and a few web products. Two sentences, plain English, no greeting, no lists. Use only the facts given; do not add or change any number, name or time. Only alertsFiringNow is current. Everything in alertsResolvedOvernight is over: mention it in the past tense or not at all, never as a present problem. Lead with what needs attention; if nothing does, say so.' },
         { role: 'user', content: JSON.stringify(facts) }] }),
     }, 60000);
     const text = ((d.choices || [])[0] || {}).message && d.choices[0].message.content;
@@ -164,7 +164,10 @@ async function main() {
   const windowLabel = from.toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + ' to ' + hhmm(now);
   const groups = alertChangesL && groupAlerts(alertChangesL);
   const facts = { headline, window: windowLabel, needsYou: needs.items.map(x => x.text),
-    alerts: groups ? groups.map(g => g.name + ': fired ' + g.fired + ', resolved ' + g.resolved + ', ' + g.now + ' now') : 'not available',
+    // split by state, the state first: an alert's own title reads as present tense ("Cloudflare cannot
+    // reach the prod origin"), and the opening kept stating resolved ones as current (2026-11-03, -04)
+    alertsFiringNow: groups ? groups.filter(g => g.now === 'firing').map(g => 'FIRING NOW (since ' + hhmm(g.last) + '): ' + g.name + (g.instance ? ' on ' + g.instance : '')) : 'not available',
+    alertsResolvedOvernight: groups ? groups.filter(g => g.now === 'resolved').map(g => 'RESOLVED at ' + hhmm(g.last) + ', over, not happening now (fired ' + g.fired + 'x from ' + hhmm(g.first) + '): ' + g.name + (g.instance ? ' on ' + g.instance : '')) : 'not available',
     restarts: restartsL ? restartsL.length : 'not available', newErrors: errors ? errors.map(e => e.id + ' ' + e.title) : 'not available',
     newErrorsAlreadyResolved: resolvedNew == null ? 'not available' : resolvedNew,
     spend: status.spend, creditLeftUsd: status.credit && status.credit.leftUsd, green };
