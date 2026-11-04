@@ -12,7 +12,7 @@ const HS = require('./hub-status.js');
 const S = require('./hub-sources.js');
 
 const OUT = process.env.HUB_OUT || path.join(__dirname, 'www/status.json');
-const TIMELINE = path.join(path.dirname(OUT), 'timeline.json');
+const TIMELINE = path.join(path.dirname(OUT), 'timeline.json'), TIMELINE_DIR = path.join(path.dirname(OUT), 'timeline');
 const TIMELINE_HOURS = 48;
 const ANALYTICS = path.join(path.dirname(OUT), 'analytics.json');
 
@@ -25,6 +25,11 @@ async function main() {
   const tl = await HS.timeline(src, to - TIMELINE_HOURS * 3600e3, to);
   tl.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   S.writeAtomic(TIMELINE, JSON.stringify(tl, null, 1));
+  // the assistant reads one short list at a time (www/timeline/<kind>.json, last-night.json): copying from
+  // the whole 30 KB timeline it changed times and took the wrong kind (2026-11-04, four runs)
+  const head = { from: tl.from, to: tl.to, timezone: tl.timezone, missing: tl.missing };
+  for (const [k, evs] of Object.entries(tl.byKind)) S.writeAtomic(path.join(TIMELINE_DIR, k + '.json'), JSON.stringify(Object.assign({ kind: k, count: evs.length }, head, { lines: evs.map(e => e.line) }), null, 1));
+  S.writeAtomic(path.join(TIMELINE_DIR, 'last-night.json'), JSON.stringify(Object.assign({ kind: 'last-night', window: tl.lastNight.local, count: tl.lastNightLines.length }, head, { lines: tl.lastNightLines }), null, 1));
   let an; try { an = await HS.analytics(src); } catch (e) { an = { ok: false, reason: String(e && e.message || e) }; }
   S.writeAtomic(ANALYTICS, JSON.stringify(an, null, 1));
   const logged = await S.logLine('hub-status', 'hub status snapshot', { snapshot: JSON.stringify(status) });

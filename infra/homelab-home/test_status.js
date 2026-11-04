@@ -146,12 +146,13 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
 
   // last night: 19:00 to 07:00 local, the night that ended at the latest 07:00 (built in local time, so any TZ works)
   const L = (d, h, m = 0) => new Date(2026, 10, d, h, m).getTime();
-  const nightSrc = at => ({ now: at / 1000, q: async () => [], logs: async () => [], glitchtip: async () => [],
+  const nightSrc = at => ({ now: at / 1000, q: async () => [], logs: async () => [{ _time: new Date(L(3, 22)).toISOString(), _msg: 'night deploy', event_type: 'deploy', status: 'success' }], glitchtip: async () => [],
     annotations: async () => [[L(3, 18, 59), 31], [L(3, 19, 0), 32], [L(4, 6, 59), 33], [L(4, 7, 0), 34]].map(([t, id]) => ({ id, time: t, alertName: 'a', newState: 'Alerting', prevState: 'Normal', text: '' })) });
   let tn = await HS.timeline(nightSrc(L(4, 11)), L(2, 11), L(4, 11));
   check('timeline: at 11:00 last night is yesterday 19:00 to today 07:00, its events flagged',
     tn.lastNight.from === new Date(L(3, 19)).toISOString() && tn.lastNight.to === new Date(L(4, 7)).toISOString() &&
     tn.byKind.alert.filter(e => e.lastNight).map(REF).join() === 'Grafana annotation 32,Grafana annotation 33', tn);
+  check('timeline: lastNightLines hold every kind of the night in time order', tn.lastNightLines.map(l => l.slice(l.lastIndexOf(' — ') + 3).replace(/ at .*/, '')).join() === 'Grafana annotation 32,VictoriaLogs ops_event deploy,Grafana annotation 33', tn.lastNightLines);
   tn = await HS.timeline(nightSrc(L(4, 6)), L(2, 6), L(4, 6));
   check('timeline: at 06:00 the night still running is not "last night"; the one before is', tn.lastNight.to === new Date(L(3, 7)).toISOString() && !tn.byKind.alert.some(e => e.lastNight), tn.lastNight);
   check('timeline: lastNight has its local label', /^\w{3} \d{1,2} \w{3}, 19:00 to \w{3} \d{1,2} \w{3}, 07:00$/.test(tn.lastNight.local), tn.lastNight.local);

@@ -3,7 +3,7 @@
   "info": {
     "title": "Homelab hub status",
     "version": "1.0.0",
-    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory, new errors in the last 24 hours. Also the last 48 hours of events (timeline.json) for incident write-ups and 'what happened' questions. And the websites' analytics (analytics.json, Umami)."
+    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory, new errors in the last 24 hours. Also the last 48 hours of events, one kind at a time (timeline/<kind>.json) for incident write-ups and 'what happened' questions. And the websites' analytics (analytics.json, Umami)."
   },
   "servers": [
     {
@@ -67,264 +67,6 @@
                     "errors": {
                       "type": "object",
                       "description": "GlitchTip error issues first seen in the last 24 hours and still open, computed by the hub (complete, newest first): ok, windowHours, newCount, new[] (id = short id, project, title, count = occurrences, firstSeen UTC, status, link), resolvedCount (new ones already resolved or ignored: give the number, do not list them). Use this for 'what new errors appeared'; list exactly the issues in new[]."
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/timeline.json": {
-      "get": {
-        "operationId": "getIncidentTimeline",
-        "summary": "What happened in the last 48 hours, grouped by kind (alert, deploy, backup, drill, drift, ci_failure, error, container_start), each kind oldest first, with last night already worked out",
-        "description": "Written every 5 minutes by the hub, from the sources themselves. Use it to draft an incident timeline or answer 'what happened last night'. Take the kind the question asks about from byKind (deploys: byKind.deploy; alerts: byKind.alert) and list every entry of it that matches, nothing from elsewhere. For 'last night' use only entries with lastNight: true (the window is in lastNight.local). Answer with each chosen entry's `line`, copied exactly as written, one per line, oldest first: it already holds the time on the operator's clock, what happened and where to find it. Never write a time or an event that is not in a line. An alert that fired and later resolved is over. `missing` names sources that could not be read: say so instead of claiming nothing happened.",
-        "responses": {
-          "200": {
-            "description": "The timeline",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "from": {
-                      "type": "string",
-                      "description": "Window start (UTC, ISO 8601)"
-                    },
-                    "to": {
-                      "type": "string",
-                      "description": "Window end (UTC, ISO 8601), at most ~5 minutes ago"
-                    },
-                    "timezone": {
-                      "type": "string",
-                      "description": "The time zone of every `local`"
-                    },
-                    "count": {
-                      "type": "integer",
-                      "description": "All events, every kind"
-                    },
-                    "lastNight": {
-                      "type": "object",
-                      "description": "Last night, 19:00 to 07:00 on the operator's clock (the night that ended most recently): from, to (UTC), local (e.g. 'Tue 3 Nov, 19:00 to Wed 4 Nov, 07:00')"
-                    },
-                    "counts": {
-                      "type": "object",
-                      "description": "Number of events per kind"
-                    },
-                    "byKind": {
-                      "type": "object",
-                      "description": "Events per kind, each list oldest first",
-                      "properties": {
-                        "alert": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "description": "UTC, ISO 8601 (do not quote it as the time)"
-                              },
-                              "line": {
-                                "type": "string",
-                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
-                              },
-                              "severity": {
-                                "type": "string",
-                                "description": "Alerts only: critical or warning"
-                              },
-                              "lastNight": {
-                                "type": "boolean",
-                                "description": "Present (true) when the event falls in lastNight"
-                              }
-                            }
-                          },
-                          "description": "Alert state changes: fired, resolved"
-                        },
-                        "deploy": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "description": "UTC, ISO 8601 (do not quote it as the time)"
-                              },
-                              "line": {
-                                "type": "string",
-                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
-                              },
-                              "severity": {
-                                "type": "string",
-                                "description": "Alerts only: critical or warning"
-                              },
-                              "lastNight": {
-                                "type": "boolean",
-                                "description": "Present (true) when the event falls in lastNight"
-                              }
-                            }
-                          },
-                          "description": "Deploys"
-                        },
-                        "backup": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "description": "UTC, ISO 8601 (do not quote it as the time)"
-                              },
-                              "line": {
-                                "type": "string",
-                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
-                              },
-                              "severity": {
-                                "type": "string",
-                                "description": "Alerts only: critical or warning"
-                              },
-                              "lastNight": {
-                                "type": "boolean",
-                                "description": "Present (true) when the event falls in lastNight"
-                              }
-                            }
-                          },
-                          "description": "Backups"
-                        },
-                        "drill": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "description": "UTC, ISO 8601 (do not quote it as the time)"
-                              },
-                              "line": {
-                                "type": "string",
-                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
-                              },
-                              "severity": {
-                                "type": "string",
-                                "description": "Alerts only: critical or warning"
-                              },
-                              "lastNight": {
-                                "type": "boolean",
-                                "description": "Present (true) when the event falls in lastNight"
-                              }
-                            }
-                          },
-                          "description": "DR drills"
-                        },
-                        "drift": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "description": "UTC, ISO 8601 (do not quote it as the time)"
-                              },
-                              "line": {
-                                "type": "string",
-                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
-                              },
-                              "severity": {
-                                "type": "string",
-                                "description": "Alerts only: critical or warning"
-                              },
-                              "lastNight": {
-                                "type": "boolean",
-                                "description": "Present (true) when the event falls in lastNight"
-                              }
-                            }
-                          },
-                          "description": "Infra drift checks"
-                        },
-                        "ci_failure": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "description": "UTC, ISO 8601 (do not quote it as the time)"
-                              },
-                              "line": {
-                                "type": "string",
-                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
-                              },
-                              "severity": {
-                                "type": "string",
-                                "description": "Alerts only: critical or warning"
-                              },
-                              "lastNight": {
-                                "type": "boolean",
-                                "description": "Present (true) when the event falls in lastNight"
-                              }
-                            }
-                          },
-                          "description": "Failed CI runs (passing, cancelled and skipped runs are not listed)"
-                        },
-                        "error": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "description": "UTC, ISO 8601 (do not quote it as the time)"
-                              },
-                              "line": {
-                                "type": "string",
-                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
-                              },
-                              "severity": {
-                                "type": "string",
-                                "description": "Alerts only: critical or warning"
-                              },
-                              "lastNight": {
-                                "type": "boolean",
-                                "description": "Present (true) when the event falls in lastNight"
-                              }
-                            }
-                          },
-                          "description": "GlitchTip issues first seen"
-                        },
-                        "container_start": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "at": {
-                                "type": "string",
-                                "description": "UTC, ISO 8601 (do not quote it as the time)"
-                              },
-                              "line": {
-                                "type": "string",
-                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
-                              },
-                              "severity": {
-                                "type": "string",
-                                "description": "Alerts only: critical or warning"
-                              },
-                              "lastNight": {
-                                "type": "boolean",
-                                "description": "Present (true) when the event falls in lastNight"
-                              }
-                            }
-                          },
-                          "description": "Containers started (the latest start of each)"
-                        }
-                      }
-                    },
-                    "missing": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "description": "Sources that failed; their events are absent"
                     }
                   }
                 }
@@ -457,6 +199,84 @@
                           }
                         }
                       }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/timeline/{kind}.json": {
+      "get": {
+        "operationId": "getTimeline",
+        "summary": "What happened in the last 48 hours, one kind at a time: last-night (every kind, 19:00 to 07:00), alert, deploy, backup, drill, drift, ci_failure, error (new GlitchTip issues), container_start",
+        "description": "Written every 5 minutes by the hub from the sources themselves. Call it with the kind the question is about: kind=alert for alerts (fired, resolved), kind=deploy for deploys, kind=last-night for anything about last night. `lines` are finished timeline lines, oldest first: '<time on the operator's clock> — <what happened> — <where to find it>'. Answer with the lines that match the question, each copied character for character, one per line: never change a time, never write a time or an event that is not in a line. An alert that fired and later resolved is over. `missing` names sources that could not be read: say so instead of claiming nothing happened.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Which list",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "last-night",
+                "alert",
+                "deploy",
+                "backup",
+                "drill",
+                "drift",
+                "ci_failure",
+                "error",
+                "container_start"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lines of that kind",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "window": {
+                      "type": "string",
+                      "description": "last-night only: the window on the operator's clock"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "from": {
+                      "type": "string",
+                      "description": "48-hour window start (UTC)"
+                    },
+                    "to": {
+                      "type": "string",
+                      "description": "Window end (UTC), at most ~5 minutes ago"
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "description": "The time zone of the times in the lines"
+                    },
+                    "missing": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Copy these exactly"
                     }
                   }
                 }

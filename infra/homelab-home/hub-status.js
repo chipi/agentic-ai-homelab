@@ -227,7 +227,9 @@
       if (e.at >= n0 && e.at < n1) ev.lastNight = true;
       (byKind[e.kind] = byKind[e.kind] || []).push(ev);
     }
-    return { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString(), count: events.length,
+    // last night across every kind, oldest first (byKind loses the order between kinds)
+    const lastNightLines = events.filter(e => e.at >= n0 && e.at < n1).map(e => localTime(e.at) + ' — ' + e.what + ' — ' + e.ref);
+    return { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString(), count: events.length, lastNightLines,
              lastNight: { from: new Date(n0).toISOString(), to: new Date(n1).toISOString(), local: localTime(n0) + ' to ' + localTime(n1) },
              counts: Object.fromEntries(Object.entries(byKind).map(([k, v]) => [k, v.length])), byKind, missing };
   }

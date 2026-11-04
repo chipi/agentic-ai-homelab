@@ -29,7 +29,8 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   drift, failed CI runs, new GlitchTip issues and container starts, grouped by kind (`byKind`),
   each kind oldest first, each event one finished `line` (`<local time> — <what> — <ref>`, the
   ref finding it in its source) that the assistant copies; "last night" (19:00 to 07:00) is computed and its events flagged `lastNight`; a source
-  that fails is named in `missing`. The assistant reads it as `getIncidentTimeline` (`openapi.json`).
+  that fails is named in `missing`. The assistant does not read this file: it reads one kind at a time,
+  `www/timeline/<kind>.json` and `last-night.json` (only the lines), as `getTimeline` (`openapi.json`).
   And `www/analytics.json` (served at `/analytics.json`): per Umami site (dev sites left out),
   visitors and pageviews today, yesterday, the last 7 days and the 7 before (local days), and the
   7 days' top pages, referrers, countries and click events, read through Umami's API with the admin

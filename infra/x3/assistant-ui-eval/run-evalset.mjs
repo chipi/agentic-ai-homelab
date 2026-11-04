@@ -164,7 +164,7 @@ const ADAPTER = {
       for (let t = 0; t < 180000 && stable < 6; t += 500) { await sleep(500); const a = await ev(LAST);
         const busy = await ev(`!!document.querySelector('[data-testid="stop-generation-button"], button[aria-label*="Stop"]')`);
         stable = (a && a === last && !busy) ? stable + 1 : 0; last = a; }
-      const tool = await ev(`[...document.querySelectorAll('*')].some(e=>e.childElementCount===0&&/Ran (getHomelabStatus|getIncidentTimeline)/.test(e.textContent||''))`);
+      const tool = await ev(`[...document.querySelectorAll('*')].some(e=>e.childElementCount===0&&/Ran (get|list)[A-Z][A-Za-z]+/.test(e.textContent||""))`);
       return { answer: last, toolCalled: tool }; },
   },
   openwebui: {
@@ -181,7 +181,7 @@ const ADAPTER = {
       for (let t = 0; t < 180000 && stable < 6; t += 500) { await sleep(500); const a = await ev(LAST);
         const busy = await ev(`!!document.querySelector('button[aria-label="Stop"], #stop-response-button')`);
         stable = (a && a.length > 20 && a === last && !busy) ? stable + 1 : 0; last = a; }
-      const tool = /getHomelabStatus|getIncidentTimeline/.test(last);
+      const tool = /View Result from (get|list)[A-Z][A-Za-z]+/.test(last);
       return { answer: last.replace(/^View Result from \S+\s*/g, "").trim(), toolCalled: tool }; },
   },
 };
