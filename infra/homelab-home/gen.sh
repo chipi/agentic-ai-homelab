@@ -133,7 +133,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <h1>homelab</h1>
 <!-- Banners: critical ones are copied to #critbar and always shown; the rest fold into one
      line (#notices) so they never push the strip and tabs off a phone screen. The three bars
-     are still filled by hetzner(), cloudflare(), github() and alerts(); notices() only reads them. -->
+     are still filled by hetzner(), cloudflare(), providers() and alerts(); notices() only reads them. -->
 <div id=critbar></div>
 <!-- Always on top: one line per area. Each dot copies the state of that area's own dot in its
      tab (mirror() below), so there is one source of truth per signal. Green everywhere = done. -->
@@ -152,7 +152,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <details id=notices hidden><summary id=nsum></summary>
 <div id=hetznerbar></div>
 <div id=cfbar></div>
-<div id=ghbar></div>
+<div id=provbar></div>
 <div id=alertbar></div>
 </details>
 <nav class=tabs>
@@ -634,24 +634,25 @@ async function cloudflare(){
     +comp.map(r=>{const m=r.metric;return bar('warn','https://www.cloudflarestatus.com/',m.kind==='pop'?'a PoP carrying our traffic':'a service we use','<b>'+esc(m.name)+'</b> &mdash; '+esc(String(m.status).replace(/_/g,' ')));}).join('')
     +mnt.map(r=>{const m=r.metric;return bar(m.status==='in_progress'?'warn':'plumb',m.link,'maintenance','<b>'+esc(m.components)+'</b> &mdash; '+(m.status==='in_progress'?'in progress':'starts '+esc(f(m.start)))+(m.end?' until '+esc(f(m.end)):''));}).join('');
 }
-async function github(){
-  // GitHub status (infra/github-status: githubstatus.com, correlated with what we use in ours.json).
-  // An incident on a component of ours is red; a degraded component of ours, or maintenance on one in
-  // progress, amber; maintenance starting within 7 days, and incidents on what we do not use, muted.
+async function providers(){
+  // Provider status pages (infra/provider-status: GitHub, OpenRouter; correlated with what we use in
+  // providers.json). An incident on what we use is red; a degraded component of ours, or maintenance on
+  // what we use in progress, amber; announced maintenance and items not on what we use, muted.
   // Re-pushed every 5 min while true; empty = no bar.
-  const el=document.getElementById('ghbar');if(!el)return;
+  const el=document.getElementById('provbar');if(!el)return;
   const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const f=s=>s?String(s).slice(0,16).replace('T',' ')+'Z':'';
-  const act=await q('last_over_time(github_status_active{instance="homelab"}[15m])');
-  const comp=await q('last_over_time(github_status_component{instance="homelab"}[15m])');
-  const bar=(cls,href,tag,body)=>'<a class="abar '+cls+'"'+(href?' href="'+esc(href)+'"':'')+'><span class=hz>GitHub &middot; '+tag+'</span>'+body+'</a>';
+  const NAME={github:'GitHub',openrouter:'OpenRouter'},PAGE={github:'https://www.githubstatus.com/',openrouter:'https://status.openrouter.ai/'};
+  const act=await q('last_over_time(provider_status_active{instance="homelab"}[15m])');
+  const comp=await q('last_over_time(provider_status_component{instance="homelab"}[15m])');
+  const bar=(m,cls,href,tag,body)=>'<a class="abar '+cls+'" data-provider="'+esc(m.provider)+'"'+(href?' href="'+esc(href)+'"':'')+'><span class=hz>'+esc(NAME[m.provider]||m.provider)+' &middot; '+tag+'</span>'+body+'</a>';
   const rank=m=>m.kind==='incident'?(m.relevance==='direct'?0:3):(m.phase==='ongoing'?1:2);
   act.sort((a,b)=>rank(a.metric)-rank(b.metric));
-  const named=new Set(act.filter(r=>r.metric.relevance==='direct').flatMap(r=>String(r.metric.components).split(', ')));
-  el.innerHTML=act.map(r=>{const m=r.metric,direct=m.relevance==='direct';
-      if(m.kind==='incident')return bar(direct?'crit':'plumb',m.link,direct?'incident on what we use':'incident (not on what we use)','<b>'+esc(m.name)+'</b> &mdash; '+esc(m.components)+' <span style="opacity:.75">('+esc(m.impact)+', '+esc(m.status)+', since '+esc(f(m.start))+')</span>');
-      return bar(m.phase==='ongoing'&&direct?'warn':'plumb',m.link,'maintenance'+(direct?'':' (not on what we use)'),'<b>'+esc(m.components||m.name)+'</b> &mdash; '+esc(m.name)+' <span style="opacity:.75">('+(m.phase==='ongoing'?'in progress':'starts '+esc(f(m.start)))+(m.end?' until '+esc(f(m.end)):'')+')</span>');}).join('')
-    +comp.filter(r=>!named.has(r.metric.name)).map(r=>bar('warn','https://www.githubstatus.com/','a service we use','<b>'+esc(r.metric.name)+'</b> &mdash; '+esc(String(r.metric.status).replace(/_/g,' '))));
+  const named=new Set(act.filter(r=>r.metric.relevance==='direct').flatMap(r=>String(r.metric.components).split(', ').map(c=>r.metric.provider+'|'+c)));
+  el.innerHTML=act.map(r=>{const m=r.metric,direct=m.relevance==='direct',on=m.components?' &mdash; '+esc(m.components):'';
+      if(m.kind==='incident')return bar(m,direct?'crit':'plumb',m.link,direct?'incident on what we use':'incident (not on what we use)','<b>'+esc(m.name)+'</b>'+on+' <span style="opacity:.75">('+[m.impact,m.status].filter(Boolean).map(esc).join(', ')+(m.start?', since '+esc(f(m.start)):'')+')</span>');
+      return bar(m,m.phase==='ongoing'&&direct?'warn':'plumb',m.link,'maintenance'+(direct?'':' (not on what we use)'),'<b>'+esc(m.name)+'</b>'+on+' <span style="opacity:.75">('+(m.phase==='ongoing'?'in progress':(m.start?'starts '+esc(f(m.start)):'announced'))+(m.end?' until '+esc(f(m.end)):'')+')</span>');}).join('')
+    +comp.filter(r=>!named.has(r.metric.provider+'|'+r.metric.name)).map(r=>bar(r.metric,'warn',PAGE[r.metric.provider],'a service we use','<b>'+esc(r.metric.name)+'</b> &mdash; '+esc(String(r.metric.status).replace(/_/g,' '))));
 }
 async function uptime(){
   // Outside-in availability per probed endpoint (job site-probe). The long windows are
@@ -1559,11 +1560,11 @@ function mirror(){
   document.querySelectorAll('[data-dot]').forEach(e=>{const s=document.getElementById(e.dataset.dot);if(s)e.className=s.className;});
   document.querySelectorAll('[data-text]').forEach(e=>{const s=document.getElementById(e.dataset.text);if(s)e.textContent=s.textContent.trim();});}
 function notices(){
-  const bars=['hetznerbar','cfbar','alertbar','ghbar'].map(i=>document.getElementById(i));
+  const bars=['hetznerbar','cfbar','alertbar','provbar'].map(i=>document.getElementById(i));
   const crit=bars.flatMap(b=>[...b.querySelectorAll('.abar.crit')]).map(e=>e.outerHTML).join('');
   const cb=document.getElementById('critbar');if(cb.innerHTML!==crit)cb.innerHTML=crit;
   const n=(b,sel)=>b.querySelectorAll(sel).length,a=bars[2].dataset;
-  const parts=[[+(a.warn||0),'alert'],[n(bars[0],'.abar:not(.crit)'),'Hetzner'],[n(bars[1],'.abar:not(.crit)'),'Cloudflare'],[n(bars[3],'.abar:not(.crit)'),'GitHub'],[+(a.plumb||0),'plumbing']]
+  const parts=[[+(a.warn||0),'alert'],[n(bars[0],'.abar:not(.crit)'),'Hetzner'],[n(bars[1],'.abar:not(.crit)'),'Cloudflare'],[n(bars[3],'.abar[data-provider="github"]:not(.crit)'),'GitHub'],[n(bars[3],'.abar[data-provider="openrouter"]:not(.crit)'),'OpenRouter'],[+(a.plumb||0),'plumbing']]
     .filter(p=>p[0]).map(p=>p[0]+' '+p[1]+(p[1]==='alert'&&p[0]>1?'s':''));
   const det=document.getElementById('notices');det.hidden=!parts.length;
   const t=parts.length?'Notices: '+parts.join(' &middot; '):'';
@@ -1578,7 +1579,7 @@ async function overview(){
   const low=C.low;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();cloudflare();github();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();}
+function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT

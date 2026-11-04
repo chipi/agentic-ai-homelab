@@ -1,4 +1,0 @@
-{
-  "_comment": "What of GitHub we depend on: githubstatus.com components. Git Operations (pushes, pulls, the fleet's checkouts), API Requests (gh, the fleet, the hub's fleet queue), Actions (CI, deploys, drills), Pull Requests and Issues (the fleets, reviews), Webhooks, Packages (ghcr.io: prod's images), Pages (the docs sites). An incident or maintenance listing one of these is `direct`; Copilot and Codespaces are not used here.",
-  "components": ["Git Operations", "API Requests", "Actions", "Pull Requests", "Issues", "Webhooks", "Packages", "Pages"]
-}

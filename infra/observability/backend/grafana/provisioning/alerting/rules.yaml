@@ -2760,32 +2760,31 @@ groups:
 
   # Hetzner status bulletins (status.hetzner.com en.atom -> VictoriaLogs app=hetzner-status, by
   # infra/hetzner-status/poll.py every 10 min), correlated with where prod runs (ours.json):
-  # --- GitHub status (infra/github-status, 2026-11-04) -------------------------------------------
-  # githubstatus.com every 5 min: incidents (outages) and scheduled maintenance (upfront notice,
-  # in progress or starting within 7 days). relevance direct = it lists a component we use
-  # (infra/github-status/ours.json: Git Operations, API Requests, Actions, Pull Requests, Issues,
-  # Webhooks, Packages, Pages); other = the rest (hub bar only, muted). Like hetzner-status: one
-  # VictoriaLogs line per new or updated item, backfill=true never alerts, meta="true" (email to the
-  # operator, not the triage fleet).
+  # --- Provider status pages (infra/provider-status, 2026-11-04): GitHub, OpenRouter -------------
+  # Every 5 min: incidents (outages) and maintenance (upfront: in progress, or announced and not
+  # started). relevance direct = it touches what we use (providers.json: GitHub components we use;
+  # OpenRouter items not marked as the website, sign-in or video, or "Inference is not affected");
+  # other = the rest (hub bar only, muted). Like hetzner-status: one VictoriaLogs line per new or
+  # updated item, backfill=true never alerts, meta="true" (email to the operator, not the fleet).
   - orgId: 1
-    name: github-status
+    name: provider-status
     folder: "Alerts"
     interval: 5m
     rules:
-      - uid: github-status-ours
-        title: "GitHub incident or maintenance on what we use"
+      - uid: provider-status-ours
+        title: "Provider incident or maintenance on what we use (GitHub, OpenRouter)"
         condition: threshold
         for: 0s
         noDataState: OK
-        labels: { severity: warning, kind: provider, host: homelab, service: github-status, environment: operations, meta: "true" }
+        labels: { severity: warning, kind: provider, host: homelab, service: provider-status, environment: operations, meta: "true" }
         annotations:
-          summary: "GitHub posted or updated a {{ $labels.kind }} on {{ $labels.components }}: \"{{ $labels.name }}\" ({{ $labels.status }}, start {{ $labels.start }}). Pushes, CI, deploys or the fleets may be affected. Details: {{ $labels.link }}"
+          summary: "{{ $labels.provider }} posted or updated a {{ $labels.kind }}: \"{{ $labels.name }}\" ({{ $labels.status }}{{ if $labels.components }}, on {{ $labels.components }}{{ end }}). GitHub: pushes, CI, deploys or the fleets may be affected; OpenRouter: the fleets, the assistant's failover, the pipeline. Details: {{ $labels.link }}"
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }
             datasourceUid: victorialogs
             model:
-              expr: 'app:github-status relevance:direct backfill:false | stats by (name, kind, status, components, start, link) count() as value'
+              expr: 'app:provider-status relevance:direct backfill:false | stats by (provider, name, kind, status, components, link) count() as value'
               queryType: stats
           - refId: reduced
             datasourceUid: __expr__
@@ -2800,20 +2799,20 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: gt, params: [0] } }]
 
-      - uid: github-status-poller-stale
-        title: "GitHub status poller has not succeeded for 30m"
+      - uid: provider-status-poller-stale
+        title: "Provider status poller has not read a provider for 30m"
         condition: threshold
         for: 0s
         noDataState: Alerting
-        labels: { severity: warning, kind: infra, host: homelab, service: github-status, environment: operations, meta: "true" }
+        labels: { severity: warning, kind: infra, host: homelab, service: provider-status, environment: operations, meta: "true" }
         annotations:
-          summary: "infra/github-status/poll.py on the mini has not read githubstatus.com successfully for over 30 minutes, so GitHub outages and maintenance are not being watched. Log: /tmp/github-status.log on the mini; launchd job com.homelab.github-status."
+          summary: "infra/provider-status/poll.py on the mini has not read {{ $labels.provider }}'s status page successfully for over 30 minutes, so its outages and maintenance are not being watched. Log: /tmp/provider-status.log on the mini; launchd job com.homelab.provider-status."
         data:
           - refId: q
             relativeTimeRange: { from: 600, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'time() - max(last_over_time(github_status_last_success_timestamp{instance="homelab"}[7d]))'
+              expr: 'time() - max by (provider) (last_over_time(provider_status_last_success_timestamp{instance="homelab"}[7d]))'
               instant: true
               queryType: instant
           - refId: threshold

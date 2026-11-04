@@ -1,0 +1,22 @@
+{
+  "_comment": "Providers whose status pages we watch (poll.py), and what of each we use. type statuspage = Atlassian Statuspage JSON (summary.json: components, incidents, scheduled maintenance); type rss = a status page's RSS history (category incident|maintenance, newest update's state). An item is `direct` when it names a component we use (statuspage) or when it is not marked as outside what we use (rss: a title matching other_title, or text matching other_text); else `other`. Hetzner and Cloudflare have their own collectors (infra/hetzner-status, infra/cloudflare-edge).",
+  "providers": {
+    "github": {
+      "name": "GitHub",
+      "type": "statuspage",
+      "url": "https://www.githubstatus.com/api/v2/summary.json",
+      "page": "https://www.githubstatus.com/",
+      "components": ["Git Operations", "API Requests", "Actions", "Pull Requests", "Issues", "Webhooks", "Packages", "Pages"],
+      "_why": "Git Operations: pushes, pulls, the fleets' checkouts; API Requests: gh, the fleets, the hub's fleet queue; Actions: CI, deploys, drills; Pull Requests and Issues: the fleets, reviews; Packages: ghcr.io, prod's images; Pages: the docs sites. Not Copilot or Codespaces."
+    },
+    "openrouter": {
+      "name": "OpenRouter",
+      "type": "rss",
+      "url": "https://status.openrouter.ai/history.rss",
+      "page": "https://status.openrouter.ai/",
+      "other_title": "(?i)sign[- ]?in|sign[- ]?up|dashboard|video|web app",
+      "other_text": "(?i)inference is not affected",
+      "_why": "We use the API (inference): the fleets, the assistant's assistant-cloud failover, the podcast pipeline, the eval keys. Its feed names no components, so an item counts as ours unless its title is about the website, sign-in or video, or its text says inference is not affected."
+    }
+  }
+}
