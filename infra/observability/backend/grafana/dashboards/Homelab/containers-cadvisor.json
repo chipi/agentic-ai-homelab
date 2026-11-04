@@ -410,6 +410,7 @@
     {
       "id": 8,
       "title": "Note",
+      "description": "A note, not data: why container names show as short Docker IDs here (cAdvisor does not resolve Docker metadata on this host), and that Logs — Overview has the names.",
       "type": "text",
       "datasource": {
         "type": "prometheus",
