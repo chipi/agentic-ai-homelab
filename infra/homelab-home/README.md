@@ -44,6 +44,11 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   in `hub-sources.js` `FLEET_REPOS`); a repo GitHub refuses is named in `unreadable`. The assistant reads
   it one list at a time, `www/fleet/needs-you.json` and `open-escalated.json` (count and finished lines),
   as `getFleetQueue(list)`; `fleet.json` is for scoring.
+  `status.json` also carries `assistantSpend`: the assistant's answers by backend (X3 local, free; OpenRouter
+  `assistant-cloud`, paid) per Spend-tab window, read from the mini LiteLLM's spend log through
+  `docker exec litellm-postgres psql` (the container's own credentials), and pushed as
+  `hub_assistant_calls` / `hub_assistant_usd{backend,window}` for the Spend tab's "Assistant: local or
+  OpenRouter" cards.
 - `briefing-job.js` — the morning briefing (RFC-0008 use case H1), at 07:00 (launchd
   `com.homelab.hub-briefing`): needs-you first, then the night (alert changes from Grafana's state
   history, containers started, new GlitchTip issues), numbers, all-green. Every number comes from

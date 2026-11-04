@@ -67,6 +67,10 @@
                     "errors": {
                       "type": "object",
                       "description": "GlitchTip error issues first seen in the last 24 hours and still open, computed by the hub (complete, newest first): ok, windowHours, newCount, new[] (id = short id, project, title, count = occurrences, firstSeen UTC, status, link), resolvedCount (new ones already resolved or ignored: give the number, do not list them). Use this for 'what new errors appeared'; list exactly the issues in new[]."
+                    },
+                    "assistantSpend": {
+                      "type": "object",
+                      "description": "The assistant's own answers by backend, from the gateway's spend log: windows month, 30d, 7d, yesterday (completed UTC days, as the Spend tab), each with x3 {calls, usd} (local, free), openrouter {calls, usd} (assistant-cloud: a failover or a direct call) and localShare (0-1). Use it for 'how much did the assistant run locally' or 'what did failover cost'."
                     }
                   }
                 }

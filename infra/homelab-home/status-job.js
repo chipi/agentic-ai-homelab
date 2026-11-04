@@ -20,6 +20,17 @@ const FLEET = path.join(path.dirname(OUT), 'fleet.json'), FLEET_DIR = path.join(
 async function main() {
   const src = S.statusSource();
   const status = await HS.all(src);
+  // the assistant's local / OpenRouter split (job only: it reads LiteLLM's database), in status.json for the
+  // assistant and the briefing, and as gauges for the Spend tab (window = the tab's period)
+  try { status.assistantSpend = await HS.assistantSpend(src); } catch (e) { status.assistantSpend = { error: String(e && e.message || e) }; }
+  if (status.assistantSpend && status.assistantSpend.ok) {
+    for (const [w, v] of Object.entries(status.assistantSpend.windows)) {
+      for (const b of ['x3', 'openrouter']) {
+        try { await S.pushGauge('hub_assistant_calls', v[b].calls, { backend: b, window: w });
+              await S.pushGauge('hub_assistant_usd', v[b].usd, { backend: b, window: w }); } catch (e) { console.error('assistant gauges: ' + e.message); }
+      }
+    }
+  }
   const body = JSON.stringify(status, null, 1);
   S.writeAtomic(OUT, body);
   const to = Math.round(src.now * 1000);

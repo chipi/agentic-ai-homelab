@@ -238,6 +238,33 @@
              counts: Object.fromEntries(Object.entries(byKind).map(([k, v]) => [k, v.length])), byKind, missing };
   }
 
+  // The assistant's answers by backend (RFC-0008: the local / failover line): calls to the `assistant` and
+  // `assistant-cloud` model groups in the mini LiteLLM's spend log, split by api_base (the X3's address =
+  // local, free; anything else = OpenRouter, paid). Windows are the Spend tab's: completed UTC days (month,
+  // 30d, 7d, yesterday). src.litellmSql(sql) -> rows of strings ('|' separated); the page has no source.
+  const SPEND_DAYS = { '30d': 30, '7d': 7, yesterday: 1 };
+  async function assistantSpend(src) {
+    if (!src.litellmSql) return { ok: false, reason: 'no LiteLLM source' };
+    const n = new Date(src.now * 1000), mid = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate());
+    const m0 = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), 1);
+    const windows = {};
+    for (const p of ['month', '30d', '7d', 'yesterday']) {
+      const days = p === 'month' ? Math.round((mid - m0) / 86400e3) : SPEND_DAYS[p];
+      const w = { days, x3: { calls: 0, usd: 0 }, openrouter: { calls: 0, usd: 0 } };
+      if (days > 0) {
+        const rows = await src.litellmSql(
+          "select case when api_base ilike '%100.92.54.65%' then 'x3' else 'openrouter' end, count(*), coalesce(sum(spend),0) " +
+          "from \"LiteLLM_SpendLogs\" where model_group in ('assistant','assistant-cloud') " +
+          "and \"startTime\" >= to_timestamp(" + (mid - days * 86400e3) / 1000 + ") and \"startTime\" < to_timestamp(" + mid / 1000 + ") group by 1");
+        for (const r of rows) { const [b, c, u] = r.split('|'); if (w[b]) { w[b].calls = +c; w[b].usd = +(+u).toFixed(6); } }
+      }
+      const t = w.x3.calls + w.openrouter.calls;
+      w.localShare = t ? +(w.x3.calls / t).toFixed(4) : null;
+      windows[p] = w;
+    }
+    return { ok: true, windows };
+  }
+
   // Fleet queue (use case H6): what the triage fleet wants from the operator. The count is the fleet's own
   // (needsYou: bug-queue proposals + escalations of the last 7 days, signal-fleet/mvp/inbox.py); the items
   // are the same two lists, each escalation linked to its issue through the fleet's filed ledger (newest
@@ -335,7 +362,7 @@
     return out;
   }
 
-  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, alertChanges, timeline, analytics, fleetQueue, all, AREAS };
+  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, alertChanges, timeline, analytics, fleetQueue, assistantSpend, all, AREAS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HubStatus = api;
 })(typeof window !== 'undefined' ? window : globalThis);

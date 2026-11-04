@@ -241,6 +241,8 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <div id=sp_main>
   <h2>Totals</h2>
   <div class=charts id=sp_totals>&hellip;</div>
+  <h2>Assistant: local or OpenRouter</h2>
+  <div class=charts id=sp_assistant>&hellip;</div>
   <h2>By caller</h2>
   <div class=charts id=sp_callers>&hellip;</div>
   <p class=sec id=sp_callers_note></p>
@@ -1064,6 +1066,13 @@ async function spendModels(){
   const hx=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const rg=spendRange(p),W='window="'+p+'"',L='[2h]';
   set('sp_range',rg.label);
+  // the assistant's answers by backend (status-job.js from the mini LiteLLM's spend log, same windows)
+  {const by2=async qq=>{const m={};(await q(qq)).forEach(r=>m[r.metric.backend]=+r.value[1]);return m;};
+   const ac=await by2('last_over_time(hub_assistant_calls{'+W+'}'+L+')'),au=await by2('last_over_time(hub_assistant_usd{'+W+'}'+L+')');
+   const x=ac.x3||0,o=ac.openrouter||0,t=x+o;
+   set('sp_assistant',(ac.x3==null&&ac.openrouter==null)?'<div class=muted>no data yet (the hub job writes it every 5 minutes)</div>':
+     '<a class=card href="#hosts/x3" target=_self><h3>X3, local</h3><div class=cv>'+x+' answers</div><span class=muted>free'+(t?' &middot; '+Math.round(100*x/t)+'% of the assistant&#39;s answers':'')+'</span></a>'+
+     '<a class=card href="https://openrouter.ai/activity"><h3>OpenRouter (assistant-cloud)</h3><div class=cv>'+o+' answers</div><span class=muted>'+usd(au.openrouter||0)+(t?' &middot; '+Math.round(100*o/t)+'%':'')+' &middot; failover or a direct call</span></a>');}
   const one=async qq=>{const r=await q(qq);return r.length?+r[0].value[1]:0;};
   const vm=expr=>expr.replace(/\[R\]/g,'['+rg.R+'s] offset '+rg.O+'s');
   // ---- one row per (source, key, vendor, model, served by) ----

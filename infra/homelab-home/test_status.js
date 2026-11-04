@@ -225,6 +225,19 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('capacity: mini, dgx, prod and x3, each with disk free and memory used', ['mini', 'dgx', 'prod', 'x3'].every(b => cap[b] && cap[b].diskFreePct === 42 && cap[b].memUsedPct === 42), cap);
   check('capacity: the X3 reads its own instance', capAsked.some(e => /instance="x3",mountpoint="\/"/.test(e)) && capAsked.some(e => /MemAvailable_bytes\{instance="x3"\}/.test(e)), capAsked.filter(e => /x3/.test(e)));
 
+  // assistantSpend: the Spend tab's windows (completed UTC days), split by api_base
+  const sqls = [];
+  const asrc = { now: Date.UTC(2026, 10, 4, 13) / 1000, litellmSql: async s => { sqls.push(s); return ['x3|10|0', 'openrouter|2|0.0042']; } };
+  const as = await HS.assistantSpend(asrc);
+  check('assistantSpend: month, 30d, 7d, yesterday, each split x3 / openrouter with a local share',
+    as.ok && ['month', '30d', '7d', 'yesterday'].every(w => as.windows[w].x3.calls === 10 && as.windows[w].openrouter.usd === 0.0042 && as.windows[w].localShare === 0.8333), as.windows);
+  check('assistantSpend: windows end at UTC midnight today; 7d starts 7 days before; the X3 is told apart by its address',
+    sqls.some(s => s.includes('to_timestamp(' + Date.UTC(2026, 10, 4) / 1000 + ')') && s.includes('to_timestamp(' + Date.UTC(2026, 9, 28) / 1000 + ')')) &&
+    sqls.every(s => s.includes("api_base ilike '%100.92.54.65%'") && s.includes("model_group in ('assistant','assistant-cloud')")), sqls[2]);
+  const as1 = await HS.assistantSpend({ now: Date.UTC(2026, 10, 1, 9) / 1000, litellmSql: async s => { sqls.push(s); return []; } });
+  check('assistantSpend: on the 1st, "this month" has no completed day: zero, no query, no share', as1.windows.month.days === 0 && as1.windows.month.localShare === null, as1.windows.month);
+  check('assistantSpend: without a LiteLLM source (the page) it says so', (await HS.assistantSpend({ now: NOW })).ok === false);
+
   // all: one failing area does not hide the rest
   const all = await HS.all({ now: NOW, q: async e => { if (e.includes('delivery')) throw new Error('boom'); return []; }, alerts: async () => [] });
   check('all: a throwing area is reported as an error, the others still present', all.delivery.error === 'boom' && all.sites.state === 'stale' && all.takenAt, all.delivery);

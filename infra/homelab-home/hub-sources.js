@@ -4,7 +4,8 @@
 // Env overrides: HUB_VM, HUB_VLOGS, HUB_GRAFANA, HUB_GLITCHTIP, HUB_LITELLM, HUB_HA, HUB_UMAMI,
 // HUB_GRAFANA_TOKEN_FILE (variable GRAFANA_TOKEN), HUB_GLITCHTIP_TOKEN_FILE (GLITCHTIP_TOKEN),
 // HUB_BRIEFING_KEY_FILE (LITELLM_API_KEY), HUB_HA_TOKEN_FILE (the whole file is the token),
-// HUB_UMAMI_ENV_FILE (UMAMI_ADMIN_PASSWORD), HUB_GITHUB_TOKEN_FILE (GITHUB_TOKEN), HUB_FLEET_RESULTS, HUB_FLEET_QUEUE.
+// HUB_UMAMI_ENV_FILE (UMAMI_ADMIN_PASSWORD), HUB_GITHUB_TOKEN_FILE (GITHUB_TOKEN), HUB_FLEET_RESULTS, HUB_FLEET_QUEUE,
+// HUB_DOCKER, HUB_LITELLM_PG_CONTAINER.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -35,6 +36,7 @@ const FILES = {
 // The repos the triage fleet files into: signal-fleet/mvp/filing.py REPO_MAP, INSTANCE_REPO_MAP and
 // OPS_REPO_DEFAULT. The assistant's GitHub token (Issues read) covers exactly these; a repo added there
 // goes here and on the token, or it shows up in fleet.json's `unreadable`.
+const DOCKER = E.HUB_DOCKER || '/usr/local/bin/docker', PG_CONTAINER = E.HUB_LITELLM_PG_CONTAINER || 'litellm-postgres';
 const FLEET_REPOS = ['chipi/agentic-ai-homelab', 'chipi/podcast_scraper', 'chipi/orrery', 'chipi/eval-harness', 'chipi/humancopilot.eu'];
 
 // one variable from an env-style file, or the whole file when name is null; null if absent
@@ -77,6 +79,14 @@ function statusSource() {
       if (!r.ok) throw new Error('VictoriaLogs query -> HTTP ' + r.status);
       return (await r.text()).split('\n').filter(Boolean).map(l => JSON.parse(l));
     },
+    // a read-only query on the mini LiteLLM's database, through its container: psql inside it with the
+    // container's own user and database (no password leaves the container, no port is published)
+    litellmSql: sql => new Promise((resolve, reject) => {
+      require('child_process').execFile(DOCKER, ['exec', '-i', PG_CONTAINER, 'sh', '-c',
+        'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -X -A -t -F "|" -v ON_ERROR_STOP=1 -c "$1"', 'sh', sql],
+        { timeout: 20000 }, (err, out, errOut) => err ? reject(new Error('litellm sql: ' + (errOut || err.message).trim().slice(0, 200)))
+                                                       : resolve(out.split('\n').filter(Boolean)));
+    }),
     // the triage fleet's own files on the mini: the dispositions and filed ledgers, and its queue
     fleetFiles: async () => {
       const tsv = f => { const [h, ...rows] = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean); const cols = h.split('\t');
