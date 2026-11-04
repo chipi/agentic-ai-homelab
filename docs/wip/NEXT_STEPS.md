@@ -144,9 +144,12 @@ gateway (`proj-podcast-dev`, the DGX model).
       contain.
 - [ ] **Langfuse setup is not in a repo script:** the `homelab-gateway` LLM connection, the default eval model
       and the `briefing-faithfulness` evaluator were made through its API by hand (2026-11-03).
-- [ ] **No log rotation** for `~/.local/state/ollama-assistant/ollama.log` on the X3.
-- [ ] **No X3 container inventory:** `container_uptime_seconds` has no `box="x3"`, so the timeline and the
-      briefing see no container starts on the X3.
+- [x] ~~**No log rotation** for `~/.local/state/ollama-assistant/ollama.log` on the X3.~~ — *done 2026-11-04 (eb4e57b):
+      `x3-host.sh` caps it at 50 MB (copy to `.1`, truncate in place); tested with a writer still appending.*
+- [x] ~~**No X3 container inventory**~~ — *done 2026-11-04 (eb4e57b): `x3-host.timer` sends the X3's containers
+      through the shared `ctr.py` (6, `box="x3"`) and `service_up{box="x3"}` for the assistant and its collector;
+      the hub's X3 pane has service cards (checked in a headless browser) and x3 joins capacity.
+      check: `curl -s https://vm.tail6d0ed4.ts.net/api/v1/query --data-urlencode 'query=time()-x3_host_last_push_timestamp'` under 120.*
 - [ ] **Spend has no local / failover line:** how many `assistant` calls the X3 answered against OpenRouter
       (RFC-0008 lists it; the headers and Langfuse have it, nothing aggregates it).
 - [ ] **For the eval agent:** re-measure H6 after the open-only count (6a59983; the last run was on the 9-item
