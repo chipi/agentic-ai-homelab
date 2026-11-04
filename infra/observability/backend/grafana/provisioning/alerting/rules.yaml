@@ -14,6 +14,10 @@ deleteRules:
     uid: mini-vm-usernet-inflight-high   # replaced by mini-vm-usernet-slots-full, 2026-10-29
   - orgId: 1
     uid: hetzner-status-service          # only `direct` bulletins alert now (operator, 2026-10-29)
+  - orgId: 1
+    uid: github-status-ours              # renamed provider-status-ours (GitHub + OpenRouter), 2026-11-04
+  - orgId: 1
+    uid: github-status-poller-stale      # renamed provider-status-poller-stale, 2026-11-04
 
 # A NOTE ON execErrState — read before setting it to OK again.
 #
