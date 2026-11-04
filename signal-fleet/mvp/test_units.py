@@ -1039,6 +1039,46 @@ class TestRecurrenceOncePerCountChange(unittest.TestCase):
         self.assertEqual((b["count"], b["latest_count"], b["disposition"]), (4, 8, "file"))
 
 
+class TestClientNoiseGate(unittest.TestCase):
+    """EVAL-LESSONS F1: a browser error has no server-side probe to corroborate a dismissal, so
+    the dismiss gate escalated every correct dismissal of client noise. A client-noise marker in
+    the signal or a probe answer (injected extension code, a browser too old for the bundle, the
+    bundle served from an IP-literal host) now corroborates; nothing else changes."""
+
+    D = {"disposition": "dismiss", "reason": "r", "dismissal_evidence": "e"}
+
+    def _gate(self, alertname, trace=()):
+        import triage
+        return triage._dismiss_gate(dict(self.D), list(trace), {"alertname": alertname, "summary": alertname})
+
+    def test_each_class_passes(self):
+        for a in ("TypeError: undefined is not an object (evaluating 'window.__firefox__.reader')",
+                  "TypeError: undefined is not an object (evaluating 'window.ethereum.selectedAddress')",
+                  "SyntaxError: Invalid regular expression: invalid group specifier name",
+                  "Error: Unable to preload CSS for http://203.0.113.7:44677/orrery/_app/immutable/x.css",
+                  "Error: Unable to preload CSS for http://<ip>:44677/orrery/_app/immutable/x.css"):
+            d, g = self._gate(a)
+            self.assertEqual((d["disposition"], g), ("dismiss", "passed (client-noise marker)"), a)
+
+    def test_marker_in_a_probe_answer_counts(self):
+        trace = [{"probe": "event_detail", "result": {"frames": ["moz-extension://abc/content.js:1 hook"]}}]
+        d, g = self._gate("TypeError: Cannot read properties of null (reading 'x')", trace)
+        self.assertEqual(d["disposition"], "dismiss")
+
+    def test_no_marker_still_escalates(self):
+        for a in ("SyntaxError: Unexpected token '{'",       # ORRERY-S: generic, a real bug
+                  "TypeError: Cannot read properties of undefined (reading 'universal')",
+                  "Error: Unable to preload CSS for https://example.org/orrery/_app/x.css"):
+            d, g = self._gate(a)
+            self.assertEqual((d["disposition"], g), ("escalate", "downgraded (no corroboration)"), a)
+
+    def test_marker_does_not_replace_cited_evidence(self):
+        import triage
+        d, g = triage._dismiss_gate({"disposition": "dismiss", "reason": "r"}, [],
+                                    {"alertname": "window.__firefox__", "summary": ""})
+        self.assertEqual(g, "downgraded (no evidence cited)")
+
+
 class TestNoTerminalDecision(unittest.TestCase):
     """F7 (EVAL-LESSONS-0.6.0): a reply that is empty, or never valid JSON, on the last turn
     made investigate() fall off its loop and return None. The orchestrator reads None as

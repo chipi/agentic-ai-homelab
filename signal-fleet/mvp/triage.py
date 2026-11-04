@@ -210,9 +210,17 @@ How to decide (investigation earns WHAT / WHERE / HOW-OFTEN):
   FILE it (work_type=bug), even at a low count. The one class where a plain browser
   error is usually dismissable: CLIENT-SIDE NETWORK TRANSIENTS (a CSS preload or a
   plain fetch that failed) with a benign occurrence pattern (low count, no user
-  spread, no recurrence) — dismiss those citing that occurrence evidence. NEVER
-  dismiss a signal that carries a test/synthetic marker — that is cleanup, not
-  dismiss.
+  spread, no recurrence) — dismiss those citing that occurrence evidence. Also NOT
+  our defect, dismiss citing the evidence that shows it: (a) code the app did not
+  ship — an error raised by something a browser extension or wrapper injected
+  (window.__firefox__, window.ethereum, webkit.messageHandlers, chrome-/moz-/
+  safari-extension:// frames, an <anonymous> hook patching a browser API); (b) a
+  browser too old for our bundle — a SyntaxError while PARSING our code that names
+  a feature the engine lacks (e.g. "invalid group specifier name": regex lookbehind
+  / named groups), not a generic syntax error; (c) a copy of our bundle served from
+  a host that is not ours (an IP:port mirror, hit by bots), shown by the event's
+  URL. NEVER dismiss a signal that carries a test/synthetic marker — that is
+  cleanup, not dismiss.
 
 • CLEANUP — test / synthetic / noise you can point to a concrete marker for
   (test hooks, "delete me", validation/smoke events). If you can quote the marker,
@@ -362,6 +370,30 @@ def _corroborates(t):
     return p in INDEP_PROBES
 
 
+# Client noise whose evidence is in the signal or a probe answer itself, so a dismissal of it is
+# corroborated without a server-side probe (a browser error has none: EVAL-LESSONS F1). Each
+# marker is the class the brief names: code a browser extension injected, a browser too old for
+# the bundle, the bundle served from an IP-literal host (a mirror; `<ip>` is the scrubbed form
+# of the same URL in the replay corpus).
+CLIENT_NOISE_MARKERS = re.compile(
+    r"window\.__firefox__|__firefox__|window\.ethereum|webkit\.messageHandlers|"
+    r"(chrome|moz|safari(-web)?)-extension://|addEL_hook|"
+    r"invalid group specifier name|"
+    r"https?://(\d{1,3}(\.\d{1,3}){3}|<ip>):\d+/", re.I)
+
+
+def client_noise_marker(signal, trace):
+    """The client-noise marker the dismissal rests on, or None. Deterministic: the model's
+    claim is never the evidence, only text in the signal or a probe answer."""
+    texts = [str(signal.get(k, "")) for k in ("alertname", "summary")]
+    texts += [r if isinstance(r, str) else json.dumps(r) for r in (t["result"] for t in trace)]
+    for text in texts:
+        m = CLIENT_NOISE_MARKERS.search(text)
+        if m:
+            return m.group(0)
+    return None
+
+
 def _to_escalate(d, reason, question):
     d["disposition"] = "escalate"
     d["reason"] = reason + " — " + d.get("reason", "")
@@ -369,7 +401,7 @@ def _to_escalate(d, reason, question):
     return d
 
 
-def _dismiss_gate(d, trace):
+def _dismiss_gate(d, trace, signal=None):
     if d.get("disposition") != "dismiss":
         return d, "n/a"
     if not str(d.get("dismissal_evidence") or "").strip():
@@ -378,6 +410,8 @@ def _dismiss_gate(d, trace):
         return d, "downgraded (no evidence cited)"
     if any(_corroborates(t) for t in trace):
         return d, "passed"
+    if signal is not None and client_noise_marker(signal, trace):
+        return d, "passed (client-noise marker)"
     _to_escalate(d, "dismiss gate: no independent corroborating probe",
                  "Dismissed without independent/benign corroboration — confirm benign?")
     return d, "downgraded (no corroboration)"
@@ -410,7 +444,7 @@ def _edge_gate(d, signal, data=None):
 def _gate(d, signal, trace, edge_data=None):
     d, ig = _intent_gate(d)
     d, cg = _cleanup_gate(d, signal)
-    d, dg = _dismiss_gate(d, trace)
+    d, dg = _dismiss_gate(d, trace, signal)
     d, eg = _edge_gate(d, signal, edge_data)
     return d, f"i:{ig}/c:{cg}/d:{dg}/e:{eg}"
 
