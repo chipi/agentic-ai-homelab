@@ -207,7 +207,8 @@ no Langfuse trace). Accepted for home use, or revisited in step 3.
 - **Phase 8, Grafana — done.** `grafana-llm-app` 1.0.8 (the last version for Grafana < 13), provider
   `custom` → `litellm:4000` (Grafana joins `litellm_default`), base and large → `assistant`, key
   `grafana-llm` ($2). Plugin health OK; a call through it is served by `assistant`. On 11.6 it powers
-  generated panel/dashboard titles and descriptions and the change summary on save. Use case shown:
+  generated panel/dashboard titles and descriptions (not the change summary on save: it needs a
+  feature toggle we do not set, per grafana PR #127929; not checked live). Use case shown:
   131 of 316 panels (41%) have no description; the Mac mini dashboard's 13 got one each in ~11 s,
   12 correct, 1 slightly wrong (a ratio called a percentage). Not written back to the dashboards yet
   (a reviewed repo change).

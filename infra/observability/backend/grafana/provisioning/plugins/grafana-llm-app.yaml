@@ -1,7 +1,8 @@
 # Grafana's LLM app (RFC-0008 step 2, phase 8) on our own model: the homelab gateway's `assistant` alias
 # (the X3, failing over to OpenRouter), with its own capped key (LiteLLM `grafana-llm`: model assistant
-# only, $2). On Grafana 11.6 it powers the auto-generated panel/dashboard titles and descriptions and the
-# change summary on save. Version 1.0.8 is the last for Grafana < 13 (1.1+ needs 13).
+# only, $2). On Grafana 11.6 it powers the auto-generated panel/dashboard titles and descriptions (the
+# "change summary on save" needs the aiGeneratedDashboardChanges toggle, which we do not set: grafana PR
+# #127929; not checked live). Version 1.0.8 is the last for Grafana < 13 (1.1+ needs 13).
 apiVersion: 1
 
 apps:
