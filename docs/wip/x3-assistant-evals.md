@@ -46,13 +46,14 @@ G1–G6 measure the work. G7 and G8 reuse the same datasets with different arms.
 
 ## Datasets, labels and scoring per goal
 
-### G1 — grounded answers (chat: H4, H5, H2-errors, H7, analytics; later H6)
+### G1 — grounded answers (chat: H4, H5, H2-errors, H6, H7, analytics)
 
 - **Items:** questions in the operator's words, per use case. Existing: `infra/x3/assistant-ui-eval/evalsets/`
   — `h4-h5.json` (13: prod health, sites, alerts, hosts, credit, spend, disk, memory) and `errors.json`
   (new GlitchTip errors), `h7.json` (3: Cloudflare alerts 48 h, deploys 48 h, last night's alerts; added
   2026-11-04) and `analytics.json` (3: visitors per site yesterday, top site 7 d against the 7 before,
-  Orrery's top referrers; Umami, added 2026-11-04). To add: H6 (fleet queue, needs the GitHub token), X1
+  Orrery's top referrers; Umami, added 2026-11-04) and `h6.json` (2: what the fleet wants from the operator, its
+  open escalations; added 2026-11-04). To add: X1
   (open chat, see below), paraphrases of each question (the model should not depend on wording).
 - **H7 scoring** (`run-evalset.mjs`): every event asked about by its local time (alerts also by annotation
   id), and every clock time in the answer must be an event's time in `timeline.json` or one the question
@@ -62,7 +63,9 @@ G1–G6 measure the work. G7 and G8 reuse the same datasets with different arms.
   events out of the whole 30 KB timeline: it changed times, used UTC fields, took the wrong kind and
   invented deploys (1/3 per UI). Code doing the selection, one finished line per event, and one short
   list per call (`getTimeline(kind)`) took it to 11/12 over two rounds (LibreChat 6/6, Open WebUI 5/6);
-  the failure left was an invented event in the right format. Analytics: 6/6, one round.
+  the failure left was an invented event in the right format. Analytics: 6/6, one round. H6: with both lists
+  in one file, 4/8 (the count right, then the wrong list); one list per call, 7/8 (the miss: the 3 escalations
+  whose issue is already closed left out, so 9 counted and 6 listed).
 - **Labels:** derived, not hand-written. The truth changes every 5 minutes, so each item carries a *rule*
   that turns a snapshot into expected facts (`run-evalset.mjs` `RULES`: e.g. credit → `$4.12`, lowest site
   → host + %). The snapshot is `status.json` (and GlitchTip) fetched just before and after the question.
@@ -165,7 +168,9 @@ G1–G6 measure the work. G7 and G8 reuse the same datasets with different arms.
 
 - No dataset has been built in the harness yet; no labels exist except the derived G1 rules and the
   185 human panel descriptions.
-- The H6 (fleet queue) use case is not built. H7 and analytics have two and one rounds per UI only.
+- H6, H7 and analytics have two, two and one rounds per UI only.
+- H6's count is the fleet's own (escalations of the last 7 days), which includes escalations whose issue is
+  already closed; whether those belong in "needs you" is the operator's call (asked 2026-11-04).
 - Paraphrase robustness, voice and the phone are not measured anywhere yet.
 - Cost per answer is not measured; failover counts are visible (headers, Langfuse) but not aggregated.
 - The reason for the LibreChat / Open WebUI gap is not found.
