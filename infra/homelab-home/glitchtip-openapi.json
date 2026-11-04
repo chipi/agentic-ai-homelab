@@ -48,7 +48,7 @@
             "name": "limit",
             "in": "query",
             "required": false,
-            "description": "How many issues (1-25)",
+            "description": "How many issues (1-50)",
             "schema": {
               "type": "integer",
               "default": 25,

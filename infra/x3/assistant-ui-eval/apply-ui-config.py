@@ -43,7 +43,9 @@ def functions_of(spec):
         for method, op in ops.items():
             props = {p["name"]: {**p.get("schema", {}), "description": p.get("description", "")} for p in op.get("parameters", [])}
             req = [p["name"] for p in op.get("parameters", []) if p.get("required")]
-            out.append({"type": "function", "function": {"name": op["operationId"], "description": op["summary"],
+            # summary AND description: the description carries the usage rules (e.g. "no time filter")
+            desc = " ".join(x for x in (op.get("summary"), op.get("description")) if x)
+            out.append({"type": "function", "function": {"name": op["operationId"], "description": desc,
                         "parameters": {"type": "object", "properties": props, **({"required": req} if req else {})}}})
     return out
 
