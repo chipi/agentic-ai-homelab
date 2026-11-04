@@ -13,6 +13,7 @@ here is tracked in git, so it's findable and diffable.
 - `otel-pipeline-end-to-end.md` — telemetry map, gaps and the remaining plan (issue #99).
 - `x3-assistant-v1-plan.md` — the local assistant on the X3 (RFC-0008): step 1 (the assistant, phases 0–7), step 2 (the model in Grafana, Langfuse, Home Assistant), step 3 (use cases around them).
 - `x3-assistant-evals.md` — what to evaluate across the RFC-0008 work with the eval harness: goals G1–G8, dataset, labels and scoring per goal, what exists, open questions (to do with the operator).
+- `fleet-evals-handover.md` — handover to the `fleet` session: evaluating and improving the triage fleet (what is known from eval-harness, open items, where the evaluation lives, working rules).
 
 ## Closing a note
 
