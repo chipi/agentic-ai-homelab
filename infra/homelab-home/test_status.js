@@ -206,6 +206,11 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('fleetQueue: open escalated backlog without pull requests; a refused repo named in unreadable',
     fq.openEscalated.map(i => i.number).join() === '9' && fq.openEscalated[0].ageDays === 2 && fq.unreadable.length === 1 && /chipi\/b: HTTP 404/.test(fq.unreadable[0]), fq);
   check('fleetQueue: without fleet files (the page) it says so', (await HS.fleetQueue({ now: NOW })).ok === false);
+  check('fleetQueue: exactly one needs-you line per counted item, each saying its issue state or "no issue filed"',
+    fq.needsYouLines.length === fq.needsYou && /chipi\/a#9 \(open\) https:\/\/github.com\/chipi\/a\/issues\/9$/.test(fq.needsYouLines[0]) &&
+    /no issue filed$/.test(fq.needsYouLines[1]) && /^bug proposal waiting for your yes: a bug$/.test(fq.needsYouLines[2]), fq.needsYouLines);
+  check('fleetQueue: one open-escalated line per open issue, with its age and link', fq.openEscalatedLines.length === fq.openEscalatedCount &&
+    fq.openEscalatedLines[0] === 'chipi/a#9 — boom issue — open 2 days — https://github.com/chipi/a/issues/9', fq.openEscalatedLines);
 
   // all: one failing area does not hide the rest
   const all = await HS.all({ now: NOW, q: async e => { if (e.includes('delivery')) throw new Error('boom'); return []; }, alerts: async () => [] });

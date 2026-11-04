@@ -42,7 +42,8 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   filed ledger, plus every escalated issue still open. Read from the fleet's files on the mini and from
   GitHub with `~/assistant-github-readonly.env` (Issues read on the five repos the fleet files into, listed
   in `hub-sources.js` `FLEET_REPOS`); a repo GitHub refuses is named in `unreadable`. The assistant reads
-  it as `getFleetQueue`.
+  it one list at a time, `www/fleet/needs-you.json` and `open-escalated.json` (count and finished lines),
+  as `getFleetQueue(list)`; `fleet.json` is for scoring.
 - `briefing-job.js` — the morning briefing (RFC-0008 use case H1), at 07:00 (launchd
   `com.homelab.hub-briefing`): needs-you first, then the night (alert changes from Grafana's state
   history, containers started, new GlitchTip issues), numbers, all-green. Every number comes from

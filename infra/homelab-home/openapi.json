@@ -286,105 +286,56 @@
         }
       }
     },
-    "/fleet.json": {
+    "/fleet/{list}.json": {
       "get": {
         "operationId": "getFleetQueue",
-        "summary": "What the triage fleet wants from the operator: the count (needsYou), its escalations of the last 7 days with their issues, bug proposals waiting, and every escalated issue still open",
-        "description": "Written every 5 minutes by the hub from the fleet's own ledgers and GitHub. needsYou is the fleet's count (escalations of the last 7 days + bug proposals); give it as the number. escalations7d lists them, each with its issue (an issue can already be closed: say so). openEscalated is every escalated issue still open, of any age, newest first: the backlog. Name issues by repo and number with their url, exactly as given; never invent an issue. `unreadable` names repos GitHub refused: say their issues are missing.",
+        "summary": "What the triage fleet wants from the operator: list=needs-you (its count and those items) or list=open-escalated (every escalated issue still open, any age)",
+        "description": "Written every 5 minutes by the hub from the fleet's own ledgers and GitHub. For 'what does the fleet want from me' call list=needs-you: give `count` as the number and answer with its `lines`, each copied character for character (a line says whether its issue is open or closed, or that no issue was filed). For 'which escalations are still open' call list=open-escalated and answer with its `lines` the same way. Never add an issue that is not in a line. `unreadable` names repos GitHub refused: say their issues are missing.",
+        "parameters": [
+          {
+            "name": "list",
+            "in": "path",
+            "required": true,
+            "description": "Which list",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "needs-you",
+                "open-escalated"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "The fleet queue",
+            "description": "The list",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "ok": {
-                      "type": "boolean"
+                    "list": {
+                      "type": "string"
                     },
-                    "needsYou": {
+                    "about": {
+                      "type": "string"
+                    },
+                    "count": {
                       "type": "integer",
-                      "description": "The fleet's count: escalations of the last 7 days + bug proposals"
+                      "description": "The number of items: for needs-you, the fleet's own count"
                     },
-                    "escalations7d": {
+                    "lines": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "local": {
-                            "type": "string",
-                            "description": "When the fleet escalated, on the operator's clock"
-                          },
-                          "signal": {
-                            "type": "string"
-                          },
-                          "reason": {
-                            "type": "string",
-                            "description": "Why the fleet escalated"
-                          },
-                          "issue": {
-                            "type": "object",
-                            "description": "The GitHub issue: repo, number, url, state (open/closed), title; null when the fleet never filed one",
-                            "properties": {
-                              "repo": {
-                                "type": "string"
-                              },
-                              "number": {
-                                "type": "integer"
-                              },
-                              "url": {
-                                "type": "string"
-                              },
-                              "state": {
-                                "type": "string"
-                              },
-                              "title": {
-                                "type": "string"
-                              }
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "bugQueue": {
-                      "type": "array",
-                      "description": "Bug proposals waiting for the operator's yes: title, fingerprint, queued"
-                    },
-                    "openEscalated": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "repo": {
-                            "type": "string"
-                          },
-                          "number": {
-                            "type": "integer"
-                          },
-                          "title": {
-                            "type": "string"
-                          },
-                          "url": {
-                            "type": "string"
-                          },
-                          "opened": {
-                            "type": "string"
-                          },
-                          "ageDays": {
-                            "type": "integer"
-                          }
-                        }
-                      }
-                    },
-                    "openEscalatedCount": {
-                      "type": "integer"
+                        "type": "string"
+                      },
+                      "description": "Copy these exactly"
                     },
                     "repos": {
                       "type": "array",
                       "items": {
                         "type": "string"
-                      },
-                      "description": "The repos the fleet files into"
+                      }
                     },
                     "unreadable": {
                       "type": "array",

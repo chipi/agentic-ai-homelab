@@ -15,7 +15,7 @@ const OUT = process.env.HUB_OUT || path.join(__dirname, 'www/status.json');
 const TIMELINE = path.join(path.dirname(OUT), 'timeline.json'), TIMELINE_DIR = path.join(path.dirname(OUT), 'timeline');
 const TIMELINE_HOURS = 48;
 const ANALYTICS = path.join(path.dirname(OUT), 'analytics.json');
-const FLEET = path.join(path.dirname(OUT), 'fleet.json');
+const FLEET = path.join(path.dirname(OUT), 'fleet.json'), FLEET_DIR = path.join(path.dirname(OUT), 'fleet');
 
 async function main() {
   const src = S.statusSource();
@@ -35,6 +35,14 @@ async function main() {
   S.writeAtomic(ANALYTICS, JSON.stringify(an, null, 1));
   let fq; try { fq = await HS.fleetQueue(src); } catch (e) { fq = { ok: false, reason: String(e && e.message || e) }; }
   S.writeAtomic(FLEET, JSON.stringify(fq, null, 1));
+  // what the assistant reads (fleet.json is for scoring): one short list per question
+  if (fq.ok) {
+    const fh = { unreadable: fq.unreadable, repos: fq.repos };
+    S.writeAtomic(path.join(FLEET_DIR, 'needs-you.json'), JSON.stringify(Object.assign({ list: 'needs-you', count: fq.needsYou,
+      about: 'what the triage fleet wants from the operator: its escalations of the last 7 days and bug proposals; count is the number to give' }, fh, { lines: fq.needsYouLines }), null, 1));
+    S.writeAtomic(path.join(FLEET_DIR, 'open-escalated.json'), JSON.stringify(Object.assign({ list: 'open-escalated', count: fq.openEscalatedCount,
+      about: 'every escalated issue still open on GitHub, any age, newest first: the backlog' }, fh, { lines: fq.openEscalatedLines }), null, 1));
+  }
   const logged = await S.logLine('hub-status', 'hub status snapshot', { snapshot: JSON.stringify(status) });
   const bad = Object.entries(status).filter(([, v]) => v && v.error).map(([k, v]) => k + ': ' + v.error);
   // the heartbeat the hub-status-stale alert reads (written even when an area failed: the file was)

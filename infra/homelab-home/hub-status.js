@@ -273,8 +273,15 @@
       } catch (e) { unreadable.push(repo + ': ' + (e && e.message || e)); }
     }
     openEscalated.sort((a, b) => a.ageDays - b.ageDays);
+    // finished lines for the assistant, one list per question: with both lists side by side it answered
+    // "9 things" with the first 9 open escalated issues (2026-11-04, both UIs)
+    const needsYouLines = [
+      ...escalations.map(e => e.local + ' — escalated: ' + e.signal + ' — ' +
+        (e.issue ? e.issue.repo + '#' + e.issue.number + ' (' + (e.issue.state || 'state unknown') + ') ' + e.issue.url : 'no issue filed')),
+      ...bugQueue.map(b => 'bug proposal waiting for your yes: ' + b.title)];
+    const openEscalatedLines = openEscalated.map(i => i.repo + '#' + i.number + ' — ' + i.title + ' — open ' + i.ageDays + ' days — ' + i.url);
     return { ok: true, needsYou: bugQueue.length + escalations.length, bugQueue, escalations7d: escalations,
-             openEscalated, openEscalatedCount: openEscalated.length, repos: src.fleetRepos, unreadable };
+             openEscalated, openEscalatedCount: openEscalated.length, repos: src.fleetRepos, unreadable, needsYouLines, openEscalatedLines };
   }
 
   // Site analytics (Umami), for the assistant: per site, visitors and pageviews today, yesterday and the
