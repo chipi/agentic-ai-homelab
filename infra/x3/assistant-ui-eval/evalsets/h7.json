@@ -1,0 +1,9 @@
+{
+  "name": "h7",
+  "about": "RFC-0008 use case H7, incident write-up drafts. The expected events come from the hub's timeline.json (the last 48 h of alert changes, deploys, backups, drills, drift, failed CI runs, new errors and container starts), fetched just before and after the question. An answer passes when it gives every event asked about by its local time (alerts also by their Grafana annotation id, the ref), and every clock time it gives is an event time in the timeline or a time the question names: a time from nowhere fails it.",
+  "questions": [
+    {"id": "h7-1", "use": "H7", "q": "Draft a timeline of the Cloudflare alerts of the last 48 hours: one line per alert change, with the time, what happened and where it comes from.", "expect": "cloudflare_timeline"},
+    {"id": "h7-2", "use": "H7", "q": "Which deploys happened in the last 48 hours? One line each, with the time.", "expect": "deploys_48h"},
+    {"id": "h7-3", "use": "H7", "q": "What alerts fired or resolved last night, between 19:00 and 07:00? A short timeline with the time of each and its source.", "expect": "last_night_alerts"}
+  ]
+}

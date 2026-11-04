@@ -44,7 +44,8 @@ async function getJson(url, opts = {}, timeoutMs = 30000) {
   return r.json();
 }
 
-// the source hub-status.js expects
+// the source hub-status.js expects (the jobs' superset: annotations, logs and glitchtip need tokens or
+// ports the page does not have)
 function statusSource() {
   const tok = secret(FILES.grafana, 'GRAFANA_TOKEN');
   return {
@@ -53,6 +54,16 @@ function statusSource() {
     alerts: async () => {
       if (!tok) throw new Error('no GRAFANA_TOKEN in ' + FILES.grafana);
       return getJson(URLS.grafana + '/api/alertmanager/grafana/api/v2/alerts', { headers: { Authorization: 'Bearer ' + tok } });
+    },
+    annotations: async (fromMs, toMs) => {
+      if (!tok) throw new Error('no GRAFANA_TOKEN in ' + FILES.grafana);
+      return getJson(URLS.grafana + '/api/annotations?type=alert&limit=5000&from=' + fromMs + '&to=' + toMs, { headers: { Authorization: 'Bearer ' + tok } });
+    },
+    // a LogsQL query against VictoriaLogs; one parsed object per line
+    logs: async query => {
+      const r = await fetch(URLS.vlogs + '/select/logsql/query?limit=1000&query=' + encodeURIComponent(query), { signal: AbortSignal.timeout(30000) });
+      if (!r.ok) throw new Error('VictoriaLogs query -> HTTP ' + r.status);
+      return (await r.text()).split('\n').filter(Boolean).map(l => JSON.parse(l));
     },
     glitchtip: async p => {
       const gt = secret(FILES.glitchtip, 'GLITCHTIP_TOKEN');

@@ -1,5 +1,5 @@
 // Ask a labelled question set in one evaluation UI, in a real browser, and score each answer against the hub's
-// status.json taken just before and just after the question (the same file the assistant's status tool reads).
+// status.json (and timeline.json) taken just before and just after the question (the files the assistant's status tool reads).
 //   EVAL_USER=… EVAL_PW=… node run-evalset.mjs <librechat|openwebui> [evalsets/h4-h5.json]
 // Writes results/<set>-<ui>-<UTC time>.json; prints one line per question and the score. The password comes
 // from the env (see ~/assistant-ui-eval-accounts.env) and is never printed.
@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const UI = process.argv[2], RESCORE = UI === "--rescore";
 const SET = RESCORE ? null : JSON.parse(readFileSync(join(HERE, process.argv[3] || "evalsets/h4-h5.json"), "utf8"));
-const STATUS = "https://hub.tail6d0ed4.ts.net/status.json";
+const STATUS = "https://hub.tail6d0ed4.ts.net/status.json", TIMELINE = "https://hub.tail6d0ed4.ts.net/timeline.json";
 const URLS = { librechat: "https://omarchy.tail6d0ed4.ts.net:8443/", openwebui: "https://omarchy.tail6d0ed4.ts.net:8444/" };
 if (!RESCORE && !URLS[UI]) { console.error("usage: node run-evalset.mjs <librechat|openwebui> [set] | --rescore <results file>"); process.exit(2); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -23,6 +23,22 @@ const text = (label, any, not = []) => ({ kind: "text", label, any, not });
 const NOT_UP = ["not green", "isn't green", "is not green", "not healthy", "unhealthy", "\"mid\"", "amber", "red", "down"];
 const NONE = ["no ", "none", "not ", "all "];
 const HOSTS = { mini: ["mini"], dgx: ["dgx"], x3: ["x3"], prod: ["prod"] };
+// H7: an answer's clock times (ISO timestamps quoted from refs are not its own), 12-hour times as 24-hour
+const hhmm = local => local.slice(-5);
+const clockTimes = t => [...t.replace(/\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d)?(\.\d+)?Z?/g, " ")
+  .matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b(\s*[ap]\.?m\b)?/gi)]
+  .map(m => { let h = +m[1]; const pm = /p/i.test(m[3] || ""), am = /a/i.test(m[3] || ""); if (pm && h < 12) h += 12; if (am && h === 12) h = 0;
+              return String(h).padStart(2, "0") + ":" + m[2]; });
+// precision: every time in the answer is the time of an event in evs (default: the whole timeline) or one the question names
+const traceable = (s, q, evs = s.timeline.events) => { const ok = new Set([...evs.map(e => hhmm(e.local)), ...clockTimes(q)]);
+  return { kind: "pred", label: "every time given is in the timeline", test: a => clockTimes(a).every(t => ok.has(t)), want: "times from timeline.json only" }; };
+// completeness: each event by its local time, and alerts also by their Grafana annotation id (the ref)
+const eventFacts = evs => [...new Map(evs.map(e => [hhmm(e.local) + "|" + e.what, e])).values()].flatMap(e =>
+  [{ kind: "pred", label: hhmm(e.local) + " " + e.what.slice(0, 60), want: hhmm(e.local), test: a => clockTimes(a).includes(hhmm(e.local)) },
+   ...(/^Grafana annotation (\d+)/.test(e.ref) ? [text("ref " + /^Grafana annotation (\d+)/.exec(e.ref)[1], [/^Grafana annotation (\d+)/.exec(e.ref)[1]])] : [])]);
+const lastNight = s => { const end = new Date(Date.parse(s.timeline.to)); end.setHours(7, 0, 0, 0);
+  if (end > new Date(Date.parse(s.timeline.to))) end.setDate(end.getDate() - 1);
+  const start = new Date(end); start.setDate(start.getDate() - 1); start.setHours(19, 0, 0, 0); return [start.getTime(), end.getTime()]; };
 const RULES = {
   sites_up_total: s => [num("sites up", s.sites.up, 0), num("sites total", s.sites.total, 0)],
   sites_down: s => s.sites.down.length ? s.sites.down.map(h => text(h, [h])) : [text("none down", NONE)],
@@ -40,6 +56,13 @@ const RULES = {
   disk_free: s => ["mini", "dgx", "prod"].map(b => num(`${b} disk free %`, +s.capacity[b].diskFreePct.toFixed(1), 0.6)),
   // every new GlitchTip issue of the last 24 h (status.json's errors.new) named by its short id
   errors_new24h: s => (s.errors && s.errors.ok ? s.errors.new.map(e => text(e.id, [e.id])) : [text("errors area missing", ["\u0000"])]),
+  // H7 incident timelines (timeline.json): the events asked about, all of them, and no time from elsewhere
+  cloudflare_timeline: (s, q) => s.timeline ? [...eventFacts(s.timeline.events.filter(e => e.source === "alert" && /cloudflare/i.test(e.what))), traceable(s, q)] : [text("timeline missing", ["\u0000"])],
+  deploys_48h: (s, q) => s.timeline ? [...eventFacts(s.timeline.events.filter(e => e.source === "ops_event" && /^deploy /.test(e.what))), traceable(s, q)] : [text("timeline missing", ["\u0000"])],
+  last_night_alerts: (s, q) => { if (!s.timeline) return [text("timeline missing", ["\u0000"])]; const [a, b] = lastNight(s);
+    const inWindow = s.timeline.events.filter(e => Date.parse(e.at) >= a && Date.parse(e.at) < b), evs = inWindow.filter(e => e.source === "alert");
+    // any event of the night may be mentioned; an event from outside the night is a wrong answer
+    return [...(evs.length ? eventFacts(evs) : [text("no alerts", NONE)]), traceable(s, q, inWindow)]; },
   max_mem: s => { const [b, v] = Object.entries(s.capacity).sort((x, y) => y[1].memUsedPct - x[1].memUsedPct)[0];
                   return [text("host " + b, HOSTS[b] || [b]), num(`${b} memory %`, +v.memUsedPct.toFixed(1), 0.6)]; },
 };
@@ -50,26 +73,27 @@ const numbers = t => [...[...t.replace(/(\d),(\d{3})/g, "$1$2").matchAll(/-?\d+(
                       ...[...t.toLowerCase().matchAll(/\b[a-z]+\b/g)].map(m => WORDS.indexOf(m[0])).filter(i => i >= 0)];
 function score(answer, facts) {
   const low = answer.toLowerCase(), ns = numbers(answer);
-  const res = facts.map(f => ({ ...f, ok: f.kind === "num" ? ns.some(n => Math.abs(n - f.value) <= f.tol + 1e-9)
+  const res = facts.map(f => ({ ...f, ok: f.kind === "pred" ? f.test(answer) : f.kind === "num" ? ns.some(n => Math.abs(n - f.value) <= f.tol + 1e-9)
                                                           : f.any.some(w => low.includes(w.toLowerCase())) &&
                                                             !(f.not || []).some(w => low.includes(w.toLowerCase())) }));
   return { pass: res.length > 0 && res.every(r => r.ok), facts: res };
 }
 // one hub read failed mid-run with an HTTP/2 stream error (2026-11-03); retry a few times
-const snap = async () => { for (let i = 0; ; i++) { try { return await (await fetch(STATUS)).json(); }
-                                                   catch (e) { if (i >= 3) throw e; await sleep(2000); } } };
-function judge(answer, rule, before, after) {
-  const sb = score(answer, RULES[rule](before)), sa = score(answer, RULES[rule](after));
+const get = async url => { for (let i = 0; ; i++) { try { return await (await fetch(url)).json(); }
+                                                  catch (e) { if (i >= 3) throw e; await sleep(2000); } } };
+const snap = async () => Object.assign(await get(STATUS), { timeline: await get(TIMELINE).catch(() => null) });
+function judge(answer, rule, before, after, q = "") {
+  const sb = score(answer, RULES[rule](before, q)), sa = score(answer, RULES[rule](after, q));
   const best = sb.pass || !sa.pass ? sb : sa;
-  return { pass: sb.pass || sa.pass, facts: best.facts.map(f => ({ label: f.label, want: f.kind === "num" ? f.value : f.any, ok: f.ok })) };
+  return { pass: sb.pass || sa.pass, facts: best.facts.map(f => ({ label: f.label, want: f.kind === "num" ? f.value : f.want || f.any, ok: f.ok })) };
 }
 
 // --rescore <results file>: score saved answers again with these rules (no browser, no questions asked)
 if (process.argv[2] === "--rescore") {
   const file = process.argv[3], d = JSON.parse(readFileSync(file, "utf8")), set = JSON.parse(readFileSync(join(HERE, "evalsets", d.set + ".json"), "utf8"));
-  const rule = Object.fromEntries(set.questions.map(q => [q.id, q.expect]));
+  const rule = Object.fromEntries(set.questions.map(q => [q.id, q.expect])), qs = Object.fromEntries(set.questions.map(q => [q.id, q.q]));
   for (const r of d.results) {
-    const j = judge(r.answer, rule[r.id], r.snapshots.before, r.snapshots.after);
+    const j = judge(r.answer, rule[r.id], r.snapshots.before, r.snapshots.after, qs[r.id]);
     if (j.pass !== r.pass) console.log(`${r.id}: ${r.pass ? "PASS" : "FAIL"} -> ${j.pass ? "PASS" : "FAIL"} | ${j.facts.filter(f => !f.ok).map(f => f.label).join("; ")}`);
     Object.assign(r, j);
   }
@@ -116,7 +140,7 @@ const ADAPTER = {
       for (let t = 0; t < 180000 && stable < 6; t += 500) { await sleep(500); const a = await ev(LAST);
         const busy = await ev(`!!document.querySelector('[data-testid="stop-generation-button"], button[aria-label*="Stop"]')`);
         stable = (a && a === last && !busy) ? stable + 1 : 0; last = a; }
-      const tool = await ev(`[...document.querySelectorAll('*')].some(e=>e.childElementCount===0&&/Ran getHomelabStatus/.test(e.textContent||''))`);
+      const tool = await ev(`[...document.querySelectorAll('*')].some(e=>e.childElementCount===0&&/Ran (getHomelabStatus|getIncidentTimeline)/.test(e.textContent||''))`);
       return { answer: last, toolCalled: tool }; },
   },
   openwebui: {
@@ -133,7 +157,7 @@ const ADAPTER = {
       for (let t = 0; t < 180000 && stable < 6; t += 500) { await sleep(500); const a = await ev(LAST);
         const busy = await ev(`!!document.querySelector('button[aria-label="Stop"], #stop-response-button')`);
         stable = (a && a.length > 20 && a === last && !busy) ? stable + 1 : 0; last = a; }
-      const tool = /getHomelabStatus/.test(last);
+      const tool = /getHomelabStatus|getIncidentTimeline/.test(last);
       return { answer: last.replace(/^View Result from \S+\s*/g, "").trim(), toolCalled: tool }; },
   },
 };
@@ -147,7 +171,7 @@ for (const item of SET.questions) {
   try { r = await A.ask(item.q); } catch (e) { r = { answer: "", toolCalled: false, error: String(e) }; }
   const after = await snap();
   const row = { id: item.id, use: item.use, q: item.q, answer: r.answer, toolCalled: r.toolCalled, seconds: +((Date.now() - t0) / 1000).toFixed(1),
-                takenAt: [before.takenAt, after.takenAt], ...judge(r.answer, item.expect, before, after), snapshots: { before, after } };
+                takenAt: [before.takenAt, after.takenAt], ...judge(r.answer, item.expect, before, after, item.q), snapshots: { before, after } };
   results.push(row);
   console.log(`${row.pass ? "PASS" : "FAIL"} ${item.id} ${row.seconds}s tool=${row.toolCalled ? "yes" : "NO"} | ${row.facts.filter(f => !f.ok).map(f => `missing ${f.label} (${JSON.stringify(f.want)})`).join("; ") || "all facts"} | ${r.answer.replace(/\s+/g, " ").slice(0, 140)}`);
 }

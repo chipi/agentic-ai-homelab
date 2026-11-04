@@ -20,7 +20,6 @@ const PUBLIC = process.env.HUB_PUBLIC || 'https://hub.tail6d0ed4.ts.net';
 const MODEL = process.env.HUB_BRIEFING_MODEL || 'assistant';
 const NOTIFY = process.env.HUB_BRIEFING_NOTIFY || 'mobile_app_iphone';
 const KEEP = 30;
-const PLUMB = new Set(['DatasourceNoData', 'DatasourceError', 'Watchdog']);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const usd = v => v == null ? '—' : '$' + v.toFixed(2);
 const hhmm = t => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -31,21 +30,9 @@ function windowStart(now) {
   return d;
 }
 
-// alerts that fired or resolved in the window (Grafana keeps state history as annotations)
+// alerts that fired or resolved in the window (the status module's definition, shared with timeline.json)
 async function alertChanges(from, to) {
-  const tok = S.secret(S.FILES.grafana, 'GRAFANA_TOKEN');
-  const list = await S.getJson(S.URLS.grafana + '/api/annotations?type=alert&limit=2000&from=' + from.getTime() + '&to=' + to.getTime(), { headers: { Authorization: 'Bearer ' + tok } });
-  const out = [];
-  for (const a of list) {
-    const ns = a.newState || '', ps = a.prevState || '', name = a.alertName || '';
-    if (!name || PLUMB.has(name)) continue;
-    const fired = ns.startsWith('Alerting') && !ps.startsWith('Alerting');
-    const resolved = ns.startsWith('Normal') && ps.startsWith('Alerting');
-    if (!fired && !resolved) continue;
-    const inst = (/instance=([^,}]+)/.exec(a.text || '') || [])[1] || null;
-    out.push({ at: a.time, name, instance: inst, change: fired ? 'fired' : 'resolved' });
-  }
-  return out.sort((a, b) => a.at - b.at);
+  return HS.alertChanges(S.statusSource(), from.getTime(), to.getTime());
 }
 
 // one line per alert (name + instance): how often it fired and resolved, the span, and its state now

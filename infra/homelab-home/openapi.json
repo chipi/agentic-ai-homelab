@@ -3,7 +3,7 @@
   "info": {
     "title": "Homelab hub status",
     "version": "1.0.0",
-    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory, new errors in the last 24 hours."
+    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory, new errors in the last 24 hours. Also the last 48 hours of events (timeline.json) for incident write-ups and 'what happened' questions."
   },
   "servers": [
     {
@@ -67,6 +67,86 @@
                     "errors": {
                       "type": "object",
                       "description": "GlitchTip error issues first seen in the last 24 hours and still open, computed by the hub (complete, newest first): ok, windowHours, newCount, new[] (id = short id, project, title, count = occurrences, firstSeen UTC, status, link), resolvedCount (new ones already resolved or ignored: give the number, do not list them). Use this for 'what new errors appeared'; list exactly the issues in new[]."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/timeline.json": {
+      "get": {
+        "operationId": "getIncidentTimeline",
+        "summary": "What happened in the last 48 hours, oldest first: alerts fired and resolved, deploys, backups, DR drills, drift checks, failed CI runs, new GlitchTip errors, containers started",
+        "description": "Written every 5 minutes by the hub, from the sources themselves. Use it to draft an incident timeline or answer 'what happened last night'. Use only events from this list, with their `local` time (the operator's clock; do not convert `at`), and give each line its `ref` so it can be checked. Pick the events the question is about (for example only the Cloudflare alerts); an alert that fired and later resolved is over. `missing` names sources that could not be read: say so instead of claiming nothing happened.",
+        "responses": {
+          "200": {
+            "description": "The timeline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "description": "Window start (UTC, ISO 8601)"
+                    },
+                    "to": {
+                      "type": "string",
+                      "description": "Window end (UTC, ISO 8601), at most ~5 minutes ago"
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "description": "The time zone of `local`"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "missing": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Sources that failed; their events are absent"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "at": {
+                            "type": "string",
+                            "description": "UTC, ISO 8601"
+                          },
+                          "local": {
+                            "type": "string",
+                            "description": "The same time on the operator's clock, e.g. 'Tue 3 Nov, 04:42'"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "alert",
+                              "ops_event",
+                              "glitchtip",
+                              "container"
+                            ]
+                          },
+                          "what": {
+                            "type": "string",
+                            "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "description": "Alerts only: critical or warning"
+                          },
+                          "ref": {
+                            "type": "string",
+                            "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
+                          }
+                        }
+                      }
                     }
                   }
                 }

@@ -24,7 +24,11 @@ chart/badge deep-links to the matching Grafana dashboard or service.
 - `status-job.js` — runs the same module on the mini every 5 minutes (launchd
   `com.homelab.hub-status`), writes `www/status.json` (served at `/status.json`), logs each
   snapshot to VictoriaLogs (`job:hub-status`), and records `hub_status_last_success_timestamp`
-  (alert `hub-status-stale`).
+  (alert `hub-status-stale`). It also writes `www/timeline.json` (served at `/timeline.json`,
+  use case H7, incident write-ups): the last 48 h of alert changes, deploys, backups, drills,
+  drift, failed CI runs, new GlitchTip issues and container starts, oldest first, each with its
+  source, a `ref` that finds it there and a `local` time; a source that fails is named in
+  `missing`. The assistant reads it as `getIncidentTimeline` (`openapi.json`).
 - `briefing-job.js` — the morning briefing (RFC-0008 use case H1), at 07:00 (launchd
   `com.homelab.hub-briefing`): needs-you first, then the night (alert changes from Grafana's state
   history, containers started, new GlitchTip issues), numbers, all-green. Every number comes from

@@ -159,6 +159,57 @@
     return { ok: true, windowHours: 24, newCount: open.length, new: open, resolvedCount: list.length - open.length };
   }
 
+  // Alert state changes from Grafana's state history (annotations), oldest first: fired = into Alerting,
+  // resolved = Alerting back to Normal. Plumbing states left out. src.annotations(fromMs, toMs).
+  async function alertChanges(src, fromMs, toMs) {
+    const out = [];
+    for (const a of await src.annotations(fromMs, toMs)) {
+      const ns = a.newState || '', ps = a.prevState || '', name = a.alertName || '';
+      if (!name || PLUMB.has(name)) continue;
+      const fired = ns.startsWith('Alerting') && !ps.startsWith('Alerting');
+      const resolved = ns.startsWith('Normal') && ps.startsWith('Alerting');
+      if (!fired && !resolved) continue;
+      // text: "<name> {k=v, k=v, ...} - q=..."; values may hold ", " (alert names do), keys never do
+      const body = (/\{(.*)\}/.exec(a.text || '') || [])[1] || '', lab = {};
+      body.split(/, (?=[a-z_]+=)/).forEach(kv => { const i = kv.indexOf('='); if (i > 0) lab[kv.slice(0, i)] = kv.slice(i + 1); });
+      out.push({ at: a.time, name, instance: lab.instance || null, host: lab.host || null, severity: lab.severity || null,
+                 // a provider incident's own name, stage and page (Cloudflare, Hetzner status alerts)
+                 detail: [lab.name, lab.status, lab.impact && 'impact ' + lab.impact].filter(Boolean).join(', ') || null,
+                 link: lab.link || null, change: fired ? 'fired' : 'resolved', annotationId: a.id });
+    }
+    return out.sort((a, b) => a.at - b.at);
+  }
+
+  // Incident timeline (use case H7): what happened between fromMs and toMs, oldest first, one entry per
+  // event, each with its source and a reference that finds it there, so every time in a write-up can be
+  // traced. Sources: alert state changes (Grafana), ops events (VictoriaLogs ops_event/v1: deploys,
+  // backups, drills, drift, failed CI runs; passing, cancelled and skipped left out: 299 runs in 48 h on 2026-11-04), GlitchTip issues
+  // first seen, containers started (the inventory keeps only each container's latest start). A failed
+  // source is named in `missing`, never read as "nothing happened". src: annotations, logs(logsql), glitchtip, q.
+  const localTime = ms => new Date(ms).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  async function timeline(src, fromMs, toMs) {
+    const events = [], missing = [];
+    const add = async (label, f) => { try { (await f()).forEach(e => events.push(e)); } catch (e) { missing.push(label + ': ' + (e && e.message || e)); } };
+    await add('alert history (Grafana)', async () => (await alertChanges(src, fromMs, toMs)).map(c => ({
+      at: c.at, source: 'alert', what: 'alert ' + c.change + ': ' + c.name + ((c.host || c.instance) ? ' on ' + (c.host || c.instance) : '') + (c.detail ? ' (' + c.detail + ')' : ''),
+      severity: c.severity, ref: 'Grafana annotation ' + c.annotationId + (c.link ? ', ' + c.link : '') })));
+    const span = Math.max(60, Math.ceil((toMs - fromMs) / 1000));
+    await add('ops events (VictoriaLogs)', async () => (await src.logs('_time:' + span + 's schema:"ops_event/v1" (event_type:(deploy OR backup OR drill OR drift) OR (event_type:ci_run status:failure))'))
+      .filter(l => Date.parse(l._time) >= fromMs && Date.parse(l._time) <= toMs)
+      .map(l => ({ at: Date.parse(l._time), source: 'ops_event', what: l.event_type + ' ' + (l.status || '') + ': ' + (l._msg || '') + (l.app ? ' (' + l.app + (l.env ? ', ' + l.env : '') + ')' : ''),
+                   ref: 'VictoriaLogs ops_event ' + l.event_type + ' at ' + l._time })));
+    await add('GlitchTip', async () => (await newIssues(src, fromMs / 1000)).filter(i => Date.parse(i.firstSeen) <= toMs).map(i => ({
+      at: Date.parse(i.firstSeen), source: 'glitchtip', what: 'new error ' + i.id + ' (' + (i.status || '?') + '): ' + i.title, ref: i.link })));
+    await add('container inventory', async () => (await src.q('container_uptime_seconds{state="running"} < ' + Math.max(60, Math.round((src.now * 1000 - fromMs) / 1000))))
+      .map(r => ({ at: Math.round(src.now * 1000 - (+r.value[1]) * 1000), box: r.metric.box, name: r.metric.name }))
+      .filter(c => c.at <= toMs)
+      .map(c => ({ at: c.at, source: 'container', what: 'container started: ' + c.name + ' on ' + c.box, ref: 'container_uptime_seconds{box="' + c.box + '",name="' + c.name + '"}' })));
+    events.sort((a, b) => a.at - b.at);
+    return { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString(), count: events.length,
+             // local: the operator's clock (the job's time zone), so the model never converts time zones
+             events: events.map(e => Object.assign({}, e, { at: new Date(e.at).toISOString(), local: localTime(e.at) })), missing };
+  }
+
   // Everything, with when it was taken; each area isolated so one failing source does not hide the rest.
   const AREAS = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors };
   async function all(src) {
@@ -169,7 +220,7 @@
     return out;
   }
 
-  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, all, AREAS };
+  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, alertChanges, timeline, all, AREAS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HubStatus = api;
 })(typeof window !== 'undefined' ? window : globalThis);

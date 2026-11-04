@@ -102,6 +102,43 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   const win = await HS.newIssues({ glitchtip: async () => issues }, NOW - 700);
   check('newIssues: the window is the caller\'s (the briefing\'s overnight)', win.map(x => x.id).join() === 'NEW-2', win);
 
+  // alertChanges + timeline (H7): every event carries its source and a reference; a failing source is named
+  const ms = sec => sec * 1000;
+  const ann = [
+    { id: 11, time: ms(NOW - 3000), alertName: 'Cloudflare origin', newState: 'Alerting', prevState: 'Pending', text: 'Cloudflare origin {alertname=Cloudflare origin, instance=prod, severity=critical} - q=1' },
+    { id: 12, time: ms(NOW - 2000), alertName: 'Cloudflare origin', newState: 'Normal', prevState: 'Alerting', text: 'Cloudflare origin {alertname=Cloudflare origin, grafana_instance=x, instance=prod, severity=critical}' },
+    { id: 13, time: ms(NOW - 2500), alertName: 'Scrape down', newState: 'Pending', prevState: 'Normal', text: '' },
+    { id: 14, time: ms(NOW - 2400), alertName: 'DatasourceNoData', newState: 'Alerting', prevState: 'Normal', text: '' },
+  ];
+  const ch = await HS.alertChanges({ annotations: async () => ann }, 0, ms(NOW));
+  check('alertChanges: fired and resolved only, plumbing and pending left out, oldest first', ch.map(c => c.change + c.annotationId).join() === 'fired11,resolved12', ch);
+  check('alertChanges: instance and severity from the labels (not grafana_instance)', ch[1].instance === 'prod' && ch[1].severity === 'critical', ch[1]);
+  const logsAsked = [];
+  const tsrc = Object.assign(src([['container_uptime_seconds', [{ metric: { box: 'prod', name: 'caddy' }, value: [NOW, '1500'] }]]]), {
+    annotations: async () => ann,
+    logs: async qq => { logsAsked.push(qq); return [{ _time: iso(NOW - 2800), _msg: 'prod deploy success sha-1', event_type: 'deploy', status: 'success', app: 'podcast_scraper', env: 'prod' },
+                                                 { _time: iso(NOW - 999999), _msg: 'too old', event_type: 'deploy' }]; },
+    glitchtip: async () => issues,
+  });
+  const tl = await HS.timeline(tsrc, ms(NOW - 3600), ms(NOW));
+  check('timeline: alerts, deploys, new errors and container starts, oldest first', tl.events.map(e => e.source).join() === 'alert,ops_event,alert,container,glitchtip', tl.events);
+  check('timeline: every event has an ISO time, what and a ref', tl.events.every(e => /Z$/.test(e.at) && e.what && e.ref), tl.events);
+  check('timeline: events outside the window are left out', !tl.events.some(e => /too old/.test(e.what)) && tl.count === tl.events.length, tl.events);
+  check('timeline: the container start is now minus its uptime', tl.events.find(e => e.source === 'container').at === iso(NOW - 1500), tl.events);
+  check('timeline: only failed CI runs are asked for', /event_type:ci_run status:failure/.test(logsAsked[0]) && /deploy OR backup OR drill OR drift/.test(logsAsked[0]), logsAsked);
+  const prov = await HS.alertChanges({ annotations: async () => [{ id: 21, time: ms(NOW - 100), alertName: 'Cloudflare incident on a component we use', newState: 'Alerting', prevState: 'Pending',
+    text: 'Cloudflare incident on a component we use {alertname=Cloudflare incident on a component we use, host=homelab, impact=minor, link=https://www.cloudflarestatus.com/incidents/x, name=Network Performance Issues in APJC, severity=warning, status=identified} - q=1' }] }, 0, ms(NOW));
+  check('alertChanges: a provider incident keeps its name, stage, impact and page; alert names with ", " survive',
+    prov[0].detail === 'Network Performance Issues in APJC, identified, impact minor' && prov[0].link === 'https://www.cloudflarestatus.com/incidents/x' && prov[0].host === 'homelab', prov[0]);
+  const tlProv = await HS.timeline(Object.assign({}, tsrc, { annotations: async () => [{ id: 22, time: ms(NOW - 100), alertName: 'Cloudflare cannot reach the prod origin, sustained across hosts', newState: 'Alerting', prevState: 'Normal',
+    text: 'x {alertname=Cloudflare cannot reach the prod origin, sustained across hosts, host=prod-podcast, instance=homelab, link=https://e.x/1, severity=warning}' }] }), ms(NOW - 3600), ms(NOW));
+  const pe = tlProv.events.find(e => e.source === 'alert');
+  check('timeline: an alert names its host before the collector instance, and its ref carries the annotation id and link',
+    /on prod-podcast$/.test(pe.what) && pe.ref === 'Grafana annotation 22, https://e.x/1', pe);
+  check('timeline: every event has a local time', tlProv.events.every(e => /^\w{3} \d{1,2} \w{3}, \d\d:\d\d$/.test(e.local)), tlProv.events.map(e => e.local));
+  const tlBad = await HS.timeline(Object.assign({}, tsrc, { logs: async () => { throw new Error('vlogs down'); } }), ms(NOW - 3600), ms(NOW));
+  check('timeline: a failing source is named in missing, the rest still there', tlBad.missing.length === 1 && /ops events.*vlogs down/.test(tlBad.missing[0]) && tlBad.events.some(e => e.source === 'alert'), tlBad.missing);
+
   // all: one failing area does not hide the rest
   const all = await HS.all({ now: NOW, q: async e => { if (e.includes('delivery')) throw new Error('boom'); return []; }, alerts: async () => [] });
   check('all: a throwing area is reported as an error, the others still present', all.delivery.error === 'boom' && all.sites.state === 'stale' && all.takenAt, all.delivery);
