@@ -14,6 +14,7 @@ here is tracked in git, so it's findable and diffable.
 - `x3-assistant-v1-plan.md` — the local assistant on the X3 (RFC-0008): step 1 (the assistant, phases 0–7), step 2 (the model in Grafana, Langfuse, Home Assistant), step 3 (use cases around them).
 - `x3-assistant-evals.md` — what to evaluate across the RFC-0008 work with the eval harness: goals G1–G8, dataset, labels and scoring per goal, what exists, open questions (to do with the operator).
 - `fleet-evals-handover.md` — handover to the `fleet` session: evaluating and improving the triage fleet (what is known from eval-harness, open items, where the evaluation lives, working rules).
+- `triage-fleet-improvement-plan.md` — proposal (2026-11-04): making the triage fleet better by measurement: what round r4 taught, five workstreams in order (live check, a held-out set, dedup against gold, a tuning loop, filed-issue quality), decisions for the operator.
 - `translation-service-plan.md` — proposal (2026-11-04): the translation model as a tool (one service; MCP, OpenAPI and HTTP faces for Claude Code, the X3 assistant and the podcast pipeline) and a model bakeoff in eval-harness; open questions for the operator.
 
 ## Closing a note

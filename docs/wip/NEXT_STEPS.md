@@ -199,9 +199,10 @@ Where each fleet stands: [fleet architecture → Rollout status](../fleet-archit
       not a reopen). 3 of the fleet's 63 real reopens/regressions are that case; GlitchTip's releases cannot tell which
       build was live (it records a release on its first event), so it needs deploy history. Corpus freezer:
       `signal-fleet/mvp/freeze_stale_client.py` (local, not committed).
-- [ ] **Operator: close eval-harness round r4** (`triage_orrery`, on `orrery_triage_v1_labelled_v2`): the
-      own-code-loads arm against the baseline is the result (pair-test p 0.0014; 0.0028 over the family of 2).
-      r4 spent $4.27 against its recorded $4 budget (operator-approved).
+- [x] ~~Operator: close eval-harness round r4~~ — *done 2026-11-04 (eval-harness 62e148cdc): closed, nothing
+      promoted (own-code-loads is not separated from the noise-gate arm), the $4.27 spend accepted.*
+- [ ] **(fleet session) The plan for what comes next:** [triage fleet improvement plan](triage-fleet-improvement-plan.md)
+      (live check, a held-out set, dedup against gold, a tuning loop); its decisions are the operator's.
 - [ ] **Operator: one label to check, ORRERY-PROD-S** (`TypeError: Failed to fetch`, labelled real because its issue
       closed as fixed). Two other `Failed to fetch` decisions are labelled noise: a real fix, or an umbrella close?
 - [x] ~~Delete the stale `~/signal-fleet/fleet.env` on the mini~~ — *done 2026-10-30 (c739792):
