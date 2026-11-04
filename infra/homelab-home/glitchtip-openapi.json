@@ -1,0 +1,38 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Homelab errors (GlitchTip)",
+    "version": "1.0.0",
+    "description": "The homelab's error tracker (GlitchTip, Sentry-compatible), read-only: application errors and crashes from Close Listening (podcast pipeline, player, API), Orrery, the LLM gateway (LiteLLM) and the homelab's own services. Use it for: what errors are new or still open, how often an error happens, when it was first and last seen, which project it belongs to."
+  },
+  "servers": [{ "url": "https://glitchtip.tail6d0ed4.ts.net" }],
+  "components": {
+    "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearer": [] }],
+  "paths": {
+    "/api/0/organizations/homelab/issues/": {
+      "get": {
+        "operationId": "listGlitchtipIssues",
+        "summary": "List error issues (newest activity first): short id, title, project, count, first and last seen, status",
+        "description": "Each issue groups repeated occurrences of one error. `count` is how many times it happened; `firstSeen`/`lastSeen` are UTC times. Default: unresolved issues. A `shortId` like PODCAST-PIPELINE-DL names the project (PODCAST-PIPELINE, PLAYER, ORRERY, LITELLM, ...).",
+        "parameters": [
+          { "name": "query", "in": "query", "required": false, "description": "Filter, e.g. `is:unresolved` (default), `is:resolved`, or free text from the error title", "schema": { "type": "string", "default": "is:unresolved" } },
+          { "name": "limit", "in": "query", "required": false, "description": "How many issues (1-25)", "schema": { "type": "integer", "default": 10, "minimum": 1, "maximum": 25 } },
+          { "name": "sort", "in": "query", "required": false, "description": "`-last_seen` (default: most recent activity first), `-first_seen` (newest issues first), `-count` (most frequent first)", "schema": { "type": "string", "default": "-last_seen" } }
+        ],
+        "responses": { "200": { "description": "A list of issues", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object" } } } } } }
+      }
+    },
+    "/api/0/issues/{issue_id}/": {
+      "get": {
+        "operationId": "getGlitchtipIssue",
+        "summary": "One issue in detail, by its numeric id (the `id` field of listGlitchtipIssues, not the shortId)",
+        "parameters": [
+          { "name": "issue_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "The issue", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    }
+  }
+}

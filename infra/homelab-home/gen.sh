@@ -2,8 +2,8 @@
 # Write the generated page next to this script (run-in-place from the repo).
 OUT="$(cd "$(dirname "$0")" && pwd)/www/index.html"
 mkdir -p "$(dirname "$OUT")"
-# The assistant's status tool: an OpenAPI description of /status.json (the chat UIs call it directly).
-cp "$(dirname "$OUT")/../openapi.json" "$(dirname "$OUT")/openapi.json"
+# The assistant's tools: OpenAPI descriptions of /status.json and of GlitchTip's read API (the chat UIs call them).
+for f in openapi.json glitchtip-openapi.json; do cp "$(dirname "$OUT")/../$f" "$(dirname "$OUT")/$f"; done
 get(){ [ -f "$1" ] && grep -E "^$2=" "$1" | head -1 | cut -d= -f2- || echo "?"; }
 REPO=~/agentic-ai-homelab/infra
 GF_U=$(get "$REPO/observability/backend/.env" GRAFANA_ADMIN_USER); GF_P=$(get "$REPO/observability/backend/.env" GRAFANA_ADMIN_PASSWORD)
