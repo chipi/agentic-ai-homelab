@@ -109,7 +109,7 @@ G1–G6 measure the work. G7 and G8 reuse the same datasets with different arms.
   `assist/eval_questions.json`, `docs/wip/ASSIST_EVAL.md`): 8 questions, scored against entity states read
   at the same moment, with switch states diffed to prove no action. First results: 6–7/8, 0 actions in
   40 questions; "power now" flaky (4 of 6 runs wrong although the value reached the model). Its runner
-  prints JSON for the harness. To add: Dutch questions, voice, more items.
+  prints JSON for the harness. To add: voice and more items (questions in English only: the operator does not speak Dutch well).
 
 ### G7 — system comparisons (arms over the G1–G3 datasets)
 
@@ -155,6 +155,6 @@ G1–G6 measure the work. G7 and G8 reuse the same datasets with different arms.
 - No dataset has been built in the harness yet; no labels exist except the derived G1 rules and the
   185 human panel descriptions.
 - The H6 (fleet queue) and H7 (incident write-up) use cases are not built.
-- Paraphrase robustness, Dutch, voice and the phone are not measured anywhere yet.
+- Paraphrase robustness, voice and the phone are not measured anywhere yet.
 - Cost per answer is not measured; failover counts are visible (headers, Langfuse) but not aggregated.
 - The reason for the LibreChat / Open WebUI gap is not found.
