@@ -159,6 +159,28 @@ gateway (`proj-podcast-dev`, the DGX model).
 - [ ] **GlitchTip's stale `prod` / `dgx-prod` environment rows** (cosmetic). check:
       `GET /api/0/organizations/homelab/environments/`.
 
+## X3 assistant (RFC-0008), known gaps (recorded 2026-11-04)
+
+- [ ] **A hung X3 costs ~31 s on every call.** LiteLLM's `assistant` has one deployment, so it never cools
+      down: each call waits the 30 s timeout, then fails over (measured 2026-11-03; a stopped X3 fails over in
+      2.7 s). Options: a health check that takes the deployment out, or a shorter connect timeout.
+- [ ] **The 30 s timeout is short for long answers** (the H7 timelines take up to ~90 s in the UIs end to end;
+      a single slow generation can hit the timeout and fail over mid-answer). Not measured per call.
+- [ ] **`status.json` short read** (HTTP/2 stream error) once during its 5-minute rewrite, 2026-11-03.
+      Unresolved; the eval runner retries. Theory, unverified: the bind mount sees the rename mid-read.
+- [ ] **LibreChat conversation titles invent dates.** Its title model writes a date the conversation does not
+      contain.
+- [ ] **Langfuse setup is not in a repo script:** the `homelab-gateway` LLM connection, the default eval model
+      and the `briefing-faithfulness` evaluator were made through its API by hand (2026-11-03).
+- [ ] **No log rotation** for `~/.local/state/ollama-assistant/ollama.log` on the X3.
+- [ ] **No X3 container inventory:** `container_uptime_seconds` has no `box="x3"`, so the timeline and the
+      briefing see no container starts on the X3.
+- [ ] **Spend has no local / failover line:** how many `assistant` calls the X3 answered against OpenRouter
+      (RFC-0008 lists it; the headers and Langfuse have it, nothing aggregates it).
+- [ ] **For the eval agent:** re-measure H6 after the open-only count (6a59983; the last run was on the 9-item
+      count), and more rounds of H7 (two per UI) and analytics (one per UI). Sets in
+      `infra/x3/assistant-ui-eval/evalsets/`, notes in `docs/wip/x3-assistant-evals.md`.
+
 ## Fleets
 
 Where each fleet stands: [fleet architecture → Rollout status](../fleet-architecture.md#rollout-status).
@@ -169,6 +191,17 @@ Where each fleet stands: [fleet architecture → Rollout status](../fleet-archit
 - [ ] **Client-side corroboration probe** (Umami) for front-end signals.
 - [ ] **Ground-truth labels for STAGING-2/3/4** (`signal-fleet/reference/glitchtip-ORRERY-STAGING-*.json`,
       `ground_truth.disposition` is null).
+- [ ] **Escalations with no issue filed:** 3 of the 9 escalations of 2026-10-28..11-04 (LiteLLM key errors,
+      2026-11-01 15:13, 15:23, 16:33 UTC) have no row in `filed.tsv`. Why the fleet escalated without filing is
+      not known. check: `grep -c "" ~/signal-fleet/results/filed.tsv` against the escalate rows' fingerprints.
+- [ ] **No CI covers `signal-fleet/`.** No workflow's paths include it; 6a59983 (the open-only count) got 0
+      checks. Its only gates are `deploy.sh`'s on the mini.
+- [ ] **`deploy.sh` skips a gate it adds.** bash reads the script before its own `git pull`, so the deploy
+      that adds a gate runs the old list (2026-11-04: `eval_inbox_open_replay` ran by hand). Fix: re-exec the
+      script after the pull.
+- [ ] **A plain `git pull` on the mini deploys the fleet without its gates:** the mini's checkout is the
+      fleet's live code. Pull it with `bash signal-fleet/deploy/deploy.sh`, even for hub-only commits
+      (2026-11-04: hub deploys used plain pulls until 6a59983; none carried fleet code).
 - [ ] **`muted-class` label** for bugs whose fingerprint keeps changing (guide, Known gaps).
 - [x] ~~Delete the stale `~/signal-fleet/fleet.env` on the mini~~ — *done 2026-10-30 (c739792):
       every live value was in `fleet-gateway.env` or the litellm `.env`, its GitHub and Langfuse

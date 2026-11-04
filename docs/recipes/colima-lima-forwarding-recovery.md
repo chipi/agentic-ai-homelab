@@ -182,6 +182,19 @@ Green = litellm `200` from the DGX, `up{job="litellm-postgres"}` back to `1`
 
 ---
 
+### Incident 2026-11-04
+
+- **Break ~10:44Z:** the host socket and every forwarded port went dead, dockerd inside the VM `active` with 34
+  containers, LiteLLM and Grafana `200` over TLS from the DGX and the X3. The guest sshd logged `Received
+  disconnect ... :11: disconnected by user` at 10:44:43Z; no `Killed by signal` line. Trigger still unknown.
+  ~1.5 min before, a hub job's first live run had sent ~60 Umami requests at once through the forward (not shown
+  to be related; the job now sends one at a time, bf072e8).
+- **The watchdog's capture:** `/tmp/forward-break-20261104-114512.txt`.
+- **Its auto-restart:** stop step 10:53:07Z, start step done 10:57:31Z; everything back except `mosquitto`.
+  It stopped cleanly with the rest and was not started again at either dockerd boot (unless-stopped, exit
+  on SIGTERM like 20 others that came back). The home-automation session restarted it, and proposes
+  `restart: always` for its three services; the cause stays unknown.
+
 ## Make it more resilient
 
 Ranked by value. The first two remove the failure modes that actually hurt; the
