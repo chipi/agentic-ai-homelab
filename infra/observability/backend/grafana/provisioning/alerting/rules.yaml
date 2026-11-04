@@ -2760,6 +2760,69 @@ groups:
 
   # Hetzner status bulletins (status.hetzner.com en.atom -> VictoriaLogs app=hetzner-status, by
   # infra/hetzner-status/poll.py every 10 min), correlated with where prod runs (ours.json):
+  # --- GitHub status (infra/github-status, 2026-11-04) -------------------------------------------
+  # githubstatus.com every 5 min: incidents (outages) and scheduled maintenance (upfront notice,
+  # in progress or starting within 7 days). relevance direct = it lists a component we use
+  # (infra/github-status/ours.json: Git Operations, API Requests, Actions, Pull Requests, Issues,
+  # Webhooks, Packages, Pages); other = the rest (hub bar only, muted). Like hetzner-status: one
+  # VictoriaLogs line per new or updated item, backfill=true never alerts, meta="true" (email to the
+  # operator, not the triage fleet).
+  - orgId: 1
+    name: github-status
+    folder: "Alerts"
+    interval: 5m
+    rules:
+      - uid: github-status-ours
+        title: "GitHub incident or maintenance on what we use"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: provider, host: homelab, service: github-status, environment: operations, meta: "true" }
+        annotations:
+          summary: "GitHub posted or updated a {{ $labels.kind }} on {{ $labels.components }}: \"{{ $labels.name }}\" ({{ $labels.status }}, start {{ $labels.start }}). Pushes, CI, deploys or the fleets may be affected. Details: {{ $labels.link }}"
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'app:github-status relevance:direct backfill:false | stats by (name, kind, status, components, start, link) count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      - uid: github-status-poller-stale
+        title: "GitHub status poller has not succeeded for 30m"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: warning, kind: infra, host: homelab, service: github-status, environment: operations, meta: "true" }
+        annotations:
+          summary: "infra/github-status/poll.py on the mini has not read githubstatus.com successfully for over 30 minutes, so GitHub outages and maintenance are not being watched. Log: /tmp/github-status.log on the mini; launchd job com.homelab.github-status."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - max(last_over_time(github_status_last_success_timestamp{instance="homelab"}[7d]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [1800] } }]
+
   # relevance direct = our datacenter NBG1-DC3 (prod-podcast), a whole-NBG1 bulletin, or text
   # naming our DC; nearby = other NBG1 DCs or FSN1 (the Storage Box, DC unknown); service = a
   # Hetzner service we use; other = the rest. Only `direct` alerts (operator, 2026-10-29: alert
