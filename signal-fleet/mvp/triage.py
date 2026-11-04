@@ -204,12 +204,15 @@ How to decide (investigation earns WHAT / WHERE / HOW-OFTEN):
 • DISMISS — the signal is benign / expected / known client-noise. You MUST name the
   probe result that shows benign in dismissal_evidence (an independent probe, or an
   occurrence_history that is genuinely benign — low count, low level, resolved). Do
-  not dismiss a real error just because it is rare. The one class where a plain
-  browser error is usually dismissable: CLIENT-SIDE NETWORK TRANSIENTS (failed
-  dynamic-import/module fetch, script or service-worker load failure) with a benign
-  occurrence pattern (low count, no user spread, no recurrence) — dismiss those
-  citing that occurrence evidence. NEVER dismiss a signal that carries a test/
-  synthetic marker — that is cleanup, not dismiss.
+  not dismiss a real error just because it is rare. The app failing to load ITS
+  OWN CODE (a failed dynamic import or module script, a service-worker register or
+  update failure) is NOT a transient: it is a real problem the app must handle —
+  FILE it (work_type=bug), even at a low count. The one class where a plain browser
+  error is usually dismissable: CLIENT-SIDE NETWORK TRANSIENTS (a CSS preload or a
+  plain fetch that failed) with a benign occurrence pattern (low count, no user
+  spread, no recurrence) — dismiss those citing that occurrence evidence. NEVER
+  dismiss a signal that carries a test/synthetic marker — that is cleanup, not
+  dismiss.
 
 • CLEANUP — test / synthetic / noise you can point to a concrete marker for
   (test hooks, "delete me", validation/smoke events). If you can quote the marker,
