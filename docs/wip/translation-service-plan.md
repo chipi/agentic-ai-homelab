@@ -69,20 +69,32 @@ The podcast pipeline moves **last**: it works in prod today, and moving it is th
 
 ### Order
 
-1. Answer the open questions below.
+1. Read the decisions below; work out the fallback (decision 3) in the RFC.
 2. Build the service with its MCP and OpenAPI faces, on TranslateGemma; wire Claude Code and the X3 UIs.
 3. In parallel: the bakeoff (eval-harness).
 4. Pick the model from the bakeoff; swap it behind the service.
 5. Move the podcast pipeline to the service (podcast session).
 
-## Open questions (the operator's)
+## Decisions (the operator, 2026-11-04)
 
-1. **Which language pairs matter?** They decide the datasets and which models are worth an arm. (The
-   operator does not read Dutch; English is the default eval language, `docs/wip/x3-assistant-evals.md`.)
-2. **Where the code lives:** a directory in this repo (the service is homelab infrastructure, like the hub)
-   or its own repo. Proposed: this repo for the service, eval-harness for the bakeoff, no new repo.
-3. **The fallback when the DGX is in another mode:** a cloud model (paid, always there) or "unavailable"
-   (free, sometimes down).
+1. **Languages: English into every language Orrery uses.** Orrery's `project.inlang/settings.json`
+   (`/work/orrery/main`): base `en-US`, **13 targets: es, fr, de, pt-BR, it, nl, sr-Cyrl, zh-CN, ja, ko, hi,
+   ar, ru**. The bakeoff covers all 13 pairs (en→X), not only §6's en→de / en→hr / en→sr.
+   - **A domain set exists:** Orrery's texts in all 13 languages, `static/data/i18n/<locale>.{core,essays,
+     fleet,glossary,missions,programs,science}.json`, with `en-US` as the source. **Not known:** who made
+     those translations (people or a model). Find out before using them as references; a model-made
+     reference favours that model.
+   - **A glossary exists:** `<locale>.glossary.json` per language: a natural first use of the service's
+     `glossary` parameter (consistent terms).
+   - **Not checked:** that WMT24++ covers all 13 (it has 55 en→X pairs; check the exact codes, e.g. which
+     Serbian script, and which Arabic and Chinese variants, against sr-Cyrl, ar, zh-CN).
+   - English stays the language of the eval itself (questions, notes): the operator does not read Dutch
+     (`docs/wip/x3-assistant-evals.md`).
+2. **Where the code lives:** default **a folder in this repo** (e.g. `translate/`, next to the hub; it runs on
+   the mini like the hub), the bakeoff in eval-harness. The picking-up agent may propose a separate repo
+   with a reason.
+3. **The fallback when the DGX is in another mode** (a paid cloud model, always there, or "unavailable",
+   free, sometimes down): **the picking-up agent works it out** and puts the choice and its cost in the RFC.
 
 ## Rules that apply (from this repo and the operator)
 
