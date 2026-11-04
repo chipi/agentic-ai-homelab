@@ -219,9 +219,10 @@
     KINDS.forEach(k => { byKind[k] = []; });
     // line: the finished timeline line, "<local time> — <what> — <ref>", on the operator's clock (the job's
     // time zone). Built from three fields, the model dropped refs, dropped times and paired real refs with
-    // invented times (2026-11-04, 4 runs); copying a line it picked is the whole task now.
+    // invented times (2026-11-04, 4 runs); copying a line it picked is the whole task now. No UTC `at` next
+    // to it: with one there, the model "copied" lines with the hour taken from it (7909 at 04:52, not 05:52).
     for (const e of events) {
-      const ev = { at: new Date(e.at).toISOString(), line: localTime(e.at) + ' — ' + e.what + ' — ' + e.ref };
+      const ev = { line: localTime(e.at) + ' — ' + e.what + ' — ' + e.ref };
       if (e.severity) ev.severity = e.severity;
       if (e.at >= n0 && e.at < n1) ev.lastNight = true;
       (byKind[e.kind] = byKind[e.kind] || []).push(ev);
@@ -229,6 +230,35 @@
     return { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString(), count: events.length,
              lastNight: { from: new Date(n0).toISOString(), to: new Date(n1).toISOString(), local: localTime(n0) + ' to ' + localTime(n1) },
              counts: Object.fromEntries(Object.entries(byKind).map(([k, v]) => [k, v.length])), byKind, missing };
+  }
+
+  // Site analytics (Umami), for the assistant: per site, visitors and pageviews today, yesterday and the
+  // last 7 days (with the 7 days before), and the 7 days' top pages, referrers, countries and click events.
+  // Day boundaries are the job's local midnight, so the model never does date math. Dev sites (localhost)
+  // are left out. src.umami(path) returns the parsed API response; a failing site is reported, not dropped.
+  async function analytics(src) {
+    if (!src.umami) return { ok: false, reason: 'no Umami source' };
+    const now = Math.round(src.now * 1000), day = new Date(now); day.setHours(0, 0, 0, 0);
+    const today = day.getTime(), yday = new Date(day); yday.setDate(yday.getDate() - 1);
+    const wk = now - 7 * 86400e3;
+    const sites = ((await src.umami('/api/websites?pageSize=100')).data || []).filter(w => w.domain && w.domain !== 'localhost');
+    const stat = async (id, a, b) => { const s = await src.umami('/api/websites/' + id + '/stats?startAt=' + a + '&endAt=' + b);
+      return { visitors: s.visitors, pageviews: s.pageviews, visits: s.visits, bouncePct: s.visits ? Math.round(100 * s.bounces / s.visits) : null }; };
+    const top = async (id, type, n) => (await src.umami('/api/websites/' + id + '/metrics?startAt=' + wk + '&endAt=' + now + '&type=' + type + '&limit=' + n))
+      .map(m => ({ name: m.x == null || m.x === '' ? '(none)' : m.x, count: m.y }));
+    const out = await Promise.all(sites.map(async w => {
+      try {
+        const [t, y, l7, p7] = await Promise.all([stat(w.id, today, now), stat(w.id, yday.getTime(), today), stat(w.id, wk, now), stat(w.id, wk - 7 * 86400e3, wk)]);
+        const [pages, referrers, countries, events] = await Promise.all([top(w.id, 'path', 10), top(w.id, 'referrer', 10), top(w.id, 'country', 10), top(w.id, 'event', 10)]);
+        const active = (await src.umami('/api/websites/' + w.id + '/active')).visitors;
+        return { site: w.name, domain: w.domain, activeNow: active ?? null, today: t, yesterday: y, last7d: l7, previous7d: p7,
+                 top7d: { pages, referrers: referrers.filter(r => r.name !== '(none)'), countries, events } };
+      } catch (e) { return { site: w.name, domain: w.domain, error: String(e && e.message || e) }; }
+    }));
+    const lt = ms => new Date(ms).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return { ok: true, takenAt: new Date(now).toISOString(),
+             periods: { today: lt(today) + ' to now', yesterday: lt(yday.getTime()) + ' to ' + lt(today), last7d: lt(wk) + ' to now', previous7d: lt(wk - 7 * 86400e3) + ' to ' + lt(wk) },
+             sites: out.sort((a, b) => ((b.last7d || {}).visitors || 0) - ((a.last7d || {}).visitors || 0)) };
   }
 
   // Everything, with when it was taken; each area isolated so one failing source does not hide the rest.
@@ -241,7 +271,7 @@
     return out;
   }
 
-  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, alertChanges, timeline, all, AREAS };
+  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, alertChanges, timeline, analytics, all, AREAS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HubStatus = api;
 })(typeof window !== 'undefined' ? window : globalThis);

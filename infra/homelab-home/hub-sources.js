@@ -1,9 +1,10 @@
 // Where the mini's jobs (status-job.js, briefing-job.js) read from: the mini's localhost services and
 // the token files that already live on it. Shared so both jobs read the same way.
 //
-// Env overrides: HUB_VM, HUB_VLOGS, HUB_GRAFANA, HUB_GLITCHTIP, HUB_LITELLM, HUB_HA,
+// Env overrides: HUB_VM, HUB_VLOGS, HUB_GRAFANA, HUB_GLITCHTIP, HUB_LITELLM, HUB_HA, HUB_UMAMI,
 // HUB_GRAFANA_TOKEN_FILE (variable GRAFANA_TOKEN), HUB_GLITCHTIP_TOKEN_FILE (GLITCHTIP_TOKEN),
-// HUB_BRIEFING_KEY_FILE (LITELLM_API_KEY), HUB_HA_TOKEN_FILE (the whole file is the token).
+// HUB_BRIEFING_KEY_FILE (LITELLM_API_KEY), HUB_HA_TOKEN_FILE (the whole file is the token),
+// HUB_UMAMI_ENV_FILE (UMAMI_ADMIN_PASSWORD).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -18,12 +19,14 @@ const URLS = {
   glitchtip: E.HUB_GLITCHTIP || 'http://127.0.0.1:8090',
   litellm: E.HUB_LITELLM || 'http://127.0.0.1:4001',
   ha: E.HUB_HA || 'http://127.0.0.1:8123',
+  umami: E.HUB_UMAMI || 'http://127.0.0.1:3001',
 };
 const FILES = {
   grafana: E.HUB_GRAFANA_TOKEN_FILE || path.join(H, 'signal-fleet/fleet-gateway.env'),
   glitchtip: E.HUB_GLITCHTIP_TOKEN_FILE || path.join(H, 'signal-fleet/fleet-gateway.env'),
   briefing: E.HUB_BRIEFING_KEY_FILE || path.join(H, 'hub-briefing-litellm.env'),
   ha: E.HUB_HA_TOKEN_FILE || path.join(H, 'home-automation-secrets/ha-token'),
+  umami: E.HUB_UMAMI_ENV_FILE || path.join(H, 'umami/.env'),
 };
 
 // one variable from an env-style file, or the whole file when name is null; null if absent
@@ -48,6 +51,7 @@ async function getJson(url, opts = {}, timeoutMs = 30000) {
 // ports the page does not have)
 function statusSource() {
   const tok = secret(FILES.grafana, 'GRAFANA_TOKEN');
+  let umamiTok = null;
   return {
     now: Date.now() / 1000,
     q: async e => (await getJson(URLS.vm + '/api/v1/query?query=' + encodeURIComponent(e))).data.result,
@@ -64,6 +68,16 @@ function statusSource() {
       const r = await fetch(URLS.vlogs + '/select/logsql/query?limit=1000&query=' + encodeURIComponent(query), { signal: AbortSignal.timeout(30000) });
       if (!r.ok) throw new Error('VictoriaLogs query -> HTTP ' + r.status);
       return (await r.text()).split('\n').filter(Boolean).map(l => JSON.parse(l));
+    },
+    // Umami's API: one login per job run (self-hosted Umami has no API keys), the token kept in memory only
+    umami: async p => {
+      if (!umamiTok) {
+        const pw = secret(FILES.umami, 'UMAMI_ADMIN_PASSWORD');
+        if (!pw) throw new Error('no UMAMI_ADMIN_PASSWORD in ' + FILES.umami);
+        umamiTok = getJson(URLS.umami + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'admin', password: pw }) }).then(r => r.token);
+      }
+      return getJson(URLS.umami + p, { headers: { Authorization: 'Bearer ' + await umamiTok } });
     },
     glitchtip: async p => {
       const gt = secret(FILES.glitchtip, 'GLITCHTIP_TOKEN');

@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const UI = process.argv[2], RESCORE = UI === "--rescore";
 const SET = RESCORE ? null : JSON.parse(readFileSync(join(HERE, process.argv[3] || "evalsets/h4-h5.json"), "utf8"));
-const STATUS = "https://hub.tail6d0ed4.ts.net/status.json", TIMELINE = "https://hub.tail6d0ed4.ts.net/timeline.json";
+const STATUS = "https://hub.tail6d0ed4.ts.net/status.json", TIMELINE = "https://hub.tail6d0ed4.ts.net/timeline.json", ANALYTICS = "https://hub.tail6d0ed4.ts.net/analytics.json";
 const URLS = { librechat: "https://omarchy.tail6d0ed4.ts.net:8443/", openwebui: "https://omarchy.tail6d0ed4.ts.net:8444/" };
 if (!RESCORE && !URLS[UI]) { console.error("usage: node run-evalset.mjs <librechat|openwebui> [set] | --rescore <results file>"); process.exit(2); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -44,6 +44,13 @@ const eventFacts = evs => [...new Map(evs.map(e => [hhmm(e.local) + "|" + e.what
 const lastNight = s => { const end = new Date(Date.parse(s.timeline.to)); end.setHours(7, 0, 0, 0);
   if (end > new Date(Date.parse(s.timeline.to))) end.setDate(end.getDate() - 1);
   const start = new Date(end); start.setDate(start.getDate() - 1); start.setHours(19, 0, 0, 0); return [start.getTime(), end.getTime()]; };
+// analytics: a number counts for a site only on an answer line naming that site ("Orrery" lines that name
+// "Orrery Staging" belong to the other site)
+const siteLines = (a, site, all) => { const n = site.toLowerCase(), longer = all.map(x => x.toLowerCase()).filter(x => x !== n && x.includes(n));
+  return a.split("\n").filter(l => { const L = l.toLowerCase(); return L.includes(n) && !longer.some(x => L.includes(x)); }); };
+const onSiteLine = (label, site, all, value) => ({ kind: "pred", label, want: value,
+  test: a => siteLines(a, site, all).some(l => numbers(l).includes(value)) });
+const AN_MISSING = [text("analytics missing", ["\u0000"])];
 const RULES = {
   sites_up_total: s => [num("sites up", s.sites.up, 0), num("sites total", s.sites.total, 0)],
   sites_down: s => s.sites.down.length ? s.sites.down.map(h => text(h, [h])) : [text("none down", NONE)],
@@ -65,9 +72,21 @@ const RULES = {
   cloudflare_timeline: (s, q) => s.timeline ? [...eventFacts(ofKind(s, "alert").filter(e => /cloudflare/i.test(e.what))), traceable(s, q)] : [text("timeline missing", ["\u0000"])],
   deploys_48h: (s, q) => s.timeline ? [...eventFacts(ofKind(s, "deploy")), traceable(s, q)] : [text("timeline missing", ["\u0000"])],
   last_night_alerts: (s, q) => { if (!s.timeline) return [text("timeline missing", ["\u0000"])]; const [a, b] = lastNight(s);
-    const inWindow = allEvents(s).filter(e => Date.parse(e.at) >= a && Date.parse(e.at) < b), evs = ofKind(s, "alert").filter(e => Date.parse(e.at) >= a && Date.parse(e.at) < b);
+    // events without `at` (since 2026-11-04) carry the hub's lastNight flag (unit-tested; it matched this window 42/42)
+    const inNight = e => e.at ? Date.parse(e.at) >= a && Date.parse(e.at) < b : !!e.lastNight;
+    const inWindow = allEvents(s).filter(inNight), evs = ofKind(s, "alert").filter(inNight);
     // any event of the night may be mentioned; an event from outside the night is a wrong answer
     return [...(evs.length ? eventFacts(evs) : [text("no alerts", NONE)]), traceable(s, q, inWindow)]; },
+  // website analytics (analytics.json)
+  visitors_yesterday: s => { const a = s.analytics; if (!a || !a.ok) return AN_MISSING; const names = a.sites.map(x => x.site);
+    return a.sites.filter(x => !x.error).map(x => onSiteLine(x.site + " yesterday visitors", x.site, names, x.yesterday.visitors)); },
+  top_site_7d: s => { const a = s.analytics; if (!a || !a.ok) return AN_MISSING; const t = a.sites[0];
+    const names = a.sites.map(x => x.site);
+    return [onSiteLine(t.site + " named with its 7-day visitors", t.site, names, t.last7d.visitors), onSiteLine(t.site + " visitors previous 7d", t.site, names, t.previous7d.visitors)]; },
+  orrery_referrers: s => { const a = s.analytics; if (!a || !a.ok) return AN_MISSING; const o = a.sites.find(x => x.site === "Orrery");
+    if (!o || o.error) return AN_MISSING;
+    const refs = o.top7d.referrers.map(r => r.name);
+    return o.top7d.referrers.slice(0, 3).map(r => onSiteLine("referrer " + r.name + " with its count", r.name, refs, r.count)); },
   max_mem: s => { const [b, v] = Object.entries(s.capacity).sort((x, y) => y[1].memUsedPct - x[1].memUsedPct)[0];
                   return [text("host " + b, HOSTS[b] || [b]), num(`${b} memory %`, +v.memUsedPct.toFixed(1), 0.6)]; },
 };
@@ -86,7 +105,7 @@ function score(answer, facts) {
 // one hub read failed mid-run with an HTTP/2 stream error (2026-11-03); retry a few times
 const get = async url => { for (let i = 0; ; i++) { try { return await (await fetch(url)).json(); }
                                                   catch (e) { if (i >= 3) throw e; await sleep(2000); } } };
-const snap = async () => Object.assign(await get(STATUS), { timeline: await get(TIMELINE).catch(() => null) });
+const snap = async () => Object.assign(await get(STATUS), { timeline: await get(TIMELINE).catch(() => null), analytics: await get(ANALYTICS).catch(() => null) });
 function judge(answer, rule, before, after, q = "") {
   const sb = score(answer, RULES[rule](before, q)), sa = score(answer, RULES[rule](after, q));
   const best = sb.pass || !sa.pass ? sb : sa;

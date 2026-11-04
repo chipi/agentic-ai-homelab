@@ -3,7 +3,7 @@
   "info": {
     "title": "Homelab hub status",
     "version": "1.0.0",
-    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory, new errors in the last 24 hours. Also the last 48 hours of events (timeline.json) for incident write-ups and 'what happened' questions."
+    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory, new errors in the last 24 hours. Also the last 48 hours of events (timeline.json) for incident write-ups and 'what happened' questions. And the websites' analytics (analytics.json, Umami)."
   },
   "servers": [
     {
@@ -325,6 +325,138 @@
                         "type": "string"
                       },
                       "description": "Sources that failed; their events are absent"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics.json": {
+      "get": {
+        "operationId": "getSiteAnalytics",
+        "summary": "Website analytics (Umami) per site: visitors and pageviews today, yesterday, the last 7 days and the 7 days before; the last 7 days' top pages, referrers, countries and click events; visitors on the site now",
+        "description": "Written every 5 minutes by the hub from Umami, computed there: give the numbers as they are, never add up or estimate. The periods' exact windows are in `periods` (the operator's clock). Sites are sorted by visitors in the last 7 days. A site with `error` could not be read: say so. Countries are ISO codes (DE = Germany). Referrers leave out direct visits.",
+        "responses": {
+          "200": {
+            "description": "The analytics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "description": "false = Umami could not be read (reason)"
+                    },
+                    "takenAt": {
+                      "type": "string",
+                      "description": "UTC, ISO 8601"
+                    },
+                    "periods": {
+                      "type": "object",
+                      "description": "today, yesterday, last7d, previous7d: each window on the operator's clock"
+                    },
+                    "sites": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "site": {
+                            "type": "string"
+                          },
+                          "domain": {
+                            "type": "string"
+                          },
+                          "activeNow": {
+                            "type": "integer",
+                            "description": "Visitors on the site in the last 5 minutes"
+                          },
+                          "today": {
+                            "type": "object",
+                            "description": "visitors, pageviews, visits, bouncePct"
+                          },
+                          "yesterday": {
+                            "type": "object",
+                            "description": "visitors, pageviews, visits, bouncePct"
+                          },
+                          "last7d": {
+                            "type": "object",
+                            "description": "visitors, pageviews, visits, bouncePct"
+                          },
+                          "previous7d": {
+                            "type": "object",
+                            "description": "visitors, pageviews, visits, bouncePct"
+                          },
+                          "top7d": {
+                            "type": "object",
+                            "properties": {
+                              "pages": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                }
+                              },
+                              "referrers": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                }
+                              },
+                              "countries": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                }
+                              },
+                              "events": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "count": {
+                                      "type": "integer"
+                                    }
+                                  }
+                                },
+                                "description": "Click and custom events by name, e.g. cta-book-call"
+                              }
+                            }
+                          },
+                          "error": {
+                            "type": "string"
+                          }
+                        }
+                      }
                     }
                   }
                 }

@@ -1,0 +1,9 @@
+{
+  "name": "analytics",
+  "about": "RFC-0008 phase 7 integrations: website analytics (Umami) through the hub's analytics.json, computed by the hub and fetched just before and after the question. An answer passes when it gives the numbers asked about exactly as the hub computed them.",
+  "questions": [
+    {"id": "an-1", "use": "X-umami", "q": "How many visitors did each of my websites have yesterday? One line per site.", "expect": "visitors_yesterday"},
+    {"id": "an-2", "use": "X-umami", "q": "Which of my websites had the most visitors in the last 7 days, how many, and how does that compare with the 7 days before?", "expect": "top_site_7d"},
+    {"id": "an-3", "use": "X-umami", "q": "Where did Orrery's visitors come from in the last 7 days? The top 3 referrers with their counts.", "expect": "orrery_referrers"}
+  ]
+}

@@ -127,9 +127,9 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('timeline: grouped by kind, each kind oldest first, every kind present', Object.keys(tl.byKind).join() === 'alert,deploy,backup,drill,drift,ci_failure,error,container_start' &&
     tl.byKind.alert.map(REF).join() === 'Grafana annotation 11,Grafana annotation 12' && tl.byKind.deploy.length === 1 && tl.byKind.error.length === 1 && tl.byKind.container_start.length === 1 && tl.byKind.backup.length === 0, tl.byKind);
   check('timeline: counts per kind match the lists', Object.entries(tl.counts).every(([k, n]) => tl.byKind[k].length === n) && tl.count === flat(tl).length, tl.counts);
-  check('timeline: every event has an ISO time, what and a ref', flat(tl).every(e => /Z$/.test(e.at) && WHAT(e) && REF(e) && e.line.split(SEP).length >= 3), flat(tl));
+  check('timeline: every event is one line with a time, what and a ref, and no UTC at', flat(tl).every(e => !('at' in e) && LOC(e) && WHAT(e) && REF(e) && e.line.split(SEP).length >= 3), flat(tl));
   check('timeline: events outside the window are left out', !flat(tl).some(e => /too old/.test(WHAT(e))), flat(tl));
-  check('timeline: the container start is now minus its uptime', tl.byKind.container_start[0].at === iso(NOW - 1500), tl.byKind.container_start);
+  check('timeline: the container start is now minus its uptime', LOC(tl.byKind.container_start[0]) === new Date((NOW - 1500) * 1000).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }), tl.byKind.container_start);
   check('timeline: only failed CI runs are asked for', /event_type:ci_run status:failure/.test(logsAsked[0]) && /deploy OR backup OR drill OR drift/.test(logsAsked[0]), logsAsked);
   const prov = await HS.alertChanges({ annotations: async () => [{ id: 21, time: ms(NOW - 100), alertName: 'Cloudflare incident on a component we use', newState: 'Alerting', prevState: 'Pending',
     text: 'Cloudflare incident on a component we use {alertname=Cloudflare incident on a component we use, host=homelab, impact=minor, link=https://www.cloudflarestatus.com/incidents/x, name=Network Performance Issues in APJC, severity=warning, status=identified} - q=1' }] }, 0, ms(NOW));
@@ -155,6 +155,23 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   tn = await HS.timeline(nightSrc(L(4, 6)), L(2, 6), L(4, 6));
   check('timeline: at 06:00 the night still running is not "last night"; the one before is', tn.lastNight.to === new Date(L(3, 7)).toISOString() && !tn.byKind.alert.some(e => e.lastNight), tn.lastNight);
   check('timeline: lastNight has its local label', /^\w{3} \d{1,2} \w{3}, 19:00 to \w{3} \d{1,2} \w{3}, 07:00$/.test(tn.lastNight.local), tn.lastNight.local);
+
+  // analytics (Umami): local-day periods, dev sites left out, one failing site reported, not dropped
+  const asked2 = [];
+  const usrc = { now: L(4, 11) / 1000, umami: async p => { asked2.push(p);
+    if (p.startsWith('/api/websites?')) return { data: [{ id: 'a', name: 'site A', domain: 'a.eu' }, { id: 'b', name: 'site B', domain: 'b.com' }, { id: 'd', name: 'A (dev)', domain: 'localhost' }] };
+    if (p.startsWith('/api/websites/b/')) throw new Error('boom');
+    if (p.includes('/stats?')) return { visitors: 5, pageviews: 9, visits: 6, bounces: 3 };
+    if (p.includes('/active')) return { visitors: 1 };
+    if (p.includes('type=referrer')) return [{ x: '', y: 4 }, { x: 'google.com', y: 2 }];
+    return [{ x: '/', y: 7 }];
+  } };
+  const an = await HS.analytics(usrc);
+  check('analytics: dev (localhost) sites left out, a failing site reported with its error', an.ok && an.sites.map(x => x.site).join() === 'site A,site B' && an.sites[1].error === 'boom', an.sites);
+  check('analytics: today, yesterday, 7 days and the 7 before, with bounce %', an.sites[0].today.visitors === 5 && an.sites[0].yesterday.pageviews === 9 && an.sites[0].last7d.bouncePct === 50 && an.sites[0].previous7d, an.sites[0]);
+  check('analytics: today starts at local midnight, yesterday is the local day before', asked2.some(p => p.includes('/a/stats?startAt=' + L(4, 0) + '&endAt=' + L(4, 11))) && asked2.some(p => p.includes('/a/stats?startAt=' + L(3, 0) + '&endAt=' + L(4, 0))), asked2.filter(p => p.includes('/a/stats')));
+  check('analytics: direct traffic is not listed as a referrer; pages, countries, events, active kept', an.sites[0].top7d.referrers.map(r => r.name).join() === 'google.com' && an.sites[0].top7d.pages[0].name === '/' && an.sites[0].activeNow === 1 && /^\w{3} \d{1,2} \w{3}, 00:00 to now$/.test(an.periods.today), an.sites[0]);
+  check('analytics: without an Umami source (the page) it says so', (await HS.analytics({ now: NOW })).ok === false);
 
   // all: one failing area does not hide the rest
   const all = await HS.all({ now: NOW, q: async e => { if (e.includes('delivery')) throw new Error('boom'); return []; }, alerts: async () => [] });

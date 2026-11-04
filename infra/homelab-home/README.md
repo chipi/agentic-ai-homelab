@@ -30,6 +30,11 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   each kind oldest first, each event one finished `line` (`<local time> — <what> — <ref>`, the
   ref finding it in its source) that the assistant copies; "last night" (19:00 to 07:00) is computed and its events flagged `lastNight`; a source
   that fails is named in `missing`. The assistant reads it as `getIncidentTimeline` (`openapi.json`).
+  And `www/analytics.json` (served at `/analytics.json`): per Umami site (dev sites left out),
+  visitors and pageviews today, yesterday, the last 7 days and the 7 before (local days), and the
+  7 days' top pages, referrers, countries and click events, read through Umami's API with the admin
+  login in `~/umami/.env` (one login per run, token in memory only). The assistant reads it as
+  `getSiteAnalytics`. A run takes ~11 s with 7 sites (2026-11-04).
 - `briefing-job.js` — the morning briefing (RFC-0008 use case H1), at 07:00 (launchd
   `com.homelab.hub-briefing`): needs-you first, then the night (alert changes from Grafana's state
   history, containers started, new GlitchTip issues), numbers, all-green. Every number comes from
