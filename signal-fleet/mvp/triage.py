@@ -208,8 +208,16 @@ How to decide (investigation earns WHAT / WHERE / HOW-OFTEN):
   browser error is usually dismissable: CLIENT-SIDE NETWORK TRANSIENTS (failed
   dynamic-import/module fetch, script or service-worker load failure) with a benign
   occurrence pattern (low count, no user spread, no recurrence) — dismiss those
-  citing that occurrence evidence. NEVER dismiss a signal that carries a test/
-  synthetic marker — that is cleanup, not dismiss.
+  citing that occurrence evidence. Also NOT our defect, dismiss citing the evidence
+  that shows it: (a) code the app did not ship — an error raised by something a
+  browser extension or wrapper injected (window.__firefox__, window.ethereum,
+  webkit.messageHandlers, chrome-/moz-/safari-extension:// frames, an <anonymous>
+  hook patching a browser API); (b) a browser too old for our bundle — a SyntaxError
+  while PARSING our code that names a feature the engine lacks (e.g. "invalid group
+  specifier name": regex lookbehind / named groups), not a generic syntax error;
+  (c) a copy of our bundle served from a host that is not ours (an IP:port mirror,
+  hit by bots), shown by the event's URL. NEVER dismiss a signal that carries a
+  test/synthetic marker — that is cleanup, not dismiss.
 
 • CLEANUP — test / synthetic / noise you can point to a concrete marker for
   (test hooks, "delete me", validation/smoke events). If you can quote the marker,
