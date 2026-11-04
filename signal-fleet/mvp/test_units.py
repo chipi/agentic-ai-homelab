@@ -1039,6 +1039,50 @@ class TestRecurrenceOncePerCountChange(unittest.TestCase):
         self.assertEqual((b["count"], b["latest_count"], b["disposition"]), (4, 8, "file"))
 
 
+class TestNoTerminalDecision(unittest.TestCase):
+    """F7 (EVAL-LESSONS-0.6.0): a reply that is empty, or never valid JSON, on the last turn
+    made investigate() fall off its loop and return None. The orchestrator reads None as
+    "deferred" but counts nothing, so the signal was re-triaged every cycle, paid for, never
+    escalated. Seen in eval-harness's replay with gpt-oss:20b (16 of 65 items)."""
+
+    SIG = {"source": "glitchtip", "alertname": "a", "summary": "s", "labels": {}}
+
+    def setUp(self):
+        import triage as t
+        self.t = t
+        self.orig = (t._call, t.observ.finalize)
+        t.observ.finalize = lambda *a, **k: None
+
+    def tearDown(self):
+        self.t._call, self.t.observ.finalize = self.orig
+
+    def _script(self, replies):
+        it = iter(replies)
+        self.t._call = lambda messages, trace_id=None, step=None: (next(it, ""), {})
+
+    def test_empty_every_turn_defers(self):
+        self._script([])
+        with self.assertRaises(self.t.TriageDeferred):
+            self.t.investigate(self.SIG, probe_table={})
+
+    def test_empty_last_turn_after_probes_defers(self):
+        probe = '{"action":"probe","probe":"occurrence_history","probe_args":{}}'
+        self._script([probe] * self.t.MAX_PROBES)
+        with self.assertRaises(self.t.TriageDeferred):
+            self.t.investigate(self.SIG, probe_table={})
+
+    def test_invalid_json_every_turn_escalates_no_terminal_decision(self):
+        self._script(["not json"] * (self.t.MAX_PROBES + 1))
+        d = self.t.investigate(self.SIG, probe_table={})
+        self.assertEqual(d["disposition"], "escalate")
+        self.assertTrue(d["reason"].startswith("no terminal decision"))
+
+    def test_a_decision_after_one_empty_turn_still_counts(self):
+        self._script(["", '{"action":"decide","disposition":"escalate","reason":"r",'
+                          '"question":"q","certainty":"low"}'])
+        self.assertEqual(self.t.investigate(self.SIG, probe_table={})["disposition"], "escalate")
+
+
 class TestLangfuseJoin(unittest.TestCase):
     """2026-10-15: every triage landed in Langfuse twice, as two unrelated traces: the fleet's
     own trace (context, no cost) and the gateway's per-call generations (model, usage, cost,

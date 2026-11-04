@@ -438,6 +438,7 @@ def investigate(signal, max_probes=None, probe_table=None):
     # (2026-07-30) showed last-turn-only recording undercounted tokens ~4x
     trace, usage, t0 = [], {"prompt_tokens": 0, "completion_tokens": 0}, time.time()
     trace_id = observ.new_trace_id()   # one Langfuse trace: the fleet's + every gateway call
+    last_empty = False
     for step in range(n + 1):
         try:
             raw, turn_usage = _call(messages, trace_id=trace_id, step=step)
@@ -455,7 +456,9 @@ def investigate(signal, max_probes=None, probe_table=None):
             # billing/provider issues present as empty responses) — retry the
             # same turn; do NOT feed None into the parse-feedback path
             print(f"    [triage] empty completion at step {step+1} — retrying turn")
+            last_empty = True
             continue
+        last_empty = False
         try:
             out = _parse(raw)
         except Exception as e:
@@ -490,6 +493,15 @@ def investigate(signal, max_probes=None, probe_table=None):
                     "question": "triager did not reach a disposition"}
         d, gates = _gate(disp, signal, trace)
         return _finish(signal, d, trace, gates, usage, t0, trace_id=trace_id)
+    # Out of turns without a decision (F7). An empty last reply is the provider flake above:
+    # defer, so the orchestrator counts it and escalates after DEFER_LIMIT cycles. A reply
+    # that never parsed is the model's own failure: the same escalation as an unusable one.
+    if last_empty:
+        raise TriageDeferred("empty completion on the last turn")
+    disp = {"disposition": "escalate", "reason": "no terminal decision",
+            "question": "triager did not reach a disposition"}
+    d, gates = _gate(disp, signal, trace)
+    return _finish(signal, d, trace, gates, usage, t0, trace_id=trace_id)
 
 
 # back-compat: orchestrator calls triage.triage(signal, evidence); investigation
