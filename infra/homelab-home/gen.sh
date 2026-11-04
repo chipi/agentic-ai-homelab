@@ -1141,8 +1141,12 @@ async function spendModels(){
       oLine=oLine.map((v,k)=>st+(k+1)*86400000<=OLLAMA_LOGS_FROM?null:v);}}catch(x){}
   const add=(...ls)=>{const ok=ls.filter(Boolean);return ok.length?ok[0].map((_,i)=>ok.some(l=>l[i]!=null)?ok.reduce((p,l)=>p+(l[i]||0),0):null):null;};
   const spR=n=>src('Speech').find(r=>r.model.startsWith(n))||{},orU=sum(src('OpenRouter'),'usd');
+  // Ollama per host (DGX, X3: the assistant and the eval harness, MacBook), from the per-host rows above;
+  // the X3 assistant's own tokens are in its Ollama log (job=ollama, service=assistant), so already in here
+  const oH=h=>{const rr=src('Ollama').filter(r=>r.by===h);return sum(rr,'i')+sum(rr,'o');};
+  const oRows=['DGX','X3','MacBook'].filter(h=>oH(h)).map(h=>['Ollama &middot; '+h,tk(oH(h))]);
   set('sp_totals',card('All tokens',tk(allT)+sparkT(add(vtk,vLine,oLine)),[['OpenRouter',tk(t('OpenRouter'))],['vLLM',tk(t('vLLM'))],['Ollama',tk(t('Ollama'))]],'')
-    +card('Local tokens',tk(t('vLLM')+t('Ollama'))+sparkT(add(vLine,oLine)),[['vLLM',tk(t('vLLM'))],['Ollama',tk(t('Ollama'))],['Cost','$0']],'vLLM')
+    +card('Local tokens',tk(t('vLLM')+t('Ollama'))+sparkT(add(vLine,oLine)),[['vLLM (DGX)',tk(t('vLLM'))],...oRows,['Cost','$0']],'vLLM')
     +(sum(src('Speech'),'req')?card('Speech requests',Math.round(sum(src('Speech'),'req')).toLocaleString(),
       [['Whisper',Math.round(spR('faster-whisper').req||0).toLocaleString()],['Audio',Math.round((spR('faster-whisper').audio||0)/3600).toLocaleString()+' h'],
        ['Diarization',Math.round(spR('speaker-diarization').req||0).toLocaleString()],spR('MOSS').req?['MOSS',Math.round(spR('MOSS').req).toLocaleString()]:null],'Speech'):'')

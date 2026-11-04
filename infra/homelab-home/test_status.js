@@ -227,10 +227,10 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
 
   // assistantSpend: the Spend tab's windows (completed UTC days), split by api_base
   const sqls = [];
-  const asrc = { now: Date.UTC(2026, 10, 4, 13) / 1000, litellmSql: async s => { sqls.push(s); return ['x3|10|0', 'openrouter|2|0.0042']; } };
+  const asrc = { now: Date.UTC(2026, 10, 4, 13) / 1000, litellmSql: async s => { sqls.push(s); return ['x3|10|0|5000', 'openrouter|2|0.0042|800']; } };
   const as = await HS.assistantSpend(asrc);
   check('assistantSpend: month, 30d, 7d, yesterday, each split x3 / openrouter with a local share',
-    as.ok && ['month', '30d', '7d', 'yesterday'].every(w => as.windows[w].x3.calls === 10 && as.windows[w].openrouter.usd === 0.0042 && as.windows[w].localShare === 0.8333), as.windows);
+    as.ok && ['month', '30d', '7d', 'yesterday'].every(w => as.windows[w].x3.calls === 10 && as.windows[w].openrouter.usd === 0.0042 && as.windows[w].localShare === 0.8333 && as.windows[w].x3.tokens === 5000), as.windows);
   check('assistantSpend: windows end at UTC midnight today; 7d starts 7 days before; the X3 is told apart by its address',
     sqls.some(s => s.includes('to_timestamp(' + Date.UTC(2026, 10, 4) / 1000 + ')') && s.includes('to_timestamp(' + Date.UTC(2026, 9, 28) / 1000 + ')')) &&
     sqls.every(s => s.includes("api_base ilike '%100.92.54.65%'") && s.includes("model_group in ('assistant','assistant-cloud')")), sqls[2]);

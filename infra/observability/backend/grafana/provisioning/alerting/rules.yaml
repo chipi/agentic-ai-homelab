@@ -168,7 +168,7 @@ groups:
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min by (instance) (node_memory_MemAvailable_bytes{instance=~"dgx-llm-1|prod-podcast"} / node_memory_MemTotal_bytes)'
+              expr: 'min by (instance) (node_memory_MemAvailable_bytes{instance=~"dgx-llm-1|prod-podcast|x3"} / node_memory_MemTotal_bytes)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -190,7 +190,7 @@ groups:
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min by (instance) (node_memory_MemAvailable_bytes{instance=~"dgx-llm-1|prod-podcast"} / node_memory_MemTotal_bytes)'
+              expr: 'min by (instance) (node_memory_MemAvailable_bytes{instance=~"dgx-llm-1|prod-podcast|x3"} / node_memory_MemTotal_bytes)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -1234,6 +1234,79 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # --- The X3 as a host (2026-11-04, alongside the DGX's and the mini's) --------------
+      # Warning, not critical: the X3 runs the assistant, whose LiteLLM alias fails over to
+      # OpenRouter, and the operator's own work. No logs-dark rule: the X3 logs only when something
+      # runs (171 of 672 15-minute windows in the 7 days to 2026-11-04 had any line), so silence is
+      # normal; x3-host-stale is its heartbeat instead.
+      - uid: x3-silent
+        title: "X3 dark (no samples 10m — off, asleep, or network)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: warning, kind: infra, host: x3, service: host-metrics, environment: operations }
+        annotations:
+          summary: "No node samples from the X3 (omarchy) for 10m: its Alloy (alloy-research) is not pushing, or the box is off or off the tailnet. The assistant runs on the OpenRouter failover meanwhile. On the X3: systemctl --user status alloy-research; tailscale status."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(count_over_time(node_load1{instance="x3"}[10m])) or vector(0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+      - uid: x3-host-stale
+        title: "X3 host collector stale (no push in 10m)"
+        condition: threshold
+        for: 5m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra, host: x3 }
+        annotations:
+          summary: "x3_host_last_push_timestamp is >10m old: the X3's container inventory and unit health (hub Hosts → X3) are stale. On the X3: systemctl --user status x3-host.timer; journalctl --user -u x3-host -n 20 (a refused push logs a line there)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - last_over_time(x3_host_last_push_timestamp[1h])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [600] } }]
+      - uid: x3-gpu-memory-full
+        title: "X3 GPU memory nearly full (>95% of GTT for 15m)"
+        condition: threshold
+        for: 15m
+        noDataState: OK
+        labels: { severity: warning, kind: infra, host: x3 }
+        annotations:
+          summary: "The X3's GPU memory (GTT, 62 GiB) is over 95% used for 15 minutes: models spill to the CPU and swap. Usually an eval-harness run of a big model next to the assistant (peaked at 99.5% in the week to 2026-11-04); infra/x3/AGENTS.md: stop ollama-assistant before a harness model over ~35 GB. Check: curl -s http://127.0.0.1:11434/api/ps on the X3."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(node_drm_memory_gtt_used_bytes{instance="x3"}) / max(node_drm_memory_gtt_size_bytes{instance="x3"})'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.95] } }]
 
       # --- LiteLLM gateway down ----------------------------------------------------
       # The production LLM gateway (infra/litellm). LiteLLM's own /metrics is

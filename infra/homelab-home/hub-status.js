@@ -250,13 +250,13 @@
     const windows = {};
     for (const p of ['month', '30d', '7d', 'yesterday']) {
       const days = p === 'month' ? Math.round((mid - m0) / 86400e3) : SPEND_DAYS[p];
-      const w = { days, x3: { calls: 0, usd: 0 }, openrouter: { calls: 0, usd: 0 } };
+      const w = { days, x3: { calls: 0, usd: 0, tokens: 0 }, openrouter: { calls: 0, usd: 0, tokens: 0 } };
       if (days > 0) {
         const rows = await src.litellmSql(
-          "select case when api_base ilike '%100.92.54.65%' then 'x3' else 'openrouter' end, count(*), coalesce(sum(spend),0) " +
+          "select case when api_base ilike '%100.92.54.65%' then 'x3' else 'openrouter' end, count(*), coalesce(sum(spend),0), coalesce(sum(prompt_tokens),0) + coalesce(sum(completion_tokens),0) " +
           "from \"LiteLLM_SpendLogs\" where model_group in ('assistant','assistant-cloud') " +
           "and \"startTime\" >= to_timestamp(" + (mid - days * 86400e3) / 1000 + ") and \"startTime\" < to_timestamp(" + mid / 1000 + ") group by 1");
-        for (const r of rows) { const [b, c, u] = r.split('|'); if (w[b]) { w[b].calls = +c; w[b].usd = +(+u).toFixed(6); } }
+        for (const r of rows) { const [b, c, u, t] = r.split('|'); if (w[b]) { w[b].calls = +c; w[b].usd = +(+u).toFixed(6); w[b].tokens = +t || 0; } }
       }
       const t = w.x3.calls + w.openrouter.calls;
       w.localShare = t ? +(w.x3.calls / t).toFixed(4) : null;
