@@ -66,7 +66,7 @@
                     },
                     "errors": {
                       "type": "object",
-                      "description": "GlitchTip error issues first seen in the last 24 hours, computed by the hub (complete, newest first): ok, windowHours, newCount, new[] (id = short id, project, title, count = occurrences, firstSeen UTC, status, link). Use this for 'what new errors appeared'; count and list exactly these."
+                      "description": "GlitchTip error issues first seen in the last 24 hours and still open, computed by the hub (complete, newest first): ok, windowHours, newCount, new[] (id = short id, project, title, count = occurrences, firstSeen UTC, status, link), resolvedCount (new ones already resolved or ignored: give the number, do not list them). Use this for 'what new errors appeared'; list exactly the issues in new[]."
                     }
                   }
                 }

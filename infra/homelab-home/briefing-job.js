@@ -133,7 +133,8 @@ function render(b) {
     + sect('Overnight', '<p class=m>Alerts</p>' + (b.alertGroups == null ? NA : (b.alertGroups.length ? '<ul>' + b.alertGroups.map(g => '<li>' + esc(g.name) + (g.instance ? ' (' + esc(g.instance) + ')' : '')
           + ' <span class=m>fired ' + g.fired + '&times;' + (g.resolved ? ', resolved ' + g.resolved + '&times;' : '') + ' · ' + esc(hhmm(g.first)) + (g.last !== g.first ? '–' + esc(hhmm(g.last)) : '') + ' · ' + (g.now === 'firing' ? '<b>still firing</b>' : 'resolved') + '</span></li>').join('') + '</ul>' : '<p>None fired or resolved.</p>'))
       + '<p class=m>Containers started (deploys, restarts)</p>' + (b.restarts == null ? NA : (b.restarts.length ? '<ul>' + b.restarts.map(r => '<li>' + esc(hhmm(r.at)) + ' ' + esc(r.box) + ' · ' + esc(r.name) + '</li>').join('') + '</ul>' : '<p>None.</p>'))
-      + '<p class=m>New GlitchTip issues</p>' + (b.errors == null ? NA : (b.errors.length ? '<ul>' + b.errors.map(e => li({ text: e.id + ' · ' + e.title + ' (' + e.count + ')', link: e.link })).join('') + '</ul>' : '<p>None.</p>')))
+      + '<p class=m>New GlitchTip issues</p>' + (b.errors == null ? NA : (b.errors.length ? '<ul>' + b.errors.map(e => li({ text: e.id + ' · ' + e.title + ' (' + e.count + ')', link: e.link })).join('') + '</ul>' : '<p>None open.</p>'))
+      + (b.resolvedNew ? '<p class=m>plus ' + b.resolvedNew + ' new issue' + (b.resolvedNew > 1 ? 's' : '') + ' already resolved</p>' : ''))
     + sect('Numbers', '<ul><li>OpenRouter yesterday ' + usd(sp.yesterdayUsd) + ' (7-day average ' + usd(sp.avg7dUsd) + ')</li><li>OpenRouter this month ' + usd(sp.monthUsd) + '</li><li>Credit left ' + usd(cr.leftUsd) + '</li></ul>')
     + sect('All green', '<p>' + esc(b.green.join(' · ') || '—') + '</p>')
     + (b.missing.length ? '<p class=m>Not available this morning: ' + esc(b.missing.join('; ')) + '</p>' : '')
@@ -149,7 +150,9 @@ async function main() {
   const safe = async (label, f) => { try { return await f(); } catch (e) { missing.push(label + ': ' + e.message); return null; } };
   const alertChangesL = await safe('alert history', () => alertChanges(from, now));
   const restartsL = await safe('container inventory', () => restarts(from, now));
-  const errors = await safe('GlitchTip', () => newErrors(from));
+  // open new issues are listed; new ones already resolved/ignored only counted (same rule as status.json)
+  const allNew = await safe('GlitchTip', () => newErrors(from));
+  const errors = allNew ? allNew.filter(HS.isOpen) : null, resolvedNew = allNew ? allNew.length - errors.length : null;
   const needs = needsYou(status, errors || []);
   const green = [];
   if (status.sites && status.sites.state === 'up') green.push('sites ' + status.sites.up + '/' + status.sites.total);
@@ -163,11 +166,12 @@ async function main() {
   const facts = { headline, window: windowLabel, needsYou: needs.items.map(x => x.text),
     alerts: groups ? groups.map(g => g.name + ': fired ' + g.fired + ', resolved ' + g.resolved + ', ' + g.now + ' now') : 'not available',
     restarts: restartsL ? restartsL.length : 'not available', newErrors: errors ? errors.map(e => e.id + ' ' + e.title) : 'not available',
+    newErrorsAlreadyResolved: resolvedNew == null ? 'not available' : resolvedNew,
     spend: status.spend, creditLeftUsd: status.credit && status.credit.leftUsd, green };
   const op = await opening(facts);
   if (!op.text) missing.push('opening: ' + op.why);
   const date = now.toLocaleDateString('en-CA');
-  const b = { date, madeAt: now.getTime(), windowLabel, headline, needs, alertChanges: alertChangesL, alertGroups: groups, restarts: restartsL, errors, green, status, opening: op, missing };
+  const b = { date, madeAt: now.getTime(), windowLabel, headline, needs, alertChanges: alertChangesL, alertGroups: groups, restarts: restartsL, errors, resolvedNew, green, status, opening: op, missing };
   const html = render(b);
   S.writeAtomic(path.join(DIR, date + '.html'), html);
   S.writeAtomic(path.join(DIR, date + '.json'), JSON.stringify(b, null, 1));

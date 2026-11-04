@@ -92,8 +92,10 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   ];
   let asked = '';
   const er = await HS.errors(Object.assign(src([]), { glitchtip: async p => { asked = p; return issues; } }));
-  check('errors: only issues first seen in 24 h, with project, count and status', er.ok && er.newCount === 2 &&
-    er.new.map(x => x.id).join() === 'NEW-2,NEW-1' && er.new[0].project === 'p2' && er.new[0].count === 4 && er.new[1].status === 'resolved', er);
+  check('errors: open issues first seen in 24 h are listed, with project and count', er.ok && er.newCount === 1 &&
+    er.new.map(x => x.id).join() === 'NEW-2' && er.new[0].project === 'p2' && er.new[0].count === 4, er);
+  check('errors: new issues already resolved are counted, not listed', er.resolvedCount === 1 && !er.new.some(x => x.status === 'resolved'), er);
+  check('isOpen: unresolved is open; resolved and ignored are not', HS.isOpen({ status: 'unresolved' }) && !HS.isOpen({ status: 'resolved' }) && !HS.isOpen({ status: 'ignored' }));
   check('errors: asks newest-first, all statuses, up to 100', asked.includes('sort=-first_seen') && asked.includes('limit=100') && asked.includes('query=&'), asked);
   const nosrc = await HS.errors(src([]));
   check('errors: without a GlitchTip source (the page) it says so, no throw', nosrc.ok === false && nosrc.reason, nosrc);

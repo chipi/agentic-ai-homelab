@@ -150,10 +150,13 @@
       .map(i => ({ id: i.shortId, project: (i.project || {}).slug || null, title: i.title, count: +i.count || 0,
                    firstSeen: i.firstSeen, status: i.status || null, link: 'https://glitchtip.tail6d0ed4.ts.net/homelab/issues/' + i.id }));
   }
+  // Open = still unresolved. New issues already resolved or ignored are counted, not listed: they need
+  // nobody, and listing them made the assistant's answers differ run to run (operator, 2026-11-04).
+  const isOpen = i => i.status === 'unresolved';
   async function errors(src) {
     if (!src.glitchtip) return { ok: false, reason: 'no GlitchTip source' };
-    const list = await newIssues(src, src.now - 86400);
-    return { ok: true, windowHours: 24, newCount: list.length, new: list };
+    const list = await newIssues(src, src.now - 86400), open = list.filter(isOpen);
+    return { ok: true, windowHours: 24, newCount: open.length, new: open, resolvedCount: list.length - open.length };
   }
 
   // Everything, with when it was taken; each area isolated so one failing source does not hide the rest.
@@ -166,7 +169,7 @@
     return out;
   }
 
-  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, all, AREAS };
+  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, all, AREAS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HubStatus = api;
 })(typeof window !== 'undefined' ? window : globalThis);
