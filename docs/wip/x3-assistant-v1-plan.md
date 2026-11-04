@@ -202,6 +202,36 @@ the start of the later evaluation.
 Note for phase 10: Home Assistant speaks the Ollama API, so its calls bypass LiteLLM (no failover,
 no Langfuse trace). Accepted for home use, or revisited in step 3.
 
+**Progress (2026-11-04):**
+
+- **Phase 8, Grafana — done.** `grafana-llm-app` 1.0.8 (the last version for Grafana < 13), provider
+  `custom` → `litellm:4000` (Grafana joins `litellm_default`), base and large → `assistant`, key
+  `grafana-llm` ($2). Plugin health OK; a call through it is served by `assistant`. On 11.6 it powers
+  generated panel/dashboard titles and descriptions and the change summary on save. Use case shown:
+  131 of 316 panels (41%) have no description; the Mac mini dashboard's 13 got one each in ~11 s,
+  12 correct, 1 slightly wrong (a ratio called a percentage). Not written back to the dashboards yet
+  (a reviewed repo change).
+- **Phase 9, Langfuse — done.** LLM connection `homelab-gateway` (model `assistant`, key
+  `langfuse-judge`, $2) through `host.docker.internal:4001`, which Langfuse allows only with
+  `LANGFUSE_LLM_CONNECTION_WHITELISTED_HOST/_IPS` (compose). Default evaluation model = `assistant`
+  (max_tokens 3000: at 800 the judge's answer was cut and the job failed with "No output generated").
+  Evaluator `briefing-faithfulness` (built-in Faithfulness v2, context = trace input, answer = trace
+  output) on traces tagged `hub-briefing` (the briefing now names its calls). First score: 0.78, with
+  the two wrong claims named: "prod origin remains unreachable" (resolved) and "two timeouts" (three).
+  The connection, default model and evaluator were set through Langfuse's API and web-app API; they
+  are not yet in a repo script.
+- **Phase 10, Home Assistant — waiting** for the home-automation session (HA's config is theirs):
+  the plan and questions were sent 2026-11-04. HA reaches the X3 model (HTTP 200). The integration
+  must pin `qwen3:30b-a3b-instruct-2507-q4_K_M`: the same Ollama lists the eval harness's large models,
+  and loading one would evict the assistant.
+- **GlitchTip and Umami** have no built-in LLM features; they join as read-only tools in the chat UIs
+  (phase 7, wave 2).
+
+**For the evaluation (with the eval harness, at the end):** besides the chat sets (H4/H5 runner in
+`infra/x3/assistant-ui-eval/`), evaluate these tool use cases: Grafana panel descriptions (correct
+metric, unit and reading, against the panel's query), briefing faithfulness (the Langfuse judge's
+scores against a labelled set), and Home Assistant answers (against entity states at the time).
+
 # Step 3 — use cases rebuilt around the tools
 
 With step 2 running, go through the use cases and move each to where it works best, for example:
