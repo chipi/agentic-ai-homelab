@@ -143,7 +143,8 @@ The dataset, labels and replay exist; a change to the prompt or a gate is one mo
 
 1. Commit the change in signal-fleet; point `TRIAGE_FLEET_SRC` at that checkout.
 2. Add an arm config in `examples/triage-fleet/configs/` with the baseline model (`eval-fleet-triage-pro`).
-3. `evh experiment-run --config <it>` over `orrery_triage_v1`; `evh goals --goal triage_orrery` compares it with the
+3. `evh run --config <it> --repeat 3` (there is no `evh experiment-run`; corrected 2026-11-04) over the labelled set;
+   `evh goals --goal triage_orrery` compares it with the
    baseline arm on `triage_cost` (deciding: a missed real problem costs 5 false alarms), with `false_alarm`
    under its ceiling, `false_dismiss`, `escalated` and cost beside it.
 4. Read the per-evidence-level breakdown in the inspector: only `exact` items are what production's model saw.
