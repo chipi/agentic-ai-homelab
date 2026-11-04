@@ -31,8 +31,10 @@ const clockTimes = t => [...t.replace(/\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d)?(\.\d+)?
               return String(h).padStart(2, "0") + ":" + m[2]; });
 // precision: every time in the answer is the time of an event in evs (default: the whole timeline) or one the question names
 // the timeline's events, flat: grouped by kind since 2026-11-04 (byKind), one list before (events, with source)
-const allEvents = s => s.timeline.byKind ? Object.values(s.timeline.byKind).flat() : s.timeline.events;
-const ofKind = (s, k) => s.timeline.byKind ? s.timeline.byKind[k] || [] : s.timeline.events.filter(e => k === "alert" ? e.source === "alert" : e.source === "ops_event" && e.what.startsWith(k + " "));
+// events as {at, local, what, ref}: since 2026-11-04 each is one line "<local> — <what> — <ref>" (what may hold " — ")
+const SEP = " — ", norm = e => !e.line ? e : { ...e, local: e.line.slice(0, e.line.indexOf(SEP)), what: e.line.slice(e.line.indexOf(SEP) + 3, e.line.lastIndexOf(SEP)), ref: e.line.slice(e.line.lastIndexOf(SEP) + 3) };
+const allEvents = s => (s.timeline.byKind ? Object.values(s.timeline.byKind).flat() : s.timeline.events).map(norm);
+const ofKind = (s, k) => s.timeline.byKind ? (s.timeline.byKind[k] || []).map(norm) : s.timeline.events.filter(e => k === "alert" ? e.source === "alert" : e.source === "ops_event" && e.what.startsWith(k + " "));
 const traceable = (s, q, evs = allEvents(s)) => { const ok = new Set([...evs.map(e => hhmm(e.local)), ...clockTimes(q)]);
   return { kind: "pred", label: "every time given is in the timeline", test: a => clockTimes(a).every(t => ok.has(t)), want: "times from timeline.json only" }; };
 // completeness: each event by its local time, and alerts also by their Grafana annotation id (the ref)

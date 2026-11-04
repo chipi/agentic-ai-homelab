@@ -217,10 +217,14 @@
     events.sort((a, b) => a.at - b.at);
     const [n0, n1] = lastNightWindow(toMs), byKind = {};
     KINDS.forEach(k => { byKind[k] = []; });
-    // local: the operator's clock (the job's time zone), so the model never converts time zones
+    // line: the finished timeline line, "<local time> — <what> — <ref>", on the operator's clock (the job's
+    // time zone). Built from three fields, the model dropped refs, dropped times and paired real refs with
+    // invented times (2026-11-04, 4 runs); copying a line it picked is the whole task now.
     for (const e of events) {
-      const { kind, ...rest } = e;
-      (byKind[kind] = byKind[kind] || []).push(Object.assign(rest, { at: new Date(e.at).toISOString(), local: localTime(e.at) }, e.at >= n0 && e.at < n1 ? { lastNight: true } : {}));
+      const ev = { at: new Date(e.at).toISOString(), line: localTime(e.at) + ' — ' + e.what + ' — ' + e.ref };
+      if (e.severity) ev.severity = e.severity;
+      if (e.at >= n0 && e.at < n1) ev.lastNight = true;
+      (byKind[e.kind] = byKind[e.kind] || []).push(ev);
     }
     return { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString(), count: events.length,
              lastNight: { from: new Date(n0).toISOString(), to: new Date(n1).toISOString(), local: localTime(n0) + ' to ' + localTime(n1) },

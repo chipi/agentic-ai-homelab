@@ -121,12 +121,14 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
     glitchtip: async () => issues,
   });
   const flat = t => Object.values(t.byKind).flat();
+  // a line is '<local> — <what> — <ref>'; what may itself hold ' — ' ("DR drill — exercise"), a ref never does
+  const SEP = ' — ', LOC = e => e.line.slice(0, e.line.indexOf(SEP)), REF = e => e.line.slice(e.line.lastIndexOf(SEP) + 3), WHAT = e => e.line.slice(e.line.indexOf(SEP) + 3, e.line.lastIndexOf(SEP));
   const tl = await HS.timeline(tsrc, ms(NOW - 3600), ms(NOW));
   check('timeline: grouped by kind, each kind oldest first, every kind present', Object.keys(tl.byKind).join() === 'alert,deploy,backup,drill,drift,ci_failure,error,container_start' &&
-    tl.byKind.alert.map(e => e.ref).join() === 'Grafana annotation 11,Grafana annotation 12' && tl.byKind.deploy.length === 1 && tl.byKind.error.length === 1 && tl.byKind.container_start.length === 1 && tl.byKind.backup.length === 0, tl.byKind);
+    tl.byKind.alert.map(REF).join() === 'Grafana annotation 11,Grafana annotation 12' && tl.byKind.deploy.length === 1 && tl.byKind.error.length === 1 && tl.byKind.container_start.length === 1 && tl.byKind.backup.length === 0, tl.byKind);
   check('timeline: counts per kind match the lists', Object.entries(tl.counts).every(([k, n]) => tl.byKind[k].length === n) && tl.count === flat(tl).length, tl.counts);
-  check('timeline: every event has an ISO time, what and a ref', flat(tl).every(e => /Z$/.test(e.at) && e.what && e.ref), flat(tl));
-  check('timeline: events outside the window are left out', !flat(tl).some(e => /too old/.test(e.what)), flat(tl));
+  check('timeline: every event has an ISO time, what and a ref', flat(tl).every(e => /Z$/.test(e.at) && WHAT(e) && REF(e) && e.line.split(SEP).length >= 3), flat(tl));
+  check('timeline: events outside the window are left out', !flat(tl).some(e => /too old/.test(WHAT(e))), flat(tl));
   check('timeline: the container start is now minus its uptime', tl.byKind.container_start[0].at === iso(NOW - 1500), tl.byKind.container_start);
   check('timeline: only failed CI runs are asked for', /event_type:ci_run status:failure/.test(logsAsked[0]) && /deploy OR backup OR drill OR drift/.test(logsAsked[0]), logsAsked);
   const prov = await HS.alertChanges({ annotations: async () => [{ id: 21, time: ms(NOW - 100), alertName: 'Cloudflare incident on a component we use', newState: 'Alerting', prevState: 'Pending',
@@ -137,8 +139,8 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
     text: 'x {alertname=Cloudflare cannot reach the prod origin, sustained across hosts, host=prod-podcast, instance=homelab, link=https://e.x/1, severity=warning}' }] }), ms(NOW - 3600), ms(NOW));
   const pe = tlProv.byKind.alert[0];
   check('timeline: an alert names its host before the collector instance, and its ref carries the annotation id and link',
-    /on prod-podcast$/.test(pe.what) && pe.ref === 'Grafana annotation 22, https://e.x/1', pe);
-  check('timeline: every event has a local time', flat(tlProv).every(e => /^\w{3} \d{1,2} \w{3}, \d\d:\d\d$/.test(e.local)), flat(tlProv).map(e => e.local));
+    /on prod-podcast$/.test(WHAT(pe)) && REF(pe) === 'Grafana annotation 22, https://e.x/1', pe);
+  check('timeline: every event has a local time', flat(tlProv).every(e => /^\w{3} \d{1,2} \w{3}, \d\d:\d\d$/.test(LOC(e))), flat(tlProv).map(LOC));
   const tlBad = await HS.timeline(Object.assign({}, tsrc, { logs: async () => { throw new Error('vlogs down'); } }), ms(NOW - 3600), ms(NOW));
   check('timeline: a failing source is named in missing, the rest still there', tlBad.missing.length === 1 && /ops events.*vlogs down/.test(tlBad.missing[0]) && tlBad.byKind.alert.length === 2, tlBad.missing);
 
@@ -149,7 +151,7 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   let tn = await HS.timeline(nightSrc(L(4, 11)), L(2, 11), L(4, 11));
   check('timeline: at 11:00 last night is yesterday 19:00 to today 07:00, its events flagged',
     tn.lastNight.from === new Date(L(3, 19)).toISOString() && tn.lastNight.to === new Date(L(4, 7)).toISOString() &&
-    tn.byKind.alert.filter(e => e.lastNight).map(e => e.ref).join() === 'Grafana annotation 32,Grafana annotation 33', tn);
+    tn.byKind.alert.filter(e => e.lastNight).map(REF).join() === 'Grafana annotation 32,Grafana annotation 33', tn);
   tn = await HS.timeline(nightSrc(L(4, 6)), L(2, 6), L(4, 6));
   check('timeline: at 06:00 the night still running is not "last night"; the one before is', tn.lastNight.to === new Date(L(3, 7)).toISOString() && !tn.byKind.alert.some(e => e.lastNight), tn.lastNight);
   check('timeline: lastNight has its local label', /^\w{3} \d{1,2} \w{3}, 19:00 to \w{3} \d{1,2} \w{3}, 07:00$/.test(tn.lastNight.local), tn.lastNight.local);

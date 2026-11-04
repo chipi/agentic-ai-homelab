@@ -80,7 +80,7 @@
       "get": {
         "operationId": "getIncidentTimeline",
         "summary": "What happened in the last 48 hours, grouped by kind (alert, deploy, backup, drill, drift, ci_failure, error, container_start), each kind oldest first, with last night already worked out",
-        "description": "Written every 5 minutes by the hub, from the sources themselves. Use it to draft an incident timeline or answer 'what happened last night'. Take the kind the question asks about from byKind (deploys: byKind.deploy; alerts: byKind.alert) and list every entry of it that matches, nothing from elsewhere. For 'last night' use only entries with lastNight: true (the window is in lastNight.local). Give each line its `local` time exactly as written (never convert `at`), what happened, and its `ref`. An alert that fired and later resolved is over. `missing` names sources that could not be read: say so instead of claiming nothing happened.",
+        "description": "Written every 5 minutes by the hub, from the sources themselves. Use it to draft an incident timeline or answer 'what happened last night'. Take the kind the question asks about from byKind (deploys: byKind.deploy; alerts: byKind.alert) and list every entry of it that matches, nothing from elsewhere. For 'last night' use only entries with lastNight: true (the window is in lastNight.local). Answer with each chosen entry's `line`, copied exactly as written, one per line, oldest first: it already holds the time on the operator's clock, what happened and where to find it. Never write a time or an event that is not in a line. An alert that fired and later resolved is over. `missing` names sources that could not be read: say so instead of claiming nothing happened.",
         "responses": {
           "200": {
             "description": "The timeline",
@@ -126,13 +126,9 @@
                                 "type": "string",
                                 "description": "UTC, ISO 8601 (do not quote it as the time)"
                               },
-                              "local": {
+                              "line": {
                                 "type": "string",
-                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
-                              },
-                              "what": {
-                                "type": "string",
-                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
                               },
                               "severity": {
                                 "type": "string",
@@ -141,10 +137,6 @@
                               "lastNight": {
                                 "type": "boolean",
                                 "description": "Present (true) when the event falls in lastNight"
-                              },
-                              "ref": {
-                                "type": "string",
-                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
                               }
                             }
                           },
@@ -159,13 +151,9 @@
                                 "type": "string",
                                 "description": "UTC, ISO 8601 (do not quote it as the time)"
                               },
-                              "local": {
+                              "line": {
                                 "type": "string",
-                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
-                              },
-                              "what": {
-                                "type": "string",
-                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
                               },
                               "severity": {
                                 "type": "string",
@@ -174,10 +162,6 @@
                               "lastNight": {
                                 "type": "boolean",
                                 "description": "Present (true) when the event falls in lastNight"
-                              },
-                              "ref": {
-                                "type": "string",
-                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
                               }
                             }
                           },
@@ -192,13 +176,9 @@
                                 "type": "string",
                                 "description": "UTC, ISO 8601 (do not quote it as the time)"
                               },
-                              "local": {
+                              "line": {
                                 "type": "string",
-                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
-                              },
-                              "what": {
-                                "type": "string",
-                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
                               },
                               "severity": {
                                 "type": "string",
@@ -207,10 +187,6 @@
                               "lastNight": {
                                 "type": "boolean",
                                 "description": "Present (true) when the event falls in lastNight"
-                              },
-                              "ref": {
-                                "type": "string",
-                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
                               }
                             }
                           },
@@ -225,13 +201,9 @@
                                 "type": "string",
                                 "description": "UTC, ISO 8601 (do not quote it as the time)"
                               },
-                              "local": {
+                              "line": {
                                 "type": "string",
-                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
-                              },
-                              "what": {
-                                "type": "string",
-                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
                               },
                               "severity": {
                                 "type": "string",
@@ -240,10 +212,6 @@
                               "lastNight": {
                                 "type": "boolean",
                                 "description": "Present (true) when the event falls in lastNight"
-                              },
-                              "ref": {
-                                "type": "string",
-                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
                               }
                             }
                           },
@@ -258,13 +226,9 @@
                                 "type": "string",
                                 "description": "UTC, ISO 8601 (do not quote it as the time)"
                               },
-                              "local": {
+                              "line": {
                                 "type": "string",
-                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
-                              },
-                              "what": {
-                                "type": "string",
-                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
                               },
                               "severity": {
                                 "type": "string",
@@ -273,10 +237,6 @@
                               "lastNight": {
                                 "type": "boolean",
                                 "description": "Present (true) when the event falls in lastNight"
-                              },
-                              "ref": {
-                                "type": "string",
-                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
                               }
                             }
                           },
@@ -291,13 +251,9 @@
                                 "type": "string",
                                 "description": "UTC, ISO 8601 (do not quote it as the time)"
                               },
-                              "local": {
+                              "line": {
                                 "type": "string",
-                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
-                              },
-                              "what": {
-                                "type": "string",
-                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
                               },
                               "severity": {
                                 "type": "string",
@@ -306,10 +262,6 @@
                               "lastNight": {
                                 "type": "boolean",
                                 "description": "Present (true) when the event falls in lastNight"
-                              },
-                              "ref": {
-                                "type": "string",
-                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
                               }
                             }
                           },
@@ -324,13 +276,9 @@
                                 "type": "string",
                                 "description": "UTC, ISO 8601 (do not quote it as the time)"
                               },
-                              "local": {
+                              "line": {
                                 "type": "string",
-                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
-                              },
-                              "what": {
-                                "type": "string",
-                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
                               },
                               "severity": {
                                 "type": "string",
@@ -339,10 +287,6 @@
                               "lastNight": {
                                 "type": "boolean",
                                 "description": "Present (true) when the event falls in lastNight"
-                              },
-                              "ref": {
-                                "type": "string",
-                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
                               }
                             }
                           },
@@ -357,13 +301,9 @@
                                 "type": "string",
                                 "description": "UTC, ISO 8601 (do not quote it as the time)"
                               },
-                              "local": {
+                              "line": {
                                 "type": "string",
-                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
-                              },
-                              "what": {
-                                "type": "string",
-                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                                "description": "The finished timeline line: '<time on the operator's clock> — <what happened> — <ref, where to find it>'. Copy it exactly as written."
                               },
                               "severity": {
                                 "type": "string",
@@ -372,10 +312,6 @@
                               "lastNight": {
                                 "type": "boolean",
                                 "description": "Present (true) when the event falls in lastNight"
-                              },
-                              "ref": {
-                                "type": "string",
-                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
                               }
                             }
                           },
