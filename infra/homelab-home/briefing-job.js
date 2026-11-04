@@ -109,7 +109,9 @@ async function opening(facts) {
     const d = await S.getJson(S.URLS.litellm + '/v1/chat/completions', {
       onHeaders: h => { served = where(h); },
       method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: 160, messages: [
+      // named in Langfuse (LiteLLM passes these through), so its faithfulness evaluator can target them
+      body: JSON.stringify({ model: MODEL, temperature: 0.2, max_tokens: 160,
+        metadata: { trace_name: 'hub-briefing', generation_name: 'briefing-opening', tags: ['hub-briefing'] }, messages: [
         { role: 'system', content: 'You write the opening of a morning operations briefing for one person who runs a homelab and a few web products. Two sentences, plain English, no greeting, no lists. Use only the facts given; do not add or change any number, name or time. Overnight events are over: describe them in the past tense, and call something current only when the facts list it as current. Lead with what needs attention; if nothing does, say so.' },
         { role: 'user', content: JSON.stringify(facts) }] }),
     }, 60000);
