@@ -8,7 +8,7 @@ After=network-online.target
 # tag:homelab-host in). Binding fails while tailscaled is down, so it restarts until the address exists.
 Environment=OLLAMA_HOST=100.92.54.65:11435
 Environment=OLLAMA_MODELS=%h/.ollama/models
-Environment=OLLAMA_CONTEXT_LENGTH=32768
+Environment=OLLAMA_CONTEXT_LENGTH=65536
 Environment=OLLAMA_KEEP_ALIVE=-1
 Environment=OLLAMA_MAX_LOADED_MODELS=1
 Environment='LOAD={"model":"qwen3:30b-a3b-instruct-2507-q4_K_M","keep_alive":-1}'
