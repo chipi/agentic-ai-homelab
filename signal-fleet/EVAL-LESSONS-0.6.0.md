@@ -1,6 +1,6 @@
 # What the triage-fleet evaluation teaches the fleet itself
 
-**Status:** living, 2026-10-30. Final once the v1 run has its results (section 6). Written to be handed to an agent
+**Status:** living, 2026-10-30; section 7 (2026-11-04) answers section 6 and corrects F1, F3 and F7. Written to be handed to an agent
 that will improve the homelab triage fleet (signal-fleet, Fleet 2) on its own, outside eval-harness.
 
 **Provenance:** moved here from eval-harness on 2026-11-04 (the owner's instruction), unchanged; the original is
@@ -26,7 +26,7 @@ fleet's production decisions showed. Every number below was measured; the comman
 
 ## 2. Findings about the fleet
 
-### F1. The dismiss gate makes most escalations, not the model
+### F1. The dismiss gate makes most escalations, not the model (corrected in section 7)
 
 - **Measured:** of production's 49 escalations, **39 begin "dismiss gate: no independent corroborating probe"**: the
   model decided `dismiss` and `triage._dismiss_gate` turned it into `escalate`. 4 more are the cleanup gate; **6**
@@ -83,7 +83,7 @@ fleet's production decisions showed. Every number below was measured; the comman
   stale-client errors on a weeks-old release (F3), 6 deploy chunk-skew errors from builds without the fix, and 1
   injected browser extension (F1).
 
-### F7. An empty reply on the last turn crashes the decision
+### F7. An empty reply on the last turn crashes the decision (corrected in section 7; fixed in e2fbd6a)
 
 - `triage.investigate()` retries a turn whose reply is empty (`continue`). On the last turn there is no turn
   left, the loop ends, and the function returns `None`; `triage()` returns it, and acting on it fails.
@@ -155,6 +155,81 @@ The dataset, labels and replay exist; a change to the prompt or a gate is one mo
   all of them hit the same walls (then the prompt and gate are the lever, not the model)?
 - F6 re-measured on the final labels.
 - Which suggestions above the results support, with numbers.
+
+## 7. What the fleet session measured and changed (2026-11-04)
+
+Measured in eval-harness round r4 of the goal `triage_orrery`, on `orrery_triage_v1_labelled_v2` (below): the
+same 65 owner-labelled decisions, production's model (`eval-fleet-triage-pro`) on every arm, only the fleet's code
+changing. Each arm ran 3 passes; each comparison is a paired sign-flip test by item, each side the mean of its 3
+passes. `triage_cost` counts a missed real problem as 5 false alarms. Runs: chipi/eval-harness branch 062 (data
+under `harness/data/runs/triage_*_2026110*`).
+
+### Answer to section 6: the model is not the lever
+
+80+ model arms on v1 found none significantly better than production's model on `triage_cost`. The changes that
+moved it were to the fleet's brief.
+
+### Corrections to F1 and F7
+
+- **F1 (the dismiss gate) is not mainly a cost.** On v1, production's model saw the gate fire on 20 decisions:
+  12 where it had dismissed a real problem (the gate saved it) and 8 where it had dismissed noise rightly (the gate
+  made a false alarm). At 5 false alarms per miss, loosening the gate as suggestion 1 has it would lose more than it
+  gains. But 7 of the 12 saves were an artifact of v1 (next point).
+- **v1 held hindsight.** 7 of the model's 18 false dismissals on v1 cited a probe answer production never saw:
+  "GlitchTip issue X no longer exists". v1's rebuild also took `lastSeen` from the browser-set event timestamp
+  (2023-11-14 on four items, midnight on ten) and, on 13 of 233 items, a `lastRelease` created after the decision.
+  v2 (`signal-fleet/datasets/build_orrery_items_v2.py`, published as revision `v2` of `chipi-nbgd/orrery-triage`)
+  removes them and records each change in `provenance.v2`. On the 15 affected labelled items the model's own false
+  dismissals fell from 0.94 to 0.21 (p 0.002); the fleet's final decisions did not change (the gate had caught them).
+  `provenance` still quotes what was removed: never give it to a model as evidence.
+- **F7 did not crash production; it hid.** The orchestrator reads `None` as "deferred" but counted nothing, so the
+  signal was re-triaged, and paid for, every cycle and never escalated. A reply that never parsed as JSON took the
+  same path. Fixed in `e2fbd6a`: an empty last reply defers (counted, escalated after 6 cycles), an unparseable one
+  is the "no terminal decision" escalation.
+- **F3 (release age) does not separate the cases it was meant to.** ORRERY-PROD-1P (real) and -1V (noise) carry
+  the same build age; what differs is whether a fix had shipped by then, which the filing stage knows and the model
+  does not. A stale-client rule in filing would have changed 3 of the fleet's 63 real reopens and regressions
+  (`signal-fleet/mvp/freeze_stale_client.py`, not committed): parked.
+
+### Shipped: the app failing to load its own code is a real problem (prompt `219b34bf`)
+
+The brief called a failed dynamic import or service-worker load a client network transient to dismiss. The
+operator's rule: a problem is to be fixed, and once fixed it should not be seen again. All 13 labelled decisions of
+that class are real. `a7dfcd2` files them; CSS-preload and plain fetch failures stay dismissable.
+
+| against production (v2, 3 v 3) | before | after | p |
+|---|---:|---:|---:|
+| `triage_cost` | 0.872 | 0.446 | 0.0011 (better on 11 items, worse on 1) |
+| missed real problems (`false_dismiss`, of 34) | 0.206 | 0.059 | 0.016 |
+| escalations to the operator (of 65) | 0.292 | 0.118 | 0.0001 |
+| false alarms (of 31) | 0.699 | 0.613 | 0.13 (not worse) |
+
+Its hypothesis was recorded in the commit before the run, and held: ORRERY-5, -7, -PROD-3, -PROD-G filed in 3 of
+3 passes; the CSS-preload noise was not filed. One noise item got worse (ORRERY-U). Without the 15 hindsight items
+the effect holds (-0.453, p 0.0018). Deployed 2026-11-04 16:30 UTC (`8213775`, `DEPLOY PASS`).
+
+### Measured, not shipped
+
+- **Naming the client noise the operator closes** (`13856f9`: injected extension code, a browser too old for the
+  bundle, a mirrored bundle) moved the model (its own false alarms 0.376 → 0.226, p 0.049) and not the fleet
+  (`triage_cost` p 0.22; escalations 0.292 → 0.390, p 0.017, worse): the gate escalated the new dismissals.
+- **The same, with the gate taking a deterministic marker of that noise as corroboration** (`01226ca`, on top of
+  what ships): the targeted items became right dismissals in 3 of 3 passes, but against what ships `triage_cost`
+  was +0.056 (p 0.48) and escalations +0.077 (p 0.019, worse). Its recorded prediction failed: four real problems
+  turned cleanup or dismiss in 1 of 3 passes each, and the mirrored-bundle sentence made the model call four
+  CSS-preload decisions cleanup, which the cleanup gate escalates. A smaller version (the gate and two classes,
+  no mirror sentence) was designed after reading these 65 items, so it is to be confirmed on decisions made from
+  now on, not on these.
+
+### Not covered by this section
+
+- One model, one project (Orrery), GlitchTip errors only; 65 decisions, of which 30 are `exact`.
+- No held-out set: every change was designed and measured on the same 65 decisions. The shipped change was named
+  from the gate analysis before its run; the rest were not tested on unseen data.
+- The live effect is not observed yet: no new signal reached the fleet in the first hour after the deploy.
+- ORRERY-S (real) was dismissed in 3 of 3 v2 baseline passes against 1 of 3 on v1; its evidence differs only in the
+  wording of the store-unavailable answers. Whether that wording moves the model is not separated from its own
+  pass-to-pass variation at k=3.
 
 ## Not covered
 

@@ -14,6 +14,14 @@ start, and what is already known about improving the fleet. The homelab session 
    found, moved here today from eval-harness at the owner's instruction (original: chipi/eval-harness
    `d42e0437c`, `research/internal/TRIAGE_FLEET_LESSONS_0.6.0.md`).
 
+## Status (fleet session, 2026-11-04 evening)
+
+F7 is fixed and one brief change is shipped (`8213775`, deployed 16:30 UTC): the app failing to load its own code
+is filed, not dismissed (`triage_cost` 0.872 → 0.446, p 0.0011, on v2 of the labelled set). F1, F3 and F7 below
+are corrected by measurement in `signal-fleet/EVAL-LESSONS-0.6.0.md` section 7, which also has the two changes
+measured and parked. The dataset's v2 (without the v1 rebuild's hindsight) is on Hugging Face and in eval-harness
+062. Open items are in NEXT_STEPS, Fleets, marked "(fleet session)".
+
 ## What is already known to improve (from EVAL-LESSONS-0.6.0.md)
 
 - **F7, a crash with its fix named:** an empty reply on the last turn makes `triage.investigate()` return
