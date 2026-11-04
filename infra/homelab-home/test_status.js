@@ -186,12 +186,18 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
         { ts: iso(NOW - 3600), disposition: 'escalate', fingerprint: 'glitchtip:X-1', alertname: 'boom', reason: 'gate: no corroboration' },
         { ts: iso(NOW - 8 * 86400), disposition: 'escalate', fingerprint: 'glitchtip:X-2', alertname: 'old', reason: 'r' },
         { ts: iso(NOW - 600), disposition: 'dismiss', fingerprint: 'glitchtip:X-3', alertname: 'noise', reason: 'r' },
-        { ts: iso(NOW - 300), disposition: 'escalate', fingerprint: 'grafana:zz', alertname: 'never filed', reason: 'r' }],
+        { ts: iso(NOW - 300), disposition: 'escalate', fingerprint: 'grafana:zz', alertname: 'never filed', reason: 'r' },
+        { ts: iso(NOW - 200), disposition: 'escalate', fingerprint: 'glitchtip:X-4', alertname: 'closed one', reason: 'r' },
+        { ts: iso(NOW - 100), disposition: 'escalate', fingerprint: 'glitchtip:X-5', alertname: 'unreadable one', reason: 'r' }],
       filed: [{ fingerprint: 'glitchtip:X-1', repo: 'chipi/a', issue: '5', filed_at: '2026-08-01' },
-              { fingerprint: 'glitchtip:X-1', repo: 'chipi/a', issue: '9', filed_at: '2026-08-20' }],
+              { fingerprint: 'glitchtip:X-1', repo: 'chipi/a', issue: '9', filed_at: '2026-08-20' },
+              { fingerprint: 'glitchtip:X-4', repo: 'chipi/a', issue: '11', filed_at: '2026-11-01' },
+              { fingerprint: 'glitchtip:X-5', repo: 'chipi/a', issue: '12', filed_at: '2026-11-01' }],
       queue: [{ kind: 'bug', title: 'a bug', fingerprint: 'glitchtip:Y-1', queued_at: iso(NOW - 100) }, { kind: 'cleanup', title: 'c', fingerprint: 'f' }] }),
     github: async p => {
       if (p === '/repos/chipi/a/issues/9') return { state: 'open', title: 'boom issue' };
+      if (p === '/repos/chipi/a/issues/11') return { state: 'closed', title: 'done' };
+      if (p === '/repos/chipi/a/issues/12') throw new Error('HTTP 502');
       if (p.startsWith('/repos/chipi/a/issues?')) return [{ number: 9, title: 'boom issue', html_url: 'https://github.com/chipi/a/issues/9', created_at: iso(NOW - 2 * 86400) },
                                                        { number: 3, title: 'a PR', pull_request: {}, html_url: 'x', created_at: iso(NOW) }];
       if (p.startsWith('/repos/chipi/b/')) throw new Error('HTTP 404');
@@ -199,7 +205,8 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
     } };
   const fq = await HS.fleetQueue(fsrc);
   check('fleetQueue: escalations of the last 7 days only, plus bug-queue proposals; dismissals and cleanup left out',
-    fq.ok && fq.escalations7d.map(e => e.signal).join() === 'boom,never filed' && fq.bugQueue.map(b => b.title).join() === 'a bug' && fq.needsYou === 3, fq);
+    fq.ok && fq.escalations7d.map(e => e.signal).join() === 'boom,never filed,unreadable one' && fq.bugQueue.map(b => b.title).join() === 'a bug' && fq.needsYou === 4, fq);
+  check('fleetQueue: an escalation whose issue is closed is not counted; one GitHub cannot read is', !fq.escalations7d.some(e => e.signal === 'closed one') && fq.escalations7d.find(e => e.signal === 'unreadable one').issue.state === null, fq.escalations7d);
   check('fleetQueue: an escalation links to the NEWEST filed issue of its fingerprint, with state and title',
     fq.escalations7d[0].issue.number === 9 && fq.escalations7d[0].issue.url === 'https://github.com/chipi/a/issues/9' && fq.escalations7d[0].issue.state === 'open', fq.escalations7d[0]);
   check('fleetQueue: an escalation the fleet never filed has issue null, not a guess', fq.escalations7d[1].issue === null, fq.escalations7d[1]);
@@ -208,7 +215,7 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('fleetQueue: without fleet files (the page) it says so', (await HS.fleetQueue({ now: NOW })).ok === false);
   check('fleetQueue: exactly one needs-you line per counted item, each saying its issue state or "no issue filed"',
     fq.needsYouLines.length === fq.needsYou && /chipi\/a#9 \(open\) https:\/\/github.com\/chipi\/a\/issues\/9$/.test(fq.needsYouLines[0]) &&
-    /no issue filed$/.test(fq.needsYouLines[1]) && /^bug proposal waiting for your yes: a bug$/.test(fq.needsYouLines[2]), fq.needsYouLines);
+    /no issue filed$/.test(fq.needsYouLines[1]) && /\(state unknown\) https/.test(fq.needsYouLines[2]) && /^bug proposal waiting for your yes: a bug$/.test(fq.needsYouLines[fq.needsYouLines.length - 1]), fq.needsYouLines);
   check('fleetQueue: one open-escalated line per open issue, with its age and link', fq.openEscalatedLines.length === fq.openEscalatedCount &&
     fq.openEscalatedLines[0] === 'chipi/a#9 — boom issue — open 2 days — https://github.com/chipi/a/issues/9', fq.openEscalatedLines);
 

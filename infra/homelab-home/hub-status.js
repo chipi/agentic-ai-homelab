@@ -259,6 +259,9 @@
                                      .sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))) {
       const f = filedFor(r.fingerprint);
       const gi = f ? await issue(f.repo, f.issue) : null;
+      // "needs me" is open, not closed (operator, 2026-11-04; the fleet counts the same since 6a59983).
+      // Unfiled stays; an issue GitHub cannot read (state null) stays.
+      if (gi && gi.state === 'closed') continue;
       escalations.push({ local: lt(Date.parse(r.ts)), signal: (r.alertname || '').slice(0, 140), fingerprint: r.fingerprint,
                          reason: (r.reason || '').slice(0, 200),
                          issue: f ? Object.assign({ repo: f.repo, number: +f.issue, url: 'https://github.com/' + f.repo + '/issues/' + f.issue }, gi) : null });
