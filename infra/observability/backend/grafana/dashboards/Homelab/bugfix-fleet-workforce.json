@@ -11,7 +11,7 @@
   "annotations": { "list": [] },
   "panels": [
     {
-      "id": 1, "title": "Chains shipped", "type": "stat",
+      "id": 1, "title": "Chains shipped", "description": "Shows the total number of chains shipped by the fleet over the selected time range. A higher value indicates more chains have been successfully shipped.", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
       "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
@@ -20,7 +20,7 @@
         "expr": "sum(count_over_time(bugfix_fleet_flow{state=\"shipped\"}[$__range])) or vector(0)", "instant": true }]
     },
     {
-      "id": 2, "title": "Chains stuck / needs-info (operator)", "type": "stat",
+      "id": 2, "title": "Chains stuck / needs-info (operator)", "description": "Shows the total number of chains currently in 'stuck' or 'needs-info' state. A higher number indicates more chains requiring operator attention.", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] },
@@ -29,7 +29,7 @@
         "expr": "sum(count_over_time(bugfix_fleet_flow{state=~\"stuck|needs-info\"}[$__range])) or vector(0)", "instant": true }]
     },
     {
-      "id": 3, "title": "Fix episodes (production; bake-off pass/fail)", "type": "stat",
+      "id": 3, "title": "Fix episodes (production; bake-off pass/fail)", "description": "Shows the total number of bug-fix episodes in production during the selected time range, broken down into passed and failed episodes. A higher number of failed episodes indicates more issues resolved unsuccessfully, while a rising trend in failures may suggest declining reliability.", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
       "fieldConfig": { "defaults": {}, "overrides": [] },
@@ -44,7 +44,7 @@
       ]
     },
     {
-      "id": 4, "title": "Spend ($; bake-off est upper bound)", "type": "stat",
+      "id": 4, "title": "Spend ($; bake-off est upper bound)", "description": "Shows the total cost in US dollars for the bug-fix fleet, including both actual and estimated upper-bound costs. A higher value indicates greater spending, while a decreasing value suggests cost efficiency or reduced usage.", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 12, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2 }, "overrides": [] },
@@ -57,7 +57,7 @@
       ]
     },
     {
-      "id": 5, "title": "Tokens", "type": "stat",
+      "id": 5, "title": "Tokens", "description": "Shows the total number of tokens used by the bug-fix fleet over the selected time range. A higher value indicates increased token usage, while a decreasing value suggests reduced activity.", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
@@ -66,7 +66,7 @@
         "expr": "sum(sum_over_time(bugfix_fleet_tokens[$__range])) or vector(0)", "instant": true }]
     },
     {
-      "id": 6, "title": "Reporter asks answered", "type": "stat",
+      "id": 6, "title": "Reporter asks answered", "description": "Shows the total number of times a reporter was asked during the selected time range. A higher number indicates more requests to reporters, suggesting increased activity or potential delays in responses.", "type": "stat",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
       "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
@@ -75,7 +75,7 @@
         "expr": "sum(count_over_time(bugfix_fleet_flow{state=\"asking-reporter\"}[$__range])) or vector(0)", "instant": true }]
     },
     {
-      "id": 7, "title": "Chain terminal states over time", "type": "timeseries",
+      "id": 7, "title": "Chain terminal states over time", "description": "The panel shows the number of chain terminals in each state—shipped, stuck, needs-info, or rejected—over time. A rising count in stuck, needs-info, or rejected states indicates growing bottlenecks or delays in the workflow.", "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 8, "w": 16, "x": 0, "y": 5 },
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }, "overrides": [] },
@@ -84,7 +84,7 @@
         "expr": "sum by (state) (count_over_time(bugfix_fleet_flow{state=~\"shipped|stuck|needs-info|rejected\"}[$__interval]))", "legendFormat": "{{state}}" }]
     },
     {
-      "id": 8, "title": "Spend over time ($)", "type": "timeseries",
+      "id": 8, "title": "Spend over time ($)", "description": "This panel shows the total cost of bug-fix operations in USD over time, including both actual and estimated costs. A rising trend indicates increasing spending, while a stable or declining trend suggests costs are holding steady or decreasing.", "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
       "fieldConfig": { "defaults": { "unit": "currencyUSD", "custom": { "drawStyle": "bars" } }, "overrides": [] },
@@ -97,7 +97,7 @@
       ]
     },
     {
-      "id": 9, "title": "Episodes: scope-hit vs miss (localization health)", "type": "piechart",
+      "id": 9, "title": "Episodes: scope-hit vs miss (localization health)", "description": "This panel shows the number of bug-fix episodes categorized by whether they were within scope or missed scope, based on localization efforts. A higher proportion of \"scope-hit\" episodes indicates better alignment with localization goals, while a rising \"miss\" count suggests increasing misalignment.", "type": "piechart",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 13 },
       "fieldConfig": { "defaults": {}, "overrides": [] },
@@ -106,7 +106,7 @@
         "expr": "sum by (scope) (count_over_time(bugfix_fleet_episode[$__range]))", "legendFormat": "scope={{scope}}", "instant": true }]
     },
     {
-      "id": 10, "title": "Tickets worked (flow activity)", "type": "timeseries",
+      "id": 10, "title": "Tickets worked (flow activity)", "description": "Shows the number of tickets currently being worked on in the fixing state, updated over time. A rising number indicates more tickets are being actively worked on, while a steady or falling number suggests fewer tickets are in progress.", "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "gridPos": { "h": 8, "w": 16, "x": 8, "y": 13 },
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } } }, "overrides": [] },

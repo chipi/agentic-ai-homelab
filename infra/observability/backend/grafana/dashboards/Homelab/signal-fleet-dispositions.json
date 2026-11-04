@@ -267,6 +267,7 @@
     {
       "id": 10,
       "title": "Decisions",
+      "description": "Shows the total number of decisions made in the fleet over the selected time range. A higher value indicates more decisions being processed, while a decreasing value may suggest reduced activity or delays.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -311,6 +312,7 @@
     {
       "id": 11,
       "title": "Escalates (bar: ≤5%)",
+      "description": "Shows the total number of incidents escalated over the selected time range. A higher value indicates more incidents requiring immediate attention.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -366,6 +368,7 @@
     {
       "id": 12,
       "title": "Spend (LLM $)",
+      "description": "Shows the total cost of LLM usage in the fleet in US dollars. A higher value indicates increased spending on language model operations.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -408,6 +411,7 @@
     {
       "id": 13,
       "title": "Tokens",
+      "description": "Shows the total number of tokens processed by the fleet over the last period. A higher value indicates increased activity or load on the fleet.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -449,6 +453,7 @@
     {
       "id": 14,
       "title": "Noise removed (cleanup)",
+      "description": "Shows the total number of fleet events that were removed during cleanup operations. A higher value indicates more events were processed and removed, while a low or unchanged value suggests minimal cleanup activity.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -493,6 +498,7 @@
     {
       "id": 15,
       "title": "Re-triages avoided (dedup)",
+      "description": "Shows the total number of re-triages avoided due to deduplication. A higher value indicates more incidents were prevented from being re-analyzed by identifying duplicates.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -537,6 +543,7 @@
     {
       "id": 1,
       "title": "Dispositions over time",
+      "description": "Number of triage-fleet decisions per disposition (file, dismiss, escalate, recurrence, ...) in each time bucket. A rise in one disposition shows a change in what the fleet decides.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -580,6 +587,7 @@
     {
       "id": 16,
       "title": "Spend over time ($)",
+      "description": "This panel shows the total cost of fleet operations in US dollars over time. An increasing trend indicates rising expenses, while a stable or decreasing trend suggests controlled or reduced spending.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -620,6 +628,7 @@
     {
       "id": 2,
       "title": "Total by disposition",
+      "description": "Share of triage-fleet decisions per disposition over the dashboard's time range. A large escalate or file slice means the fleet is sending much work onward.",
       "type": "piechart",
       "datasource": {
         "type": "prometheus",
@@ -662,6 +671,7 @@
     {
       "id": 3,
       "title": "By source",
+      "description": "Shows the distribution of fleet dispositions across different sources, with each slice representing the total count of dispositions from one source. A larger slice indicates a source contributing more dispositions, while changes over time may reflect shifts in source activity.",
       "type": "piechart",
       "datasource": {
         "type": "prometheus",
@@ -704,6 +714,7 @@
     {
       "id": 17,
       "title": "Work filed, by type (→ Fleet 1 / operator)",
+      "description": "Shows the number of work items filed, grouped by type, with each slice representing a different work type. A larger slice indicates a higher volume of work filed for that type.",
       "type": "piechart",
       "datasource": {
         "type": "prometheus",
@@ -746,6 +757,7 @@
     {
       "id": 4,
       "title": "Tune follow-ups (config-enhancement)",
+      "description": "Number of triage decisions marked as a config-enhancement follow-up (a tuning task rather than a bug) over the dashboard's time range.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -790,6 +802,7 @@
     {
       "id": 5,
       "title": "fleetd cycles by outcome (RFC-0004 supervisor)",
+      "description": "Shows the number of fleetd cycles completed by fleet and outcome, counted over time. A higher number of cycles indicates more activity, while changes in the outcome distribution may signal shifts in system behavior.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -833,6 +846,7 @@
     {
       "id": 6,
       "title": "fleetd day spend vs $2 cap",
+      "description": "Shows the daily spending of each fleet in US dollars. A higher value indicates increased spending, while a decreasing value suggests reduced spending.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -872,6 +886,7 @@
     {
       "id": 7,
       "title": "fleetd cycle duration (s)",
+      "description": "Shows the duration of each cycle run by the fleetd process in seconds. A higher value indicates longer cycle times, which may suggest delays or increased workload.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",

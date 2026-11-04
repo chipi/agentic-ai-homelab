@@ -23,6 +23,7 @@
     {
       "id": 1,
       "title": "Total bugs",
+      "description": "Shows the total number of bugs reported in the fleet. A higher value indicates more unresolved issues.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -71,6 +72,7 @@
     {
       "id": 2,
       "title": "Shipped",
+      "description": "Number of issues the bug-fix fleet has shipped (fixed and merged). A rising number means the fleet is closing bugs.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -119,6 +121,7 @@
     {
       "id": 3,
       "title": "Stuck (need human)",
+      "description": "Shows the number of issues currently stuck and requiring human intervention. A higher number indicates more unresolved issues needing attention.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -167,6 +170,7 @@
     {
       "id": 4,
       "title": "Untriaged",
+      "description": "Shows the number of untriaged issues in the bug-fix fleet. A higher number means more issues awaiting initial review.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -215,6 +219,7 @@
     {
       "id": 5,
       "title": "Pipeline funnel (issues per flow state)",
+      "description": "Number of issues in each flow state of the bug-fix pipeline (untriaged excluded). A state that keeps a high count is where issues pile up.",
       "type": "bargauge",
       "datasource": {
         "type": "prometheus",
@@ -259,6 +264,7 @@
     {
       "id": 6,
       "title": "Bugs by area",
+      "description": "Shows the distribution of bugs across different areas of the fleet, with each slice representing the count of bugs in that area. A larger slice indicates a higher number of bugs in that area, suggesting it may need more attention.",
       "type": "piechart",
       "datasource": {
         "type": "prometheus",
@@ -305,6 +311,7 @@
     {
       "id": 7,
       "title": "Pipeline states over time",
+      "description": "Shows the number of active issues in the bug-fix pipeline, grouped by flow, over time. A rising number indicates more issues being added than resolved, while a stable or falling number suggests progress in fixing them.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",

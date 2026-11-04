@@ -18,6 +18,7 @@
         }
       ],
       "title": "Deploys",
+      "description": "Shows the number of deployments in the current environment. A higher count indicates more frequent deployments, while a low or unchanged count suggests fewer or no recent deployments.",
       "type": "stat"
     },
     {
@@ -44,6 +45,7 @@
         }
       ],
       "title": "Deploy failures",
+      "description": "Shows the number of failed deploy events in the current environment. A higher number indicates more deployment failures, while a stable or decreasing count suggests improved deployment reliability.",
       "type": "stat"
     },
     {
@@ -64,6 +66,7 @@
         }
       ],
       "title": "Backups",
+      "description": "Shows the total number of backup events recorded. A higher count indicates more backups have been performed, while a decreasing count may suggest fewer backups are occurring.",
       "type": "stat"
     },
     {
@@ -84,6 +87,7 @@
         }
       ],
       "title": "Avg deploy duration (success)",
+      "description": "The panel shows the average duration of successful deploy events in milliseconds. A higher value indicates longer deployment times, while a lower value indicates faster deployments.",
       "type": "stat"
     },
     {
@@ -106,6 +110,7 @@
         }
       ],
       "title": "Ops event volume by type",
+      "description": "Number of ops events (deploys, CI runs, backups, drift, drills) per event type over the dashboard's time range. A change in the mix shows where operational activity shifted.",
       "type": "timeseries"
     },
     {
@@ -128,6 +133,7 @@
         }
       ],
       "title": "Deploys by status over time",
+      "description": "Shows the number of deployments over time, grouped by their status. A rising count for a status indicates increasing deployment activity, while a high count for a failed status suggests frequent deployment failures.",
       "type": "timeseries"
     },
     {
@@ -146,7 +152,7 @@
           "refId": "A"
         }
       ],
-      "title": "Event breakdown (type × surface × status)", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
+      "title": "Event breakdown (type × surface × status)", "description": "Shows the number of events by type, surface (like web or API), and status, grouped and sorted by count. A high count for a specific combination indicates frequent occurrences of that event type and status on a given surface.", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
       "type": "table"
     },
     {
@@ -168,6 +174,7 @@
         }
       ],
       "title": "Recent ops events — tail",
+      "description": "The most recent ops events themselves (one log line each: deploys, CI runs, backups, drift, drills), newest first. Read it to see what happened, not how much.",
       "type": "logs"
     }
   ],

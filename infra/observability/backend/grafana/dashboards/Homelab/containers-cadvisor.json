@@ -24,6 +24,7 @@
     {
       "id": 1,
       "title": "Containers seen",
+      "description": "Shows the number of containers currently running, based on memory usage data. A higher number means more containers are active, while a sudden drop may indicate containers have stopped or failed to start.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -80,6 +81,7 @@
     {
       "id": 2,
       "title": "Total container memory",
+      "description": "Shows the total memory used by all containers running in Docker, measured in bytes. A higher value indicates increased memory usage, which may suggest containers are consuming more resources than usual.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -136,6 +138,7 @@
     {
       "id": 3,
       "title": "Top containers by memory",
+      "description": "Shows the top 15 containers by memory usage in bytes. Higher values indicate containers using more memory, which may suggest resource contention or inefficiency.",
       "type": "table",
       "datasource": {
         "type": "prometheus",
@@ -187,6 +190,7 @@
     {
       "id": 4,
       "title": "CPU by container (cores)",
+      "description": "Shows the CPU usage of each container in the homelab, measured in cores, over time. A higher value indicates a container using more CPU resources, while a consistently low value means it is idle or underutilized.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -241,6 +245,7 @@
     {
       "id": 5,
       "title": "Memory working set",
+      "description": "Shows the total memory currently in use by running containers, measured in bytes. Higher values indicate more memory is being actively used, while decreasing values suggest memory is being freed.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -295,6 +300,7 @@
     {
       "id": 6,
       "title": "Network RX (B/s)",
+      "description": "Shows the rate of incoming network data for each container in bytes per second. A higher value indicates more data being received by the container, while a sudden increase may suggest increased network activity.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -349,6 +355,7 @@
     {
       "id": 7,
       "title": "Network TX (B/s)",
+      "description": "Shows the rate of outbound network traffic from Docker containers in bytes per second. A higher value indicates more data being sent by the containers, while a sudden increase may suggest increased activity or potential issues.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",

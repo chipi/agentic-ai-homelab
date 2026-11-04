@@ -87,6 +87,7 @@
     {
       "type": "bargauge",
       "title": "Queue depth by kind (live gauge)",
+      "description": "Shows the number of pending tasks in each queue type, with no unit. A higher value indicates more backlog in that queue type, suggesting potential processing delays.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -135,6 +136,7 @@
     {
       "type": "timeseries",
       "title": "Escalations over time (7d window gauge)",
+      "description": "Shows the highest number of active escalations in the last 7 days, measured as a count. A rising or high value indicates increasing urgency or unresolved issues requiring attention.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"

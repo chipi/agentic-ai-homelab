@@ -44,6 +44,7 @@
       "id": 1,
       "type": "stat",
       "title": "DGX app health (up)",
+      "description": "Shows the number of DGX services currently running, with a value of 1 indicating the service is up and 0 indicating it is down. A value of 1 means the service is healthy, while a value of 0 means it is not running.",
       "gridPos": {
         "h": 4,
         "w": 10,
@@ -103,6 +104,7 @@
       "id": 2,
       "type": "stat",
       "title": "GPU util",
+      "description": "Shows the average GPU utilization across all GPUs in the system as a percentage. A higher percentage indicates more active GPU usage, while a low percentage means the GPUs are underutilized.",
       "gridPos": {
         "h": 4,
         "w": 7,
@@ -184,6 +186,7 @@
       "id": 4,
       "type": "timeseries",
       "title": "FastAPI request rate ($service)",
+      "description": "Shows the number of HTTP requests per second handled by the selected FastAPI service. A higher rate indicates more active usage, while a sudden drop may suggest service issues or reduced traffic.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -232,6 +235,7 @@
       "id": 5,
       "type": "timeseries",
       "title": "FastAPI p95 latency ($service)",
+      "description": "Shows the 95th percentile response time for FastAPI requests in seconds. A higher value indicates slower request processing, with the 95% of requests being faster than this time.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -280,6 +284,7 @@
       "id": 6,
       "type": "timeseries",
       "title": "vLLM (prod-vllm :8003, translate :8005) \u2014 running / waiting",
+      "description": "Shows the number of requests currently running and waiting in the vLLM service for each model, with running requests on the primary axis and waiting requests on the secondary axis. A high number of running requests indicates heavy load on the model, while a growing number of waiting requests suggests the system is overwhelmed and new requests are being queued.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -334,6 +339,7 @@
       "id": 7,
       "type": "stat",
       "title": "Support DBs (up)",
+      "description": "Shows the number of support databases currently up and running, with values in short format. A higher number indicates more services are operational, while a lower number means some services may be down.",
       "gridPos": {
         "h": 8,
         "w": 6,
@@ -402,6 +408,7 @@
       "id": 8,
       "type": "timeseries",
       "title": "Postgres connections",
+      "description": "Shows the number of active database connections to each Postgres service. A higher number indicates more concurrent users or processes connected, while a sudden increase may suggest connection spikes or potential resource pressure.",
       "gridPos": {
         "h": 8,
         "w": 6,

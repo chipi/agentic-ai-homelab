@@ -11,6 +11,7 @@
     {
       "type": "stat",
       "title": "Spend this month",
+      "description": "This panel shows the total monetary cost of using the LLM gateway this month in US dollars. A higher value indicates increased usage or more expensive models being called.",
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
       "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 2,
@@ -22,6 +23,7 @@
     {
       "type": "stat",
       "title": "Tokens this month",
+      "description": "The panel shows the total number of tokens used this month for prompt and completion processing. A higher value indicates increased usage of the LLM gateway.",
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
       "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "short",
@@ -33,6 +35,7 @@
     {
       "type": "stat",
       "title": "Requests 7d (ok / failed)",
+      "description": "Shows the total number of successful and failed API requests over the past 7 days. A higher number of failed requests compared to successful ones indicates potential issues with the gateway or backend services.",
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
       "gridPos": { "h": 5, "w": 5, "x": 8, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "short",
@@ -45,6 +48,7 @@
     {
       "type": "stat",
       "title": "Cache-read tokens 30d (the Langfuse-incident blind spot)",
+      "description": "This panel shows the total number of input tokens retrieved from the cache over the past 30 days. A higher value indicates more frequent use of cached responses, reducing the need for new model calls.",
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
       "gridPos": { "h": 5, "w": 5, "x": 13, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "short",
@@ -56,6 +60,7 @@
     {
       "type": "bargauge",
       "title": "Budget burn per key (lifetime spend vs max budget)",
+      "description": "Shows the ratio of total spending to the maximum budget for each API key, expressed as a percentage. A higher percentage means the key is nearing or exceeding its budget limit, while a lower percentage indicates remaining budget.",
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1,
@@ -67,6 +72,7 @@
     {
       "type": "timeseries",
       "title": "Spend per key per day ($)",
+      "description": "This panel shows the daily spending per API key or key alias in US dollars. Higher values indicate increased usage or cost for a specific key, while sudden changes may reflect shifts in activity or new users.",
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
       "fieldConfig": { "defaults": { "unit": "currencyUSD",
@@ -77,6 +83,7 @@
     {
       "type": "timeseries",
       "title": "Tokens per key per day",
+      "description": "Shows the total number of tokens used per API key per day, with keys shown by alias or first 8 characters if no alias. Higher values indicate more usage, and sudden increases may signal unexpected or excessive token consumption.",
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
       "fieldConfig": { "defaults": { "unit": "short",
@@ -87,6 +94,7 @@
     {
       "type": "table",
       "title": "Per key — spend, tokens, requests (dashboard window)",
+      "description": "This panel shows the total spend in USD, token usage, and number of requests per API key over the selected time window. Higher spend or request counts indicate more usage, while a rising number of failed requests may suggest issues with the key or underlying services.",
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
       "fieldConfig": { "defaults": {}, "overrides": [
@@ -98,6 +106,7 @@
     {
       "type": "table",
       "title": "Per model — spend, tokens (dashboard window)",
+      "description": "This panel shows the total spend in USD, prompt tokens, completion tokens, and number of API requests per model over the selected time period. Higher spend or token counts indicate more usage, while rising request counts suggest increased model activity.",
       "datasource": { "type": "grafana-postgresql-datasource", "uid": "litellm-pg" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
       "fieldConfig": { "defaults": {}, "overrides": [

@@ -14,6 +14,7 @@
     {
       "id": 1,
       "title": "Successful refreshes (24h)",
+      "description": "Shows the number of successful data refreshes in the past 24 hours. A higher value indicates more successful refreshes, while a lower or decreasing value may indicate issues with the refresh process.",
       "type": "stat",
       "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
@@ -49,6 +50,7 @@
     {
       "id": 2,
       "title": "Failed refreshes (24h)",
+      "description": "Shows the number of failed data refresh attempts in the last 24 hours. A higher number indicates more failures in fetching data, which may suggest issues with data sources or connectivity.",
       "type": "stat",
       "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
       "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
@@ -84,6 +86,7 @@
     {
       "id": 3,
       "title": "Refresh log (job=orrery-data-refresh)",
+      "description": "Shows recent log entries for the orrery-data-refresh job, with no specific unit. High or frequent log entries may indicate ongoing activity or potential issues in the data refresh process.",
       "type": "logs",
       "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
       "gridPos": { "h": 16, "w": 24, "x": 0, "y": 6 },

@@ -78,6 +78,7 @@
       "id": 3,
       "type": "stat",
       "title": "Per phase",
+      "description": "Shows the real-time power consumption in watts for each of the three electrical phases in the home. A higher value indicates greater power usage on that phase, while a sudden change may indicate a device turning on or off.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -122,6 +123,7 @@
       "id": 4,
       "type": "stat",
       "title": "Scrape up",
+      "description": "Shows whether the home-assistant scrape job is currently up and running. A value of 1 means it's working normally, while 0 means it's down or unreachable.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -226,6 +228,7 @@
       "id": 6,
       "type": "timeseries",
       "title": "Grid power and phases",
+      "description": "Shows the real-time power consumption from the grid and each of the three phases in watts. A higher value indicates greater power usage, while changes over time reflect shifts in energy demand across the phases.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"

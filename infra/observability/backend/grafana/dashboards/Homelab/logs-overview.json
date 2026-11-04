@@ -158,6 +158,7 @@
     {
       "id": 1,
       "title": "Total log lines",
+      "description": "Number of log lines matching the filters over the dashboard's time range. A sudden drop can mean a service stopped logging; a jump, a burst of activity or errors.",
       "type": "stat",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
@@ -212,6 +213,7 @@
     {
       "id": 2,
       "title": "Errors & warnings",
+      "description": "Shows the total number of log entries containing error, warning, or failure-related keywords. A rising count indicates increasing issues, while a stable or decreasing count suggests improving system stability.",
       "type": "stat",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
@@ -273,7 +275,7 @@
     },
     {
       "id": 3,
-      "title": "Top containers by volume", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
+      "title": "Top containers by volume", "description": "The 20 containers with the most log lines over the dashboard's time range. A container far above its usual place is logging unusually much.", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
       "type": "table",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
@@ -308,6 +310,7 @@
     {
       "id": 4,
       "title": "Log volume by container",
+      "description": "Log lines per container in each time bucket. A spike in one container points at a burst of activity or errors in that service.",
       "type": "timeseries",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
@@ -363,6 +366,7 @@
     {
       "id": 5,
       "title": "Errors & warnings over time",
+      "description": "Log lines containing error, warning or fatal keywords in each time bucket. A rise shows when problems started.",
       "type": "timeseries",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
@@ -415,6 +419,7 @@
     {
       "id": 6,
       "title": "Live logs",
+      "description": "Shows real-time log messages filtered by host, environment, application, container, severity, and custom search terms. A high volume of logs or a sudden spike may indicate increased activity or potential issues, while a sudden drop could mean missing data or a system outage.",
       "type": "logs",
       "datasource": {
         "type": "victoriametrics-logs-datasource",

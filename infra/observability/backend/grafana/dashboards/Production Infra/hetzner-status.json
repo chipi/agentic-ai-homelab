@@ -274,6 +274,7 @@
     {
       "type": "stat",
       "title": "Poll OK",
+      "description": "Shows whether the status poll to Hetzner completed successfully, with 1 indicating success and 0 indicating failure. A value of 1 means the system is working as expected, while 0 means the poll failed.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"

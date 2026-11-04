@@ -583,7 +583,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Shows the number of CPU cores available on the selected node. A higher value indicates more CPU cores, while a lower value may indicate fewer cores or a misconfigured system.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -657,7 +657,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Total physical memory of the selected node, in bytes. It is fixed hardware; a change means the node was replaced or misreports.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -736,7 +736,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Shows the total amount of swap memory available on the node in bytes. A higher value means more swap space is allocated, which can indicate the system has more memory available for use when physical RAM is full.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -815,7 +815,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Total size of the node's root filesystem, in bytes. It is fixed; a change means the disk or partition changed (free space is in other panels).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -899,7 +899,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "The panel shows how long the node has been running, in seconds. A higher value means the system has been up longer, while a decreasing value indicates a recent reboot.",
       "fieldConfig": {
         "defaults": {
           "color": {

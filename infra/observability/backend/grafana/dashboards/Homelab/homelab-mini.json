@@ -24,6 +24,7 @@
   {
    "id": 1,
    "title": "Disk free (data vol)",
+   "description": "Shows the percentage of free space on the data volume. A lower percentage means less free space available, which could indicate storage is filling up.",
    "type": "stat",
    "datasource": {
     "type": "prometheus",
@@ -88,6 +89,7 @@
   {
    "id": 2,
    "title": "CPU busy",
+   "description": "Shows the percentage of time the CPU is actively processing tasks. A higher value means the CPU is more heavily used, while a lower value means it is mostly idle.",
    "type": "stat",
    "datasource": {
     "type": "prometheus",
@@ -152,6 +154,7 @@
   {
    "id": 3,
    "title": "Memory used",
+   "description": "Shows the percentage of total memory currently in use by active, wired, and compressed memory on the Mac mini. A higher percentage indicates more memory is being used, which may suggest heavy memory demand.",
    "type": "stat",
    "datasource": {
     "type": "prometheus",
@@ -216,6 +219,7 @@
   {
    "id": 4,
    "title": "Load 1m",
+   "description": "Shows the average system load over the past minute, measured in number of processes waiting for CPU time. A higher value indicates more processes waiting, suggesting potential CPU congestion.",
    "type": "stat",
    "datasource": {
     "type": "prometheus",
@@ -280,6 +284,7 @@
   {
    "id": 5,
    "title": "Swap used",
+   "description": "Shows the amount of swap memory currently in use on the Mac mini, measured in bytes. A higher value indicates more swap is being used, which may suggest limited physical memory.",
    "type": "stat",
    "datasource": {
     "type": "prometheus",
@@ -344,6 +349,7 @@
   {
    "id": 6,
    "title": "Uptime",
+   "description": "Shows how many seconds the Mac mini has been running continuously. A higher value means the system has been up longer without rebooting.",
    "type": "stat",
    "datasource": {
     "type": "prometheus",
@@ -400,6 +406,7 @@
   {
    "id": 7,
    "title": "CPU by mode",
+   "description": "Shows the percentage of time the CPU spends in each mode, including idle, user, system, and others. A higher value for user or system mode indicates more CPU activity, while a consistently high idle percentage means the CPU is mostly unused.",
    "type": "timeseries",
    "datasource": {
     "type": "prometheus",
@@ -455,6 +462,7 @@
   {
    "id": 8,
    "title": "Memory regions",
+   "description": "Shows the amount of memory in use, reserved, compressed, inactive, and free on the Mac mini, measured in bytes. Higher values for active, wired, or compressed memory indicate increased memory usage, while a rising free memory value suggests more available memory.",
    "type": "timeseries",
    "datasource": {
     "type": "prometheus",
@@ -546,6 +554,7 @@
   {
    "id": 9,
    "title": "Disk free % over time",
+   "description": "Shows the percentage of free disk space on the Mac mini's main filesystems over time. A decreasing percentage indicates growing disk usage, while a low percentage means little free space remains.",
    "type": "timeseries",
    "datasource": {
     "type": "prometheus",
@@ -601,6 +610,7 @@
   {
    "id": 10,
    "title": "Network",
+   "description": "Shows the current incoming and outgoing network traffic on the Mac mini in bytes per second. A high incoming or outgoing value indicates active data transfer, while a sudden change may signal a shift in network activity.",
    "type": "timeseries",
    "datasource": {
     "type": "prometheus",
@@ -665,6 +675,7 @@
   {
    "id": 11,
    "title": "Disk IO",
+   "description": "Shows the rate of data read from and written to the disk in bytes per second. A high read or write value indicates active disk usage, while a sudden change may signal a spike in disk activity.",
    "type": "timeseries",
    "datasource": {
     "type": "prometheus",
@@ -729,6 +740,7 @@
   {
    "id": 12,
    "title": "CPU thermal speed-limit (1=full)",
+   "description": "Shows the current CPU thermal speed limit as a fraction of full speed, where 1.0 means no throttling. A value below 1.0 indicates the CPU is running slower due to thermal constraints.",
    "type": "timeseries",
    "datasource": {
     "type": "prometheus",
@@ -784,6 +796,7 @@
   {
    "id": 13,
    "title": "CPU temperature",
+   "description": "Shows the current temperature of the Mac mini's CPU in degrees Celsius. A rising or high temperature may indicate increased workload or cooling issues.",
    "type": "timeseries",
    "datasource": {
     "type": "prometheus",

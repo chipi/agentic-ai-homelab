@@ -33,6 +33,7 @@
       "id": 2,
       "type": "stat",
       "title": "Internet",
+      "description": "Shows whether the internet connection is currently up or down based on a binary sensor. A value of 1 means the internet is up, and 0 means it is down.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -92,6 +93,7 @@
       "id": 3,
       "type": "stat",
       "title": "Availability 24h",
+      "description": "Shows the percentage of time the internet has been available over the past 24 hours. A higher percentage means better connectivity, while a lower percentage indicates more downtime.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -181,6 +183,7 @@
       "id": 5,
       "type": "timeseries",
       "title": "Latency",
+      "description": "Shows the current network latency in milliseconds between the home lab and the internet. A higher value indicates slower response times, while a lower value means faster connectivity.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -217,6 +220,7 @@
       "id": 6,
       "type": "timeseries",
       "title": "Throughput now",
+      "description": "Shows current internet download and upload speeds in megabits per second. Higher values mean faster data transfer, while lower or changing values indicate slower or fluctuating connection speeds.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -482,6 +486,7 @@
       "id": 12,
       "type": "stat",
       "title": "Sockets vs not on sockets, last 24 h",
+      "description": "This panel shows the total energy consumed by devices on sockets and those not on sockets over the last 24 hours, measured in kilowatt-hours. A higher value for sockets means more energy is being used by devices plugged into them, while a higher value for non-sockets indicates more energy is used by devices not connected to sockets.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -535,6 +540,7 @@
       "id": 13,
       "type": "stat",
       "title": "Sockets vs not on sockets, last 7 days",
+      "description": "This panel shows the total energy consumed by devices on sockets and those not on sockets over the last 7 days, measured in kilowatt-hours. A higher value for sockets means more energy is being used by devices plugged into them, while a higher value for non-sockets indicates greater energy use by devices not connected to the socket system.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"

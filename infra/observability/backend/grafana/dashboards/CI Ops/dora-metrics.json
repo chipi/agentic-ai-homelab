@@ -14,6 +14,7 @@
         }
       ],
       "title": "Deploy frequency (successful deploys)",
+      "description": "This panel shows the number of successful deployments in the specified time period. A higher number indicates more frequent deployments, reflecting a faster release cycle.",
       "type": "stat"
     },
     {
@@ -33,6 +34,7 @@
         }
       ],
       "title": "Change failures (failed deploys)",
+      "description": "Shows the number of failed deployments in the system. A higher number indicates more deployment failures, which may suggest instability or issues in the CI/CD process.",
       "type": "stat"
     },
     {
@@ -52,6 +54,7 @@
         }
       ],
       "title": "CI failures",
+      "description": "Shows the total number of failed CI runs. A higher number indicates more frequent failures in the CI process.",
       "type": "stat"
     },
     {
@@ -71,6 +74,7 @@
         }
       ],
       "title": "Flaky CI runs (attempt > 1)",
+      "description": "Shows the number of CI runs that required more than one attempt to succeed. A higher number indicates more unreliable CI runs.",
       "type": "stat"
     },
     {
@@ -87,6 +91,7 @@
         }
       ],
       "title": "Avg CI queue time",
+      "description": "Shows the average time in milliseconds that a CI job spends waiting in the queue before starting. A higher value indicates longer wait times, which may suggest congestion or limited CI resources.",
       "type": "stat"
     },
     {
@@ -103,6 +108,7 @@
         }
       ],
       "title": "Avg CI duration (success)",
+      "description": "Shows the average time in milliseconds for successful CI runs. A higher value means CI builds are taking longer on average.",
       "type": "stat"
     },
     {
@@ -119,6 +125,7 @@
         }
       ],
       "title": "Avg deploy duration (success)",
+      "description": "Shows the average time in milliseconds it takes to complete a successful deployment. A higher value means deployments are taking longer on average, while a lower value indicates faster successful deployments.",
       "type": "stat"
     },
     {
@@ -138,6 +145,7 @@
         }
       ],
       "title": "Drift / drill failures",
+      "description": "Shows the total number of failed drift or drill events. A higher number indicates more frequent failures in system configuration or testing processes.",
       "type": "stat"
     },
     {
@@ -154,6 +162,7 @@
         }
       ],
       "title": "Deploys by status over time",
+      "description": "Shows the number of deployments over time, grouped by their status. A rising number of failed or canceled deployments indicates potential issues in the deployment process.",
       "type": "timeseries"
     },
     {
@@ -170,6 +179,7 @@
         }
       ],
       "title": "CI runs by status over time",
+      "description": "Shows the number of CI runs over time, grouped by their status. An increasing number of runs indicates higher activity, while a rise in failed or canceled runs may signal issues in the CI process.",
       "type": "timeseries"
     },
     {
@@ -184,7 +194,7 @@
           "refId": "A"
         }
       ],
-      "title": "CI runs by workflow × status", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
+      "title": "CI runs by workflow × status", "description": "Shows the number of CI runs grouped by workflow and status, with counts in raw numbers. A high count for a specific workflow-status combination indicates frequent execution or potential bottlenecks in that workflow.", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
       "type": "table"
     },
     {
@@ -199,7 +209,7 @@
           "refId": "A"
         }
       ],
-      "title": "Drift / drill outcomes", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
+      "title": "Drift / drill outcomes", "description": "Shows the number of drift and drill events grouped by type, workflow, and status. A high count indicates frequent incidents or tests, while changes over time may reflect shifts in system stability or testing activity.", "transformations": [{ "id": "labelsToFields", "options": { "mode": "columns", "valueLabel": "__name__" } }, { "id": "merge", "options": {} }, { "id": "organize", "options": { "excludeByName": { "Time": true } } }], 
       "type": "table"
     },
     {
@@ -215,6 +225,7 @@
         }
       ],
       "title": "Recent failures — tail (deploy / ci / drift / drill)",
+      "description": "The most recent failed deploy, CI, drift and drill events, one log line each, newest first. Use it to see which run failed and when.",
       "type": "logs"
     }
   ],

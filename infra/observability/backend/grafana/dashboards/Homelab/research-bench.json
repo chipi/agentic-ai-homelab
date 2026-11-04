@@ -111,7 +111,7 @@
     {
       "type": "timeseries",
       "title": "Prompt processing (tokens/s)",
-      "description": "",
+      "description": "Shows the average rate at which each machine processes tokens during prompt evaluation, measured in tokens per second. Higher values indicate faster prompt processing, while lower or decreasing values suggest slower performance.",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
@@ -185,7 +185,7 @@
     {
       "type": "timeseries",
       "title": "Ollama errors / OOM / offload lines",
-      "description": "",
+      "description": "The panel shows the number of error, out-of-memory, and offload-related log lines per host from the Ollama service. A rising or high count indicates increased issues with model loading, memory constraints, or failed offloading operations.",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
@@ -222,7 +222,7 @@
     {
       "type": "timeseries",
       "title": "Ollama log volume",
-      "description": "",
+      "description": "Number of log lines Ollama wrote per host in each time bucket. More lines mean more model loads and requests, or errors.",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
@@ -446,7 +446,7 @@
     {
       "type": "timeseries",
       "title": "GPU power (W) and temperature (C)",
-      "description": "",
+      "description": "Shows real-time power consumption in watts and temperature in degrees Celsius for the GPU. Higher power or temperature values indicate increased GPU workload or potential thermal stress.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -529,7 +529,7 @@
     {
       "type": "timeseries",
       "title": "Swap used",
-      "description": "",
+      "description": "Shows the amount of swap memory currently in use, measured in bytes. A higher value indicates more swap usage, which may suggest limited physical memory availability.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -587,6 +587,7 @@
     {
       "type": "logs",
       "title": "Ollama log (loads, memory, errors; per-request timing lines excluded)",
+      "description": "Shows log entries from the Ollama service on local devices, excluding timing details and HTTP server logs. A high volume of entries may indicate frequent model loading or errors, while a sudden drop could mean the service is unresponsive.",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"

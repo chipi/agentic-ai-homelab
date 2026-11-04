@@ -676,6 +676,7 @@
     {
       "type": "timeseries",
       "title": "Cloudflare: origin unreachable (520-530), rolling 1h",
+      "description": "Shows the number of Cloudflare requests per hour that resulted in origin unreachable errors (520–530) for each host. A higher value indicates more frequent connection issues between Cloudflare and the origin server.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"

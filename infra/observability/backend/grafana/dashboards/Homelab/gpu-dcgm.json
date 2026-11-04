@@ -47,6 +47,7 @@
     {
       "id": 1,
       "title": "GPU utilization",
+      "description": "Shows the percentage of time the GPU is actively processing work. Higher values indicate the GPU is under heavy load, while lower values mean it is idle or lightly used.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -111,6 +112,7 @@
     {
       "id": 2,
       "title": "GPU temp",
+      "description": "Shows the current temperature of the selected GPU in degrees Celsius. A rising or high temperature may indicate increased workload or cooling issues.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -175,6 +177,7 @@
     {
       "id": 3,
       "title": "Power",
+      "description": "Shows the current power consumption of the selected GPU in watts. A higher value indicates the GPU is using more power, while a lower value means it is using less.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -231,6 +234,7 @@
     {
       "id": 4,
       "title": "Mem-copy util",
+      "description": "Shows the percentage of time the GPU's memory copy engine is actively transferring data. A higher value indicates more frequent or intensive memory transfers, while a lower value means the memory copy engine is idle or underutilized.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -287,6 +291,7 @@
     {
       "id": 5,
       "title": "XID errors",
+      "description": "The code of the last XID error the GPU driver reported (0 when there has been none); it is an error code, not a count. Any non-zero value is worth looking up in NVIDIA's XID list.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -347,6 +352,7 @@
     {
       "id": 6,
       "title": "GPU utilization %",
+      "description": "Shows the percentage of time each GPU's processing units are actively used. Higher values indicate heavier workload, while low values suggest underutilization.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -401,6 +407,7 @@
     {
       "id": 7,
       "title": "Temperature \u00b0C",
+      "description": "Shows the current temperature of the GPU and its memory in degrees Celsius. Higher values indicate increased heat, which may suggest higher workload or cooling issues.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -464,6 +471,7 @@
     {
       "id": 8,
       "title": "Power draw (W)",
+      "description": "Shows the current power consumption of the selected GPU in watts. A higher value indicates the GPU is using more power, while a lower value means it is using less.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -518,6 +526,7 @@
     {
       "id": 9,
       "title": "SM clock (MHz)",
+      "description": "Shows the current clock speed of the GPU's streaming multiprocessors in megahertz. A higher value indicates the GPU is running at a faster clock speed, while a lower value means it is running slower or throttled.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
