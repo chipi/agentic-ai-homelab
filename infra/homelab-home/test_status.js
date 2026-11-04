@@ -120,11 +120,14 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
                                                  { _time: iso(NOW - 999999), _msg: 'too old', event_type: 'deploy' }]; },
     glitchtip: async () => issues,
   });
+  const flat = t => Object.values(t.byKind).flat();
   const tl = await HS.timeline(tsrc, ms(NOW - 3600), ms(NOW));
-  check('timeline: alerts, deploys, new errors and container starts, oldest first', tl.events.map(e => e.source).join() === 'alert,ops_event,alert,container,glitchtip', tl.events);
-  check('timeline: every event has an ISO time, what and a ref', tl.events.every(e => /Z$/.test(e.at) && e.what && e.ref), tl.events);
-  check('timeline: events outside the window are left out', !tl.events.some(e => /too old/.test(e.what)) && tl.count === tl.events.length, tl.events);
-  check('timeline: the container start is now minus its uptime', tl.events.find(e => e.source === 'container').at === iso(NOW - 1500), tl.events);
+  check('timeline: grouped by kind, each kind oldest first, every kind present', Object.keys(tl.byKind).join() === 'alert,deploy,backup,drill,drift,ci_failure,error,container_start' &&
+    tl.byKind.alert.map(e => e.ref).join() === 'Grafana annotation 11,Grafana annotation 12' && tl.byKind.deploy.length === 1 && tl.byKind.error.length === 1 && tl.byKind.container_start.length === 1 && tl.byKind.backup.length === 0, tl.byKind);
+  check('timeline: counts per kind match the lists', Object.entries(tl.counts).every(([k, n]) => tl.byKind[k].length === n) && tl.count === flat(tl).length, tl.counts);
+  check('timeline: every event has an ISO time, what and a ref', flat(tl).every(e => /Z$/.test(e.at) && e.what && e.ref), flat(tl));
+  check('timeline: events outside the window are left out', !flat(tl).some(e => /too old/.test(e.what)), flat(tl));
+  check('timeline: the container start is now minus its uptime', tl.byKind.container_start[0].at === iso(NOW - 1500), tl.byKind.container_start);
   check('timeline: only failed CI runs are asked for', /event_type:ci_run status:failure/.test(logsAsked[0]) && /deploy OR backup OR drill OR drift/.test(logsAsked[0]), logsAsked);
   const prov = await HS.alertChanges({ annotations: async () => [{ id: 21, time: ms(NOW - 100), alertName: 'Cloudflare incident on a component we use', newState: 'Alerting', prevState: 'Pending',
     text: 'Cloudflare incident on a component we use {alertname=Cloudflare incident on a component we use, host=homelab, impact=minor, link=https://www.cloudflarestatus.com/incidents/x, name=Network Performance Issues in APJC, severity=warning, status=identified} - q=1' }] }, 0, ms(NOW));
@@ -132,12 +135,24 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
     prov[0].detail === 'Network Performance Issues in APJC, identified, impact minor' && prov[0].link === 'https://www.cloudflarestatus.com/incidents/x' && prov[0].host === 'homelab', prov[0]);
   const tlProv = await HS.timeline(Object.assign({}, tsrc, { annotations: async () => [{ id: 22, time: ms(NOW - 100), alertName: 'Cloudflare cannot reach the prod origin, sustained across hosts', newState: 'Alerting', prevState: 'Normal',
     text: 'x {alertname=Cloudflare cannot reach the prod origin, sustained across hosts, host=prod-podcast, instance=homelab, link=https://e.x/1, severity=warning}' }] }), ms(NOW - 3600), ms(NOW));
-  const pe = tlProv.events.find(e => e.source === 'alert');
+  const pe = tlProv.byKind.alert[0];
   check('timeline: an alert names its host before the collector instance, and its ref carries the annotation id and link',
     /on prod-podcast$/.test(pe.what) && pe.ref === 'Grafana annotation 22, https://e.x/1', pe);
-  check('timeline: every event has a local time', tlProv.events.every(e => /^\w{3} \d{1,2} \w{3}, \d\d:\d\d$/.test(e.local)), tlProv.events.map(e => e.local));
+  check('timeline: every event has a local time', flat(tlProv).every(e => /^\w{3} \d{1,2} \w{3}, \d\d:\d\d$/.test(e.local)), flat(tlProv).map(e => e.local));
   const tlBad = await HS.timeline(Object.assign({}, tsrc, { logs: async () => { throw new Error('vlogs down'); } }), ms(NOW - 3600), ms(NOW));
-  check('timeline: a failing source is named in missing, the rest still there', tlBad.missing.length === 1 && /ops events.*vlogs down/.test(tlBad.missing[0]) && tlBad.events.some(e => e.source === 'alert'), tlBad.missing);
+  check('timeline: a failing source is named in missing, the rest still there', tlBad.missing.length === 1 && /ops events.*vlogs down/.test(tlBad.missing[0]) && tlBad.byKind.alert.length === 2, tlBad.missing);
+
+  // last night: 19:00 to 07:00 local, the night that ended at the latest 07:00 (built in local time, so any TZ works)
+  const L = (d, h, m = 0) => new Date(2026, 10, d, h, m).getTime();
+  const nightSrc = at => ({ now: at / 1000, q: async () => [], logs: async () => [], glitchtip: async () => [],
+    annotations: async () => [[L(3, 18, 59), 31], [L(3, 19, 0), 32], [L(4, 6, 59), 33], [L(4, 7, 0), 34]].map(([t, id]) => ({ id, time: t, alertName: 'a', newState: 'Alerting', prevState: 'Normal', text: '' })) });
+  let tn = await HS.timeline(nightSrc(L(4, 11)), L(2, 11), L(4, 11));
+  check('timeline: at 11:00 last night is yesterday 19:00 to today 07:00, its events flagged',
+    tn.lastNight.from === new Date(L(3, 19)).toISOString() && tn.lastNight.to === new Date(L(4, 7)).toISOString() &&
+    tn.byKind.alert.filter(e => e.lastNight).map(e => e.ref).join() === 'Grafana annotation 32,Grafana annotation 33', tn);
+  tn = await HS.timeline(nightSrc(L(4, 6)), L(2, 6), L(4, 6));
+  check('timeline: at 06:00 the night still running is not "last night"; the one before is', tn.lastNight.to === new Date(L(3, 7)).toISOString() && !tn.byKind.alert.some(e => e.lastNight), tn.lastNight);
+  check('timeline: lastNight has its local label', /^\w{3} \d{1,2} \w{3}, 19:00 to \w{3} \d{1,2} \w{3}, 07:00$/.test(tn.lastNight.local), tn.lastNight.local);
 
   // all: one failing area does not hide the rest
   const all = await HS.all({ now: NOW, q: async e => { if (e.includes('delivery')) throw new Error('boom'); return []; }, alerts: async () => [] });

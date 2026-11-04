@@ -30,7 +30,10 @@ const clockTimes = t => [...t.replace(/\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d)?(\.\d+)?
   .map(m => { let h = +m[1]; const pm = /p/i.test(m[3] || ""), am = /a/i.test(m[3] || ""); if (pm && h < 12) h += 12; if (am && h === 12) h = 0;
               return String(h).padStart(2, "0") + ":" + m[2]; });
 // precision: every time in the answer is the time of an event in evs (default: the whole timeline) or one the question names
-const traceable = (s, q, evs = s.timeline.events) => { const ok = new Set([...evs.map(e => hhmm(e.local)), ...clockTimes(q)]);
+// the timeline's events, flat: grouped by kind since 2026-11-04 (byKind), one list before (events, with source)
+const allEvents = s => s.timeline.byKind ? Object.values(s.timeline.byKind).flat() : s.timeline.events;
+const ofKind = (s, k) => s.timeline.byKind ? s.timeline.byKind[k] || [] : s.timeline.events.filter(e => k === "alert" ? e.source === "alert" : e.source === "ops_event" && e.what.startsWith(k + " "));
+const traceable = (s, q, evs = allEvents(s)) => { const ok = new Set([...evs.map(e => hhmm(e.local)), ...clockTimes(q)]);
   return { kind: "pred", label: "every time given is in the timeline", test: a => clockTimes(a).every(t => ok.has(t)), want: "times from timeline.json only" }; };
 // completeness: each event by its local time, and alerts also by their Grafana annotation id (the ref)
 const eventFacts = evs => [...new Map(evs.map(e => [hhmm(e.local) + "|" + e.what, e])).values()].flatMap(e =>
@@ -57,10 +60,10 @@ const RULES = {
   // every new GlitchTip issue of the last 24 h (status.json's errors.new) named by its short id
   errors_new24h: s => (s.errors && s.errors.ok ? s.errors.new.map(e => text(e.id, [e.id])) : [text("errors area missing", ["\u0000"])]),
   // H7 incident timelines (timeline.json): the events asked about, all of them, and no time from elsewhere
-  cloudflare_timeline: (s, q) => s.timeline ? [...eventFacts(s.timeline.events.filter(e => e.source === "alert" && /cloudflare/i.test(e.what))), traceable(s, q)] : [text("timeline missing", ["\u0000"])],
-  deploys_48h: (s, q) => s.timeline ? [...eventFacts(s.timeline.events.filter(e => e.source === "ops_event" && /^deploy /.test(e.what))), traceable(s, q)] : [text("timeline missing", ["\u0000"])],
+  cloudflare_timeline: (s, q) => s.timeline ? [...eventFacts(ofKind(s, "alert").filter(e => /cloudflare/i.test(e.what))), traceable(s, q)] : [text("timeline missing", ["\u0000"])],
+  deploys_48h: (s, q) => s.timeline ? [...eventFacts(ofKind(s, "deploy")), traceable(s, q)] : [text("timeline missing", ["\u0000"])],
   last_night_alerts: (s, q) => { if (!s.timeline) return [text("timeline missing", ["\u0000"])]; const [a, b] = lastNight(s);
-    const inWindow = s.timeline.events.filter(e => Date.parse(e.at) >= a && Date.parse(e.at) < b), evs = inWindow.filter(e => e.source === "alert");
+    const inWindow = allEvents(s).filter(e => Date.parse(e.at) >= a && Date.parse(e.at) < b), evs = ofKind(s, "alert").filter(e => Date.parse(e.at) >= a && Date.parse(e.at) < b);
     // any event of the night may be mentioned; an event from outside the night is a wrong answer
     return [...(evs.length ? eventFacts(evs) : [text("no alerts", NONE)]), traceable(s, q, inWindow)]; },
   max_mem: s => { const [b, v] = Object.entries(s.capacity).sort((x, y) => y[1].memUsedPct - x[1].memUsedPct)[0];

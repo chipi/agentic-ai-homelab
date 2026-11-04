@@ -79,8 +79,8 @@
     "/timeline.json": {
       "get": {
         "operationId": "getIncidentTimeline",
-        "summary": "What happened in the last 48 hours, oldest first: alerts fired and resolved, deploys, backups, DR drills, drift checks, failed CI runs, new GlitchTip errors, containers started",
-        "description": "Written every 5 minutes by the hub, from the sources themselves. Use it to draft an incident timeline or answer 'what happened last night'. Use only events from this list, with their `local` time (the operator's clock; do not convert `at`), and give each line its `ref` so it can be checked. Pick the events the question is about (for example only the Cloudflare alerts); an alert that fired and later resolved is over. `missing` names sources that could not be read: say so instead of claiming nothing happened.",
+        "summary": "What happened in the last 48 hours, grouped by kind (alert, deploy, backup, drill, drift, ci_failure, error, container_start), each kind oldest first, with last night already worked out",
+        "description": "Written every 5 minutes by the hub, from the sources themselves. Use it to draft an incident timeline or answer 'what happened last night'. Take the kind the question asks about from byKind (deploys: byKind.deploy; alerts: byKind.alert) and list every entry of it that matches, nothing from elsewhere. For 'last night' use only entries with lastNight: true (the window is in lastNight.local). Give each line its `local` time exactly as written (never convert `at`), what happened, and its `ref`. An alert that fired and later resolved is over. `missing` names sources that could not be read: say so instead of claiming nothing happened.",
         "responses": {
           "200": {
             "description": "The timeline",
@@ -99,10 +99,289 @@
                     },
                     "timezone": {
                       "type": "string",
-                      "description": "The time zone of `local`"
+                      "description": "The time zone of every `local`"
                     },
                     "count": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "All events, every kind"
+                    },
+                    "lastNight": {
+                      "type": "object",
+                      "description": "Last night, 19:00 to 07:00 on the operator's clock (the night that ended most recently): from, to (UTC), local (e.g. 'Tue 3 Nov, 19:00 to Wed 4 Nov, 07:00')"
+                    },
+                    "counts": {
+                      "type": "object",
+                      "description": "Number of events per kind"
+                    },
+                    "byKind": {
+                      "type": "object",
+                      "description": "Events per kind, each list oldest first",
+                      "properties": {
+                        "alert": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string",
+                                "description": "UTC, ISO 8601 (do not quote it as the time)"
+                              },
+                              "local": {
+                                "type": "string",
+                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
+                              },
+                              "what": {
+                                "type": "string",
+                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                              },
+                              "severity": {
+                                "type": "string",
+                                "description": "Alerts only: critical or warning"
+                              },
+                              "lastNight": {
+                                "type": "boolean",
+                                "description": "Present (true) when the event falls in lastNight"
+                              },
+                              "ref": {
+                                "type": "string",
+                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
+                              }
+                            }
+                          },
+                          "description": "Alert state changes: fired, resolved"
+                        },
+                        "deploy": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string",
+                                "description": "UTC, ISO 8601 (do not quote it as the time)"
+                              },
+                              "local": {
+                                "type": "string",
+                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
+                              },
+                              "what": {
+                                "type": "string",
+                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                              },
+                              "severity": {
+                                "type": "string",
+                                "description": "Alerts only: critical or warning"
+                              },
+                              "lastNight": {
+                                "type": "boolean",
+                                "description": "Present (true) when the event falls in lastNight"
+                              },
+                              "ref": {
+                                "type": "string",
+                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
+                              }
+                            }
+                          },
+                          "description": "Deploys"
+                        },
+                        "backup": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string",
+                                "description": "UTC, ISO 8601 (do not quote it as the time)"
+                              },
+                              "local": {
+                                "type": "string",
+                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
+                              },
+                              "what": {
+                                "type": "string",
+                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                              },
+                              "severity": {
+                                "type": "string",
+                                "description": "Alerts only: critical or warning"
+                              },
+                              "lastNight": {
+                                "type": "boolean",
+                                "description": "Present (true) when the event falls in lastNight"
+                              },
+                              "ref": {
+                                "type": "string",
+                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
+                              }
+                            }
+                          },
+                          "description": "Backups"
+                        },
+                        "drill": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string",
+                                "description": "UTC, ISO 8601 (do not quote it as the time)"
+                              },
+                              "local": {
+                                "type": "string",
+                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
+                              },
+                              "what": {
+                                "type": "string",
+                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                              },
+                              "severity": {
+                                "type": "string",
+                                "description": "Alerts only: critical or warning"
+                              },
+                              "lastNight": {
+                                "type": "boolean",
+                                "description": "Present (true) when the event falls in lastNight"
+                              },
+                              "ref": {
+                                "type": "string",
+                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
+                              }
+                            }
+                          },
+                          "description": "DR drills"
+                        },
+                        "drift": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string",
+                                "description": "UTC, ISO 8601 (do not quote it as the time)"
+                              },
+                              "local": {
+                                "type": "string",
+                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
+                              },
+                              "what": {
+                                "type": "string",
+                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                              },
+                              "severity": {
+                                "type": "string",
+                                "description": "Alerts only: critical or warning"
+                              },
+                              "lastNight": {
+                                "type": "boolean",
+                                "description": "Present (true) when the event falls in lastNight"
+                              },
+                              "ref": {
+                                "type": "string",
+                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
+                              }
+                            }
+                          },
+                          "description": "Infra drift checks"
+                        },
+                        "ci_failure": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string",
+                                "description": "UTC, ISO 8601 (do not quote it as the time)"
+                              },
+                              "local": {
+                                "type": "string",
+                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
+                              },
+                              "what": {
+                                "type": "string",
+                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                              },
+                              "severity": {
+                                "type": "string",
+                                "description": "Alerts only: critical or warning"
+                              },
+                              "lastNight": {
+                                "type": "boolean",
+                                "description": "Present (true) when the event falls in lastNight"
+                              },
+                              "ref": {
+                                "type": "string",
+                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
+                              }
+                            }
+                          },
+                          "description": "Failed CI runs (passing, cancelled and skipped runs are not listed)"
+                        },
+                        "error": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string",
+                                "description": "UTC, ISO 8601 (do not quote it as the time)"
+                              },
+                              "local": {
+                                "type": "string",
+                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
+                              },
+                              "what": {
+                                "type": "string",
+                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                              },
+                              "severity": {
+                                "type": "string",
+                                "description": "Alerts only: critical or warning"
+                              },
+                              "lastNight": {
+                                "type": "boolean",
+                                "description": "Present (true) when the event falls in lastNight"
+                              },
+                              "ref": {
+                                "type": "string",
+                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
+                              }
+                            }
+                          },
+                          "description": "GlitchTip issues first seen"
+                        },
+                        "container_start": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string",
+                                "description": "UTC, ISO 8601 (do not quote it as the time)"
+                              },
+                              "local": {
+                                "type": "string",
+                                "description": "The time on the operator's clock, e.g. 'Tue 3 Nov, 04:42': give this one"
+                              },
+                              "what": {
+                                "type": "string",
+                                "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
+                              },
+                              "severity": {
+                                "type": "string",
+                                "description": "Alerts only: critical or warning"
+                              },
+                              "lastNight": {
+                                "type": "boolean",
+                                "description": "Present (true) when the event falls in lastNight"
+                              },
+                              "ref": {
+                                "type": "string",
+                                "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
+                              }
+                            }
+                          },
+                          "description": "Containers started (the latest start of each)"
+                        }
+                      }
                     },
                     "missing": {
                       "type": "array",
@@ -110,43 +389,6 @@
                         "type": "string"
                       },
                       "description": "Sources that failed; their events are absent"
-                    },
-                    "events": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "at": {
-                            "type": "string",
-                            "description": "UTC, ISO 8601"
-                          },
-                          "local": {
-                            "type": "string",
-                            "description": "The same time on the operator's clock, e.g. 'Tue 3 Nov, 04:42'"
-                          },
-                          "source": {
-                            "type": "string",
-                            "enum": [
-                              "alert",
-                              "ops_event",
-                              "glitchtip",
-                              "container"
-                            ]
-                          },
-                          "what": {
-                            "type": "string",
-                            "description": "What happened, e.g. 'alert fired: <name> on <host> (<provider incident, stage>)'"
-                          },
-                          "severity": {
-                            "type": "string",
-                            "description": "Alerts only: critical or warning"
-                          },
-                          "ref": {
-                            "type": "string",
-                            "description": "Where to find it: a Grafana annotation id (and the provider's incident page), a VictoriaLogs ops_event, a GlitchTip link, a container metric"
-                          }
-                        }
-                      }
                     }
                   }
                 }

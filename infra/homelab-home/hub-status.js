@@ -186,28 +186,45 @@
   // backups, drills, drift, failed CI runs; passing, cancelled and skipped left out: 299 runs in 48 h on 2026-11-04), GlitchTip issues
   // first seen, containers started (the inventory keeps only each container's latest start). A failed
   // source is named in `missing`, never read as "nothing happened". src: annotations, logs(logsql), glitchtip, q.
+  // Grouped by kind, and "last night" computed here: picking 8 deploys out of 120 mixed events, and working
+  // out which night is "last night", is where the model failed (2026-11-04: invented deploys, the wrong night).
   const localTime = ms => new Date(ms).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const KINDS = ['alert', 'deploy', 'backup', 'drill', 'drift', 'ci_failure', 'error', 'container_start'];
+  // last night: 19:00 to 07:00 (local), the one that ended at the latest 07:00 at or before toMs
+  function lastNightWindow(toMs) {
+    const end = new Date(toMs); end.setHours(7, 0, 0, 0); if (end.getTime() > toMs) end.setDate(end.getDate() - 1);
+    const start = new Date(end); start.setDate(start.getDate() - 1); start.setHours(19, 0, 0, 0);
+    return [start.getTime(), end.getTime()];
+  }
   async function timeline(src, fromMs, toMs) {
     const events = [], missing = [];
     const add = async (label, f) => { try { (await f()).forEach(e => events.push(e)); } catch (e) { missing.push(label + ': ' + (e && e.message || e)); } };
     await add('alert history (Grafana)', async () => (await alertChanges(src, fromMs, toMs)).map(c => ({
-      at: c.at, source: 'alert', what: 'alert ' + c.change + ': ' + c.name + ((c.host || c.instance) ? ' on ' + (c.host || c.instance) : '') + (c.detail ? ' (' + c.detail + ')' : ''),
+      at: c.at, kind: 'alert', what: 'alert ' + c.change + ': ' + c.name + ((c.host || c.instance) ? ' on ' + (c.host || c.instance) : '') + (c.detail ? ' (' + c.detail + ')' : ''),
       severity: c.severity, ref: 'Grafana annotation ' + c.annotationId + (c.link ? ', ' + c.link : '') })));
     const span = Math.max(60, Math.ceil((toMs - fromMs) / 1000));
     await add('ops events (VictoriaLogs)', async () => (await src.logs('_time:' + span + 's schema:"ops_event/v1" (event_type:(deploy OR backup OR drill OR drift) OR (event_type:ci_run status:failure))'))
       .filter(l => Date.parse(l._time) >= fromMs && Date.parse(l._time) <= toMs)
-      .map(l => ({ at: Date.parse(l._time), source: 'ops_event', what: l.event_type + ' ' + (l.status || '') + ': ' + (l._msg || '') + (l.app ? ' (' + l.app + (l.env ? ', ' + l.env : '') + ')' : ''),
+      .map(l => ({ at: Date.parse(l._time), kind: l.event_type === 'ci_run' ? 'ci_failure' : l.event_type,
+                   what: l.event_type + ' ' + (l.status || '') + ': ' + (l._msg || '') + (l.app ? ' (' + l.app + (l.env ? ', ' + l.env : '') + ')' : ''),
                    ref: 'VictoriaLogs ops_event ' + l.event_type + ' at ' + l._time })));
     await add('GlitchTip', async () => (await newIssues(src, fromMs / 1000)).filter(i => Date.parse(i.firstSeen) <= toMs).map(i => ({
-      at: Date.parse(i.firstSeen), source: 'glitchtip', what: 'new error ' + i.id + ' (' + (i.status || '?') + '): ' + i.title, ref: i.link })));
+      at: Date.parse(i.firstSeen), kind: 'error', what: 'new error ' + i.id + ' (' + (i.status || '?') + '): ' + i.title, ref: i.link })));
     await add('container inventory', async () => (await src.q('container_uptime_seconds{state="running"} < ' + Math.max(60, Math.round((src.now * 1000 - fromMs) / 1000))))
       .map(r => ({ at: Math.round(src.now * 1000 - (+r.value[1]) * 1000), box: r.metric.box, name: r.metric.name }))
       .filter(c => c.at <= toMs)
-      .map(c => ({ at: c.at, source: 'container', what: 'container started: ' + c.name + ' on ' + c.box, ref: 'container_uptime_seconds{box="' + c.box + '",name="' + c.name + '"}' })));
+      .map(c => ({ at: c.at, kind: 'container_start', what: 'container started: ' + c.name + ' on ' + c.box, ref: 'container_uptime_seconds{box="' + c.box + '",name="' + c.name + '"}' })));
     events.sort((a, b) => a.at - b.at);
+    const [n0, n1] = lastNightWindow(toMs), byKind = {};
+    KINDS.forEach(k => { byKind[k] = []; });
+    // local: the operator's clock (the job's time zone), so the model never converts time zones
+    for (const e of events) {
+      const { kind, ...rest } = e;
+      (byKind[kind] = byKind[kind] || []).push(Object.assign(rest, { at: new Date(e.at).toISOString(), local: localTime(e.at) }, e.at >= n0 && e.at < n1 ? { lastNight: true } : {}));
+    }
     return { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString(), count: events.length,
-             // local: the operator's clock (the job's time zone), so the model never converts time zones
-             events: events.map(e => Object.assign({}, e, { at: new Date(e.at).toISOString(), local: localTime(e.at) })), missing };
+             lastNight: { from: new Date(n0).toISOString(), to: new Date(n1).toISOString(), local: localTime(n0) + ' to ' + localTime(n1) },
+             counts: Object.fromEntries(Object.entries(byKind).map(([k, v]) => [k, v.length])), byKind, missing };
   }
 
   // Everything, with when it was taken; each area isolated so one failing source does not hide the rest.
