@@ -207,7 +207,7 @@
       .filter(l => Date.parse(l._time) >= fromMs && Date.parse(l._time) <= toMs)
       .map(l => ({ at: Date.parse(l._time), kind: l.event_type === 'ci_run' ? 'ci_failure' : l.event_type,
                    what: l.event_type + ' ' + (l.status || '') + ': ' + (l._msg || '') + (l.app ? ' (' + l.app + (l.env ? ', ' + l.env : '') + ')' : ''),
-                   ref: 'VictoriaLogs ops_event ' + l.event_type + ' at ' + l._time })));
+                   ref: 'VictoriaLogs ops_event ' + l.event_type + ' _time ' + Math.floor(Date.parse(l._time) / 1000) + ' (unix)' })));
     await add('GlitchTip', async () => (await newIssues(src, fromMs / 1000)).filter(i => Date.parse(i.firstSeen) <= toMs).map(i => ({
       at: Date.parse(i.firstSeen), kind: 'error', what: 'new error ' + i.id + ' (' + (i.status || '?') + '): ' + i.title, ref: i.link })));
     await add('container inventory', async () => (await src.q('container_uptime_seconds{state="running"} < ' + Math.max(60, Math.round((src.now * 1000 - fromMs) / 1000))))

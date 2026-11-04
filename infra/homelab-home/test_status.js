@@ -152,7 +152,8 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('timeline: at 11:00 last night is yesterday 19:00 to today 07:00, its events flagged',
     tn.lastNight.from === new Date(L(3, 19)).toISOString() && tn.lastNight.to === new Date(L(4, 7)).toISOString() &&
     tn.byKind.alert.filter(e => e.lastNight).map(REF).join() === 'Grafana annotation 32,Grafana annotation 33', tn);
-  check('timeline: lastNightLines hold every kind of the night in time order', tn.lastNightLines.map(l => l.slice(l.lastIndexOf(' — ') + 3).replace(/ at .*/, '')).join() === 'Grafana annotation 32,VictoriaLogs ops_event deploy,Grafana annotation 33', tn.lastNightLines);
+  check('timeline: lastNightLines hold every kind of the night in time order', tn.lastNightLines.map(l => l.slice(l.lastIndexOf(' — ') + 3).replace(/ _time .*/, '')).join() === 'Grafana annotation 32,VictoriaLogs ops_event deploy,Grafana annotation 33', tn.lastNightLines);
+  check('timeline: a line holds one clock time, its own (an ISO time in a ref was copied as the time, 2026-11-04)', tn.lastNightLines.every(l => (l.match(/\b\d\d:\d\d\b/g) || []).length === 1) && /_time \d+ \(unix\)$/.test(tn.lastNightLines[1]), tn.lastNightLines);
   tn = await HS.timeline(nightSrc(L(4, 6)), L(2, 6), L(4, 6));
   check('timeline: at 06:00 the night still running is not "last night"; the one before is', tn.lastNight.to === new Date(L(3, 7)).toISOString() && !tn.byKind.alert.some(e => e.lastNight), tn.lastNight);
   check('timeline: lastNight has its local label', /^\w{3} \d{1,2} \w{3}, 19:00 to \w{3} \d{1,2} \w{3}, 07:00$/.test(tn.lastNight.local), tn.lastNight.local);
