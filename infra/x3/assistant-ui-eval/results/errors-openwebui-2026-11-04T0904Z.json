@@ -1,0 +1,841 @@
+{
+ "set": "errors",
+ "ui": "openwebui",
+ "at": "2026-11-04T0904Z",
+ "model": "assistant",
+ "score": "1/1",
+ "results": [
+  {
+   "id": "err-1",
+   "use": "H2",
+   "q": "Which new errors appeared in GlitchTip in the last 24 hours? For each: short id, project, and how many times it happened.",
+   "answer": "Based on the getHomelabStatus response, here are the new errors in the last 24 hours:\n\nLITELLM-1D: Project litellm, 1 occurrence: BadRequestError: Error code: 400 - {'error': {'message': 'request (34989 tokens) exceeds the availa…\nLITELLM-1C: Project litellm, 1 occurrence: BadRequestError: Error code: 400 - {'error': {'message': 'request (35054 tokens) exceeds the availa…\nPODCAST-PIPELINE-DL: Project podcast-pipeline, 1 occurrence: GuardrailViolation: guardrail violation: service=whisper reason=length_floor_violated summary='word…\nPODCAST-PIPELINE-DK: Project podcast-pipeline, 1 occurrence: Whisper transcription failed: guardrail violation: service=whisper reason=length_floor_violated…\nORRERY-DEV-N: Project orrery-dev, 2 occurrences: TypeError: __en_us2.surface_tier_scale_note is not a function\nLITELLM-1B: Project litellm, 3 occurrences: Timeout: litellm.Timeout: APITimeoutError - Request timed out. Error_str: Request timed out.\nORRERY-PROD-22: Project orrery-prod, 1 occurrence: TypeError: Failed to fetch\nLITELLM-15: Project litellm, 4 occurrences: ProxyException: key not allowed to access model. This key can only access models=['assistant-cloud'…\nLITELLM-14: Project litellm, 2 occurrences: NotFoundError: litellm.NotFoundError: NotFoundError: OpenrouterException - {\\\"error\\\":{\\\"message\\\":\\\"0 e…\nMOSS-DGX-TRANSCRIPTION-5: Project moss-dgx-transcription, 1 occurrence: RuntimeError: Failed to load audio '/tmp/tmpzevby8x9.wav' with transformers.audio_utils.load_audio …\nPYANNOTE-DGX-DIARIZATION-3: Project pyannote-dgx-diarization, 1 occurrence: RuntimeError: Failed to open the input \"/tmp/tmpafsvlruq.wav\" (Invalid data found when processing i…\nORRERY-DEV-M: Project orrery-dev, 1 occurrence: TypeError: Cannot read properties of undefined (reading 'default')\nORRERY-DEV-L: Project orrery-dev, 1 occurrence: Error: Vitest failed to find the current suite. One of the following is possible:\nORRERY-DEV-K: Project orrery-dev, 4 occurrences: TypeError: LANDMARK_NAME[id.slice(...)] is not a function\nORRERY-1B: Project orrery, 1 occurrence: Error: Unable to preload CSS for https://chipi.github.io/orrery/_app/immutable/assets/1.B5IKmGCF.css",
+   "toolCalled": true,
+   "seconds": 46.1,
+   "takenAt": [
+    "2026-11-04T09:00:41.419Z",
+    "2026-11-04T09:00:41.419Z"
+   ],
+   "pass": true,
+   "facts": [
+    {
+     "label": "LITELLM-1D",
+     "want": [
+      "LITELLM-1D"
+     ],
+     "ok": true
+    },
+    {
+     "label": "LITELLM-1C",
+     "want": [
+      "LITELLM-1C"
+     ],
+     "ok": true
+    },
+    {
+     "label": "PODCAST-PIPELINE-DL",
+     "want": [
+      "PODCAST-PIPELINE-DL"
+     ],
+     "ok": true
+    },
+    {
+     "label": "PODCAST-PIPELINE-DK",
+     "want": [
+      "PODCAST-PIPELINE-DK"
+     ],
+     "ok": true
+    },
+    {
+     "label": "ORRERY-DEV-N",
+     "want": [
+      "ORRERY-DEV-N"
+     ],
+     "ok": true
+    },
+    {
+     "label": "LITELLM-1B",
+     "want": [
+      "LITELLM-1B"
+     ],
+     "ok": true
+    },
+    {
+     "label": "ORRERY-PROD-22",
+     "want": [
+      "ORRERY-PROD-22"
+     ],
+     "ok": true
+    },
+    {
+     "label": "LITELLM-15",
+     "want": [
+      "LITELLM-15"
+     ],
+     "ok": true
+    },
+    {
+     "label": "LITELLM-14",
+     "want": [
+      "LITELLM-14"
+     ],
+     "ok": true
+    },
+    {
+     "label": "MOSS-DGX-TRANSCRIPTION-5",
+     "want": [
+      "MOSS-DGX-TRANSCRIPTION-5"
+     ],
+     "ok": true
+    },
+    {
+     "label": "PYANNOTE-DGX-DIARIZATION-3",
+     "want": [
+      "PYANNOTE-DGX-DIARIZATION-3"
+     ],
+     "ok": true
+    },
+    {
+     "label": "ORRERY-DEV-M",
+     "want": [
+      "ORRERY-DEV-M"
+     ],
+     "ok": true
+    },
+    {
+     "label": "ORRERY-DEV-L",
+     "want": [
+      "ORRERY-DEV-L"
+     ],
+     "ok": true
+    },
+    {
+     "label": "ORRERY-DEV-K",
+     "want": [
+      "ORRERY-DEV-K"
+     ],
+     "ok": true
+    },
+    {
+     "label": "ORRERY-1B",
+     "want": [
+      "ORRERY-1B"
+     ],
+     "ok": true
+    }
+   ],
+   "snapshots": {
+    "before": {
+     "takenAt": "2026-11-04T09:00:41.419Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.999268878851054,
+      "lowest": {
+       "host": "airandspacehistory.com",
+       "avail24h": 0.9972222222222222
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9972222222222222
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986111111111111
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9972222222222222
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986111111111111
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 3,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.07 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.067971029000006,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 0.20417600000000002,
+      "avg7dUsd": 2.6080967142857143,
+      "monthUsd": 2.796135
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 23.62510460111189,
+       "memUsedPct": 62.07,
+       "swapBytes": 2753822720
+      },
+      "dgx": {
+       "diskFreePct": 21.398950145704248,
+       "memUsedPct": 87.57351794908641
+      },
+      "prod": {
+       "diskFreePct": 51.216706341596876,
+       "memUsedPct": 64.66953872018493
+      }
+     },
+     "errors": {
+      "ok": true,
+      "windowHours": 24,
+      "newCount": 15,
+      "new": [
+       {
+        "id": "LITELLM-1D",
+        "project": "litellm",
+        "title": "BadRequestError: Error code: 400 - {'error': {'message': 'request (34989 tokens) exceeds the availa…",
+        "count": 1,
+        "firstSeen": "2026-11-04T08:15:19.178Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/739"
+       },
+       {
+        "id": "LITELLM-1C",
+        "project": "litellm",
+        "title": "BadRequestError: Error code: 400 - {'error': {'message': 'request (35054 tokens) exceeds the availa…",
+        "count": 1,
+        "firstSeen": "2026-11-04T08:13:34.544Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/738"
+       },
+       {
+        "id": "PODCAST-PIPELINE-DL",
+        "project": "podcast-pipeline",
+        "title": "GuardrailViolation: guardrail violation: service=whisper reason=length_floor_violated summary='word…",
+        "count": 1,
+        "firstSeen": "2026-11-04T00:45:53.069Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/737"
+       },
+       {
+        "id": "PODCAST-PIPELINE-DK",
+        "project": "podcast-pipeline",
+        "title": "    Whisper transcription failed: guardrail violation: service=whisper reason=length_floor_violated…",
+        "count": 1,
+        "firstSeen": "2026-11-04T00:45:52.836Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/736"
+       },
+       {
+        "id": "ORRERY-DEV-N",
+        "project": "orrery-dev",
+        "title": "TypeError: __en_us2.surface_tier_scale_note is not a function",
+        "count": 2,
+        "firstSeen": "2026-11-03T21:43:52.803Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/735"
+       },
+       {
+        "id": "LITELLM-1B",
+        "project": "litellm",
+        "title": "Timeout: litellm.Timeout: APITimeoutError - Request timed out. Error_str: Request timed out.",
+        "count": 3,
+        "firstSeen": "2026-11-03T21:35:53.174Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/734"
+       },
+       {
+        "id": "ORRERY-PROD-22",
+        "project": "orrery-prod",
+        "title": "TypeError: Failed to fetch",
+        "count": 1,
+        "firstSeen": "2026-11-03T17:53:04.884Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/728"
+       },
+       {
+        "id": "LITELLM-15",
+        "project": "litellm",
+        "title": "ProxyException: key not allowed to access model. This key can only access models=['assistant-cloud'…",
+        "count": 4,
+        "firstSeen": "2026-11-03T17:33:36.654Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/727"
+       },
+       {
+        "id": "LITELLM-14",
+        "project": "litellm",
+        "title": "NotFoundError: litellm.NotFoundError: NotFoundError: OpenrouterException - {\"error\":{\"message\":\"0 e…",
+        "count": 2,
+        "firstSeen": "2026-11-03T17:33:35.430Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/726"
+       },
+       {
+        "id": "MOSS-DGX-TRANSCRIPTION-5",
+        "project": "moss-dgx-transcription",
+        "title": "RuntimeError: Failed to load audio '/tmp/tmpzevby8x9.wav' with transformers.audio_utils.load_audio …",
+        "count": 1,
+        "firstSeen": "2026-11-03T16:22:27.674Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/725"
+       },
+       {
+        "id": "PYANNOTE-DGX-DIARIZATION-3",
+        "project": "pyannote-dgx-diarization",
+        "title": "RuntimeError: Failed to open the input \"/tmp/tmpafsvlruq.wav\" (Invalid data found when processing i…",
+        "count": 1,
+        "firstSeen": "2026-11-03T16:22:11.831Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/724"
+       },
+       {
+        "id": "ORRERY-DEV-M",
+        "project": "orrery-dev",
+        "title": "TypeError: Cannot read properties of undefined (reading 'default')",
+        "count": 1,
+        "firstSeen": "2026-11-03T15:50:55.824Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/723"
+       },
+       {
+        "id": "ORRERY-DEV-L",
+        "project": "orrery-dev",
+        "title": "Error: Vitest failed to find the current suite. One of the following is possible:",
+        "count": 1,
+        "firstSeen": "2026-11-03T14:15:02.856Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/722"
+       },
+       {
+        "id": "ORRERY-DEV-K",
+        "project": "orrery-dev",
+        "title": "TypeError: LANDMARK_NAME[id.slice(...)] is not a function",
+        "count": 4,
+        "firstSeen": "2026-11-03T12:38:28.744Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/721"
+       },
+       {
+        "id": "ORRERY-1B",
+        "project": "orrery",
+        "title": "Error: Unable to preload CSS for https://chipi.github.io/orrery/_app/immutable/assets/1.B5IKmGCF.css",
+        "count": 1,
+        "firstSeen": "2026-11-03T09:16:44.324Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/720"
+       }
+      ],
+      "resolvedCount": 5
+     }
+    },
+    "after": {
+     "takenAt": "2026-11-04T09:00:41.419Z",
+     "sites": {
+      "state": "mid",
+      "up": 19,
+      "total": 19,
+      "down": [],
+      "offline": false,
+      "avail24h": 0.999268878851054,
+      "lowest": {
+       "host": "airandspacehistory.com",
+       "avail24h": 0.9972222222222222
+      },
+      "below999": [
+       {
+        "host": "airandspacehistory.com",
+        "avail24h": 0.9972222222222222
+       },
+       {
+        "host": "closelistening.app",
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "avail24h": 0.9986111111111111
+       }
+      ],
+      "hosts": [
+       {
+        "host": "airandspacehistory.com",
+        "up": true,
+        "avail24h": 0.9972222222222222
+       },
+       {
+        "host": "analytics.airandspacehistory.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "analytics.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.markodragoljevic.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "analytics.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "closelistening.app",
+        "up": true,
+        "avail24h": 0.9986101459346769
+       },
+       {
+        "host": "evals.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9979166666666667
+       },
+       {
+        "host": "lab-api.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9986111111111111
+       },
+       {
+        "host": "mcp.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "mcp.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "obs.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "telemetry.closelistening.app",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "telemetry.humancopilot.eu",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "telemetry.orrerylearn.com",
+        "up": true,
+        "avail24h": 1
+       },
+       {
+        "host": "www.devwhateverops.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.humancopilot.eu",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       },
+       {
+        "host": "www.markodragoljevic.com",
+        "up": true,
+        "avail24h": 0.9993050729673384
+       },
+       {
+        "host": "www.orrerylearn.com",
+        "up": true,
+        "avail24h": 0.9993055555555556
+       }
+      ]
+     },
+     "boxes": {
+      "mini": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "dgx": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "x3": {
+       "state": "up",
+       "ageSeconds": 0
+      },
+      "prod": {
+       "state": "up",
+       "ageSeconds": 0
+      }
+     },
+     "podcast": {
+      "state": "up",
+      "known": true,
+      "stale": false,
+      "ageHours": 3,
+      "checks": {
+       "box_layout": "up",
+       "gateway": "up",
+       "o11y_glitchtip": "up",
+       "o11y_logs": "up",
+       "o11y_metrics": "up",
+       "o11y_traces": "up"
+      }
+     },
+     "alerts": {
+      "ok": true,
+      "critical": [],
+      "warning": [
+       {
+        "name": "OpenRouter credit low (under USD 10 left)",
+        "instance": null,
+        "severity": "warning",
+        "summary": "OpenRouter account has USD 4.07 of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits.",
+        "since": "2026-11-03T20:03:00.000Z",
+        "substrate": false
+       }
+      ],
+      "plumbing": 0
+     },
+     "needsYou": {
+      "total": 9,
+      "bugQueue": null,
+      "escalations7d": 9
+     },
+     "delivery": {
+      "state": "up",
+      "workersUp": 3,
+      "workers": 3,
+      "reasons": []
+     },
+     "credit": {
+      "leftUsd": 4.067971029000006,
+      "low": true
+     },
+     "spend": {
+      "yesterdayUsd": 0.20417600000000002,
+      "avg7dUsd": 2.6080967142857143,
+      "monthUsd": 2.796135
+     },
+     "capacity": {
+      "mini": {
+       "diskFreePct": 23.62510460111189,
+       "memUsedPct": 62.07,
+       "swapBytes": 2753822720
+      },
+      "dgx": {
+       "diskFreePct": 21.398950145704248,
+       "memUsedPct": 87.57351794908641
+      },
+      "prod": {
+       "diskFreePct": 51.216706341596876,
+       "memUsedPct": 64.66953872018493
+      }
+     },
+     "errors": {
+      "ok": true,
+      "windowHours": 24,
+      "newCount": 15,
+      "new": [
+       {
+        "id": "LITELLM-1D",
+        "project": "litellm",
+        "title": "BadRequestError: Error code: 400 - {'error': {'message': 'request (34989 tokens) exceeds the availa…",
+        "count": 1,
+        "firstSeen": "2026-11-04T08:15:19.178Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/739"
+       },
+       {
+        "id": "LITELLM-1C",
+        "project": "litellm",
+        "title": "BadRequestError: Error code: 400 - {'error': {'message': 'request (35054 tokens) exceeds the availa…",
+        "count": 1,
+        "firstSeen": "2026-11-04T08:13:34.544Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/738"
+       },
+       {
+        "id": "PODCAST-PIPELINE-DL",
+        "project": "podcast-pipeline",
+        "title": "GuardrailViolation: guardrail violation: service=whisper reason=length_floor_violated summary='word…",
+        "count": 1,
+        "firstSeen": "2026-11-04T00:45:53.069Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/737"
+       },
+       {
+        "id": "PODCAST-PIPELINE-DK",
+        "project": "podcast-pipeline",
+        "title": "    Whisper transcription failed: guardrail violation: service=whisper reason=length_floor_violated…",
+        "count": 1,
+        "firstSeen": "2026-11-04T00:45:52.836Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/736"
+       },
+       {
+        "id": "ORRERY-DEV-N",
+        "project": "orrery-dev",
+        "title": "TypeError: __en_us2.surface_tier_scale_note is not a function",
+        "count": 2,
+        "firstSeen": "2026-11-03T21:43:52.803Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/735"
+       },
+       {
+        "id": "LITELLM-1B",
+        "project": "litellm",
+        "title": "Timeout: litellm.Timeout: APITimeoutError - Request timed out. Error_str: Request timed out.",
+        "count": 3,
+        "firstSeen": "2026-11-03T21:35:53.174Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/734"
+       },
+       {
+        "id": "ORRERY-PROD-22",
+        "project": "orrery-prod",
+        "title": "TypeError: Failed to fetch",
+        "count": 1,
+        "firstSeen": "2026-11-03T17:53:04.884Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/728"
+       },
+       {
+        "id": "LITELLM-15",
+        "project": "litellm",
+        "title": "ProxyException: key not allowed to access model. This key can only access models=['assistant-cloud'…",
+        "count": 4,
+        "firstSeen": "2026-11-03T17:33:36.654Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/727"
+       },
+       {
+        "id": "LITELLM-14",
+        "project": "litellm",
+        "title": "NotFoundError: litellm.NotFoundError: NotFoundError: OpenrouterException - {\"error\":{\"message\":\"0 e…",
+        "count": 2,
+        "firstSeen": "2026-11-03T17:33:35.430Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/726"
+       },
+       {
+        "id": "MOSS-DGX-TRANSCRIPTION-5",
+        "project": "moss-dgx-transcription",
+        "title": "RuntimeError: Failed to load audio '/tmp/tmpzevby8x9.wav' with transformers.audio_utils.load_audio …",
+        "count": 1,
+        "firstSeen": "2026-11-03T16:22:27.674Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/725"
+       },
+       {
+        "id": "PYANNOTE-DGX-DIARIZATION-3",
+        "project": "pyannote-dgx-diarization",
+        "title": "RuntimeError: Failed to open the input \"/tmp/tmpafsvlruq.wav\" (Invalid data found when processing i…",
+        "count": 1,
+        "firstSeen": "2026-11-03T16:22:11.831Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/724"
+       },
+       {
+        "id": "ORRERY-DEV-M",
+        "project": "orrery-dev",
+        "title": "TypeError: Cannot read properties of undefined (reading 'default')",
+        "count": 1,
+        "firstSeen": "2026-11-03T15:50:55.824Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/723"
+       },
+       {
+        "id": "ORRERY-DEV-L",
+        "project": "orrery-dev",
+        "title": "Error: Vitest failed to find the current suite. One of the following is possible:",
+        "count": 1,
+        "firstSeen": "2026-11-03T14:15:02.856Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/722"
+       },
+       {
+        "id": "ORRERY-DEV-K",
+        "project": "orrery-dev",
+        "title": "TypeError: LANDMARK_NAME[id.slice(...)] is not a function",
+        "count": 4,
+        "firstSeen": "2026-11-03T12:38:28.744Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/721"
+       },
+       {
+        "id": "ORRERY-1B",
+        "project": "orrery",
+        "title": "Error: Unable to preload CSS for https://chipi.github.io/orrery/_app/immutable/assets/1.B5IKmGCF.css",
+        "count": 1,
+        "firstSeen": "2026-11-03T09:16:44.324Z",
+        "status": "unresolved",
+        "link": "https://glitchtip.tail6d0ed4.ts.net/homelab/issues/720"
+       }
+      ],
+      "resolvedCount": 5
+     }
+    }
+   }
+  }
+ ]
+}
