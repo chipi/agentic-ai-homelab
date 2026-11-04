@@ -118,7 +118,10 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       # Pinned: unpinned installs take the newest release on every recreate, and
       # exploretraces 3.0.0 needs Grafana >= 13.1. 2.2.1 supports 11.6.11-11.x.
-      - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource 0.32.0,grafana-exploretraces-app 2.2.1
+      - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource 0.32.0,grafana-exploretraces-app 2.2.1,grafana-llm-app 1.0.8
+      # the LLM app's key (LiteLLM grafana-llm; provisioning/plugins/grafana-llm-app.yaml); 1.0.8 is the
+      # last version for Grafana < 13
+      - GRAFANA_LLM_LITELLM_KEY=${GRAFANA_LLM_LITELLM_KEY:-}
       # Grafana preinstalls Logs Drilldown (grafana-lokiexplore-app), which only works on
       # Loki datasources — we have none — and failed to load on every page.
       - GF_PLUGINS_PREINSTALL_DISABLED=true
@@ -169,6 +172,8 @@ services:
       # joins litellm/delivery/langfuse; see hosts/homelab/docker-compose.yml).
       - default
       - umami
+      # litellm_default: the LLM app calls the gateway as litellm:4000, not via the host port-forward
+      - litellm
     logging:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
@@ -180,6 +185,10 @@ networks:
   umami:
     external: true
     name: umami_default
+  # Owned by infra/litellm (same rule: that stack is up first).
+  litellm:
+    external: true
+    name: litellm_default
 
 volumes:
   vm-data:
