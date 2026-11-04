@@ -16,41 +16,16 @@ state was last verified against the live system.
       three runs; new-errors 6/6 both. After the pick: a decision record, tear down
       `infra/x3/assistant-ui-eval/` (the operator runs `tailscale serve --https=8443 off` and `8444 off`),
       revoke key `assistant-ui-eval`, set the winner up on the mini (plan phase 6).
-- [ ] **Top up OpenRouter credit.** $4.07 left on 2026-11-04, alert `OpenRouter credit low` firing.
-      At $0 the assistant's failover, the fleets and the eval keys stop.
-      check: `curl -s homelab:8428/api/v1/query --data-urlencode 'query=max(openrouter_account_usd{kind="credits"})-max(openrouter_account_usd{kind="usage"})'`
-- [ ] **Rotate the 7 OpenRouter keys or not.** They sat in a world-readable `openrouter-verticals.envy` on
-      the mini from 2026-11-02 to 11-04 (deleted 11-04; the provisioning key `OR_PROVISIONING_KEY` among
-      them). Not checked whether anything read the file.
 - [ ] **X3 GPU memory to 128 GB** (plan 0.4, a restart): GTT and `ttm.pages_limit`. Still 62 GiB.
       check: `cat /sys/class/drm/card*/device/mem_info_gtt_total` on the X3.
-- [ ] **Approve the eval-harness push** that adds the "stop `ollama-assistant` before a harness model
-      over ~35 GB" rule (eval-harness branch 062, commit c039c3696, `examples/triage-fleet/README.md`).
 - [x] ~~**H6 needs a GitHub read-only token**~~ — *done 2026-11-04: fine-grained, Issues read on the five repos
       the fleet files into (eval-harness and the private humancopilot.eu added to the first list), on the mini as
       `~/assistant-github-readonly.env`; proven 200 on all five, 404 outside, 403 on write.*
 - [ ] **Renew the assistant's GitHub token before 2027-02-02 12:13 UTC** (`homelab assistant read-only`; GitHub can
       extend it in place). check: `curl -sI -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/rate_limit | grep -i expiration`
       on the mini, after `set -a; . ~/assistant-github-readonly.env; set +a`.
-- [ ] **Grafana 13 upgrade window** (issue #138, planned the week of 2026-11-09).
 - [ ] **The evaluation session with eval-harness** (`docs/wip/x3-assistant-evals.md`).
 
-- [ ] **Grafana on Postgres, or stay on SQLite?** Due 2026-10-25, now overdue. WAL went on
-      2026-10-18 (c3b0a18) after "database is locked" flapped alert rules (968 locks in one
-      hour on 10-18). **Checked 2026-10-29: 2 locks in the last 7 days**, which argues for
-      staying on SQLite. Migrate only if locks come back or a second Grafana is wanted.
-      - **What a migration has to carry** (checked 2026-10-18): 5 service accounts with 10
-        tokens other repos and the fleet use (`podcast-sync` 6, `orrery-sync`,
-        `signal-fleet`, `podcast-obs-reader`, `claude-code-obs`) and 15 of the 36 dashboards
-        (pushed by the podcast/orrery sync jobs, not in this repo). A fresh DB would break
-        every token, so it is a data migration, not a re-provision.
-      - **Where:** its own database and role in an existing Postgres (`glitchtip-postgres-1`
-        16.4, `langfuse-postgres-1` 17, `litellm-postgres`, `umami`). Sharing one couples
-        Grafana's uptime to that app's.
-      - check: `docker logs grafana --since 168h 2>&1 | grep -c 'database is locked'` on the mini.
-- [ ] **Agentic coding fleet: close it, or do the first test ride?** Dormant since 2026-07-03.
-      The opencode fleet was later built from the oh-my-opencode plugin; the Pi team and the
-      greenfield test ride never happened. Its decisions are in history 0007.
 - [ ] **Operator-preference conflicts** found when the 2026-07-24 preferences review was closed:
   - `make`: global rule 16 says foreground; podcast_scraper's memory says background
     ("REVERSED 2026-06-09"). Which wins there?
@@ -59,9 +34,6 @@ state was last verified against the live system.
   - Project memories with no global rule (no cheating options, never cut scope, never touch
     sudo or host state, never skip tests or add xfail, no lint weakening, no prod
     self-approve, never suggest dropping models): keep them project-scoped, or promote?
-- [ ] **`provider-bakeoff/`: run it or drop it?** "Run with your real API keys; pick a primary
-      cloud provider" has been open since 2026-06-12. Everything now routes through LiteLLM and
-      OpenRouter (`infra/litellm/README.md`), so the question it answered may be gone.
 - [ ] **Mini leftovers from the 2026-08-30 pruning:** `org.cindori.AuthHelper` (TRIM
       Enabler/Sensei helper; remove only with a yes) and `~/Library/Application Support/Adobe`
       (1.1 GB of personal Photoshop/Lightroom data; keep or delete).
