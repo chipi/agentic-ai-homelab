@@ -35,7 +35,14 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   visitors and pageviews today, yesterday, the last 7 days and the 7 before (local days), and the
   7 days' top pages, referrers, countries and click events, read through Umami's API with the admin
   login in `~/umami/.env` (one login per run, token in memory only). The assistant reads it as
-  `getSiteAnalytics`. A run takes ~11 s with 7 sites (2026-11-04).
+  `getSiteAnalytics`. A run takes ~5 s with 7 sites (2026-11-04).
+  And `www/fleet.json` (served at `/fleet.json`, use case H6): what the triage fleet wants from the
+  operator. `needsYou` is the fleet's own count (escalations of the last 7 days + bug proposals, as
+  `signal-fleet/mvp/inbox.py` counts them), each escalation linked to its issue through the fleet's
+  filed ledger, plus every escalated issue still open. Read from the fleet's files on the mini and from
+  GitHub with `~/assistant-github-readonly.env` (Issues read on the five repos the fleet files into, listed
+  in `hub-sources.js` `FLEET_REPOS`); a repo GitHub refuses is named in `unreadable`. The assistant reads
+  it as `getFleetQueue`.
 - `briefing-job.js` — the morning briefing (RFC-0008 use case H1), at 07:00 (launchd
   `com.homelab.hub-briefing`): needs-you first, then the night (alert changes from Grafana's state
   history, containers started, new GlitchTip issues), numbers, all-green. Every number comes from

@@ -3,7 +3,7 @@
   "info": {
     "title": "Homelab hub status",
     "version": "1.0.0",
-    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory, new errors in the last 24 hours. Also the last 48 hours of events, one kind at a time (timeline/<kind>.json) for incident write-ups and 'what happened' questions. And the websites' analytics (analytics.json, Umami)."
+    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory, new errors in the last 24 hours. Also the last 48 hours of events, one kind at a time (timeline/<kind>.json) for incident write-ups and 'what happened' questions. And the websites' analytics (analytics.json, Umami). And what the triage fleet wants from the operator (fleet.json)."
   },
   "servers": [
     {
@@ -277,6 +277,120 @@
                         "type": "string"
                       },
                       "description": "Copy these exactly"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fleet.json": {
+      "get": {
+        "operationId": "getFleetQueue",
+        "summary": "What the triage fleet wants from the operator: the count (needsYou), its escalations of the last 7 days with their issues, bug proposals waiting, and every escalated issue still open",
+        "description": "Written every 5 minutes by the hub from the fleet's own ledgers and GitHub. needsYou is the fleet's count (escalations of the last 7 days + bug proposals); give it as the number. escalations7d lists them, each with its issue (an issue can already be closed: say so). openEscalated is every escalated issue still open, of any age, newest first: the backlog. Name issues by repo and number with their url, exactly as given; never invent an issue. `unreadable` names repos GitHub refused: say their issues are missing.",
+        "responses": {
+          "200": {
+            "description": "The fleet queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "needsYou": {
+                      "type": "integer",
+                      "description": "The fleet's count: escalations of the last 7 days + bug proposals"
+                    },
+                    "escalations7d": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "local": {
+                            "type": "string",
+                            "description": "When the fleet escalated, on the operator's clock"
+                          },
+                          "signal": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "description": "Why the fleet escalated"
+                          },
+                          "issue": {
+                            "type": "object",
+                            "description": "The GitHub issue: repo, number, url, state (open/closed), title; null when the fleet never filed one",
+                            "properties": {
+                              "repo": {
+                                "type": "string"
+                              },
+                              "number": {
+                                "type": "integer"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "bugQueue": {
+                      "type": "array",
+                      "description": "Bug proposals waiting for the operator's yes: title, fingerprint, queued"
+                    },
+                    "openEscalated": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "repo": {
+                            "type": "string"
+                          },
+                          "number": {
+                            "type": "integer"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "opened": {
+                            "type": "string"
+                          },
+                          "ageDays": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "openEscalatedCount": {
+                      "type": "integer"
+                    },
+                    "repos": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "The repos the fleet files into"
+                    },
+                    "unreadable": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   }
                 }

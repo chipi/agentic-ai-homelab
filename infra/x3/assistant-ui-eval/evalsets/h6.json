@@ -1,0 +1,8 @@
+{
+  "name": "h6",
+  "about": "RFC-0008 use case H6, the fleet queue, through the hub's fleet.json (the fleet's own ledgers and GitHub), fetched just before and after the question. An answer passes when it gives the count and every issue asked about, and names no issue that is not in fleet.json.",
+  "questions": [
+    {"id": "h6-1", "use": "H6", "q": "What does the triage fleet want from me? How many things, and which issues are they?", "expect": "fleet_needs_you"},
+    {"id": "h6-2", "use": "H6", "q": "Which triage-fleet escalations are still open on GitHub? List each with its repo, number and link.", "expect": "fleet_open_escalated"}
+  ]
+}

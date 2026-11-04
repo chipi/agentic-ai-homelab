@@ -15,6 +15,7 @@ const OUT = process.env.HUB_OUT || path.join(__dirname, 'www/status.json');
 const TIMELINE = path.join(path.dirname(OUT), 'timeline.json'), TIMELINE_DIR = path.join(path.dirname(OUT), 'timeline');
 const TIMELINE_HOURS = 48;
 const ANALYTICS = path.join(path.dirname(OUT), 'analytics.json');
+const FLEET = path.join(path.dirname(OUT), 'fleet.json');
 
 async function main() {
   const src = S.statusSource();
@@ -32,12 +33,15 @@ async function main() {
   S.writeAtomic(path.join(TIMELINE_DIR, 'last-night.json'), JSON.stringify(Object.assign({ kind: 'last-night', window: tl.lastNight.local, count: tl.lastNightLines.length }, head, { lines: tl.lastNightLines }), null, 1));
   let an; try { an = await HS.analytics(src); } catch (e) { an = { ok: false, reason: String(e && e.message || e) }; }
   S.writeAtomic(ANALYTICS, JSON.stringify(an, null, 1));
+  let fq; try { fq = await HS.fleetQueue(src); } catch (e) { fq = { ok: false, reason: String(e && e.message || e) }; }
+  S.writeAtomic(FLEET, JSON.stringify(fq, null, 1));
   const logged = await S.logLine('hub-status', 'hub status snapshot', { snapshot: JSON.stringify(status) });
   const bad = Object.entries(status).filter(([, v]) => v && v.error).map(([k, v]) => k + ': ' + v.error);
   // the heartbeat the hub-status-stale alert reads (written even when an area failed: the file was)
   try { await S.pushGauge('hub_status_last_success_timestamp', Math.round(Date.now() / 1000)); } catch (e) { console.error('heartbeat: ' + e.message); }
   console.log(status.takenAt + ' wrote ' + OUT + ' (' + body.length + ' bytes), ' + logged
     + '; timeline ' + tl.count + ' events' + (tl.missing.length ? ' (missing: ' + tl.missing.join('; ') + ')' : '')
+    + '; fleet ' + (fq.ok ? fq.needsYou + ' need you, ' + fq.openEscalatedCount + ' open escalated' + (fq.unreadable.length ? ' (unreadable: ' + fq.unreadable.join('; ') + ')' : '') : 'failed: ' + fq.reason)
     + '; analytics ' + (an.ok ? an.sites.length + ' sites' + (an.sites.some(x => x.error) ? ' (errors: ' + an.sites.filter(x => x.error).map(x => x.site).join(', ') + ')' : '') : 'failed: ' + an.reason)
     + (bad.length ? '; area errors: ' + bad.join('; ') : ''));
   process.exit(bad.length ? 1 : 0);

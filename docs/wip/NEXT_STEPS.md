@@ -26,9 +26,12 @@ state was last verified against the live system.
       check: `cat /sys/class/drm/card*/device/mem_info_gtt_total` on the X3.
 - [ ] **Approve the eval-harness push** that adds the "stop `ollama-assistant` before a harness model
       over ~35 GB" rule (eval-harness branch 062, commit c039c3696, `examples/triage-fleet/README.md`).
-- [ ] **H6 needs a GitHub read-only token** (fine-grained: Issues + Metadata read on agentic-ai-homelab,
-      podcast_scraper, orrery; on the mini as `~/assistant-github-readonly.env`, `GITHUB_TOKEN=`), or the
-      decision to add the fleet's open items to `status.json` instead.
+- [x] ~~**H6 needs a GitHub read-only token**~~ — *done 2026-11-04: fine-grained, Issues read on the five repos
+      the fleet files into (eval-harness and the private humancopilot.eu added to the first list), on the mini as
+      `~/assistant-github-readonly.env`; proven 200 on all five, 404 outside, 403 on write.*
+- [ ] **Renew the assistant's GitHub token before 2027-02-02 12:13 UTC** (`homelab assistant read-only`; GitHub can
+      extend it in place). check: `curl -sI -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/rate_limit | grep -i expiration`
+      on the mini, after `set -a; . ~/assistant-github-readonly.env; set +a`.
 - [ ] **Grafana 13 upgrade window** (issue #138, planned the week of 2026-11-09).
 - [ ] **The evaluation session with eval-harness** (`docs/wip/x3-assistant-evals.md`).
 

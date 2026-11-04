@@ -234,6 +234,49 @@
              counts: Object.fromEntries(Object.entries(byKind).map(([k, v]) => [k, v.length])), byKind, missing };
   }
 
+  // Fleet queue (use case H6): what the triage fleet wants from the operator. The count is the fleet's own
+  // (needsYou: bug-queue proposals + escalations of the last 7 days, signal-fleet/mvp/inbox.py); the items
+  // are the same two lists, each escalation linked to its issue through the fleet's filed ledger (newest
+  // row for the fingerprint) and given the issue's state and title from GitHub. Also every OPEN escalated
+  // issue of any age: the backlog the 7-day count leaves out. src.fleetFiles() -> {dispositions, filed,
+  // queue} (parsed rows), src.github(path), src.fleetRepos. A repo GitHub refuses is named in `unreadable`.
+  async function fleetQueue(src) {
+    if (!src.fleetFiles) return { ok: false, reason: 'no fleet source' };
+    const nowMs = Math.round(src.now * 1000), files = await src.fleetFiles(), unreadable = [];
+    const lt = ms => new Date(ms).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const filedFor = fp => files.filed.filter(r => r.fingerprint === fp).sort((a, b) => (a.filed_at < b.filed_at ? 1 : -1))[0] || null;
+    const issues = {};
+    const issue = async (repo, n) => {
+      const k = repo + '#' + n;
+      if (!(k in issues)) {
+        try { const i = await src.github('/repos/' + repo + '/issues/' + n); issues[k] = { state: i.state, title: i.title }; }
+        catch (e) { issues[k] = { state: null, title: null, error: String(e && e.message || e) }; }
+      }
+      return issues[k];
+    };
+    const escalations = [];
+    for (const r of files.dispositions.filter(r => r.disposition === 'escalate' && Date.parse(r.ts) >= nowMs - 7 * 86400e3)
+                                     .sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))) {
+      const f = filedFor(r.fingerprint);
+      const gi = f ? await issue(f.repo, f.issue) : null;
+      escalations.push({ local: lt(Date.parse(r.ts)), signal: (r.alertname || '').slice(0, 140), fingerprint: r.fingerprint,
+                         reason: (r.reason || '').slice(0, 200),
+                         issue: f ? Object.assign({ repo: f.repo, number: +f.issue, url: 'https://github.com/' + f.repo + '/issues/' + f.issue }, gi) : null });
+    }
+    const bugQueue = files.queue.filter(q => q.kind === 'bug').map(q => ({ title: q.title, fingerprint: q.fingerprint, queued: q.queued_at || null }));
+    const openEscalated = [];
+    for (const repo of src.fleetRepos) {
+      try {
+        const list = await src.github('/repos/' + repo + '/issues?state=open&labels=triage-fleet/escalated&per_page=100');
+        list.filter(i => !i.pull_request).forEach(i => openEscalated.push({ repo, number: i.number, title: i.title, url: i.html_url,
+          opened: lt(Date.parse(i.created_at)), ageDays: Math.floor((nowMs - Date.parse(i.created_at)) / 86400e3) }));
+      } catch (e) { unreadable.push(repo + ': ' + (e && e.message || e)); }
+    }
+    openEscalated.sort((a, b) => a.ageDays - b.ageDays);
+    return { ok: true, needsYou: bugQueue.length + escalations.length, bugQueue, escalations7d: escalations,
+             openEscalated, openEscalatedCount: openEscalated.length, repos: src.fleetRepos, unreadable };
+  }
+
   // Site analytics (Umami), for the assistant: per site, visitors and pageviews today, yesterday and the
   // last 7 days (with the 7 days before), and the 7 days' top pages, referrers, countries and click events.
   // Day boundaries are the job's local midnight, so the model never does date math. Dev sites (localhost)
@@ -278,7 +321,7 @@
     return out;
   }
 
-  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, alertChanges, timeline, analytics, all, AREAS };
+  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, alertChanges, timeline, analytics, fleetQueue, all, AREAS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HubStatus = api;
 })(typeof window !== 'undefined' ? window : globalThis);

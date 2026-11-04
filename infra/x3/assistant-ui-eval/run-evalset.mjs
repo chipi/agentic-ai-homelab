@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const UI = process.argv[2], RESCORE = UI === "--rescore";
 const SET = RESCORE ? null : JSON.parse(readFileSync(join(HERE, process.argv[3] || "evalsets/h4-h5.json"), "utf8"));
-const STATUS = "https://hub.tail6d0ed4.ts.net/status.json", TIMELINE = "https://hub.tail6d0ed4.ts.net/timeline.json", ANALYTICS = "https://hub.tail6d0ed4.ts.net/analytics.json";
+const STATUS = "https://hub.tail6d0ed4.ts.net/status.json", TIMELINE = "https://hub.tail6d0ed4.ts.net/timeline.json", ANALYTICS = "https://hub.tail6d0ed4.ts.net/analytics.json", FLEET = "https://hub.tail6d0ed4.ts.net/fleet.json";
 const URLS = { librechat: "https://omarchy.tail6d0ed4.ts.net:8443/", openwebui: "https://omarchy.tail6d0ed4.ts.net:8444/" };
 if (!RESCORE && !URLS[UI]) { console.error("usage: node run-evalset.mjs <librechat|openwebui> [set] | --rescore <results file>"); process.exit(2); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -51,6 +51,12 @@ const siteLines = (a, site, all) => { const n = site.toLowerCase(), longer = all
 const onSiteLine = (label, site, all, value) => ({ kind: "pred", label, want: value,
   test: a => siteLines(a, site, all).some(l => numbers(l).includes(value)) });
 const AN_MISSING = [text("analytics missing", ["\u0000"])];
+// H6: issue numbers an answer names (#123, /issues/123), as numbers: "#132" must not count as "#13"
+const issueNums = a => new Set([...a.matchAll(/(?:#|\/issues\/)(\d+)\b/g)].map(m => +m[1]));
+const namesIssue = (label, n) => ({ kind: "pred", label, want: "#" + n, test: a => issueNums(a).has(n) });
+const noOtherIssues = f => { const ok = new Set([...f.escalations7d.filter(e => e.issue).map(e => e.issue.number), ...f.openEscalated.map(i => i.number)]);
+  return { kind: "pred", label: "names no issue outside fleet.json", want: "issues from fleet.json only", test: a => [...issueNums(a)].every(n => ok.has(n)) }; };
+const FL_MISSING = [text("fleet missing", ["\u0000"])];
 const RULES = {
   sites_up_total: s => [num("sites up", s.sites.up, 0), num("sites total", s.sites.total, 0)],
   sites_down: s => s.sites.down.length ? s.sites.down.map(h => text(h, [h])) : [text("none down", NONE)],
@@ -87,6 +93,11 @@ const RULES = {
     if (!o || o.error) return AN_MISSING;
     const refs = o.top7d.referrers.map(r => r.name);
     return o.top7d.referrers.slice(0, 3).map(r => onSiteLine("referrer " + r.name + " with its count", r.name, refs, r.count)); },
+  // the fleet queue (fleet.json)
+  fleet_needs_you: s => { const f = s.fleet; if (!f || !f.ok) return FL_MISSING;
+    return [num("needs you", f.needsYou, 0), ...[...new Set(f.escalations7d.filter(e => e.issue).map(e => e.issue.number))].map(n => namesIssue("issue #" + n, n)), noOtherIssues(f)]; },
+  fleet_open_escalated: s => { const f = s.fleet; if (!f || !f.ok) return FL_MISSING;
+    return [...f.openEscalated.map(i => namesIssue(i.repo + "#" + i.number, i.number)), noOtherIssues(f)]; },
   max_mem: s => { const [b, v] = Object.entries(s.capacity).sort((x, y) => y[1].memUsedPct - x[1].memUsedPct)[0];
                   return [text("host " + b, HOSTS[b] || [b]), num(`${b} memory %`, +v.memUsedPct.toFixed(1), 0.6)]; },
 };
@@ -105,7 +116,7 @@ function score(answer, facts) {
 // one hub read failed mid-run with an HTTP/2 stream error (2026-11-03); retry a few times
 const get = async url => { for (let i = 0; ; i++) { try { return await (await fetch(url)).json(); }
                                                   catch (e) { if (i >= 3) throw e; await sleep(2000); } } };
-const snap = async () => Object.assign(await get(STATUS), { timeline: await get(TIMELINE).catch(() => null), analytics: await get(ANALYTICS).catch(() => null) });
+const snap = async () => Object.assign(await get(STATUS), { timeline: await get(TIMELINE).catch(() => null), analytics: await get(ANALYTICS).catch(() => null), fleet: await get(FLEET).catch(() => null) });
 function judge(answer, rule, before, after, q = "") {
   const sb = score(answer, RULES[rule](before, q)), sa = score(answer, RULES[rule](after, q));
   const best = sb.pass || !sa.pass ? sb : sa;
