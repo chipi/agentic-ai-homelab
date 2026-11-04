@@ -12,6 +12,7 @@ here is tracked in git, so it's findable and diffable.
 - `tailscale-exit-node-mini.md` — the mini as an NL exit node. Not run yet.
 - `otel-pipeline-end-to-end.md` — telemetry map, gaps and the remaining plan (issue #99).
 - `x3-assistant-v1-plan.md` — the local assistant on the X3 (RFC-0008): step 1 (the assistant, phases 0–7), step 2 (the model in Grafana, Langfuse, Home Assistant), step 3 (use cases around them).
+- `x3-assistant-evals.md` — what to evaluate across the RFC-0008 work with the eval harness: goals G1–G8, dataset, labels and scoring per goal, what exists, open questions (to do with the operator).
 
 ## Closing a note
 

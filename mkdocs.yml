@@ -143,6 +143,7 @@ nav:
     - Overview: wip/README.md
     - Next steps: wip/NEXT_STEPS.md
     - X3 assistant plan: wip/x3-assistant-v1-plan.md
+    - X3 assistant evals (what to evaluate): wip/x3-assistant-evals.md
   - History:
     - Overview: history/README.md
     - "0001 — Genesis": history/0001-genesis.md
