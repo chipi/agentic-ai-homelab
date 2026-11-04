@@ -9,6 +9,29 @@ state was last verified against the live system.
 
 ## Decisions waiting on the operator
 
+### From the X3 assistant work (RFC-0008), added 2026-11-04
+
+- [ ] **Pick the chat UI: LibreChat or Open WebUI.** The operator tests both over the coming weeks
+      (`https://omarchy.tail6d0ed4.ts.net:8443` / `:8444`). Evidence so far: H4/H5 39/39 vs 32/39 over
+      three runs; new-errors 6/6 both. After the pick: a decision record, tear down
+      `infra/x3/assistant-ui-eval/` (the operator runs `tailscale serve --https=8443 off` and `8444 off`),
+      revoke key `assistant-ui-eval`, set the winner up on the mini (plan phase 6).
+- [ ] **Top up OpenRouter credit.** $4.07 left on 2026-11-04, alert `OpenRouter credit low` firing.
+      At $0 the assistant's failover, the fleets and the eval keys stop.
+      check: `curl -s homelab:8428/api/v1/query --data-urlencode 'query=max(openrouter_account_usd{kind="credits"})-max(openrouter_account_usd{kind="usage"})'`
+- [ ] **Rotate the 7 OpenRouter keys or not.** They sat in a world-readable `openrouter-verticals.envy` on
+      the mini from 2026-11-02 to 11-04 (deleted 11-04; the provisioning key `OR_PROVISIONING_KEY` among
+      them). Not checked whether anything read the file.
+- [ ] **X3 GPU memory to 128 GB** (plan 0.4, a restart): GTT and `ttm.pages_limit`. Still 62 GiB.
+      check: `cat /sys/class/drm/card*/device/mem_info_gtt_total` on the X3.
+- [ ] **Approve the eval-harness push** that adds the "stop `ollama-assistant` before a harness model
+      over ~35 GB" rule (eval-harness branch 062, commit c039c3696, `examples/triage-fleet/README.md`).
+- [ ] **H6 needs a GitHub read-only token** (fine-grained: Issues + Metadata read on agentic-ai-homelab,
+      podcast_scraper, orrery; on the mini as `~/assistant-github-readonly.env`, `GITHUB_TOKEN=`), or the
+      decision to add the fleet's open items to `status.json` instead.
+- [ ] **Grafana 13 upgrade window** (issue #138, planned the week of 2026-11-09).
+- [ ] **The evaluation session with eval-harness** (`docs/wip/x3-assistant-evals.md`).
+
 - [ ] **Grafana on Postgres, or stay on SQLite?** Due 2026-10-25, now overdue. WAL went on
       2026-10-18 (c3b0a18) after "database is locked" flapped alert rules (968 locks in one
       hour on 10-18). **Checked 2026-10-29: 2 locks in the last 7 days**, which argues for
