@@ -3,14 +3,18 @@
   "info": {
     "title": "Homelab hub status",
     "version": "1.0.0",
-    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory."
+    "description": "The homelab hub's status snapshot (status.json), written every 5 minutes on the Mac mini by the same module the hub page and the morning briefing use (hub-status.js). Read-only. Use it for: is prod healthy, are the boxes up, alerts firing, what needs the operator, OpenRouter credit and spend, disk and memory, new errors in the last 24 hours."
   },
-  "servers": [{ "url": "https://hub.tail6d0ed4.ts.net" }],
+  "servers": [
+    {
+      "url": "https://hub.tail6d0ed4.ts.net"
+    }
+  ],
   "paths": {
     "/status.json": {
       "get": {
         "operationId": "getHomelabStatus",
-        "summary": "Current homelab status: sites, hosts, Close Listening prod health, alerts, needs-you, delivery, OpenRouter credit and spend, capacity",
+        "summary": "Current homelab status: sites, hosts, Close Listening prod health, alerts, needs-you, delivery, OpenRouter credit and spend, capacity, new errors (GlitchTip, last 24 h)",
         "description": "One snapshot, at most ~5 minutes old (takenAt). State values: up (green), mid (amber), down (red), stale (no recent data). Each area may be {error: ...} when its source failed; say so instead of guessing.",
         "responses": {
           "200": {
@@ -20,16 +24,50 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "takenAt": { "type": "string", "description": "When the snapshot was taken (UTC, ISO 8601)" },
-                    "sites": { "type": "object", "description": "Public websites probed from outside through Cloudflare: state, up/total, down (hosts down now), avail24h (0-1), lowest, below999 (under 99.9% in 24 h), hosts[]; offline=true means the mini itself had no internet, so states are unknown" },
-                    "boxes": { "type": "object", "description": "Collector freshness per host (mini, dgx, x3, prod): state up (<3 min), stale, down; ageSeconds" },
-                    "podcast": { "type": "object", "description": "Close Listening prod health (daily check): state, known, stale (check not run in 26 h), ageHours, checks per area (gateway, o11y_logs, o11y_metrics, o11y_traces, o11y_glitchtip); null = no data" },
-                    "alerts": { "type": "object", "description": "Firing alerts from Grafana: ok (false = the alert source failed), critical[], warning[] (name, instance, severity, summary, since), plumbing (wiring alerts, not incidents)" },
-                    "needsYou": { "type": "object", "description": "What needs the operator: total, bugQueue (triage fleet's bug queue), escalations7d" },
-                    "delivery": { "type": "object", "description": "Email/push delivery workers: state, workersUp/workers, reasons[] for amber" },
-                    "credit": { "type": "object", "description": "OpenRouter credit: leftUsd, low (under $10)" },
-                    "spend": { "type": "object", "description": "OpenRouter spend: yesterdayUsd, avg7dUsd (per day), monthUsd (completed UTC days)" },
-                    "capacity": { "type": "object", "description": "Per host (mini, dgx, prod): diskFreePct, memUsedPct (mini also swapBytes); numbers only, the alert rules decide warnings" }
+                    "takenAt": {
+                      "type": "string",
+                      "description": "When the snapshot was taken (UTC, ISO 8601)"
+                    },
+                    "sites": {
+                      "type": "object",
+                      "description": "Public websites probed from outside through Cloudflare: state, up/total, down (hosts down now), avail24h (0-1), lowest, below999 (under 99.9% in 24 h), hosts[]; offline=true means the mini itself had no internet, so states are unknown"
+                    },
+                    "boxes": {
+                      "type": "object",
+                      "description": "Collector freshness per host (mini, dgx, x3, prod): state up (<3 min), stale, down; ageSeconds"
+                    },
+                    "podcast": {
+                      "type": "object",
+                      "description": "Close Listening prod health (daily check): state, known, stale (check not run in 26 h), ageHours, checks per area (gateway, o11y_logs, o11y_metrics, o11y_traces, o11y_glitchtip); null = no data"
+                    },
+                    "alerts": {
+                      "type": "object",
+                      "description": "Firing alerts from Grafana: ok (false = the alert source failed), critical[], warning[] (name, instance, severity, summary, since), plumbing (wiring alerts, not incidents)"
+                    },
+                    "needsYou": {
+                      "type": "object",
+                      "description": "What needs the operator: total, bugQueue (triage fleet's bug queue), escalations7d"
+                    },
+                    "delivery": {
+                      "type": "object",
+                      "description": "Email/push delivery workers: state, workersUp/workers, reasons[] for amber"
+                    },
+                    "credit": {
+                      "type": "object",
+                      "description": "OpenRouter credit: leftUsd, low (under $10)"
+                    },
+                    "spend": {
+                      "type": "object",
+                      "description": "OpenRouter spend: yesterdayUsd, avg7dUsd (per day), monthUsd (completed UTC days)"
+                    },
+                    "capacity": {
+                      "type": "object",
+                      "description": "Per host (mini, dgx, prod): diskFreePct, memUsedPct (mini also swapBytes); numbers only, the alert rules decide warnings"
+                    },
+                    "errors": {
+                      "type": "object",
+                      "description": "GlitchTip error issues first seen in the last 24 hours, computed by the hub (complete, newest first): ok, windowHours, newCount, new[] (id = short id, project, title, count = occurrences, firstSeen UTC, status, link). Use this for 'what new errors appeared'; count and list exactly these."
+                    }
                   }
                 }
               }

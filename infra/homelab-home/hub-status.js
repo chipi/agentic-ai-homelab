@@ -141,8 +141,23 @@
     };
   }
 
+  // GlitchTip: issues first seen since `from` (unix seconds), newest first. One definition of "new error"
+  // for status.json (last 24 h) and the briefing (its overnight window). src.glitchtip(path) returns the
+  // parsed API response; the page has no GlitchTip token, so it never calls this.
+  async function newIssues(src, from) {
+    const list = await src.glitchtip('/api/0/organizations/homelab/issues/?query=&limit=100&sort=-first_seen');
+    return list.filter(i => i.firstSeen && Date.parse(i.firstSeen) / 1000 >= from)
+      .map(i => ({ id: i.shortId, project: (i.project || {}).slug || null, title: i.title, count: +i.count || 0,
+                   firstSeen: i.firstSeen, status: i.status || null, link: 'https://glitchtip.tail6d0ed4.ts.net/homelab/issues/' + i.id }));
+  }
+  async function errors(src) {
+    if (!src.glitchtip) return { ok: false, reason: 'no GlitchTip source' };
+    const list = await newIssues(src, src.now - 86400);
+    return { ok: true, windowHours: 24, newCount: list.length, new: list };
+  }
+
   // Everything, with when it was taken; each area isolated so one failing source does not hide the rest.
-  const AREAS = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity };
+  const AREAS = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors };
   async function all(src) {
     const out = { takenAt: new Date(src.now * 1000).toISOString() };
     for (const [k, f] of Object.entries(AREAS)) {
@@ -151,7 +166,7 @@
     return out;
   }
 
-  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, all, AREAS };
+  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, all, AREAS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HubStatus = api;
 })(typeof window !== 'undefined' ? window : globalThis);

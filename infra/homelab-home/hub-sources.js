@@ -54,6 +54,11 @@ function statusSource() {
       if (!tok) throw new Error('no GRAFANA_TOKEN in ' + FILES.grafana);
       return getJson(URLS.grafana + '/api/alertmanager/grafana/api/v2/alerts', { headers: { Authorization: 'Bearer ' + tok } });
     },
+    glitchtip: async p => {
+      const gt = secret(FILES.glitchtip, 'GLITCHTIP_TOKEN');
+      if (!gt) throw new Error('no GLITCHTIP_TOKEN in ' + FILES.glitchtip);
+      return getJson(URLS.glitchtip + p, { headers: { Authorization: 'Bearer ' + gt } });
+    },
   };
 }
 

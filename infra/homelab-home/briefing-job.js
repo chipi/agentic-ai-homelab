@@ -67,12 +67,9 @@ async function restarts(from, now) {
     .sort((a, b) => a.at - b.at);
 }
 
-// GlitchTip issues first seen in the window
+// GlitchTip issues first seen in the window (the status module's definition, shared with status.json)
 async function newErrors(from) {
-  const tok = S.secret(S.FILES.glitchtip, 'GLITCHTIP_TOKEN');
-  const list = await S.getJson(S.URLS.glitchtip + '/api/0/organizations/homelab/issues/?query=&limit=100&sort=-last_seen', { headers: { Authorization: 'Bearer ' + tok } });
-  return list.filter(i => i.firstSeen && new Date(i.firstSeen) >= from)
-    .map(i => ({ id: i.shortId, title: i.title, count: +i.count || 0, firstSeen: i.firstSeen, link: 'https://glitchtip.tail6d0ed4.ts.net/homelab/issues/' + i.id }));
+  return HS.newIssues(S.statusSource(), from.getTime() / 1000);
 }
 
 // what needs the operator, most urgent first, at most 5 (decided here, in code)

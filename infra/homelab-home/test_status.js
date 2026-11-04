@@ -83,6 +83,23 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   c = await HS.credit(src([]));
   check('credit: no data is null and not low', c.leftUsd === null && c.low === false, c);
 
+  // errors: GlitchTip issues first seen in the last 24 h, newest first; the page (no source) gets ok:false
+  const iso = sec => new Date(sec * 1000).toISOString();
+  const issues = [
+    { id: 3, shortId: 'NEW-2', title: 'b', count: '4', firstSeen: iso(NOW - 600), status: 'unresolved', project: { slug: 'p2' } },
+    { id: 2, shortId: 'NEW-1', title: 'a', count: '1', firstSeen: iso(NOW - 86000), status: 'resolved', project: { slug: 'p1' } },
+    { id: 1, shortId: 'OLD-1', title: 'z', count: '9', firstSeen: iso(NOW - 90000), status: 'unresolved', project: { slug: 'p1' } },
+  ];
+  let asked = '';
+  const er = await HS.errors(Object.assign(src([]), { glitchtip: async p => { asked = p; return issues; } }));
+  check('errors: only issues first seen in 24 h, with project, count and status', er.ok && er.newCount === 2 &&
+    er.new.map(x => x.id).join() === 'NEW-2,NEW-1' && er.new[0].project === 'p2' && er.new[0].count === 4 && er.new[1].status === 'resolved', er);
+  check('errors: asks newest-first, all statuses, up to 100', asked.includes('sort=-first_seen') && asked.includes('limit=100') && asked.includes('query=&'), asked);
+  const nosrc = await HS.errors(src([]));
+  check('errors: without a GlitchTip source (the page) it says so, no throw', nosrc.ok === false && nosrc.reason, nosrc);
+  const win = await HS.newIssues({ glitchtip: async () => issues }, NOW - 700);
+  check('newIssues: the window is the caller\'s (the briefing\'s overnight)', win.map(x => x.id).join() === 'NEW-2', win);
+
   // all: one failing area does not hide the rest
   const all = await HS.all({ now: NOW, q: async e => { if (e.includes('delivery')) throw new Error('boom'); return []; }, alerts: async () => [] });
   check('all: a throwing area is reported as an error, the others still present', all.delivery.error === 'boom' && all.sites.state === 'stale' && all.takenAt, all.delivery);
