@@ -189,7 +189,7 @@ moved it were to the fleet's brief.
 - **F3 (release age) does not separate the cases it was meant to.** ORRERY-PROD-1P (real) and -1V (noise) carry
   the same build age; what differs is whether a fix had shipped by then, which the filing stage knows and the model
   does not. A stale-client rule in filing would have changed 3 of the fleet's 63 real reopens and regressions
-  (`signal-fleet/mvp/freeze_stale_client.py`, not committed): parked.
+  (`freeze_stale_client.py`, in chipi/fleet-eval-data `projects/stale-client-rule/`): parked.
 
 ### Shipped: the app failing to load its own code is a real problem (prompt `219b34bf`)
 

@@ -198,7 +198,7 @@ Where each fleet stands: [fleet architecture → Rollout status](../fleet-archit
 - [ ] **(fleet session) Parked: a stale-client rule in filing** (an event from a build older than the fix's close is
       not a reopen). 3 of the fleet's 63 real reopens/regressions are that case; GlitchTip's releases cannot tell which
       build was live (it records a release on its first event), so it needs deploy history. Corpus freezer:
-      `signal-fleet/mvp/freeze_stale_client.py` (local, not committed).
+      `freeze_stale_client.py`, in the private repo chipi/fleet-eval-data `projects/stale-client-rule/` (moved 2026-11-05).
 - [x] ~~Operator: close eval-harness round r4~~ — *done 2026-11-04 (eval-harness 62e148cdc): closed, nothing
       promoted (own-code-loads is not separated from the noise-gate arm), the $4.27 spend accepted.*
 - [ ] **(fleet session) The plan for what comes next:** [triage fleet improvement plan](triage-fleet-improvement-plan.md)

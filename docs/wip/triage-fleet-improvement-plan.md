@@ -88,7 +88,7 @@ nothing that decides reads it. **Done when** it is deployed, so every decision f
   close reason and `duplicateOf`), what `filing.file_or_update` does: comment on issue N, reopen N, file a regression
   of N, follow a duplicate to N, fold into the rollup, file new, stay muted. GitHub is answered from the frozen
   timelines; no write leaves the replay.
-- **The data** (`signal-fleet/datasets/freeze_filing.py`, run 2026-11-05): 1,095 filing decisions 2026-07-29 to
+- **The data** (the freezer, `freeze_filing.py`, now in the private repo chipi/fleet-eval-data `projects/signal-fleet-filing/scripts/`; run 2026-11-05): 1,095 filing decisions 2026-07-29 to
   11-05, 506 fleet issues, 145 duplicate links (77 found only in close comments), multi-issue clusters
   podcast_scraper 24, homelab 10, orrery 4. Its second run also fetches every duplicate target and every issue a
   ledger names, fleet-labelled or not.
