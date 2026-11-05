@@ -244,7 +244,26 @@ done
 [ -n "${diff//[[:space:]]/}" ] || allow
 
 # --- scan only ADDED lines; drop obvious placeholders ---
-added="$(printf '%s\n' "$diff" | grep -E '^\+' | grep -Ev '^\+\+\+')"
+# One narrow exception (operator, 2026-11-05): eval-harness (evh) manifests map item ids to the
+# sha256 of each item, and gitleaks' generic-api-key fires on an id like `…compose-api-1` beside a
+# 64-hex value. A line is skipped only when all three hold: the file is an evh manifest
+# (data/references/<set>/<ref>/manifest.json, data/datasets/<name>.json), the line is exactly
+# `"<id>": "<64 lowercase hex>"`, and the id names no secret (key, secret, token, passw, auth,
+# bearer, credential). `"api_key": "<64 hex>"` in a manifest is still scanned. Written without
+# regex intervals so macOS awk runs it too.
+added="$(printf '%s\n' "$diff" | awk '
+  /^\+\+\+ / { f = $2; sub(/^b\//, "", f); next }
+  /^\+/ {
+    if (f ~ /(^|\/)data\/references\/[^\/]+\/[^\/]+\/manifest\.json$/ || f ~ /(^|\/)data\/datasets\/[^\/]+\.json$/) {
+      line = $0; sub(/^\+[ \t]*/, "", line)
+      if (line ~ /^"[^"]*"[ \t]*:[ \t]*"[0-9a-f]+",?[ \t]*$/) {
+        id = line; sub(/^"/, "", id); sub(/".*$/, "", id)
+        v = line; sub(/^"[^"]*"[ \t]*:[ \t]*"/, "", v); sub(/".*$/, "", v)
+        if (length(v) == 64 && tolower(id) !~ /(key|secret|token|passw|auth|bearer|credential)/) next
+      }
+    }
+    print
+  }')"
 placeholder='buddy-is-the-king|hf_xxx|<your|\$\{|changeme|change_?me|placeholder|dummy|xxxx+|redacted|example|\.\.\.|test-api-key|test[_-]key|sk-test|test-token|test_token|fake-?key|not-?a-?real'
 scan="$(printf '%s\n' "$added" | grep -Eiv "$placeholder")"
 
