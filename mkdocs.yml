@@ -146,6 +146,7 @@ nav:
     - X3 assistant evals (what to evaluate): wip/x3-assistant-evals.md
     - Fleet evals handover: wip/fleet-evals-handover.md
     - Triage fleet improvement plan: wip/triage-fleet-improvement-plan.md
+    - eval-harness feedback (fleet): wip/eval-harness-feedback-fleet.md
     - Translation service plan: wip/translation-service-plan.md
   - History:
     - Overview: history/README.md
