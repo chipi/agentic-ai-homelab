@@ -44,7 +44,7 @@ Do not create logins, publish ports or change groups to "get access".
 - Recipes below run **on the mini** unless marked otherwise. From the laptop, every
   web service also has its own tailnet name (`https://<name>.tail6d0ed4.ts.net`:
   `grafana`, `vm`, `vlogs`, `vtraces`, `litellm`, `langfuse`, `umami`, `glitchtip`,
-  `hub`, `evals`) — see [observability endpoints](observability-endpoints.md).
+  `hub`, `evals`, `fleet-evals`) — see [observability endpoints](observability-endpoints.md).
 
 **Credentials** — load them from the file, never print them, never copy them anywhere:
 

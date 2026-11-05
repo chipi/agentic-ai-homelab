@@ -76,6 +76,14 @@ https://compare.tail6d0ed4.ts.net {
 	reverse_proxy evals-compare:8501
 }
 
+# The triage fleet's eval catalog — chipi/fleet-eval-data (private), static pages built by
+# infra/fleet-evals. Production-derived content: tailnet-only exposure is the access control.
+https://fleet-evals.tail6d0ed4.ts.net {
+	bind tailscale/fleet-evals
+	encode zstd gzip
+	reverse_proxy fleet-evals-web:80
+}
+
 # Home Assistant — chipi/home-automation, deploy/homelab/. HA trusts this proxy's
 # X-Forwarded-For only from its own network (trusted_proxies = home-automation_default).
 https://homeassistant.tail6d0ed4.ts.net {

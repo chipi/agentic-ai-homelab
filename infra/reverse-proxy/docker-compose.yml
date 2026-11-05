@@ -22,6 +22,7 @@ services:
       - umami_default
       - glitchtip_default
       - evals_default
+      - fleet-evals_default
       - home-automation_default
 
 volumes:
@@ -40,6 +41,8 @@ networks:
   glitchtip_default:
     external: true
   evals_default:
+    external: true
+  fleet-evals_default:
     external: true
   home-automation_default:
     external: true

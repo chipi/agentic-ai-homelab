@@ -1,0 +1,47 @@
+# The fleet-eval-data catalog, static, tailnet only: no port is published; Caddy (infra/reverse-proxy)
+# reaches `web` over fleet-evals_default as https://fleet-evals.tail6d0ed4.ts.net. update.sh sets
+# HARNESS_REF and FLEET_EVAL_DATA, runs `build` once, then (re)starts `web`.
+#
+# Static only (operator, 2026-11-05): evh's run inspector listens on 127.0.0.1 unless it runs in
+# --public mode, so its page is a shell whose API calls fail until the harness has a private
+# behind-a-proxy mode.
+name: fleet-evals
+services:
+  # One-shot: the harness at the pinned commit builds the pages into the site volume. It builds into
+  # /site/next and swaps it in only when the build passed, so `web` never serves a half-built site.
+  build:
+    profiles: [build]
+    build:
+      context: .
+      args:
+        HARNESS_REF: ${HARNESS_REF:?set by update.sh}
+    image: local/fleet-evals:${HARNESS_REF:?set by update.sh}
+    volumes:
+      - ${FLEET_EVAL_DATA:?set by update.sh}:/project:ro
+      - site:/site
+    command:
+      - sh
+      - -c
+      - >-
+        rm -rf /site/next
+        && evh catalog --out /site/next --brand "agentic fleet evals" --about projects/catalog-about.html
+        && chmod -R a+rX /site/next
+        && rm -rf /site/old && { [ ! -d /site/live ] || mv /site/live /site/old; }
+        && mv /site/next /site/live && rm -rf /site/old
+
+  # Stock image, the site mounted read-only: no image of ours holds research data.
+  web:
+    image: nginx:alpine
+    container_name: fleet-evals-web
+    restart: unless-stopped
+    mem_limit: 128m
+    volumes:
+      - site:/site:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  site:
+
+networks:
+  default:
+    name: fleet-evals_default
