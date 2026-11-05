@@ -201,7 +201,17 @@ that class are real. `a7dfcd2` files them; CSS-preload and plain fetch failures 
 |---|---:|---:|---:|
 | `triage_cost` | 0.872 | 0.446 | 0.0011 (better on 11 items, worse on 1) |
 | missed real problems (`false_dismiss`, of 34) | 0.206 | 0.059 | 0.016 |
-| escalations to the operator (of 65) | 0.292 | 0.118 | 0.0001 |
+| escalations (of 65) | 0.292 | 0.118 | 0.0001 |
+| filed (of 65) | 0.456 | 0.667 | |
+| on the operator's desk: filed + escalated (of 65) | 0.749 | 0.785 | |
+| of what is on the desk, noise | 0.445 | 0.373 | |
+
+*Corrected 2026-11-05 (the fleet plan's review):* the fall in escalations is not a lighter desk. The change turns
+escalations and dismissals into filings, so slightly more decisions reach the operator (0.749 → 0.785); what it
+improves is that fewer of them are noise and far fewer real problems are missed. Read the escalation row with the
+two below it. The 12 decisions it moved rest on 12 distinct owner verdicts (none shares one; across all 65 labelled
+decisions only issue #554 carries two), so the paired test is not inflated by labels carried between decisions.
+Measured on Orrery only: the brief is the same for every project, and PLAYER is a browser app too.
 | false alarms (of 31) | 0.699 | 0.613 | 0.13 (not worse) |
 
 Its hypothesis was recorded in the commit before the run, and held: ORRERY-5, -7, -PROD-3, -PROD-G filed in 3 of
