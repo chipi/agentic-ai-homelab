@@ -1,6 +1,7 @@
 #!/bin/bash
 # Deploy a new version of the fleet-eval-data catalog, on demand (no timer: the operator deploys, 2026-11-05).
-# From the laptop: ssh homelab '~/agentic-ai-homelab/infra/fleet-evals/update.sh'  [--force]
+# From any agent's machine (the X3 or the laptop; the same key and user host-run uses):
+#   ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab '~/agentic-ai-homelab/infra/fleet-evals/update.sh'  [--force]
 # When the checkout's origin/main moved (or the site is not up, or --force): fast-forward, build the
 # pages with the harness the checkout pins, and (re)start the web container. A failed build leaves the
 # previous site serving.

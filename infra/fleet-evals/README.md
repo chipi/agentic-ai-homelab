@@ -29,12 +29,15 @@ docker network connect fleet-evals_default caddy   # live; the reverse-proxy com
 
 ## Deploy a new version
 
-From the laptop, after pushing to fleet-eval-data's main:
+After pushing to fleet-eval-data's main, from any agent's machine (the X3 or the laptop). The key and
+user are spelled out because the X3 has no ssh alias for the mini; a bare `ssh homelab` is refused there:
 
 ```bash
-ssh homelab '~/agentic-ai-homelab/infra/fleet-evals/update.sh'          # pull main, build, swap in
-ssh homelab '~/agentic-ai-homelab/infra/fleet-evals/update.sh --force'  # rebuild the same commit
+ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab '~/agentic-ai-homelab/infra/fleet-evals/update.sh'          # pull main, build, swap in
+ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab '~/agentic-ai-homelab/infra/fleet-evals/update.sh --force'  # rebuild the same commit
 ```
+
+An agent: run it with a 20-minute timeout or in the background, and read the last line.
 
 The last line is `OK <old> -> <new>`, `UP TO DATE <sha>` or `FAIL …` (the previous site keeps serving).
 A build takes about 15 minutes on the mini: the container reads the checkout through colima's mount.
@@ -49,4 +52,6 @@ A build takes about 15 minutes on the mini: the container reads the checkout thr
 ## Not covered
 
 - No alert when a deploy fails: the command's last line says FAIL.
+- The image installs only the pinned harness, not the rest of fleet-eval-data's `pyproject.toml`. A new
+  dependency the catalog build needs means a change to this Dockerfile.
 - The failure path (a broken build leaves the previous site serving) is written, not yet tested.
