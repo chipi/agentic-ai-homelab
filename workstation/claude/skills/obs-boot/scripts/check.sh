@@ -22,7 +22,11 @@ out=$($MINI 'export PATH=/usr/local/bin:$PATH
   for l in dgx-scrape mini-metrics forward-watchdog; do
     echo "launchd $l $(sudo -n launchctl print system/com.homelab.$l 2>/dev/null | grep -m1 "state =" | sed "s/.*state = //" || echo missing)"; done
   curl -s http://127.0.0.1:8428/api/v1/query --data-urlencode "query=time() - max by (instance) (timestamp(up))" \
-    | python3 -c "import sys,json; [print(\"fresh\", r[\"metric\"].get(\"instance\",\"?\"), round(float(r[\"value\"][1]))) for r in json.load(sys.stdin)[\"data\"][\"result\"]]"' 2>&1)
+    | python3 -c "import sys,json; [print(\"fresh\", r[\"metric\"].get(\"instance\",\"?\"), round(float(r[\"value\"][1]))) for r in json.load(sys.stdin)[\"data\"][\"result\"]]"
+  curl -s http://127.0.0.1:8428/api/v1/query --data-urlencode "query=time() - max by (job) (timestamp(up{job=\"postgres\",instance=\"prod-podcast\"}))" \
+    | python3 -c "import sys,json; [print(\"jobfresh\", r[\"metric\"].get(\"job\",\"?\"), round(float(r[\"value\"][1]))) for r in json.load(sys.stdin)[\"data\"][\"result\"]]"
+  curl -s http://127.0.0.1:8428/api/v1/query --data-urlencode "query=time() - max(last_over_time(closelistening_pg_backup_last_success_timestamp_seconds{instance=\"prod-podcast\",run_id=\"\"}[3d]))" \
+    | python3 -c "import sys,json; [print(\"backupage\", \"postgres\", round(float(r[\"value\"][1]))) for r in json.load(sys.stdin)[\"data\"][\"result\"]]"' 2>&1)
 [ -n "$out" ] || bad "could not reach the mini over ssh"
 while read -r kind what val; do
   case "$kind" in
@@ -30,11 +34,15 @@ while read -r kind what val; do
     container) [ "$val" = running ] && ok "container $what running" || bad "container $what: $val" ;;
     launchd)   [ "$val" = running ] && ok "loop $what running" || bad "loop $what: ${val:-not running} (a periodic loop between runs shows 'not running' — check its log before acting)" ;;
     fresh)     [ "$val" -le "$STALE" ] && ok "metrics from $what: last sample ${val}s ago" || bad "metrics from $what: last sample ${val}s ago (> ${STALE}s)" ;;
+    jobfresh)  [ "$val" -le "$STALE" ] && ok "prod $what exporter scraped ${val}s ago" || bad "prod $what exporter: last scrape ${val}s ago (> ${STALE}s)" ;;
+    backupage) [ "$val" -le 93600 ] && ok "prod $what backup ${val}s old" || bad "prod $what backup ${val}s old (> 26 h)" ;;
   esac
 done <<< "$out"
 for inst in homelab dgx-llm-1 prod-podcast; do
   grep -q "^fresh $inst " <<< "$out" || bad "no metrics at all from $inst"
 done
+grep -q "^jobfresh postgres " <<< "$out" || bad "no metrics from the prod Postgres exporter (job=postgres)"
+grep -q "^backupage postgres " <<< "$out" || bad "no prod Postgres backup pushed in 3 days"
 
 echo "== collectors on the DGX"
 d=$($DGX 'for c in alloy dcgm-exporter cadvisor; do echo "$c $(docker inspect -f "{{.State.Status}}" $c 2>/dev/null || echo missing)"; done' 2>&1)

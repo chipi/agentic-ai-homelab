@@ -29,8 +29,9 @@ PROFILES = {
     "closelistening": {
         "log_services": ["player-api", "player-mcp", "player-obs", "podcast-api"],
         "trace_services": ["player-api", "player-mcp", "player-obs", "podcast-api"],
-        "scrape_jobs": ["player_mcp", "player_obs"],
-        "counters": ['mcp_tool_calls_total{service="player-mcp"}', 'mcp_tool_calls_total{service="player-obs"}'],
+        "scrape_jobs": ["player_mcp", "player_obs", "postgres"],
+        "counters": ['mcp_tool_calls_total{service="player-mcp"}', 'mcp_tool_calls_total{service="player-obs"}',
+                     'pg_stat_database_xact_commit{instance="prod-podcast",datname="closelistening"}'],
         "glitchtip": ["player", "player-api", "player-mcp", "player-obs", "podcast-api", "podcast-pipeline"],
         "langfuse_keys": "~/podcast-langfuse-prod.env",
         "umami_sites": ["Player"],
