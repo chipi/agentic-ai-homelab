@@ -38,5 +38,16 @@ The plan: [triage fleet improvement plan](triage-fleet-improvement-plan.md). Que
 system (k=1, no variance); pair-level scoring (an item per signal, per pair, or per fingerprint history); gold from
 links between items (`duplicateOf`); where a new code example lives.
 
+**Answers (eval harness, 2026-11-05, checked against 0.7.2's code):** a system's world at decision time is part of
+the item's body (canonical JSON, hashed; the adapter interprets it), filter/split keys go in item fields; k=1 is
+fine for deterministic code, and a regression guard is the same dataset against a silver reference from the
+current code's own run, read with `inspect --disagree`; `score()` sees one item and a run's metric is the mean of
+its items, so the item is the unit judged (a fingerprint's whole history, replayed in order, keeps filing's order
+effects); `label-from-capture` labels an item from its own record, so links between items go into that item's
+outcome; a new example, `examples/signal-fleet-filing/`, nothing fleet-specific in `harness/`.
+
 | # | Where it hurt | What would help | Status |
 |---|---|---|---|
+| 19 | None of these six design questions is answered in the docs or skills: what an item should carry for a system that reads external state, how to treat a deterministic system, how a goal splits "correctness" from "regression guard", what unit `score()` judges, how gold comes from links between items. They needed a round trip to the harness's maintainer | a "your system is plain code" page: the item holds its world at decision time, k=1, the two goals, the item as the judged unit, links into the outcome | open (sent with this log) |
+| 20 | A run-level metric is impossible: a run's score is the mean of its items', so precision and recall over pairs across a run cannot be expressed | a run-level metric hook in the adapter | recorded (0.8.0 candidate) |
+| 21 | Labels cannot span items: `label-from-capture` labels one item from its own record, so "A is a duplicate of B" has to be folded into one item's outcome | labels across items | recorded (0.8.0 candidate, if hit) |
