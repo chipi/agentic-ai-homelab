@@ -64,6 +64,8 @@ def record(signal, disp, now=None):
                 "cycle_id": os.environ.get("FLEETD_CYCLE_ID", ""),
                 "stage": os.environ.get("FLEETD_STAGE", ""),
             },
+            # what the model decided before the gates (None for an operational state: no model ran)
+            "model_decision": disp.get("_pre_gate"),
         }
         os.makedirs(config.CAPTURE_DIR, mode=0o700, exist_ok=True)
         path = os.path.join(config.CAPTURE_DIR, _safe_name(f"{stamp}__{signal.get('fingerprint', '')}") + ".json")

@@ -11,6 +11,7 @@ Deterministic gates (no LLM):
 - dismiss gate (must have run a corroborating probe).
 Certainty is metadata only, never a gate.
 """
+import copy
 import hashlib
 import json
 import os
@@ -494,8 +495,14 @@ def investigate(signal, max_probes=None, probe_table=None):
         if not isinstance(disp.get("disposition"), str):
             disp = {"disposition": "escalate", "reason": "no terminal decision",
                     "question": "triager did not reach a disposition"}
+        # The gates rewrite the decision in place (the intent gate drops the acceptance criteria): keep
+        # what the model decided, so a gate change can be measured on captured decisions without re-running
+        # the model. Kept for capture only; nothing that decides reads it.
+        pre_gate = copy.deepcopy(disp)
         d, gates = _gate(disp, signal, trace)
-        return _finish(signal, d, trace, gates, usage, t0, trace_id=trace_id)
+        out = _finish(signal, d, trace, gates, usage, t0, trace_id=trace_id)
+        out["_pre_gate"] = pre_gate
+        return out
     # Out of turns without a decision (F7). An empty last reply is the provider flake above:
     # defer, so the orchestrator counts it and escalates after DEFER_LIMIT cycles. A reply
     # that never parsed is the model's own failure: the same escalation as an unusable one.

@@ -49,6 +49,27 @@ class Capture(unittest.TestCase):
         for p in self.patches:
             p.stop()
 
+    def test_the_models_own_decision_survives_the_gates(self):
+        # 2026-11-05 review: a gate rewrites the decision in place (the intent gate drops the acceptance
+        # criteria), so nothing kept what the model decided; a gate change could not be measured without
+        # re-running the model. investigate() now keeps the model's decision as _pre_gate.
+        replies = iter(['{"action":"decide","disposition":"dismiss","reason":"benign",'
+                        '"dismissal_evidence":"seen before","certainty":"high"}'])
+        with mock.patch.object(triage, "_call", lambda *a, **k: (next(replies), {})), \
+                mock.patch.object(triage.observ, "finalize"):
+            d = triage.investigate(SIGNAL, probe_table={})
+        self.assertEqual(d["disposition"], "escalate")                 # the dismiss gate, no corroboration
+        self.assertEqual(d["_pre_gate"]["disposition"], "dismiss")     # what the model decided
+        self.assertEqual(d["_pre_gate"]["dismissal_evidence"], "seen before")
+        self.assertNotIn("_pre_gate", d["_pre_gate"])
+
+    def test_capture_keeps_the_models_own_decision(self):
+        d = _disp()
+        d["_pre_gate"] = {"disposition": "file", "file": {"acceptance": [{"criterion": "c"}]}}
+        with mock.patch.object(config, "CAPTURE_PROBES", True), mock.patch.object(config, "CAPTURE_EAGER", False):
+            item = json.load(open(capture.record(SIGNAL, d)))
+        self.assertEqual(item["model_decision"], d["_pre_gate"])
+
     def test_off_by_default_writes_nothing(self):
         with mock.patch.object(config, "CAPTURE_PROBES", False):
             self.assertIsNone(capture.record(SIGNAL, _disp()))
