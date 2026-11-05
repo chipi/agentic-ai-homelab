@@ -80,6 +80,16 @@ def ts(s):
     return t if t.tzinfo else t.replace(tzinfo=UTC)
 
 
+def cycle_start(cycle_id):
+    """When a fleet cycle began, from its id (`triage-20261021T152228-7147`: the host's local time)."""
+    from zoneinfo import ZoneInfo  # noqa: PLC0415
+
+    m = re.match(r"triage-(\d{8}T\d{6})", cycle_id or "")
+    if not m:
+        return None
+    return dt.datetime.strptime(m.group(1), "%Y%m%dT%H%M%S").replace(tzinfo=ZoneInfo("Europe/Amsterdam")).astimezone(UTC)
+
+
 def iso(t):
     return t.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.") + f"{t.microsecond // 1000:03d}Z"
 
@@ -269,21 +279,30 @@ def history(t_from, t_to):
                 if a["id"] in seen:
                     continue
                 seen.add(a["id"])
-                m = HISTORY_LABELS.search(a.get("text") or "")
-                labels = dict(kv.split("=", 1) for kv in m.group(1).split(", ") if "=" in kv) if m else {}
-                _history[a.get("alertName")].append((dt.datetime.fromtimestamp(a["time"] / 1000, UTC),
-                                                     a.get("newState") or "", labels))
+                text = a.get("text") or ""
+                m = HISTORY_LABELS.search(text)
+                # a value may itself hold ", " ("shipping broken, box may be down"): split only before `key=`
+                labels = dict(re.findall(r"(\w+)=(.*?)(?=, \w+=|$)", m.group(1))) if m else {}
+                # keyed by the alertname LABEL, which the ledger keeps; the entry's alertName is the rule's title
+                # and can differ ("Daily recap enqueuer not called in 3 hours" vs "... in 36 hours")
+                _history[labels.get("alertname") or a.get("alertName")].append(
+                    (dt.datetime.fromtimestamp(a["time"] / 1000, UTC), a.get("newState") or "", labels, text))
             t += day
         for v in _history.values():
             v.sort(key=lambda x: x[0])
     return _history
 
 
+# the labels filing reads from a Grafana signal (filing.repo_for, normalized_key, file_or_update's group key)
+FILING_LABELS = ("instance", "culprit", "project")
+
+
 def labels_from_history(alertname, T, starts):
-    """The label set of the instance of `alertname` firing at T; when several fire, the one that went Alerting at
-    the occurrence's start. (labels, how) or (None, why not)."""
+    """The label set of the instance of `alertname` firing at T (the cycle's start: the fleet reads the firing
+    alerts then); when several fire, the one that went Alerting at the occurrence's start, else the labels they
+    share when they agree on every label filing reads. (labels, how) or (None, why not)."""
     state = {}
-    for at, new, labels in (_history or {}).get(alertname, []):
+    for at, new, labels, _ in (_history or {}).get(alertname, []):
         if at > T:
             break
         state[tuple(sorted(labels.items()))] = (at, new)
@@ -294,6 +313,9 @@ def labels_from_history(alertname, T, starts):
         near = [k for k in firing if abs((state[k][0] - starts).total_seconds()) <= 60]
         if len(near) == 1:
             return dict(near[0]), "firing, by start"
+    if len(firing) > 1 and len({tuple(dict(k).get(x) for x in FILING_LABELS) for k in firing}) == 1:
+        shared = set(firing[0]).intersection(*map(set, firing[1:]))
+        return dict(shared), "firing, instances agree on what filing reads"
     return None, f"{len(firing)} instances firing"
 
 
@@ -303,7 +325,8 @@ def grafana_signal(row, T):
     starts = ts(occ.split("@", 1)[1]) if "@" in occ else None
     base = {"source": "grafana", "fingerprint": fp, "occurrence_id": occ or None, "alertname": row["alertname"],
             "summary": row["alertname"], "startsAt": iso(starts) if starts else None}
-    from_hist, how = labels_from_history(row["alertname"], T, starts)
+    began = cycle_start(row.get("cycle_id"))
+    from_hist, how = labels_from_history(row["alertname"], min(T, began) if began else T, starts)
     if from_hist is not None and ":oom:" in fp:
         from_hist = dict(from_hist, container=fp.split(":oom:", 1)[1])
     near = [s for at, s in captures().get(fp, []) if abs((at - T).total_seconds()) <= 120]
@@ -313,10 +336,12 @@ def grafana_signal(row, T):
         if from_hist is None:
             GRAFANA_CHECK[f"capture only (history: {how})"] += 1
         else:
-            GRAFANA_CHECK["history agrees with capture" if from_hist.get("instance") == (sig.get("labels") or {}).get("instance")
-                          else "history DISAGREES with capture (instance)"] += 1
+            same = all(from_hist.get(x) == (sig.get("labels") or {}).get(x) for x in FILING_LABELS)
+            GRAFANA_CHECK["history agrees with capture on what filing reads" if same
+                          else "history DISAGREES with capture"] += 1
         return sig, "captured"
     if from_hist is not None:
+        GRAFANA_CHECK[f"from history: {how}"] += 1
         return dict(base, labels=from_hist), "state-history"
     GRAFANA_CHECK[f"no labels ({how})"] += 1
     return dict(base, labels={}), "ledger-only"
@@ -365,6 +390,68 @@ def keys_of(signal, title):
                                               (signal.get("labels") or {}).get("project", "")),
             "norm_key": filing.normalized_key(signal),
             "alert_key": filing.alert_key(repo, signal.get("source", ""), signal.get("alertname", "")) if repo else ""}
+
+
+# ---- the keys each decision's own code derived ----------------------------------------------------------------
+# filing matches on keys (normalized_key, group_key_for, alert_key) whose rules changed during the fleet's life, so
+# a decision's keys must come from the code that ran it, applied to the signal BEFORE scrubbing (the ledger holds
+# keys of real messages). The code that ran is what the deploy checkout had when the cycle started (each cycle is a
+# new process): its reflog, read here, says when each version was pulled.
+CODE_ROOT = "/tmp/fleetff/code"
+
+
+def code_periods(checkout):
+    """[(pulled at, commit)] oldest first, one per change of signal-fleet/mvp, from the checkout's reflog."""
+    rows = []
+    for line in run(["git", "-C", checkout, "reflog", "--date=iso-strict", "--format=%h %gd"]).splitlines():
+        m = re.match(r"(\w+) HEAD@\{([^}]+)\}", line)
+        if m:
+            rows.append((ts(m.group(2)), m.group(1)))
+    out, last = [], None
+    for at, c in sorted(rows):
+        r = subprocess.run(["git", "-C", checkout, "rev-parse", f"{c}:signal-fleet/mvp"], capture_output=True, text=True)
+        tree = r.stdout.strip() if r.returncode == 0 else None   # None: before signal-fleet/mvp existed
+        if tree and tree != last:
+            out.append((at, c))
+            last = tree
+    return out
+
+
+def commit_at(periods, t):
+    """The version checked out at t (None before the reflog's first entry)."""
+    best = None
+    for at, c in periods:
+        if at <= t:
+            best = c
+    return best
+
+
+def code_dir(checkout, commit):
+    """signal-fleet/mvp at `commit`, extracted with git archive (reads the repository, changes nothing in it)."""
+    path = os.path.join(CODE_ROOT, commit)
+    if not os.path.isdir(os.path.join(path, "signal-fleet", "mvp")):
+        os.makedirs(path, mode=0o700, exist_ok=True)
+        arch = subprocess.run(["git", "-C", checkout, "archive", commit, "signal-fleet/mvp"], capture_output=True, check=True)
+        subprocess.run(["tar", "-x", "-C", path], input=arch.stdout, check=True)
+    return path
+
+
+def keys_by_version(checkout, items):
+    """{i: keys} for items [(i, commit, signal, title)], each computed by its own commit's code."""
+    worker = os.path.join(HERE, "freeze_keys_worker.py")
+    out = {}
+    by_commit = collections.defaultdict(list)
+    for i, c, sig, title in items:
+        by_commit[c].append((i, sig, title))
+    for c, rows in sorted(by_commit.items()):
+        stdin = "".join(json.dumps({"i": i, "signal": s, "title": t}) + "\n" for i, s, t in rows)
+        r = subprocess.run([sys.executable, worker, code_dir(checkout, c)], input=stdin, capture_output=True, text=True)
+        if r.returncode:
+            raise RuntimeError(f"keys at {c}: {r.stderr[-400:]}")
+        for line in r.stdout.splitlines():
+            x = json.loads(line)
+            out[x["i"]] = x["keys"]
+    return out
 
 
 def main(out_dir):
@@ -425,17 +512,36 @@ def main(out_dir):
                           "keys_unscrubbed": keys_of(sig, made[0][3] if made else ""),
                           "issue_created": {"repo": made[0][1], "number": made[0][2], "title": made[0][3]} if made else None})
     decisions.sort(key=lambda d: d["ts"])
-    for d in decisions:
-        d["keys_change_under_scrub"] = sorted(k for k, v in keys_of(scrub.scrub(d["signal"]),
-                                                                   (d["issue_created"] or {}).get("title", "")).items()
-                                              if v != d["keys_unscrubbed"].get(k))
+    # replace the current code's keys with the keys of the version each decision's cycle ran (see code_periods)
+    periods = code_periods(os.environ.get("SF_CHECKOUT", os.path.expanduser("~/agentic-ai-homelab")))
+    items = []
+    for i, d in enumerate(decisions):
+        began = cycle_start(d.get("cycle_id")) or ts(d["ts"])
+        d["keys_code"] = commit_at(periods, min(began, ts(d["ts"])))
+        if d["keys_code"]:
+            items.append((i, d["keys_code"], d["signal"], (d["issue_created"] or {}).get("title", "")))
+    by_version = keys_by_version(os.environ.get("SF_CHECKOUT", os.path.expanduser("~/agentic-ai-homelab")), items)
+    for i, d in enumerate(decisions):
+        if i in by_version:
+            if by_version[i] != d["keys_unscrubbed"]:
+                KEY_CHANGES["differs from today's code"] += 1
+            d["keys_unscrubbed"] = by_version[i]
+        else:
+            d["keys_code"] = "today's (decision before the reflog's first entry)"
+    # which keys scrubbing changes, by the same version: a replay that recomputes keys from the published
+    # (scrubbed) signals gets these wrong
+    scrubbed = keys_by_version(os.environ.get("SF_CHECKOUT", os.path.expanduser("~/agentic-ai-homelab")),
+                               [(i, c, scrub.scrub(s), t) for i, c, s, t in items])
+    for i, d in enumerate(decisions):
+        mine = scrubbed.get(i) or keys_of(scrub.scrub(d["signal"]), (d["issue_created"] or {}).get("title", ""))
+        d["keys_change_under_scrub"] = sorted(k for k, v in mine.items() if v != d["keys_unscrubbed"].get(k))
         KEY_CHANGES.update(d["keys_change_under_scrub"])
     # the stale sweep's other inputs: every ledger row is an occurrence (stale._occurrences), and which Grafana
     # alerts fire when it runs (from the state history)
     occurrences = [{"ts": r["ts"], "fingerprint": r["fingerprint"], "source": r["source"], "alertname": r["alertname"]}
                    for r in disp]
-    grafana_history = [{"at": iso(at), "alertname": name, "state": new, "labels": labels}
-                       for name, rows in sorted((_history or {}).items()) for at, new, labels in rows]
+    grafana_history = [{"at": iso(at), "alertname": name, "state": new, "labels": labels, "text": text}
+                       for name, rows in sorted((_history or {}).items()) for at, new, labels, text in rows]
     for name, rows in (("decisions.jsonl", decisions), ("issues.jsonl", issues), ("occurrences.jsonl", occurrences),
                        ("grafana_history.jsonl", grafana_history)):
         p = os.path.join(out_dir, name)
