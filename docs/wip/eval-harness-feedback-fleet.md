@@ -51,3 +51,14 @@ outcome; a new example, `examples/signal-fleet-filing/`, nothing fleet-specific 
 | 19 | None of these six design questions is answered in the docs or skills: what an item should carry for a system that reads external state, how to treat a deterministic system, how a goal splits "correctness" from "regression guard", what unit `score()` judges, how gold comes from links between items. They needed a round trip to the harness's maintainer | a "your system is plain code" page: the item holds its world at decision time, k=1, the two goals, the item as the judged unit, links into the outcome | open (sent with this log) |
 | 20 | A run-level metric is impossible: a run's score is the mean of its items', so precision and recall over pairs across a run cannot be expressed | a run-level metric hook in the adapter | recorded (0.8.0 candidate) |
 | 21 | Labels cannot span items: `label-from-capture` labels one item from its own record, so "A is a duplicate of B" has to be folded into one item's outcome | labels across items | recorded (0.8.0 candidate, if hit) |
+
+## 2026-11-05: step 0, moving to v0.7.2
+
+A fresh clone at the tag (`18062e3f`) with its own venv: `fetch.py` restored both triage revisions (233 records,
+items 233/65/2 and 65) and the dedup set (100), all 5 datasets materialized with every hash verified, `evh validate`
+"VALIDATION PASSED", `skills-install` wrote the three skills, r4 reads as closed with its conclusion. Smooth: no step
+needed a workaround except the one below.
+
+| # | Where it hurt | What would help | Status |
+|---|---|---|---|
+| 22 | `evh pair-test --dataset-id orrery_triage_v1_labelled_v2 --round r4 --goal triage_orrery` → `ERROR: round r4 records no other baseline run: name --b`. r4.yaml has `baseline: null`: a round opened with `--keep <baseline config>` carries the arm in but records no baseline, and `round-open` has no flag to set one. With `--b triage_baseline_pro_v2data_v1` it works (the leader picked, p 0.0014, Bonferroni/3 applied) | `round-open --baseline <config_id>`, or `--keep` of the dataset's baseline arm recording it as the round's baseline | open (sent 2026-11-05) |
