@@ -8,7 +8,7 @@ control: no Funnel, no published port, no `--public`.
 | Piece | What it does |
 |---|---|
 | `~/fleet-eval-data` on the mini | the checkout; pulled over HTTPS with the mini's `gh` login (repo-local credential helper, Contents read on this repo) |
-| `update.sh` | the deploy, run on demand: when `origin/main` moved, fast-forward, build the pages, (re)start `web`; otherwise says UP TO DATE. No timer (operator, 2026-11-05): a new version goes up when we deploy it |
+| `update.sh` | the deploy, run on demand: when GitHub's main differs from the deployed commit, fast-forward, build the pages, (re)start `web`; otherwise says UP TO DATE. No timer (operator, 2026-11-05): a new version goes up when we deploy it |
 | `build` (compose profile) | one-shot: `python:3.12-slim` + the harness at the commit `pyproject.toml` pins; the checkout mounted read-only; builds into the `site` volume and swaps the new build in only when it passed |
 | `web` | stock `nginx:alpine`, the site mounted read-only (no image of ours holds research data) |
 | Caddy | `infra/reverse-proxy`: node `fleet-evals`, reaches `fleet-evals-web:80` over `fleet-evals_default` |
@@ -37,10 +37,16 @@ ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab '~/age
 ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab '~/agentic-ai-homelab/infra/fleet-evals/update.sh --force'  # rebuild the same commit
 ```
 
-An agent: run it with a 20-minute timeout or in the background, and read the last line.
+The last line is `OK <old> -> <new> deployed`, `UP TO DATE <sha> is deployed`, `BUSY` (another deploy
+is running) or `FAIL …` (the previous site keeps serving). Exit 0 for OK and UP TO DATE.
 
-The last line is `OK <old> -> <new>`, `UP TO DATE <sha>` or `FAIL …` (the previous site keeps serving).
-A build takes about 15 minutes on the mini: the container reads the checkout through colima's mount.
+- **Safe to re-run, always.** It compares GitHub's main with the commit the live site was built from
+  (`/site/live/.deployed`), not with the checkout.
+- **A dropped connection does not stop it.** The deploy runs detached on the mini (`nohup`, log
+  `/tmp/fleet-evals.log`) and the command only follows it; if your session ends, run it again later:
+  it says BUSY while the build runs, then UP TO DATE.
+- A build takes about 15 minutes on the mini (the container reads the checkout through colima's
+  mount): run it with a 20-minute timeout or in the background.
 
 ## Operate
 

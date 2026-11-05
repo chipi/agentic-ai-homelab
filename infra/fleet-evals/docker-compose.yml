@@ -16,6 +16,8 @@ services:
       args:
         HARNESS_REF: ${HARNESS_REF:?set by update.sh}
     image: local/fleet-evals:${HARNESS_REF:?set by update.sh}
+    environment:
+      COMMIT: ${COMMIT:-unknown}
     volumes:
       - ${FLEET_EVAL_DATA:?set by update.sh}:/project:ro
       - site:/site
@@ -25,6 +27,7 @@ services:
       - >-
         rm -rf /site/next
         && evh catalog --out /site/next --brand "agentic fleet evals" --about projects/catalog-about.html
+        && printf %s "$$COMMIT" > /site/next/.deployed
         && chmod -R a+rX /site/next
         && rm -rf /site/old && { [ ! -d /site/live ] || mv /site/live /site/old; }
         && mv /site/next /site/live && rm -rf /site/old

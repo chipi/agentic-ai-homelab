@@ -2,30 +2,69 @@
 # Deploy a new version of the fleet-eval-data catalog, on demand (no timer: the operator deploys, 2026-11-05).
 # From any agent's machine (the X3 or the laptop; the same key and user host-run uses):
 #   ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab '~/agentic-ai-homelab/infra/fleet-evals/update.sh'  [--force]
-# When the checkout's origin/main moved (or the site is not up, or --force): fast-forward, build the
-# pages with the harness the checkout pins, and (re)start the web container. A failed build leaves the
-# previous site serving.
+# When GitHub's main differs from the commit the site was built from (or the site is not up, or
+# --force): fast-forward the checkout, build the pages with the harness it pins, swap them in only if
+# the build passed, and (re)start the web container. The last line is OK, UP TO DATE, BUSY or FAIL.
+#
+# The deploy itself runs detached (nohup, log /tmp/fleet-evals.log) and this call follows it, so a
+# dropped ssh connection or a caller's timeout cannot stop a build halfway: on 2026-11-05 one did,
+# after the merge and before the build, and the checkout then looked current while the site was not.
+# Running the command again is always safe: it compares against what is deployed, not the checkout.
 set -uo pipefail
 export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH
 REPO="${FLEET_EVAL_DATA:-$HOME/fleet-eval-data}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
+LOG=/tmp/fleet-evals.log
+LOCK=/tmp/fleet-evals.lock
 ts() { date -u +%FT%TZ; }
 
-cd "$REPO" || { echo "$(ts) FAIL no checkout at $REPO"; exit 1; }
-git fetch -q origin main || { echo "$(ts) FAIL git fetch"; exit 1; }
-old="$(git rev-parse HEAD)"; new="$(git rev-parse origin/main)"
-up="$(docker inspect -f '{{.State.Running}}' fleet-evals-web 2>/dev/null)"
-if [ "$old" = "$new" ] && [ "$up" = true ] && [ "${1:-}" != --force ]; then
-  echo "$(ts) UP TO DATE ${new:0:7} (nothing to deploy; --force rebuilds)"; exit 0
+if [ -z "${FLEET_EVALS_RUN:-}" ]; then
+  run="$(date +%s)-$$"
+  touch "$LOG"; n="$(wc -l < "$LOG")"
+  FLEET_EVALS_RUN="$run" nohup "$0" "$@" >> "$LOG" 2>&1 < /dev/null &
+  pid=$!
+  while :; do
+    total="$(wc -l < "$LOG")"
+    [ "$total" -gt "$n" ] && { sed -n "$((n + 1)),${total}p" "$LOG"; n="$total"; }
+    result="$(grep -E "\[$run\] (OK|UP TO DATE|BUSY|FAIL)" "$LOG" | tail -1)"
+    if [ -z "$result" ] && ! kill -0 "$pid" 2>/dev/null; then
+      sleep 1; result="$(grep -E "\[$run\] (OK|UP TO DATE|BUSY|FAIL)" "$LOG" | tail -1)"
+      [ -n "$result" ] || { echo "$(ts) FAIL the deploy ended without a result; see $LOG"; exit 1; }
+    fi
+    if [ -n "$result" ]; then
+      total="$(wc -l < "$LOG")"; [ "$total" -gt "$n" ] && sed -n "$((n + 1)),${total}p" "$LOG"
+      case "$result" in *"] OK "*|*"] UP TO DATE"*) exit 0 ;; *) exit 1 ;; esac
+    fi
+    sleep 2
+  done
 fi
 
-git merge -q --ff-only origin/main || { echo "$(ts) FAIL $old -> $new is not a fast-forward"; exit 1; }
+say() { echo "$(ts) [$FLEET_EVALS_RUN] $*"; }
+# One deploy at a time; a lock left by a killed run (its pid gone) is taken over.
+if ! mkdir "$LOCK" 2>/dev/null; then
+  holder="$(cat "$LOCK/pid" 2>/dev/null)"
+  if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then say "BUSY another deploy is running (pid $holder)"; exit 1; fi
+  rm -rf "$LOCK"; mkdir "$LOCK" || { say "FAIL could not take the lock $LOCK"; exit 1; }
+fi
+echo $$ > "$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT
+
+cd "$REPO" || { say "FAIL no checkout at $REPO"; exit 1; }
+git fetch -q origin main || { say "FAIL git fetch"; exit 1; }
+new="$(git rev-parse origin/main)"
+deployed="$(docker exec fleet-evals-web cat /site/live/.deployed 2>/dev/null)"
+if [ "$deployed" = "$new" ] && [ "${1:-}" != --force ]; then
+  say "UP TO DATE ${new:0:7} is deployed (--force rebuilds)"; exit 0
+fi
+
+git merge -q --ff-only origin/main || { say "FAIL $(git rev-parse --short HEAD) -> ${new:0:7} is not a fast-forward"; exit 1; }
 ref="$(sed -nE 's/.*eval-harness@([0-9a-f]{40}).*/\1/p' pyproject.toml | head -1)"
-[ -n "$ref" ] || { echo "$(ts) FAIL no eval-harness pin in pyproject.toml"; exit 1; }
+[ -n "$ref" ] || { say "FAIL no eval-harness pin in pyproject.toml"; exit 1; }
 
 cd "$HERE" || exit 1
-export HARNESS_REF="$ref" FLEET_EVAL_DATA="$REPO"
-docker compose --profile build build build >/dev/null || { echo "$(ts) FAIL image build (harness $ref)"; exit 1; }
-docker compose --profile build run --rm build || { echo "$(ts) FAIL catalog build at ${new:0:7}; the previous site still serves"; exit 1; }
-docker compose up -d web || { echo "$(ts) FAIL web up"; exit 1; }
-echo "$(ts) OK ${old:0:7} -> ${new:0:7} (harness ${ref:0:8})"
+export HARNESS_REF="$ref" FLEET_EVAL_DATA="$REPO" COMMIT="$new"
+say "building ${new:0:7} (harness ${ref:0:8}; about 15 minutes)"
+docker compose --profile build build build >/dev/null || { say "FAIL image build (harness $ref)"; exit 1; }
+docker compose --profile build run --rm build || { say "FAIL catalog build at ${new:0:7}; the previous site still serves"; exit 1; }
+docker compose up -d web || { say "FAIL web up"; exit 1; }
+say "OK ${deployed:0:7}${deployed:+ }-> ${new:0:7} deployed (harness ${ref:0:8})"
