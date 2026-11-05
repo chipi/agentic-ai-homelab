@@ -88,6 +88,8 @@ shell_allowlist_extra = [
     "say",
     "mkdocs",
     "scan.sh",
+    "long-job.sh",
+    "run.sh",
 ]
 
 [cloud]
