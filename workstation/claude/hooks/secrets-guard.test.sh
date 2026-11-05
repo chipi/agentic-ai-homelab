@@ -155,6 +155,10 @@ run_in "$X/K" allow "$NEST"                                   "nested repo, \$U 
 printf 'k = %s\n' "${AK}${H16}" > "$X/K/apps/common/s.md"; git -C "$X/K/apps/common" add s.md
 git -C "$X/K/apps/common" commit -q -m s
 run_in "$X/K" deny  "$NEST"                                   "nested repo, \$U URL, secret commit"
+# a relative -C after a cd that cannot be resolved: tried against the cwd and every named dir
+run_in "$X/K" deny  "cd \$Y && git -C apps/common push origin HEAD:main"           "relative -C after cd \$var, under the cwd"
+run_in "$X/D" deny  "cd $X/K; cd \$Y && git -C apps/common push origin HEAD:main" "relative -C after cd \$var, under a named dir"
+run_in "$X/D" allow "cd \$Y && git -C nowhere push origin HEAD:main"              "relative -C after cd \$var, nothing there, clean cwd"
 # over the 64 KB pipe buffer: pipefail + `printf | grep -q` used to fail open (2026-11-05)
 printf 'k = %s\n' "${AK}${H16}" > "$X/K/big.txt"; git -C "$X/K" add big.txt
 BIG="$(head -c 100000 /dev/zero | tr '\0' x | fold -w 80)"
