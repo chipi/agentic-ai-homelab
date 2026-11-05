@@ -436,7 +436,7 @@ Prod and dev projects (dev runs never report into a prod project):
 | App | Prod | Dev |
 |---|---|---|
 | Podcast pipeline | `podcast-pipeline` (16) | `podcast-pipeline-dev` (25, team `podcast`) |
-| Podcast API | `podcast-api` (17) | `podcast-api-dev` (26, team `podcast`) |
+| Podcast API: operator-api and compose-api (one project for both, operator 2026-11-05) | `podcast-api` (17) | `podcast-api-dev` (26, team `podcast`) |
 | Player web | `player` (5) | `player-dev` (20) |
 | Player api / mcp | `player-api` (28) / `player-mcp` (29), since 2026-10-15; smoke-failure alerts land in `player-api` | — |
 | LiteLLM gateway | `litellm-prod` (27, the VPS gateway, since 2026-10-15) | `litellm` (19) is the homelab gateway |
