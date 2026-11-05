@@ -18,7 +18,7 @@ owns the vLLM stacks and their `.env` files. Reach it over the tailnet with ssh
 shells):
 
 ```bash
-ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh <args>'
+ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh <args>'
 ```
 
 ## Check the mode — read-only, always safe
@@ -26,8 +26,8 @@ ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh <args>'
 Before ANY local vLLM call, confirm the right stack owns the GPU:
 
 ```bash
-ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh --mode-only'    # → prod | ollama | code | research | idle | BROKEN-BOTH
-ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh status --json'  # full machine-readable state
+ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh --mode-only'    # → prod | ollama | code | research | idle | BROKEN-BOTH
+ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh status --json'  # full machine-readable state
 ```
 
 - **prod** — the production serving vLLM on `:8003` (chipi/infra `infra/ai/vllm/prod-vllm`), plus the
@@ -53,9 +53,9 @@ the GPU right now (a sweep, a training job, Ollama). Treat the DGX as production
   taking the GPU.
 - Only after an explicit go, and by absolute path:
   ```bash
-  ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh code --json'      # coder-next up, autoresearch down
-  ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh research-vllm --json'  # autoresearch up, coder-next down
-  ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh idle --json'      # both down
+  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh code --json'      # coder-next up, autoresearch down
+  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh research-vllm --json'  # autoresearch up, coder-next down
+  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh idle --json'      # both down
   ```
 
 ## Report

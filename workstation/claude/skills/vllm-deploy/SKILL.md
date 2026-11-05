@@ -10,7 +10,7 @@ is read-only; the deploy is shared-state and gated on explicit approval.**
 
 ## Preflight — do all of these first (read-only)
 
-1. **GPU free?** `ssh dgx-llm-1 '~/bin/gpu-mode-swap.sh status --json'`. If a
+1. **GPU free?** `ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh status --json'`. If a
    compute app holds the GPU, or the other vLLM is already up, STOP — taking the
    GPU is a switch, which is gated (use the `gpu-mode` skill and get approval).
 2. **Config valid?** Run the `compose-check` skill on the stack
@@ -32,5 +32,5 @@ treat the DGX as production.
 
 ## Verify
 
-`ssh dgx-llm-1 'curl -fsS http://127.0.0.1:<port>/health'` and confirm the mode
+`ssh markodragoljevic@dgx-llm-1 'curl -fsS http://127.0.0.1:<port>/health'` and confirm the mode
 matches (`gpu-mode` check). Report the resulting mode + health.

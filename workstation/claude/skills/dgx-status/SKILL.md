@@ -9,10 +9,10 @@ A read-only snapshot of the DGX. Answers "what is the box doing right now" befor
 you deploy, switch modes, or debug a dead endpoint. **Never mutates** — no mode
 switch, no up/down, no kill.
 
-## Gather (all read-only, over ssh dgx-llm-1)
+## Gather (all read-only, over ssh markodragoljevic@dgx-llm-1)
 
 ```bash
-ssh dgx-llm-1 '
+ssh markodragoljevic@dgx-llm-1 '
   ~/bin/gpu-mode-swap.sh status --json
   nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu --format=csv,noheader
   nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader

@@ -3,11 +3,12 @@
 # collectors on the mini, the DGX and prod). Prints PASS/FAIL per check; exit 1 on any FAIL.
 #
 #   check.sh [--stale-seconds 600]
-# Env: HOMELAB_SSH (default: the Mac mini), DGX_SSH (default: ssh dgx-llm-1)
+# Env: HOMELAB_SSH (default: the Mac mini), DGX_SSH (default: ssh markodragoljevic@dgx-llm-1;
+# a bare `ssh dgx-llm-1` logs in as the local user, which the tailnet refuses from the X3)
 set -uo pipefail
 STALE="${2:-600}"; [ "${1:-}" = "--stale-seconds" ] || STALE=600
 MINI="${HOMELAB_SSH:-ssh -i $HOME/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab}"
-DGX="${DGX_SSH:-ssh -o ConnectTimeout=10 dgx-llm-1}"
+DGX="${DGX_SSH:-ssh -o ConnectTimeout=10 markodragoljevic@dgx-llm-1}"
 fail=0
 ok()  { printf 'PASS  %s\n' "$*"; }
 bad() { printf 'FAIL  %s\n' "$*"; fail=1; }

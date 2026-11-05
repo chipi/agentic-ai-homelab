@@ -34,7 +34,7 @@ Write the paper trail that lets the next session pick up cold. History is
      anyone looked.
    - **Write the check into the item** when you add or touch one: a `check:` line with a
      command whose output answers it. For example:
-     `check: ssh dgx-llm-1 'docker exec pyannote md5sum /app/app.py'` vs podcast main.
+     `check: ssh markodragoljevic@dgx-llm-1 'docker exec pyannote md5sum /app/app.py'` vs podcast main.
      Closing it next time is then one command.
    - Infra items: run the `infra-drift` skill; telemetry items: `deploy-verify` or
      `telemetry-probe`. Strike with the command's output in the done note.
