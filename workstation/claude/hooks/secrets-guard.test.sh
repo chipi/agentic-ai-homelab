@@ -166,6 +166,32 @@ run_in "$X/K" deny  "git commit -F - <<'MSG'
 $BIG
 MSG"                                                           "100 KB command (heredoc message), staged secret"
 git -C "$X/K" reset -q big.txt; rm -f "$X/K/big.txt"
+
+# evh manifests (2026-11-05): an item id beside its sha256 is not a secret, only in an evh manifest,
+# only in that exact shape, only when the id names no secret. The hash is built at runtime.
+SHA="$( (printf x | sha256sum 2>/dev/null || printf x | shasum -a 256) | cut -d' ' -f1)"
+mf() {  # mf <path> <line>: stage one line in a file at <path> in K
+  mkdir -p "$X/K/$(dirname "$1")"; printf '{\n%s\n}\n' "$2" > "$X/K/$1"; git -C "$X/K" add "$1"
+}
+MAN=data/references/silver/filing_window_v1/manifest.json
+mf "$MAN" "  \"api_key\": \"$SHA\","
+run_in "$X/K" deny  "git commit -m x"                         "evh manifest: \"api_key\": <64 hex> is still caught"
+git -C "$X/K" reset -q; rm -rf "$X/K/data"
+if command -v gitleaks >/dev/null 2>&1; then
+  ID="grafana_779e5ff58ed1e245_oom_compose""-api-1"
+  mf "$MAN" "  \"$ID\": \"$SHA\","
+  run_in "$X/K" allow "git commit -m x"                       "evh manifest: item id with \"api\" beside its sha256 (gitleaks false positive)"
+  git -C "$X/K" reset -q; rm -rf "$X/K/data"
+  mf data/datasets/fleet_v1.json "  \"$ID\": \"$SHA\","
+  run_in "$X/K" allow "git commit -m x"                       "evh dataset file: the same line"
+  git -C "$X/K" reset -q; rm -rf "$X/K/data"
+  mf data/other/manifest.json "  \"$ID\": \"$SHA\","
+  run_in "$X/K" deny  "git commit -m x"                       "the same line outside an evh manifest path is still scanned"
+  git -C "$X/K" reset -q; rm -rf "$X/K/data"
+  mf "$MAN" "  \"$ID\": \"${SHA}ab\","
+  run_in "$X/K" deny  "git commit -m x"                       "evh manifest: a value that is not exactly 64 hex is still scanned"
+  git -C "$X/K" reset -q; rm -rf "$X/K/data"
+fi
 rm -rf "$X"
 
 cp "$HOOK" ./hook-copy.sh; git add hook-copy.sh
