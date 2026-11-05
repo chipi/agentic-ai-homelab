@@ -113,6 +113,57 @@ printf '%s\n' "${GH}ABCDEFGHIJKLMNOPQRST1234567890" > own.txt; git add own.txt; 
 run deny  "git push --force-with-lease origin feature" "rebased branch: its own new commit is still scanned"
 git checkout -q "$BR"; rm -rf "$C" "$C.remote.git"
 
+# Where the git command runs, followed through the command (2026-11-05 review of the first fix,
+# which scanned only the first cd / -C and failed open on these). D holds an unpushed secret,
+# K is clean; both push to their own bare remote.
+X="$R.x"; rm -rf "$X"; mkdir -p "$X"
+mkr() {  # mkr <dir>: a repo with one published commit on origin
+  git init -q --bare "$1.git"; git init -q "$1"
+  ( cd "$1" && git config user.email t@t && git config user.name t && git commit -q --allow-empty -m init \
+    && git remote add origin "$1.git" && git push -q origin HEAD:main && git fetch -q origin )
+}
+mkr "$X/D"; mkr "$X/K"
+printf 'k = %s\n' "${AK}${H16}" > "$X/D/s.txt"; git -C "$X/D" add s.txt; git -C "$X/D" commit -q -m s
+run_in "$X/D" deny  "cd $X/K && cd $X/D && git push"          "two cds: the last one is where the push runs"
+run_in "$X/D" deny  "cd $X/K && git -C $X/D push"             "cd clean, then git -C the dirty repo"
+run_in "$X/D" deny  "git -C $X/K status && git push"          "-C of an earlier git command does not move the push"
+run_in "$X/D" deny  "cd $X/nowhere; git push"                 "cd to a missing dir: the cwd is still scanned"
+run_in "$X/D" deny  "for r in a; do cd $X/\$r && git push; done" "cd \$var: unknown dir, the cwd is still scanned"
+run_in "$X/K" deny  "bash -c \"cd $X/D && git push\""         "bash -c: a dir named inside the quotes is scanned"
+run_in "$X/K" allow "(cd $X/D) && git push"                   "a subshell's cd ends at its )"
+run_in "$X/D" deny  "(cd $X/K) && git push"                   "a subshell's cd ends at its ) (dirty cwd)"
+run_in "$X/K" allow "git -c x.y=1 -c 'credential.helper=!gh auth git-credential' push origin HEAD:main" \
+                                                               "git -c (lower case) is not -C"
+# a commit that only a second remote has is not published for the remote being pushed to
+git init -q --bare "$X/fork.git"; git -C "$X/D" remote add fork "$X/fork.git"
+git -C "$X/D" push -q fork HEAD:wip; git -C "$X/D" fetch -q fork
+run_in "$X/D" deny  "git push origin HEAD:main"               "secret on fork/wip only, push to origin"
+run_in "$X/D" deny  "git push -q $X/D.git HEAD:feat/x"        "push to a URL is matched to the remote it names"
+run_in "$X/D" allow "git push fork HEAD:wip"                  "nothing new for the remote that has it"
+git -C "$X/D" reset -q --hard origin/main
+# a secret added only in a merge commit
+( cd "$X/D" && git checkout -q -b side && echo a > a && git add a && git commit -q -m a && git checkout -q - \
+  && echo b > b && git add b && git commit -q -m b && git merge -q --no-commit side ) 2>/dev/null
+printf 'k = %s\n' "${AK}${H16}" > "$X/D/m.txt"; git -C "$X/D" add m.txt; git -C "$X/D" commit -q -m merge
+run_in "$X/D" deny  "git push origin HEAD:main"               "secret only in a merge commit (--cc)"
+git -C "$X/D" reset -q --hard origin/main
+# a separate repo nested in the cwd's tree, pushed through a shell-variable URL
+mkr "$X/K/apps/common"; echo d > "$X/K/apps/common/doc.md"; git -C "$X/K/apps/common" add doc.md
+git -C "$X/K/apps/common" commit -q -m doc
+NEST="cd $X/K/apps/common && U=$X/K/apps/common.git && git push -q \$U HEAD:main"
+run_in "$X/K" allow "$NEST"                                   "nested repo, \$U URL, clean commit"
+printf 'k = %s\n' "${AK}${H16}" > "$X/K/apps/common/s.md"; git -C "$X/K/apps/common" add s.md
+git -C "$X/K/apps/common" commit -q -m s
+run_in "$X/K" deny  "$NEST"                                   "nested repo, \$U URL, secret commit"
+# over the 64 KB pipe buffer: pipefail + `printf | grep -q` used to fail open (2026-11-05)
+printf 'k = %s\n' "${AK}${H16}" > "$X/K/big.txt"; git -C "$X/K" add big.txt
+BIG="$(head -c 100000 /dev/zero | tr '\0' x | fold -w 80)"
+run_in "$X/K" deny  "git commit -F - <<'MSG'
+$BIG
+MSG"                                                           "100 KB command (heredoc message), staged secret"
+git -C "$X/K" reset -q big.txt; rm -f "$X/K/big.txt"
+rm -rf "$X"
+
 cp "$HOOK" ./hook-copy.sh; git add hook-copy.sh
 run allow "git commit -m 'add hook'"  "hook's own regex source not self-flagged"; git reset -q hook-copy.sh; rm -f hook-copy.sh
 
