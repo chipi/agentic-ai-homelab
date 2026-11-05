@@ -2253,6 +2253,81 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+      # --- prod trace buffer (chipi/infra traces.alloy, from 2026-11-05) ------------------
+      # Prod's apps send spans to the local Alloy, which queues them on disk and retries the
+      # mini's VictoriaTraces for 30 min: before it, a 1-3 min stall on the mini dropped every
+      # service's batches (107 in 14 days, homelab's measurement 2026-11-05). These watch the
+      # buffer itself; ingest-traces-stalled above watches VictoriaTraces receiving anything.
+      # NoData = OK: the series exist only once traces.alloy runs on prod.
+      - uid: prod-traces-queue-growing
+        title: "Prod trace buffer backing up (>60 batches queued 10m)"
+        condition: threshold
+        for: 10m
+        noDataState: OK
+        labels: { severity: warning, kind: infra, instance: prod-podcast, service: telemetry-traces, environment: prod }
+        annotations:
+          summary: "Prod's Alloy has held more than 60 span batches (~5 min of traffic at a 5 s batch) for 10 minutes: the mini's VictoriaTraces is not taking spans (a stall on the mini, its Caddy vtraces node, or the tailnet). Nothing is lost yet: the queue is on disk and retries for 30 min. If it does not drain, check vtraces from prod and the mini (obs-boot), before prod-traces-dropped fires."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(otelcol_exporter_queue_size{job="alloy",instance="prod-podcast"})'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [60] } }]
+
+      - uid: prod-traces-dropped
+        title: "Prod spans lost (failed after retries, or the buffer was full)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: infra, instance: prod-podcast, service: telemetry-traces, environment: prod }
+        annotations:
+          summary: "Prod's Alloy dropped {{ $values.q }} span(s) in 15 minutes: either the 30-minute retry ran out (send_failed: the mini's VictoriaTraces was unreachable that long) or the queue of 5000 batches was full (enqueue_failed). Those traces are gone. Check the vtraces path and whether prod-traces-queue-growing fired first."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '(sum(increase(otelcol_exporter_send_failed_spans_total{job="alloy",instance="prod-podcast"}[15m])) or vector(0)) + (sum(increase(otelcol_exporter_enqueue_failed_spans_total{job="alloy",instance="prod-podcast"}[15m])) or vector(0))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.5] } }]
+
+      - uid: prod-traces-receiver-refusing
+        title: "Prod Alloy refusing the apps' spans"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: infra, instance: prod-podcast, service: telemetry-traces, environment: prod }
+        annotations:
+          summary: "Prod's Alloy refused or failed {{ $values.q }} span(s) from the apps in 15 minutes at its OTLP receiver (172.17.0.1:4318): the apps are sending but the spans never enter the buffer (bad payload, the pipeline down, or memory limits). The apps log the rejection as a failed export."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '(sum(increase(otelcol_receiver_refused_spans_total{job="alloy",instance="prod-podcast"}[15m])) or vector(0)) + (sum(increase(otelcol_receiver_failed_spans_total{job="alloy",instance="prod-podcast"}[15m])) or vector(0))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.5] } }]
+
       # --- analytics events stalled (no Umami event stored 8h, any site) ----------
       # The backstop behind the umami_send site probes (which catch a broken path in 3m):
       # this checks events are actually STORED. 30 days to 2026-11-01: the longest normal
