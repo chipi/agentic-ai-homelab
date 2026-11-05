@@ -3178,6 +3178,33 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [93600] } }]
 
+      # verify-postgres-backup decrypts and restores the newest backup weekly (Sundays 04:57Z) and
+      # pushes this timestamp only when that passed; a drill of an older tag does not push. 8 days
+      # gives one missed week a day of slack. NoData alerts: no restore proven in 15 days means
+      # the backups are unverified (chipi/infra 0f052cc).
+      - uid: postgres-restore-check-stale
+        title: "Postgres restore check older than 8 days (prod-podcast)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: warning, kind: infra, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "No successful verify-postgres-backup for over 8 days (closelistening_pg_restore_check_last_success_timestamp_seconds): the weekly Sunday 04:57Z run failed or did not run, so nobody has proven the newest backup restores. The backups may be fine; they are unverified. chipi/infra Actions -> verify-postgres-backup."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - max(last_over_time(closelistening_pg_restore_check_last_success_timestamp_seconds{instance="prod-podcast"}[15d]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [691200] } }]
+
       - uid: postgres-connections-high
         title: "Postgres connections above 80% of max_connections (10m)"
         condition: threshold
