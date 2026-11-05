@@ -184,8 +184,10 @@ approves anything until one of its classes says `live`.
   oracles; produced the load-bearing findings — description quality
   dominates model choice; the two-factor model (ticket carries acceptance,
   repo carries topology); k≥3 or it didn't happen.
-- **Triage eval** (`signal-fleet/EVAL.md`): frozen probe-tables, dual
-  labels, asymmetric metrics (false-dismiss=0 AND escalate≤5%).
+- **Triage eval** (`signal-fleet/EVAL.md` for the design; since 2026-10-30 in eval-harness,
+  `examples/triage-fleet`): real production decisions replayed through the fleet's own code with their probe
+  answers frozen, scored against the operator's labels on `triage_cost` (a missed real problem costs five false
+  alarms). What it found: `signal-fleet/EVAL-LESSONS-0.6.0.md` section 7.
 - **In production the hidden oracle is replaced by the pipeline** —
   repro-first tests, CI, reviewer, operator — and both eval rigs stay alive
   as the *hiring pipeline*: models/prompts earn seats on frozen replay for
@@ -202,7 +204,7 @@ agent frameworks (audit + revisit triggers for Temporal/LiteLLM in
 
 ## Rollout status
 
-As of 2026-10-29. The original per-fleet plan (Track A = triage, Track B =
+As of 2026-11-05. The original per-fleet plan (Track A = triage, Track B =
 bug-fix; lab → shadow → propose → per-class autonomy) lived in a wip note,
 closed this day; its finished parts are below, its open ones are in
 [`wip/NEXT_STEPS.md`](wip/NEXT_STEPS.md) under "Fleets".
@@ -216,11 +218,16 @@ closed this day; its finished parts are below, its open ones are in
   spend alert.
 - **Track A, triage (Fleet 2):** shadow → **propose** on 2026-07-29 (db50b13).
   File and dismiss run without approval; escalate stays human by design;
-  cleanup stays queued for the operator.
+  cleanup stays queued for the operator. Since 2026-10-29 every decision's probe answers are captured
+  (`results/probes/`), so new decisions replay exactly. On 2026-11-04 the first brief change measured in
+  eval-harness shipped (`8213775`: the app's failures to load its own code are filed; `triage_cost` 0.872 →
+  0.446 on the labelled decisions). What comes next is the
+  [triage fleet improvement plan](wip/triage-fleet-improvement-plan.md): the fleet's deterministic code
+  measured against what the operator did, a held-out set, a tuning loop.
 - **Track B, bug-fix (Fleet 1):** dormant on purpose after one real batch;
   it targets `chipi/orrery` only (`fleetd/deploy/chain.json`).
 
 ## Reading order for a fresh brain
 
 1. This page, including [Rollout status](#rollout-status) (where we are) → 2. RFC-0002/0003 (per-fleet depth) → 3. `BAKEOFF.md` §6 + `EVAL.md`
-(how anything got measured) → 4. ADR-0008 / RFC-0004 (the shell it runs in).
+(how anything got measured; for the triage fleet today, `EVAL-LESSONS-0.6.0.md` §7) → 4. ADR-0008 / RFC-0004 (the shell it runs in).

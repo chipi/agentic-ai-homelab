@@ -2,7 +2,7 @@
 
 How to operate the triage fleet (`signal-fleet`, Fleet 2), written so a different agent can pick it up each week. For what the parts are and why they work the way they do, read the [Triage fleet guide](../signal-fleet-guide.md) first. For the operator's own rituals (inbox, routing, labels, judging a fleet PR), see [§7](#7-operator-rituals).
 
-Facts below were checked against the running system on 2026-10-02, and re-checked on 2026-10-17 where this page changed (env file, logs, the sync, proposals, gates). Host today: the Mac mini (`homelab`), user `markodragoljevic`, reached from a laptop with `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab`. Commands marked **[host]** run on the fleet host.
+Facts below were checked against the running system on 2026-10-02, re-checked on 2026-10-17 where this page changed (env file, logs, the sync, proposals, gates), and on 2026-11-05 for the env table, the gate list and measuring a change (§5). Host today: the Mac mini (`homelab`), user `markodragoljevic`, reached from a laptop with `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab`. Commands marked **[host]** run on the fleet host.
 
 ## 1. What has to exist
 
@@ -28,7 +28,7 @@ This is the **only** env file fleetd loads for the triage fleet; the old `fleet.
 |---|---|---|
 | `OPENROUTER_API_KEY` | `triage.py` | the LiteLLM **`fleet-triage` virtual key** (the name is historical) |
 | `SF_OPENROUTER_URL` | `config.py` | `http://localhost:4001/v1/chat/completions` (the gateway) |
-| `SF_TRIAGE_MODEL` | `config.py` | `fleet-triage-pro` |
+| `SF_TRIAGE_MODEL` | `config.py` | `fleet-triage-pro` (unset, the code falls back to `deepseek/deepseek-v4-flash`) |
 | `SF_HOST` | `config.py` | host of Grafana/VM/VL/VT/GlitchTip; `127.0.0.1` when they run on the same box |
 | `GITHUB_TOKEN` | `filing.py`, `stale.py` | GitHub token (issues + labels read/write on the three repos) |
 | `GLITCHTIP_TOKEN` | `sources.py` | GlitchTip API token, read access to org `homelab` |
@@ -37,6 +37,9 @@ This is the **only** env file fleetd loads for the triage fleet; the old `fleet.
 | `GRAFANA_TOKEN`, or `GRAFANA_USER` + `GRAFANA_PASSWORD` | `sources.py`, `filing.py` | read firing alerts; write annotations |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` | `observ.py` | optional tracing |
 | `SF_STALE_NUDGE` | `stale.py` | `1` = the daily "looks resolved?" pass comments and labels; unset = dry run |
+| `SF_CAPTURE_PROBES` | `config.py` → `capture.py` | `1` = keep one JSON per decision under `results/probes/` (on since 2026-10-29); unset = off |
+| `SF_CAPTURE_EAGER`, `SF_CAPTURE_DIR` | `config.py` → `capture.py` | with capture on: also record the rest of the probe menu (default `1`); where to write (default `results/probes/`) |
+| `SF_ASSISTANT_BACKEND` | `config.py` | the X3 assistant's backend address, for the `assistant-failover` operational class (default `100.92.54.65:11435`) |
 
 Present in the file but **not read by the fleet code** (as of 2026-10-17): `LITELLM_FLEET_TRIAGE_KEY`, `LITELLM_FLEET_BUGFIX_KEY` (the bug-fix fleet's), `GLITCHTIP_FLEET_DSN`.
 
@@ -224,8 +227,34 @@ Since 2026-09-30 every behaviour change has gone through the same loop, and the 
 | `eval_duplicate_follow_replay.py` | a recurrence on an issue closed as a duplicate goes to its canonical issue |
 | `eval_identity_replay.py` | reused GlitchTip short ids are ignored (filing and sync); fatal events never go to a rollup; one provider-auth failure is one issue per project |
 | `eval_promotion_replay.py` | a filed-but-rolled-up signal re-triages on its first recurrence (977 historical recurrences; exactly 12 change) |
+| `eval_oom_edge_replay.py` | the host-wide OOM alert becomes one signal per container and kill episode; an edge-5xx burst next to a container restart or OOM kill is never dismissed (2026-10-26/27) |
 | `eval_assistant_failover_replay.py` | a LiteLLM error whose latest event names only the X3 assistant (`assistant` alias failed over) is dismissed, never ticketed; another backend, two backends, another project or a failed lookup still reach the triager (2026-11-03: #133-#137) |
-| `test_units.py` | unit tests (119 on 2026-10-17) |
+| `eval_inbox_open_replay.py` | "needs you" counts open escalations only; one never filed or whose issue state cannot be read still counts (2026-11-04) |
+| `test_units.py` | unit tests (135 on 2026-11-05) |
+| `test_capture.py` | per-decision probe capture: what is recorded, and that a capture replays the decision |
+| `test_scrub.py` | the scrubber's IPv4 rule (version strings are kept) |
+
+The list is `deploy.sh`'s, 18 gates in that order; a new gate goes into both the `say "verifying: …"` line and the
+`for g in …` line.
+
+### Measuring a change to the brief, the gates or the model
+
+A change to what the LLM sees or what the gates do is measured on real decisions in eval-harness
+([chipi/eval-harness](https://github.com/chipi/eval-harness), pin a release: `v0.7.2`), `examples/triage-fleet`,
+before it ships. The worked example is round r4 (2026-11-04):
+[`signal-fleet/EVAL-LESSONS-0.6.0.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/signal-fleet/EVAL-LESSONS-0.6.0.md)
+section 7.
+
+1. Commit the change on a branch here; record what it should change, item by item, before the run (a `hypothesis:`
+   block in the arm's config).
+2. In an eval-harness checkout: `python examples/triage-fleet/fetch.py` (both dataset revisions), then an arm config
+   naming the round, the dataset (`orrery_triage_v1_labelled_v2`) and `fleet_commit`; run it with
+   `TRIAGE_FLEET_SRC=<this repo's signal-fleet at that commit>` and the gateway key (`eval-fleet-triage`, see the
+   credentials table in `docs/recipes/agent-access.md`), capped with `EVAL_MAX_COST_USD`.
+3. `evh arm-smoke --config <arm>` first, then `evh run --config <arm> --repeat 3` (about $1 for 65 decisions).
+4. Compare by item: `evh pair-test --dataset-id orrery_triage_v1_labelled_v2 --round <rN> --b <baseline arm>`; read
+   the items that moved (`evh inspect --runs A,B --disagree`) before trusting the number.
+5. Ship only through the gates above and the operator's go; then watch it live.
 
 Alert-rule changes have their own checks under [`infra/observability/rules-drift/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/observability/rules-drift):
 
@@ -252,7 +281,7 @@ The operator's side, folded in from the 2026-07-29 operator playbook. The fleets
 the operator glances, routes, answers and merges.
 
 **Glance.** Grafana → Homelab → "Fleet Workforce — Triage" (top row: needs attention,
-escalations 7d, oldest queued item, queue by kind); click through to "Triage — Operator Inbox"
+escalations 7d (open ones only, since 6a59983), oldest queued item, queue by kind); click through to "Triage — Operator Inbox"
 for the items themselves. Its bottom panel shows `meta=true` substrate alerts, which only the
 operator answers: a broken fleet can't triage its own substrate.
 

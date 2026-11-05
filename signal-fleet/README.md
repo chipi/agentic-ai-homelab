@@ -1,16 +1,17 @@
 # signal-fleet — Signal-to-Action Fleet (Fleet 2)
 
 Autonomous **observability triage**: take live production signals (GlitchTip
-errors, Grafana alerts, Umami UX, VictoriaMetrics/Logs/Traces) and decide
-**Dismiss / File / Escalate** — sibling to the bug-fix fleet (`bugfix-fleet/`,
+errors and Grafana alerts; VictoriaMetrics/Logs/Traces are read as probe evidence) and decide
+**Dismiss / File / Escalate / Cleanup** — sibling to the bug-fix fleet (`bugfix-fleet/`,
 RFC-0002). It never touches production and never fixes code; its `File` output
 chains to Fleet 1 as a labelled GitHub issue. This is RFC-0002's own Phase-3
 ("o11y-reactive agents"), promoted to its own project.
 
-**Start here (updated 2026-10-17):** [Triage fleet guide](../docs/signal-fleet-guide.md) — the parts,
+**Start here (updated 2026-11-05):** [Triage fleet guide](../docs/signal-fleet-guide.md) — the parts,
 one signal's path, the two ledgers and the reasoning behind each rule — and the
 [runbook](../docs/recipes/signal-fleet-runbook.md): install on a new host, operate, the weekly
-review, and the replay-proven loop every fleet change goes through. The notes below are older
+review, and the replay-proven loop every fleet change goes through. How it is evaluated and what that
+found: [`EVAL-LESSONS-0.6.0.md`](EVAL-LESSONS-0.6.0.md) section 7 (round r4, 2026-11-04). The notes below are older
 context.
 
 ## ⚡ Current state — read first (2026-08-19, saves you the archaeology)
@@ -35,8 +36,7 @@ context.
   NOT used. Verified 2026-08-28 against the deployed `~/fleetd/fleetd.json`; the
   committed `fleetd/deploy/fleetd.json` workdir was stale (pointed at the leftover
   copy) and corrected to the checkout in the same pass.
-- **env files:** `fleet-gateway.env` is the ONE fleetd loads. `fleet.env` is a stale
-  duplicate — ignore it (its tokens are old; kept in sync only as a courtesy).
+- **env file:** `fleet-gateway.env` is the ONE fleetd loads (the old `fleet.env` was deleted 2026-10-30).
 - **LLM = homelab LiteLLM gateway.** Triager posts to
   `SF_OPENROUTER_URL=http://localhost:4001/v1/chat/completions` with the `fleet-triage`
   virtual key (`OPENROUTER_API_KEY` in `fleet-gateway.env`), model `fleet-triage-pro`.
@@ -56,7 +56,9 @@ context.
   dataset of the real (scrubbed) flood signals; runs anywhere, no LLM/creds, ALL PASS
   ([`reference-hardening/`](reference-hardening/README.md)). `mvp/score.py` measures
   the LLM triager over the frozen `reference/` fixtures (now committed + scrubbed via
-  `mvp/scrub.py`).
+  `mvp/scrub.py`). Since 2026-10-30 the triager is measured in eval-harness instead
+  (`examples/triage-fleet`, datasets built by [`datasets/`](datasets/)); every deploy runs
+  18 deterministic gates (runbook §5).
 
 ## Status (2026-07-24)
 - **Design:** SIGNALS.md living doc; **RFC-0003** (Proposed). Fleet-1's reviewer
@@ -72,6 +74,7 @@ context.
 ## Read in this order
 | # | Artifact | What it is |
 |---|---|---|
+| 0 | [guide](../docs/signal-fleet-guide.md), [runbook](../docs/recipes/signal-fleet-runbook.md), [`EVAL-LESSONS-0.6.0.md`](EVAL-LESSONS-0.6.0.md) | how it works today, how to run and change it, what its evaluation found |
 | 1 | [`SIGNALS.md`](SIGNALS.md) | **north-star living design** — architecture, the intent gate (§4.1), dispositions/taxonomy (§7), correlation (§6), sources (§8), state (§9), autonomy (§10), open questions (§12), **the MVP plan (§13)**, discussion log (§14) |
 | 2 | [`../docs/rfc/RFC-0003-signal-to-action-fleet.md`](../docs/rfc/RFC-0003-signal-to-action-fleet.md) | crystallized RFC (mirrors RFC-0002) |
 | 3 | [`PHASE-0-infra.md`](PHASE-0-infra.md) | per-surface consume recipe + live test evidence |

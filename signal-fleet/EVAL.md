@@ -1,7 +1,23 @@
 # EVAL.md — evaluating the signal-to-action triager
 
-**Status:** design (pre-build). North-star for how we measure the triager before
-trusting it with autonomy. Mirror of `bugfix-fleet/BAKEOFF.md` for Fleet 2.
+**Status:** design history (2026-07-24, kept as written below). The live evaluation now runs in eval-harness;
+what it found and what changed since is [`EVAL-LESSONS-0.6.0.md`](EVAL-LESSONS-0.6.0.md) section 7, and how to
+measure a change is the runbook's §5. Read this page for the design's reasoning, not for today's state.
+
+> **What changed since this was written (2026-11-05):**
+> - The triager is not "a single classification call" (§3.6, §6): it is one conversation per signal, up to 3
+>   probes then a decision, followed by deterministic gates (the guide's "How the triage LLM works").
+> - The reference set here (`reference/`, 23 fixtures) and `score.py` are superseded by eval-harness's datasets:
+>   the 233 Orrery decisions and the 65 the operator labelled, revisions `v1` and `v2` of Hugging Face
+>   `chipi-nbgd/orrery-triage`. The measure is `triage_cost` (a missed real problem counts as five false
+>   alarms), not the false-dismiss/escalate-rate pair of §3.4.
+> - The "quality bar PASSED" below was on curated fixtures. On the labelled production decisions (v2),
+>   production missed 20.6% of real problems before the brief change of 2026-11-04 (`a7dfcd2`) and 5.9% after.
+> - The model sweep of §3.6 ran (80+ arms): no model is better than production's (`fleet-triage-pro`); the
+>   brief and the gates are the lever.
+> - The daemon has run continuously since August 2026 (§6's last point is history).
+
+Mirror of `bugfix-fleet/BAKEOFF.md` for Fleet 2.
 **Date:** 2026-07-24. **Shaped by:** Fleet-1's round-5 review (in
 `REVIEW-2026-07-24-fleet1-architectural.md`).
 
@@ -155,8 +171,15 @@ input only the operator can give; (3) seed real defects from Fleet-1 bugs (§3.2
 [`EVAL-LESSONS-0.6.0.md`](EVAL-LESSONS-0.6.0.md): findings from eval-harness's replay of the 233 Orrery
 decisions (the dismiss gate makes 39 of 49 escalations; the brief files every error-shaped signal; the
 release's age is fetched but not shown to the model; an empty last-turn reply returns `None`), six
-changes each measurable as one arm, and how to measure one. None of the changes has been tried.
+changes each measurable as one arm, and how to measure one. Since then (round r4, 2026-11-04): the empty-reply
+case is fixed (`e2fbd6a`); one brief change shipped (`a7dfcd2`: the app's failures to load its own code are filed,
+`triage_cost` 0.872 → 0.446, p 0.0011); two were measured and parked; F1, F3 and F7 were corrected by
+measurement. All in EVAL-LESSONS section 7.
 
 ## 7. Open (needs operator)
-- The **ground-truth labels** on the ~20–30 real cases (§4 sourcing #2).
-- The **escalate-rate tolerance** for the autonomy-Dismiss gate (§3.4) — operator's number.
+- ~~The ground-truth labels on the ~20–30 real cases~~ — *done: the operator labelled 65 decisions (93
+  counting repeats on a fingerprint), 2026-10-30.*
+- ~~The escalate-rate tolerance~~ — *replaced: the operator's measure is `triage_cost`, with false alarms no worse
+  than production's (2026-10-30/31).*
+- What remains is in `docs/wip/triage-fleet-improvement-plan.md`: a held-out set, the filing stage against the
+  operator's duplicate links, a tuning loop.

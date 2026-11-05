@@ -34,7 +34,7 @@ The host side runs a stdlib-only Python script over SSH (the mini has Python 3.9
 | 3. Did on GitHub | new issues are real problems; comments land on the right issue |
 | 4. Flags | **fan-out**: none (one condition → several issues means the source rule is too fine-grained). **Reopens**: each justified. **Rollup comments**: none is a real bug buried as one line. |
 | 5. Dismiss sample | the cited evidence holds up when you open it in GlitchTip or Grafana |
-| 6. Ledger health | no lingering `.deferred.json` entries |
+| 6. Ledger health | no `.deferred.json` entry newer than the last few cycles (entries never expire, so old ones linger harmlessly: the guide's Known gaps) |
 
 ## Your job after the script: judge, then report
 
@@ -89,5 +89,5 @@ tuning proposals whose errors were still recent, e.g. the podcast pipeline's dea
 ## Not covered
 
 - **Spend:** check the Grafana dashboard "Fleet Workforce — Triage (Fleet 2)" (`fleetd_spend_day`, $2/day cap).
-- **The LLM's reasoning quality** beyond the five-dismissal sample.
+- **The LLM's reasoning quality** beyond the five-dismissal sample: measured in eval-harness on labelled decisions (runbook §5, `signal-fleet/EVAL-LESSONS-0.6.0.md` §7), not by this review.
 - **Signals the fleet never sees** (warnings, logs without errors): see `o11y-review`.

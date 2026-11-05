@@ -10,7 +10,7 @@
 #
 # Run ON the mini as the fleet user:   bash signal-fleet/deploy/deploy.sh
 #
-# It pulls main, then runs the three DETERMINISTIC gates (no LLM, no network) over
+# It pulls main, then runs the DETERMINISTIC gates (no LLM, no network; the list below) over
 # the freshly-pulled code. If any gate is red, it auto-rolls-back the checkout to
 # the previous commit so the fleet never picks up broken code.
 set -euo pipefail

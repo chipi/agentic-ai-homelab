@@ -17,16 +17,18 @@ Stdlib-only Python (3.9 on the mini). No secrets in the repo: credentials come f
 | `orchestrator.py` | one cycle: Grafana pass, GlitchTip pass, triager-down, inbox, stale pass, GitHub → GlitchTip sync, spend |
 | `sources.py` | read firing Grafana alerts and unresolved GlitchTip issues; normalize to signals |
 | `correlate.py` | probe evidence for the triager: VictoriaLogs, VictoriaMetrics, VictoriaTraces (by the OTel trace id) |
-| `triage.py` | deterministic gates (operational states, intent gate), then the LLM investigation and decision |
+| `triage.py` | operational states (no LLM), the LLM's investigation and decision (one conversation per signal, up to 3 probes), then the gates (intent, cleanup, dismiss, edge-5xx) |
 | `actions.py` | the dispositions ledger, idempotency, recurrence rows |
 | `filing.py` | the filed ledger and the GitHub decision tree (dedup keys, storm groups, rollups, duplicates, reused short ids) |
 | `glitchtip_sync.py` | mirror the operator's GitHub closes onto the fleet-filed GlitchTip issues (#100) |
 | `stale.py` | the daily "looks resolved?" nudge |
 | `inbox.py` | operator-inbox metrics; ships audit events to VictoriaLogs |
 | `observ.py` | metrics and the Langfuse trace per triage |
+| `guards.py` | OOM episodes per container and container restarts near an edge-5xx burst (2026-10-27) |
+| `capture.py` | per-decision probe capture, one JSON per decision under `~/signal-fleet/results/probes/` (on in production since 2026-10-29) |
 | `config.py`, `http_util.py`, `scrub.py`, `freeze.py` | settings from env, HTTP helpers, scrubbing and freezing corpora |
 | `probe.py`, `probes.py`, `triage_probe.py`, `score.py` | live probes and the triager scorer over frozen fixtures |
-| `eval_*.py`, `test_units.py` | the deterministic gates `deploy/deploy.sh` runs; the runbook's §5 lists what each guards |
+| `eval_*.py`, `test_units.py`, `test_capture.py`, `test_scrub.py` | the 18 deterministic gates `deploy/deploy.sh` runs; the runbook's §5 lists what each guards |
 
 ## Run by hand (on the mini)
 

@@ -6,7 +6,7 @@ This guide explains the triage fleet (`signal-fleet`, Fleet 2): its parts, one s
 - **The full design history:** RFC-0003 and [`SIGNALS.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/signal-fleet/SIGNALS.md).
 - **How this fleet fits with the others:** [Fleet architecture](fleet-architecture.md).
 
-State as of 2026-10-17 (checked against the running system): live on the Mac mini at stage **`propose`**, code at `69f88f1` or later. It files, comments on and reopens GitHub issues in `chipi/podcast_scraper`, `chipi/orrery` and `chipi/agentic-ai-homelab`, and mirrors the operator's GitHub closes onto the GlitchTip issues it filed (the sync, below).
+State as of 2026-11-05 (checked against the running system): live on the Mac mini at stage **`propose`**, code at `8213775` or later (deployed 2026-11-04 16:30 UTC, all 18 deploy gates passed). It files, comments on and reopens GitHub issues in `chipi/podcast_scraper`, `chipi/orrery` and `chipi/agentic-ai-homelab`, and mirrors the operator's GitHub closes onto the GlitchTip issues it filed (the sync, below).
 
 ## What it is, and what it is not
 
@@ -26,7 +26,7 @@ fleetd (Go supervisor, macOS LaunchDaemon com.homelab.fleetd)
        ├─ 2. GlitchTip pass  10 most recently seen unresolved errors (sources.glitchtip_unresolved)
        │       each signal → triage → act → file (below)
        ├─ 3. triager-down    if the LLM is down: ONE aggregate issue, never one per signal
-       ├─ 4. inbox push      operator-inbox metrics for Grafana
+       ├─ 4. inbox push      operator-inbox metrics for Grafana ("needs you" counts open escalations only, 6a59983)
        ├─ 5. stale pass      once per UTC day: nudge open issues whose signal went quiet
        ├─ 6. GitHub → GlitchTip sync (#100, SF_GLITCHTIP_SYNC=1): mirror the operator's closes
        └─ 7. spend file      cycle cost → fleetd's daily budget guard ($2/day)
@@ -37,7 +37,7 @@ fleetd (Go supervisor, macOS LaunchDaemon com.homelab.fleetd)
 | `fleetd` | [`fleetd/`](https://github.com/chipi/agentic-ai-homelab/tree/main/fleetd), binary at `~/fleetd/fleetd` | runs each fleet's cycle on its interval. Owns the stage, timeout (process group killed on timeout), budget, STOP flag and its own metrics. |
 | cycle code | [`signal-fleet/mvp/`](https://github.com/chipi/agentic-ai-homelab/tree/main/signal-fleet/mvp), run **from the git checkout** | `orchestrator.py` (cycle), `sources.py` (read Grafana/GlitchTip), `correlate.py` (probe evidence: logs, metrics, traces), `triage.py` (decide), `actions.py` (dispositions ledger), `filing.py` (GitHub + filed ledger), `glitchtip_sync.py` (GitHub → GlitchTip), `stale.py`, `inbox.py`, `observ.py` (metrics, Langfuse) |
 | state | `~/signal-fleet/` on the host, never in git | `results/dispositions.tsv`, `results/filed.tsv`, small state files, `queue/`, `fleet-gateway.env` |
-| LLM | the homelab LiteLLM gateway, model alias `fleet-triage-pro` | investigation and the file/escalate decision. Never dedup, never routing. |
+| LLM | the homelab LiteLLM gateway, model alias `fleet-triage-pro` (set by `SF_TRIAGE_MODEL`; the code's default is `deepseek/deepseek-v4-flash`) | the investigation, the choice of file / dismiss / cleanup / escalate, and the issue's title and acceptance criteria when it files (see "How the triage LLM works"). Never dedup, never routing. |
 | surfaces | Grafana "Fleet Workforce — Triage (Fleet 2)" (incl. the sync's panels), "Triage — Operator Inbox"; alerts `fleetd-cycle-failing`, `fleetd-silent`, `glitchtip-sync-failing`; Langfuse project "agents" | how the operator and the next agent see it |
 
 The code is stateless between cycles. Everything the fleet "remembers" is in the two ledgers and the GitHub issues themselves.
@@ -62,7 +62,7 @@ Test and synthetic signals are suppressed at this stage.
 - **Exception — promote at once** (2026-10-17, `orchestrator._promote_now`): when the last decision was `file` but the low-signal gate folded the error into a rollup, its first recurrence re-triages immediately, so filing promotes it to its own issue. Before this, 6 fingerprints (12 count changes, incl. the fatal PLAYER-1I) stayed rollup lines for good.
 - **A new Grafana firing of a known fingerprint inside 24 h:** a `recurrence` row, no new triage.
 
-### 3. Triage: deterministic gates before the LLM
+### 3. Triage: deterministic rules, the LLM, deterministic gates
 
 `triage.triage()`:
 
@@ -76,14 +76,22 @@ Test and synthetic signals are suppressed at this stage.
     These are states, not bugs, and they hold even while the triager is down.
 
 2. **Investigation by the LLM:** up to `SF_MAX_PROBES` (3) probes — logs, metrics, traces, source state, occurrence history — then one terminal decision. A GlitchTip error's trace is looked up by the OTel id the apps stamp as `tags.trace_id` (fix `06c07e0`; the SDK's own `contexts.trace.trace_id` never exists in VictoriaTraces). Each triage is **one Langfuse trace** (project "agents"): the fleet mints the trace id, and the gateway adds its costed generations to it as `triage-turn-N` (`e4e396f`). The decision:
-    - `file`: a real problem; becomes an issue with `work_type` `bug` or `config-enhancement`;
-    - `dismiss`: benign, **with independent probe evidence** (the intent gate). An **edge-5xx burst** is never dismissed when a container on the edge's host started or was OOM-killed within 10 min before to 5 min after it (`triage._edge_gate`, 2026-10-27): probes run after the restart look healthy because the container is back (the 10-26 13:46:30 burst was dismissed exactly so). It escalates naming the container; a failed lookup escalates too;
+    - `file`: a real problem; becomes an issue with `work_type` `bug` or `config-enhancement`. The app failing to load its own code (a failed dynamic import or module script, a service-worker register or update failure) is filed even at a low count (`a7dfcd2`, prompt `219b34bf`, 2026-11-04); a CSS preload or a plain fetch that failed, with a benign history, may still be dismissed;
+    - `dismiss`: benign, with probe evidence that shows it;
     - `cleanup`: test or synthetic noise;
     - `escalate`: a specific question only a human can answer.
 
-3. **Triager failures:**
+3. **Deterministic gates after the LLM** (`triage._gate`): each can only turn a decision into an escalation.
+    - **Intent gate** (`_intent_gate`): a `file` whose acceptance criteria do not each cite an allowed source (reporter, spec, repo data, code invariant, baseline, operator rule, SLO) escalates. Investigation earns the what and where; it never earns the intent.
+    - **Cleanup gate** (`_cleanup_gate`): a `cleanup` needs a machine-checkable test or noise marker (`CLEANUP_MARKERS`, or `environment` test/dev), else it escalates.
+    - **Dismiss gate** (`_dismiss_gate`): a `dismiss` must cite its evidence and rest on an independent probe that returned content (service logs, metric, trace, source state) or an occurrence history that is benign (count ≤ 1, a low level, or resolved). It makes most of the fleet's escalations (39 of 49 on 233 Orrery decisions). Replayed on the owner-labelled Orrery decisions (dataset v2, one pass of production's model) it stopped 8 dismissals of real problems and turned 7 right dismissals into false alarms; at five false alarms per missed problem it pays for itself, so it is narrowed by evidence, never loosened wholesale: `signal-fleet/EVAL-LESSONS-0.6.0.md` F1 and section 7.
+    - **Edge gate** (`_edge_gate`, 2026-10-27): an **edge-5xx burst** is never dismissed when a container on the edge's host started or was OOM-killed within 10 min before to 5 min after it: probes run after the restart look healthy because the container is back (the 10-26 13:46:30 burst was dismissed exactly so). It escalates naming the container; a failed lookup escalates too.
+
+4. **Triager failures:**
     - a 401/402/403 means the triager is down: one aggregate issue for the fleet, not one per signal;
     - a timeout or 5xx defers the signal to the next cycle (`.deferred.json`, at most 6 deferrals, then escalate);
+    - an empty reply on the last turn defers the same way, counted (F7, `e2fbd6a`; before it the signal was re-triaged every cycle and never escalated);
+    - a reply that never parses as JSON becomes the escalation "no terminal decision";
     - a cycle where every call deferred counts as triager-down (#11).
 
 ### 4. Act and file
@@ -110,6 +118,54 @@ Every mapped issue gets one `Tracked in GitHub: <url>` comment. A row whose shor
 - **Switch:** `SF_GLITCHTIP_SYNC=1` in `fleet-gateway.env`, token `GLITCHTIP_WRITE_TOKEN` (`event:write`). Writes only when the cycle writes (not in `shadow`).
 - **o11y:** metric `signal_fleet_glitchtip_sync{kind=mapped|merged|resolved|commented|errors}` every run; alert `glitchtip-sync-failing` (errors in every run for 25 min); one VictoriaLogs line per write, `{fleet="triage", event="glitchtip_sync"}` (the audit trail).
 - **By hand:** `python3 glitchtip_sync.py` is a dry run (counts and samples); `--apply` writes.
+
+## How the triage LLM works
+
+One signal is one new conversation (`triage.investigate`); nothing carries over from one signal to the next. The
+fleet's memory is the ledgers and GitHub, which code reads; the model never sees past decisions or open issues.
+
+```text
+system   the brief (_SYSTEM: what file / dismiss / cleanup / escalate mean, how rare escalation must be)
+         + the probe menu (event_detail, occurrence_history, service_logs, metric, trace, source_state)
+user     the signal: source, alertname, labels, summary (+ a class hint for some error shapes, signal_class)
+turn 1   model → {"action":"probe","probe":"event_detail"}           JSON mode, temperature 0
+         code runs the probe, appends its answer (cut to 1,800 characters)
+turn 2   model → {"action":"probe","probe":"occurrence_history"}
+turn 3   model → {"action":"decide","disposition":"file", ... title, symptom, acceptance criteria ...}
+         at most SF_MAX_PROBES = 3 probes, then it must decide; the brief tells it so
+then     the gates (section 3 above) may turn the decision into an escalation
+```
+
+- **Cost:** the API is stateless, so each turn sends the conversation so far. A signal takes 2 to 4 calls, about
+  3,500 input and 1,300 output tokens, about $0.005 at `fleet-triage-pro`'s prices.
+- **What the model reads, measured** (233 Orrery decisions, EVAL-LESSONS F4): 0 probes 10, 1 probe 88, 2 probes 96,
+  3 probes 39. `event_detail` is the usual first look; logs and traces are rarely asked for. Replayed on the labelled
+  set, the decisions that used all 3 probes were right as often as the rest (0.67) and those that stopped at 2 the
+  least (0.47): wrong decisions come from judgment after the event and history were read, not from the cap.
+- **One reply does two jobs:** the decision, and, for `file`, the issue's text. The intent gate checks the second.
+- **JSON mode is required:** a model is usable only through a provider that offers `response_format: json_object`
+  (hosted Llama 4 Scout is not, EVAL-LESSONS "Not covered").
+- **Each triage is one Langfuse trace** (project "agents"); the gateway adds each call as `triage-turn-N`.
+
+## How the fleet is evaluated
+
+- **Deploy gates** (`signal-fleet/deploy/deploy.sh`, 18 on 2026-11-05): deterministic replays and unit tests that
+  must pass before the mini's checkout keeps a new commit; they say "nothing regressed", not "how often it is right".
+- **Decisions against what the operator did:** eval-harness ([chipi/eval-harness](https://github.com/chipi/eval-harness),
+  v0.7.2), `examples/triage-fleet`. It replays a recorded decision through the fleet's own `triage.investigate` with
+  the probe answers frozen as of the decision, so the brief, the probes and the gates run as in production and only
+  the model or the fleet's code changes between arms. The datasets are the 233 Orrery decisions and the 65 the
+  operator labelled, at revisions `v1` and `v2` of Hugging Face `chipi-nbgd/orrery-triage` (v2 without v1's
+  rebuilt hindsight); they are built by `signal-fleet/datasets/build_orrery_items.py` and `build_orrery_items_v2.py`.
+  The measure is `triage_cost`: a missed real problem counts as five false alarms.
+- **What it has shown:** no model is better than production's (80+ arms); the brief and the gates are the lever. The
+  brief change shipped on 2026-11-04 (`a7dfcd2`) cut `triage_cost` from 0.872 to 0.446 on v2 (p 0.0011) in round r4.
+  The results and their limits: [`signal-fleet/EVAL-LESSONS-0.6.0.md`](https://github.com/chipi/agentic-ai-homelab/blob/main/signal-fleet/EVAL-LESSONS-0.6.0.md)
+  section 7.
+- **The filing stage** has a regression guard in eval-harness (`examples/signal-fleet-dedup`, four per-signal
+  functions against their own past output); measuring it against what the operator did is planned.
+- **How to measure a change:** [runbook, the improvement loop](recipes/signal-fleet-runbook.md); what is planned
+  next: [triage fleet improvement plan](wip/triage-fleet-improvement-plan.md).
 
 ## The two ledgers
 
@@ -193,7 +249,7 @@ It is upserted by fingerprint, so a fingerprint has exactly one row.
 | `results/.stale_last_run` | UTC day of the last stale pass |
 | `results/.inbox_seen` | operator-inbox bookkeeping |
 | `results/.last_cycle_spend` | cycle cost in USD, read by fleetd's budget guard |
-| `results/probes/` | per-decision capture (`capture.py`), **off unless `SF_CAPTURE_PROBES=1`** in `fleet-gateway.env`: one JSON per decision (mode 600) with the signal, every probe answer the model got (raw and the trimmed text it read) and, with `SF_CAPTURE_EAGER=1` (default), the rest of the probe menu at default args, so `triage.investigate(signal, probe_table=item["probes"])` replays the decision exactly. About 12 KB each. Real production data: keep on the host, `scrub.py` before sharing |
+| `results/probes/` | per-decision capture (`capture.py`), **on in production since 2026-10-29** (`SF_CAPTURE_PROBES=1` in `fleet-gateway.env`; the code default is off): one JSON per decision (mode 600) with the signal, every probe answer the model got (raw and the trimmed text it read) and, with `SF_CAPTURE_EAGER=1` (default), the rest of the probe menu at default args, so `triage.investigate(signal, probe_table=item["probes"])` replays the decision exactly. About 12 KB each. Real production data: keep on the host, `scrub.py` before sharing |
 | `queue/` | proposals the fleet may not act on alone (`cleanup`, `config-enhancement`; everything in `shadow`) as `*.json`; handled ones renamed `.filed` / `.resolved`. The operator triages them with the `triage-fleet-review` skill's `proposals.py` (54 had piled up by 2026-10-17); `queue/archive/` holds batches set aside |
 
 ## The operator's interface: GitHub labels
@@ -215,7 +271,7 @@ Closing an issue is the operator's dismissal; a recurrence inside 7 days reopens
 
 These rules came from incidents. Keep them unless the evidence changes.
 
-1. **Deterministic before the LLM.** Dedup, routing, operational states, recurrence and low-signal are code, not prompts. They are cheap, testable, and they don't drift. The LLM only investigates and decides file vs. escalate.
+1. **Deterministic before the LLM.** Dedup, routing, operational states, recurrence and low-signal are code, not prompts. They are cheap, testable, and they don't drift. The LLM only investigates, picks file, dismiss, cleanup or escalate, and writes the issue it files; code gates check its choice.
 2. **Fail closed, in one place.** When the triager is down, the fleet files one aggregate issue, not one per signal. The August 2026 flood turned a 401 into about 90 escalation issues.
 3. **GitHub is the source of truth for state.** The fleet reads issue state at filing time and never acts on a cached copy.
 4. **A fuzzy match never inherits a mute.** Muting is exact (fingerprint / group key). Otherwise one mute could silence a different bug forever.
@@ -229,7 +285,7 @@ These rules came from incidents. Keep them unless the evidence changes.
 12. **GitHub decides, GlitchTip follows.** The sync copies the operator's call and never makes one; a merge needs the same error, not just a duplicate link, because an umbrella issue can hold several errors.
 13. **A failover that worked is not an error.** LiteLLM reports every failed deployment call, including the X3 assistant's when the `assistant` alias then answers from OpenRouter; LiteLLM 1.96 has no hook to skip that. So the fleet reads the event: only the X3's address, and nothing else, makes it `assistant-failover`. A second backend, another project or a failed lookup leaves it with the triager. The X3 being down is the `x3-assistant-down` alert's job. On 2026-11-03 the failover tests filed five issues (#133-#137) before this rule.
 
-## Known gaps (as of 2026-10-17)
+## Known gaps (as of 2026-11-05)
 
 | Gap | Effect | Status |
 |---|---|---|
@@ -242,7 +298,6 @@ These rules came from incidents. Keep them unless the evidence changes.
 | `.deferred.json` entries **never expire** | an occurrence that deferred once and never came back keeps a count of 1 (two from 2026-10-08) | harmless; pruning needs a last-deferred time per entry, which the file does not store |
 | `eval_recurrence_replay.py` takes about 6 min on the mini | every deploy is that much slower | accepted for now (operator call 2026-10-01) |
 | Homelab filesystem series are **pushed twice** to VictoriaMetrics | double storage; hidden by `min by` in rules | not investigated |
-| `~/signal-fleet/fleet.env` | a stale duplicate of `fleet-gateway.env`; fleetd does not load it | delete when convenient |
 | **No way to mute a fragmenting bug** | a bug whose fingerprint keeps changing files new issues; `triage-fleet/muted` only silences one fingerprint, and fuzzy matches never inherit a mute | needs a `muted-class` label (2026-08-28 design, never built) |
 | **`assistant-failover` reads one event** | an issue grouping both X3 failovers and real errors is judged by its latest event only | GlitchTip groups by message, so "Connection error." from the X3 and from another backend share one issue; the latest event decides each time it is triaged. Not seen yet |
 | **Chained-exception ordering is spec-only** | the cause-chain handling (2026-08-27 enhancement #5) was built against the spec; no real chained exception has passed through it yet | re-check when the first real chain appears |
