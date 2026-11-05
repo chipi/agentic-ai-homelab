@@ -3174,32 +3174,30 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [300] } }]
 
+      # pg_stat_activity_count carries wait_event_type (checked on the live exporter 2026-11-05),
+      # so a blocked session shows as wait_event_type="Lock" without log_lock_waits. Sampled
+      # every 60 s: 5 minutes is far past a migration's normal lock.
       - uid: postgres-lock-waits
-        title: "Postgres sessions waiting on locks (prod-podcast, log_lock_waits)"
+        title: "Postgres sessions blocked on locks for 5m (prod-podcast)"
         condition: threshold
-        for: 0s
+        for: 5m
         noDataState: OK
         labels: { severity: warning, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
         annotations:
-          summary: "Postgres logged lock waits longer than deadlock_timeout in the last 15 minutes (`still waiting for … Lock`). Something holds a lock others need: a migration, a long transaction, an idle-in-transaction session. VictoriaLogs app:postgres \"still waiting for\" names the waiting and the blocking process. Quiet until log_lock_waits is on."
+          summary: "{{ $values.q }} session(s) in closelistening have been waiting on a lock for 5 minutes (pg_stat_activity wait_event_type=Lock). Something holds a lock others need: a migration, a long transaction, an idle-in-transaction session. pg_stat_activity with pg_blocking_pids() on the box names the blocker; dashboard o11y/podcast-postgres → Sessions waiting and Longest open transaction."
         data:
           - refId: q
-            relativeTimeRange: { from: 900, to: 0 }
-            datasourceUid: victorialogs
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
             model:
-              expr: 'app:postgres AND "still waiting for" | stats count() as value'
-              queryType: stats
-          - refId: reduced
-            datasourceUid: __expr__
-            model:
-              type: reduce
-              expression: q
-              reducer: last
+              expr: 'sum(pg_stat_activity_count{instance="prod-podcast",datname="closelistening",wait_event_type="Lock"})'
+              instant: true
+              queryType: instant
           - refId: threshold
             datasourceUid: __expr__
             model:
               type: threshold
-              expression: reduced
+              expression: q
               conditions: [{ evaluator: { type: gt, params: [0] } }]
 
       - uid: postgres-panic
