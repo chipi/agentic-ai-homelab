@@ -79,6 +79,40 @@ run allow "git push origin $BR"       "push, nothing new outgoing"
 printf '%s\n' "${GL}ABCDEFGHIJKLMNOP12345" > leak.txt; git add leak.txt; git commit -q -m 'leak'
 run deny  "git push origin $BR"       "push with secret in unpushed commit"; git reset -q --hard HEAD~1
 
+# The repo the command targets, not the session cwd (2026-11-04: `cd worktree && git push`
+# from a session sitting in another checkout was scanned against that other checkout).
+run_in() {  # run_in <cwd> <expect> <command> <label>
+  local d="$1" expect="$2" cmd="$3" label="$4" payload out got
+  payload="$(jq -n --arg c "$cmd" --arg d "$d" '{tool_name:"Bash",tool_input:{command:$c},cwd:$d}')"
+  out="$(printf '%s' "$payload" | bash "$HOOK" 2>/dev/null)"
+  got="allow"; printf '%s' "$out" | grep -Eq '"permissionDecision":[[:space:]]*"deny"' && got="deny"
+  if [ "$got" = "$expect" ]; then pass=$((pass+1)); printf '  ok   [%s] %s\n' "$got" "$label"
+  else fail=$((fail+1)); printf '  FAIL exp=%s got=%s : %s\n' "$expect" "$got" "$label"; fi
+}
+C="$R.clean"; rm -rf "$C" "$C.remote.git"; git init -q "$C"
+( cd "$C" && git config user.email t@t && git config user.name t && git commit -q --allow-empty -m init \
+  && git clone -q --bare . "$C.remote.git" && git remote add origin "$C.remote.git" \
+  && git push -q -u origin "$(git branch --show-current)" \
+  && printf 'clean\n' > c.txt && git add c.txt && git commit -q -m clean )
+printf '%s\n' "${GL}ABCDEFGHIJKLMNOP12345" > leak.txt; git add leak.txt; git commit -q -m 'leak'
+run_in "$R" allow "cd $C && git push origin HEAD"      "cd into a clean repo: not the cwd repo's leak"
+run_in "$C" deny  "cd $R && git push origin $BR"       "cd into the repo holding the leak"
+run_in "$R" allow "git -C $C push origin HEAD"         "git -C a clean repo"
+run_in "$C" deny  "git -C '$R' push origin $BR"        "git -C (quoted) the repo holding the leak"
+git reset -q --hard HEAD~1
+
+# A rebased branch brings main's commits, which are already on the remote: only the branch's own
+# commits are new, so a secret-shaped line in main's (published) history must not block the push.
+git checkout -q -b feature; printf 'f1\n' > f.txt; git add f.txt; git commit -q -m f1
+git push -q -u origin feature
+git checkout -q "$BR"; printf '%s\n' "${GL}ABCDEFGHIJKLMNOP12345" > pub.txt; git add pub.txt
+git commit -q -m 'already published'; git push -q origin "$BR"
+git checkout -q feature; git rebase -q "$BR"
+run allow "git push --force-with-lease origin feature" "rebased branch: main's published commits are not re-scanned"
+printf '%s\n' "${GH}ABCDEFGHIJKLMNOPQRST1234567890" > own.txt; git add own.txt; git commit -q -m own
+run deny  "git push --force-with-lease origin feature" "rebased branch: its own new commit is still scanned"
+git checkout -q "$BR"; rm -rf "$C" "$C.remote.git"
+
 cp "$HOOK" ./hook-copy.sh; git add hook-copy.sh
 run allow "git commit -m 'add hook'"  "hook's own regex source not self-flagged"; git reset -q hook-copy.sh; rm -f hook-copy.sh
 
