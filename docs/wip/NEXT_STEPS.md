@@ -260,6 +260,14 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
 
 ## Maintenance (parallel, not urgent)
 
+- [ ] **Test secrets-guard.sh on a Mac (bash 3.2)** (operator, recorded 2026-11-05). The #141 rewrite
+      (d4fcc02) was tested only on the X3's bash 5. It is written to be 3.2-safe (empty arrays
+      guarded under `set -u`), but under `set -uo pipefail` an unbound-variable error exits with
+      no output, which **allows** the command: a 3.2 slip would turn the guard off silently.
+      check: on the Mac, `/bin/bash workstation/claude/hooks/secrets-guard.test.sh` →
+      `RESULT: pass=40 fail=0`; also with the bash the Mac's Claude Code hook actually runs
+      (`head -1` of the hook is `#!/usr/bin/env bash`, so `env bash --version` there).
+
 - [ ] **Dedup project AGENTS.md files** against the global one (genesis open thread #5):
       podcast_scraper (1,320 lines), orrery (994), chemigram, oceancanvas. Keep only
       project-specific content in each.
