@@ -152,11 +152,22 @@ for k in "${!segs[@]}"; do
     esac
 done
 if [ "${#job_kind[@]}" = 0 ] || [ "$unknown" = 1 ]; then
-    # also any absolute dir after cd/pushd/-C anywhere in the text, quotes included (`bash -c "cd x && git push"`)
+    # also any dir after cd/pushd/-C anywhere in the text, quotes included (`bash -c "cd x && git push"`).
+    # A relative one is tried against the cwd and every absolute dir found, since its base is not
+    # known (`cd $X && git -C sub push`): a `sub` under any of them is scanned. Under a dir only
+    # named by a variable it stays unscanned.
+    rel=()
     while IFS= read -r t; do
         t="${t#*[[:space:]]}"; t="${t#[\"\']}"; t="${t%[\"\']}"; t="${t/#\~/$HOME}"
-        case "$t" in /*) [ -d "$t" ] && named+=("$t") ;; esac
+        case "$t" in
+            /*) [ -d "$t" ] && named+=("$t") ;;
+            ''|-|*'$'*|*'`'*) ;;
+            *) rel+=("$t") ;;
+        esac
     done < <(printf '%s\n' "$cmd" | grep -oE '(cd|pushd|-C)[[:space:]]+[^[:space:];&|()"'"'"']+')
+    for t in ${rel[@]+"${rel[@]}"}; do
+        for b in "${cwd:-$PWD}" ${named[@]+"${named[@]}"}; do [ -d "$b/$t" ] && named+=("$b/$t"); done
+    done
     for d in "${cwd:-$PWD}" ${named[@]+"${named[@]}"}; do
         [ "$is_push" = 1 ]   && { job_kind+=(push);   job_dir+=("$d"); job_args+=(""); }
         [ "$is_commit" = 1 ] && { job_kind+=(commit); job_dir+=("$d"); job_args+=(""); }
