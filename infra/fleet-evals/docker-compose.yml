@@ -1,6 +1,6 @@
 # The fleet-eval-data catalog, static, tailnet only: no port is published; Caddy (infra/reverse-proxy)
 # reaches `web` over fleet-evals_default as https://fleet-evals.tail6d0ed4.ts.net. update.sh sets
-# HARNESS_REF and FLEET_EVAL_DATA, runs `build` once, then (re)starts `web`.
+# HARNESS_REF and FLEET_EVAL_DATA, runs `build` once, then (re)starts `web`; run on demand, no timer.
 #
 # Static only (operator, 2026-11-05): evh's run inspector listens on 127.0.0.1 unless it runs in
 # --public mode, so its page is a shell whose API calls fail until the harness has a private
