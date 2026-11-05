@@ -3019,3 +3019,271 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: gt, params: [3600] } }]
+
+  # The prod app database on prod-podcast (chipi/infra plan E03; compose project `postgres`,
+  # database closelistening; postgres-exporter scraped by Alloy as job="postgres"). Live from
+  # 2026-11-05; thresholds are first guesses for a new component, to be re-tuned against its
+  # first weeks. Dashboard: o11y/podcast-postgres (chipi/infra). Database down vs exporter down
+  # are split so a dead exporter does not read as a dead database (pg_up only exists while the
+  # exporter runs); prod-silent covers the whole box going dark.
+  - orgId: 1
+    name: podcast-postgres
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      - uid: postgres-down
+        title: "Postgres down on prod-podcast (exporter cannot connect 5m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: critical, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "postgres-exporter on prod-podcast has reported pg_up=0 for 5 minutes: it cannot log in to Postgres as `monitor`, so the apps cannot either (player-api, operator-api, digest-scheduler, board-summarizer). Check `docker ps` for postgres-postgres-1 and its logs (VictoriaLogs app:postgres), then the dashboard o11y/podcast-postgres."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(max_over_time(pg_up{instance="prod-podcast"}[5m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      - uid: postgres-exporter-down
+        title: "Postgres exporter not scraped on prod-podcast (10m)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: warning, kind: infra, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "Alloy on prod-podcast has not scraped postgres-exporter for 10 minutes, so the database's health is not being watched (the database itself may be fine; postgres-down cannot fire while this is out). Check the postgres-exporter-1 container and infra/observability/postgres.alloy on the box."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(max_over_time(up{job="postgres",instance="prod-podcast"}[10m])) or vector(0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # 26 h: the job runs nightly at 03:47Z, so one missed night fires the next morning. NoData
+      # alerts: no successful push in 3 days means no backup at all. run_id="" keeps the labelled
+      # test series of 2026-11-04 (run_id=…) out.
+      - uid: postgres-backup-stale
+        title: "Postgres backup older than 26h (prod-podcast)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: critical, kind: infra, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "No successful backup-postgres-prod run for over 26 hours (closelistening_pg_backup_last_success_timestamp_seconds). The nightly 03:47Z run failed or did not start: chipi/infra Actions → backup-postgres-prod. Until it runs, a lost volume loses everything since the last good backup."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - max(last_over_time(closelistening_pg_backup_last_success_timestamp_seconds{instance="prod-podcast",run_id=""}[3d]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [93600] } }]
+
+      - uid: postgres-connections-high
+        title: "Postgres connections above 80% of max_connections (10m)"
+        condition: threshold
+        for: 10m
+        noDataState: OK
+        labels: { severity: warning, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "Postgres on prod-podcast has used over 80% of max_connections for 10 minutes. At 100% new connections are refused and the apps' requests fail. Who holds them: dashboard o11y/podcast-postgres → Connections by role / application; an `idle in transaction` band means a pool leak."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(pg_stat_database_numbackends{instance="prod-podcast"}) / max(pg_settings_max_connections{instance="prod-podcast"})'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.8] } }]
+
+      - uid: postgres-deadlocks
+        title: "Postgres deadlock detected (prod-podcast)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "Postgres broke a deadlock in closelistening in the last 15 minutes by cancelling a transaction; that request got an error. Two code paths take the same locks in opposite order. The server log names both statements: VictoriaLogs app:postgres \"deadlock detected\"."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(increase(pg_stat_database_deadlocks{instance="prod-podcast",datname="closelistening"}[15m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.5] } }]
+
+      # A session idle in a transaction holds its locks and stops vacuum; 5 minutes is far past
+      # any request. Lock waits themselves show in the log once log_lock_waits is on (rule below).
+      - uid: postgres-idle-in-transaction
+        title: "Postgres session idle in transaction over 5m (prod-podcast)"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        labels: { severity: warning, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "A session in closelistening has had a transaction open while idle for over 5 minutes: it holds its locks (other writers wait behind it) and keeps vacuum from cleaning up. Usually an app that opened a transaction and did not commit. pg_stat_activity on the box names the role, application and query."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(pg_stat_activity_max_tx_duration{instance="prod-podcast",datname="closelistening",state=~"idle in transaction.*"})'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [300] } }]
+
+      - uid: postgres-lock-waits
+        title: "Postgres sessions waiting on locks (prod-podcast, log_lock_waits)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "Postgres logged lock waits longer than deadlock_timeout in the last 15 minutes (`still waiting for … Lock`). Something holds a lock others need: a migration, a long transaction, an idle-in-transaction session. VictoriaLogs app:postgres \"still waiting for\" names the waiting and the blocking process. Quiet until log_lock_waits is on."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'app:postgres AND "still waiting for" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      - uid: postgres-panic
+        title: "Postgres PANIC (prod-podcast)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: critical, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "The Postgres server logged a PANIC: it stopped all sessions and is restarting or down (disk full, corrupted WAL, out of memory). VictoriaLogs app:postgres \"PANIC:\" has the line; check host disk free and the dashboard's Up since."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'app:postgres AND "PANIC:" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      # 10 in 15 minutes: one app with a wrong password after a deploy retries far more than
+      # that; a person mistyping does not reach it.
+      - uid: postgres-auth-failures
+        title: "Postgres login failures (prod-podcast, >10 in 15m)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "Postgres refused more than 10 logins in 15 minutes (password authentication failed, no pg_hba.conf entry, or a role that does not exist). After a deploy it is an app with a wrong credential or role; the log line names the role and database. VictoriaLogs app:postgres \"FATAL:\"."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'app:postgres AND ("password authentication failed" OR "no pg_hba.conf entry" OR ("role" AND "does not exist")) | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [10] } }]
+
+      - uid: postgres-connections-refused
+        title: "Postgres refused connections: too many clients (prod-podcast)"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
+        annotations:
+          summary: "Postgres turned connections away for lack of slots in the last 15 minutes (too many clients / remaining slots reserved): the apps' pools add up to more than max_connections, and the refused requests failed. Dashboard o11y/podcast-postgres → Connections by role / application shows whose pool grew."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'app:postgres AND ("too many clients" OR "too many connections" OR "remaining connection slots are reserved") | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]

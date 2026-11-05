@@ -25,7 +25,7 @@ DEFAULT_SSH = os.environ.get("HOMELAB_SSH",
 # One entry per project. logs = a VictoriaLogs filter; glitchtip = short-id prefixes;
 # traces = VictoriaTraces service names; repo = where the fleet files.
 PROJECTS = {
-    "closelistening": {"logs": "(app:podcast OR app:player)", "glitchtip": ["PODCAST", "PLAYER", "DELIVERY"],
+    "closelistening": {"logs": "(app:podcast OR app:player OR app:postgres)", "glitchtip": ["PODCAST", "PLAYER", "DELIVERY"],
                        "traces": ["podcast-pipeline", "podcast-api", "player-api", "player-mcp",
                                   "delivery-worker", "operator-public-api"], "repo": "chipi/podcast_scraper"},
     "orrery": {"logs": "app:orrery", "glitchtip": ["ORRERY"], "traces": [], "repo": "chipi/orrery"},
