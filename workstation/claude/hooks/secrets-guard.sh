@@ -42,8 +42,16 @@ printf '%s' "$cmd" | grep -Eiq '\bpush\b'   && is_push=1
 printf '%s' "$cmd" | grep -Eiq '\bcommit\b' && is_commit=1
 [ "$is_push" = 1 ] || [ "$is_commit" = 1 ] || allow
 
-# Operate in the repo the command targets.
+# Operate in the repo the command targets: the session cwd, then a leading `cd <dir>` or a
+# `git -C <dir>` in the command itself. Without this, `cd other-repo && git push` was scanned
+# against the session's repo and blocked on code that was not being pushed (2026-11-04).
 [ -n "$cwd" ] && { cd "$cwd" 2>/dev/null || allow; }
+target="$(printf '%s' "$cmd" | sed -nE 's/^[[:space:]]*cd[[:space:]]+("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:];&|]+)).*/\2\3\4/p' | head -1)"
+[ -n "$target" ] || target="$(printf '%s' "$cmd" | sed -nE 's/.*\bgit[[:space:]]+-C[[:space:]]+("([^"]+)"|'"'"'([^'"'"']+)'"'"'|([^[:space:];&|]+)).*/\2\3\4/p' | head -1)"
+if [ -n "$target" ]; then
+    target="${target/#\~/$HOME}"
+    cd "$target" 2>/dev/null || allow
+fi
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || allow
 
 # --- select the diff about to enter/leave git ---
@@ -56,14 +64,18 @@ if [ "$is_commit" = 1 ]; then
         diff="$(git diff --cached 2>/dev/null)"; names="$(git diff --cached --name-only 2>/dev/null)"
     fi
 else
-    # push: scan the outgoing commit range, best-effort; fail-open if unknown.
-    rng=""
-    if   git rev-parse --abbrev-ref '@{u}'      >/dev/null 2>&1; then rng='@{u}..HEAD'
-    elif git rev-parse --verify -q origin/HEAD  >/dev/null 2>&1; then rng='origin/HEAD..HEAD'
-    elif git rev-parse --verify -q origin/main  >/dev/null 2>&1; then rng='origin/main..HEAD'
+    # push: scan the patches of the commits no remote has yet — what the push adds. A tree diff
+    # against the upstream (the old way) also took in every commit a rebase brought from main,
+    # which is already published, and blocked on it.
+    if [ -n "$(git remote 2>/dev/null)" ]; then
+        diff="$(git log -p --no-merges --format= HEAD --not --remotes 2>/dev/null)"
+        names="$(git log --no-merges --name-only --format= HEAD --not --remotes 2>/dev/null | sort -u)"
+    else
+        rng=""
+        if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then rng='@{u}..HEAD'; fi
+        [ -n "$rng" ] || allow
+        diff="$(git diff "$rng" 2>/dev/null)"; names="$(git diff "$rng" --name-only 2>/dev/null)"
     fi
-    [ -n "$rng" ] || allow
-    diff="$(git diff "$rng" 2>/dev/null)"; names="$(git diff "$rng" --name-only 2>/dev/null)"
 fi
 [ -n "$diff" ] || allow
 
