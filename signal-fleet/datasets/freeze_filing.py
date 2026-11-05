@@ -9,11 +9,16 @@ questions from each issue's timeline as of that decision's time. This script fre
 
   decisions.jsonl   one line per file/escalate decision the fleet made in a writing stage (propose/live), oldest
                     first: the ledger row, and the signal as of the decision's time (GlitchTip: rebuilt like
-                    build_orrery_items_v2.py, nothing dated after the decision; Grafana: what the ledger holds,
-                    see `signal_level`), and the title of the issue the decision created, if one exists
+                    build_orrery_items_v2.py, nothing dated after the decision; Grafana: the probe capture, else
+                    the alert state history's labels, else the ledger's name only: see `signal_level`), and the
+                    title of the issue the decision created, if one exists
   issues.jsonl      every fleet issue in the repos the ledger names: creation, closes (reason, the comment beside
                     them), reopens, duplicate marks, label adds and removes (a mute is a label), and the fleet's
                     own comments, each with its time, and the fingerprints its body or the fleet's comments name
+                    (and every comment's time, with whether the stale sweep counts it as the fleet's; no bodies)
+  occurrences.jsonl every dispositions.tsv row (time, fingerprint, source, alert name): the stale sweep's last-seen
+  grafana_history.jsonl  Grafana's alert state history (time, alert, new state, the instance's labels): which
+                    alerts fired when, for the Grafana signals' labels and the stale sweep's "firing now"
   filed_final.tsv   the ledger as it is now, for checking where the replay ends
   freeze.json       counts, the code commit, and what was left out and why
 
@@ -157,8 +162,14 @@ def shape_issue(repo, i):
         elif k in ("LabeledEvent", "UnlabeledEvent"):
             events.append({"type": "labeled" if k == "LabeledEvent" else "unlabeled", "at": e["createdAt"],
                            "label": (e.get("label") or {}).get("name")})
-        elif k == "IssueComment" and FLEET_TEXT.search(e.get("body") or ""):
-            events.append({"type": "fleet_comment", "at": e["createdAt"], "text": (e.get("body") or "")[:300]})
+        elif k == "IssueComment":
+            body = e.get("body") or ""
+            # every comment's time, and whether stale.py's rule counts it as the fleet's (stale._is_fleet_comment):
+            # the stale sweep nudges only when no one else commented in its window. No body: not needed, not kept.
+            events.append({"type": "comment", "at": e["createdAt"],
+                           "stale_fleet": "signal-fleet" in body or body.startswith("Recurred")})
+            if FLEET_TEXT.search(body):
+                events.append({"type": "fleet_comment", "at": e["createdAt"], "text": body[:300]})
     fps = set(FP_IN_TEXT.findall(i.get("body") or ""))
     for c in comments:
         if FLEET_TEXT.search(c.get("body") or ""):
@@ -210,10 +221,112 @@ def release(ver, created, T):
     return {"version": ver, "shortVersion": ver, "dateCreated": iso(created), "dateReleased": None}
 
 
+# ---- Grafana: the alert's labels as of the decision ---------------------------------------------------------
+# The ledger keeps an alert's name, not its labels, and filing routes a Grafana signal by its `instance` label and
+# keys it with that label too (filing.repo_for, filing.normalized_key). Two places still have the labels: the probe
+# capture (on from 2026-10-29: the exact signal the fleet acted on) and Grafana's alert state history, whose entries
+# carry each alert instance's label set ("Name {k=v, k=v} - values").
+CAPTURE_DIR = os.path.join(RESULTS, "probes")
+HISTORY_LABELS = re.compile(r"\{([^}]*)\}")
+GRAFANA_CHECK = collections.Counter()   # history vs capture, where both exist
+_captures = None
+_history = None
+
+
+def captures():
+    """fingerprint -> [(capture time, signal)] from the probe capture."""
+    global _captures
+    if _captures is None:
+        _captures = collections.defaultdict(list)
+        for name in sorted(os.listdir(CAPTURE_DIR)) if os.path.isdir(CAPTURE_DIR) else []:
+            if name.endswith(".json"):
+                try:
+                    item = json.load(open(os.path.join(CAPTURE_DIR, name)))
+                except (OSError, ValueError):
+                    continue
+                sig = item.get("signal") or {}
+                _captures[sig.get("fingerprint")].append((ts(item["frozen_at"]), sig))
+    return _captures
+
+
+def history(t_from, t_to):
+    """alertname -> [(time, new state, labels)], oldest first, from Grafana's alert state history."""
+    global _history
+    if _history is None:
+        import config  # noqa: PLC0415 — the fleet's own Grafana credentials
+        headers = {"Authorization": f"Bearer {config.GRAFANA_TOKEN}"} if config.GRAFANA_TOKEN else None
+        user, pw = (None, None) if config.GRAFANA_TOKEN else (config.GRAFANA_USER, config.GRAFANA_PW)
+        seen, _history = set(), collections.defaultdict(list)
+        day = dt.timedelta(days=1)
+        t = t_from
+        while t < t_to:
+            url = (f"{config.GRAFANA_URL}/api/annotations?type=alert&limit=5000"
+                   f"&from={int(t.timestamp() * 1000)}&to={int((t + day).timestamp() * 1000)}")
+            page = sources.get_json(url, user, pw, headers=headers, timeout=60)
+            if len(page) >= 5000:
+                raise RuntimeError(f"state history page full at {t}: narrow the window")
+            for a in page:
+                if a["id"] in seen:
+                    continue
+                seen.add(a["id"])
+                m = HISTORY_LABELS.search(a.get("text") or "")
+                labels = dict(kv.split("=", 1) for kv in m.group(1).split(", ") if "=" in kv) if m else {}
+                _history[a.get("alertName")].append((dt.datetime.fromtimestamp(a["time"] / 1000, UTC),
+                                                     a.get("newState") or "", labels))
+            t += day
+        for v in _history.values():
+            v.sort(key=lambda x: x[0])
+    return _history
+
+
+def labels_from_history(alertname, T, starts):
+    """The label set of the instance of `alertname` firing at T; when several fire, the one that went Alerting at
+    the occurrence's start. (labels, how) or (None, why not)."""
+    state = {}
+    for at, new, labels in (_history or {}).get(alertname, []):
+        if at > T:
+            break
+        state[tuple(sorted(labels.items()))] = (at, new)
+    firing = [k for k, (at, new) in state.items() if new.startswith("Alerting")]
+    if len(firing) == 1:
+        return dict(firing[0]), "firing"
+    if starts:
+        near = [k for k in firing if abs((state[k][0] - starts).total_seconds()) <= 60]
+        if len(near) == 1:
+            return dict(near[0]), "firing, by start"
+    return None, f"{len(firing)} instances firing"
+
+
+def grafana_signal(row, T):
+    fp = row["fingerprint"]
+    occ = row.get("occurrence_id") or ""
+    starts = ts(occ.split("@", 1)[1]) if "@" in occ else None
+    base = {"source": "grafana", "fingerprint": fp, "occurrence_id": occ or None, "alertname": row["alertname"],
+            "summary": row["alertname"], "startsAt": iso(starts) if starts else None}
+    from_hist, how = labels_from_history(row["alertname"], T, starts)
+    if from_hist is not None and ":oom:" in fp:
+        from_hist = dict(from_hist, container=fp.split(":oom:", 1)[1])
+    near = [s for at, s in captures().get(fp, []) if abs((at - T).total_seconds()) <= 120]
+    if near:
+        sig = dict(near[-1])
+        sig.pop("raw", None)
+        if from_hist is None:
+            GRAFANA_CHECK[f"capture only (history: {how})"] += 1
+        else:
+            GRAFANA_CHECK["history agrees with capture" if from_hist.get("instance") == (sig.get("labels") or {}).get("instance")
+                          else "history DISAGREES with capture (instance)"] += 1
+        return sig, "captured"
+    if from_hist is not None:
+        return dict(base, labels=from_hist), "state-history"
+    GRAFANA_CHECK[f"no labels ({how})"] += 1
+    return dict(base, labels={}), "ledger-only"
+
+
 def signal_for(row, T):
     fp, src = row["fingerprint"], row["source"]
+    if src == "grafana":
+        return grafana_signal(row, T)
     if src != "glitchtip":
-        # the ledger keeps the alert's name, not its labels: an instance-keyed match cannot be rebuilt
         return {"source": src, "fingerprint": fp, "alertname": row["alertname"], "labels": {},
                 "summary": row["alertname"]}, "ledger-only"
     short = fp.split(":", 1)[1]
@@ -237,6 +350,21 @@ def signal_for(row, T):
     sig = sources.to_error_signal(raw)
     sig["occurrence_id"] = row.get("occurrence_id")
     return sig, "rebuilt-at-decision" if latest else "issue-only"
+
+
+KEY_CHANGES = collections.Counter()
+
+
+def keys_of(signal, title):
+    """The three keys filing.file_or_update derives for a signal (filing.py: group_key_for, normalized_key,
+    alert_key), with the repo it routes to."""
+    import filing  # noqa: PLC0415  (the fleet's own, from ../mvp)
+    repo = filing.repo_for(signal) or ""
+    return {"repo": repo,
+            "group_key": filing.group_key_for(signal.get("alertname", ""), title or "",
+                                              (signal.get("labels") or {}).get("project", "")),
+            "norm_key": filing.normalized_key(signal),
+            "alert_key": filing.alert_key(repo, signal.get("source", ""), signal.get("alertname", "")) if repo else ""}
 
 
 def main(out_dir):
@@ -274,6 +402,10 @@ def main(out_dir):
             created_by.setdefault(fp, []).append((i["created_at"], i["repo"], i["number"], i["title"]))
     skipped = collections.Counter()
     decisions = []
+    graf = [ts(r["ts"]) for r in disp if r.get("source") == "grafana" and r.get("disposition") in ("file", "escalate")]
+    if graf:
+        # from a week before the first decision: an alert that went Alerting before it is still firing at it
+        history(min(graf) - dt.timedelta(days=7), max(graf) + dt.timedelta(days=1))
     for r in disp:
         if r.get("disposition") not in ("file", "escalate"):
             continue
@@ -288,9 +420,24 @@ def main(out_dir):
                           "disposition": r["disposition"], "work_type": r.get("work_type", ""),
                           "stage": r.get("stage"), "cycle_id": r.get("cycle_id"), "reason": r.get("reason", "")[:300],
                           "signal": sig, "signal_level": level,
+                          # the keys filing derives, from the signal BEFORE scrubbing: the ledger holds keys of
+                          # real messages, and scrubbing (IPs, hosts, the repo owner) can change a key
+                          "keys_unscrubbed": keys_of(sig, made[0][3] if made else ""),
                           "issue_created": {"repo": made[0][1], "number": made[0][2], "title": made[0][3]} if made else None})
     decisions.sort(key=lambda d: d["ts"])
-    for name, rows in (("decisions.jsonl", decisions), ("issues.jsonl", issues)):
+    for d in decisions:
+        d["keys_change_under_scrub"] = sorted(k for k, v in keys_of(scrub.scrub(d["signal"]),
+                                                                   (d["issue_created"] or {}).get("title", "")).items()
+                                              if v != d["keys_unscrubbed"].get(k))
+        KEY_CHANGES.update(d["keys_change_under_scrub"])
+    # the stale sweep's other inputs: every ledger row is an occurrence (stale._occurrences), and which Grafana
+    # alerts fire when it runs (from the state history)
+    occurrences = [{"ts": r["ts"], "fingerprint": r["fingerprint"], "source": r["source"], "alertname": r["alertname"]}
+                   for r in disp]
+    grafana_history = [{"at": iso(at), "alertname": name, "state": new, "labels": labels}
+                       for name, rows in sorted((_history or {}).items()) for at, new, labels in rows]
+    for name, rows in (("decisions.jsonl", decisions), ("issues.jsonl", issues), ("occurrences.jsonl", occurrences),
+                       ("grafana_history.jsonl", grafana_history)):
         p = os.path.join(out_dir, name)
         with open(p, "w") as f:
             for x in rows:
@@ -312,6 +459,10 @@ def main(out_dir):
                "skipped": dict(skipped), "shortid_mismatches": dict(MISMATCH),
                "issues_not_fleet_labelled": sum(1 for i in issues if not i.get("fleet_labelled")),
                "issues_unfetched": unfetched, "extra_ledgers": EXTRA_LEDGERS,
+               "decisions_whose_keys_change_under_scrub": sum(1 for d in decisions if d["keys_change_under_scrub"]),
+               "key_changes_under_scrub": dict(KEY_CHANGES),
+               "grafana_labels_history_vs_capture": dict(GRAFANA_CHECK),
+               "grafana_decisions_by_signal_level": dict(collections.Counter(d["signal_level"] for d in decisions if d["source"] == "grafana")),
                "secret_hits_after_scrub": sum(len(scrub.scan(scrub.scrub(x))) for x in decisions + issues)}
     json.dump(summary, open(os.path.join(out_dir, "freeze.json"), "w"), indent=1, sort_keys=True)
     print(json.dumps(summary, indent=1, sort_keys=True))

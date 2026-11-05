@@ -164,9 +164,13 @@ goes to the eval harness session with a reproduction: [feedback log](eval-harnes
 
 ## Decisions for the operator
 
-1. Deploy step 1 (a push and the fleet's deploy).
-2. Step 3's false-merge audit: how many fuzzy matches you are willing to label.
-3. Step 6: the split date D, and how many disagreements plus calibration items per batch.
+1. ~~Deploy step 1~~ — *done 2026-11-05 12:06 UTC: `b23561e`, DEPLOY PASS, all 18 gates.*
+2. ~~Step 3's false-merge audit size~~ — *decided 2026-11-05: all of them, not a sample (49 fleet comments matched
+   on a fuzzy key across 21 issues, plus any fuzzy merge the replay finds that no comment names), as a yes/no
+   sheet with the signal and the issue side by side.*
+3. ~~Step 6's split date D~~ — *decided 2026-11-05: D = 2026-11-05 12:06 UTC, step 1's deploy, so every test
+   decision also carries the model's own decision; opened once, after about two months (~90 decisions) or earlier
+   only to confirm an r4-sized effect.* Still open: how many disagreements plus calibration items per batch.
 4. Step 7's budget per round.
 5. Whether each Track A eval joins the fleet's deploy gates once it scores against gold.
 

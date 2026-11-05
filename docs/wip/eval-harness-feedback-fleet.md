@@ -62,3 +62,15 @@ needed a workaround except the one below.
 | # | Where it hurt | What would help | Status |
 |---|---|---|---|
 | 22 | `evh pair-test --dataset-id orrery_triage_v1_labelled_v2 --round r4 --goal triage_orrery` → `ERROR: round r4 records no other baseline run: name --b`. r4.yaml has `baseline: null`: a round opened with `--keep <baseline config>` carries the arm in but records no baseline, and `round-open` has no flag to set one. With `--b triage_baseline_pro_v2data_v1` it works (the leader picked, p 0.0014, Bonferroni/3 applied) | `round-open --baseline <config_id>`, or `--keep` of the dataset's baseline arm recording it as the round's baseline | open (sent 2026-11-05) |
+
+## 2026-11-05: step 3, is the filing replay faithful?
+
+Before an adapter can score filing against gold, the replay has to do what production did. Getting there took six
+fixes, none of them visible from the harness side; each would have shown up as a wrong score on a gold item.
+
+| # | Where it hurt | What would help | Status |
+|---|---|---|---|
+| 23 | A code adapter has no faithfulness step: nothing in the harness asks "does the adapter, run on the production code of the time, reproduce production's recorded outputs?" before scoring against gold. Here it was 86/92 at first, and every one of the 6 misses was an adapter or data bug, not a fleet bug | a `faithfulness` stage for code adapters: replay the recorded period with the recorded code, require full agreement (or name each exception) before a run against gold counts | open |
+| 24 | The code under test changed 10 times in the 19-day window (the mini pulled 10 versions of `signal-fleet/mvp`); replaying it all with one commit misattributed 4 decisions. The versions came from the host's `git reflog`, the switch times from its pull times | an item (or the dataset) records the code version the recorded output came from, and a code adapter runs each item at that version | open |
+| 25 | The host clock ran ~1.6 s behind GitHub's for an hour on 2026-10-30, so 4 writes landed after the decision stamp that follows them in code. Attribution needed a measured clock slack | nothing harness-side; noted as a trap for timestamp-joined outcomes | noted |
+| 26 | Production's writes were first matched to decisions by the fingerprints an issue names; one reopen never named its fingerprint, so a faithful replay read as a miss. Matching by time window (between the previous decision of the cycle and this one) is exact | a note in the "your system is plain code" page: join outcomes by time and order, not by a key the outcome may not carry | open |
