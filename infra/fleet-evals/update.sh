@@ -7,9 +7,9 @@
 # the build passed, and (re)start the web container. The last line is OK, UP TO DATE, BUSY or FAIL.
 #
 # The deploy itself runs detached (nohup, log /tmp/fleet-evals.log) and this call follows it, so a
-# dropped ssh connection or a caller's timeout cannot stop a build halfway: on 2026-11-05 one did,
-# after the merge and before the build, and the checkout then looked current while the site was not.
-# Running the command again is always safe: it compares against what is deployed, not the checkout.
+# dropped ssh connection or a caller's timeout cannot stop a build halfway (the old version merged
+# first and built second, so a run killed in between left the checkout looking current while the
+# site was not). Running the command again is always safe: it compares against what is deployed.
 set -uo pipefail
 export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH
 REPO="${FLEET_EVAL_DATA:-$HOME/fleet-eval-data}"
