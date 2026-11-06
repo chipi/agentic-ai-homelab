@@ -32,6 +32,11 @@
     <error_log remove="1"/>
     <latency_log remove="1"/>
     <query_metric_log remove="1"/>
+    <!-- 2026-11-06: two logs ClickHouse 26.x added that the list above did not have.
+         background_schedule_pool_log had grown to 2.27M rows / 120 MiB in 50 h, more than
+         query_log; asynchronous_insert_log 15k rows. -->
+    <background_schedule_pool_log remove="1"/>
+    <asynchronous_insert_log remove="1"/>
     <query_log>
         <ttl>event_date + INTERVAL 7 DAY DELETE</ttl>
     </query_log>
