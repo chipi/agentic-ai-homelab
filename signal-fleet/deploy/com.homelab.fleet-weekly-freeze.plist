@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The fleet's weekly filing freeze and faithfulness check (chipi/fleet-eval-data
+     projects/signal-fleet-filing/scripts/weekly_freeze.sh; operator's go 2026-11-05). Saturdays
+     11:17 local: outside the 04:30 backups and the prod nightlies. Read-only: output stays in
+     ~/signal-fleet/frozen (mode 700); the last line is WEEKLY FREEZE: PASS, CHECK FAIL or FREEZE FAIL.
+     It runs whatever ~/fleet-eval-data holds, which changes only when someone deploys that repo. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.homelab.fleet-weekly-freeze</string>
+    <key>UserName</key><string>markodragoljevic</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>export HOME=/Users/markodragoljevic PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin; echo "== $(date -u +%FT%TZ) start"; exec bash /Users/markodragoljevic/fleet-eval-data/projects/signal-fleet-filing/scripts/weekly_freeze.sh</string>
+    </array>
+    <key>WorkingDirectory</key><string>/Users/markodragoljevic/fleet-eval-data</string>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key><integer>6</integer>
+        <key>Hour</key><integer>11</integer>
+        <key>Minute</key><integer>17</integer>
+    </dict>
+    <key>StandardOutPath</key><string>/Users/markodragoljevic/signal-fleet/frozen/reports/weekly-freeze.log</string>
+    <key>StandardErrorPath</key><string>/Users/markodragoljevic/signal-fleet/frozen/reports/weekly-freeze.log</string>
+</dict>
+</plist>

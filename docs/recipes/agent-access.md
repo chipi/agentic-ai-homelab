@@ -242,6 +242,21 @@ set; logs expire after 30 days). Turning deletion on is a config change for the 
 - **Instant metric queries miss once-a-day pushes.** VictoriaMetrics' default lookback is 5
   minutes, so a gauge pushed daily reads empty between pushes. Use `count_over_time(m[2d])` or
   `last_over_time(m[2d])` before saying a metric isn't there.
+- **JSON logs keep their text in a field, not in `_msg`.** Caddy's lines (and other JSON
+  loggers) arrive with `_msg` = "missing _msg field" and the text in `msg`; a bare phrase only
+  searches `_msg`, so search `container:caddy msg:"health.Change is slow"`. A zero for a phrase
+  you have seen with your own eyes is this.
+
+**Known artefact: prod log lines stored twice (2026-11-03 to 2026-11-06 09:10Z).** When prod's
+Alloy was recreated on 2026-11-06 ~09:05Z it had no saved read positions and re-read every
+container's retained Docker log, so for `instance:prod-podcast` each container's lines from its
+log start (as early as 2026-11-03) to 09:10Z exist twice: 1,147,852 stored against 1,042,329
+unique, up to 2x for a single container. The operator kept them (no delete; they age out with
+retention). Counts in that window read high, and earlier Alloy recreates may have done the same.
+Since chipi/infra #34 the positions live on the `alloy-data` volume, so a recreate that keeps the
+volume does not repeat it. To tell a repeat from real volume, compare `stats count() total,
+count_uniq(_msg) distinct` per container: about 2.0 means duplicated lines; a container that
+repeats identical lines (health checks) reads higher without being duplicated.
 
 ## 4. VictoriaTraces (`:10428` · `https://vtraces.tail6d0ed4.ts.net`)
 
