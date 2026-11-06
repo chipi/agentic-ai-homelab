@@ -85,7 +85,7 @@
   // point's value in its tooltip.
   function chart(m, cur, cmp, w, cmpText) {
     const W = 600, H = 150, L = 46, B = 20, T = 8, all = cur.concat(cmp).filter(x => x != null);
-    const mx = Math.max(...all, 0) * 1.1 || 1;
+    const mx = (Math.max(...all, 0) || 1) * 1.1;     // an all-zero chart labels its top 1, not 0.9
     const X = i => L + (w.n === 1 ? 0 : i * (W - L - 6) / (w.n - 1)), Y = v => T + (H - T - B) * (1 - v / mx);
     const line = (s, cls) => {
       let d = '', pen = false;
