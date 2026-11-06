@@ -99,7 +99,8 @@
       + '<line x1=' + L + ' y1=' + Y(0) + ' x2=' + W + ' y2=' + Y(0) + ' class=pax />'
       + '<text x=' + (L - 6) + ' y=' + (T + 8) + ' class=pyl>' + fmt(mx / 1.1, m.unit) + '</text>'
       + '<text x=' + (L - 6) + ' y=' + Y(0) + ' class=pyl>0</text>'
-      + ticks.map(i => '<text x=' + X(i).toFixed(1) + ' y=' + (H - 4) + ' class=pxl>' + lab(i) + '</text>').join('')
+      // the first and last dates sit inside the chart's edges, not centred on them (clipped otherwise)
+      + ticks.map(i => '<text x=' + X(i).toFixed(1) + ' y=' + (H - 4) + ' class=pxl' + (i === 0 && w.n > 1 ? ' style="text-anchor:start"' : i === w.n - 1 && w.n > 1 ? ' style="text-anchor:end"' : '') + '>' + lab(i) + '</text>').join('')
       + line(cmp, 'pcmp') + line(cur, 'pcur') + dots + '</svg>';
   }
 
