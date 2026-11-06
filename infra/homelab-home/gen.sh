@@ -202,7 +202,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <!-- Projects: one page per app (hub-project.js), usage / delivery / jobs against a comparison.
      Orrery, Evals and the websites get their own entry in HubProject.APPS and a link here. -->
 <section class=tab id=t-projects>
-<nav class=subtabs id=pj_apps><a href="#projects/cl" target=_self data-app=cl>Close Listening</a></nav>
+<nav class=subtabs id=pj_apps><a href="#projects/cl" target=_self data-app=cl>Close Listening</a><a href="#projects/orrery" target=_self data-app=orrery>Orrery</a><a href="#projects/evals" target=_self data-app=evals>Evals</a><a href="#projects/web" target=_self data-app=web>Websites</a></nav>
 <div id=pj_page></div>
 </section>
 <section class=tab id=t-sites>
@@ -417,8 +417,12 @@ MID3
 UMAMI_SITES=$(/usr/local/bin/docker exec umami-db psql -U umami -d umami -At -F '|' \
   -c "select domain, website_id from website where deleted_at is null and domain <> 'localhost'" 2>/dev/null \
   | awk -F'|' 'NF==2{printf "%s[\"%s\",\"%s\"]", (n++?",":""), $1, $2}')
+# The operator's own Umami ids (the Player's distinct_id), for the Projects tab's "Beta users": a
+# mini-local file, because this repo is public. Only well-formed uuids reach the page.
+OP_IDS=$(get ~/homelab-hub.env HUB_OPERATOR_UMAMI_IDS | tr ',' '\n' \
+  | grep -E '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' | awk '{printf "%s\"%s\"", (n++?",":""), $0}')
 cat <<TOK
-<script>const GTOK="$GF_VIEW";const UMAMI_SITES=[${UMAMI_SITES}];</script>
+<script>const GTOK="$GF_VIEW";const UMAMI_SITES=[${UMAMI_SITES}];const HUB_OPERATOR_IDS=[${OP_IDS}];</script>
 TOK
 # the status semantics (hub-status.js), shared with the status.json job on the mini
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-status.js"; echo '</script>'
@@ -1372,18 +1376,19 @@ const TABS=['overview','projects','sites','hosts','fleets','spend'],SUBS=['prod'
 const PJ_SRC={now:()=>Date.now()/1000,
   async vmRange(e,s,en,st){const j=await(await fetch('/vm/api/v1/query_range?query='+encodeURIComponent(e)+'&start='+s+'&end='+en+'&step='+st)).json();return((j.data.result[0]||{}).values||[]).map(p=>[+p[0],+p[1]]);},
   async vmAt(e,t){const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(e)+'&time='+t)).json();const r=j.data.result[0];return r?+r.value[1]:null;},
+  async vmVec(e,t){const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(e)+'&time='+t)).json();return j.data.result;},
   async sql(s){const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
       body:JSON.stringify({queries:[{refId:'A',datasource:{uid:'umami-pg'},rawSql:s,format:'table'}],from:'now-1y',to:'now'})})).json();
     const f=((r.results||{}).A||{}).frames;if(!f||!f[0])return[];const n=f[0].schema.fields.map(x=>x.name),v=f[0].data.values;
     return (v[0]||[]).map((_,i)=>Object.fromEntries(n.map((k,j)=>[k,v[j][i]])));},
   async vl(q){const t=await(await fetch('/vl/select/logsql/query',{method:'POST',body:new URLSearchParams({query:q})})).text();return t.split('\n').filter(Boolean).map(l=>JSON.parse(l));}};
 let PJ_KEY='',PJ_T=0;
-function projectsPage(force){const [,a,p,c]=location.hash.slice(1).split('/'),apps=HubProject.APPS,id=apps[a]?a:'cl';
-  const period=HubProject.PERIODS[p]?p:'7d',compare=HubProject.COMPARES[c]&&(c!=='week'||period==='today')?c:'prev',k=id+'/'+period+'/'+compare;
+function projectsPage(force){const [,a,p,c,u]=location.hash.slice(1).split('/'),apps=HubProject.APPS,id=apps[a]?a:'cl';
+  const period=HubProject.PERIODS[p]?p:'7d',compare=HubProject.COMPARES[c]&&(c!=='week'||period==='today')?c:'prev',aud=u==='beta'?'beta':'all',k=id+'/'+period+'/'+compare+'/'+aud;
   document.querySelectorAll('#pj_apps a').forEach(x=>x.classList.toggle('on',x.dataset.app===id));
   // re-read every 5 minutes, or when the view changes; the numbers move slowly
   if(!force&&k===PJ_KEY&&Date.now()-PJ_T<300000)return;PJ_KEY=k;PJ_T=Date.now();
-  HubProject.render(document.getElementById('pj_page'),HubProject.resolve(apps[id],UMAMI_SITES),period,compare,PJ_SRC);}
+  HubProject.render(document.getElementById('pj_page'),HubProject.resolve(apps[id],UMAMI_SITES,HUB_OPERATOR_IDS),period,compare,PJ_SRC,aud);}
 function showTab(){const [h,sb,mk,...mr]=location.hash.slice(1).split('/'),t=TABS.includes(h)?h:'overview',u=SUBS.includes(sb)?sb:'prod';
   if(t==='projects')projectsPage();
   MODEL_ID=t==='spend'&&mk==='m'?decodeURIComponent(mr.join('/')):'';
