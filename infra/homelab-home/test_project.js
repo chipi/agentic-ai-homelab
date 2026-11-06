@@ -47,13 +47,14 @@ const NOW = Date.UTC(2026, 10, 6, 18, 30) / 1000, D0 = Date.UTC(2026, 10, 6) / 1
   });
 
   // Stub sources that record what they were asked and answer from fixtures.
-  function stubSrc() {
+  function stubSrc(firstEvent) {
     const calls = { vmAt: [], vmRange: [], sql: [], vl: [] };
     return {
       calls, now: () => NOW,
       async vmAt(e, tt) { calls.vmAt.push([e, tt]); return tt === NOW ? 120 : 100; },
       async vmRange(e, s, en, st) { calls.vmRange.push([e, s, en, st]); const out = []; for (let x = s; x <= Math.min(en, NOW); x += st) out.push([x, 10]); return out; },
       async sql(q) {
+        if (/min\(created_at\)/.test(q)) return [{ first: String(firstEvent || D0 - 400 * DAY) }];
         calls.sql.push(q);
         if (/group by 1/.test(q)) return [{ t: String(D0), visitors: '3' }, { t: String(D0 - 7 * DAY), visitors: '1' }];
         return [{ visitors_0: '5', visitors_1: '2' }];
@@ -108,6 +109,25 @@ const NOW = Date.UTC(2026, 10, 6, 18, 30) / 1000, D0 = Date.UTC(2026, 10, 6) / 1
     const r = (await P.band(src, app, b, '30d', 'prev')).find(x => x.m.id === 'processed');
     assert.strictEqual(r.cmpValue, null);
     assert.strictEqual(P.delta(r.value, r.cmpValue).text, 'no comparison');
+  });
+
+  await t('first event: comparison windows before the app\'s first Umami event are left out', async () => {
+    const [r] = await P.band(stubSrc(D0 - 10 * DAY), app, usage, '7d', 'prev');
+    assert.strictEqual(r.cmpValue, null, 'the 7 days before start 13 days ago, before the first event 10 days ago');
+    assert.ok(r.cmp.every(x => x == null));
+    const [r2] = await P.band(stubSrc(D0 - 20 * DAY), app, usage, '7d', 'prev');
+    assert.strictEqual(r2.cmpValue, 2, 'a comparison after the first event stays');
+  });
+
+  await t('zero fill: a past bucket with no events is 0 for a count, empty for a mean, future stays empty', async () => {
+    const [r] = await P.band(stubSrc(), app, usage, '7d', 'prev');
+    assert.deepStrictEqual(r.cur, [0, 0, 0, 0, 0, 0, 3]);
+    assert.deepStrictEqual(r.cmp, [0, 0, 0, 0, 0, 0, 1]);
+    const b = P.APPS.cl.bands.find(x => x.title === 'Jobs');
+    const nightly = (await P.band(stubSrc(), app, b, '7d', 'prev')).find(x => x.m.id === 'nightly');
+    assert.strictEqual(nightly.cur[5], null, 'a night with no run has no run time');
+    const [h] = await P.band(stubSrc(), app, usage, 'today', 'prev');
+    assert.strictEqual(h.cur[18], 0); assert.strictEqual(h.cur[19], null, '19:00 has not started at 18:30');
   });
 
   await t('render: period and comparison links, one band per source, cards and charts', async () => {

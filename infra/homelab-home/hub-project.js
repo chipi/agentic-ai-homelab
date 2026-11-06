@@ -164,8 +164,16 @@
     // a daily band (jobs) reads Today as the last 7 nights: one night is not a trend
     if (b.daily && period === 'today') { period = '7d'; if (compare === 'week') compare = 'prev'; }
     const nowS = src.now(), w = windowFor(period, nowS, b.daily);
-    // a comparison window older than the source keeps (VictoriaLogs: 30 days) is left out, not read as zero
-    const sh = shifts(period, compare, w).filter(s => !b.retention || w.start - s >= nowS - b.retention);
+    // A comparison window older than the source keeps (VictoriaLogs: 30 days), or older than the
+    // app's first Umami event, is left out: a count there reads 0 and would drag the average down.
+    let first = b.retention ? nowS - b.retention : -Infinity;
+    if (b.src === 'umami' && (app.umamiIds || []).length) {
+      try {
+        const r = (await src.sql("select extract(epoch from min(created_at)) as first from website_event where website_id in (" + app.umamiIds.map(i => "'" + i + "'").join(',') + ")"))[0];
+        if (r && r.first != null) first = Math.max(first, +r.first);
+      } catch (e) { /* no first-event date: keep every comparison */ }
+    }
+    const sh = shifts(period, compare, w).filter(s => w.start - s >= first);
     const upto = Math.min(nowS, w.end);
     const ranges = [[w.start, upto]].concat(sh.map(s => [w.start - s, upto - s]));
     const spans = [[w.start, w.end]].concat(sh.map(s => [w.start - s, w.end - s]));
@@ -181,7 +189,9 @@
       // the chart's own series: point values per bucket (a sum per bucket; a mean for 'mean')
       const series = s => {
         const a = align(d.points.filter(([t]) => t >= w.start - s && t < w.end - s), w, s);
-        if (m.kind !== 'mean') return a;
+        // a count with no rows in a past bucket is 0 (Umami and VictoriaLogs only return buckets
+        // that have events); a mean with no rows stays empty
+        if (m.kind !== 'mean') { if (b.src !== 'vm') a.forEach((v, i) => { if (v == null && w.start - s + i * w.step <= nowS) a[i] = 0; }); return a; }
         const cnt = align(d.points.filter(([t]) => t >= w.start - s && t < w.end - s).map(([t]) => [t, 1]), w, s);
         return a.map((v, i) => v == null ? null : v / cnt[i]);
       };
