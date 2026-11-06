@@ -50,12 +50,12 @@ external state frozen as part of an item, gold from operator actions, a determin
 | # | Track | Work | Spend | Operator time |
 |---|---|---|---|---|
 | 0 | both | move to eval-harness v0.7.2 as released | $0 | done 2026-11-05 |
-| 1 | A, B | capture the model's own decision, before the gates | $0 | a push |
+| 1 | A, B | capture the model's own decision, before the gates | $0 | done (b16c220 deployed; captures carry `model_decision`) |
 | 2 | B | watch the shipped change live, by class and path | $0 | none |
 | 3 | A | filing and dedup against gold | $0 | labels on a sample of fuzzy matches |
-| 4 | A | the gates against gold | about $0.40 once (one recorded pass), then $0 | none |
+| 4 | A | the gates against gold | $0 (no pass needed) | done 2026-11-06 on Orrery: fleet-eval-data `projects/orrery-triage/GATES.md` |
 | 5 | A | the rest of the fleet's code | $0 | a few labels where no outcome exists |
-| 6 | B | a held-out set, split by time | $0 model | labels on disagreements and a calibration sample |
+| 6 | B | a held-out set, split by time | $0 model | split fixed 2026-11-06, D = 2026-11-07T00:00Z (fleet-eval-data `projects/triage-heldout/SPLIT.md`); labels when opened |
 | 7 | B | a tuning round for the brief | about $1 an arm, a budget per round | a go per round |
 | 8 | B | the quality of filed issues | later | rubric |
 
