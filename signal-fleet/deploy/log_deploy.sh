@@ -16,9 +16,10 @@ event="${1:-?}"; old="${2:-}"; new="${3:-}"; by="${4:-${USER:-?}}"
 {
   mkdir -p "$(dirname "$LOG")"
   [ -s "$LOG" ] || printf 'utc\tevent\told\tnew\tmvp_tree\tby\n' > "$LOG"
-  tree="$(git -C "$CHECKOUT" rev-parse "${new}:signal-fleet/mvp" 2>/dev/null || echo -)"
+  # --verify -q: on failure (a commit from before signal-fleet/mvp existed) print nothing, not the argument
+  tree="$(git -C "$CHECKOUT" rev-parse --verify -q "${new}:signal-fleet/mvp" 2>/dev/null)" || tree=-
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${SF_DEPLOY_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" "$event" \
-    "$(git -C "$CHECKOUT" rev-parse --short "$old" 2>/dev/null || echo "$old")" \
-    "$(git -C "$CHECKOUT" rev-parse --short "$new" 2>/dev/null || echo "$new")" "$tree" "$by" >> "$LOG"
+    "$(git -C "$CHECKOUT" rev-parse --verify -q --short "$old" 2>/dev/null || echo "$old")" \
+    "$(git -C "$CHECKOUT" rev-parse --verify -q --short "$new" 2>/dev/null || echo "$new")" "$tree" "$by" >> "$LOG"
 } 2>/dev/null || true
 exit 0
