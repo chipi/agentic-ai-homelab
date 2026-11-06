@@ -84,7 +84,7 @@ const jobs = P.APPS.cl.bands.find(x => x.title === 'Jobs');
     assert.deepStrictEqual(app.umamiIds, ['cd384a3e-fd25-476e-affa-08985b73d4da']);
     assert.deepStrictEqual(app.operatorIds, [OP]);
     assert.deepStrictEqual(P.resolve(P.APPS.orrery, [], [OP]).operatorIds, [], 'Orrery has no user identity: no Beta switch');
-    assert.ok(!JSON.stringify(P.APPS).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/), 'no Umami id in the public config');
+    for (const a of Object.values(P.APPS)) assert.ok(!(a.operatorIds || []).length, a.id + ': no operator identity in the public config');
   });
 
   await t('umami: card = this period so far vs the same stretch of the comparison; chart aligned', async () => {
@@ -103,6 +103,12 @@ const jobs = P.APPS.cl.bands.find(x => x.title === 'Jobs');
     for (const q of src.calls.sql.filter(q => !/min\(created_at\)/.test(q)))
       assert.ok(q.includes("session_id not in (select session_id from session where distinct_id in ('" + OP + "'))"), 'filter in ' + q.slice(0, 60));
     assert.ok(!src.calls.sql.some(q => q.includes('or true')), 'a non-uuid operator id never reaches the SQL');
+    const src2 = stubSrc(), withSite = Object.assign({}, app, { operatorSiteIds: ['a5a60c25-a555-4c2d-b096-c9814c21d25c'] });
+    await P.band(src2, withSite, usage, '7d', 'prev', 'beta');
+    assert.ok(src2.calls.sql.filter(q => !/min\(created_at\)/.test(q)).every(q => q.includes("website_id not in ('a5a60c25-a555-4c2d-b096-c9814c21d25c')")), 'the operator site is left out');
+    const src3 = stubSrc();
+    await P.band(src3, withSite, usage, '7d', 'prev', 'all');
+    assert.ok(!src3.calls.sql.some(q => q.includes('website_id not in')), 'Everyone keeps the operator site');
   });
 
   await t('first event: comparison windows before a metric was first tracked are left out', async () => {

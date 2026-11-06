@@ -122,7 +122,11 @@
     if (!ids.length || !ms.length) return {};
     let where = 'website_id in ' + inList(ids);
     const ops = (app.operatorIds || []).filter(i => UUID.test(i));
-    if (audience === 'beta' && ops.length) where += ' and session_id not in (select session_id from session where distinct_id in ' + inList(ops) + ')';
+    if (audience === 'beta' && ops.length) {
+      where += ' and session_id not in (select session_id from session where distinct_id in ' + inList(ops) + ')';
+      const sites = (app.operatorSiteIds || []).filter(i => UUID.test(i));
+      if (sites.length) where += ' and website_id not in ' + inList(sites);
+    }
     const cols = [];
     ms.forEach(m => ranges.forEach(([a, b], j) => cols.push(msql(m, 'created_at >= ' + ts(a) + ' and created_at < ' + ts(b)) + ' as ' + m.id + '_' + j)));
     const card = (await src.sql('select ' + cols.join(', ') + ' from website_event where ' + where + ' and created_at >= ' + ts(lo)))[0] || {};
@@ -263,8 +267,11 @@
   const edge = (hosts, extra) => [
     Object.assign({ id: 'edge', label: 'Edge requests', kind: 'hourly', chart: true, help: 'Every request Cloudflare answered for the hosts, bots included',
       expr: 'sum(last_over_time(cloudflare_edge_requests{instance="homelab",window="1h",host=~"' + hostRe(hosts) + '"}[15m]))' }, extra || {}),
+    // 0 for an hour the gauge has requests but no 5xx; nothing before the gauge existed (a bare
+    // `or vector(0)` read every hour before 2026-10-29 as a counted zero)
     { id: 'edge5xx', label: 'Edge 5xx', kind: 'hourly', up: false, help: 'Cloudflare answered 5xx: the origin failed (5xx_server) or was unreachable (52x)',
-      expr: 'sum(last_over_time(cloudflare_edge_requests{instance="homelab",window="1h",class=~"5xx_server|5xx_unreachable",host=~"' + hostRe(hosts) + '"}[15m])) or vector(0)' },
+      expr: 'sum(last_over_time(cloudflare_edge_requests{instance="homelab",window="1h",class=~"5xx_server|5xx_unreachable",host=~"' + hostRe(hosts) + '"}[15m]))'
+        + ' or (0 * sum(last_over_time(cloudflare_edge_requests{instance="homelab",window="1h",host=~"' + hostRe(hosts) + '"}[15m])))' },
     { id: 'avail', label: 'Availability', unit: '%', chart: true, help: 'Share of the minute-by-minute probes from the mini that succeeded (all the hosts)',
       expr: 'avg(avg_over_time(probe_success{job="site-probe",run_id="",host=~"' + hostRe(hosts) + '"}[$W]))' },
     { id: 'probe_s', label: 'Response time', unit: 's', up: false, chart: true, help: 'Mean time of the probe request (DNS, TLS, first byte), all the hosts',
@@ -298,6 +305,9 @@
       // operator's own sessions. Which id is the operator's is not in git (this repo is public): the
       // page sets operatorIds from HUB_OPERATOR_UMAMI_IDS in ~/homelab-hub.env on the mini (gen.sh).
       identifies: true,
+      // The operator viewer is the operator's own UI (its sessions carry no distinct_id): "Beta users"
+      // leaves the whole site out. A website id is public (each site's tracking script carries it).
+      operatorSiteIds: ['a5a60c25-a555-4c2d-b096-c9814c21d25c'],
       bands: [
         { title: 'Usage', link: G + '/d/podcast-player-beta-analytics', note: 'Umami: the player app and the operator viewer together.',
           metrics: [visitors, visits,
@@ -324,7 +334,9 @@
         { title: 'Jobs', daily: true, link: G + '/d/podcast-jobs',
           note: 'The nightly pipeline (starts 00:00Z) and the enrichment after it, per night. Run time is the nightly container\'s lifetime (cadvisor, 6 months); episodes and enricher failures come from VictoriaLogs, which keeps 30 days.',
           metrics: [
-            { id: 'nightly', label: 'Nightly run time', unit: 'h', up: false, kind: 'mean', chart: true, rows: nightlyRows, since: Date.UTC(2026, 7, 31) / 1000 },
+            // since 2026-10-14: the nightly has started at 00:00Z from then on; before it ran on another
+            // schedule, and the 00:00-02:00Z rule would pick other containers (0.4 h "nights")
+            { id: 'nightly', label: 'Nightly run time', unit: 'h', up: false, kind: 'mean', chart: true, rows: nightlyRows, since: Date.UTC(2026, 9, 14) / 1000 },
             { id: 'processed', label: 'Episodes processed', chart: true, rows: summaryRows, retention: 30 * DAY, help: 'episodes_processed of every run summary (nightly and hand runs)' },
             { id: 'enrich_fail', label: 'Enricher failures', up: false, rows: enrichFailRows, retention: 30 * DAY, help: 'enricher runs that ended in a status other than ok' }] }] },
     orrery: {
