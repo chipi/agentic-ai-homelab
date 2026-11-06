@@ -18,6 +18,7 @@ is the `claude-mcp-readonly` token, all six zones. Run once by hand: `python3 po
 |---|---|
 | `cloudflare_edge_requests{zone,host,class,window}` | requests over the last `5m` / `1h` / `24h` (ending 2 min ago) by class: `2xx`, `3xx`, `4xx`, `5xx_server` (500-519, our server answered an error), `5xx_unreachable` (520-526, 530: Cloudflare could not reach, handshake with or read our origin), `client_closed` (499, the client gave up first) |
 | `cloudflare_edge_5xx{zone,host,status,window}` | the same per status code, for 499 and 5xx |
+| `cloudflare_edge_requests_by_source{zone,host,source,window="1h"}` | requests over the last hour by who sent them (`traffic_source` in `poll.py`). `monitor`: our probes and UptimeRobot. `assistant`: Claude-User and other assistant fetches. `service`: SDKs such as sentry.\*. `bot`: Cloudflare's verified bots, then bot user agents. `browser`: everything else, which still includes bots that pose as browsers. Free plan: no bot score, so the user agent decides. Since 2026-11-06. |
 | `cloudflare_edge_pop_share{colo}` | share of our requests per Cloudflare PoP over 24h (top 20) |
 | `cloudflare_security_events{zone,action,source}` | WAF / bot / rate-limit events over 24h |
 | `cloudflare_status_indicator{indicator,description}` | cloudflarestatus.com's global indicator (it is almost never `none`: dozens of PoPs worldwide are always degraded) |

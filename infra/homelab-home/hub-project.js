@@ -193,7 +193,7 @@
     } catch (e) { data = {}; }
     for (const m of b.metrics) {
       if (m.agg) continue;
-      try { data[m.id] = m.rows ? await rowsMetric(src, m, ranges, w, lo) : await vmMetric(src, m, ranges, w, spans); } catch (e) { /* no data for this card */ }
+      try { data[m.id] = m.fetch ? await m.fetch(src, ranges, w, spans) : m.rows ? await rowsMetric(src, m, ranges, w, lo) : await vmMetric(src, m, ranges, w, spans); } catch (e) { /* no data for this card */ }
     }
     return b.metrics.map(m => {
       const d = data[m.id] || { ranges: [], points: [] };
@@ -268,9 +268,16 @@
   // Delivery from outside: Cloudflare's rolling 1 h request counts per host (summed per hour), and
   // the uptime probes from the mini (availability and response time).
   const hostRe = hosts => hosts.map(h => h.replace(/\./g, '\\\\.')).join('|');
+  // by who sent it (cloudflare-edge's traffic_source): Cloudflare's verified-bot verdict, then the
+  // user agent; "browser" still includes bots that pose as one
+  const bySource = (hosts, source) => 'sum(last_over_time(cloudflare_edge_requests_by_source{instance="homelab",window="1h",source=~"' + source + '",host=~"' + hostRe(hosts) + '"}[15m]))';
   const edge = (hosts, extra) => [
-    Object.assign({ id: 'edge', label: 'Edge requests', kind: 'hourly', chart: true, help: 'Every request Cloudflare answered for the hosts, bots included',
+    Object.assign({ id: 'edge', label: 'Edge requests', kind: 'hourly', help: 'Every request Cloudflare answered for the hosts: browsers, bots, our own monitors and SDKs',
       expr: 'sum(last_over_time(cloudflare_edge_requests{instance="homelab",window="1h",host=~"' + hostRe(hosts) + '"}[15m]))' }, extra || {}),
+    { id: 'edge_browser', label: 'Browser requests', kind: 'hourly', chart: true, help: 'Requests from browsers and the apps (user agent), not bots, monitors or SDKs. Since 2026-11-06.',
+      expr: bySource(hosts, 'browser') },
+    { id: 'edge_bot', label: 'Bot requests', kind: 'hourly', up: false, help: 'Crawlers, AI search, link previews and scanners: Cloudflare\'s verified bots and bot user agents. Since 2026-11-06.',
+      expr: bySource(hosts, 'bot') },
     // 0 for an hour the gauge has requests but no 5xx; nothing before the gauge existed (a bare
     // `or vector(0)` read every hour before 2026-10-29 as a counted zero)
     { id: 'edge5xx', label: 'Edge 5xx', kind: 'hourly', up: false, help: 'Cloudflare answered 5xx: the origin failed (5xx_server) or was unreachable (52x)',
@@ -296,6 +303,18 @@
     const byDay = {};
     life.forEach(x => { const s = st[x.metric.name]; if (s == null || s < lo || s % DAY >= 7200) return; const d = Math.floor(s / DAY); if (!byDay[d] || s < byDay[d][0]) byDay[d] = [s, +x.value[1] / 3600]; });
     return Object.values(byDay).sort((a, b) => a[0] - b[0]);
+  };
+  // p95 of what users wait for, from the APIs' access log lines ("-> 200 in 15.7ms trace=..."), which
+  // carry the path, so the background calls can be left out (the route-less histogram cannot).
+  const BG_PATH = '^(/internal/|/api/health|/metrics|/api/app/auth/status|/api/app/version)';
+  const ACCESS = 'container:~"(player-api|operator-api|compose-api)-1" "trace=" | extract "] - <method> <path> -> <status> in <ms>ms trace=" | filter -path:~"' + BG_PATH + '"';
+  const appP95 = async (src, ranges, w, spans) => {
+    const q = async (a, b, by) => src.vl('_time:[' + Math.floor(a) + ', ' + Math.floor(b) + '] ' + ACCESS + ' | stats ' + (by ? 'by (_time:' + (w.step === HOUR ? '1h' : '1d') + ') ' : '') + 'quantile(0.95, ms) as p');
+    const rangesV = [];
+    for (const [a, b] of ranges) { const r = (await q(a, b))[0]; rangesV.push(r && r.p !== '' && r.p != null && !isNaN(+r.p) ? +r.p / 1000 : null); }
+    const pts = [];
+    for (const [a, b] of spans) (await q(a, Math.min(b, src.now()), true)).forEach(r => { if (r.p !== '' && !isNaN(+r.p)) pts.push([Date.parse(r._time) / 1000, +r.p / 1000]); });
+    return { ranges: rangesV, points: pts };
   };
   const summaryRows = async (src, lo, hi) => (await src.vl('_time:[' + Math.floor(lo) + ', ' + Math.floor(hi) + '] instance:prod-podcast "Multi-feed run summary" | extract "episodes_processed=<n>" | fields _time, n'))
     .map(r => [Date.parse(r._time) / 1000, +r.n || 0]);
@@ -325,7 +344,10 @@
           metrics: [
             { id: 'app_req', label: 'App requests', chart: true, expr: 'sum(increase(http_requests_total{' + CL + ',' + BG + '}[$W]))', help: 'Requests to the APIs, without health checks, the outbox poll and the auth/version polls' },
             { id: 'bg_req', label: 'Background calls', expr: 'sum(increase(http_requests_total{' + CL + ',handler=~"/internal/.*|/api/health|/metrics|/api/app/auth/status|/api/app/version"}[$W]))', help: 'Health checks, the outbox poll, auth and version polls' },
-            { id: 'p95', label: 'p95 latency', unit: 's', up: false, chart: true,
+            { id: 'app_p95', label: 'App p95 latency', unit: 's', up: false, chart: true, fetch: appP95, retention: 30 * DAY,
+              help: 'p95 of the app requests (background calls left out), from the access log lines in VictoriaLogs (30 days)' },
+            { id: 'p95', label: 'p95, all requests', unit: 's', up: false,
+              help: 'p95 of every request, background calls included (the route-less histogram, 6 months)',
               expr: 'histogram_quantile(0.95, sum by (le) (increase(http_request_duration_highr_seconds_bucket{' + CL + '}[$W])))' },
             { id: 'slow1', label: 'App requests over 1 s', up: false, chart: true,
               expr: 'sum(increase(http_request_duration_seconds_count{' + CL + ',' + BG + '}[$W])) - sum(increase(http_request_duration_seconds_bucket{' + CL + ',' + BG + ',le="1.0"}[$W]))' },
@@ -367,7 +389,12 @@
             { id: 'ierr', label: 'Inspector errors', up: false, expr: 'sum(increase(evals_inspector_errors_total[$W])) or vector(0)' },
             { id: 'mcpc', label: 'MCP tool calls', chart: true, expr: 'sum(increase(evals_mcp_calls_total[$W]))' },
             { id: 'merr', label: 'MCP errors', up: false, expr: 'sum(increase(evals_mcp_errors_total[$W])) or vector(0)' },
-            { id: 'ip95', label: 'Inspector p95', unit: 's', up: false, chart: true,
+            // /api/compare is most of it, and slow by its nature (2 of 8 under 1 s, 4 of 8 at 10-30 s,
+            // 2026-10-31..11-06). The histogram jumps from 10 s to 30 s, so the p95 is an interpolation
+            // on few requests; the count over 10 s says the same thing exactly.
+            { id: 'islow', label: 'Inspector requests over 10 s', up: false, chart: true,
+              expr: 'sum(increase(evals_inspector_request_seconds_count{route!~"/api/health|/metrics"}[$W])) - sum(increase(evals_inspector_request_seconds_bucket{route!~"/api/health|/metrics",le="10.0"}[$W]))' },
+            { id: 'ip95', label: 'Inspector p95', unit: 's', up: false, help: 'Interpolated within the 10-30 s bucket on few requests: read with the count over 10 s',
               expr: 'histogram_quantile(0.95, sum by (le) (increase(evals_inspector_request_seconds_bucket{route!~"/api/health|/metrics"}[$W])))' }] },
         { title: 'Edge and uptime', link: G + '/d/prod-uptime', metrics: edge(['evals.humancopilot.eu']) }] },
     web: {

@@ -192,6 +192,21 @@ const jobs = P.APPS.cl.bands.find(x => x.title === 'Jobs');
     assert.ok(!el2.innerHTML.includes('Beta users'), 'no audience switch for an app without an operator id');
   });
 
+  await t('app p95: from the access log, background paths left out, card per range and chart per bucket', async () => {
+    const src = stubSrc(), b = P.APPS.cl.bands.find(x => x.title === 'Delivery'), m = b.metrics.find(x => x.id === 'app_p95');
+    src.vl = async q => {
+      src.calls.vl.push(q);
+      const [, a, b] = /_time:\[(\d+), (\d+)\]/.exec(q).map(Number);
+      if (/by \(_time:1d\)/.test(q)) return [{ _time: new Date(a * 1000).toISOString(), p: '700' }].concat(b >= D0 ? [{ _time: new Date(D0 * 1000).toISOString(), p: '850' }] : []);
+      return [{ p: b === NOW ? '900' : '450' }];
+    };
+    const [r] = await P.band(src, app, { title: 'D', metrics: [m] }, '7d', 'prev', 'all');
+    assert.strictEqual(r.value, 0.9); assert.strictEqual(r.cmpValue, 0.45);
+    assert.strictEqual(r.cur[6], 0.85);
+    assert.ok(src.calls.vl.every(q => q.includes('filter -path:~"^(/internal/|/api/health|/metrics|/api/app/auth/status|/api/app/version)"')), 'background paths left out');
+    assert.ok(src.calls.vl.some(q => q.includes('quantile(0.95, ms)')));
+  });
+
   await t('every app: bands with metrics, each metric a label and a query in the right form', () => {
     for (const a of Object.values(P.APPS)) {
       assert.ok(a.bands.length && a.umamiDomains.length, a.id);
@@ -199,7 +214,7 @@ const jobs = P.APPS.cl.bands.find(x => x.title === 'Jobs');
         assert.ok(b.metrics.length, a.id + '/' + b.title);
         for (const m of b.metrics) {
           assert.ok(m.label && m.id, a.id + ' metric');
-          assert.ok((m.agg && m.cond) || m.expr || (m.num && m.den) || m.rows, a.id + '/' + m.id + ' has no query');
+          assert.ok((m.agg && m.cond) || m.expr || (m.num && m.den) || m.rows || m.fetch, a.id + '/' + m.id + ' has no query');
           if (m.expr && m.kind !== 'hourly') assert.ok(m.expr.includes('$W'), a.id + '/' + m.id + ' must carry the $W window');
           if (m.kind === 'hourly') assert.ok(!m.expr.includes('$W') && m.expr.includes('window="1h"'), a.id + '/' + m.id + ' samples the 1 h gauge');
         }

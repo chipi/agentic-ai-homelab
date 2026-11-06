@@ -21,6 +21,9 @@ response from our origin. This poller reads, every POLL_INTERVAL:
 Metrics (instance=homelab, service=cloudflare-edge):
   cloudflare_edge_requests{zone,host,class,window}        count
   cloudflare_edge_5xx{zone,host,status,window}            count per 5xx/499 status
+  cloudflare_edge_requests_by_source{zone,host,source,window="1h"}   count by who sent it
+                                                          (traffic_source: browser, assistant,
+                                                          service, monitor, bot)
   cloudflare_edge_pop_share{colo}                         0..1, top PoPs over 24h
   cloudflare_security_events{zone,action,source}          count over 24h
   cloudflare_status_indicator{indicator,description}      1
@@ -85,6 +88,35 @@ def status_class(s):
     return "2xx"
 
 
+# Who sent a request, from what the free plan has: Cloudflare's own verified-bot category, then the
+# user agent. Measured over 6 h on 2026-11-06: the mini's probes (Blackbox Exporter) and UptimeRobot
+# send ~360 requests per host per 6 h; verified AI search, link previews and crawlers were most of
+# www.orrerylearn.com; telemetry hosts carry SDKs (sentry.*); obs.closelistening.app carries
+# Claude-User (the operator through an assistant). Everything else counts as a browser, which still
+# includes bots that pose as one.
+MONITOR_UA = re.compile(r"Blackbox Exporter|UptimeRobot|homelab-", re.I)
+ASSISTANT_UA = re.compile(r"Claude-User|ChatGPT-User|Perplexity-User|MistralAI-User|mcp-remote|claude-code|python-httpx.*mcp", re.I)
+SERVICE_UA = re.compile(r"^sentry\.|^umami|^node$|^undici", re.I)
+BOT_UA = re.compile(r"bot\b|bot/|crawl|spider|slurp|scan|headless|python|go-http-client|curl/|wget|libwww|okhttp-scan|java/|"
+                    r"facebookexternalhit|externalagent|preview|securityresearch|palo alto|censys|zgrab|masscan|nmap|"
+                    r"getdomaindata|netapi|httpclient|axios|node-fetch|^mozilla/5\.0$", re.I)
+
+
+def traffic_source(ua, verified_category):
+    ua = (ua or "").strip()
+    if verified_category == "Monitoring & Analytics" or MONITOR_UA.search(ua):
+        return "monitor"
+    if ASSISTANT_UA.search(ua):
+        return "assistant"
+    if verified_category:
+        return "bot"
+    if SERVICE_UA.search(ua):
+        return "service"
+    if not ua or BOT_UA.search(ua):
+        return "bot"
+    return "browser"
+
+
 def pop_code(name):
     m = re.search(r"\(([A-Z]{3})\)\s*$", name)
     return m.group(1) if m else None
@@ -94,6 +126,7 @@ ZONE_QUERY = """query($z:String!,$m:Time!,$h:Time!,$d:Time!,$u:Time!){viewer{zon
   m5: httpRequestsAdaptiveGroups(limit:5000, filter:{datetime_geq:$m, datetime_lt:$u}){count dimensions{clientRequestHTTPHost edgeResponseStatus}}
   h1: httpRequestsAdaptiveGroups(limit:5000, filter:{datetime_geq:$h, datetime_lt:$u}){count dimensions{clientRequestHTTPHost edgeResponseStatus}}
   d1: httpRequestsAdaptiveGroups(limit:5000, filter:{datetime_geq:$d, datetime_lt:$u}){count dimensions{clientRequestHTTPHost edgeResponseStatus}}
+  ua1: httpRequestsAdaptiveGroups(limit:5000, filter:{datetime_geq:$h, datetime_lt:$u}){count dimensions{clientRequestHTTPHost userAgent verifiedBotCategory}}
   colo: httpRequestsAdaptiveGroups(limit:500, filter:{datetime_geq:$d, datetime_lt:$u}){count dimensions{coloCode}}
   fw: firewallEventsAdaptive(limit:5000, filter:{datetime_geq:$d, datetime_lt:$u}, orderBy:[datetime_DESC]){action source}
 }}}"""
@@ -147,6 +180,13 @@ def edge_lines(edge):
                 lines.append(_m("cloudflare_edge_requests", {"zone": zone, "host": host, "class": cls, "window": wl}, n))
             for (host, st), n in sorted(by_5xx.items()):
                 lines.append(_m("cloudflare_edge_5xx", {"zone": zone, "host": host, "status": st, "window": wl}, n))
+        by_src = {}
+        for g in d.get("ua1") or []:
+            dm = g["dimensions"]
+            k = (dm["clientRequestHTTPHost"], traffic_source(dm.get("userAgent"), dm.get("verifiedBotCategory")))
+            by_src[k] = by_src.get(k, 0) + g["count"]
+        for (host, src), n in sorted(by_src.items()):
+            lines.append(_m("cloudflare_edge_requests_by_source", {"zone": zone, "host": host, "source": src, "window": "1h"}, n))
         for g in d["colo"]:
             c = g["dimensions"]["coloCode"]
             colos[c] = colos.get(c, 0) + g["count"]

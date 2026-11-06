@@ -42,6 +42,39 @@ def test_edge_lines_aggregates_per_host_and_class():
     assert poll.our_pops({"CDG": 0.9, "SIN": 0.01}, OURS) == {"CDG", "FRA"}
 
 
+def test_traffic_source_from_real_user_agents():
+    # user agents seen on our zones on 2026-11-06
+    cases = [
+        ("Blackbox Exporter/v1.17.0", "", "monitor"),
+        ("Mozilla/5.0+(compatible; UptimeRobot/2.0; http://www.uptimerobot.com/)", "Monitoring & Analytics", "monitor"),
+        ("Claude-User", "", "assistant"),
+        ("sentry.python/2.74.0", "", "service"),
+        ("sentry.javascript.node/10.69.0", "", "service"),
+        ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0", "AI Search", "bot"),
+        ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/120", "Page Preview", "bot"),
+        ("Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", "", "bot"),
+        ("Mozilla/5.0 (l9scan/2.0.33e27393e2431313e2838313; +https://leakix.net)", "", "bot"),
+        ("Go-http-client/2.0", "", "bot"),
+        ("Mozilla/5.0 (compatible; SecurityResearch/1.0)", "", "bot"),
+        ("Mozilla/5.0", "", "bot"),
+        ("", "", "bot"),
+        ("Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Mobile Safari/537.36", "", "browser"),
+        ("Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.7 Mobile/15E148 Safari/604.1", "", "browser"),
+    ]
+    assert [poll.traffic_source(ua, cat) for ua, cat, _ in cases] == [want for _, _, want in cases]
+
+
+def test_edge_lines_requests_by_source():
+    ua = lambda host, agent, cat, n: {"count": n, "dimensions": {"clientRequestHTTPHost": host, "userAgent": agent, "verifiedBotCategory": cat}}
+    edge = {"example.app": {"colo": [], "fw": [], "ua1": [
+        ua("a.example.app", "Blackbox Exporter/v1.17.0", "", 60), ua("a.example.app", "Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0", "", 7),
+        ua("a.example.app", "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X)", "", 3), ua("a.example.app", "x", "AI Crawler", 5)]}}
+    lines, _ = poll.edge_lines(edge)
+    assert 'cloudflare_edge_requests_by_source{zone="example.app",host="a.example.app",source="browser",window="1h"} 10' in lines
+    assert 'cloudflare_edge_requests_by_source{zone="example.app",host="a.example.app",source="monitor",window="1h"} 60' in lines
+    assert 'cloudflare_edge_requests_by_source{zone="example.app",host="a.example.app",source="bot",window="1h"} 5' in lines
+
+
 def summary(incidents=(), maint=(), comp_status=None):
     comp_status = comp_status or {}
     comps = [{"id": "gS", "name": "Cloudflare Sites and Services", "group": True},
