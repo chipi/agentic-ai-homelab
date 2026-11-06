@@ -170,6 +170,10 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      # The background scanner (usage, healing) at its slowest: with ~5 GB and a few hundred
+      # traces a day there is nothing it needs to find quickly. MinIO used 0.378 cores at a
+      # 0.5 cap (2026-11-06, cgroup counters) while serving almost no requests.
+      MINIO_SCANNER_SPEED: slowest
     volumes:
       - langfuse_minio_data:/data
     healthcheck:
