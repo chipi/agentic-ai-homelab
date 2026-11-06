@@ -58,6 +58,20 @@ for g in eval_hardening.py eval_dedup.py eval_filing_replay.py eval_stale_replay
 done
 rm -rf "$GATE_HOME"
 
+# the filing gate (private repo chipi/fleet-eval-data): when filing/stale or what they import changed, replay the
+# newest frozen week with $PREV and $NOW; any change in what filing does fails unless SF_FILING_GATE_ACCEPT="<why>".
+# Real HOME: it reads ~/signal-fleet/frozen, the deploy log and fleetd.log (read-only).
+FILING_GATE="${SF_FILING_GATE:-$HOME/fleet-eval-data/projects/signal-fleet-filing/scripts/filing_gate.py}"
+if [ "$ok" -eq 1 ] && [ -f "$FILING_GATE" ]; then
+  if SF_CHECKOUT="$CHECKOUT" python3 "$FILING_GATE" "$PREV" "$NOW" >/tmp/sf-deploy-filing_gate.log 2>&1; then
+    say "  $(tail -1 /tmp/sf-deploy-filing_gate.log)"
+  else
+    say "  FAIL filing_gate (full list: /tmp/sf-deploy-filing_gate.log):"; tail -8 /tmp/sf-deploy-filing_gate.log | sed 's/^/        /'; ok=0
+  fi
+elif [ "$ok" -eq 1 ]; then
+  say "  filing gate: NOT RUN (no $FILING_GATE)"
+fi
+
 if [ "$ok" -ne 1 ]; then
   say "gates RED on $NOW — rolling checkout back to $PREV so the fleet stays on known-good code"
   git -C "$CHECKOUT" reset --hard "$PREV" >/dev/null 2>&1
