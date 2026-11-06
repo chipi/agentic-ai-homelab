@@ -1,5 +1,6 @@
 {
   "uid": "containers-cadvisor",
+  "description": "Containers on the Mac mini (cadvisor): how many, memory in total and per container, CPU, and network in and out. Names show as short Docker ids (see the note panel).",
   "title": "Containers \u2014 cAdvisor",
   "tags": [
     "containers",

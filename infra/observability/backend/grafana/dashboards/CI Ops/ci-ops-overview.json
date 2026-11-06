@@ -195,6 +195,7 @@
   },
   "time": { "from": "now-30d", "to": "now" },
   "timezone": "",
+  "description": "Ops events from the GitHub Actions workflows (ops_event/v1 in VictoriaLogs): deploys with their failures and duration, backups, CI runs, drift checks and drills, by type, surface and status, and the event lines. Pick the environment at the top.",
   "title": "CI / Ops — GitHub Actions",
   "uid": "podcast-ci-ops-overview"
 }

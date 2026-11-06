@@ -1,5 +1,6 @@
 {
   "uid": "signal-fleet-disp",
+  "description": "The triage fleet (Fleet 2, signal-fleet): what needs the operator now (queued work, escalations, the oldest item), its decisions and dispositions over time and by source, spend and tokens, noise removed and re-triages avoided, fleetd cycles, their duration and day spend against the cap, and the GlitchTip sync.",
   "title": "Fleet Workforce — Triage (Fleet 2)",
   "tags": [
     "signal-fleet",

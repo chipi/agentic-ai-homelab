@@ -1,5 +1,6 @@
 {
   "uid": "bugfix-fleet",
+  "description": "The bug-fix fleet's issue pipeline: total, shipped, stuck (needs a human) and untriaged issues, issues per flow state, bugs by area, and the states over time.",
   "title": "Bug-fix Fleet",
   "tags": [
     "bugfix-fleet",

@@ -1,5 +1,6 @@
 {
   "uid": "orrery-launch-data",
+  "description": "Orrery's launch-data refresh job (job=orrery-data-refresh): successful and failed refreshes over 24 h, and its log.",
   "title": "Orrery — launch data refresh",
   "tags": ["orrery", "o11y"],
   "schemaVersion": 39,

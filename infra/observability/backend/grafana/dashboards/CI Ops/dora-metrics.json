@@ -234,6 +234,7 @@
   "templating": { "list": [] },
   "time": { "from": "now-30d", "to": "now" },
   "timezone": "",
+  "description": "DORA-style delivery numbers from the same ops events: deploy frequency, change failures, CI failures and flaky runs, CI queue time and duration, deploy duration, drift and drill failures, and the most recent failures.",
   "title": "CI / Ops — DORA metrics",
   "uid": "podcast-ci-ops-dora"
 }

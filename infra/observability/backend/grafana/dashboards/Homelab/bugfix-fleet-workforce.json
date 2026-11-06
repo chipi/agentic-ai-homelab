@@ -1,5 +1,6 @@
 {
   "uid": "bugfix-fleet-work",
+  "description": "What the bug-fix fleet (Fleet 1) delivered: chains shipped, stuck or waiting on the operator, fix episodes, spend and tokens, reporter questions answered, and over time the chains' end states, spend, scope hits and tickets in flight.",
   "title": "Fleet Workforce — Bug-fix (Fleet 1)",
   "tags": ["bugfix-fleet", "fleet", "operations", "workforce"],
   "schemaVersion": 39,

@@ -1,5 +1,6 @@
 {
  "uid": "homelab-mini",
+ "description": "The Mac mini host (node exporter): CPU, memory regions, swap, load, uptime, free disk, disk IO, network, CPU temperature and the thermal speed limit.",
  "title": "Homelab \u2014 Mac mini",
  "tags": [
   "homelab",

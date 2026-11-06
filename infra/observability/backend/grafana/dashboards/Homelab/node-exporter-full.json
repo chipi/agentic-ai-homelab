@@ -15489,6 +15489,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
+  "description": "The community Node Exporter Full dashboard for a Linux host (the DGX, the X3, prod): every node exporter metric, from CPU, memory, network and disks to systemd. Pick the host at the top.",
   "title": "Node Exporter Full",
   "uid": "rYdddlPWk",
   "version": 101,

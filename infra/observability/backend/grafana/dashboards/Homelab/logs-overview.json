@@ -1,5 +1,6 @@
 {
   "uid": "logs-overview",
+  "description": "Every log line in VictoriaLogs, filtered by host, environment, app, severity, container and a search term: volume, errors and warnings, the busiest containers, and the live lines.",
   "title": "Logs \u2014 Overview",
   "tags": [
     "logs",

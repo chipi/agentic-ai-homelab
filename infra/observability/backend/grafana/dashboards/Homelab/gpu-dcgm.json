@@ -1,5 +1,6 @@
 {
   "uid": "gpu-dcgm",
+  "description": "The DGX's GPU (NVIDIA DCGM exporter): utilization, temperature, power, memory-copy use, SM clock and the last XID error. Pick the GPU at the top.",
   "title": "GPU \u2014 DCGM",
   "tags": [
     "gpu",
