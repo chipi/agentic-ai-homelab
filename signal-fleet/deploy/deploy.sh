@@ -29,6 +29,10 @@ echo "== signal-fleet deploy $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
 # a dirty checkout would be clobbered by pull / hide drift — refuse
 [ -z "$(git -C "$CHECKOUT" status --porcelain)" ] || fail "checkout is dirty — commit or stash first"
 
+# every change of HEAD lands in the deploy log (~/signal-fleet/results/deploys.tsv): the post-merge hook logs pulls,
+# the rollback below logs itself. Never blocks a deploy.
+bash "$SF/deploy/install_deploy_log.sh" >/dev/null 2>&1 || say "deploy log: install failed (deploy continues)"
+
 PREV="$(git -C "$CHECKOUT" rev-parse --short HEAD)"
 say "current: $PREV"
 git -C "$CHECKOUT" pull --ff-only origin main >/dev/null 2>&1 \
@@ -57,6 +61,7 @@ rm -rf "$GATE_HOME"
 if [ "$ok" -ne 1 ]; then
   say "gates RED on $NOW — rolling checkout back to $PREV so the fleet stays on known-good code"
   git -C "$CHECKOUT" reset --hard "$PREV" >/dev/null 2>&1
+  bash "$SF/deploy/log_deploy.sh" rollback "$NOW" "$PREV" deploy.sh || true
   fail "rolled back to $PREV; running fleet unaffected"
 fi
 
