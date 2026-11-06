@@ -223,16 +223,37 @@
     });
   }
 
-  function cardHtml(r, link) {
+  // Where a card or chart opens, for the page's period: an Umami number opens the app's site in Umami
+  // (its events page for an event count); a metric with a `panel` opens that Grafana panel; any other
+  // metric opens Grafana Explore on its own query; else the band's dashboard.
+  const UM = 'https://umami.tail6d0ed4.ts.net', GF = 'https://grafana.tail6d0ed4.ts.net';
+  const UMDATE = { today: '0day', '7d': '7day', '30d': '30day' }, GFROM = { today: 'now/d', '7d': 'now-7d', '30d': 'now-30d' };
+  function linkFor(m, app, period, bandLink) {
+    if (typeof m.link === 'string') return m.link;
+    if (m.agg) {
+      const id = app.umamiLinkId || ((app.umamiIds || []).length === 1 ? app.umamiIds[0] : null);
+      return UM + (id ? '/websites/' + id + (m.cond !== 'true' && m.cond !== 'event_type = 1' ? '/events' : '') : '/websites') + '?date=' + UMDATE[period];
+    }
+    if (m.panel) return GF + '/d/' + m.panel[0] + '?viewPanel=panel-' + m.panel[1] + '&from=' + encodeURIComponent(GFROM[period]) + '&to=now' + (m.panel[2] || '');
+    const expr = m.expr || m.num;
+    if (expr) {
+      const e = expr.split('$W').join(period === 'today' ? '1h' : '1d');
+      return GF + '/explore?schemaVersion=1&orgId=1&panes=' + encodeURIComponent(JSON.stringify({ a: { datasource: 'victoriametrics',
+        queries: [{ refId: 'A', datasource: { type: 'prometheus', uid: 'victoriametrics' }, expr: e, range: true }], range: { from: GFROM[period], to: 'now' } } }));
+    }
+    return bandLink || '#';
+  }
+
+  function cardHtml(r, link, app) {
     const d = delta(r.value, r.cmpValue, r.m.unit, r.m.up);
     if (r.cmpValue != null) d.text += ' <span class=muted>(' + esc(compareLabel(r.period, r.compare)) + ')</span>';
-    return '<a class="card pcard" href="' + esc(r.m.link || link || '#') + '" title="' + esc(r.m.help || '') + '"><h3>' + esc(r.m.label) + '</h3>'
+    return '<a class="card pcard" href="' + esc(linkFor(r.m, app, r.period, link)) + '" title="' + esc(r.m.help || '') + '"><h3>' + esc(r.m.label) + '</h3>'
       + '<div class=cv>' + fmt(r.value, r.m.unit) + sparkline(r.cur) + '</div>'
       + '<div class="pdelta ' + d.cls + '">' + d.text + '</div></a>';
   }
-  function chartHtml(r, link) {
+  function chartHtml(r, link, app) {
     const c = compareLabel(r.period, r.compare);
-    return '<a class="card pchartcard" href="' + esc(r.m.link || link || '#') + '"><h3>' + esc(r.m.label) + (r.w.step === HOUR ? ' per hour' : ' per day') + '</h3>'
+    return '<a class="card pchartcard" href="' + esc(linkFor(r.m, app, r.period, link)) + '"><h3>' + esc(r.m.label) + (r.w.step === HOUR ? ' per hour' : ' per day') + '</h3>'
       + chart(r.m, r.cur, r.cmp, r.w, c)
       + '<div class=plegend><span class=lcur></span>' + (r.w.step === HOUR ? 'today' : 'this period') + ' <span class=lcmp></span>' + esc(c) + '</div></a>';
   }
@@ -252,8 +273,8 @@
       const rs = await band(src, app, b, period, compare, audience);
       const box = el.querySelector ? el.querySelector('#pb_' + app.id + '_' + i) : null;
       const html = '<h2>' + esc(b.title) + (b.link ? ' <a href="' + esc(b.link) + '">&rarr;</a>' : '') + '</h2>' + (b.note ? '<p class=sec style="margin:-4px 0 8px">' + esc(b.note) + '</p>' : '')
-        + '<div class=charts>' + rs.map(r => cardHtml(r, b.link)).join('') + '</div>'
-        + '<div class=pcharts>' + rs.filter(r => r.m.chart).map(r => chartHtml(r, b.link)).join('') + '</div>';
+        + '<div class=charts>' + rs.map(r => cardHtml(r, b.link, app)).join('') + '</div>'
+        + '<div class=pcharts>' + rs.filter(r => r.m.chart).map(r => chartHtml(r, b.link, app)).join('') + '</div>';
       if (box) box.innerHTML = html; else el.innerHTML += html;
     }));
   }
@@ -272,20 +293,20 @@
   // user agent; "browser" still includes bots that pose as one
   const bySource = (hosts, source) => 'sum(last_over_time(cloudflare_edge_requests_by_source{instance="homelab",window="1h",source=~"' + source + '",host=~"' + hostRe(hosts) + '"}[15m]))';
   const edge = (hosts, extra) => [
-    Object.assign({ id: 'edge', label: 'Edge requests', kind: 'hourly', help: 'Every request Cloudflare answered for the hosts: browsers, bots, our own monitors and SDKs',
+    Object.assign({ id: 'edge', label: 'Edge requests', kind: 'hourly', panel: ['prod-uptime', 6], help: 'Every request Cloudflare answered for the hosts: browsers, bots, our own monitors and SDKs',
       expr: 'sum(last_over_time(cloudflare_edge_requests{instance="homelab",window="1h",host=~"' + hostRe(hosts) + '"}[15m]))' }, extra || {}),
-    { id: 'edge_browser', label: 'Browser requests', kind: 'hourly', chart: true, help: 'Requests from browsers and the apps (user agent), not bots, monitors or SDKs. Since 2026-11-06.',
+    { id: 'edge_browser', label: 'Browser requests', kind: 'hourly', chart: true, panel: ['prod-uptime', 6], help: 'Requests from browsers and the apps (user agent), not bots, monitors or SDKs. Since 2026-11-06.',
       expr: bySource(hosts, 'browser') },
-    { id: 'edge_bot', label: 'Bot requests', kind: 'hourly', up: false, help: 'Crawlers, AI search, link previews and scanners: Cloudflare\'s verified bots and bot user agents. Since 2026-11-06.',
+    { id: 'edge_bot', label: 'Bot requests', kind: 'hourly', up: false, panel: ['prod-uptime', 6], help: 'Crawlers, AI search, link previews and scanners: Cloudflare\'s verified bots and bot user agents. Since 2026-11-06.',
       expr: bySource(hosts, 'bot') },
     // 0 for an hour the gauge has requests but no 5xx; nothing before the gauge existed (a bare
     // `or vector(0)` read every hour before 2026-10-29 as a counted zero)
-    { id: 'edge5xx', label: 'Edge 5xx', kind: 'hourly', up: false, help: 'Cloudflare answered 5xx: the origin failed (5xx_server) or was unreachable (52x)',
+    { id: 'edge5xx', label: 'Edge 5xx', kind: 'hourly', up: false, panel: ['prod-uptime', 7], help: 'Cloudflare answered 5xx: the origin failed (5xx_server) or was unreachable (52x)',
       expr: 'sum(last_over_time(cloudflare_edge_requests{instance="homelab",window="1h",class=~"5xx_server|5xx_unreachable",host=~"' + hostRe(hosts) + '"}[15m]))'
         + ' or (0 * sum(last_over_time(cloudflare_edge_requests{instance="homelab",window="1h",host=~"' + hostRe(hosts) + '"}[15m])))' },
-    { id: 'avail', label: 'Availability', unit: '%', chart: true, help: 'Share of the minute-by-minute probes from the mini that succeeded (all the hosts)',
+    { id: 'avail', label: 'Availability', unit: '%', chart: true, panel: ['prod-uptime', 1], help: 'Share of the minute-by-minute probes from the mini that succeeded (all the hosts)',
       expr: 'avg(avg_over_time(probe_success{job="site-probe",run_id="",host=~"' + hostRe(hosts) + '"}[$W]))' },
-    { id: 'probe_s', label: 'Response time', unit: 's', up: false, chart: true, help: 'Mean time of the probe request (DNS, TLS, first byte), all the hosts',
+    { id: 'probe_s', label: 'Response time', unit: 's', up: false, chart: true, panel: ['prod-uptime', 4], help: 'Mean time of the probe request (DNS, TLS, first byte), all the hosts',
       expr: 'avg(avg_over_time(probe_duration_seconds{job="site-probe",run_id="",host=~"' + hostRe(hosts) + '"}[$W]))' }];
 
   const CL = 'instance="prod-podcast"';
@@ -328,6 +349,8 @@
       // operator's own sessions. Which id is the operator's is not in git (this repo is public): the
       // page sets operatorIds from HUB_OPERATOR_UMAMI_IDS in ~/homelab-hub.env on the mini (gen.sh).
       identifies: true,
+      // Usage cards open the Player's site in Umami (the operator viewer is the other closelistening.app site)
+      umamiLinkId: 'cd384a3e-fd25-476e-affa-08985b73d4da',
       // The operator viewer is the operator's own UI (its sessions carry no distinct_id): "Beta users"
       // leaves the whole site out. A website id is public (each site's tracking script carries it).
       operatorSiteIds: ['a5a60c25-a555-4c2d-b096-c9814c21d25c'],
@@ -342,18 +365,18 @@
         { title: 'Delivery', link: G + '/d/podcast-performance',
           note: 'The three APIs (player, operator, podcast). App requests leave out the apps\' own background calls (health checks, the outbox and auth polls); the p95 covers every request, background ones included (the per-route histogram stops at 1 s).',
           metrics: [
-            { id: 'app_req', label: 'App requests', chart: true, expr: 'sum(increase(http_requests_total{' + CL + ',' + BG + '}[$W]))', help: 'Requests to the APIs, without health checks, the outbox poll and the auth/version polls' },
+            { id: 'app_req', label: 'App requests', chart: true, panel: ['podcast-performance', 2], expr: 'sum(increase(http_requests_total{' + CL + ',' + BG + '}[$W]))', help: 'Requests to the APIs, without health checks, the outbox poll and the auth/version polls' },
             { id: 'bg_req', label: 'Background calls', expr: 'sum(increase(http_requests_total{' + CL + ',handler=~"/internal/.*|/api/health|/metrics|/api/app/auth/status|/api/app/version"}[$W]))', help: 'Health checks, the outbox poll, auth and version polls' },
-            { id: 'app_p95', label: 'App p95 latency', unit: 's', up: false, chart: true, fetch: appP95, retention: 30 * DAY,
+            { id: 'app_p95', label: 'App p95 latency', unit: 's', up: false, chart: true, panel: ['podcast-performance', 7], fetch: appP95, retention: 30 * DAY,
               help: 'p95 of the app requests (background calls left out), from the access log lines in VictoriaLogs (30 days)' },
-            { id: 'p95', label: 'p95, all requests', unit: 's', up: false,
+            { id: 'p95', label: 'p95, all requests', unit: 's', up: false, panel: ['podcast-performance', 3],
               help: 'p95 of every request, background calls included (the route-less histogram, 6 months)',
               expr: 'histogram_quantile(0.95, sum by (le) (increase(http_request_duration_highr_seconds_bucket{' + CL + '}[$W])))' },
-            { id: 'slow1', label: 'App requests over 1 s', up: false, chart: true,
+            { id: 'slow1', label: 'App requests over 1 s', up: false, chart: true, panel: ['podcast-performance', 4],
               expr: 'sum(increase(http_request_duration_seconds_count{' + CL + ',' + BG + '}[$W])) - sum(increase(http_request_duration_seconds_bucket{' + CL + ',' + BG + ',le="1.0"}[$W]))' },
-            { id: 'slow', label: 'Requests over 10 s', up: false,
+            { id: 'slow', label: 'Requests over 10 s', up: false, panel: ['podcast-performance', 6],
               expr: 'sum(increase(http_request_duration_highr_seconds_count{' + CL + '}[$W])) - sum(increase(http_request_duration_highr_seconds_bucket{' + CL + ',le="10.0"}[$W]))' },
-            { id: 'err', label: '5xx share', unit: '%', up: false, kind: 'ratio',
+            { id: 'err', label: '5xx share', unit: '%', up: false, kind: 'ratio', panel: ['podcast-performance', 10],
               num: '(sum(increase(http_requests_total{' + CL + ',status=~"5.."}[$W])) or vector(0))', den: 'sum(increase(http_requests_total{' + CL + '}[$W]))' }] },
         { title: 'Edge and uptime', link: G + '/d/prod-uptime', note: 'From outside: Cloudflare for closelistening.app and its subdomains, and the uptime probes from the mini.',
           metrics: edge(['closelistening.app', 'mcp.closelistening.app', 'obs.closelistening.app', 'operator.closelistening.app']) },
@@ -362,9 +385,9 @@
           metrics: [
             // since 2026-10-14: the nightly has started at 00:00Z from then on; before it ran on another
             // schedule, and the 00:00-02:00Z rule would pick other containers (0.4 h "nights")
-            { id: 'nightly', label: 'Nightly run time', unit: 'h', up: false, kind: 'mean', chart: true, rows: nightlyRows, since: Date.UTC(2026, 9, 14) / 1000 },
-            { id: 'processed', label: 'Episodes processed', chart: true, rows: summaryRows, retention: 30 * DAY, help: 'episodes_processed of every run summary (nightly and hand runs)' },
-            { id: 'enrich_fail', label: 'Enricher failures', up: false, rows: enrichFailRows, retention: 30 * DAY, help: 'enricher runs that ended in a status other than ok' }] }] },
+            { id: 'nightly', label: 'Nightly run time', unit: 'h', up: false, kind: 'mean', chart: true, panel: ['podcast-jobs', 4], rows: nightlyRows, since: Date.UTC(2026, 9, 14) / 1000 },
+            { id: 'processed', label: 'Episodes processed', chart: true, panel: ['podcast-jobs', 5], rows: summaryRows, retention: 30 * DAY, help: 'episodes_processed of every run summary (nightly and hand runs)' },
+            { id: 'enrich_fail', label: 'Enricher failures', up: false, panel: ['podcast-jobs', 11], rows: enrichFailRows, retention: 30 * DAY, help: 'enricher runs that ended in a status other than ok' }] }] },
     orrery: {
       id: 'orrery', name: 'Orrery', umamiDomains: ['orrerylearn.com'],
       bands: [
@@ -385,16 +408,16 @@
             ev('outbound', 'Outbound clicks', "event_name like 'outbound%'")] },
         { title: 'Delivery', note: 'The inspector and its MCP server, from their own counters. Requests leave out health checks and /metrics.',
           metrics: [
-            { id: 'req', label: 'Inspector requests', chart: true, expr: 'sum(increase(evals_inspector_requests_total{route!~"/api/health|/metrics"}[$W]))' },
-            { id: 'ierr', label: 'Inspector errors', up: false, expr: 'sum(increase(evals_inspector_errors_total[$W])) or vector(0)' },
+            { id: 'req', label: 'Inspector requests', chart: true, panel: ['evals-humancopilot-eu', 23], expr: 'sum(increase(evals_inspector_requests_total{route!~"/api/health|/metrics"}[$W]))' },
+            { id: 'ierr', label: 'Inspector errors', up: false, panel: ['evals-humancopilot-eu', 27], expr: 'sum(increase(evals_inspector_errors_total[$W])) or vector(0)' },
             { id: 'mcpc', label: 'MCP tool calls', chart: true, expr: 'sum(increase(evals_mcp_calls_total[$W]))' },
             { id: 'merr', label: 'MCP errors', up: false, expr: 'sum(increase(evals_mcp_errors_total[$W])) or vector(0)' },
             // /api/compare is most of it, and slow by its nature (2 of 8 under 1 s, 4 of 8 at 10-30 s,
             // 2026-10-31..11-06). The histogram jumps from 10 s to 30 s, so the p95 is an interpolation
             // on few requests; the count over 10 s says the same thing exactly.
-            { id: 'islow', label: 'Inspector requests over 10 s', up: false, chart: true,
+            { id: 'islow', label: 'Inspector requests over 10 s', up: false, chart: true, panel: ['evals-humancopilot-eu', 24],
               expr: 'sum(increase(evals_inspector_request_seconds_count{route!~"/api/health|/metrics"}[$W])) - sum(increase(evals_inspector_request_seconds_bucket{route!~"/api/health|/metrics",le="10.0"}[$W]))' },
-            { id: 'ip95', label: 'Inspector p95', unit: 's', up: false, help: 'Interpolated within the 10-30 s bucket on few requests: read with the count over 10 s',
+            { id: 'ip95', label: 'Inspector p95', unit: 's', up: false, panel: ['evals-humancopilot-eu', 24], help: 'Interpolated within the 10-30 s bucket on few requests: read with the count over 10 s',
               expr: 'histogram_quantile(0.95, sum by (le) (increase(evals_inspector_request_seconds_bucket{route!~"/api/health|/metrics"}[$W])))' }] },
         { title: 'Edge and uptime', link: G + '/d/prod-uptime', metrics: edge(['evals.humancopilot.eu']) }] },
     web: {
@@ -414,6 +437,6 @@
     return Object.assign({}, app, { operatorIds: ops, umamiIds: (umamiSites || []).filter(([dom, id]) => app.umamiDomains.includes(dom.replace(/^www\./, '')) && UUID.test(id)).map(x => x[1]) });
   }
 
-  const api = { DAY, HOUR, PERIODS, COMPARES, AUDIENCES, APPS, windowFor, shifts, compareLabel, align, combine, fmt, delta, chart, sparkline, band, render, resolve };
+  const api = { DAY, HOUR, PERIODS, COMPARES, AUDIENCES, APPS, windowFor, shifts, compareLabel, align, combine, fmt, delta, chart, sparkline, band, render, resolve, linkFor };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.HubProject = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

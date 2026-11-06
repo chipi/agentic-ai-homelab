@@ -207,6 +207,21 @@ const jobs = P.APPS.cl.bands.find(x => x.title === 'Jobs');
     assert.ok(src.calls.vl.some(q => q.includes('quantile(0.95, ms)')));
   });
 
+  await t('links: Umami numbers open Umami for the period, Grafana numbers their panel or Explore', () => {
+    const cl = P.resolve(P.APPS.cl, [['closelistening.app', 'cd384a3e-fd25-476e-affa-08985b73d4da'], ['closelistening.app', 'a5a60c25-a555-4c2d-b096-c9814c21d25c']]);
+    const m = id => cl.bands.flatMap(b => b.metrics).find(x => x.id === id);
+    assert.strictEqual(P.linkFor(m('visitors'), cl, '7d'), 'https://umami.tail6d0ed4.ts.net/websites/cd384a3e-fd25-476e-affa-08985b73d4da?date=7day');
+    assert.strictEqual(P.linkFor(m('episodes'), cl, 'today'), 'https://umami.tail6d0ed4.ts.net/websites/cd384a3e-fd25-476e-affa-08985b73d4da/events?date=0day');
+    assert.strictEqual(P.linkFor(m('app_p95'), cl, '30d'), 'https://grafana.tail6d0ed4.ts.net/d/podcast-performance?viewPanel=panel-7&from=now-30d&to=now');
+    assert.strictEqual(P.linkFor(m('nightly'), cl, 'today'), 'https://grafana.tail6d0ed4.ts.net/d/podcast-jobs?viewPanel=panel-4&from=now%2Fd&to=now');
+    const bg = P.linkFor(m('bg_req'), cl, '7d');
+    assert.ok(bg.startsWith('https://grafana.tail6d0ed4.ts.net/explore?') && decodeURIComponent(bg).includes('/api/health') && decodeURIComponent(bg).includes('[1d]'), 'no panel: Explore on its own query');
+    const web = P.resolve(P.APPS.web, [['www.humancopilot.eu', '5f4eb50a-4831-43b7-874c-5ff29f253a6d'], ['devwhateverops.com', '4bd6a4f9-aaf2-400b-9f26-8e9282561615']]);
+    assert.strictEqual(P.linkFor(web.bands[0].metrics[0], web, '30d'), 'https://umami.tail6d0ed4.ts.net/websites?date=30day', 'several sites: the websites list');
+    for (const a of Object.values(P.APPS)) for (const b of a.bands) for (const x of b.metrics)
+      assert.ok(/^https:\/\//.test(P.linkFor(x, P.resolve(a, [['closelistening.app', 'cd384a3e-fd25-476e-affa-08985b73d4da']]), '7d', b.link)), a.id + '/' + x.id + ' has no link');
+  });
+
   await t('every app: bands with metrics, each metric a label and a query in the right form', () => {
     for (const a of Object.values(P.APPS)) {
       assert.ok(a.bands.length && a.umamiDomains.length, a.id);
