@@ -2040,7 +2040,11 @@ groups:
       # lines: every night but 11-05 started by 01:00Z (10-29 at 01:00:00, the rest 00:00)
       # and summarised by 08:44Z (11-06, 54 episodes after the missed night; otherwise by
       # 05:36). So: not started by 01:30Z, or no summary by 10:00Z, fires; over those 14
-      # days each would have fired once, on 11-05. A hand run started after 00:00Z counts
+      # days each would have fired once, on 11-05. 30-day replay since the 00:00Z schedule
+      # (10-14..11-06): not-started on 10-24 and 11-05, both missed nightlies nobody saw that
+      # morning (10-24: the api was down at 00:00, its scheduler started at 03:45); not-
+      # finished also on 10-18, a 24-hour run (145 episodes, summary at 23:53). Before 10-14
+      # the nightly ran on another schedule, so those days do not count. A hand run started after 00:00Z counts
       # as a start (it is the same container kind), so it can mask a skipped nightly.
       - uid: podcast-nightly-not-started
         title: "Podcast nightly did not start (no pipeline run since 00:00Z, past 01:30Z)"
@@ -3475,7 +3479,18 @@ groups:
   # week-on-week and restart rules stand down while an ops_event deploy is recent.
   # 5xx (app-http-5xx), OOM (infra-oom-kill, prod-container-mem-near-limit), crashloops
   # (ingest-container-crashloop) and disk (infra-disk-low) already have rules elsewhere.
-  # Replays below: 7 days to 2026-11-06, 1-minute steps unless said.
+  # Replays below: 7 days to 2026-11-06, 1-minute steps unless said; 30-day results added where
+  # they changed something.
+  # 30-day replay (10-07..11-06), what each would have caught:
+  #   podcast-container-restarted  5 firings (10-08, 10-17, 10-19, 10-26, 10-27): every one an
+  #     OOM restart (node_vmstat_oom_kill rose by 1-11 around it) that the crashloop rule (3+
+  #     instances) did not see; 249 deploy restarts stood down.
+  #   podcast-api-p95-week-over-week  3 (10-08 and 10-26, the OOM days; 10-14 06:33, the
+  #     morning slowdown the endpoint rule also saw); 12 post-deploy ones stood down.
+  #   podcast-endpoint-p95-slow  33 path-buckets in about 14 incidents (one notification each,
+  #     grouped by alertname): the OOM days 10-08, 10-17, 10-19 and 10-26 (up to 122 s), early
+  #     mornings 10-09, 10-13, 10-14 (06:00-06:10), and single paths since (your-week,
+  #     resurfacing at 10-15 s).
   # =================================================================================
   - orgId: 1
     name: podcast-performance
@@ -3485,15 +3500,18 @@ groups:
       # Whole-service p95 over 5m. 7-day replay: p95 > 3 s held at most 7 minutes in a row
       # (operator-public-api, player-api and podcast-api each had 9-10 such blips, mostly
       # deploys), so `for: 10m` fired 0 times. A 10-minute slowdown is a real regression.
+      # 30-day replay (10-07..11-06): 2 firings. 10-08 04:29, 44 min at up to 6.7 s, ahead of the
+      # 05:08 OOM restart of compose-api (real). 10-15 15:02, podcast-api at 60 s for 5 min:
+      # the deploy at 15:00 (cold start), hence the 15-minute deploy stand-down.
       - uid: podcast-api-p95-high
         title: "Close Listening API slow: p95 above 3 s for 10m"
-        condition: threshold
+        condition: slow
         for: 10m
         noDataState: OK
-        execErrState: Alerting
+        execErrState: OK
         labels: { severity: warning, kind: app, instance: prod-podcast, environment: prod }
         annotations:
-          summary: "{{ $labels.service }} on prod-podcast answered 5% of its requests in more than {{ $values.q }} s (p95, 5m) for 10 minutes; normal is under 0.05 s. Dashboard o11y/podcast-performance → Slowest requests opens each slow request's trace; check the box (CPU, memory) and Postgres (o11y/podcast-postgres) on the same panels."
+          summary: "{{ $labels.service }} on prod-podcast answered 5% of its requests in more than {{ $values.p }} s (p95, 5m) for 10 minutes, with no deploy in the last 15; normal is under 0.05 s. Dashboard o11y/podcast-performance → Slowest requests opens each slow request's trace; check the box (CPU, memory) and Postgres (o11y/podcast-postgres) on the same panels."
         data:
           - refId: q
             relativeTimeRange: { from: 300, to: 0 }
@@ -3502,12 +3520,29 @@ groups:
               expr: 'histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_highr_seconds_bucket{instance="prod-podcast"}[5m])))'
               instant: true
               queryType: instant
-          - refId: threshold
+          - refId: d
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'schema:"ops_event/v1" event_type:deploy env:prod | stats count() as value'
+              queryType: stats
+          - refId: p
             datasourceUid: __expr__
             model:
-              type: threshold
+              type: reduce
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [3] } }]
+              reducer: last
+          - refId: deploys
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: d
+              reducer: last
+          - refId: slow
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: '$p > 3 && $deploys < 1'
 
       # Per endpoint, from the access log: p95 over 10m, paths with 3+ requests, the two
       # discover routes left out (/api/app/discover/rails and /learn are slow by design,
