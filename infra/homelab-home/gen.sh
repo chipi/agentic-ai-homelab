@@ -91,6 +91,14 @@ table.proj td{vertical-align:middle}table.proj td .s{font-size:12px;color:#8888a
 .subtabs a{padding:5px 12px;border:1px solid #26263a;border-radius:16px;color:#9a9ac2;text-decoration:none;font-size:13.5px}
 .subtabs a.on{color:#e6e6ef;border-color:#7aa2ff;background:#16182b}.subtabs a:hover{color:#e6e6ef}
 .sub{display:none}.sub.on{display:block}
+.pband{margin:0 0 22px}.pdelta{font-size:12px;color:#9a9ac2}.pdelta.good{color:#3fb950}.pdelta.bad{color:#f0883e}.pdelta .muted{font-size:11px}
+a.card.pcard{flex:0 1 180px}
+.pcharts{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}a.card.pchartcard{flex:none;min-width:0}
+svg.pchart{width:100%;height:auto;display:block}.pchart .pcur{fill:none;stroke:#7aa2ff;stroke-width:2;vector-effect:non-scaling-stroke}
+.pchart .pcmp{fill:none;stroke:#8888aa;stroke-width:1.5;stroke-dasharray:5 4;vector-effect:non-scaling-stroke}.pchart .pc{fill:#7aa2ff}
+.pchart .pax{stroke:#26263a}.pchart text{fill:#8888aa;font-size:11px}.pchart .pyl{text-anchor:end}.pchart .pxl{text-anchor:middle}
+.plegend{font-size:11.5px;color:#8888aa;margin-top:2px}.plegend span{display:inline-block;width:16px;height:0;vertical-align:middle;margin:0 4px 0 8px}
+.plegend .lcur{border-top:2px solid #7aa2ff}.plegend .lcmp{border-top:2px dashed #8888aa}
 .svcs h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9a9ac2;font-weight:600;margin:14px 0 6px}
 .svcs .charts{margin-bottom:6px}.svcs a.card{min-width:150px}.svcs .cv{font-size:15px}
 .svcs .ln{font-size:12px;color:#8888aa;line-height:1.45}
@@ -156,7 +164,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <div id=alertbar></div>
 </details>
 <nav class=tabs>
-  <a href="#overview" target=_self>Overview</a><a href="#sites" target=_self>Sites</a><a href="#hosts" target=_self>Hosts</a><a href="#fleets" target=_self>Fleets</a><a href="#spend" target=_self>Spend</a>
+  <a href="#overview" target=_self>Overview</a><a href="#projects" target=_self>Projects</a><a href="#sites" target=_self>Sites</a><a href="#hosts" target=_self>Hosts</a><a href="#fleets" target=_self>Fleets</a><a href="#spend" target=_self>Spend</a>
 </nav>
 <section class=tab id=t-overview>
 <div class=charts>
@@ -190,6 +198,12 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   </div>
 </div>
 </details>
+</section>
+<!-- Projects: one page per app (hub-project.js), usage / delivery / jobs against a comparison.
+     Orrery, Evals and the websites get their own entry in HubProject.APPS and a link here. -->
+<section class=tab id=t-projects>
+<nav class=subtabs id=pj_apps><a href="#projects/cl" target=_self data-app=cl>Close Listening</a></nav>
+<div id=pj_page></div>
 </section>
 <section class=tab id=t-sites>
 <!-- Uptime: outside-in probes from the mini (job site-probe, every minute through Cloudflare)
@@ -408,6 +422,8 @@ cat <<TOK
 TOK
 # the status semantics (hub-status.js), shared with the status.json job on the mini
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-status.js"; echo '</script>'
+# the Projects tab (hub-project.js), tested by test_project.js
+echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-project.js"; echo '</script>'
 cat <<'SCRIPT'
 <script>
 const W=260,H=40,TS='tail6d0ed4.ts.net',G='https://grafana.'+TS;
@@ -1351,8 +1367,25 @@ document.getElementById('sp_mven')?.addEventListener('change',modelFilter);
 document.getElementById('sp_mq')?.addEventListener('input',modelFilter);
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
-const TABS=['overview','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','x3','delivery'];
+const TABS=['overview','projects','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','x3','delivery'];
+// Projects: #projects/<app>/<period>/<compare>, rendered by hub-project.js from the page's proxies.
+const PJ_SRC={now:()=>Date.now()/1000,
+  async vmRange(e,s,en,st){const j=await(await fetch('/vm/api/v1/query_range?query='+encodeURIComponent(e)+'&start='+s+'&end='+en+'&step='+st)).json();return((j.data.result[0]||{}).values||[]).map(p=>[+p[0],+p[1]]);},
+  async vmAt(e,t){const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(e)+'&time='+t)).json();const r=j.data.result[0];return r?+r.value[1]:null;},
+  async sql(s){const r=await(await fetch('/grafana/api/ds/query',{method:'POST',headers:{Authorization:'Bearer '+GTOK,'Content-Type':'application/json'},
+      body:JSON.stringify({queries:[{refId:'A',datasource:{uid:'umami-pg'},rawSql:s,format:'table'}],from:'now-1y',to:'now'})})).json();
+    const f=((r.results||{}).A||{}).frames;if(!f||!f[0])return[];const n=f[0].schema.fields.map(x=>x.name),v=f[0].data.values;
+    return (v[0]||[]).map((_,i)=>Object.fromEntries(n.map((k,j)=>[k,v[j][i]])));},
+  async vl(q){const t=await(await fetch('/vl/select/logsql/query',{method:'POST',body:new URLSearchParams({query:q})})).text();return t.split('\n').filter(Boolean).map(l=>JSON.parse(l));}};
+let PJ_KEY='',PJ_T=0;
+function projectsPage(force){const [,a,p,c]=location.hash.slice(1).split('/'),apps=HubProject.APPS,id=apps[a]?a:'cl';
+  const period=HubProject.PERIODS[p]?p:'7d',compare=HubProject.COMPARES[c]&&(c!=='week'||period==='today')?c:'prev',k=id+'/'+period+'/'+compare;
+  document.querySelectorAll('#pj_apps a').forEach(x=>x.classList.toggle('on',x.dataset.app===id));
+  // re-read every 5 minutes, or when the view changes; the numbers move slowly
+  if(!force&&k===PJ_KEY&&Date.now()-PJ_T<300000)return;PJ_KEY=k;PJ_T=Date.now();
+  HubProject.render(document.getElementById('pj_page'),HubProject.resolve(apps[id],UMAMI_SITES),period,compare,PJ_SRC);}
 function showTab(){const [h,sb,mk,...mr]=location.hash.slice(1).split('/'),t=TABS.includes(h)?h:'overview',u=SUBS.includes(sb)?sb:'prod';
+  if(t==='projects')projectsPage();
   MODEL_ID=t==='spend'&&mk==='m'?decodeURIComponent(mr.join('/')):'';
   document.querySelectorAll('section.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
   document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+t));
@@ -1579,7 +1612,7 @@ async function overview(){
   const low=C.low;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();}
+function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT

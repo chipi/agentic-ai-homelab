@@ -41,6 +41,7 @@ jobs:
           node infra/homelab-home/test_uptime.js
           node infra/homelab-home/test_hetzner_bar.js
           node infra/homelab-home/test_provider_bar.js
+          node infra/homelab-home/test_project.js
 
       - name: status module tests
         run: node infra/homelab-home/test_status.js

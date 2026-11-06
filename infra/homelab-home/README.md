@@ -21,6 +21,15 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   red for sites, boxes, Close Listening health, alerts, Needs you, delivery, credit, spend and
   capacity. It returns data; `gen.sh` inlines it and the page draws from it. Tests:
   `test_status.js` (the module), `test_page.js` / `test_uptime.js` (the page on top of it).
+- `hub-project.js` — the Projects tab (`#projects/<app>/<period>/<compare>`): per app, a usage band
+  (Umami, through Grafana's `umami-pg`), a delivery band (the app's request metrics in
+  VictoriaMetrics) and a jobs band (its scheduled work in VictoriaLogs, through the read-only
+  `/vl/select/` proxy). Each card is the period so far (Today, 7 days, 30 days) against the
+  previous period, the same day last week or the average of earlier periods, over the same
+  stretch of time; each chart draws the comparison dashed under the current line. A comparison
+  older than its source keeps (VictoriaLogs: 30 days) is shown as "no comparison". Apps are entries
+  in `APPS` (Close Listening now; Orrery, Evals and the websites next) plus a link in the tab's
+  `#pj_apps` nav. Tests: `test_project.js`.
 - `status-job.js` — runs the same module on the mini every 5 minutes (launchd
   `com.homelab.hub-status`), writes `www/status.json` (served at `/status.json`), logs each
   snapshot to VictoriaLogs (`job:hub-status`), and records `hub_status_last_success_timestamp`
