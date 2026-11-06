@@ -2031,6 +2031,78 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [0] } }]
 
+      # --- Nightly not started / not finished (2026-11-06) ------------------------------
+      # podcast-ingest-stalled waits 36h; these say it the same morning. The nightly fires at
+      # 00:00Z (APScheduler in the api) and runs in a compose-pipeline-llm-run-* container.
+      # On 2026-11-05 it never fired: no "job 'nightly-ingest' fired" line, no spawn error
+      # (misfire_grace_time=3600 skips a slot silently), and nothing said so until 16:25Z.
+      # 14 days of history (10-24..11-06), container starts and "Multi-feed run summary"
+      # lines: every night but 11-05 started by 01:00Z (10-29 at 01:00:00, the rest 00:00)
+      # and summarised by 08:44Z (11-06, 54 episodes after the missed night; otherwise by
+      # 05:36). So: not started by 01:30Z, or no summary by 10:00Z, fires; over those 14
+      # days each would have fired once, on 11-05. A hand run started after 00:00Z counts
+      # as a start (it is the same container kind), so it can mask a skipped nightly.
+      - uid: podcast-nightly-not-started
+        title: "Podcast nightly did not start (no pipeline run since 00:00Z, past 01:30Z)"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
+        annotations:
+          summary: "No compose-pipeline-llm-run-* container has started on prod-podcast since 00:00Z and it is past 01:30Z: tonight's nightly did not run, so no new episodes land until it does. Check the api log for \"scheduler: job 'nightly-ingest' fired\" (VictoriaLogs instance:prod-podcast \"nightly-ingest\"); no line at all is a skipped slot (misfire grace 1h, e.g. the api was down or paused at 00:00). Start it from the operator UI or the jobs API. Dashboard: o11y/podcast-jobs."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              # value = seconds since the newest run container started; kept only when that
+              # start is before 00:00Z today and the time of day is past 01:30Z.
+              expr: '(((time() - max(max_over_time(container_start_time_seconds{instance="prod-podcast",name=~"compose-pipeline-llm-run-.*"}[1d]))) or vector(1e9)) > on() vector(time() % 86400)) and on() (vector(time() % 86400) > 5400)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      - uid: podcast-nightly-not-finished
+        title: "Podcast nightly not finished by 10:00Z (no run summary today)"
+        condition: late
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
+        annotations:
+          summary: "No \"Multi-feed run summary\" line on prod-podcast between 00:00Z and 10:00Z today: the nightly either did not start (see Podcast nightly did not start) or is still running or hung, and enrichment runs only after it. The latest finish in 14 days was 08:44Z. Check the running pipeline container's last log lines (VictoriaLogs instance:prod-podcast container:~\"compose-pipeline-llm-run-.*\") and the DGX (gpu-mode). Dashboard: o11y/podcast-jobs."
+        data:
+          - refId: s
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast "Multi-feed run summary" _time:day_range[00:00, 10:00) | stats count() as value'
+              queryType: stats
+          - refId: t
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'vector(time() % 86400)'
+              instant: true
+              queryType: instant
+          - refId: summaries
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: s
+              reducer: last
+          - refId: late
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: '$summaries < 1 && $t > 36000'
+
   # =================================================================================
   # TELEMETRY INGEST DEAD-MAN SWITCHES — "is the observability itself alive?"
   #
@@ -2144,14 +2216,17 @@ groups:
       # only). Replay of 7 days (1-min evals, for 10m): evals-inspector 5 firings (its
       # loop, 10-26) and orrery-web once (10-22 11:30, 98.6% of its 192 MiB) — a real
       # near-miss; nothing else passed 69%.
+      # 85% since 2026-11-06 (operator), for more lead time before the kill. 7-day replay at
+      # 0.85 (to 11-06, for 10m): one firing, player-digest-scheduler 11-01 07:03 (90.7%), the
+      # same one 0.9 gives; a pipeline run container peaked at 86.3% for under 10 minutes.
       - uid: prod-container-mem-near-limit
-        title: "Container near its memory limit on prod (>90%)"
+        title: "Container near its memory limit on prod (>85%)"
         condition: threshold
         for: 10m
         noDataState: OK
         labels: { severity: warning, kind: infra }
         annotations:
-          summary: "{{ $labels.name }} (app {{ $labels.app }}) on prod-podcast peaked above 90% of its memory limit for 10m — the kernel kills it at 100%. Raise its mem_limit in that app's compose or cut what it loads."
+          summary: "{{ $labels.name }} (app {{ $labels.app }}) on prod-podcast peaked above 85% of its memory limit for 10m — the kernel kills it at 100%. Raise its mem_limit in that app's compose or cut what it loads."
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }
@@ -2165,7 +2240,7 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [0.9] } }]
+              conditions: [{ evaluator: { type: gt, params: [0.85] } }]
 
       # --- prod logs dark ---------------------------------------------------------
       # Catches TOTAL loss of prod logs. Be clear about what it does NOT catch:
@@ -3106,20 +3181,22 @@ groups:
     folder: "Alerts"
     interval: 1m
     rules:
+      # 2 minutes since 2026-11-06 (was 5): the exporter is scraped every 60 s, so this is two
+      # scrapes in a row at pg_up=0, and one lost scrape is not enough to fire.
       - uid: postgres-down
-        title: "Postgres down on prod-podcast (exporter cannot connect 5m)"
+        title: "Postgres down on prod-podcast (exporter cannot connect 2m)"
         condition: threshold
         for: 0s
         noDataState: OK
         labels: { severity: critical, kind: app, instance: prod-podcast, service: podcast-postgres, environment: prod }
         annotations:
-          summary: "postgres-exporter on prod-podcast has reported pg_up=0 for 5 minutes: it cannot log in to Postgres as `monitor`, so the apps cannot either (player-api, operator-api, digest-scheduler, board-summarizer). Check `docker ps` for postgres-postgres-1 and its logs (VictoriaLogs app:postgres), then the dashboard o11y/podcast-postgres."
+          summary: "postgres-exporter on prod-podcast has reported pg_up=0 for 2 minutes: it cannot log in to Postgres as `monitor`, so the apps cannot either (player-api, operator-api, digest-scheduler, board-summarizer). Check `docker ps` for postgres-postgres-1 and its logs (VictoriaLogs app:postgres), then the dashboard o11y/podcast-postgres."
         data:
           - refId: q
-            relativeTimeRange: { from: 300, to: 0 }
+            relativeTimeRange: { from: 120, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'max(max_over_time(pg_up{instance="prod-podcast"}[5m]))'
+              expr: 'max(max_over_time(pg_up{instance="prod-podcast"}[2m]))'
               instant: true
               queryType: instant
           - refId: threshold
@@ -3387,3 +3464,187 @@ groups:
               type: threshold
               expression: reduced
               conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+  # =================================================================================
+  # podcast-performance (2026-11-06): Close Listening request latency and restarts.
+  # Dashboard: o11y/podcast-performance (chipi/infra), whose slowest-requests table links
+  # each slow request to its trace. Latency comes from http_request_duration_highr_seconds
+  # (route-less, buckets to 60 s; the per-route histogram's buckets stop at 1 s) and, per
+  # endpoint, from the access log's "-> <status> in <ms>ms trace=<id>" lines. Deploys cold-
+  # start /api/corpus/digest to 15-34 s and restart every app container, so the endpoint,
+  # week-on-week and restart rules stand down while an ops_event deploy is recent.
+  # 5xx (app-http-5xx), OOM (infra-oom-kill, prod-container-mem-near-limit), crashloops
+  # (ingest-container-crashloop) and disk (infra-disk-low) already have rules elsewhere.
+  # Replays below: 7 days to 2026-11-06, 1-minute steps unless said.
+  # =================================================================================
+  - orgId: 1
+    name: podcast-performance
+    folder: "Alerts"
+    interval: 1m
+    rules:
+      # Whole-service p95 over 5m. 7-day replay: p95 > 3 s held at most 7 minutes in a row
+      # (operator-public-api, player-api and podcast-api each had 9-10 such blips, mostly
+      # deploys), so `for: 10m` fired 0 times. A 10-minute slowdown is a real regression.
+      - uid: podcast-api-p95-high
+        title: "Close Listening API slow: p95 above 3 s for 10m"
+        condition: threshold
+        for: 10m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: app, instance: prod-podcast, environment: prod }
+        annotations:
+          summary: "{{ $labels.service }} on prod-podcast answered 5% of its requests in more than {{ $values.q }} s (p95, 5m) for 10 minutes; normal is under 0.05 s. Dashboard o11y/podcast-performance → Slowest requests opens each slow request's trace; check the box (CPU, memory) and Postgres (o11y/podcast-postgres) on the same panels."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_highr_seconds_bucket{instance="prod-podcast"}[5m])))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [3] } }]
+
+      # Per endpoint, from the access log: p95 over 10m, paths with 3+ requests, the two
+      # discover routes left out (/api/app/discover/rails and /learn are slow by design,
+      # 15-30 s, and have their own work tracked). Stands down for 40 min after a deploy.
+      # 7-day replay in 10-minute buckets: 16 buckets above 10 s, 13 of them deploy cold
+      # starts (/api/corpus/digest, /api/corpus/persons/top); the 3 left would have fired:
+      # /api/app/your-week 15.1 s (10-31 09:50), /api/app/resurfacing 15.3 s (11-03 16:30)
+      # and 10.5 s (11-04 13:10).
+      - uid: podcast-endpoint-p95-slow
+        title: "Close Listening endpoint slow: p95 above 10 s (10m)"
+        condition: slow
+        for: 0m
+        noDataState: OK
+        execErrState: OK
+        labels: { severity: warning, kind: app, instance: prod-podcast, environment: prod }
+        annotations:
+          summary: "{{ $labels.path }} on prod-podcast took more than 10 s for 5% of its requests over the last 10 minutes (p95 {{ $values.p }} ms, no deploy in the last 40 min). Dashboard o11y/podcast-performance → Slowest requests: click its trace id to see where the time went (SQL spans, outbound calls)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'container:~"(player-api|operator-api|compose-api)-1" "trace=" | extract "] - <method> <path> -> <status> in <ms>ms trace=" | filter -path:~"^/api/app/discover/(rails|learn)" | stats by (path) quantile(0.95, ms) as p95, count() as n | filter n:>=3 p95:>10000 | stats by (path) max(p95) as value'
+              queryType: stats
+          - refId: d
+            relativeTimeRange: { from: 2400, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'schema:"ops_event/v1" event_type:deploy env:prod | stats count() as value'
+              queryType: stats
+          - refId: p
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: deploys
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: d
+              reducer: last
+          - refId: slow
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: '$p > 10000 && $deploys < 1'
+
+      # Week on week, 1h windows: p95 above 1 s AND more than twice the same hour last week.
+      # The ratio alone is noise (player-api read 12x at authoring with a p95 of 0.024 s,
+      # 428x at its 7-day max), hence the 1 s floor. 7-day replay, for 15m: 4 firings, all
+      # operator-public-api within an hour of a deploy (11-04 22:22, 11-05 09:32, 11-06
+      # 11:22, ...); with 75 min of deploy stand-down, 0.
+      - uid: podcast-api-p95-week-over-week
+        title: "Close Listening API p95 doubled against last week (and above 1 s)"
+        condition: slower
+        for: 15m
+        noDataState: OK
+        execErrState: OK
+        labels: { severity: warning, kind: app, instance: prod-podcast, environment: prod }
+        annotations:
+          summary: "{{ $labels.service }} on prod-podcast: p95 over the last hour is {{ $values.r }} s, more than twice the same hour last week, and no deploy in the last 75 min. A slow drift rather than an outage: a bigger corpus, a slower query, a busier box. Dashboard o11y/podcast-performance (request rate panel has the 1d and 7d offsets)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '(histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_highr_seconds_bucket{instance="prod-podcast"}[1h]))) > 1) and on (service) (histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_highr_seconds_bucket{instance="prod-podcast"}[1h]))) > 2 * histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_highr_seconds_bucket{instance="prod-podcast"}[1h] offset 7d))))'
+              instant: true
+              queryType: instant
+          - refId: d
+            relativeTimeRange: { from: 4500, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'schema:"ops_event/v1" event_type:deploy env:prod | stats count() as value'
+              queryType: stats
+          - refId: r
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: deploys
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: d
+              reducer: last
+          - refId: slower
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: '$r > 0 && $deploys < 1'
+
+      # One restart of a Close Listening container outside a deploy (the crashloop rule needs
+      # 3 instances in 15m). cadvisor gives each start its own series, so "restarted" = 2+
+      # series of one name in 15m. The deploy event lands a minute or two AFTER the
+      # restart, hence `for: 5m` and a 45-minute deploy window. 7-day replay: 9 restart
+      # episodes per app container, every one a deploy; 0 left after the stand-down.
+      # Pipeline run containers are excluded (each run is a new container name).
+      - uid: podcast-container-restarted
+        title: "Close Listening container restarted outside a deploy"
+        condition: restarted
+        for: 5m
+        noDataState: OK
+        execErrState: OK
+        labels: { severity: warning, kind: app, instance: prod-podcast, environment: prod }
+        annotations:
+          summary: "{{ $labels.name }} on prod-podcast restarted in the last 15 minutes with no deploy in the last 45: a crash, an OOM kill or a hand restart. Its last log lines before the restart (VictoriaLogs instance:prod-podcast container:{{ $labels.name }}) and the exit code (`docker inspect`) say which; `Container near its memory limit` fires too if it was memory."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'count by (name) (count_over_time(container_start_time_seconds{instance="prod-podcast",name=~"(player|operator|compose)-.*",name!~"compose-pipeline-.*"}[15m]))'
+              instant: true
+              queryType: instant
+          - refId: d
+            relativeTimeRange: { from: 2700, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'schema:"ops_event/v1" event_type:deploy env:prod | stats count() as value'
+              queryType: stats
+          - refId: instances
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: deploys
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: d
+              reducer: last
+          - refId: restarted
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: '$instances > 1 && $deploys < 1'
