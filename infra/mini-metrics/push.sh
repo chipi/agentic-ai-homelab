@@ -26,6 +26,7 @@ fi
 # 45th loop (~15 min). Non-fatal: a failed check pushes check_ok=0 and the loop goes on.
 HOMELAB="$(cd "$(dirname "$0")/../.." && pwd)"
 DRIFT_EVERY=45
+CPU_EVERY=3
 loop=0
 while true; do
   loop=$((loop + 1))
@@ -111,9 +112,24 @@ while true; do
       case "$cpuv" in ''|*[!0-9.]*) cpuv=0 ;; esac
       memb=$(echo "$memu" | awk '{v=$0;gsub(/[A-Za-z]/,"",v);u=$0;gsub(/[0-9.]/,"",u);m=(u=="GiB"?1073741824:(u=="MiB"?1048576:(u=="KiB"?1024:1)));printf "%d",v*m}')
       case "$memb" in ''|*[!0-9]*) memb=0 ;; esac
-      printf 'mini_container_cpu_percent{name="%s"} %s\nmini_container_mem_bytes{name="%s"} %s\n' "$name" "$cpuv" "$name" "$memb"
+      printf 'mini_container_mem_bytes{name="%s"} %s\n' "$name" "$memb"
     done
   } | curl -s -o /dev/null --data-binary @- "$VM?extra_label=instance=homelab&extra_label=host=mini"
+  # Container CPU as the kernel counts it: the cgroup's cumulative usage from the Docker API's
+  # one-shot stats (cpu_stats.cpu_usage.total_usage, ns), pushed as a counter for rate(). It
+  # replaces `docker stats`' CPU %, which read up to ~2x the cgroup's own usage here (2026-11-06:
+  # ClickHouse 95% under a 0.5-core cap; the summed containers exceeded the host). Anchored on
+  # cpu_stats: in one-shot mode precpu_stats is 0. Every 3rd loop (~1 min): a counter loses
+  # nothing at a slower cadence, and it halves the requests through colima's socket forward.
+  if [ $(( (loop - 1) % CPU_EVERY )) -eq 0 ]; then
+    SOCK=$($D context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null); SOCK=${SOCK#unix://}
+    for name in $($D ps --format '{{.Names}}' 2>/dev/null); do
+      ns=$(curl -s -m3 --unix-socket "$SOCK" "http://localhost/containers/$name/stats?stream=false&one-shot=true" 2>/dev/null \
+        | grep -o '"cpu_stats":{"cpu_usage":{"total_usage":[0-9]*' | head -1 | sed 's/.*://')
+      case "$ns" in ''|*[!0-9]*) continue ;; esac
+      awk -v n="$name" -v ns="$ns" 'BEGIN { printf "mini_container_cpu_seconds_total{name=\"%s\"} %.3f\n", n, ns / 1e9 }'
+    done | curl -s -m8 -o /dev/null --data-binary @- "$VM?extra_label=instance=homelab&extra_label=host=mini" || true
+  fi
   # per-container detail (name/state/uptime/port) for the landing page's Containers
   # table — via ctr.py (shared with dgx-scrape). Carries its own box label.
   CFMT=$(printf '{{.Name}}\t{{.State.Status}}\t{{.State.StartedAt}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{json .NetworkSettings.Ports}}\t{{.State.ExitCode}}\t{{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}')

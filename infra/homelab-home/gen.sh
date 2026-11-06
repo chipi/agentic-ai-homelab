@@ -458,7 +458,7 @@ async function mini(){
   const sr=document.getElementById('sysrow');if(sr)sr.innerHTML='Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Swap <b>'+(sw?((+sw[1])/1048576).toFixed(0)+' MB':'&mdash;')+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
   const run=await g1('mini_docker_running'),tot=await g1('mini_docker_total'),rst=await g1('mini_docker_restarting'),unh=await g1('mini_docker_unhealthy');
   const md=document.getElementById('mdocker');if(md&&run)md.innerHTML='<b>'+run[1]+'/'+tot[1]+'</b> running'+(rst&&+rst[1]?' &middot; <span style=color:#f85149>'+rst[1]+' restarting</span>':'')+(unh&&+unh[1]?' &middot; <span style=color:#f85149>'+unh[1]+' unhealthy</span>':'');
-  ctable('mctr','mini','mini_container_cpu_percent','mini_container_mem_bytes');
+  ctable('mctr','mini','sum by (name) (rate(mini_container_cpu_seconds_total[5m]))*100','mini_container_mem_bytes');
 }
 async function dgx(){
   draw('g_temp','DCGM_FI_DEV_GPU_TEMP',x=>x.toFixed(0)+'&deg;C');
@@ -805,7 +805,7 @@ async function services(){
     const x3=box==='x3';
     const mem=x3?{}:inst?await byName('max by (name) (container_memory_working_set_bytes{instance="'+inst+'",name!=""})'):await byName('mini_container_mem_bytes');
     const lim=x3?{}:inst?await byName('max by (name) (container_spec_memory_limit_bytes{instance="'+inst+'",name!=""})'):{};
-    const cpu=x3?{}:inst?await byName('sum by (name) (rate(container_cpu_usage_seconds_total{instance="'+inst+'",name!=""}[5m]))*100'):await byName('mini_container_cpu_percent');
+    const cpu=x3?{}:inst?await byName('sum by (name) (rate(container_cpu_usage_seconds_total{instance="'+inst+'",name!=""}[5m]))*100'):await byName('sum by (name) (rate(mini_container_cpu_seconds_total[5m]))*100');
     const groups={};
     for(const g of new Set(SVCS[box].map(x=>x[0])))if(!SVCCTR[g]||SVCCTR[g].box===box)SVCCTR[g]={run:0,tot:0,box};
     for(const [g,name,ctrs,hosts,check,modes] of SVCS[box]){

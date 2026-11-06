@@ -12,7 +12,7 @@ get from a containerized exporter. Every 20s it:
 3. **Service health** — `service_up{service=…}` for grafana/glitchtip/langfuse/
    umami/victoriametrics (HTTP health checks).
 4. **Docker stats** via the docker CLI — `mini_docker_running/total/restarting/
-   unhealthy` + per-container `mini_container_cpu_percent{name}` /
+   unhealthy` + per-container `mini_container_cpu_seconds_total{name}` (the cgroup counter, from the Docker API; use `rate()`) /
    `mini_container_mem_bytes{name}` + `compose_app_up/running/total{app,box}`
    (which compose stacks are up).
 5. **CPU temperature** (`mini_cpu_temp_celsius`) — the mini runs 24/7, so thermals
