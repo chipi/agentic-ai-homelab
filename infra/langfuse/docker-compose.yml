@@ -136,6 +136,10 @@ services:
                 # config tune (clickhouse-lowcpu.xml, async metrics 1s->60s) didn't crack the idle spin —
                 # it's thread-pool-driven and background_pool_size can't go low (mutation sanity check) — so
                 # the cgroup cap is the reliable lever for this trivial trace volume.
+    cpuset: "6-7"   # 2026-11-06 experiment: ClickHouse sized its thread pools for the 8 CPUs
+                    # it saw (nproc 8) and its threads spun against the 0.5 cap (throttled
+                    # 3.05 s per second; trace-list API median 16.2 s). Two visible CPUs should
+                    # mean far fewer threads. Revert this line if it does not help.
     restart: always
     <<: *logging
     user: "101:101"
