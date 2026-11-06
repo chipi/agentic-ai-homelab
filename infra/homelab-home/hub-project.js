@@ -100,7 +100,7 @@
     const dots = cur.map((v, i) => v == null ? '' : '<circle cx=' + X(i).toFixed(1) + ' cy=' + Y(v).toFixed(1) + ' r=2.5 class=pc><title>' + lab(i) + ': ' + fmt(v, m.unit).replace('&mdash;', '-') + (cmp[i] != null ? ' (' + cmpText + ': ' + fmt(cmp[i], m.unit) + ')' : '') + '</title></circle>').join('');
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" class=pchart role=img aria-label="' + esc(m.label) + '">'
       + '<line x1=' + L + ' y1=' + Y(0) + ' x2=' + W + ' y2=' + Y(0) + ' class=pax />'
-      + '<text x=' + (L - 6) + ' y=' + (T + 8) + ' class=pyl>' + fmt(mx / 1.1, m.unit) + '</text>'
+      + '<text x=' + (L - 6) + ' y=' + (T + 8) + ' class=pyl>' + (m.unit === '%' ? Math.round(mx / 1.1 * 100) + '%' : fmt(mx / 1.1, m.unit)) + '</text>'
       + '<text x=' + (L - 6) + ' y=' + Y(0) + ' class=pyl>0</text>'
       // the first and last dates sit inside the chart's edges, not centred on them (clipped otherwise)
       + ticks.map(i => '<text x=' + X(i).toFixed(1) + ' y=' + (H - 4) + ' class=pxl' + (i === 0 && w.n > 1 ? ' style="text-anchor:start"' : i === w.n - 1 && w.n > 1 ? ' style="text-anchor:end"' : '') + '>' + lab(i) + '</text>').join('')
@@ -201,8 +201,12 @@
       // (VictoriaLogs: 30 days), before its tracking began (an Umami event's first occurrence), or
       // before the app's `since` — is left out: a count there reads 0 and would drag the comparison down.
       const first = Math.max(m.retention ? nowS - m.retention : -Infinity, d.first != null ? d.first : -Infinity, m.since || -Infinity, app.since || -Infinity);
-      const ok = sh.map(s => w.start - s >= first);
       const counted = m.agg || m.rows || m.kind === 'hourly';
+      // A VictoriaMetrics series (not a count of events) that has no point in a comparison window's
+      // first bucket started inside that window: its value there covers only part of it (the probes'
+      // response time read "vs 212 ms" from the last two days of a week).
+      const covers = s => counted || d.points.some(([t]) => t >= w.start - s && t < w.start - s + w.step);
+      const ok = sh.map(s => w.start - s >= first && covers(s));
       const series = s => {
         const pts = d.points.filter(([t]) => t >= w.start - s && t < w.end - s);
         const a = align(pts, w, s);

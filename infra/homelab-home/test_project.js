@@ -139,6 +139,16 @@ const jobs = P.APPS.cl.bands.find(x => x.title === 'Jobs');
     assert.ok(src.calls.vmRange[0][0].includes('[3600s]'), 'chart buckets use the step as the window');
   });
 
+  await t('vm series: a comparison window the series only partly covers is left out', async () => {
+    const src = stubSrc(), b = { title: 'Probes', metrics: [{ id: 'rt', label: 'Response time', unit: 's', expr: 'avg(avg_over_time(p[$W]))', chart: true }] };
+    const late = D0 - 9 * DAY;   // the series starts inside the 7 days before (13..6 days ago)
+    const vr = src.vmRange; src.vmRange = async (e, s, en, st) => (await vr(e, s, en, st)).filter(([x]) => x - DAY >= late);
+    const [r] = await P.band(src, app, b, '7d', 'prev', 'all');
+    assert.strictEqual(r.cmpValue, null);
+    const [r2] = await P.band(stubSrc(), app, b, '7d', 'prev', 'all');
+    assert.strictEqual(r2.cmpValue, 100, 'a fully covered comparison stays');
+  });
+
   await t('hourly gauge: complete hours summed, the same hours in the comparison', async () => {
     const src = stubSrc({ rangeValue: 2 }), b = { title: 'Edge', metrics: [{ id: 'e', label: 'Edge', kind: 'hourly', expr: 'edge' }] };
     const [r] = await P.band(src, app, b, 'today', 'prev', 'all');
