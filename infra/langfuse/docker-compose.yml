@@ -132,10 +132,7 @@ services:
     # Pinned to the digest that runs (ClickHouse 26.7.3.19, pulled as :latest). Move it on purpose:
     # a bare/latest ref let any pull or recreate change the database version silently.
     image: docker.io/clickhouse/clickhouse-server@sha256:f90a77560f72b10802106ee49e9870e41668cbc496e280c3911f6e3b216657f3
-    cpus: 1.0   # idle ClickHouse scales background threads to cores; cap it (barely-used homelab, was ~204%).
-                # 0.5 -> 1.0 (2026-11-06): at 0.5 the trace-list query needed 2-3 s of CPU but
-                # waited 15-25 s for it (OSCPUWaitMicroseconds ~ wall), single-threaded
-                # (max_threads auto(1) from the quota). With the cpuset below the spin is small.
+    cpus: 0.5   # idle ClickHouse scales background threads to cores; cap it (barely-used homelab, was ~204%).
                 # config tune (clickhouse-lowcpu.xml, async metrics 1s->60s) didn't crack the idle spin —
                 # it's thread-pool-driven and background_pool_size can't go low (mutation sanity check) — so
                 # the cgroup cap is the reliable lever for this trivial trace volume.
