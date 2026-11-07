@@ -3326,6 +3326,38 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+      # Corpus snapshot (backup-corpus-prod, 05:37Z; operator, 2026-11-07), same shape. 30-day replay
+      # (10-08..11-07): 2 firings, both real gaps: 47.8 h (10-16 10:13 .. 10-18 10:01, a day with no
+      # backup) and 27.5 h (10-10 11:50 .. 10-11 15:19). Same thin margin on normal days as the
+      # app-data rules (GitHub starts it 335-492 min late).
+      - uid: corpus-backup-stale
+        title: "Corpus backup older than 26h (prod-podcast)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: critical, kind: infra, instance: prod-podcast, service: podcast-backups, environment: prod }
+        annotations:
+          summary: "No successful corpus snapshot backup for over 26 hours (VictoriaLogs ops events: event_type:backup surface:corpus status:success). The nightly 05:37Z backup-corpus-prod failed or did not start: chipi/infra Actions → backup-corpus-prod. GitHub runs it 5.5-8 h late on a normal day. Until it runs, a lost volume loses every episode processed since the last snapshot."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 93600, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'schema:"ops_event/v1" event_type:backup surface:corpus status:success | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
       # verify-postgres-backup decrypts and restores the newest backup weekly (Sundays 04:57Z) and
       # pushes this timestamp only when that passed; a drill of an older tag does not push. 8 days
       # gives one missed week a day of slack. NoData alerts: no restore proven in 15 days means
