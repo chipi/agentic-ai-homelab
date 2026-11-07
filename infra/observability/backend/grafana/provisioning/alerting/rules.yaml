@@ -2046,23 +2046,26 @@ groups:
       # finished also on 10-18, a 24-hour run (145 episodes, summary at 23:53). Before 10-14
       # the nightly ran on another schedule, so those days do not count. A hand run started after 00:00Z counts
       # as a start (it is the same container kind), so it can mask a skipped nightly.
+      # 00:30Z since 2026-11-07 (operator, relayed by the prod session: "a run container starting
+      # 00:00 to 00:30Z"). Since 10-14 it also fires on 10-29, whose nightly started at 01:00:00Z,
+      # an hour late; with 01:30Z that night was quiet.
       - uid: podcast-nightly-not-started
-        title: "Podcast nightly did not start (no pipeline run since 00:00Z, past 01:30Z)"
+        title: "Podcast nightly did not start (no pipeline run since 00:00Z, past 00:30Z)"
         condition: threshold
         for: 0m
         noDataState: OK
         execErrState: Alerting
         labels: { severity: warning, kind: podcast, instance: prod-podcast, service: podcast-pipeline, environment: prod }
         annotations:
-          summary: "No compose-pipeline-llm-run-* container has started on prod-podcast since 00:00Z and it is past 01:30Z: tonight's nightly did not run, so no new episodes land until it does. Check the api log for \"scheduler: job 'nightly-ingest' fired\" (VictoriaLogs instance:prod-podcast \"nightly-ingest\"); no line at all is a skipped slot (misfire grace 1h, e.g. the api was down or paused at 00:00). Start it from the operator UI or the jobs API. Dashboard: o11y/podcast-jobs."
+          summary: "No compose-pipeline-llm-run-* container has started on prod-podcast since 00:00Z and it is past 00:30Z: tonight's nightly did not run, so no new episodes land until it does. Check the api log for \"scheduler: job 'nightly-ingest' fired\" (VictoriaLogs instance:prod-podcast \"nightly-ingest\"); no line at all is a skipped slot (misfire grace 1h, e.g. the api was down or paused at 00:00). Start it from the operator UI or the jobs API. Dashboard: o11y/podcast-jobs."
         data:
           - refId: q
             relativeTimeRange: { from: 86400, to: 0 }
             datasourceUid: victoriametrics
             model:
               # value = seconds since the newest run container started; kept only when that
-              # start is before 00:00Z today and the time of day is past 01:30Z.
-              expr: '(((time() - max(max_over_time(container_start_time_seconds{instance="prod-podcast",name=~"compose-pipeline-llm-run-.*"}[1d]))) or vector(1e9)) > on() vector(time() % 86400)) and on() (vector(time() % 86400) > 5400)'
+              # start is before 00:00Z today and the time of day is past 00:30Z.
+              expr: '(((time() - max(max_over_time(container_start_time_seconds{instance="prod-podcast",name=~"compose-pipeline-llm-run-.*"}[1d]))) or vector(1e9)) > on() vector(time() % 86400)) and on() (vector(time() % 86400) > 1800)'
               instant: true
               queryType: instant
           - refId: threshold
@@ -3258,6 +3261,70 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: gt, params: [93600] } }]
+
+      # App-data backups (backup-player-appdata-prod 04:17Z, backup-operator-appdata-prod 04:37Z;
+      # operator, 2026-11-07). They push no metric; each run writes an ops event
+      # (schema ops_event/v1, event_type backup, surface, status) to VictoriaLogs, so the rule counts
+      # successes in the last 26 h. 30-day replay (10-08..11-07): largest gap between two successes
+      # 25.4 h (operator) and 25.2 h (player), 0 firings. The margin is thin: GitHub starts these
+      # schedules 335-492 min late, so a slow day after a fast one can stretch a normal gap to
+      # ~26.6 h. Until the box-side timer (infra) removes that drift, a firing a few minutes long
+      # around midday can be the queue, not a missed backup; check Actions before acting.
+      - uid: player-appdata-backup-stale
+        title: "Player app-data backup older than 26h (prod-podcast)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: critical, kind: infra, instance: prod-podcast, service: podcast-backups, environment: prod }
+        annotations:
+          summary: "No successful player app-data backup for over 26 hours (VictoriaLogs ops events: event_type:backup surface:player-appdata status:success). The nightly 04:17Z backup-player-appdata-prod failed or did not start: chipi/infra Actions → backup-player-appdata-prod. GitHub runs it 5.5-8 h late on a normal day."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 93600, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'schema:"ops_event/v1" event_type:backup surface:player-appdata status:success | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      - uid: operator-appdata-backup-stale
+        title: "Operator app-data backup older than 26h (prod-podcast)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: critical, kind: infra, instance: prod-podcast, service: podcast-backups, environment: prod }
+        annotations:
+          summary: "No successful operator app-data backup for over 26 hours (VictoriaLogs ops events: event_type:backup surface:operator-appdata status:success). The nightly 04:37Z backup-operator-appdata-prod failed or did not start: chipi/infra Actions → backup-operator-appdata-prod. GitHub runs it 5.5-8 h late on a normal day."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 93600, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'schema:"ops_event/v1" event_type:backup surface:operator-appdata status:success | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
 
       # verify-postgres-backup decrypts and restores the newest backup weekly (Sundays 04:57Z) and
       # pushes this timestamp only when that passed; a drill of an older tag does not push. 8 days
