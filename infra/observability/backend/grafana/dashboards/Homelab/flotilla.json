@@ -1,0 +1,373 @@
+{
+  "uid": "flotilla",
+  "title": "flotilla \u2014 the fleet platform",
+  "tags": [
+    "fleet",
+    "flotilla"
+  ],
+  "description": "flotilla (github.com/chipi/flotilla): flotillad's health, every job's runs, freshness and spend, its alerts, and what the egress proxy refused. Phase 2: the triage fleet runs here in shadow beside fleetd. CLI on the mini: docker exec flotillad flotilla status.",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "editable": true,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "flotillad",
+      "description": "1 when flotillad pushed its heartbeat in the last 5 minutes (flotilla_up); the label is the deployed image tag. Empty means flotillad is down or its metrics push through the egress proxy is broken (alert flotilla-silent).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "max by (version) (last_over_time(flotilla_up[5m]))",
+          "legendFormat": "{{version}}",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "Since the last ok run, against its freshness",
+      "description": "Per job: seconds since its last ok run. The job is stale (alert flotilla-job-stale) past its declared freshness: platform/heartbeat 25m, triage/cycle 35m.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 18,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "time() - max by (job) (last_over_time(flotilla_job_last_success_timestamp_seconds[1d]))",
+          "legendFormat": "{{job}}",
+          "instant": true,
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "max": 2100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1500
+              },
+              {
+                "color": "red",
+                "value": 2100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Runs per hour, by job and status",
+      "description": "count_over_time(flotilla_run[1h]): one sample per run. ok, error, timeout, skipped (STOP, pause or budget; the reason is in `flotilla runs`), interrupted (flotillad restarted during the run).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "expr": "sum by (job, status) (count_over_time(flotilla_run[1h]))",
+          "legendFormat": "{{job}} {{status}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 60
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Run duration",
+      "description": "flotilla_run_seconds per job: how long each run took in its worker. A triage cycle that triages nothing new takes ~15 s; one with model calls takes minutes (timeout 20m).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "expr": "max by (job) (flotilla_run_seconds)",
+          "legendFormat": "{{job}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "points",
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Spend today, per job",
+      "description": "flotilla_spend_day_usd: the job's model spend so far on its local day, as the job reported it. flotillad skips the job's runs once this reaches its daily budget.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "expr": "max by (job) (flotilla_spend_day_usd)",
+          "legendFormat": "{{job}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "alertlist",
+      "title": "flotilla alerts",
+      "description": "The two flotilla rules (homelab rules.yaml): flotilla-silent and flotilla-job-stale.",
+      "datasource": null,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "targets": [],
+      "options": {
+        "showOptions": "current",
+        "maxItems": 10,
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "normal": true
+        },
+        "alertName": "flotilla",
+        "dashboardAlerts": false
+      }
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "flotillad warnings and errors",
+      "description": "flotillad's own JSON log lines at WARN or ERROR: failed runs (with the worker's output tail), refused calls (an agent asking for an operator-only change), push failures.",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "targets": [
+        {
+          "expr": "{service=\"flotillad\"} level:~\"WARN|ERROR\"",
+          "refId": "A",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    },
+    {
+      "id": 8,
+      "type": "logs",
+      "title": "Egress refused by the proxy",
+      "description": "Every connection the egress proxy refused (Smokescreen: the host is not on the allowlist in egress-acl.yaml). The heartbeat's own refused probe (example.com) shows here every 10 minutes; anything else is a job reaching where it should not.",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "targets": [
+        {
+          "expr": "{service=\"flotilla-egress\"} \"default rule policy used\"",
+          "refId": "A",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "Runs in the triage worker",
+      "description": "The worker's start and end line for every run (job, run id, status, duration, spend). A run's full output is in the same stream (\"run output\" lines, by run_id).",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "targets": [
+        {
+          "expr": "{service=\"flotilla-worker-triage\"} (\"run start\" OR \"run end\")",
+          "refId": "A",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "version": 1
+}
