@@ -315,7 +315,7 @@
       },
       "targets": [
         {
-          "expr": "{service=\"flotilla-egress\"} \"default rule policy used\"",
+          "expr": "{service=\"flotilla-egress\"} allow:false",
           "refId": "A",
           "datasource": {
             "type": "victoriametrics-logs-datasource",
@@ -347,7 +347,7 @@
       },
       "targets": [
         {
-          "expr": "{service=\"flotilla-worker-triage\"} (\"run start\" OR \"run end\")",
+          "expr": "{service=\"flotilla-worker-triage\"} msg:~\"^run (start|end)$\"",
           "refId": "A",
           "datasource": {
             "type": "victoriametrics-logs-datasource",
