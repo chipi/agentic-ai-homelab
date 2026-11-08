@@ -1157,6 +1157,60 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
+      # --- flotilla (the fleet platform, chipi/flotilla) ------------------------------
+      # flotillad pushes flotilla_up every minute; nothing for 10m = flotillad down or its VM push
+      # path (through its egress proxy) broken. Same dead-man shape as fleetd-silent: `or vector(0)`
+      # so silence fires under this rule's own name. meta=true: the platform the fleets run on is
+      # never triaged by a fleet.
+      - uid: flotilla-silent
+        title: "flotilla silent (no flotillad heartbeat for 10m)"
+        condition: threshold
+        for: 0s
+        noDataState: Alerting
+        labels: { severity: critical, kind: fleet, meta: "true" }
+        annotations:
+          summary: "No flotilla_up samples for 10m — flotillad is down, or its metrics push (through the egress proxy) is broken. Check on the mini: docker ps --filter name=flotilla; docker logs flotillad; docker exec flotillad flotilla status."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(count_over_time(flotilla_up[10m])) or vector(0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+      # A job is stale when its last ok run is older than the freshness its spec declares
+      # (flotilla_job_freshness_seconds, pushed per job), or it has none in a day. platform/heartbeat
+      # stale = the platform is broken whatever the fleets say. 10m grace covers a deploy.
+      - uid: flotilla-job-stale
+        title: "flotilla job stale (no ok run within its freshness)"
+        condition: threshold
+        for: 10m
+        noDataState: OK
+        labels: { severity: warning, kind: fleet, meta: "true" }
+        annotations:
+          summary: "flotilla job {{ $labels.job }} has had no ok run within its declared freshness. Check: docker exec flotillad flotilla runs {{ $labels.job }} -n 10 (the detail column has the failure)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '((time() - max by (job) (last_over_time(flotilla_job_last_success_timestamp_seconds[1d]))) > max by (job) (last_over_time(flotilla_job_freshness_seconds[10m]))) or (max by (job) (last_over_time(flotilla_job_freshness_seconds[10m])) unless on (job) max by (job) (last_over_time(flotilla_job_last_success_timestamp_seconds[1d])))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
       # --- Alert rules drifted from the repo ----------------------------------------
       # Grafana runs THIS file only after an alerting-provisioning reload. On 2026-09-30
       # two committed changes had never loaded for 12 days: a fixed rule kept firing a
