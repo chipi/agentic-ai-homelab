@@ -326,10 +326,9 @@ groups:
               conditions: [{ evaluator: { type: gt, params: [75000000000] } }]
 
       # --- Kernel OOM killer fired ---------------------------------------------------
-      # The after-the-fact but NAMED signal: even when pressure spikes too fast
-      # for the 5m warning, the oom_kill counter says exactly what happened —
-      # no more mystery wedges. Counter verified live on prod; DGX exposes the
-      # same via node exporter when up.
+      # The DGX only: there it is the wedge signature. prod-podcast's kills are named and graded
+      # by the prod-oom rules below (2026-11-08); this rule fired on every prod kill but could not
+      # tell a serving app from a crash-looping eval container (one 28 h firing hid 337 kills).
       - uid: infra-oom-kill
         title: "Kernel OOM killer fired"
         condition: threshold
@@ -337,13 +336,13 @@ groups:
         noDataState: OK
         labels: { severity: critical, kind: infra }
         annotations:
-          summary: "OOM kill(s) on {{ $labels.instance }} in the last 15m — the kernel shot a process. On prod, `Container near its memory limit` / `Container crashlooping` name the container and app; else check dmesg. On the DGX this is the wedge signature."
+          summary: "OOM kill(s) on {{ $labels.instance }} in the last 15m — the kernel shot a process; check dmesg. On the DGX this is the wedge signature."
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'sum by (instance) (increase(node_vmstat_oom_kill{instance=~"dgx-llm-1|prod-podcast"}[15m]))'
+              expr: 'sum by (instance) (increase(node_vmstat_oom_kill{instance="dgx-llm-1"}[15m]))'
               instant: true
               queryType: instant
           - refId: threshold
@@ -352,6 +351,113 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      # --- prod-podcast OOM kills, named (chipi/infra asked, 2026-11-08) ----------------
+      # infra/observability/prod-oom/classify.py (launchd on the mini, every 2 min) reads the kernel's
+      # oom-kill lines from VictoriaLogs, names the container from its docker scope through cadvisor,
+      # and writes one prod_oom_kill sample per kill at the kill's own time:
+      #   global (the box ran out) or a serving container (player-api, operator-api, compose-api,
+      #   player-mcp, postgres, litellm): severity=critical; anything else: severity=warning.
+      # Replay 2026-10-25..11-08 (347 kills): critical 4 episodes, exactly the expected ones
+      # (player-api-1 10-26 13:46 x2 and 10-27 07:13; compose-api-1 global 10-31 13:05; a
+      # pipeline-llm run global 11-01 01:21); warning 6 (evals-inspector, 15 kills an hour at its
+      # worst, and five one-offs). Not meta: a serving app killed is the app's problem.
+      - uid: prod-oom-kill-critical
+        title: "prod OOM kill: serving container or the whole box"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: critical, kind: infra }
+        annotations:
+          summary: "OOM on prod-podcast: {{ $labels.container }} ({{ $labels.kind }}: global = the box ran out of memory, serving = the container hit its own limit), {{ $value }} kill(s) in 15m. Kernel line: VictoriaLogs instance:prod-podcast \"oom-kill:constraint\"."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum by (container, kind) (count_over_time(prod_oom_kill{instance="prod-podcast", severity="critical"}[15m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      - uid: prod-oom-kill-other
+        title: "prod OOM kill: a container hit its own limit"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "{{ $labels.container }} on prod-podcast was OOM-killed {{ $value }} time(s) in the last hour (its own memory limit; not a serving container). Many kills = a crash loop under its limit."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum by (container) (count_over_time(prod_oom_kill{instance="prod-podcast", severity="warning"}[1h]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      # The cross-check (infra, 2026-11-08): the kernel's own counter against what the classifier
+      # recorded. Catches a dead job, kernel lines not reaching VictoriaLogs, and a parser miss
+      # alike. Replay: with the classifier's samples, the difference never stays above 0 for
+      # more than 2 minutes in 14 days; with them removed (a dead job), every one of the 7 kill
+      # episodes holds it for 15 minutes or more. Hence for: 10m.
+      - uid: prod-oom-kill-unclassified
+        title: "prod OOM kill(s) the classifier did not see"
+        condition: threshold
+        for: 10m
+        noDataState: OK
+        labels: { severity: critical, kind: infra, meta: "true" }
+        annotations:
+          summary: "The kernel on prod-podcast counted {{ $value }} OOM kill(s) in 15m that prod_oom_kill does not have: the classifier (com.homelab.prod-oom-classify on the mini, /tmp/prod-oom-classify.log) is down, the kernel log is not reaching VictoriaLogs, or a line did not parse. Look at the kernel log on the box."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(increase(node_vmstat_oom_kill{instance="prod-podcast"}[15m])) - (sum(count_over_time(prod_oom_kill{instance="prod-podcast"}[15m])) or vector(0))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0.5] } }]
+
+      - uid: prod-oom-classify-stale
+        title: "prod OOM classifier not running"
+        condition: threshold
+        for: 5m
+        noDataState: Alerting
+        labels: { severity: warning, kind: infra, meta: "true" }
+        annotations:
+          summary: "prod-oom-classify has not run for over 10 minutes (it runs every 2): prod OOM kills are not being named. On the mini: sudo launchctl print system/com.homelab.prod-oom-classify; tail /tmp/prod-oom-classify.log."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '(time() - max(last_over_time(prod_oom_classify_last_run_timestamp_seconds{instance="prod-podcast"}[1h]))) or vector(1e9)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [600] } }]
 
       # --- prod-podcast: a one-off container outside the one-off budget ---------------
       # chipi/infra IADR-007 (operator, 2026-11-08): every one-off container on the prod box runs
