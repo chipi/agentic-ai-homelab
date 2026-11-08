@@ -543,15 +543,15 @@ async function fleet(){
   // needs-you = actionable-now only (bug queue + escalations); config-enhancement
   // and cleanup drafts are Fleet-3 BACKLOG, not operator debt (2026-08-05)
   const NY=await HubStatus.needsYou(HS);
-  const dec=await g1('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[24h]))');
+  const dec=await g1('sum(count_over_time(signal_fleet_disposition{service="triage-fleet",disposition!="recurrence"}[24h]))');
   const sp=await g1('sum(last_over_time(fleetd_spend_day[2h]))');
   const d=new Date(),mS=Math.max(3600,Math.floor((d-new Date(d.getFullYear(),d.getMonth(),1))/1000));
   const dayS=Math.max(3600,Math.floor((d-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/1000));
-  const mo=await g1('sum(sum_over_time(signal_fleet_cost_usd['+mS+'s]))');
-  const al=await g1('sum(sum_over_time(signal_fleet_cost_usd[180d]))'); // VM retention = 6mo
-  const tkD=await g1('sum(sum_over_time(signal_fleet_tokens['+dayS+'s]))');
-  const tkM=await g1('sum(sum_over_time(signal_fleet_tokens['+mS+'s]))');
-  const tkA=await g1('sum(sum_over_time(signal_fleet_tokens[180d]))');
+  const mo=await g1('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}['+mS+'s]))');
+  const al=await g1('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}[180d]))'); // VM retention = 6mo
+  const tkD=await g1('sum(sum_over_time(signal_fleet_tokens{service="triage-fleet"}['+dayS+'s]))');
+  const tkM=await g1('sum(sum_over_time(signal_fleet_tokens{service="triage-fleet"}['+mS+'s]))');
+  const tkA=await g1('sum(sum_over_time(signal_fleet_tokens{service="triage-fleet"}[180d]))');
   const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html;};
   const cv=v=>'<div class=cv>'+v+'</div>';
   set('f_inbox',cv(NY.total==null?'&mdash;':String(NY.total)));
@@ -563,7 +563,7 @@ async function fleet(){
   const pS=Math.floor((new Date(d.getFullYear(),d.getMonth(),1)-new Date(d.getFullYear(),d.getMonth()-1,1))/1000);
   const prevSum=m=>g1('sum(sum_over_time('+m+'['+pS+'s] offset '+mS+'s))');
   const last=(c,t)=>'<div class=muted style="font-size:12px">last month '+$(c)+' &middot; '+T(t)+' tok</div>';
-  const moP=await prevSum('signal_fleet_cost_usd'),tkP=await prevSum('signal_fleet_tokens');
+  const moP=await prevSum('signal_fleet_cost_usd{service="triage-fleet"}'),tkP=await prevSum('signal_fleet_tokens{service="triage-fleet"}');
   set('f_spend',duo(sp,tkD));set('f_month',duo(mo,tkM)+last(moP,tkP));set('f_total',duo(al,tkA));
   // bug-fix fleet row — zeros until chains run; same accounting shape
   const bs=await g1('sum(count_over_time(bugfix_fleet_flow{state="shipped"}[7d]))');
@@ -1164,7 +1164,7 @@ async function spendModels(){
   const sum=(xs,f)=>xs.reduce((a,x)=>a+(x[f]||0),0),src=n=>rows.filter(r=>r.src===n);
   // ---- Totals ----
   const today=await one('sum(last_over_time(openrouter_key_usd{window="day"}'+L+'))');
-  const fl=rg.R?await one(vm('sum(sum_over_time(signal_fleet_cost_usd[R]))'))+await one(vm('sum(sum_over_time(bugfix_fleet_cost_usd[R]))')):0;
+  const fl=rg.R?await one(vm('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}[R]))'))+await one(vm('sum(sum_over_time(bugfix_fleet_cost_usd[R]))')):0;
   const cr=await one('max(last_over_time(openrouter_account_usd{kind="credits"}'+L+')) - max(last_over_time(openrouter_account_usd{kind="usage"}'+L+'))');
   const t=n=>sum(src(n),'i')+sum(src(n),'o'),card=(ti,v,sub,ms)=>'<a class=card'+(ms!=null?' data-msrc="'+ms+'"':'')+'><h3>'+ti+'</h3><div class=cv>'+v+'</div>'
     +(Array.isArray(sub)?'<div class=subkv>'+sub.filter(Boolean).map(([l,x])=>'<span>'+l+'</span><b>'+x+'</b>').join('')+'</div>':(sub?'<span class=muted>'+sub+'</span>':''))+'</a>';
@@ -1303,31 +1303,31 @@ async function fleetCards(){
   const one=async qq=>{const r=await q(qq);return r.length?+r[0].value[1]:null;};
   const usd=x=>'$'+(x||0).toFixed(2);
   // backlog beside needs-you
-  const qd=await by('last_over_time(signal_fleet_queue_depth[2h])','kind'),old=await one('max(last_over_time(signal_fleet_queue_oldest_age_seconds[2h]))');
+  const qd=await by('last_over_time(signal_fleet_queue_depth{service="triage-fleet"}[2h])','kind'),old=await one('max(last_over_time(signal_fleet_queue_oldest_age_seconds{service="triage-fleet"}[2h]))');
   const bl=Object.entries(qd).filter(([k,v])=>k!=='bug'&&v>0);
   set('fl_backlog',bl.length?'backlog '+bl.map(([k,v])=>v+' '+k).join(' &middot; ')+(old?' &middot; oldest '+fmtUp(old):''):'');
   // decisions: 24h count, 14-day line, 7-day mix
-  const dec=await one('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[24h]))');
-  const decD=await daily('sum(count_over_time(signal_fleet_disposition{disposition!="recurrence"}[1d]))');
-  const mix=await by('sum by (disposition) (count_over_time(signal_fleet_disposition[7d]))','disposition');
+  const dec=await one('sum(count_over_time(signal_fleet_disposition{service="triage-fleet",disposition!="recurrence"}[24h]))');
+  const decD=await daily('sum(count_over_time(signal_fleet_disposition{service="triage-fleet",disposition!="recurrence"}[1d]))');
+  const mix=await by('sum by (disposition) (count_over_time(signal_fleet_disposition{service="triage-fleet"}[7d]))','disposition');
   const col={file:'#7aa2ff',recurrence:'#8888aa',escalate:'#d29922',dismiss:'#3d3d63'},tot=Object.values(mix).reduce((a,b)=>a+b,0);
   const bar=tot?'<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">'+['file','recurrence','escalate','dismiss'].filter(k=>mix[k]).map(k=>'<span style="flex:'+mix[k]+';background:'+col[k]+'"></span>').join('')+'</div>'
     +mut(['file','recurrence','escalate','dismiss'].filter(k=>mix[k]).map(k=>'<span style="color:'+col[k]+'">&#9632;</span> '+mix[k]+' '+k).join(' &middot; ')+' (7d)'):'';
   set('fl_dec',cv((dec==null?'&mdash;':Math.round(dec))+spark(decD))+bar);
-  const esc=await one('sum(last_over_time(signal_fleet_escalations_7d[2h]))'),escD=await daily('sum(count_over_time(signal_fleet_disposition{disposition="escalate"}[1d]))');
+  const esc=await one('sum(last_over_time(signal_fleet_escalations_7d{service="triage-fleet"}[2h]))'),escD=await daily('sum(count_over_time(signal_fleet_disposition{service="triage-fleet",disposition="escalate"}[1d]))');
   set('fl_esc',cv((esc==null?'&mdash;':Math.round(esc))+spark(escD))+mut('line: escalations per day, 14 days'));
   // spend: this month vs last month, daily line, cost per decision this month
   const n=new Date(),mS=Math.max(3600,Math.floor((n-new Date(n.getFullYear(),n.getMonth(),1))/1000));
   const pS=Math.floor((new Date(n.getFullYear(),n.getMonth(),1)-new Date(n.getFullYear(),n.getMonth()-1,1))/1000);
-  const mo=await one('sum(sum_over_time(signal_fleet_cost_usd['+mS+'s]))'),lm=await one('sum(sum_over_time(signal_fleet_cost_usd['+pS+'s] offset '+mS+'s))');
-  const decM=await one('sum(count_over_time(signal_fleet_disposition['+mS+'s]))'),spD=await daily('sum(sum_over_time(signal_fleet_cost_usd[1d]))');
+  const mo=await one('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}['+mS+'s]))'),lm=await one('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}['+pS+'s] offset '+mS+'s))');
+  const decM=await one('sum(count_over_time(signal_fleet_disposition{service="triage-fleet"}['+mS+'s]))'),spD=await daily('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}[1d]))');
   set('fl_spend',cv(usd(mo)+spark(spD))+mut('last month '+usd(lm)+(decM?' &middot; $'+((mo||0)/decM).toFixed(4)+' per decision':'')));
   // last fleetd cycle
   const cy=(await q('last_over_time(fleetd_cycle[1d])'))[0],cs=await one('max(last_over_time(fleetd_cycle_seconds[1d]))'),ct=await one('max(tlast_over_time(fleetd_cycle[1d]))');
   const ok=cy&&cy.metric.outcome==='ok',age=ct?Date.now()/1000-ct:null;
   set('fl_cycle',cv(cy?'<span style="color:'+(ok?'#3fb950':'#f85149')+'">'+cy.metric.outcome+'</span>':'&mdash;')+mut((age!=null?fmtUp(age)+' ago':'no cycle in 24h')+(cs?' &middot; '+cs.toFixed(0)+' s':'')+(cy&&cy.metric.version?' &middot; '+cy.metric.version:'')));
   // sources
-  const pr=await by('last_over_time(signal_fleet_probes[1d])','source'),gs=await by('last_over_time(signal_fleet_glitchtip_sync[1d])','kind');
+  const pr=await by('last_over_time(signal_fleet_probes{service="triage-fleet"}[1d])','source'),gs=await by('last_over_time(signal_fleet_glitchtip_sync{service="triage-fleet"}[1d])','kind');
   set('fl_src',cv(Object.keys(pr).length+' sources')+mut('watching '+Object.keys(pr).sort().join(', ')+(gs.mapped!=null?'<br>GlitchTip: '+Math.round(gs.mapped||0)+' mapped &middot; '+Math.round(gs.merged||0)+' merged &middot; '+Math.round(gs.resolved||0)+' resolved'+(gs.errors?' &middot; <span style=color:#f85149>'+Math.round(gs.errors)+' errors</span>':''):'')));
   const tdot=document.getElementById('fl_tdot');if(tdot)tdot.className='dot '+(!cy?'stale':(!ok?'down':(age!=null&&age>7200?'mid':'up')));
   // bug-fix pipeline

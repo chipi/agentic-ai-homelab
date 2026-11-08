@@ -83,8 +83,8 @@
   // Needs you: actionable now only, the triage fleet's bug queue plus its escalations of the last 7
   // days. Config-enhancement and cleanup drafts are backlog, not operator debt (2026-08-05).
   async function needsYou(src) {
-    const bug = await one(src, 'sum(last_over_time(signal_fleet_queue_depth{kind="bug"}[2h]))');
-    const esc = await one(src, 'sum(last_over_time(signal_fleet_escalations_7d[2h]))');
+    const bug = await one(src, 'sum(last_over_time(signal_fleet_queue_depth{service="triage-fleet",kind="bug"}[2h]))');
+    const esc = await one(src, 'sum(last_over_time(signal_fleet_escalations_7d{service="triage-fleet"}[2h]))');
     return { total: bug == null && esc == null ? null : (bug || 0) + (esc || 0), bugQueue: bug, escalations7d: esc };
   }
 

@@ -123,7 +123,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (kind) (last_over_time(signal_fleet_queue_depth[2h]))",
+          "expr": "sum by (kind) (last_over_time(signal_fleet_queue_depth{service=\"triage-fleet\"}[2h]))",
           "legendFormat": "{{kind}}",
           "refId": "A",
           "datasource": {
@@ -159,7 +159,7 @@
       },
       "targets": [
         {
-          "expr": "max(last_over_time(signal_fleet_escalations_7d[2h]))",
+          "expr": "max(last_over_time(signal_fleet_escalations_7d{service=\"triage-fleet\"}[2h]))",
           "legendFormat": "escalations in trailing 7d",
           "refId": "A",
           "datasource": {

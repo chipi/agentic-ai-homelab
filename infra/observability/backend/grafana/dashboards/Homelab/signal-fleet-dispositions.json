@@ -76,7 +76,7 @@
       },
       "targets": [
         {
-          "expr": "(sum(last_over_time(signal_fleet_queue_depth{kind=\"bug\"}[2h])) or vector(0)) + (sum(last_over_time(signal_fleet_escalations_7d[2h])) or vector(0))",
+          "expr": "(sum(last_over_time(signal_fleet_queue_depth{service=\"triage-fleet\",kind=\"bug\"}[2h])) or vector(0)) + (sum(last_over_time(signal_fleet_escalations_7d{service=\"triage-fleet\"}[2h])) or vector(0))",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -138,7 +138,7 @@
       },
       "targets": [
         {
-          "expr": "sum(last_over_time(signal_fleet_escalations_7d[2h]))",
+          "expr": "sum(last_over_time(signal_fleet_escalations_7d{service=\"triage-fleet\"}[2h]))",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -201,7 +201,7 @@
       },
       "targets": [
         {
-          "expr": "max(last_over_time(signal_fleet_queue_oldest_age_seconds[2h]))",
+          "expr": "max(last_over_time(signal_fleet_queue_oldest_age_seconds{service=\"triage-fleet\"}[2h]))",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -255,7 +255,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (kind) (last_over_time(signal_fleet_queue_depth[2h]))",
+          "expr": "sum by (kind) (last_over_time(signal_fleet_queue_depth{service=\"triage-fleet\"}[2h]))",
           "legendFormat": "{{kind}}",
           "refId": "A",
           "datasource": {
@@ -305,7 +305,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(count_over_time(signal_fleet_disposition{disposition!=\"recurrence\"}[$__range]))",
+          "expr": "sum(count_over_time(signal_fleet_disposition{service=\"triage-fleet\",disposition!=\"recurrence\"}[$__range]))",
           "instant": true
         }
       ]
@@ -361,7 +361,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(count_over_time(signal_fleet_disposition{disposition=\"escalate\"}[$__range])) or vector(0)",
+          "expr": "sum(count_over_time(signal_fleet_disposition{service=\"triage-fleet\",disposition=\"escalate\"}[$__range])) or vector(0)",
           "instant": true
         }
       ]
@@ -404,7 +404,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(sum_over_time(signal_fleet_cost_usd[$__range])) or vector(0)",
+          "expr": "sum(sum_over_time(signal_fleet_cost_usd{service=\"triage-fleet\"}[$__range])) or vector(0)",
           "instant": true
         }
       ]
@@ -446,7 +446,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(sum_over_time(signal_fleet_tokens[$__range])) or vector(0)",
+          "expr": "sum(sum_over_time(signal_fleet_tokens{service=\"triage-fleet\"}[$__range])) or vector(0)",
           "instant": true
         }
       ]
@@ -491,7 +491,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(count_over_time(signal_fleet_disposition{disposition=\"cleanup\"}[$__range])) or vector(0)",
+          "expr": "sum(count_over_time(signal_fleet_disposition{service=\"triage-fleet\",disposition=\"cleanup\"}[$__range])) or vector(0)",
           "instant": true
         }
       ]
@@ -536,7 +536,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(count_over_time(signal_fleet_disposition{disposition=\"recurrence\"}[$__range])) or vector(0)",
+          "expr": "sum(count_over_time(signal_fleet_disposition{service=\"triage-fleet\",disposition=\"recurrence\"}[$__range])) or vector(0)",
           "instant": true
         }
       ]
@@ -580,7 +580,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (disposition) (count_over_time(signal_fleet_disposition[$__interval]))",
+          "expr": "sum by (disposition) (count_over_time(signal_fleet_disposition{service=\"triage-fleet\"}[$__interval]))",
           "legendFormat": "{{disposition}}"
         }
       ]
@@ -621,7 +621,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(sum_over_time(signal_fleet_cost_usd[$__interval]))",
+          "expr": "sum(sum_over_time(signal_fleet_cost_usd{service=\"triage-fleet\"}[$__interval]))",
           "legendFormat": "$"
         }
       ]
@@ -663,7 +663,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (disposition) (count_over_time(signal_fleet_disposition[$__range]))",
+          "expr": "sum by (disposition) (count_over_time(signal_fleet_disposition{service=\"triage-fleet\"}[$__range]))",
           "legendFormat": "{{disposition}}",
           "instant": true
         }
@@ -706,7 +706,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (source) (count_over_time(signal_fleet_disposition[$__range]))",
+          "expr": "sum by (source) (count_over_time(signal_fleet_disposition{service=\"triage-fleet\"}[$__range]))",
           "legendFormat": "{{source}}",
           "instant": true
         }
@@ -749,7 +749,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum by (work_type) (count_over_time(signal_fleet_disposition{disposition=\"file\"}[$__range]))",
+          "expr": "sum by (work_type) (count_over_time(signal_fleet_disposition{service=\"triage-fleet\",disposition=\"file\"}[$__range]))",
           "legendFormat": "{{work_type}}",
           "instant": true
         }
@@ -794,7 +794,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "(sum (count_over_time(signal_fleet_disposition{followup=\"1\"}[$__range]))) or vector(0)",
+          "expr": "(sum (count_over_time(signal_fleet_disposition{service=\"triage-fleet\",followup=\"1\"}[$__range]))) or vector(0)",
           "legendFormat": "follow-ups",
           "instant": true
         }
@@ -940,7 +940,7 @@
       },
       "targets": [
         {
-          "expr": "max by (kind) (signal_fleet_glitchtip_sync{kind!=\"mapped\"})",
+          "expr": "max by (kind) (signal_fleet_glitchtip_sync{service=\"triage-fleet\",kind!=\"mapped\"})",
           "legendFormat": "{{kind}}",
           "refId": "A",
           "datasource": {
@@ -1002,7 +1002,7 @@
       },
       "targets": [
         {
-          "expr": "last_over_time(signal_fleet_glitchtip_sync{kind=\"mapped\"}[1h])",
+          "expr": "last_over_time(signal_fleet_glitchtip_sync{service=\"triage-fleet\",kind=\"mapped\"}[1h])",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
