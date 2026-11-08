@@ -150,6 +150,12 @@
       "team": "podcast",
       "platform": "python",
       "reports": "the eval-harness MCP server on prod-podcast (evals.humancopilot.eu/mcp; Sentry SDK, environment prod, release sha-<7>); master copy of the DSN ~/glitchtip/evals-mcp.env on the mini"
+    },
+    {
+      "slug": "flotilla",
+      "team": "podcast",
+      "platform": "go",
+      "reports": "flotillad (chipi/flotilla) on the mini: its own ERROR log records via sentry-go, environment operations, release sha-<7>. Substrate: the triage fleet's issues poll leaves this slug out (signal-fleet sources.SUBSTRATE_GLITCHTIP_PROJECTS). Master copy of the DSN ~/glitchtip/flotilla.env on the mini"
     }
   ]
 }
