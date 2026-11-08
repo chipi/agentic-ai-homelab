@@ -23,9 +23,10 @@ $R homelab $V compare --project closelistening --baseline /tmp/cl-base.json --re
 $R homelab $V compare --project orrery --since 2026-10-17T08:21:00Z --sourcemaps
 ```
 
-- **Projects:** `closelistening` and `orrery`. The `PROFILES` table in the script lists each
-  one's services, scrape jobs, counters, GlitchTip projects, Langfuse key file, Umami sites and
-  live URL. Add a project there.
+- **Projects:** `closelistening`, `orrery` and `flotilla`. The `PROFILES` table in the script lists
+  each one's services, scrape jobs, counters, GlitchTip projects, Langfuse key file, Umami sites,
+  live URL, and the `environment` its live lines carry (default `prod`; flotilla's is `operations`).
+  Add a project there.
 - **`--since`:** use it when there is no baseline, i.e. the time the new version went live.
 - **`--release`:** the image tag the deploy shipped (`sha-<7>`, ADR-0010).
   - For podcast, run from the deploy's **image tag**, not the workflow commit. On 2026-10-16
@@ -77,6 +78,11 @@ $R homelab $V compare --project orrery --since 2026-10-17T08:21:00Z --sourcemaps
 - Failure paths, run from a throwaway copy: expected status 200 → `[FAIL] … answered 401, expected
   200 … — trace d3bfd59ed91d86173ec61ed260ce5022`; a service that never appears → `[FAIL] … trace
   a3260bf1c3b79e1959e91aaaf9094b47 NOT in VictoriaTraces after 20 s` (limit lowered for the test).
+
+**2026-11-08, flotilla `sha-75a7491`** (since 18:45Z, its first deploy): `DEPLOY-VERIFY: PASS`. 21
+flotillad, 142 worker and 272 egress lines (environment=operations), 6 flotillad traces with
+service.version sha-75a7491, the three counters present. No GlitchTip project, Langfuse keys or
+site yet, so those sections have nothing to check.
 
 ## Not covered
 

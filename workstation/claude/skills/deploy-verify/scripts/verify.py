@@ -53,6 +53,21 @@ PROFILES = {
         # whatever the sampled flag says. A 200 or 5xx means the auth path changed: FAIL.
         "trace_probes": [{"service": "orrery-mcp", "url": "https://mcp.orrerylearn.com/mcp", "status": 401}],
     },
+    # chipi/flotilla on the mini: a homelab service, so its lines carry environment=operations.
+    # Its metrics are pushed, not scraped; --release is the image tag (sha-<7>) flotillad reports
+    # as service.version. No GlitchTip project yet, no Langfuse keys, no site.
+    "flotilla": {
+        "environment": "operations",
+        "log_services": ["flotillad", "flotilla-worker-triage", "flotilla-egress"],
+        "trace_services": ["flotillad"],
+        "scrape_jobs": [],
+        "counters": ['flotilla_up{service="flotillad"}', 'flotilla_run{job="platform/heartbeat",status="ok"}',
+                     'flotilla_job_last_success_timestamp_seconds{job="platform/heartbeat"}'],
+        "glitchtip": [],
+        "langfuse_keys": None,
+        "umami_sites": [],
+        "live_url": None,
+    },
 }
 results = []
 
@@ -166,13 +181,14 @@ def snapshot(prof):
 
 
 def compare(prof, base, release, since):
+    env = prof.get("environment", "prod")   # the label the project's live lines carry
     print(f"== logs since {since}")
     for s in prof["log_services"]:
         rows = vl(f'_time:>{since} service:{s} | stats by (environment, instance) count() n')
-        prod = sum(int(r["n"]) for r in rows if r.get("environment") == "prod")
-        check(prod > 0, f"{s}: {prod} prod lines")
+        prod = sum(int(r["n"]) for r in rows if r.get("environment") == env)
+        check(prod > 0, f"{s}: {prod} {env} lines")
         other = [(r.get("environment") or "(none)", r.get("instance") or "?", r["n"]) for r in rows
-                 if r.get("environment") != "prod"]
+                 if r.get("environment") != env]
         unlabelled = [o for o in other if o[0] == "(none)"]
         if unlabelled:
             check(False, f"{s}: lines with NO environment label: {unlabelled}")
