@@ -19,6 +19,7 @@ import json
 import os
 import re
 
+import callrec
 import config
 import probes
 
@@ -74,6 +75,7 @@ def record(signal, disp, now=None):
         with os.fdopen(fd, "w") as f:
             json.dump(item, f, ensure_ascii=False, default=str)
         os.replace(tmp, path)
+        callrec.write_filing(path, signal.get("fingerprint", ""))   # results/filing/<same name>, if it filed
         return path
     except Exception as e:  # noqa: BLE001
         print(f"    [capture] skipped: {e}")

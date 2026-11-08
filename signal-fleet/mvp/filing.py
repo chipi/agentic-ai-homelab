@@ -25,6 +25,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+import callrec
 import config
 
 # #8 — new signals drop into this milestone so release-planning sees them (184/200
@@ -501,6 +502,7 @@ def reused_short_id(row, first_seen):
 
 
 def ledger_upsert(entry):
+    callrec.append("written", entry)
     rows = [r for r in _ledger_rows() if r["fingerprint"] != entry["fingerprint"]]
     rows.append(entry)
     _ledger_write(rows)
@@ -667,7 +669,20 @@ def _milestone_number(repo, title):
 
 # ── the filing decision tree ─────────────────────────────────────────────
 def file_or_update(signal, issue, kind):
-    """Returns a one-line outcome string (also printed by the caller)."""
+    """Returns a one-line outcome string (also printed by the caller). With capture on, what it looked up, computed
+    and wrote is recorded for an exact replay (callrec.py); recording never changes what it does."""
+    with callrec.recording(globals(), "filing") as rec:
+        callrec.note("issue", issue)   # the input as passed (title and body come from the triage decision)
+        out = _file_or_update(signal, issue, kind)
+        if rec is not None:
+            rec.note("fingerprint", signal.get("fingerprint", ""))
+            rec.note("work_type", kind)
+            rec.note("result", out)
+            callrec.LAST_FILING = rec.rec
+        return out
+
+
+def _file_or_update(signal, issue, kind):
     fp = signal.get("fingerprint", "")
     gk = group_key_for(signal.get("alertname", ""), (issue or {}).get("title", ""),
                        (signal.get("labels") or {}).get("project", ""))
@@ -676,10 +691,12 @@ def file_or_update(signal, issue, kind):
     if not repo:
         return f"REFUSED: no repo mapping for {fp} and SF_OPS_REPO unset"
     ak = alert_key(repo, signal.get("source", ""), signal.get("alertname", ""))
+    callrec.note("keys", {"group_key": gk, "norm_key": nk, "alert_key": ak, "repo": repo})
     issue = sanitize_issue(signal, issue)
     prior = ledger_lookup(fp, gk, nk, ak,
                           is_open=lambda rp, n: issue_state(rp, n)["state"] == "open",
                           first_seen=signal.get("startsAt", "") if signal.get("source") == "glitchtip" else "")
+    callrec.note("matched", prior)   # the ledger row, with `_dim`: the key it matched on (None: no match)
 
     # #4 promotion (review R6) — checked BEFORE the mute gate (Fable pre-deploy
     # review) so a signal that has crossed the threshold escapes a MUTED rollup

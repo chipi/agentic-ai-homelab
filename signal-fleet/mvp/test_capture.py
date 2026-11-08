@@ -137,5 +137,138 @@ class Capture(unittest.TestCase):
         self.assertEqual(order, ["ledger", "capture"])
 
 
+class FilingAndSweepRecords(unittest.TestCase):
+    """callrec.py (ADR-0004 / RFC-0002 §9 step 1): what filing and the stale sweep looked up, computed and wrote,
+    recorded for an exact replay, without changing what they do. GitHub is a stand-in; nothing leaves the test."""
+
+    def setUp(self):
+        import callrec
+        import filing
+        self.filing, self.callrec = filing, callrec
+        self.root = tempfile.mkdtemp()
+        self.probes = os.path.join(self.root, "probes")
+        self.ledger = os.path.join(self.root, "filed.tsv")
+        self.gh_calls = []
+
+        def gh(method, path, payload=None):
+            self.gh_calls.append((method, path))
+            if method == "POST" and path.endswith("/issues"):
+                return {"number": 7, "html_url": "u/7"}
+            if method == "GET" and "/milestones" in path:
+                return []
+            return {}
+        self.gh = gh
+        self.patches = [mock.patch.object(config, "CAPTURE_DIR", self.probes),
+                        mock.patch.object(probes, "run_probe", lambda *a, **k: "<eager>"),
+                        mock.patch.object(filing, "FILED", self.ledger),
+                        mock.patch.object(filing, "_gh", gh),
+                        mock.patch.object(filing, "_related_issues", lambda *a, **k: []),
+                        mock.patch.object(filing, "_glitchtip_note", lambda *a, **k: None),
+                        mock.patch.object(filing, "issue_state",
+                                          lambda r, n: {"state": "open", "labels": [], "closed_at": None, "url": ""})]
+        for p in self.patches:
+            p.start()
+        callrec.LAST_FILING = None
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+
+    def _file(self):
+        return self.filing.file_or_update(SIGNAL, {"title": "TypeError: x is undefined", "body": "b"}, "bug")
+
+    def test_off_records_nothing_and_changes_nothing(self):
+        out = self._file()
+        self.assertTrue(out.startswith("FILED"), out)
+        self.assertIs(self.filing._gh, self.gh)
+        self.assertIsNone(self.callrec.LAST_FILING)
+        self.assertFalse(os.path.exists(os.path.join(self.root, "filing")))
+
+    def test_on_the_same_outcome_and_calls_as_off(self):
+        off = self._file()
+        calls_off = list(self.gh_calls)
+        os.unlink(self.ledger)
+        self.gh_calls.clear()
+        with mock.patch.object(config, "CAPTURE_PROBES", True):
+            on = self._file()
+        self.assertEqual(on, off)
+        self.assertEqual(self.gh_calls, calls_off)
+        self.assertIs(self.filing._gh, self.gh)   # restored
+
+    def test_the_filing_record(self):
+        with mock.patch.object(config, "CAPTURE_PROBES", True):
+            out = self._file()
+            path = capture.record(SIGNAL, _disp())
+        rec = json.load(open(os.path.join(self.root, "filing", os.path.basename(path))))
+        self.assertEqual(rec["fingerprint"], SIGNAL["fingerprint"])
+        self.assertEqual(rec["result"], out)
+        self.assertEqual(rec["work_type"], "bug")
+        self.assertEqual(rec["issue"], {"title": "TypeError: x is undefined", "body": "b"})   # the input as passed
+        self.assertTrue(rec["clock"])   # every clock reading filing made (it stamps filed_at with one)
+        self.assertEqual(set(rec["keys"]), {"group_key", "norm_key", "alert_key", "repo"})
+        self.assertEqual(rec["keys"]["norm_key"], self.filing.normalized_key(SIGNAL))
+        self.assertIsNone(rec["matched"])
+        self.assertIn(["POST", "/repos/" + rec["keys"]["repo"] + "/issues"],
+                      [[c["method"], c["path"]] for c in rec["github"]])
+        self.assertEqual([r["issue"] for r in rec["written"]], [7])
+        self.assertEqual(stat.S_IMODE(os.stat(os.path.join(self.root, "filing", os.path.basename(path))).st_mode), 0o600)
+
+    def test_a_match_records_its_dimension(self):
+        nk = self.filing.normalized_key(SIGNAL)
+        self.filing._ledger_write([{"fingerprint": "glitchtip:ORRERY-PROD-1", "repo": "chipi/orrery", "issue": "5",
+                                    "group_key": "", "norm_key": nk, "alert_key": "", "last_comment_day": ""}])
+        with mock.patch.object(config, "CAPTURE_PROBES", True):
+            out = self._file()
+        rec = self.callrec.LAST_FILING
+        self.assertTrue(out.startswith("COMMENTED"), out)
+        self.assertEqual((rec["matched"]["issue"], rec["matched"]["_dim"]), ("5", "norm_key"))
+
+    def test_probes_gets_only_the_capture(self):
+        with mock.patch.object(config, "CAPTURE_PROBES", True):
+            self._file()
+            path = capture.record(SIGNAL, _disp())
+        self.assertEqual(os.listdir(self.probes), [os.path.basename(path)])
+
+    def test_a_record_of_another_decision_is_not_written(self):
+        with mock.patch.object(config, "CAPTURE_PROBES", True):
+            self._file()
+            other = dict(SIGNAL, fingerprint="glitchtip:ORRERY-PROD-2")
+            path = capture.record(other, _disp())
+        self.assertFalse(os.path.exists(os.path.join(self.root, "filing", os.path.basename(path))))
+        self.assertIsNone(self.callrec.LAST_FILING)
+
+    def test_gh_restored_when_filing_raises(self):
+        def boom(method, path, payload=None):
+            raise RuntimeError("github down")
+        with mock.patch.object(self.filing, "_gh", boom), mock.patch.object(config, "CAPTURE_PROBES", True):
+            with self.assertRaises(RuntimeError):
+                self._file()
+            self.assertIs(self.filing._gh, boom)
+
+    def test_the_sweep_record(self):
+        import datetime
+        import sources
+        import stale
+        now = datetime.datetime(2026, 11, 9, 0, 4, 12, tzinfo=datetime.timezone.utc)
+        self.filing._ledger_write([{"fingerprint": "glitchtip:ORRERY-PROD-9", "repo": "chipi/orrery", "issue": "5"}])
+        occ = [("2026-10-01T00:00:00+00:00", "glitchtip:ORRERY-PROD-9", "glitchtip", "TypeError: x is undefined")]
+
+        def gh(method, path, payload=None):
+            self.gh_calls.append((method, path))
+            if path.startswith("/search/issues"):
+                return {"items": [{"number": 5, "labels": []}]}
+            return []
+        with mock.patch.object(config, "CAPTURE_PROBES", True), mock.patch.object(self.filing, "_gh", gh), \
+                mock.patch.object(stale, "_occurrences", lambda: occ), \
+                mock.patch.object(sources, "firing_alerts", lambda: [{"labels": {"alertname": "A"}}]):
+            summary = stale.run_pass(dry_run=True, now=now, force=True)
+        rec = json.load(open(os.path.join(self.root, "sweeps", "20261109T000412Z.json")))
+        self.assertEqual(rec["summary"], summary)
+        self.assertEqual((rec["now"], rec["dry_run"], rec["firing"]), (now.isoformat(), True, ["A"]))
+        self.assertEqual(rec["occurrences"]["count"], 1)
+        self.assertEqual([c["path"].split("?")[0] for c in rec["github"]],
+                         ["/search/issues", "/repos/chipi/orrery/issues/5/comments"])
+
+
 if __name__ == "__main__":
     unittest.main()

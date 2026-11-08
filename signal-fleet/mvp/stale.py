@@ -22,6 +22,7 @@ seen by the fleet", never "fixed".
 import os
 from datetime import datetime, timedelta, timezone
 
+import callrec
 import filing
 
 QUIET_DAYS = 7
@@ -111,13 +112,30 @@ def run_pass(dry_run=True, now=None, force=False):
     """Nudge stale open fleet issues. Once per UTC day unless force. Returns a summary
     string. Never closes an issue; skips muted and already-nudged ones. Writes only
     when not dry_run AND enabled()."""
-    import urllib.parse
-    import sources
     dry_run = dry_run or not enabled()
     now = now or now_utc()
     today = now.strftime("%Y-%m-%d")
     if not force and os.path.exists(LAST_RUN) and open(LAST_RUN).read().strip() == today:
         return "stale: already ran today"
+    # with capture on, the sweep's inputs, GitHub calls and summary are recorded for an exact replay (callrec.py)
+    with callrec.recording(vars(filing), "sweep") as rec:
+        summary, occ, firing = _sweep(dry_run, now)
+        if rec is not None:
+            rec.note("now", now.isoformat())
+            rec.note("dry_run", dry_run)
+            rec.note("firing", sorted(firing))
+            rec.note("summary", summary)
+            callrec.write_sweep(rec, now, occ)
+    if not force:                         # a dry pass also counts as today's run —
+        with open(LAST_RUN, "w") as f:    # else shadow would re-query GitHub every cycle
+            f.write(today + "\n")
+    return summary
+
+
+def _sweep(dry_run, now):
+    """One pass over the open fleet issues: (summary, the occurrences read, the firing alert names)."""
+    import urllib.parse
+    import sources
     ledger = filing._ledger_rows()
     occ = _occurrences()
     names = {}
@@ -148,11 +166,8 @@ def run_pass(dry_run=True, now=None, force=False):
                            {"body": nudge_text(seen, now)})
                 filing._gh("POST", f"/repos/{repo}/issues/{it['number']}/labels",
                            {"labels": [STALE_LABEL]})
-    if not force:                         # a dry pass also counts as today's run —
-        with open(LAST_RUN, "w") as f:    # else shadow would re-query GitHub every cycle
-            f.write(today + "\n")
     return (f"stale: checked {checked} open fleet issues, "
-            f"{'would nudge' if dry_run else 'nudged'} {len(nudged)}: {', '.join(nudged) or '-'}")
+            f"{'would nudge' if dry_run else 'nudged'} {len(nudged)}: {', '.join(nudged) or '-'}"), occ, firing
 
 
 if __name__ == "__main__":
