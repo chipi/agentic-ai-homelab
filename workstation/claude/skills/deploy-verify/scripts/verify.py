@@ -11,6 +11,7 @@ Langfuse locally. Stdlib only (Python 3.9).
 compare ends with "DEPLOY-VERIFY: PASS|FAIL" (exit 1 on FAIL). It checks, per the project profile:
   logs      every service logged since the deploy, labelled environment=prod
   traces    every traced service has spans since the deploy, carrying service.version == --release
+  probe     (orrery) one request with a trace id we generate; that exact trace reaches VictoriaTraces
   metrics   every scrape job is up; every listed counter has series (count_over_time, not instant)
   errors    GlitchTip issues first seen since the deploy, per project, with status. Each one FAILs the
             gate on purpose: someone has to look. Resolved ones show as (resolved).
@@ -46,6 +47,11 @@ PROFILES = {
         "langfuse_keys": None,
         "umami_sites": ["Orrery"],
         "live_url": "https://www.orrerylearn.com/",
+        # The MCP route needs an OAuth bearer, so the probe sends none: the server still opens a
+        # SERVER span for the 401 and continues the incoming traceparent (orrery
+        # server/observability/index.ts). orrery-mcp runs AlwaysOnSampler, so the span is kept
+        # whatever the sampled flag says. A 200 or 5xx means the auth path changed: FAIL.
+        "trace_probes": [{"service": "orrery-mcp", "url": "https://mcp.orrerylearn.com/mcp", "status": 401}],
     },
 }
 results = []
@@ -60,6 +66,47 @@ def check(ok, what, warn=False):
 
 BROWSER_UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
               "Chrome/141.0.0.0 Safari/537.36 deploy-verify/1.0")
+
+
+def status_of(url, headers):
+    """HTTP status of a GET (an error status is a result here, not an exception)."""
+    h = {"User-Agent": BROWSER_UA, **headers}
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=30) as r:
+            return r.status
+    except urllib.error.HTTPError as e:
+        return e.code
+
+
+def trace_probes(prof, every=5, limit=60):
+    """Send one request carrying a trace id generated here, then poll VictoriaTraces for that id."""
+    for p in prof.get("trace_probes", []):
+        trace_id, span_id = os.urandom(16).hex(), os.urandom(8).hex()
+        sent = time.time()
+        try:
+            code = status_of(p["url"], {"traceparent": f"00-{trace_id}-{span_id}-01"})
+        except (urllib.error.URLError, OSError) as e:   # DNS, refused, timeout: a FAIL, not a crash
+            check(False, f"{p['service']} probe: {p['url']} unreachable ({e}) — trace {trace_id}")
+            continue
+        if code != p["status"]:
+            check(False, f"{p['service']} probe: {p['url']} answered {code}, expected {p['status']} "
+                         f"(the route's behaviour changed) — trace {trace_id}")
+            continue
+        found = None
+        while time.time() - sent < limit:
+            time.sleep(every)
+            try:
+                data = json.loads(get(f"{VT}/select/jaeger/api/traces/{trace_id}")).get("data") or []
+            except urllib.error.HTTPError as e:
+                if e.code != 404:
+                    raise
+                data = []
+            if any(pr["serviceName"] == p["service"] for t in data for pr in t["processes"].values()):
+                found = time.time() - sent
+                break
+        check(found is not None,
+              f"{p['service']} probe: {code} from {p['url']}, trace {trace_id} "
+              + (f"in VictoriaTraces after {found:.0f} s" if found is not None else f"NOT in VictoriaTraces after {limit} s"))
 
 
 def get(url, headers=None, timeout=60):
@@ -148,6 +195,9 @@ def compare(prof, base, release, since):
         check(bool(data), f"{s}: {len(data)} traces since the deploy")
         if data and release:
             check(release in versions, f"{s}: service.version {sorted(v for v in versions if v)} contains {release}")
+    if prof.get("trace_probes"):
+        print("== trace probes (one request we sent, traced end to end)")
+        trace_probes(prof)
     print("== metrics")
     for job in prof["scrape_jobs"]:
         r = vm(f'up{{job="{job}"}}')

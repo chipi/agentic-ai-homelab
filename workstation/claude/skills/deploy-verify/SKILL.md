@@ -36,6 +36,7 @@ $R homelab $V compare --project orrery --since 2026-10-17T08:21:00Z --sourcemaps
 |---|---|
 | logs | each service has prod lines since the deploy. Non-prod lines (dev runs) are INFO; lines with no environment label FAIL. |
 | traces | each traced service has traces since the deploy, and `service.version` includes `--release` |
+| probe | (orrery) one `GET` to `mcp.orrerylearn.com/mcp` with a `traceparent` whose trace id the script just generated: it must answer the pinned status (401, no token) and **that** trace id must reach VictoriaTraces within 60 s (polled every 5 s). Another status FAILs with it shown; a timeout FAILs with the trace id. Needs a sampler that keeps the span (orrery-mcp: `AlwaysOnSampler`). |
 | metrics | every scrape job `up=1`; every listed counter has series over 2 days (`count_over_time`, not an instant query) |
 | errors | **no** GlitchTip issue first seen since the deploy. Each new one FAILs the gate on purpose: someone has to look. Its status is shown. |
 | langfuse | app traces since the deploy all carry `--release`. LiteLLM's own `litellm-*` traces are ignored. |
@@ -68,6 +69,14 @@ $R homelab $V compare --project orrery --since 2026-10-17T08:21:00Z --sourcemaps
 - the orrery profile had no scrape job, so metrics were skipped; it now checks `orrery`.
 - A service with no traffic since the deploy shows 0 traces (mcp, 20 min after this deploy):
   send it one request and re-run before calling tracing broken.
+
+**2026-11-08, MCP trace probe (from the orrery session):** no probe credential exists for
+`mcp.orrerylearn.com`, so the probe sends none — the 401 is still a traced request.
+- `compare --project orrery`: `[PASS] orrery-mcp probe: 401 from https://mcp.orrerylearn.com/mcp,
+  trace a5af2f688d8e7fc371d22f58a91b78cf in VictoriaTraces after 21 s`.
+- Failure paths, run from a throwaway copy: expected status 200 → `[FAIL] … answered 401, expected
+  200 … — trace d3bfd59ed91d86173ec61ed260ce5022`; a service that never appears → `[FAIL] … trace
+  a3260bf1c3b79e1959e91aaaf9094b47 NOT in VictoriaTraces after 20 s` (limit lowered for the test).
 
 ## Not covered
 
