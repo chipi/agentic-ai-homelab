@@ -62,7 +62,7 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('alerts: a failing alertmanager is ok:false, not an empty all-clear', ae.ok === false, ae);
 
   // needs you
-  let n = await HS.needsYou(src([['queue_depth{kind="bug"}', [vec(3)]], ['escalations_7d', [vec(2)]]]));
+  let n = await HS.needsYou(src([['queue_depth{service="triage-fleet",kind="bug"}', [vec(3)]], ['escalations_7d{service="triage-fleet"}', [vec(2)]]]));
   check('needsYou: bug queue + escalations', n.total === 5, n);
   n = await HS.needsYou(src([]));
   check('needsYou: no data is null, not 0', n.total === null, n);
