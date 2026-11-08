@@ -26,7 +26,8 @@ fleetd (Go supervisor, macOS LaunchDaemon com.homelab.fleetd)
        ├─ 2. GlitchTip pass  10 most recently seen unresolved errors (sources.glitchtip_unresolved)
        │       each signal → triage → act → file (below)
        ├─ 3. triager-down    if the LLM is down: ONE aggregate issue, never one per signal
-       ├─ 4. inbox push      operator-inbox metrics for Grafana ("needs you" counts open escalations only, 6a59983)
+       ├─ 4. inbox push      operator-inbox metrics for Grafana ("needs you" counts open escalations only, 6a59983),
+       │                     and the published inbox export/inbox.json (fleet_inbox/v1) the Hub reads
        ├─ 5. stale pass      once per UTC day: nudge open issues whose signal went quiet
        ├─ 6. GitHub → GlitchTip sync (#100, SF_GLITCHTIP_SYNC=1): mirror the operator's closes
        └─ 7. spend file      cycle cost → fleetd's daily budget guard ($2/day)
@@ -248,6 +249,7 @@ It is upserted by fingerprint, so a fingerprint has exactly one row.
 | `results/.deferred.json` | per-signal count of transient triager failures (#11); absent when nothing is deferred |
 | `results/.stale_last_run` | UTC day of the last stale pass |
 | `results/.inbox_seen` | operator-inbox bookkeeping |
+| `export/inbox.json` | **the fleet's published inbox**, the one file other readers may use (the Hub's `fleet.json`). Schema `fleet_inbox/v1`: `schema`, `fleet`, `generated_at`, `needs_you` (bug proposals + open escalations of the last 7 days, the same rows as `signal_fleet_escalations_7d`), `escalations_7d` (`ts`, `alertname`, `reason`, `fingerprint`, `issue`: `repo`, `number`, `url`, `state`, `title`, and `error` when GitHub could not be read, or null when never filed), `bug_queue` (`title`, `fingerprint`, `queued_at`), `queue_depth` (per kind). Rewritten atomically each cycle; a change to the fields is a new schema version. flotilla will serve the same document from its API |
 | `results/.last_cycle_spend` | cycle cost in USD, read by fleetd's budget guard |
 | `results/probes/` | per-decision capture (`capture.py`), **on in production since 2026-10-29** (`SF_CAPTURE_PROBES=1` in `fleet-gateway.env`; the code default is off): one JSON per decision (mode 600) with the signal, every probe answer the model got (raw and the trimmed text it read) and, with `SF_CAPTURE_EAGER=1` (default), the rest of the probe menu at default args, so `triage.investigate(signal, probe_table=item["probes"])` replays the decision exactly; since `b16c220` also `model_decision`, the model's own decision before the gates. About 12 KB each. Real production data: keep on the host, `scrub.py` before sharing |
 | `queue/` | proposals the fleet may not act on alone (`cleanup`, `config-enhancement`; everything in `shadow`) as `*.json`; handled ones renamed `.filed` / `.resolved`. The operator triages them with the `triage-fleet-review` skill's `proposals.py` (54 had piled up by 2026-10-17); `queue/archive/` holds batches set aside |

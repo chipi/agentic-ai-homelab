@@ -4,7 +4,7 @@
 // Env overrides: HUB_VM, HUB_VLOGS, HUB_GRAFANA, HUB_GLITCHTIP, HUB_LITELLM, HUB_HA, HUB_UMAMI,
 // HUB_GRAFANA_TOKEN_FILE (variable GRAFANA_TOKEN), HUB_GLITCHTIP_TOKEN_FILE (GLITCHTIP_TOKEN),
 // HUB_BRIEFING_KEY_FILE (LITELLM_API_KEY), HUB_HA_TOKEN_FILE (the whole file is the token),
-// HUB_UMAMI_ENV_FILE (UMAMI_ADMIN_PASSWORD), HUB_GITHUB_TOKEN_FILE (GITHUB_TOKEN), HUB_FLEET_RESULTS, HUB_FLEET_QUEUE,
+// HUB_UMAMI_ENV_FILE (UMAMI_ADMIN_PASSWORD), HUB_GITHUB_TOKEN_FILE (GITHUB_TOKEN), HUB_FLEET_INBOX,
 // HUB_DOCKER, HUB_LITELLM_PG_CONTAINER.
 'use strict';
 const fs = require('fs');
@@ -29,8 +29,9 @@ const FILES = {
   ha: E.HUB_HA_TOKEN_FILE || path.join(H, 'home-automation-secrets/ha-token'),
   umami: E.HUB_UMAMI_ENV_FILE || path.join(H, 'umami/.env'),
   github: E.HUB_GITHUB_TOKEN_FILE || path.join(H, 'assistant-github-readonly.env'),
-  fleetResults: E.HUB_FLEET_RESULTS || path.join(H, 'signal-fleet/results'),
-  fleetQueue: E.HUB_FLEET_QUEUE || path.join(H, 'signal-fleet/queue'),
+  // the triage fleet's published inbox (schema fleet_inbox/v1, signal-fleet/mvp/inbox.py), never its
+  // ledgers or queue directory: those are the fleet's own and change with it
+  fleetInbox: E.HUB_FLEET_INBOX || path.join(H, 'signal-fleet/export/inbox.json'),
 };
 
 // The repos the triage fleet files into: signal-fleet/mvp/filing.py REPO_MAP, INSTANCE_REPO_MAP and
@@ -87,16 +88,8 @@ function statusSource() {
         { timeout: 20000 }, (err, out, errOut) => err ? reject(new Error('litellm sql: ' + (errOut || err.message).trim().slice(0, 200)))
                                                        : resolve(out.split('\n').filter(Boolean)));
     }),
-    // the triage fleet's own files on the mini: the dispositions and filed ledgers, and its queue
-    fleetFiles: async () => {
-      const tsv = f => { const [h, ...rows] = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean); const cols = h.split('\t');
-        return rows.map(l => { const c = l.split('\t'), o = {}; cols.forEach((k, i) => { o[k] = c[i]; }); return o; }); };
-      const queue = (fs.existsSync(FILES.fleetQueue) ? fs.readdirSync(FILES.fleetQueue) : []).filter(n => n.endsWith('.json')).map(n => {
-        try { const d = JSON.parse(fs.readFileSync(path.join(FILES.fleetQueue, n), 'utf8'));
-              return { kind: d.kind || n.split('-')[0], title: ((d.issue || {}).title) || ((d.signal || {}).alertname || '').slice(0, 140),
-                       fingerprint: (d.signal || {}).fingerprint || '', queued_at: d.queued_at || '' }; } catch (e) { return null; } }).filter(Boolean);
-      return { dispositions: tsv(path.join(FILES.fleetResults, 'dispositions.tsv')), filed: tsv(path.join(FILES.fleetResults, 'filed.tsv')), queue };
-    },
+    // the triage fleet's published inbox document
+    fleetInbox: async () => JSON.parse(fs.readFileSync(FILES.fleetInbox, 'utf8')),
     fleetRepos: FLEET_REPOS,
     github: async p => {
       const gh = secret(FILES.github, 'GITHUB_TOKEN');

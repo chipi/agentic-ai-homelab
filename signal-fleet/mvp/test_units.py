@@ -167,6 +167,85 @@ class TestInboxShip(unittest.TestCase):
         self.assertIn("_stream_fields=fleet,event,service,environment", sent["url"])
 
 
+class TestInboxExport(unittest.TestCase):
+    """The published inbox (fleet_inbox/v1) the Hub reads instead of the ledgers: the same rows the
+    gauge counts, each with its filed issue as the fleet read it. Files in a temp dir, GitHub stubbed."""
+
+    def setUp(self):
+        import tempfile
+        import time
+        from datetime import datetime, timezone
+
+        import filing
+        import inbox
+        self.inbox, self.filing = inbox, filing
+        self.dir = tempfile.mkdtemp(prefix="inbox_export_")
+        now = time.time()
+        iso = lambda s: datetime.fromtimestamp(now - s, timezone.utc).isoformat()
+        disp = os.path.join(self.dir, "dispositions.tsv")
+        with open(disp, "w") as f:
+            f.write("ts\tfingerprint\talertname\tdisposition\treason\n")
+            for age, fp, name, d in [(3600, "glitchtip:X-1", "boom", "escalate"), (8 * 86400, "glitchtip:X-2", "old", "escalate"),
+                                     (600, "glitchtip:X-3", "noise", "dismiss"), (300, "grafana:zz", "never filed", "escalate"),
+                                     (200, "glitchtip:X-4", "closed one", "escalate"), (100, "glitchtip:X-5", "unreadable one", "escalate")]:
+                f.write(f"{iso(age)}\t{fp}\t{name}\t{d}\tr\n")
+        filed = os.path.join(self.dir, "filed.tsv")
+        with open(filed, "w") as f:
+            f.write("fingerprint\trepo\tissue\tgroup_key\tfiled_at\tlast_comment_day\tnorm_key\talert_key\n")
+            for fp, n, at in [("glitchtip:X-1", 5, "2026-08-01"), ("glitchtip:X-1", 9, "2026-08-20"),
+                              ("glitchtip:X-4", 11, "2026-11-01"), ("glitchtip:X-5", 12, "2026-11-01")]:
+                f.write(f"{fp}\tchipi/a\t{n}\t\t{at}\t\t\t\n")
+        self.saved = (inbox.DISPOSITIONS, filing.FILED)
+        inbox.DISPOSITIONS, filing.FILED = disp, filed
+        self.now = now
+
+    def tearDown(self):
+        self.inbox.DISPOSITIONS, self.filing.FILED = self.saved
+
+    @staticmethod
+    def _state_of(repo, n):
+        if str(n) == "12":
+            raise RuntimeError("HTTP 502")
+        return {"9": {"state": "open", "title": "boom issue"}, "11": {"state": "closed", "title": "done"},
+                "5": {"state": "closed", "title": "first"}}[str(n)]
+
+    def test_doc_matches_the_count_and_carries_the_issues(self):
+        issues = {}
+        esc = self.inbox._recent_escalations(state_of=self._state_of, issues=issues)
+        items = [{"kind": "bug", "title": "a bug", "fingerprint": "glitchtip:Y-1", "queued_at": "2026-11-08T10:00:00+00:00"},
+                 {"kind": "cleanup", "title": "c", "fingerprint": "f", "queued_at": ""}]
+        doc = self.inbox.export_doc(items, esc, issues, now=self.now)
+        self.assertEqual(doc["schema"], "fleet_inbox/v1")
+        names = [e["alertname"] for e in doc["escalations_7d"]]
+        self.assertEqual(names, ["boom", "never filed", "unreadable one"])   # 8-day, dismiss, closed: out
+        self.assertEqual(doc["needs_you"], 4)
+        self.assertEqual(doc["needs_you"], len(esc) + 1)                     # the gauge's rows plus the bug
+        by = {e["alertname"]: e["issue"] for e in doc["escalations_7d"]}
+        self.assertEqual(by["boom"], {"repo": "chipi/a", "number": 9, "url": "https://github.com/chipi/a/issues/9",
+                                      "state": "open", "title": "boom issue"})   # the NEWEST filed row
+        self.assertIsNone(by["never filed"])
+        self.assertIsNone(by["unreadable one"]["state"])
+        self.assertIn("HTTP 502", by["unreadable one"]["error"])
+        self.assertEqual(doc["bug_queue"], [{"title": "a bug", "fingerprint": "glitchtip:Y-1",
+                                             "queued_at": "2026-11-08T10:00:00+00:00"}])
+        self.assertEqual(doc["queue_depth"], {"bug": 1, "cleanup": 1})
+
+    def test_rows_unchanged_without_issues(self):
+        """The replay gate (eval_inbox_open_replay) compares rows: collecting issues must not alter them."""
+        a = self.inbox._recent_escalations(state_of=self._state_of)
+        b = self.inbox._recent_escalations(state_of=self._state_of, issues={})
+        self.assertEqual(a, b)
+
+    def test_write_is_atomic_and_readable(self):
+        import json
+        path = os.path.join(self.dir, "export", "inbox.json")
+        self.inbox.write_export({"schema": "fleet_inbox/v1"}, path)
+        with open(path) as f:
+            self.assertEqual(json.load(f)["schema"], "fleet_inbox/v1")
+        self.assertFalse(os.path.exists(path + ".tmp"))
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o644)
+
+
 class TestCodeVersion(unittest.TestCase):
     """#6 — code_version stamped from the event and the signal."""
 

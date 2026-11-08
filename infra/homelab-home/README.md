@@ -58,8 +58,11 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   `getSiteAnalytics`. A run takes ~5 s with 7 sites (2026-11-04).
   And `www/fleet.json` (served at `/fleet.json`, use case H6): what the triage fleet wants from the
   operator. `needsYou` is the fleet's own count (escalations of the last 7 days + bug proposals, as
-  `signal-fleet/mvp/inbox.py` counts them), each escalation linked to its issue through the fleet's
-  filed ledger, plus every escalated issue still open. Read from the fleet's files on the mini and from
+  `signal-fleet/mvp/inbox.py` counts them), each escalation with its filed issue, plus every escalated
+  issue still open. The fleet part comes only from the inbox the fleet publishes every cycle,
+  `~/signal-fleet/export/inbox.json` (schema `fleet_inbox/v1`; `HUB_FLEET_INBOX` overrides the path),
+  never from the fleet's ledgers or queue: a document older than an hour is shown with `stale: true`,
+  another schema version is refused. The open escalated issues come from
   GitHub with `~/assistant-github-readonly.env` (Issues read on the five repos the fleet files into, listed
   in `hub-sources.js` `FLEET_REPOS`); a repo GitHub refuses is named in `unreadable`. The assistant reads
   it one list at a time, `www/fleet/needs-you.json` and `open-escalated.json` (count and finished lines),

@@ -555,7 +555,7 @@ def issue_state(repo, number):
     return {"state": d.get("state"), "labels": labels, "reason": d.get("state_reason") or "",
             "closed_at": datetime.fromisoformat(closed_at.replace("Z", "+00:00"))
             if closed_at else None,
-            "url": d.get("html_url", "")}
+            "url": d.get("html_url", ""), "title": d.get("title") or ""}
 
 
 DUPLICATE_HOPS = 3

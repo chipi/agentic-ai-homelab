@@ -26,6 +26,10 @@ DISPOSITIONS = os.path.expanduser(
 SEEN_FILE = os.path.expanduser(
     os.environ.get("SF_INBOX_SEEN", "~/signal-fleet/results/.inbox_seen"))
 VL_URL = os.environ.get("SF_VL_URL", config.VM_URL.replace(":8428", ":9428"))
+# The inbox published for other readers (the Hub), schema fleet_inbox/v1. Readers use this file and
+# never the ledgers or the queue directory; flotilla will serve the same document from its API.
+EXPORT_FILE = os.path.expanduser(
+    os.environ.get("SF_INBOX_EXPORT", "~/signal-fleet/export/inbox.json"))
 
 
 def _load_seen():
@@ -83,26 +87,35 @@ def _scan_queue():
     return items
 
 
-def _issue_closed(fingerprint, state_of, cache):
+def _issue_closed(fingerprint, state_of, cache, issues=None):
     """True when the newest issue filed for this fingerprint is closed. Unfiled, or GitHub not
-    answering: False, so the escalation stays counted (a failed read never hides one)."""
+    answering: False, so the escalation stays counted (a failed read never hides one). With
+    `issues`, records what was read per fingerprint for the export: the issue, or None if unfiled."""
     import filing
     row = filing.ledger_lookup(fingerprint)
     if not row or not row.get("repo") or not row.get("issue"):
+        if issues is not None:
+            issues[fingerprint] = None
         return False
     key = (row["repo"], row["issue"])
     if key not in cache:
         try:
-            cache[key] = (state_of(*key) or {}).get("state") == "closed"
+            st = state_of(*key) or {}
+            cache[key] = (st.get("state") == "closed",
+                          {"state": st.get("state"), "title": st.get("title") or None})
         except Exception as ex:  # noqa: BLE001
             print(f"  inbox: issue state {key[0]}#{key[1]} unreadable, counted: {ex}")
-            cache[key] = False
-    return cache[key]
+            cache[key] = (False, {"state": None, "title": None, "error": str(ex)[:200]})
+    if issues is not None:
+        issues[fingerprint] = {"repo": key[0], "number": int(key[1]),
+                               "url": f"https://github.com/{key[0]}/issues/{key[1]}", **cache[key][1]}
+    return cache[key][0]
 
 
-def _recent_escalations(days=7, state_of=None):
+def _recent_escalations(days=7, state_of=None, issues=None):
     """Escalate rows of the last `days` days that still need the operator: an escalation whose
-    filed issue is closed is done ("needs me" means open, operator 2026-11-04)."""
+    filed issue is closed is done ("needs me" means open, operator 2026-11-04). `issues` (a dict),
+    when given, collects each kept row's filed issue for the export."""
     if state_of is None:
         import filing
         state_of = filing.issue_state
@@ -121,7 +134,7 @@ def _recent_escalations(days=7, state_of=None):
                     ts = datetime.fromisoformat(c[idx["ts"]]).timestamp()
                 except ValueError:
                     continue
-                if ts >= cutoff and not _issue_closed(c[idx["fingerprint"]], state_of, cache):
+                if ts >= cutoff and not _issue_closed(c[idx["fingerprint"]], state_of, cache, issues):
                     rows.append({
                         "id": "esc:" + c[idx["ts"]],
                         "ts": c[idx["ts"]],
@@ -134,9 +147,46 @@ def _recent_escalations(days=7, state_of=None):
     return rows
 
 
+def export_doc(items, escalations, issues, now=None):
+    """The fleet_inbox/v1 document: what needs the operator, as the fleet counts it. needs_you is
+    the bug-queue proposals plus the open escalations of the last 7 days."""
+    bugs = [{"title": it["title"], "fingerprint": it["fingerprint"], "queued_at": it["queued_at"] or None}
+            for it in items if it["kind"] == "bug"]
+    by_kind = {}
+    for it in items:
+        by_kind[it["kind"]] = by_kind.get(it["kind"], 0) + 1
+    return {
+        "schema": "fleet_inbox/v1",
+        "fleet": "triage",
+        "generated_at": datetime.fromtimestamp(now or time.time(), timezone.utc).isoformat(),
+        "needs_you": len(bugs) + len(escalations),
+        "escalations_7d": [{"ts": e["ts"], "alertname": e["alertname"], "reason": e["reason"],
+                            "fingerprint": e["fingerprint"], "issue": issues.get(e["fingerprint"])}
+                           for e in escalations],
+        "bug_queue": bugs,
+        "queue_depth": by_kind,
+    }
+
+
+def write_export(doc, path=None):
+    """Atomically, so a reader never sees half a file."""
+    path = path or EXPORT_FILE
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=1)
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, path)
+
+
 def push_inbox():
     items = _scan_queue()
-    escalations = _recent_escalations()
+    issues = {}
+    escalations = _recent_escalations(issues=issues)
+    try:
+        write_export(export_doc(items, escalations, issues))
+    except Exception as ex:  # noqa: BLE001
+        print(f"  inbox: export write failed: {ex}")
 
     # ── gauges → VictoriaMetrics
     by_kind = {}
