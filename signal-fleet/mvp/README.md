@@ -28,7 +28,7 @@ Stdlib-only Python (3.9 on the mini). No secrets in the repo: credentials come f
 | `capture.py` | per-decision probe capture, one JSON per decision under `~/signal-fleet/results/probes/` (on in production since 2026-10-29) |
 | `config.py`, `http_util.py`, `scrub.py`, `freeze.py` | settings from env, HTTP helpers, scrubbing and freezing corpora |
 | `probe.py`, `probes.py`, `triage_probe.py`, `score.py` | live probes and the triager scorer over frozen fixtures |
-| `eval_*.py`, `test_units.py`, `test_capture.py`, `test_scrub.py` | the 18 deterministic gates `deploy/deploy.sh` runs; the runbook's §5 lists what each guards |
+| `eval_*.py`, `test_units.py`, `test_capture.py`, `test_scrub.py` | the 18 deterministic gates `deploy/gates.sh` runs on every deploy (from the repo's `deploy/mini-deploy.sh`); the runbook's §5 lists what each guards |
 
 ## Run by hand (on the mini)
 

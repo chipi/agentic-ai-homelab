@@ -149,7 +149,7 @@ then     the gates (section 3 above) may turn the decision into an escalation
 
 ## How the fleet is evaluated
 
-- **Deploy gates** (`signal-fleet/deploy/deploy.sh`, 18 on 2026-11-05): deterministic replays and unit tests that
+- **Deploy gates** (`signal-fleet/deploy/gates.sh`, run by the repo's `deploy/mini-deploy.sh`; 18 on 2026-11-05): deterministic replays and unit tests that
   must pass before the mini's checkout keeps a new commit; they say "nothing regressed", not "how often it is right".
 - **Decisions against what the operator did:** eval-harness ([chipi/eval-harness](https://github.com/chipi/eval-harness),
   v0.7.2), `examples/triage-fleet`. It replays a recorded decision through the fleet's own `triage.investigate` with

@@ -1,84 +1,12 @@
 #!/usr/bin/env bash
-# signal-fleet/deploy/deploy.sh — deploy the signal-fleet MVP to the running fleet.
+# signal-fleet/deploy/deploy.sh — kept as a wrapper so old habits and scripts still work.
 #
-# The fleet runs its cycle from the GIT CHECKOUT: fleetd's triage block sets
-# workdir = ~/agentic-ai-homelab/signal-fleet/mvp and runs `python3 orchestrator.py`
-# fresh every 10-min cycle. So DEPLOY = `git pull` the checkout — no scp, no
-# restart, no launchctl. The code goes live on the next cycle.
-# (The ~/signal-fleet/mvp/ directory is a vestigial leftover of the OLD scp method
-#  and is NOT used; only ~/signal-fleet/{results,queue,*.env} state is live.)
+# The mini's deploy is now repo-wide: deploy/mini-deploy.sh pulls main, runs every registered gate
+# (the triage fleet's gates are one hook, deploy/hooks/gate.d/10-signal-fleet.sh ->
+# signal-fleet/deploy/gates.sh), and rolls back if any is red. See deploy/README.md. Split out
+# 2026-11-08 so the fleet can move to flotilla without taking the homelab's deploy with it.
 #
-# Run ON the mini as the fleet user:   bash signal-fleet/deploy/deploy.sh
-#
-# It pulls main, then runs the DETERMINISTIC gates (no LLM, no network; the list below) over
-# the freshly-pulled code. If any gate is red, it auto-rolls-back the checkout to
-# the previous commit so the fleet never picks up broken code.
+# Run ON the mini:   bash signal-fleet/deploy/deploy.sh   (same as bash deploy/mini-deploy.sh)
 set -euo pipefail
-
 CHECKOUT="${SF_CHECKOUT:-$HOME/agentic-ai-homelab}"
-SF="$CHECKOUT/signal-fleet"
-
-say()  { printf '  %s\n' "$*"; }
-fail() { echo "DEPLOY FAIL: $*"; exit 1; }
-
-[ -d "$CHECKOUT/.git" ]            || fail "no git checkout at $CHECKOUT (set SF_CHECKOUT)"
-[ -f "$SF/mvp/orchestrator.py" ]  || fail "$SF/mvp not found — wrong checkout?"
-
-echo "== signal-fleet deploy $(date -u +%Y-%m-%dT%H:%M:%SZ) =="
-
-# a dirty checkout would be clobbered by pull / hide drift — refuse
-[ -z "$(git -C "$CHECKOUT" status --porcelain)" ] || fail "checkout is dirty — commit or stash first"
-
-# every change of HEAD lands in the deploy log (~/signal-fleet/results/deploys.tsv): the post-merge hook logs pulls,
-# the rollback below logs itself. Never blocks a deploy.
-bash "$SF/deploy/install_deploy_log.sh" >/dev/null 2>&1 || say "deploy log: install failed (deploy continues)"
-
-PREV="$(git -C "$CHECKOUT" rev-parse --short HEAD)"
-say "current: $PREV"
-git -C "$CHECKOUT" pull --ff-only origin main >/dev/null 2>&1 \
-  || fail "git pull --ff-only failed (diverged history? fetch + inspect manually)"
-NOW="$(git -C "$CHECKOUT" rev-parse --short HEAD)"
-say "pulled : $NOW$([ "$PREV" = "$NOW" ] && echo '  (no new commits — re-verifying anyway)')"
-
-# verify the deployed code with the deterministic gates (no LLM, no network, no cost)
-say "verifying: eval_hardening · eval_dedup · eval_filing_replay · eval_stale_replay · eval_routing_replay · eval_triager_failure_replay · eval_glitchtip_litellm_replay · eval_recurrence_replay · eval_open_preference_replay · eval_duplicate_follow_replay · eval_identity_replay · eval_promotion_replay · eval_oom_edge_replay · eval_assistant_failover_replay · eval_inbox_open_replay · test_units · test_capture · test_scrub"
-cd "$SF/mvp"
-GATE_HOME="$(mktemp -d)"
-ok=1
-for g in eval_hardening.py eval_dedup.py eval_filing_replay.py eval_stale_replay.py eval_routing_replay.py eval_triager_failure_replay.py eval_glitchtip_litellm_replay.py eval_recurrence_replay.py eval_open_preference_replay.py eval_duplicate_follow_replay.py eval_identity_replay.py eval_promotion_replay.py eval_oom_edge_replay.py eval_assistant_failover_replay.py eval_inbox_open_replay.py test_units.py test_capture.py test_scrub.py; do
-  # eval_filing_replay: the 2026-09-30 duplicate cases must stay comments (#9)
-  args=""; [ "$g" = eval_filing_replay.py ] && args="--cases-only"
-  # HOME = an empty dir: every live state path is under ~/signal-fleet, so no gate can
-  # read the host's ledgers (2026-10-17: a replay passed on a laptop, failed on the mini)
-  if HOME="$GATE_HOME" SF_OBSERV_DISABLED=1 python3 "$g" $args >"/tmp/sf-deploy-$g.log" 2>&1; then
-    say "  PASS $g"
-  else
-    say "  FAIL $g:"; tail -3 "/tmp/sf-deploy-$g.log" | sed 's/^/        /'; ok=0
-  fi
-done
-rm -rf "$GATE_HOME"
-
-# the filing gate (private repo chipi/fleet-eval-data): when filing/stale or what they import changed, replay the
-# newest frozen week with $PREV and $NOW; any change in what filing does fails unless SF_FILING_GATE_ACCEPT="<why>".
-# Real HOME: it reads ~/signal-fleet/frozen, the deploy log and fleetd.log (read-only).
-FILING_GATE="${SF_FILING_GATE:-$HOME/fleet-eval-data/projects/signal-fleet-filing/scripts/filing_gate.py}"
-if [ "$ok" -eq 1 ] && [ -f "$FILING_GATE" ]; then
-  if SF_CHECKOUT="$CHECKOUT" python3 "$FILING_GATE" "$PREV" "$NOW" >/tmp/sf-deploy-filing_gate.log 2>&1; then
-    say "  $(tail -1 /tmp/sf-deploy-filing_gate.log)"
-  else
-    say "  FAIL filing_gate (full list: /tmp/sf-deploy-filing_gate.log):"; tail -8 /tmp/sf-deploy-filing_gate.log | sed 's/^/        /'; ok=0
-  fi
-elif [ "$ok" -eq 1 ]; then
-  say "  filing gate: NOT RUN (no $FILING_GATE)"
-fi
-
-if [ "$ok" -ne 1 ]; then
-  say "gates RED on $NOW — rolling checkout back to $PREV so the fleet stays on known-good code"
-  git -C "$CHECKOUT" reset --hard "$PREV" >/dev/null 2>&1
-  bash "$SF/deploy/log_deploy.sh" rollback "$NOW" "$PREV" deploy.sh || true
-  fail "rolled back to $PREV; running fleet unaffected"
-fi
-
-echo "DEPLOY PASS ($NOW) — fleetd runs the new code on its next 10-min cycle."
-echo "  watch:    tail -f ~/fleetd/fleetd.log"
-echo "  rollback: git -C $CHECKOUT reset --hard $PREV"
+HOMELAB_CHECKOUT="$CHECKOUT" exec bash "$CHECKOUT/deploy/mini-deploy.sh" "$@"

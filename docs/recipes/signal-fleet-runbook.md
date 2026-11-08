@@ -91,7 +91,7 @@ Do it in this order. The ledgers are the part you can't recreate. Without them t
     - a `chat/completions` call to the gateway with the virtual key returns 200;
     - Grafana `GET /api/alertmanager/grafana/api/v2/alerts` returns 200.
 
-5. **Prove the code on this host:** `cd ~/agentic-ai-homelab && bash signal-fleet/deploy/deploy.sh`. Every gate must say PASS. The gates read frozen corpora and git history only: no LLM, no network beyond the pull.
+5. **Prove the code on this host:** `cd ~/agentic-ai-homelab && bash deploy/mini-deploy.sh` (the old `signal-fleet/deploy/deploy.sh` is a wrapper around it). Every gate must say PASS. The gates read frozen corpora and git history only: no LLM, no network beyond the pull.
 6. **Build and install fleetd** **[build machine]**:
     - `cd fleetd && make vet test build`;
     - for an Intel mini, `GOOS=darwin GOARCH=amd64` (see `make deploy`);
@@ -113,7 +113,7 @@ Do it in this order. The ledgers are the part you can't recreate. Without them t
 
 | Task | How |
 |---|---|
-| **Deploy a code change** | merge to `main`, then **[host]** `bash ~/agentic-ai-homelab/signal-fleet/deploy/deploy.sh`. It refuses a dirty checkout, pulls, runs every gate, and **rolls the checkout back** if one fails. New code runs on the next cycle; no restart. |
+| **Deploy a code change** | merge to `main`, then **[host]** `bash ~/agentic-ai-homelab/deploy/mini-deploy.sh` (repo-wide; the fleet's gates are a hook, see `deploy/README.md`). It refuses a dirty checkout, pulls, runs every gate, and **rolls the checkout back** if one fails. New code runs on the next cycle; no restart. |
 | **Gate-list caveat** | the first deploy after a change to `deploy.sh` runs the *old* gate list, because bash has already read the script. Run any new eval by hand once after that deploy. |
 | **Roll back code** | **[host]** `git -C ~/agentic-ai-homelab reset --hard <prev sha>` (deploy.sh prints it) |
 | **Pause the fleet** | **[host]** `touch ~/signal-fleet/STOP`; remove it to resume. `fleetd-silent` alerts after 35 min, on purpose. |

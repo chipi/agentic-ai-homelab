@@ -179,7 +179,7 @@ Where each fleet stands: [fleet architecture → Rollout status](../fleet-archit
       that adds a gate runs the old list (2026-11-04: `eval_inbox_open_replay` ran by hand). Fix: re-exec the
       script after the pull.
 - [ ] **A plain `git pull` on the mini deploys the fleet without its gates:** the mini's checkout is the
-      fleet's live code. Pull it with `bash signal-fleet/deploy/deploy.sh`, even for hub-only commits
+      fleet's live code. Pull it with `bash deploy/mini-deploy.sh`, even for hub-only commits
       (2026-11-04: hub deploys used plain pulls until 6a59983; none carried fleet code).
 - [ ] **`muted-class` label** for bugs whose fingerprint keeps changing (guide, Known gaps).
 - [ ] **(fleet session) See the shipped brief change live.** Prompt `219b34bf` (a failed dynamic import or

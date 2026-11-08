@@ -1,0 +1,43 @@
+# Tests for the Mac mini's deploy (deploy/mini-deploy.sh): a throwaway origin and checkout, covering
+# a green deploy, a red gate and its rollback, a dirty checkout, no new commits, a failing pre-pull
+# hook, a diverged checkout, and cleanup. Run on ubuntu's bash and on bash 3.2 (the mini's /bin/bash).
+
+name: mini-deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/**'
+      - 'signal-fleet/deploy/**'
+      - '.github/workflows/mini-deploy.yml'
+  pull_request:
+    paths:
+      - 'deploy/**'
+      - 'signal-fleet/deploy/**'
+      - '.github/workflows/mini-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: mini-deploy tests (bash 5 and 3.2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: bash syntax
+        run: |
+          for f in deploy/mini-deploy.sh deploy/test_mini_deploy.sh deploy/hooks/*/*.sh signal-fleet/deploy/*.sh; do
+            bash -n "$f"
+          done
+
+      - name: tests, ubuntu bash
+        run: bash deploy/test_mini_deploy.sh deploy/mini-deploy.sh
+
+      - name: tests, bash 3.2 (the mini's /bin/bash)
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" bash:3.2 bash -c \
+            'apk add -q --no-cache git >/dev/null && bash /repo/deploy/test_mini_deploy.sh /repo/deploy/mini-deploy.sh'

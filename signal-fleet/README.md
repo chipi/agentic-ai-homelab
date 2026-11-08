@@ -30,7 +30,7 @@ context.
   runs `python3 orchestrator.py --cycle` with
   `workdir=~/agentic-ai-homelab/signal-fleet/mvp` (the checkout) and
   `env_file=~/signal-fleet/fleet-gateway.env`. **Deploy = `git pull` the checkout**
-  (`signal-fleet/deploy/deploy.sh`); the running fleet picks up new code on its
+  (`deploy/mini-deploy.sh` at the repo root; `signal-fleet/deploy/deploy.sh` wraps it); the running fleet picks up new code on its
   next 10-min cycle (fleetd invokes python fresh each cycle — no restart). The
   `~/signal-fleet/mvp/` dir is a vestigial leftover of the old scp method and is
   NOT used. Verified 2026-08-28 against the deployed `~/fleetd/fleetd.json`; the
