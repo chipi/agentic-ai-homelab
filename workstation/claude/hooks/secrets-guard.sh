@@ -251,9 +251,20 @@ done
 # `"<id>": "<64 lowercase hex>"`, and the id names no secret (key, secret, token, passw, auth,
 # bearer, credential). `"api_key": "<64 hex>"` in a manifest is still scanned. Written without
 # regex intervals so macOS awk runs it too.
+# A second one (operator, 2026-11-08): Go's go.sum lists each module with its public checksum, and
+# gitleaks fires on a module named like a secret (`modernc.org/token v1.1.0 h1:<hash>=`). A line is
+# skipped only in a file named go.sum and only when it is exactly `<module> <version>[/go.mod]
+# h1:<43 base64 characters>=`. Anything else in a go.sum is still scanned.
 added="$(printf '%s\n' "$diff" | awk '
   /^\+\+\+ / { f = $2; sub(/^b\//, "", f); next }
   /^\+/ {
+    if (f ~ /(^|\/)go\.sum$/) {
+      line = $0; sub(/^\+/, "", line)
+      if (line ~ /^[A-Za-z0-9._~\/-]+ v[A-Za-z0-9.+_-]+(\/go\.mod)? h1:[A-Za-z0-9+\/]+=$/) {
+        h = line; sub(/^.* h1:/, "", h)
+        if (length(h) == 44) next
+      }
+    }
     if (f ~ /(^|\/)data\/references\/[^\/]+\/[^\/]+\/manifest\.json$/ || f ~ /(^|\/)data\/datasets\/[^\/]+\.json$/) {
       line = $0; sub(/^\+[ \t]*/, "", line)
       if (line ~ /^"[^"]*"[ \t]*:[ \t]*"[0-9a-f]+",?[ \t]*$/) {

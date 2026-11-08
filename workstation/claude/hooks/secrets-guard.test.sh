@@ -192,6 +192,29 @@ if command -v gitleaks >/dev/null 2>&1; then
   run_in "$X/K" deny  "git commit -m x"                       "evh manifest: a value that is not exactly 64 hex is still scanned"
   git -C "$X/K" reset -q; rm -rf "$X/K/data"
 fi
+# go.sum (2026-11-08): a module named like a secret beside its public checksum is not a secret, only in
+# a file named go.sum and only in go.sum's exact shape. The hash is built at runtime.
+H1="$(printf x | openssl dgst -sha256 -binary | base64)"
+if [ "${#H1}" != 44 ]; then   # no silent skip: a missing helper must show as a failure
+  fail=$((fail+1)); printf '  FAIL go.sum cases: could not build a 44-character h1 hash (openssl?)\n'
+elif command -v gitleaks >/dev/null 2>&1; then
+  gs() { mkdir -p "$X/K/$(dirname "$1")"; printf '%s\n' "$2" > "$X/K/$1"; git -C "$X/K" add "$1"; }
+  gs go.sum "modernc.org/token v1.1.0 h1:$H1"
+  run_in "$X/K" allow "git commit -m x"                       "go.sum: a module named token beside its checksum (gitleaks false positive)"
+  git -C "$X/K" reset -q; rm -f "$X/K/go.sum"
+  gs sub/go.sum "modernc.org/token v1.1.0/go.mod h1:$H1"
+  run_in "$X/K" allow "git commit -m x"                       "go.sum in a subfolder, /go.mod line"
+  git -C "$X/K" reset -q; rm -rf "$X/K/sub"
+  gs notes.txt "modernc.org/token v1.1.0 h1:$H1"
+  run_in "$X/K" deny  "git commit -m x"                       "the same line outside a go.sum is still scanned"
+  git -C "$X/K" reset -q; rm -f "$X/K/notes.txt"
+  gs go.sum "api_key = \"${AK}${H16}\""
+  run_in "$X/K" deny  "git commit -m x"                       "go.sum: a key that is not a checksum line is still caught"
+  git -C "$X/K" reset -q; rm -f "$X/K/go.sum"
+  gs go.sum "modernc.org/token v1.1.0 h1:${H1%=}AB="   # 46 characters, still a gitleaks hit
+  run_in "$X/K" deny  "git commit -m x"                       "go.sum: a hash that is not 44 characters is still scanned"
+  git -C "$X/K" reset -q; rm -f "$X/K/go.sum"
+fi
 rm -rf "$X"
 
 cp "$HOOK" ./hook-copy.sh; git add hook-copy.sh
