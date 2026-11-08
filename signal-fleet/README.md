@@ -1,5 +1,11 @@
 # signal-fleet — Signal-to-Action Fleet (Fleet 2)
 
+> **Moved to [flotilla](https://github.com/chipi/flotilla) (2026-11-08).** This directory was copied
+> there with its history at `f0ed072` and is frozen here: new work lands in flotilla. The live fleet
+> still runs this copy on the mini until flotilla's phase 2, so a fix the live fleet needs before
+> then lands here first and is ported to flotilla. The directory leaves this repo in flotilla's
+> phase 7 (RFC-0001 §9).
+
 Autonomous **observability triage**: take live production signals (GlitchTip
 errors and Grafana alerts; VictoriaMetrics/Logs/Traces are read as probe evidence) and decide
 **Dismiss / File / Escalate / Cleanup** — sibling to the bug-fix fleet (`bugfix-fleet/`,

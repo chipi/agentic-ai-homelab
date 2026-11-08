@@ -1,5 +1,11 @@
 # bugfix-fleet — autonomous bug-fix fleet (MVP)
 
+> **Moved to [flotilla](https://github.com/chipi/flotilla) (2026-11-08).** This directory was copied
+> there with its history at `f0ed072` and is frozen here: new work lands in flotilla. The live fleet
+> still runs this copy on the mini until flotilla's phase 2, so a fix the live fleet needs before
+> then lands here first and is ported to flotilla. The directory leaves this repo in flotilla's
+> phase 7 (RFC-0001 §9).
+
 Prototype for **RFC-0002**. Cheap-harness workers fix `bug`-labeled GitHub issues
 on a long-lived `fixes` branch; Claude reviews the batch PR (Phase 1). Runs on the
 `homelab` Mac mini. **Unpolished — this is the Phase-0 bake-off**, not production.

@@ -21,6 +21,10 @@ duplicates or contradicts.
   commit "just the example values" comes up regularly. Compose stacks
   read a repo-root or stack-local `.env` depending on the stack (see
   [`infra/AGENTS.md`](infra/AGENTS.md)).
+- **The fleet code moved to [flotilla](https://github.com/chipi/flotilla) (2026-11-08).**
+  `fleetd/`, `signal-fleet/` and `bugfix-fleet/` are frozen here: new work lands in flotilla. The
+  live fleet still runs this copy until flotilla's phase 2, so a fix it needs before then lands
+  here first and is ported to flotilla.
 
 ## Scoped AGENTS.md in this repo
 

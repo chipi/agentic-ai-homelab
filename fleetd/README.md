@@ -1,5 +1,11 @@
 # fleetd — fleet supervisor daemon
 
+> **Moved to [flotilla](https://github.com/chipi/flotilla) (2026-11-08).** This directory was copied
+> there with its history at `f0ed072` and is frozen here: new work lands in flotilla. The live fleet
+> still runs this copy on the mini until flotilla's phase 2, so a fix the live fleet needs before
+> then lands here first and is ported to flotilla. The directory leaves this repo in flotilla's
+> phase 7 (RFC-0001 §9).
+
 The RFC-0004 supervisor: one static Go binary running both fleets' cycles
 on the mini. Deliberately dumb — scheduling, kill-switch, budget guard,
 metrics, digest transport; all intelligence stays in the fleets' Python
