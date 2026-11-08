@@ -30,6 +30,17 @@ policies:
         matchers:
           - severity = "critical"
         continue: false
+      # prod one-offs outside the budget (chipi/infra IADR-007): one alert per container, one
+      # email per hour listing every container firing in it (infra, 2026-11-08: a habit to fix,
+      # not a page). Before the meta route, which would batch it every 5 minutes.
+      - receiver: default
+        matchers:
+          - alertname = "prod one-off container outside cl-oneoff.slice"
+        group_by: ["alertname"]
+        group_wait: 2m
+        group_interval: 1h
+        repeat_interval: 12h
+        continue: false
       # SUBSTRATE alerts (meta=true: fleetd/VM/Grafana health) terminate at the
       # operator surface ONLY. Deliberately NOT routed to GlitchTip: GlitchTip is
       # a triage-fleet SOURCE, so a critical meta alert would re-enter the fleet

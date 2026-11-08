@@ -353,6 +353,41 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [0] } }]
 
+      # --- prod-podcast: a one-off container outside the one-off budget ---------------
+      # chipi/infra IADR-007 (operator, 2026-11-08): every one-off container on the prod box runs
+      # through infra/deploy/cl-oneoff.sh, under cl-oneoff.slice (4 GiB shared, no swap). This
+      # names any that does not: a bare `docker run` (no compose project label) or a `compose
+      # run` (compose_oneoff=True), outside /cl.slice/cl-oneoff.slice/. Exempt (infra, 2026-11-08):
+      # the scheduled compose jobs with their own limits, podcast pipeline-llm / pipeline, Orrery's
+      # pipeline-runner, and the deploy's db-migrate; by project + service, so a hand-run `compose
+      # run` of anything else still shows. Replay over 14 days (2026-10-25..11-08): 50 containers,
+      # 44 of them bare `docker run`s with random names, in 25 distinct hours.
+      # One notification per hour lists them (policies.yaml route); it is a habit to fix, not a
+      # page. meta=true: an ops habit, not an app defect, so the triage fleet does not file one
+      # issue per container.
+      - uid: prod-oneoff-outside-budget
+        title: "prod one-off container outside cl-oneoff.slice"
+        condition: threshold
+        for: 2m
+        noDataState: OK
+        labels: { severity: warning, kind: infra, meta: "true", instance: prod-podcast }
+        annotations:
+          summary: "Container {{ $labels.name }} on prod-podcast runs outside the one-off budget (not through infra/deploy/cl-oneoff.sh). IADR-007: run one-offs through the wrapper. Its memory comes out of the services' headroom."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'count by (name) (container_memory_rss{instance="prod-podcast", name!="", id!~"/cl\\.slice/cl-oneoff\\.slice/.*", container_label_com_docker_compose_project=""}) or count by (name) (container_memory_rss{instance="prod-podcast", name!="", id!~"/cl\\.slice/cl-oneoff\\.slice/.*", container_label_com_docker_compose_oneoff="True", container_label_com_docker_compose_project!~"compose|orrery"}) or count by (name) (container_memory_rss{instance="prod-podcast", name!="", id!~"/cl\\.slice/cl-oneoff\\.slice/.*", container_label_com_docker_compose_oneoff="True", container_label_com_docker_compose_project="compose", container_label_com_docker_compose_service!~"pipeline-llm|pipeline|db-migrate"}) or count by (name) (container_memory_rss{instance="prod-podcast", name!="", id!~"/cl\\.slice/cl-oneoff\\.slice/.*", container_label_com_docker_compose_oneoff="True", container_label_com_docker_compose_project="orrery", container_label_com_docker_compose_service!="pipeline-runner"})'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
       # --- Mac mini memory high --------------------------------------------------
       # macOS memory semantics differ (compressor); baseline ~60% used. >90% for
       # 10m = sustained pressure, not a Spotlight blip. The mini is also the
