@@ -163,9 +163,28 @@ def attach_backend(sig):
     return sig
 
 
+# GlitchTip projects of the fleet's own platform (flotilla's control plane, 2026-11-09). Like meta
+# alerts they are substrate: they terminate at the operator, never at the fleet, which cannot
+# triage what it runs on. Left out in the query, not after it, so they never take one of the
+# `limit` places a monitored project's issue would have.
+SUBSTRATE_GLITCHTIP_PROJECTS = {"flotilla"}
+
+
+def _issue_query(limit):
+    """The issues query; with a substrate project in the org, it names every other project."""
+    q = f"/organizations/homelab/issues/?limit={limit}&sort=-last_seen"
+    projects = _gt("/organizations/homelab/projects/")
+    if not isinstance(projects, list):
+        raise RuntimeError(f"glitchtip projects error: {str(projects)[:160]}")
+    if not any(p.get("slug") in SUBSTRATE_GLITCHTIP_PROJECTS for p in projects):
+        return q
+    return q + "".join(f"&project={p['id']}" for p in projects
+                       if p.get("slug") not in SUBSTRATE_GLITCHTIP_PROJECTS)
+
+
 def glitchtip_unresolved(limit=10):
-    """Unresolved GlitchTip issues, most-recently-seen first."""
-    issues = _gt(f"/organizations/homelab/issues/?limit={limit}&sort=-last_seen")
+    """Unresolved GlitchTip issues of the monitored projects, most-recently-seen first."""
+    issues = _gt(_issue_query(limit))
     if not isinstance(issues, list):
         raise RuntimeError(f"glitchtip issues error: {str(issues)[:160]}")
     out = []

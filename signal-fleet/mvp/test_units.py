@@ -752,6 +752,38 @@ class TestAlertKeyDedup(unittest.TestCase):
         out = filing.file_or_update(self._signal(), {"title": "Enrichment drain paused", "body": "b"}, "bug")
         self.assertTrue(out.startswith("FILED"), out)
 
+    def test_per_container_alert_has_no_alert_key(self):
+        name = "prod OOM kill: a container hit its own limit"
+        self.assertEqual(filing.alert_key(self.repo, "grafana", name), "")
+        # every other alert keeps its key, byte for byte
+        self.assertEqual(self.ak, filing.alert_key(self.repo, "grafana", "Enrichment/job drain paused"))
+        self.assertTrue(filing.alert_key(self.repo, "grafana", "prod OOM kill: serving container or the whole box"))
+
+    def _oom(self, fp, container):
+        # the two signals of 2026-11-08 20:24/20:25Z, labels as the probe capture recorded them
+        name = "prod OOM kill: a container hit its own limit"
+        return {"fingerprint": fp, "source": "grafana", "alertname": name, "raw": {},
+                "summary": f"{container} on prod-podcast was OOM-killed",
+                "labels": {"__alert_rule_uid__": "prod-oom-kill-other", "alertname": name,
+                           "container": container, "kind": "infra", "severity": "warning"}}
+
+    def test_two_containers_same_day_are_two_issues(self):
+        # 2026-11-08: the second container's kill matched homelab#147 and was dropped as
+        # "already commented today"; per container, it files its own issue
+        first = self._oom("grafana:c833813e59f0526f", "(docker ddeca211cfd2, name unknown)")
+        second = self._oom("grafana:fcb42a2a9d84bfba", "(docker c0f15e38c7c3, name unknown)")
+        self.assertNotEqual(filing.normalized_key(first), filing.normalized_key(second))
+        self.open = {"99"}
+        out1 = filing.file_or_update(first, {"title": "OOM ddeca211cfd2", "body": "b"}, "config-enhancement")
+        out2 = filing.file_or_update(second, {"title": "OOM c0f15e38c7c3", "body": "b"}, "config-enhancement")
+        self.assertTrue(out1.startswith("FILED"), out1)
+        self.assertTrue(out2.startswith("FILED"), out2)
+
+    def test_same_container_again_is_the_same_issue(self):
+        first = self._oom("grafana:c833813e59f0526f", "(docker ddeca211cfd2, name unknown)")
+        again = self._oom("grafana:0000aaaa1111bbbb", "(docker ddeca211cfd2, name unknown)")
+        self.assertEqual(filing.normalized_key(first), filing.normalized_key(again))
+
     def test_backfill_from_dispositions(self):
         import tempfile
         filing._ledger_write([
@@ -1602,6 +1634,40 @@ class TestAssistantFailover(unittest.TestCase):
             self.assertEqual(seen, ["/issues/7/events/latest/"])
         finally:
             sources._gt = old
+
+
+class TestSubstrateGlitchTipProjects(unittest.TestCase):
+    """flotilla's own errors are substrate: left out of the issues query, so they never reach the
+    fleet or take a place in its `limit`. Without such a project the query is unchanged."""
+
+    def _run(self, projects):
+        import sources
+        seen, old = [], sources._gt
+
+        def gt(path):
+            seen.append(path)
+            if path.startswith("/organizations/homelab/projects/"):
+                return projects
+            return [{"status": "unresolved", "shortId": "ORRERY-1", "title": "Error", "metadata": {}}]
+
+        sources._gt = gt
+        try:
+            return sources.glitchtip_unresolved(limit=10), seen
+        finally:
+            sources._gt = old
+
+    def test_query_unchanged_without_a_substrate_project(self):
+        _, seen = self._run([{"id": 6, "slug": "orrery"}, {"id": 9, "slug": "podcast-pipeline"}])
+        self.assertEqual(seen[-1], "/organizations/homelab/issues/?limit=10&sort=-last_seen")
+
+    def test_flotilla_left_out_of_the_query(self):
+        _, seen = self._run([{"id": 6, "slug": "orrery"}, {"id": 40, "slug": "flotilla"},
+                             {"id": 9, "slug": "podcast-pipeline"}])
+        self.assertEqual(seen[-1], "/organizations/homelab/issues/?limit=10&sort=-last_seen&project=6&project=9")
+
+    def test_project_list_error_is_loud(self):
+        with self.assertRaises(RuntimeError):
+            self._run({"detail": "Permission denied"})
 
 
 if __name__ == "__main__":
