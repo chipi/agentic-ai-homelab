@@ -97,10 +97,18 @@ def alert_key_dedup_enabled():
     return os.environ.get("SF_ALERT_KEY_DEDUP", "1") != "0"
 
 
+# Alerts labelled one instance per container: two containers' kills are two problems, so
+# they never share an alert_key (it has no labels) and their norm_key carries the container.
+# 2026-11-08: two containers' kills 49 s apart filed one issue, homelab#147, and the second
+# was dropped as "already commented today" (operator: per-container keying for this rule).
+PER_CONTAINER_ALERTS = {"prod OOM kill: a container hit its own limit"}
+
+
 def alert_key(repo, source, alertname):
-    """Stable per-alert key within one repo. "" (never matches) without a name."""
+    """Stable per-alert key within one repo. "" (never matches) without a name, or for an
+    alert keyed per container (PER_CONTAINER_ALERTS)."""
     skeleton = _alert_skeleton(alertname or "")
-    if not (repo and skeleton):
+    if not (repo and skeleton) or alertname in PER_CONTAINER_ALERTS:
         return ""
     basis = f"{repo}|{source or ''}|{skeleton}"
     return f"{ALERT_KEY_VERSION}:" + hashlib.sha1(basis.encode()).hexdigest()[:12]
@@ -164,6 +172,9 @@ def normalized_key(signal, event_summary=None):
         inst = (signal.get("labels") or {}).get("instance", "")
         if inst:
             basis += f"|{inst}"
+        container = (signal.get("labels") or {}).get("container", "")
+        if container and signal.get("alertname") in PER_CONTAINER_ALERTS:
+            basis += f"|container={container}"
     return f"{NORM_KEY_VERSION}:" + hashlib.sha1(basis.encode()).hexdigest()[:12]
 REOPEN_WINDOW_DAYS = 7
 MUTE_LABEL = "triage-fleet/muted"
