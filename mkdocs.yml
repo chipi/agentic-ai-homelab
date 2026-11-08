@@ -149,6 +149,7 @@ nav:
     - Triage fleet opportunities: wip/triage-fleet-opportunities.md
     - eval-harness feedback (fleet): wip/eval-harness-feedback-fleet.md
     - Translation service plan: wip/translation-service-plan.md
+    - Agent platform evaluation (SEO, briefs, infra): wip/agent-platform-evaluation.md
   - History:
     - Overview: history/README.md
     - "0001 — Genesis": history/0001-genesis.md
