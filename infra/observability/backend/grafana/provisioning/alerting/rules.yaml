@@ -494,6 +494,100 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [0] } }]
 
+      # --- prod swap limits: cl-swap-converge (2026-11-09) --------------------------
+      # infra's cl-swap-converge.sh (deploy's crontab, every 5 min since 2026-11-09 08:17Z) puts back
+      # memory.swap.max = 0 where a daemon-reload reset it (infra, 2026-11-09: install-release.sh's
+      # reload reset them on 11-08). Its one summary line per run reaches VictoriaLogs through the
+      # journal ("checked 19, corrected 0, failed 0"; no identifier field, so the text is matched).
+      # Three signals: limits keep being reset (more than one correcting run a day: something resets
+      # them, find it), a correction failed (a container runs with swap it must not have), and the job
+      # went silent (nothing would notice the drift). Queries checked against live logs 2026-11-09:
+      # 2 correcting runs in 24 h (08:17Z first run, 08:31Z 7 containers), 0 failed, 6 lines in 30 min.
+      - uid: prod-swap-limits-reset
+        title: "prod swap limits reset more than once a day (cl-swap-converge corrected them)"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra, instance: prod-podcast }
+        annotations:
+          summary: "cl-swap-converge had to put back memory.swap.max on prod-podcast in more than one run in 24 h: something keeps resetting the swap limits (a daemon-reload, a compose recreate). Find what; the job hides it, it does not fix the cause."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast job:systemd-journal "checked" "corrected" "failed" -"corrected 0" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [1] } }]
+      - uid: prod-swap-converge-failed
+        title: "prod swap limit could not be put back (cl-swap-converge failed)"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra, instance: prod-podcast }
+        annotations:
+          summary: "cl-swap-converge reported failed > 0 on prod-podcast in the last 15 min: a container runs with swap its compose forbids. Its journal lines say which."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast job:systemd-journal "checked" "corrected" "failed" -"failed 0" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+      - uid: prod-swap-converge-silent
+        title: "prod swap converge job silent (no summary line in 30m)"
+        condition: threshold
+        for: 0m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra, instance: prod-podcast }
+        annotations:
+          summary: "No cl-swap-converge summary line from prod-podcast in 30 min (it runs every 5): the job stopped, or its journal no longer reaches VictoriaLogs. Swap-limit drift would go unseen."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'instance:prod-podcast job:systemd-journal "checked" "corrected" "failed" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+
       # --- Mac mini memory high --------------------------------------------------
       # macOS memory semantics differ (compressor); baseline ~60% used. >90% for
       # 10m = sustained pressure, not a Spotlight blip. The mini is also the

@@ -97,7 +97,7 @@ class TestNoDataPolicy(unittest.TestCase):
     RULES = os.path.join(os.path.dirname(__file__), "..", "backend", "grafana",
                          "provisioning", "alerting", "rules.yaml")
     # a dead-man's query must still produce a value when its source is silent
-    DEADMAN_SHAPES = ("count_over_time", "or vector(", "time() -", "stats count()")
+    DEADMAN_SHAPES = ("count_over_time", "or vector(", "time() -", "stats count()", "now() - max(")  # the last: SQL, age of the newest row
 
     def _rules(self):
         with open(self.RULES) as f:
@@ -112,7 +112,7 @@ class TestNoDataPolicy(unittest.TestCase):
         for uid, r in self._rules().items():
             if r.get("noDataState") != "Alerting":
                 continue
-            exprs = " ".join((q.get("model") or {}).get("expr") or "" for q in r.get("data") or [])
+            exprs = " ".join(((q.get("model") or {}).get("expr") or "") + " " + ((q.get("model") or {}).get("rawSql") or "") for q in r.get("data") or [])
             if not any(s in exprs for s in self.DEADMAN_SHAPES):
                 bad.append(uid)
         self.assertEqual(bad, [])
