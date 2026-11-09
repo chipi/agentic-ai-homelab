@@ -2,8 +2,8 @@
 # Nightly pg_dump of the homelab observability CONFIG databases so a volume
 # reprovision (the 2026-08-14 OrbStack->colima cutover wiped these) is a restore,
 # not permanent loss. Dumps GlitchTip (projects/DSN keys), Umami (websites/IDs),
-# and Langfuse (projects/keys) postgres, plus Home Assistant's /config. Keeps the last
-# N daily dumps.
+# and Langfuse (projects/keys) postgres, plus Home Assistant's /config and flotilla's store
+# copies. Keeps the last N daily dumps.
 #
 # Runs on the mini as a KeepAlive/StartCalendarInterval LaunchDaemon
 # (com.homelab.db-backup). Manual run: bash dump-observability-dbs.sh
@@ -77,8 +77,20 @@ if $D ps --format '{{.Names}}' | grep -qx "$MQ"; then
   else echo "FAIL $MQ -> archive errored"; rm -f "$out"; rc=1; fi
 else echo "SKIP $MQ -> not running"; fi
 
+# flotilla (chipi/flotilla): flotillad writes one copy of its store per day into its state
+# volume (backup/flotilla-<day>.db, the last 7 kept). The image is distroless (no shell), so
+# `docker cp` streams the directory as a tar.
+FL=flotillad
+out="$BACKUP_DIR/${FL}-${STAMP}.tar.gz"
+if $D ps --format '{{.Names}}' | grep -qx "$FL"; then
+  if $D cp "$FL":/var/lib/flotilla/backup - 2>/dev/null | gzip > "$out"; then
+    sz=$(wc -c < "$out" | tr -d ' ')
+    if [ "$sz" -gt 200 ]; then echo "OK   $FL -> $out ($sz bytes)"; else echo "FAIL $FL -> archive too small ($sz)"; rm -f "$out"; rc=1; fi
+  else echo "FAIL $FL -> copy errored"; rm -f "$out"; rc=1; fi
+else echo "SKIP $FL -> not running"; fi
+
 # rotation: keep the last $KEEP dumps per container
-for c in "$HA" "$MQ"; do
+for c in "$HA" "$MQ" "$FL"; do
   ls -1t "$BACKUP_DIR/${c}-"*.tar.gz 2>/dev/null | tail -n +$((KEEP+1)) | while read -r f; do rm -f "$f"; done
 done
 for c in glitchtip-postgres-1 umami-db langfuse-postgres-1 litellm-postgres; do

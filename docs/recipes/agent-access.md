@@ -719,8 +719,9 @@ Deploy, logs, undo, and the GPU memory rule against the eval harness: `recipes/x
 
 - **Nightly, 04:30 local** (`com.homelab.db-backup`, `infra/backup/dump-observability-dbs.sh`, root):
   Postgres dumps of `glitchtip`, `umami`, `langfuse`, `litellm`, plus tar archives of
-  home-assistant's `/config` and mosquitto's data/config, into `~/db-backups` (dir 700, files
-  600, 14 kept). Log: `/tmp/com.homelab.db-backup.log`.
+  home-assistant's `/config` and mosquitto's data/config, and flotillad's daily store copies
+  (`flotillad-<stamp>.tar.gz`, the container's `/var/lib/flotilla/backup`, since 2026-11-09),
+  into `~/db-backups` (dir 700, files 600, 14 kept). Log: `/tmp/com.homelab.db-backup.log`.
 - **Off the mini:** `infra/backup/offsite.sh` encrypts every file of the run with
   [age](https://age-encryption.org) to the operator's public key (`infra/backup/offsite.recipients`)
   and uploads them to the private repo **`chipi/homelab-backup`** as one Release per night
