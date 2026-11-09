@@ -270,5 +270,125 @@ class FilingAndSweepRecords(unittest.TestCase):
                          ["/search/issues", "/repos/chipi/orrery/issues/5/comments"])
 
 
+class ExactRecord(unittest.TestCase):
+    """The triage call path's record for an exact replay (RFC-0002 §9 step 1, the homelab session's part):
+    every model call as sent and answered, the gateway's deployment id, gate lookups, the run's time."""
+
+    REPLIES = ['{"action":"probe","probe":"event_detail","probe_args":{}}',
+               '{"action":"decide","disposition":"file","reason":"real bug","certainty":"high",'
+               '"file":{"work_type":"bug","title":"t","body":"b"}}']
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.sent = []
+        self.patches = [mock.patch.object(config, "CAPTURE_DIR", self.dir),
+                        mock.patch.object(config, "CAPTURE_EAGER", False),
+                        mock.patch.object(config, "OPENROUTER_KEY", "test-key"),
+                        mock.patch.object(probes, "run_probe", lambda s, n, a, table=None: {"culprit": "a.js"}),
+                        mock.patch.object(triage.observ, "finalize")]
+        for p in self.patches:
+            p.start()
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+
+    def gateway(self, replies, model_id="dep-123"):
+        it = iter(replies)
+
+        def post(url, body, headers=None, timeout=60):
+            self.sent.append(json.dumps(body))
+            r = next(it)
+            if isinstance(r, Exception):
+                raise r
+            if model_id:   # a transport without the header leaves LAST_HEADERS alone, like a stub or OpenRouter
+                triage.http_util.LAST_HEADERS = {"x-litellm-model-id": model_id}
+            return {"choices": [{"message": {"content": r}}], "usage": {"prompt_tokens": 5, "completion_tokens": 2},
+                    "model": "fleet-triage-pro"}
+        return mock.patch.object(triage, "post_json", post)
+
+    def test_off_records_nothing(self):
+        with mock.patch.object(config, "CAPTURE_PROBES", False), self.gateway(self.REPLIES):
+            d = triage.investigate(SIGNAL)
+        self.assertNotIn("_exact", d)
+        self.assertIsNone(triage._EXACT)
+
+    def test_on_same_decision_as_off(self):
+        with mock.patch.object(config, "CAPTURE_PROBES", False), self.gateway(self.REPLIES):
+            off = triage.investigate(SIGNAL)
+        sent_off, self.sent = self.sent, []
+        with mock.patch.object(config, "CAPTURE_PROBES", True), self.gateway(self.REPLIES):
+            on = triage.investigate(SIGNAL)
+        self.assertEqual({k: v for k, v in on.items() if k not in ("_exact", "_meta")},
+                         {k: v for k, v in off.items() if k != "_meta"})
+        strip = lambda s: {k: v for k, v in json.loads(s).items() if k != "metadata"}   # the trace id is per run
+        self.assertEqual([strip(s) for s in self.sent], [strip(s) for s in sent_off])
+
+    def test_turns_as_sent_and_answered(self):
+        with mock.patch.object(config, "CAPTURE_PROBES", True), self.gateway(self.REPLIES):
+            d = triage.investigate(SIGNAL)
+        ex = d["_exact"]
+        self.assertTrue(ex["now"].endswith("+00:00"))
+        self.assertEqual([t["request"] for t in ex["turns"]], self.sent, "the request body exactly as sent")
+        self.assertEqual([t["reply"] for t in ex["turns"]], self.REPLIES)
+        self.assertEqual([t["step"] for t in ex["turns"]], [0, 1])
+        self.assertEqual({t["model_id"] for t in ex["turns"]}, {"dep-123"})
+        self.assertEqual(ex["turns"][0]["usage"], {"prompt_tokens": 5, "completion_tokens": 2})
+        self.assertNotIn("test-key", json.dumps(ex), "the key is a header, never recorded")
+
+    def test_no_stale_deployment_id(self):
+        # a transport that sets no headers (OpenRouter direct, the eval adapter) records None, not the last call's id
+        triage.http_util.LAST_HEADERS = {"x-litellm-model-id": "stale"}
+        with mock.patch.object(config, "CAPTURE_PROBES", True), self.gateway(self.REPLIES, model_id=None):
+            d = triage.investigate(SIGNAL)
+        self.assertEqual({t["model_id"] for t in d["_exact"]["turns"]}, {None})
+
+    def test_failed_calls_recorded_and_handled_as_before(self):
+        import io
+        import urllib.error
+        e503 = urllib.error.HTTPError("u", 503, "busy", {}, io.BytesIO(b""))
+        with mock.patch.object(config, "CAPTURE_PROBES", True), self.gateway([e503]):
+            with self.assertRaises(triage.TriageDeferred):
+                triage.investigate(SIGNAL)
+        self.assertEqual(triage._EXACT["turns"][0]["status"], 503)
+        e401 = urllib.error.HTTPError("u", 401, "no", {}, io.BytesIO(b""))
+        with mock.patch.object(config, "CAPTURE_PROBES", True), self.gateway([e401]):
+            with self.assertRaises(triage.TriagerDown):
+                triage.investigate(SIGNAL)
+        self.assertEqual(triage._EXACT["turns"][0]["status"], 401)
+
+    def test_edge_gate_lookup_recorded(self):
+        sig = dict(SIGNAL, alertname=triage.guards.EDGE_5XX_PREFIX + " closelistening.app",
+                   startsAt="2026-11-09T07:00:00Z")
+        with mock.patch.object(config, "CAPTURE_PROBES", True):
+            triage._exact_start()
+            with mock.patch.object(triage.guards, "restarts_near", return_value=["player-api"]):
+                d, why = triage._edge_gate({"disposition": "dismiss"}, sig)
+            self.assertEqual(why, "downgraded (restart nearby)")
+            with mock.patch.object(triage.guards, "restarts_near", side_effect=RuntimeError("vm down")):
+                d, why = triage._edge_gate({"disposition": "dismiss"}, sig)
+            self.assertEqual(why, "downgraded (lookup failed)")
+        looks = triage._EXACT["lookups"]
+        self.assertEqual(looks[0], {"kind": "restarts_near", "result": ["player-api"],
+                                    "args": {"instance": "prod-podcast", "at": "2026-11-09T07:00:00Z"}})
+        self.assertIn("vm down", looks[1]["error"])
+
+    def test_capture_writes_exact_and_keeps_its_old_fields(self):
+        with mock.patch.object(config, "CAPTURE_PROBES", True), self.gateway(self.REPLIES):
+            d = triage.investigate(SIGNAL)
+            item = json.load(open(capture.record(SIGNAL, d)))
+        self.assertEqual(item["exact"]["turns"][1]["reply"], self.REPLIES[1])
+        for k in ("signal", "frozen_at", "fleet_decision", "model_decision", "probes", "probes_shown"):
+            self.assertIn(k, item)
+        self.assertEqual(len(os.listdir(self.dir)), 1, "one capture file, no new file in probes/")
+
+    def test_operational_dismiss_records_its_time(self):
+        with mock.patch.object(config, "CAPTURE_PROBES", True), \
+                mock.patch.object(triage, "operational_class", return_value="billing"):
+            d = triage.triage(SIGNAL)
+        self.assertEqual(d["_exact"]["turns"], [])
+        self.assertIn("now", d["_exact"])
+
+
 if __name__ == "__main__":
     unittest.main()

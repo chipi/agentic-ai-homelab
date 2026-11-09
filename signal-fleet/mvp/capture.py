@@ -67,6 +67,9 @@ def record(signal, disp, now=None):
             },
             # what the model decided before the gates (None for an operational state: no model ran)
             "model_decision": disp.get("_pre_gate"),
+            # for an exact replay (triage.py, _EXACT): the run's time, every model call as sent and
+            # answered, every gate lookup. Absent in captures made before 2026-11-09.
+            "exact": disp.get("_exact"),
         }
         os.makedirs(config.CAPTURE_DIR, mode=0o700, exist_ok=True)
         path = os.path.join(config.CAPTURE_DIR, _safe_name(f"{stamp}__{signal.get('fingerprint', '')}") + ".json")

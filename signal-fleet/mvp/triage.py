@@ -12,6 +12,7 @@ Deterministic gates (no LLM):
 Certainty is metadata only, never a gate.
 """
 import copy
+import datetime
 import hashlib
 import json
 import os
@@ -21,9 +22,31 @@ import urllib.error
 
 import config
 import guards
+import http_util
 import observ
 import probes
 from http_util import post_json
+
+# With capture on (SF_CAPTURE_PROBES=1), what an exact replay needs is recorded per decision
+# (ADR-0004 / RFC-0002 §9 step 1): every model call's request body as sent, its raw reply, usage
+# and the gateway's deployment id; every gate lookup with its inputs and result; the run's time.
+# investigate() starts a record, _call and _edge_gate add to it, _finish puts it on the decision
+# as `_exact`, and capture.record writes it as the capture's `exact` field. Off: None, nothing kept.
+_EXACT = None
+
+
+def _exact_start():
+    global _EXACT
+    _EXACT = ({"now": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+               "turns": [], "lookups": []} if config.CAPTURE_PROBES else None)
+
+
+def _exact_add(kind, item):
+    if _EXACT is not None:
+        try:
+            _EXACT[kind].append(json.loads(json.dumps(item, default=str)))
+        except Exception:  # noqa: BLE001 — recording must never break triage
+            pass
 
 
 class TriagerDown(Exception):
@@ -272,22 +295,32 @@ def _call(messages, trace_id=None, step=None):
         # trace; `existing_trace_id` leaves the trace's name/input/output to the fleet.
         body["metadata"] = {"existing_trace_id": trace_id,
                             "generation_name": f"triage-turn-{(step or 0) + 1}"}
+    http_util.LAST_HEADERS = {}
+    t0 = time.time()
     try:
         resp = post_json(config.OPENROUTER_URL, body,
                          headers={"Authorization": f"Bearer {config.OPENROUTER_KEY}"}, timeout=90)
-    except urllib.error.HTTPError as e:
-        # 401/403 = the gateway rejected our key (wiped litellm virtual key is the
-        # known cause) — PERSISTENT, every call will fail. Fail closed, don't escalate.
-        if e.code in (401, 403):
-            raise TriagerDown(f"HTTP {e.code} auth failure to the triager gateway "
-                              f"({config.OPENROUTER_URL}) — litellm virtual key rejected "
-                              f"(recreate: infra/litellm/README.md)") from e
-        # 402 = out of credit — as persistent as a rejected key, and the same per-signal
-        # flood without this (11 escalation issues on 2026-08-13). Fail closed too.
-        if e.code == 402:
-            raise TriagerDown(f"HTTP 402 Payment Required from the triager gateway "
-                              f"({config.OPENROUTER_URL}) — provider credit exhausted") from e
+    except Exception as e:  # noqa: BLE001 — recorded for an exact replay, then handled as before
+        _exact_add("turns", {"step": step, "request": json.dumps(body), "status": getattr(e, "code", None),
+                             "error": f"{type(e).__name__}: {e}"[:300], "latency_s": round(time.time() - t0, 3)})
+        if isinstance(e, urllib.error.HTTPError):
+            # 401/403 = the gateway rejected our key (wiped litellm virtual key is the
+            # known cause) — PERSISTENT, every call will fail. Fail closed, don't escalate.
+            if e.code in (401, 403):
+                raise TriagerDown(f"HTTP {e.code} auth failure to the triager gateway "
+                                  f"({config.OPENROUTER_URL}) — litellm virtual key rejected "
+                                  f"(recreate: infra/litellm/README.md)") from e
+            # 402 = out of credit — as persistent as a rejected key, and the same per-signal
+            # flood without this (11 escalation issues on 2026-08-13). Fail closed too.
+            if e.code == 402:
+                raise TriagerDown(f"HTTP 402 Payment Required from the triager gateway "
+                                  f"({config.OPENROUTER_URL}) — provider credit exhausted") from e
         raise
+    _exact_add("turns", {"step": step, "request": json.dumps(body),
+                         "reply": ((resp.get("choices") or [{}])[0].get("message") or {}).get("content"),
+                         "usage": resp.get("usage"), "model": resp.get("model"),
+                         "model_id": http_util.LAST_HEADERS.get("x-litellm-model-id"),
+                         "latency_s": round(time.time() - t0, 3)})
     return resp["choices"][0]["message"]["content"], resp.get("usage", {})
 
 
@@ -394,9 +427,12 @@ def _edge_gate(d, signal, data=None):
     dismissed on exactly that while player-api was being OOM-killed."""
     if d.get("disposition") != "dismiss" or not signal.get("alertname", "").startswith(guards.EDGE_5XX_PREFIX):
         return d, "n/a"
+    look = {"kind": "restarts_near", "args": {"instance": EDGE_INSTANCE, "at": signal.get("startsAt") or ""}}
     try:
         hits = guards.restarts_near(EDGE_INSTANCE, signal.get("startsAt") or "", data=data)
+        _exact_add("lookups", dict(look, result=hits))
     except Exception as e:  # noqa: BLE001 — can't check, so can't clear the burst
+        _exact_add("lookups", dict(look, error=f"{type(e).__name__}: {e}"[:300]))
         _to_escalate(d, f"edge gate: restart/OOM lookup failed ({e})",
                      "Could not check for a container restart behind this 5xx burst — confirm benign?")
         return d, "downgraded (lookup failed)"
@@ -430,12 +466,15 @@ def _finish(signal, disp, trace, gates, usage, t0, trace_id=None):
                      "certainty": disp.get("certainty"), "usage": usage}
     # what the model asked and got, for capture.py; "shown" is the exact trimmed text it read
     disp["_probe_trace"] = [dict(t, shown=_trim(t["result"])) for t in trace]
+    if _EXACT is not None:
+        disp["_exact"] = _EXACT
     observ.finalize(signal, disp, usage=usage, latency_s=time.time() - t0, trace_id=trace_id)
     return disp
 
 
 def investigate(signal, max_probes=None, probe_table=None):
     n = MAX_PROBES if max_probes is None else max_probes
+    _exact_start()
     messages = [{"role": "system", "content": _sys()},
                 {"role": "user", "content": _signal_intro(signal)}]
     # usage accumulates across ALL turns — reconciliation vs LiteLLM metering
@@ -522,6 +561,7 @@ def triage(signal, evidence=None, attempts=3):
     # down (so a 401 outage can't turn a cost-cap storm into bug tickets).
     cls = operational_class(signal)
     if cls:
+        _exact_start()
         disp = {
             "disposition": "dismiss",
             "reason": _OPERATIONAL_REASON.get(cls, (
@@ -536,6 +576,8 @@ def triage(signal, evidence=None, attempts=3):
                       "table_miss": 0, "cost_usd": 0.0, "certainty": "high",
                       "operational_class": cls, "usage": {}},
         }
+        if _EXACT is not None:
+            disp["_exact"] = _EXACT
         observ.finalize(signal, disp, usage={}, latency_s=0.0)
         print(f"    [operational:{cls}] {signal.get('alertname','')[:70]} -> dismiss (no ticket)")
         return disp

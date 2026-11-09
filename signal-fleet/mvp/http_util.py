@@ -5,8 +5,13 @@ import urllib.parse
 import urllib.request
 
 
+LAST_HEADERS = {}   # the last response's headers, lower-cased; triage reads the gateway's deployment id from it
+
+
 def _open(req, timeout):
+    global LAST_HEADERS
     with urllib.request.urlopen(req, timeout=timeout) as r:
+        LAST_HEADERS = {k.lower(): v for k, v in r.headers.items()}
         return r.read().decode("utf-8", "replace")
 
 
