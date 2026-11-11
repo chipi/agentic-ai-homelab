@@ -111,6 +111,12 @@ Every JSON key stays a field; `_msg` is for reading, queries use the fields (`ev
 Without it VictoriaLogs stores "missing _msg field". Shipped for operator.alloy 2026-10-27
 (podcast_scraper 5efd01fb2, tested alloy v1.17.0 → victoria-logs v1.52.0).
 
+**flotilla's lines (JSON objects with the message in `msg`: flotillad, its workers, its egress
+proxy)** get `_msg` = the `msg`, then `routine=`, `run=`, `status=` when present, from the mini's
+`hosts/homelab/config.alloy` (2026-11-11; until then every flotilla line read "missing _msg field").
+Error text stays in its `err` field, never in `_msg`, so a quote cannot break the line. A line
+that is not a JSON object passes unchanged. Tested with alloy v1.17.0 → victoria-logs v1.52.0.
+
 **Why `level` and `release` are structured_metadata, not stream labels:** `level` varies
 per line (as a label it would multiply streams by five), and `release` changes on every
 deploy (as a label every deploy would mint new streams). As structured_metadata both are

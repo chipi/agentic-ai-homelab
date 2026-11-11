@@ -480,6 +480,31 @@ loki.process "homelab_std" {
     replace    = "sk-REDACTED"
   }
 
+  // flotilla (flotillad, its workers, its egress proxy) logs one JSON object per line with the
+  // message in `msg`; VictoriaLogs looks for `_msg`, so every flotilla line read "missing _msg
+  // field" (found 2026-11-11). Add a `_msg`: the message, then the routine, run and status when
+  // present (ids and constant words, never error text, so no quote can break the JSON). Every
+  // key stays a field; a line that is not a JSON object is left as it is. Same shape as the
+  // podcast drop-in (LOG-STANDARD, event lines).
+  stage.match {
+    selector = "{container=~\"flotillad|flotilla-.+\"} |~ \"^\\\\{.*\\\"msg\\\" ?:\""
+
+    stage.regex {
+      expression = "^(?P<fl_json>\\{.*\\})\\s*$"
+    }
+    stage.json {
+      source      = "fl_json"
+      expressions = {fl_msg = "msg", fl_routine = "routine", fl_run = "run_id", fl_status = "status"}
+    }
+    stage.template {
+      source   = "fl_json"
+      template = "{{ TrimSuffix .Value \"}\" }}, \"_msg\": \"{{ .fl_msg }}{{ with .fl_routine }} routine={{ . }}{{ end }}{{ with .fl_run }} run={{ . }}{{ end }}{{ with .fl_status }} status={{ . }}{{ end }}\"}"
+    }
+    stage.output {
+      source = "fl_json"
+    }
+  }
+
   // Alloy's own graph-evaluation logs carry a `trace_id=` for traces it never
   // exports; skip its container so they don't get a dead trace_id field.
   stage.match {
