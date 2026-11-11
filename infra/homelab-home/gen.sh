@@ -544,7 +544,7 @@ async function fleet(){
   // and cleanup drafts are Fleet-3 BACKLOG, not operator debt (2026-08-05)
   const NY=await HubStatus.needsYou(HS);
   const dec=await g1('sum(count_over_time(signal_fleet_disposition{service="triage-fleet",disposition!="recurrence"}[24h]))');
-  const sp=await g1('sum(last_over_time(fleetd_spend_day[2h]))');
+  const sp=await g1('sum(last_over_time(flotilla_spend_day_usd{routine="triage/cycle"}[2h]))');
   const d=new Date(),mS=Math.max(3600,Math.floor((d-new Date(d.getFullYear(),d.getMonth(),1))/1000));
   const dayS=Math.max(3600,Math.floor((d-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/1000));
   const mo=await g1('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}['+mS+'s]))');
@@ -1293,7 +1293,7 @@ async function siteGroups(){
   if(el.innerHTML!==html)el.innerHTML=html;
 }
 // ---- Fleets tab. Triage: needs-you (bug queue + escalations, as before) with the backlog beside
-// it, the decision mix, escalations, spend, the last fleetd cycle and the signal sources. Bug-fix:
+// it, the decision mix, escalations, spend, the last cycle (flotilla) and the signal sources. Bug-fix:
 // issues per stage from bugfix_fleet_issues{flow} (the previous cards read bugfix_fleet_flow and
 // bugfix_fleet_cost_usd, which no collector writes, so they showed 0 while 7 issues existed).
 async function fleetCards(){
@@ -1322,10 +1322,12 @@ async function fleetCards(){
   const mo=await one('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}['+mS+'s]))'),lm=await one('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}['+pS+'s] offset '+mS+'s))');
   const decM=await one('sum(count_over_time(signal_fleet_disposition{service="triage-fleet"}['+mS+'s]))'),spD=await daily('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}[1d]))');
   set('fl_spend',cv(usd(mo)+spark(spD))+mut('last month '+usd(lm)+(decM?' &middot; $'+((mo||0)/decM).toFixed(4)+' per decision':'')));
-  // last fleetd cycle
-  const cy=(await q('last_over_time(fleetd_cycle[1d])'))[0],cs=await one('max(last_over_time(fleetd_cycle_seconds[1d]))'),ct=await one('max(tlast_over_time(fleetd_cycle[1d]))');
-  const ok=cy&&cy.metric.outcome==='ok',age=ct?Date.now()/1000-ct:null;
-  set('fl_cycle',cv(cy?'<span style="color:'+(ok?'#3fb950':'#f85149')+'">'+cy.metric.outcome+'</span>':'&mdash;')+mut((age!=null?fmtUp(age)+' ago':'no cycle in 24h')+(cs?' &middot; '+cs.toFixed(0)+' s':'')+(cy&&cy.metric.version?' &middot; '+cy.metric.version:'')));
+  // last triage cycle: flotilla's triage/cycle routine since the switch (2026-11-11); one flotilla_run
+  // series per status, autonomy and version, so the newest series is the last run
+  const cy=(await q('tlast_over_time(flotilla_run{routine="triage/cycle",status!="skipped"}[1d])')).sort((a,b)=>b.value[1]-a.value[1])[0];
+  const ct=cy?+cy.value[1]:null,cs=cy?await one('last_over_time(flotilla_run_seconds{routine="triage/cycle",autonomy="'+cy.metric.autonomy+'"}[1d])'):null;
+  const ok=cy&&cy.metric.status==='ok',age=ct?Date.now()/1000-ct:null;
+  set('fl_cycle',cv(cy?'<span style="color:'+(ok?'#3fb950':'#f85149')+'">'+cy.metric.status+'</span>':'&mdash;')+mut((age!=null?fmtUp(age)+' ago':'no cycle in 24h')+(cs?' &middot; '+cs.toFixed(0)+' s':'')+(cy?' &middot; '+cy.metric.autonomy+(cy.metric.version?' &middot; '+cy.metric.version:''):'')));
   // sources
   const pr=await by('last_over_time(signal_fleet_probes{service="triage-fleet"}[1d])','source'),gs=await by('last_over_time(signal_fleet_glitchtip_sync{service="triage-fleet"}[1d])','kind');
   set('fl_src',cv(Object.keys(pr).length+' sources')+mut('watching '+Object.keys(pr).sort().join(', ')+(gs.mapped!=null?'<br>GlitchTip: '+Math.round(gs.mapped||0)+' mapped &middot; '+Math.round(gs.merged||0)+' merged &middot; '+Math.round(gs.resolved||0)+' resolved'+(gs.errors?' &middot; <span style=color:#f85149>'+Math.round(gs.errors)+' errors</span>':''):'')));
