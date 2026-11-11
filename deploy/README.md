@@ -42,16 +42,13 @@ any one part is written into `mini-deploy.sh`.
 Hooks run in name order with `bash`, and get `CHECKOUT`, `PREV` and `NOW` (short shas) in the
 environment.
 
-Registered today, all for the triage fleet:
-- `pre-pull.d/10-signal-fleet-deploy-log.sh`: installs the post-merge hook that logs every pull to
-  `~/signal-fleet/results/deploys.tsv`.
-- `rollback.d/10-signal-fleet-deploy-log.sh`: logs the rollback in the same file.
-
-`gate.d/10-signal-fleet.sh` (the fleet's replays of this repo's copy) was removed on 2026-11-11: the
-triage fleet runs from [flotilla](https://github.com/chipi/flotilla) since the switch that day, and
-its gates run in flotilla's deploy and the fleet session's weekly check. With no gate.d hook, a pull
-has no gate. The two deploy-log hooks leave with the fleet too, and this deploy keeps working
-unchanged.
+None is registered today. The triage fleet's three hooks were removed on 2026-11-11, when the fleet
+moved to [flotilla](https://github.com/chipi/flotilla): `gate.d/10-signal-fleet.sh` (replays of this
+repo's copy; its gates now run in flotilla's deploy and the fleet session's weekly check) and the two
+`10-signal-fleet-deploy-log.sh` hooks, which logged homelab pulls and rollbacks into the fleet's
+`~/signal-fleet/results/deploys.tsv` (flotilla's deploy writes that log now; the rows already there
+stay). The `post-merge` git hook they installed in the mini's checkout was taken out with them. With
+no hooks a pull has no gate, and this deploy works unchanged.
 
 ## Tests
 
