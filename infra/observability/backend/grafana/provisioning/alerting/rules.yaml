@@ -18,6 +18,8 @@ deleteRules:
     uid: github-status-ours              # renamed provider-status-ours (GitHub + OpenRouter), 2026-11-04
   - orgId: 1
     uid: github-status-poller-stale      # renamed provider-status-poller-stale, 2026-11-04
+  - orgId: 1
+    uid: flotilla-job-stale              # renamed flotilla-routine-stale (flotilla ADR-0007), 2026-11-11
 
 # A NOTE ON execErrState — read before setting it to OK again.
 #
