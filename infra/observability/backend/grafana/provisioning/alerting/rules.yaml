@@ -1420,23 +1420,23 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: lt, params: [1] } }]
 
-      # A job is stale when its last ok run is older than the freshness its spec declares
-      # (flotilla_job_freshness_seconds, pushed per job), or it has none in a day. platform/heartbeat
+      # A routine is stale when its last ok run is older than the freshness its spec declares
+      # (flotilla_routine_freshness_seconds, pushed per routine), or it has none in a day. platform/heartbeat
       # stale = the platform is broken whatever the fleets say. 10m grace covers a deploy.
-      - uid: flotilla-job-stale
-        title: "flotilla job stale (no ok run within its freshness)"
+      - uid: flotilla-routine-stale
+        title: "flotilla routine stale (no ok run within its freshness)"
         condition: threshold
         for: 10m
         noDataState: OK
         labels: { severity: warning, kind: fleet, meta: "true" }
         annotations:
-          summary: "flotilla job {{ $labels.job }} has had no ok run within its declared freshness. Check: docker exec flotillad flotilla runs {{ $labels.job }} -n 10 (the detail column has the failure)."
+          summary: "flotilla routine {{ $labels.routine }} has had no ok run within its declared freshness. Check: docker exec flotillad flotilla runs {{ $labels.routine }} -n 10 (the detail column has the failure)."
         data:
           - refId: q
             relativeTimeRange: { from: 86400, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: '((time() - max by (job) (last_over_time(flotilla_job_last_success_timestamp_seconds[1d]))) > max by (job) (last_over_time(flotilla_job_freshness_seconds[10m]))) or (max by (job) (last_over_time(flotilla_job_freshness_seconds[10m])) unless on (job) max by (job) (last_over_time(flotilla_job_last_success_timestamp_seconds[1d])))'
+              expr: '((time() - max by (routine) (last_over_time(flotilla_routine_last_success_timestamp_seconds[1d]))) > max by (routine) (last_over_time(flotilla_routine_freshness_seconds[10m]))) or (max by (routine) (last_over_time(flotilla_routine_freshness_seconds[10m])) unless on (routine) max by (routine) (last_over_time(flotilla_routine_last_success_timestamp_seconds[1d])))'
               instant: true
               queryType: instant
           - refId: threshold

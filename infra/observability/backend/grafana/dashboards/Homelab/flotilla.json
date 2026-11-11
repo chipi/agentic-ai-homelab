@@ -5,7 +5,7 @@
     "fleet",
     "flotilla"
   ],
-  "description": "flotilla (github.com/chipi/flotilla): flotillad's health, every job's runs, freshness and spend, its alerts, and what the egress proxy refused. Phase 2: the triage fleet runs here in shadow beside fleetd. CLI on the mini: docker exec flotillad flotilla status.",
+  "description": "flotilla (github.com/chipi/flotilla): flotillad's health, every routine's runs, freshness and spend, its alerts, and what the egress proxy refused. Phase 2: the triage fleet runs here in shadow beside fleetd. CLI on the mini: docker exec flotillad flotilla status.",
   "schemaVersion": 39,
   "refresh": "1m",
   "time": {
@@ -74,7 +74,7 @@
       "id": 2,
       "type": "bargauge",
       "title": "Since the last ok run, against its freshness",
-      "description": "Per job: seconds since its last ok run. The job is stale (alert flotilla-job-stale) past its declared freshness: platform/heartbeat 25m, triage/cycle 35m.",
+      "description": "Per routine: seconds since its last ok run. The routine is stale (alert flotilla-routine-stale) past its declared freshness: platform/heartbeat 25m, triage/cycle 35m.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -87,8 +87,8 @@
       },
       "targets": [
         {
-          "expr": "time() - max by (job) (last_over_time(flotilla_job_last_success_timestamp_seconds[1d]))",
-          "legendFormat": "{{job}}",
+          "expr": "time() - max by (routine) (last_over_time(flotilla_routine_last_success_timestamp_seconds[1d]))",
+          "legendFormat": "{{routine}}",
           "instant": true,
           "refId": "A",
           "datasource": {
@@ -135,7 +135,7 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "Runs per hour, by job and status",
+      "title": "Runs per hour, by routine and status",
       "description": "count_over_time(flotilla_run[1h]): one sample per run. ok, error, timeout, skipped (STOP, pause or budget; the reason is in `flotilla runs`), interrupted (flotillad restarted during the run).",
       "datasource": {
         "type": "prometheus",
@@ -149,8 +149,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (job, status) (count_over_time(flotilla_run[1h]))",
-          "legendFormat": "{{job}} {{status}}",
+          "expr": "sum by (routine, status) (count_over_time(flotilla_run[1h]))",
+          "legendFormat": "{{routine}} {{status}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -175,7 +175,7 @@
       "id": 4,
       "type": "timeseries",
       "title": "Run duration",
-      "description": "flotilla_run_seconds per job: how long each run took in its worker. A triage cycle that triages nothing new takes ~15 s; one with model calls takes minutes (timeout 20m).",
+      "description": "flotilla_run_seconds per routine: how long each run took in its worker. A triage cycle that triages nothing new takes ~15 s; one with model calls takes minutes (timeout 20m).",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -188,8 +188,8 @@
       },
       "targets": [
         {
-          "expr": "max by (job) (flotilla_run_seconds)",
-          "legendFormat": "{{job}}",
+          "expr": "max by (routine) (flotilla_run_seconds)",
+          "legendFormat": "{{routine}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -211,8 +211,8 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Spend today, per job",
-      "description": "flotilla_spend_day_usd: the job's model spend so far on its local day, as the job reported it. flotillad skips the job's runs once this reaches its daily budget.",
+      "title": "Spend today, per routine",
+      "description": "flotilla_spend_day_usd: the routine's model spend so far on its local day, as the routine reported it. flotillad skips the routine's runs once this reaches its daily budget.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -225,8 +225,8 @@
       },
       "targets": [
         {
-          "expr": "max by (job) (flotilla_spend_day_usd)",
-          "legendFormat": "{{job}}",
+          "expr": "max by (routine) (flotilla_spend_day_usd)",
+          "legendFormat": "{{routine}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -245,7 +245,7 @@
       "id": 6,
       "type": "alertlist",
       "title": "flotilla alerts",
-      "description": "The two flotilla rules (homelab rules.yaml): flotilla-silent and flotilla-job-stale.",
+      "description": "The two flotilla rules (homelab rules.yaml): flotilla-silent and flotilla-routine-stale.",
       "datasource": null,
       "gridPos": {
         "h": 7,
@@ -302,7 +302,7 @@
       "id": 8,
       "type": "logs",
       "title": "Egress refused by the proxy",
-      "description": "Every connection the egress proxy refused (Smokescreen: the host is not on the allowlist in egress-acl.yaml). The heartbeat's own refused probe (example.com) shows here every 10 minutes; anything else is a job reaching where it should not.",
+      "description": "Every connection the egress proxy refused (Smokescreen: the host is not on the allowlist in egress-acl.yaml). The heartbeat's own refused probe (example.com) shows here every 10 minutes; anything else is a routine reaching where it should not.",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
@@ -334,7 +334,7 @@
       "id": 9,
       "type": "logs",
       "title": "Runs in the triage worker",
-      "description": "The worker's start and end line for every run (job, run id, status, duration, spend). A run's full output is in the same stream (\"run output\" lines, by run_id).",
+      "description": "The worker's start and end line for every run (routine, run id, status, duration, spend). A run's full output is in the same stream (\"run output\" lines, by run_id).",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
         "uid": "victorialogs"
