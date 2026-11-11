@@ -5,6 +5,11 @@
 > still runs this copy on the mini until flotilla's phase 2, so a fix the live fleet needs before
 > then lands here first and is ported to flotilla. The directory leaves this repo in flotilla's
 > phase 7 (RFC-0001 §9).
+>
+> **The replay corpora (`reference*/`) moved to the private fleet-eval-data repo (2026-11-11),**
+> `projects/signal-fleet-replays/`, byte for byte: they are real (scrubbed) production data, and this
+> repo is public. Flotilla's replays read them there (`SF_EVAL_DATA`); this frozen copy's `eval_*`
+> replays no longer run here, and homelab's deploy no longer runs them (4601be6).
 
 Autonomous **observability triage**: take live production signals (GlitchTip
 errors and Grafana alerts; VictoriaMetrics/Logs/Traces are read as probe evidence) and decide
@@ -60,8 +65,8 @@ context.
 - **Evals (versioned + reproducible):** `python3 mvp/eval_hardening.py` — a
   deterministic end-to-end eval of the flood hardening (#5/#2/#7) over a versioned
   dataset of the real (scrubbed) flood signals; runs anywhere, no LLM/creds, ALL PASS
-  ([`reference-hardening/`](reference-hardening/README.md)). `mvp/score.py` measures
-  the LLM triager over the frozen `reference/` fixtures (now committed + scrubbed via
+  (`reference-hardening/`, now in the private fleet-eval-data). `mvp/score.py` measures
+  the LLM triager over the frozen `reference/` fixtures (scrubbed via
   `mvp/scrub.py`). Since 2026-10-30 the triager is measured in eval-harness instead
   (`examples/triage-fleet`, datasets built by [`datasets/`](datasets/)); every deploy runs
   18 deterministic gates (runbook §5).
