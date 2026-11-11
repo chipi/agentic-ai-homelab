@@ -760,7 +760,7 @@ class TestAlertKeyDedup(unittest.TestCase):
         self.assertTrue(filing.alert_key(self.repo, "grafana", "prod OOM kill: serving container or the whole box"))
 
     def _oom(self, fp, container):
-        # the two signals of 2026-11-08 20:24/20:25Z, labels as the probe capture recorded them
+        # two synthetic per-container OOM signals, shaped like a probe capture records them
         name = "prod OOM kill: a container hit its own limit"
         return {"fingerprint": fp, "source": "grafana", "alertname": name, "raw": {},
                 "summary": f"{container} on prod-podcast was OOM-killed",
@@ -768,20 +768,20 @@ class TestAlertKeyDedup(unittest.TestCase):
                            "container": container, "kind": "infra", "severity": "warning"}}
 
     def test_two_containers_same_day_are_two_issues(self):
-        # 2026-11-08: the second container's kill matched homelab#147 and was dropped as
+        # before per-container keys, the second container's kill matched the first one's issue and was dropped as
         # "already commented today"; per container, it files its own issue
-        first = self._oom("grafana:c833813e59f0526f", "(docker ddeca211cfd2, name unknown)")
-        second = self._oom("grafana:fcb42a2a9d84bfba", "(docker c0f15e38c7c3, name unknown)")
+        first = self._oom("grafana:0000000000000a01", "(docker aaaaaaaaaaa1, name unknown)")
+        second = self._oom("grafana:0000000000000b02", "(docker bbbbbbbbbbb2, name unknown)")
         self.assertNotEqual(filing.normalized_key(first), filing.normalized_key(second))
         self.open = {"99"}
-        out1 = filing.file_or_update(first, {"title": "OOM ddeca211cfd2", "body": "b"}, "config-enhancement")
-        out2 = filing.file_or_update(second, {"title": "OOM c0f15e38c7c3", "body": "b"}, "config-enhancement")
+        out1 = filing.file_or_update(first, {"title": "OOM aaaaaaaaaaa1", "body": "b"}, "config-enhancement")
+        out2 = filing.file_or_update(second, {"title": "OOM bbbbbbbbbbb2", "body": "b"}, "config-enhancement")
         self.assertTrue(out1.startswith("FILED"), out1)
         self.assertTrue(out2.startswith("FILED"), out2)
 
     def test_same_container_again_is_the_same_issue(self):
-        first = self._oom("grafana:c833813e59f0526f", "(docker ddeca211cfd2, name unknown)")
-        again = self._oom("grafana:0000aaaa1111bbbb", "(docker ddeca211cfd2, name unknown)")
+        first = self._oom("grafana:0000000000000a01", "(docker aaaaaaaaaaa1, name unknown)")
+        again = self._oom("grafana:0000aaaa1111bbbb", "(docker aaaaaaaaaaa1, name unknown)")
         self.assertEqual(filing.normalized_key(first), filing.normalized_key(again))
 
     def test_backfill_from_dispositions(self):
