@@ -265,6 +265,25 @@ tmux_timer() {
   return 0
 }
 
+# The daily /tmp sweep (claude/hooks/tmp-sweep.sh --daily): Linux with a systemd user manager only.
+tmp_sweep_timer() {
+  link claude/systemd/claude-tmp-sweep.service "$HOME/.config/systemd/user/claude-tmp-sweep.service"
+  link claude/systemd/claude-tmp-sweep.timer   "$HOME/.config/systemd/user/claude-tmp-sweep.timer"
+  if ! command -v systemctl >/dev/null 2>&1 || ! systemctl --user show-environment >/dev/null 2>&1; then
+    echo "WARN  /tmp sweep: no systemd user manager; the daily sweep is off (by hand: ~/.claude/hooks/tmp-sweep.sh --daily)"
+    return 0
+  fi
+  if [ "$(systemctl --user is-enabled claude-tmp-sweep.timer 2>/dev/null)" = enabled ] \
+     && systemctl --user is-active --quiet claude-tmp-sweep.timer; then
+    echo "OK    claude-tmp-sweep.timer enabled and active"; return 0
+  fi
+  echo "UNIT  systemctl --user daemon-reload; systemctl --user enable --now claude-tmp-sweep.timer"
+  if [ "$DRY" = 0 ] && ! { systemctl --user daemon-reload && systemctl --user enable --now claude-tmp-sweep.timer; }; then
+    echo "WARN  could not enable claude-tmp-sweep.timer; the daily /tmp sweep is off"
+  fi
+  return 0
+}
+
 tmux_persistence() {
   if ! command -v tmux >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
     echo "WARN  tmux persistence: tmux or git not installed; skipped"; return 0
@@ -356,6 +375,7 @@ for _hk in "$WS"/claude/hooks/*; do
   _n="$(basename "$_hk")"
   link "claude/hooks/$_n" "$HOME/.claude/hooks/$_n"
 done
+[ "$OS" = linux ] && tmp_sweep_timer
 for _wf in "$WS"/claude/workflows/*; do
   [ -e "$_wf" ] || continue
   _n="$(basename "$_wf")"

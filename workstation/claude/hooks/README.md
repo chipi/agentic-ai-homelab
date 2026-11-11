@@ -161,6 +161,35 @@ negatives (live parent, file still there, other family, prefix-sharing project).
 
 ---
 
+## tmp-sweep.sh — what agents and test runs leave in /tmp (Linux)
+
+The workstation's `/tmp` is a 63 G tmpfs with a fixed 1,048,576 inodes. On 2026-11-11 it reached
+97 % and new files failed, Claude's own tool output included. Nothing deleted agent scratchpads,
+`pytest-of-<user>` folders beyond pytest's own pruning, or the `TemporaryDirectory` folders of
+killed test runs.
+
+- **At SessionEnd**, `session-reap.sh` reads `session_id` from the hook's stdin JSON and runs
+  `tmp-sweep.sh --session <id>`: that session's scratchpad `/tmp/claude-<uid>/<project>/<id>` goes.
+  `SESSION_REAP_NO_TMP_SWEEP=1` keeps it.
+- **Daily**, the user timer `claude-tmp-sweep.timer` (`workstation/claude/systemd/`, installed by
+  `install.sh` on Linux) runs `tmp-sweep.sh --daily`. It removes anything older than
+  `TMP_SWEEP_MAX_AGE_H` (48 h): old `pytest-N` folders (never the 3 newest or `pytest-current`),
+  `/tmp/*-tests-*` folders, scratchpads of sessions that ended without the hook, and loose files
+  directly in `/tmp/claude-<uid>`.
+
+**Gates, all of them:** owned by this user; no process has its cwd or an open file inside, except
+the processes that called the sweep (at SessionEnd the ending Claude still holds its own files); a
+session id of uuid shape; Claude Code's own folders (`bash-edit-diff`, `bundled-skills`) never
+touched. A live Claude normally holds its scratchpad's `tasks/` open. One that holds none (4 of 18
+on 2026-11-11) cannot be matched to a scratchpad, so every scratchpad of its project folder (its cwd
+with each non-alphanumeric character as `-`) is kept. `TMP_SWEEP_DRY_RUN=1` lists without removing.
+The log is `~/.claude/hooks/tmp-sweep.log`.
+
+Tests: `bash workstation/claude/hooks/tmp-sweep.test.sh` (23 checks in a scratch `/tmp`, including
+an id like `../<project>` and a fake live `claude`).
+
+---
+
 ## skill-nudge.py — tell the agent when a skill matches (UserPromptSubmit + PreToolUse Bash)
 
 Skills load by description matching, which an agent deep in a task skips (orrery,

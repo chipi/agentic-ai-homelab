@@ -1,0 +1,12 @@
+# Workstation (agentic-ai-homelab: workstation/claude). Daily /tmp sweep; a missed run (the machine
+# was off) runs at the next boot.
+[Unit]
+Description=Daily sweep of old agent and test files in /tmp
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

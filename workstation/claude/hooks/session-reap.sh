@@ -28,6 +28,7 @@
 #      SESSION_REAP_NO_LOOP_SWEEP=1 -> skip the stale-loop sweep entirely.
 #      SESSION_REAP_MAX_WATCH_AGE -> orphan-watcher age floor in seconds (default 7200 = 2h).
 #      SESSION_REAP_NO_WATCH_SWEEP=1 -> skip the orphan-watcher sweep entirely.
+#      SESSION_REAP_NO_TMP_SWEEP=1  -> keep the ending session's scratchpad (tmp-sweep.sh --session).
 set -u
 
 PROJECT_DIR="${1:-${CLAUDE_PROJECT_DIR:-$PWD}}"
@@ -37,6 +38,16 @@ LOG="$HOME/.claude/hooks/session-reap.log"
 SELF=$$
 ts="$(date '+%Y-%m-%d %H:%M:%S')"
 echo "== $ts session-reap start project=$PROJECT_DIR dry=$DRY ==" >>"$LOG"
+
+# The ending session's scratchpad (/tmp/claude-<uid>/<project>/<session id>): the hook's stdin is
+# Claude Code's SessionEnd JSON, which names the session. Before every gate below, which can exit.
+if [ "${SESSION_REAP_NO_TMP_SWEEP:-0}" != 1 ] && [ ! -t 0 ]; then
+  sid="$(timeout 2 cat 2>/dev/null | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  if [ -n "$sid" ]; then
+    TMP_SWEEP_DRY_RUN="$DRY" bash "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/tmp-sweep.sh" --session "$sid" \
+      >>"$LOG" 2>&1 || echo "$ts tmp-sweep failed (scratchpad kept)" >>"$LOG"
+  fi
+fi
 
 # ps etime ([[dd-]hh:]mm:ss) -> elapsed seconds (macOS BSD ps has no `etimes`).
 # `10#` on every field: ps zero-pads (08, 09) which bash arithmetic reads as octal.

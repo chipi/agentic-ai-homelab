@@ -1,0 +1,8 @@
+# Workstation (agentic-ai-homelab: workstation/claude/hooks/tmp-sweep.sh). Removes what agents and
+# test runs left in /tmp more than 48 hours ago, never anything in use.
+[Unit]
+Description=Remove old agent scratchpads and test leftovers from /tmp
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash %h/.claude/hooks/tmp-sweep.sh --daily
