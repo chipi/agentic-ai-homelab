@@ -100,8 +100,8 @@ def alert_key_dedup_enabled():
 
 # Alerts labelled one instance per container: two containers' kills are two problems, so
 # they never share an alert_key (it has no labels) and their norm_key carries the container.
-# 2026-11-08: two containers' kills 49 s apart filed one issue, homelab#147, and the second
-# was dropped as "already commented today" (operator: per-container keying for this rule).
+# Without this, two containers' kills seconds apart filed one issue, and the second was
+# dropped as "already commented today" (operator: per-container keying for this rule).
 PER_CONTAINER_ALERTS = {"prod OOM kill: a container hit its own limit"}
 
 
