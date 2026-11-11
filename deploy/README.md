@@ -45,12 +45,13 @@ environment.
 Registered today, all for the triage fleet:
 - `pre-pull.d/10-signal-fleet-deploy-log.sh`: installs the post-merge hook that logs every pull to
   `~/signal-fleet/results/deploys.tsv`.
-- `gate.d/10-signal-fleet.sh`: the fleet's 18 deterministic replays and unit tests, plus the private
-  filing gate (`signal-fleet/deploy/gates.sh`).
 - `rollback.d/10-signal-fleet-deploy-log.sh`: logs the rollback in the same file.
 
-When the fleets move to [flotilla](https://github.com/chipi/flotilla) (its RFC-0001 phase 1), these
-three files leave with them, and this deploy keeps working unchanged.
+`gate.d/10-signal-fleet.sh` (the fleet's replays of this repo's copy) was removed on 2026-11-11: the
+triage fleet runs from [flotilla](https://github.com/chipi/flotilla) since the switch that day, and
+its gates run in flotilla's deploy and the fleet session's weekly check. With no gate.d hook, a pull
+has no gate. The two deploy-log hooks leave with the fleet too, and this deploy keeps working
+unchanged.
 
 ## Tests
 
