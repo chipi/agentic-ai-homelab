@@ -115,8 +115,8 @@ reproduced-only labels. What did not:
 | # | Where it hurt | What would help | Status |
 |---|---|---|---|
 | 44 | F1: the branch still says 0.7.2, so `pip install -e .` kept the old commit; only `--force-reinstall` moved it | a version that differs from the release's | fixed at f9729acaf, retested 2026-11-12 |
-| 45 | F2: `expect_identical_to` is read from a run's metrics, so our frozen pre-0.8 pair (`dedup_guard_v1`, `dedup_guard_8213775_v1`) can never carry it and V5 stays red | a declaration for runs that exist (a guards file or a command, with a reason) | fixed at f9729acaf for configs in `data/configs/` only: see 54 |
-| 46 | F3: `pair-test --round` on a new round whose only arm is its baseline says "records no other baseline run" | "the round has no arm besides its baseline" | fixed at f9729acaf for the first two cases: see 55 |
+| 45 | F2: `expect_identical_to` is read from a run's metrics, so our frozen pre-0.8 pair (`dedup_guard_v1`, `dedup_guard_8213775_v1`) can never carry it and V5 stays red | a declaration for runs that exist (a guards file or a command, with a reason) | fixed at 0ccea92bd (with 54, 55), retested 2026-11-12 |
+| 46 | F3: `pair-test --round` on a new round whose only arm is its baseline says "records no other baseline run" | "the round has no arm besides its baseline" | fixed at 0ccea92bd (with 54, 55), retested 2026-11-12 |
 | 47 | F4: one `--outcomes` capture per label run; our labels read GitHub's close reason and GlitchTip's recurrence | several outcome captures per run, each under its own name | fixed at f9729acaf, retested 2026-11-12 |
 | 48 | F5 (data loss): `dataset-from-capture` deleted the files in `data/sources/<dataset_id>/`, where our capture's own source sat | refuse a folder holding files the harness did not write | fixed at f9729acaf, retested 2026-11-12 |
 | 49 | F6: a project join mutant with keys the harness does not read was reported SURVIVED | refuse a malformed mutant | fixed at f9729acaf, retested 2026-11-12 |
@@ -124,8 +124,8 @@ reproduced-only labels. What did not:
 | 51 | F8: `period-compare --production` takes a config id, `faithfulness --production` a run id | the same meaning in both | fixed at f9729acaf, retested 2026-11-12 |
 | 52 | F9: `dated_by` on a version instead of its deployment was accepted and ignored | refuse it (schema or V18) | fixed at f9729acaf, retested 2026-11-12 |
 | 53 | F9b: `period-compare`'s confound note counts the whole run, not the period's items | count the period's | fixed at f9729acaf, retested 2026-11-12 |
-| 54 | F10: F2's fix reads `expect_identical_to` only from `data/configs/`; our dedup guard's config lives in `projects/signal-fleet-dedup/configs/` (`evh run --config` takes a path), so V5 stays red (a copy in `data/configs/` passes) | V5 reads the config from the path the run recorded | sent 2026-11-12 |
-| 55 | F3b: `pair-test --round r5 --a <the baseline>` still says "no arm besides its baseline ... name --a" | "the arm tested is the baseline", as described for the fix | sent 2026-11-12 |
+| 54 | F10: F2's fix reads `expect_identical_to` only from `data/configs/`; our dedup guard's config lives in `projects/signal-fleet-dedup/configs/` (`evh run --config` takes a path), so V5 stays red (a copy in `data/configs/` passes) | V5 reads the config from the path the run recorded | fixed at 0ccea92bd, retested 2026-11-12 |
+| 55 | F3b: `pair-test --round r5 --a <the baseline>` still says "no arm besides its baseline ... name --a" | "the arm tested is the baseline", as described for the fix | fixed at 0ccea92bd, retested 2026-11-12 |
 
 Retest on f9729acaf (2026-11-12, scratch copies, fleet-eval-data `BETA-080.md`): 44 and 47-53 hold on our cases
 (F4: GitHub and GlitchTip captures in one run give the same 62 labels plus 17 gone; F7: 5 of 287 in note and metric;
@@ -136,3 +136,5 @@ hide hooks only when warmed up, while the harness passes `hide` with each call; 
 fleet-eval-data 29e4c34: the hidden default rule 287 of 287, the hidden quiet-10 variant 257 of 287. X2's left-out
 path and L3's not-scorable count were tried after the fix and work (25 left out; 30 not scorable, exactly where the
 variant acts otherwise).
+
+fleet-eval-data pinned to 0ccea92bd (2026-11-12): `evh validate` passes there, V5 included (the dedup pair is a declared guard).
