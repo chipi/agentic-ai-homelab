@@ -81,3 +81,20 @@ fixes, none of them visible from the harness side; each would have shown up as a
 | 31 | No label coverage report: how many items an outcome rule set labels now, skips, or cannot label yet (outcome not matured). On 98 tuning items: 3 labelled, 31 left out by design, 44 waiting for an issue verdict, 17 waiting to mature, 3 for the operator (`projects/triage-heldout/outcome_count.py`) | `evh label-coverage --rules RULESET`, by rule, with "not yet mature" as its own class and each item's maturing date | open (sent 2026-11-09) |
 | 32 | For R: a recorded-lookups format that works. `exact_filing_replay.py` replays filing decisions from per-decision records: every external call in order (method, path, payload, response or error), the clock readings in order, the keys, the matched state row, the result; it compares the state file afterwards (comparing what the code passed to its writer let a mutant survive). Schema: agentic-ai-homelab `signal-fleet/mvp/callrec.py` (b4f4019) | input to 0.8.0's replay package | sent 2026-11-09 |
 | 33 | k runs of a temperature-0 model are not k independent samples: in r4's gate measurement 3 runs gave 23 gate firings on 9 distinct items | pair-test and the run summary report the item as the unit when an arm's runs are near-duplicates, or show distinct items beside item-runs | open (sent 2026-11-09) |
+
+## 2026-11-11/12: the held-out set exposed, and plan step 5 (the fleet's deterministic code against outcomes)
+
+Seven gaps found while doing this by hand in fleet-eval-data. Sent to the eval harness session 2026-11-12 (via
+homelab, then answered in detail on its questions); the operator approved them for implementation. The full
+answers, with what "done" means for each, are in fleet-eval-data `BOUNDARY-PROPOSAL.md` and the reply of
+2026-11-12.
+
+| # | Where it hurt | What would help | Status |
+|---|---|---|---|
+| 34 | 78 of 91 sealed items were read by sessions doing operations work before anyone noticed (one summary reached a public repo); the register (`triage-heldout/exposed.tsv`) and a public-repo check (`exposure_check.py`) were built by hand | an exposure register on a sealed dataset (record a read; every later score leaves exposed items out and says how many); a check of listed public repos for sealed ids | recorded (approved) |
+| 35 | a live safety watch over the sealed period had to be a hand-written counts-only script (`triage-heldout/safety_watch.py`) | counts-only reports over a sealed dataset, grouped by fields the split's config allows, refusing ids and text | recorded (approved) |
+| 36 | labels that need 14 days to be knowable were counted "not mature" by hand and the reruns were remembered in notes | labels with an outcome date and a knowable date, a window per rule, append-only relabel runs, "changed after maturing" counted, scores with an as-of date | recorded (approved) |
+| 37 | GitHub close reasons and GlitchTip counts were read live at label time and never frozen, so a rerun can give other labels | outside-system labels read at a stated time and frozen, with provenance (source, endpoint, time, response hash) | recorded (approved) |
+| 38 | the stale-check variants nudged nothing at 10 and 14 days, because the replayed history carried production's own labels; hiding them first re-nudged 5 issues from before the window | variant replays that hide the system's own in-window writes, with the default variant required to reproduce production first, and a history-confound count per result | recorded (approved) |
+| 39 | replaying a period on the code that ran then needed code periods from the deploy log and git reflog (21 versions in one window) | a past-period baseline: recorded output, the period's code replayed (must equal it), and the candidate, on the same items | recorded (approved) |
+| 40 | per-decision outcome labels exist only for the action production took (the operator closed the issue production filed) | per-decision scoring that marks each label action-independent or observed only under the recorded action, scores a variant only where it can, and groups decisions by their unit (the fingerprint) | recorded (approved) |
