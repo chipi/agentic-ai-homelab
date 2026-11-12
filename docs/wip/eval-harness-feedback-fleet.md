@@ -101,3 +101,26 @@ answers, with what "done" means for each, are in fleet-eval-data `BOUNDARY-PROPO
 | 41 | three labeller mistakes (re-polls counted as recurrences, a duplicate close as noise, the event's culprit instead of the issue's) were caught only by reading results | named mutants of a labeller's rules and joins, each required to change labels; a mutant that changes none is reported | recorded (RFC-031, confirmed 2026-11-12) |
 | 42 | the rollup labels had to be checked by hand against the rule as deployed at each decision (74 of 76 reproduced, 62 of them dated only by commit time) | a label counts only where the recorded decision is reproduced by the rule version deployed then; the rest left out and counted, approximate versions counted apart | recorded (RFC-031, confirmed 2026-11-12) |
 | 43 | 17 rollup items and 498 re-triage fingerprints were gone from GlitchTip and labelled "gone" by hand | a label-coverage class "gone from the source, or its id reused" (first-seen checked against the record found), with last seen; never "no outcome", never negative | recorded (RFC-031, confirmed 2026-11-12) |
+
+## 2026-11-12: beta test of 0.8 (branch 080 at 852ef81a) on the fleet's cases
+
+Operator: test 0.8 on the branch, before its release, on our own cases. The project moved (pin, `evh migrate`: every
+output kept), and every part of RFC-031 and the fleet's entries 22, 27-29, 31 and 33 was tried on a real case; the log
+is fleet-eval-data `BETA-080.md`. Worked as designed and agreed with our hand-built tools: the sealed split, the
+exposure register and its public-repo check, counts-only reports, labels from outcomes with two dates and relabels,
+labeller mutants, the gone class, the repeats line, a new round's baseline, the `kind: code` record and faithfulness
+(287 of 287 on our filing and stale replay), hidden writes with the history confound, periods and period-compare,
+reproduced-only labels. What did not:
+
+| # | Where it hurt | What would help | Status |
+|---|---|---|---|
+| 44 | F1: the branch still says 0.7.2, so `pip install -e .` kept the old commit; only `--force-reinstall` moved it | a version that differs from the release's | sent 2026-11-12 |
+| 45 | F2: `expect_identical_to` is read from a run's metrics, so our frozen pre-0.8 pair (`dedup_guard_v1`, `dedup_guard_8213775_v1`) can never carry it and V5 stays red | a declaration for runs that exist (a guards file or a command, with a reason) | sent 2026-11-12 |
+| 46 | F3: `pair-test --round` on a new round whose only arm is its baseline says "records no other baseline run" | "the round has no arm besides its baseline" | sent 2026-11-12 |
+| 47 | F4: one `--outcomes` capture per label run; our labels read GitHub's close reason and GlitchTip's recurrence | several outcome captures per run, each under its own name | sent 2026-11-12 |
+| 48 | F5 (data loss): `dataset-from-capture` deleted the files in `data/sources/<dataset_id>/`, where our capture's own source sat | refuse a folder holding files the harness did not write | fixed locally by the eval harness session (05e39e723), to be pinned |
+| 49 | F6: a project join mutant with keys the harness does not read was reported SURVIVED | refuse a malformed mutant | sent 2026-11-12 |
+| 50 | F7: one history confound shown as "5 of 287" and as `history_confound=0.147` (5 of 34 marked items) | one denominator, said | sent 2026-11-12 |
+| 51 | F8: `period-compare --production` takes a config id, `faithfulness --production` a run id | the same meaning in both | sent 2026-11-12 |
+| 52 | F9: `dated_by` on a version instead of its deployment was accepted and ignored | refuse it (schema or V18) | sent 2026-11-12 |
+| 53 | F9b: `period-compare`'s confound note counts the whole run, not the period's items | count the period's | sent 2026-11-12 |
