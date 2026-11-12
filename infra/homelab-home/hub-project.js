@@ -263,7 +263,7 @@
   async function render(el, app, period, compare, src, audience) {
     audience = audience === 'beta' && (app.operatorIds || []).length ? 'beta' : 'all';
     const href = (p, c, a) => '#projects/' + app.id + '/' + p + '/' + c + '/' + a;
-    const head = '<nav class=subtabs>' + Object.entries(PERIODS).map(([k, v]) => '<a href="' + href(k, compare === 'week' && k !== 'today' ? 'prev' : compare, audience) + '" target=_self' + (k === period ? ' class=on' : '') + '>' + v + '</a>').join('')
+    const head = '<nav class="subtabs pctl">' + Object.entries(PERIODS).map(([k, v]) => '<a href="' + href(k, compare === 'week' && k !== 'today' ? 'prev' : compare, audience) + '" target=_self' + (k === period ? ' class=on' : '') + '>' + v + '</a>').join('')
       + '<span style="flex:1"></span>' + Object.entries(COMPARES).filter(([k]) => k !== 'week' || period === 'today').map(([k, v]) => '<a href="' + href(period, k, audience) + '" target=_self' + (k === compare ? ' class=on' : '') + '>' + v + '</a>').join('')
       + ((app.operatorIds || []).length ? '<span style="width:12px"></span>' + Object.entries(AUDIENCES).map(([k, v]) => '<a href="' + href(period, compare, k) + '" target=_self' + (k === audience ? ' class=on' : '') + ' title="' + (k === 'beta' ? 'Usage without your own sessions' : 'Every session, yours included') + '">' + v + '</a>').join('') : '') + '</nav>'
       + '<p class=sec style="margin:-8px 0 14px">Each number is the ' + (period === 'today' ? 'day so far (UTC)' : 'last ' + PERIODS[period] + ' (UTC days, today so far)') + ' against ' + esc(compareLabel(period, compare)) + ', over the same stretch of time. Jobs count whole nights.'

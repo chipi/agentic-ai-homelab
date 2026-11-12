@@ -120,7 +120,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   body{margin:14px}
   h1{font-size:20px;margin-bottom:14px}
   .cols{gap:18px}.col{min-width:0;flex-basis:100%}
-  .charts{gap:8px}a.card{flex:0 0 calc(50% - 4px);min-width:calc(50% - 4px);padding:9px 10px;overflow-wrap:anywhere}
+  .charts{gap:8px}a.card,a.card.pcard{flex:0 0 calc(50% - 4px);min-width:calc(50% - 4px);padding:9px 10px;overflow-wrap:anywhere}
   .cv{font-size:17px}.spark{height:34px}.cv{gap:4px}.cv .sl,a.card.site .cv svg.sl{width:40px}.cv .tr{font-size:10px!important;margin:0!important}.cv>span.muted{min-width:0;overflow:hidden;text-overflow:ellipsis}
   table{font-size:13px}th,td{padding:6px 8px}
   table.uptime th:nth-child(n+5),table.uptime td:nth-child(n+5){display:none}
@@ -131,9 +131,11 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   table.proj td{border:none;padding:0}table.proj td:first-child{grid-column:1/-1;font-weight:600}
   table.proj td[data-l]::before{content:attr(data-l);display:block;font-size:10px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em}
   .strip{gap:6px 12px;font-size:12.5px}
-  .tabs a{padding:8px 9px;font-size:14px}
+  .tabs a{flex:1 1 auto;text-align:center;padding:8px 3px;font-size:13.5px}
   .subtabs{flex-wrap:nowrap;gap:4px}
   .subtabs a{flex:1;text-align:center;white-space:nowrap;padding:5px 4px;font-size:12.5px}
+  .subtabs.pctl{flex-wrap:wrap}.subtabs.pctl>span{display:none}
+  table.ctbl:not(.proj){display:block;overflow-x:auto;max-width:100%}
   .subtabs .dot{width:7px;height:7px;margin-right:4px}
   code{word-break:break-all}
   .sysrow,.dock,.sec,.health{font-size:12.5px}
