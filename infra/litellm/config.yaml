@@ -254,6 +254,12 @@ model_list:
     litellm_params:
       model: openrouter/qwen/qwen3-vl-30b-a3b-instruct
       api_key: os.environ/OPENROUTER_API_KEY_EVALS
+  # the second open-weight vision model to compare against (operator, 2026-11-13): Gemma 4
+  # 26B-A4B, 4B active, also small enough for the GB10
+  - model_name: robot-vlm-gemma
+    litellm_params:
+      model: openrouter/google/gemma-4-26b-a4b-it
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
 litellm_settings:
   # full-package observability from day one (operator requirement):
