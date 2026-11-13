@@ -42,13 +42,18 @@ any one part is written into `mini-deploy.sh`.
 Hooks run in name order with `bash`, and get `CHECKOUT`, `PREV` and `NOW` (short shas) in the
 environment.
 
-None is registered today. The triage fleet's three hooks were removed on 2026-11-11, when the fleet
+Registered: `pre-pull.d/10-flotilla-standdown.sh`, a deploy stand-down on the mini in
+[flotilla](https://github.com/chipi/flotilla) (its `deploy/mini/standdown.sh`): flotilla defers its
+planned actions on the mini for 30 minutes. It skips itself when flotilla's checkout is not at
+`~/flotilla/repo` or flotilla cannot take the hold, and never blocks the deploy.
+
+The triage fleet's three hooks were removed on 2026-11-11, when the fleet
 moved to [flotilla](https://github.com/chipi/flotilla): `gate.d/10-signal-fleet.sh` (replays of this
 repo's copy; its gates now run in flotilla's deploy and the fleet session's weekly check) and the two
 `10-signal-fleet-deploy-log.sh` hooks, which logged homelab pulls and rollbacks into the fleet's
 `~/signal-fleet/results/deploys.tsv` (flotilla's deploy writes that log now; the rows already there
 stay). The `post-merge` git hook they installed in the mini's checkout was taken out with them. With
-no hooks a pull has no gate, and this deploy works unchanged.
+no gate hooks a pull has no gate, and this deploy works unchanged.
 
 ## Tests
 
