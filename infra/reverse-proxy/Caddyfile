@@ -91,3 +91,11 @@ https://homeassistant.tail6d0ed4.ts.net {
 	# HA's frontend is websocket-driven; Caddy's reverse_proxy upgrades automatically.
 	reverse_proxy home-assistant:8123
 }
+
+# flotilla's operator UI — chipi/flotilla ADR-0014. flotillad's ui_listen, on the internal flotilla_ui
+# network; flotillad answers only ui_host = flotilla.tail6d0ed4.ts.net, which Caddy passes through as
+# the Host. The UI has its own users and sessions: this proxy terminates TLS and plays no part in identity.
+https://flotilla.tail6d0ed4.ts.net {
+	bind tailscale/flotilla
+	reverse_proxy flotillad:8486
+}

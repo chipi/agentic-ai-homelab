@@ -24,6 +24,7 @@ services:
       - evals_default
       - fleet-evals_default
       - home-automation_default
+      - flotilla_ui
 
 volumes:
   caddy_data:
@@ -45,4 +46,9 @@ networks:
   fleet-evals_default:
     external: true
   home-automation_default:
+    external: true
+  # flotilla's UI network (chipi/flotilla ADR-0014), internal, created by flotilla's own compose. ORDER: deploy
+  # flotilla with the UI first; until this network exists, `docker compose up` here fails and every node
+  # above goes down with it.
+  flotilla_ui:
     external: true
