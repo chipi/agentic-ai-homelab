@@ -36,7 +36,10 @@ ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh status --json'  # full ma
 - **ollama** — the podcast_scraper pipeline's Ollama mode: no vLLM, Ollama warm on `:11434`.
 - **code** — coder-next up on `:9000`
 - **research** — autoresearch up on `:8003`
-- **idle** — both down; GPU free for ML training / Ollama
+- **robotics** — the Microduck training container (`robotics-train`) owns the GPU: every vLLM and
+  Ollama down. A training job; do not take the GPU. `docs/recipes/robotics-training.md`.
+- **idle** / **free** — both down; nothing the script runs holds the GPU (a hand-started job
+  might: confirm with the operator before taking it)
 - **BROKEN-BOTH** — both listening (bad state); needs a human, do not pile on
 
 If the mode already matches what you need, proceed. If not, see below — but do

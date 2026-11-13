@@ -15,12 +15,16 @@
 #   research-ollama  Ollama, any model (room for ~90 GiB) stopped           started
 #   code             coder-next vLLM :9000                stopped           stopped
 #   judging {a|b|n|x} one judge vLLM :8003                stopped           stopped
+#   robotics         Microduck training (robotics-train)  stopped           stopped
 #   free             —                                    stopped           left as is
 #   status (default) read-only
 #
 #   prod — production serving + the nightly. ollama — the podcast pipeline on Ollama.
 #   research-ollama — research/eval runs, including the large models (translate's 29 GiB
 #   freed). `research` is still accepted as the old name of research-vllm.
+#   robotics — a training job owns the GPU (infra/robotics/microduck, 2026-11-13): it is a
+#   slot like the vLLMs, so `status` says robotics while it runs, and every other mode stops
+#   it (with its grace period, to write a checkpoint). docs/recipes/robotics-training.md.
 #
 # OLLAMA vs vLLM — who may hold the GPU:
 #
@@ -351,6 +355,12 @@ TRANSLATE_MODEL="${GPU_MODE_TRANSLATE_MODEL-google/translategemma-12b-it}"
 # memory for a heavier prod model).
 TRANSLATE_WITH_PROD="${GPU_MODE_TRANSLATE_WITH_PROD:-1}"
 
+# robotics — the Microduck training stack (infra/robotics/microduck). Not a vLLM and not
+# serving: "up" means its container runs (uv sync, then training). Its checkout and cache
+# are made once by infra/robotics/microduck/prepare.sh.
+ROBOTICS_DIR="${GPU_MODE_ROBOTICS_DIR:-$REPO_ROOT/infra/robotics/microduck}"
+ROBOTICS_SVC="${GPU_MODE_ROBOTICS_SVC:-robotics-train}"
+
 DOCKER_CMD="${GPU_MODE_DOCKER:-sudo docker}"
 SUDO="${GPU_MODE_SUDO-sudo}"                    # host-privilege prefix; "" if root
 # Per stack, from `compose up` to serving its model. Measured cold loads on 2026-10-30:
@@ -386,7 +396,7 @@ while (( $# )); do
             sed -n '2,30p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
-        code|research-vllm|research-ollama|free|prod|ollama|status) MODE="$1" ;;
+        code|research-vllm|research-ollama|free|prod|ollama|robotics|status) MODE="$1" ;;
         research)     MODE="research-vllm" ;;   # the pre-2026-11-01 name, still accepted
         judging)
             MODE="judging"
@@ -399,7 +409,7 @@ while (( $# )); do
             JUDGING_SUB="$1"
             ;;
         *)
-            echo "usage: $0 [prod|ollama|research-vllm|research-ollama|code|judging {a|b|n|x}|free|status] [--json] [--mode-only] [--no-color] [--force] [--foreground]" >&2
+            echo "usage: $0 [prod|ollama|research-vllm|research-ollama|code|judging {a|b|n|x}|robotics|free|status] [--json] [--mode-only] [--no-color] [--force] [--foreground]" >&2
             echo "  prod = serving vLLM on :$PRODVLLM_PORT PLUS the co-resident translate vLLM on :$TRANSLATE_PORT" >&2
             echo "         (GPU_MODE_TRANSLATE_WITH_PROD=0 brings up the serving vLLM only)" >&2
             exit 2
@@ -547,7 +557,7 @@ running_containers() {
 
 current_mode() {
     local names; names="$(running_containers)"
-    local code_up=0 research_up=0 prodvllm_up=0 judge_a_up=0 judge_b_up=0 judge_qwen_next_up=0 judge_nemotron_up=0
+    local code_up=0 research_up=0 prodvllm_up=0 judge_a_up=0 judge_b_up=0 judge_qwen_next_up=0 judge_nemotron_up=0 robotics_up=0
     grep -qx "$CODER_SVC"    <<<"$names" && code_up=1
     grep -qx "$RESEARCH_SVC" <<<"$names" && research_up=1
     grep -qx "$PRODVLLM_SVC" <<<"$names" && prodvllm_up=1
@@ -555,7 +565,9 @@ current_mode() {
     grep -qx "$JUDGE_B_SVC"  <<<"$names" && judge_b_up=1
     grep -qx "$JUDGE_QWEN_NEXT_SVC" <<<"$names" && judge_qwen_next_up=1
     grep -qx "$JUDGE_NEMOTRON_SVC" <<<"$names" && judge_nemotron_up=1
-    local total=$((code_up + research_up + prodvllm_up + judge_a_up + judge_b_up + judge_qwen_next_up + judge_nemotron_up))
+    grep -qx "$ROBOTICS_SVC" <<<"$names" && robotics_up=1
+    # a training job holds the GPU like a vLLM does: one owner at a time
+    local total=$((code_up + research_up + prodvllm_up + judge_a_up + judge_b_up + judge_qwen_next_up + judge_nemotron_up + robotics_up))
     if   (( total > 1 ));           then echo "BROKEN-BOTH"
     elif (( code_up ));             then echo "code"
     elif (( research_up ));         then echo "research-vllm"
@@ -564,6 +576,7 @@ current_mode() {
     elif (( judge_b_up ));          then echo "judging-b"
     elif (( judge_qwen_next_up ));  then echo "judging-qwen-next"
     elif (( judge_nemotron_up ));   then echo "judging-nemotron"
+    elif (( robotics_up ));         then echo "robotics"
     else                                 echo "free"
     fi
 }
@@ -646,7 +659,9 @@ require_dir() {
 # the caller can then bring it up cleanly.
 stop_all_composes() {
     local except="${1:-}"
-    for d in "$CODER_DIR" "$RESEARCH_DIR" "$PRODVLLM_DIR" "$JUDGE_A_DIR" "$JUDGE_B_DIR" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_NEMOTRON_DIR"; do
+    # the robotics stack too: every other mode stops a training job (compose down honours
+    # its stop_grace_period, so the trainer can write a checkpoint)
+    for d in "$CODER_DIR" "$RESEARCH_DIR" "$PRODVLLM_DIR" "$JUDGE_A_DIR" "$JUDGE_B_DIR" "$JUDGE_QWEN_NEXT_DIR" "$JUDGE_NEMOTRON_DIR" "$ROBOTICS_DIR"; do
         [[ "$d" == "$except" ]] && continue
         [[ -d "$d" ]] && compose_down "$d" || true
     done
@@ -801,6 +816,7 @@ action_status() {
         judging-b)    ok "judge-b vLLM up on :$JUDGE_B_PORT" ;;
         judging-qwen-next) ok "judge-qwen-next vLLM up on :$JUDGE_QWEN_NEXT_PORT" ;;
         judging-nemotron)  ok "judge-nemotron vLLM up on :$JUDGE_NEMOTRON_PORT" ;;
+        robotics)     ok "robotics training running ($ROBOTICS_SVC): a training job owns the GPU" ;;
         free)         dim "all vLLM composes are down" ;;
         BROKEN-BOTH)  warn "MULTIPLE listening — GPU-contention failure mode" ;;
     esac
@@ -906,6 +922,50 @@ action_free() {
     local apps_after; apps_after=$(gpu_compute_app_count)
     ok "compute apps ${apps_before}→${apps_after}; now: $(gpu_state_line)"
     ((JSON)) && emit_json "free" true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
+}
+
+# ── robotics (Microduck training, 2026-11-13) ────────────────────────────
+#
+# A training job owns the GPU. As for a vLLM slot: every vLLM (translate too) down and the
+# ollama daemon stopped (#63: nothing else loads models while it runs), then the training
+# stack up. Done when its container runs. A training that ends by itself (its runtime bound,
+# or an error) leaves the mode `free`; its log (`docker logs robotics-train`) says which.
+# GB10 memory is one pool: the stack caps itself (mem_limit in its compose file).
+ROBOTICS_ROOT="${GPU_MODE_ROBOTICS_ROOT:-/opt/robotics}"
+
+action_robotics() {
+    require_dir "$ROBOTICS_DIR"
+    local current; current=$(current_mode)
+    if [[ "$current" == robotics && $FORCE -eq 0 ]]; then
+        log "already in robotics mode — $ROBOTICS_SVC runs"
+        ((JSON)) && emit_json robotics true || true
+        return 0
+    fi
+    [[ -d "$ROBOTICS_ROOT/microduck_rl/.git" ]] \
+        || fail 3 "no training checkout at $ROBOTICS_ROOT/microduck_rl: run infra/robotics/microduck/prepare.sh as ops first"
+    log "→ robotics (current: $current)"
+    local apps_before; apps_before=$(gpu_compute_app_count)
+    stop_all_composes_including_translate "$ROBOTICS_DIR"
+    sleep 2
+    stop_ollama_daemon
+    compose_up "$ROBOTICS_DIR" || fail "compose up failed for $ROBOTICS_DIR"
+    sleep 15
+    local state; state=$($DOCKER_CMD inspect -f '{{.State.Status}}' "$ROBOTICS_SVC" 2>/dev/null || echo missing)
+    if [[ "$state" != running ]]; then
+        $DOCKER_CMD logs --tail 30 "$ROBOTICS_SVC" >&2 2>&1 || true
+        fail "end-state check: $ROBOTICS_SVC is $state, not running"
+    fi
+    local left="" svc names; names="$(running_containers)"
+    for svc in "$CODER_SVC" "$RESEARCH_SVC" "$PRODVLLM_SVC" "$TRANSLATE_SVC" "$JUDGE_A_SVC" "$JUDGE_B_SVC" "$JUDGE_QWEN_NEXT_SVC" "$JUDGE_NEMOTRON_SVC"; do
+        grep -qx "$svc" <<<"$names" && left+=" $svc"
+    done
+    [[ -z "$left" ]] || fail "end-state check: still running in robotics:$left"
+    if [[ "${GPU_MODE_VLLM_STOPS_OLLAMA:-1}" == "1" ]] && systemctl is-active --quiet ollama 2>/dev/null; then
+        fail "end-state check: the ollama daemon still runs in robotics mode"
+    fi
+    local apps_after; apps_after=$(gpu_compute_app_count)
+    ok "robotics: $ROBOTICS_SVC running; compute apps ${apps_before}→${apps_after}; $(gpu_state_line)"
+    ((JSON)) && emit_json robotics true "compute_apps_before=${apps_before}" "compute_apps_after=${apps_after}" || true
 }
 
 # ── ollama (podcast_scraper pipeline) ────────────────────────────────────
@@ -1150,6 +1210,7 @@ case "$MODE" in
     code)      action_code ;;
     research-vllm)   action_research ;;
     research-ollama) action_research_ollama ;;
+    robotics)  action_robotics ;;
     free)      action_free ;;
     prod)      action_prodvllm ;;
     ollama)    action_ollama ;;
@@ -1163,7 +1224,7 @@ case "$MODE" in
         esac
         ;;
     *)
-        echo "usage: $0 [prod|ollama|research-vllm|research-ollama|code|judging {a|b|n|x}|free|status] [--json] [--mode-only] [--no-color] [--force] [--foreground]" >&2
+        echo "usage: $0 [prod|ollama|research-vllm|research-ollama|code|judging {a|b|n|x}|robotics|free|status] [--json] [--mode-only] [--no-color] [--force] [--foreground]" >&2
         exit 2
         ;;
 esac

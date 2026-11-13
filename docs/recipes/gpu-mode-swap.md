@@ -55,7 +55,8 @@ Modes (only one vLLM owns the GPU at a time):
 | `prod` | prod serving vLLM (:8003, 64k) | production serving — an identical EMPTY drop-in for autoresearch |
 | `ollama` | no vLLM; Ollama warm (podcast pipeline) | pipeline runtime — whisper/pyannote/moss + the pinned summary model |
 | `judging {a\|b\|n\|x}` | one judge vLLM (:8003) | multi-judge sweep phases (a / b / qwen-next / nemotron) |
-| `free` | neither | ML training, manual `nvidia-smi`-watching, freeing the box |
+| `robotics` | no vLLM, Ollama stopped; the Microduck training container (`robotics-train`) | robot policy training: [robotics-training.md](robotics-training.md) |
+| `free` | neither | manual `nvidia-smi`-watching, freeing the box (a training job takes `robotics`, so `status` shows who owns the GPU) |
 
 ---
 
@@ -68,6 +69,7 @@ gpu-mode research-vllm         # → switch to autoresearch (translate stopped)
 gpu-mode research-ollama       # → Ollama only, room for the large models (translate stopped)
 gpu-mode prod                  # → switch to the prod serving vLLM (:8003, 64k)
 gpu-mode ollama                # → no vLLM; Ollama warm for the podcast pipeline
+gpu-mode robotics              # → every vLLM and Ollama down; the Microduck training container up
 gpu-mode free                  # → bring all vLLM down
 gpu-mode status                # → same as no-arg
 gpu-mode status --mode-only    # → just "code" / "research-vllm" / "prod" / "ollama" / "free" (agent-friendly)

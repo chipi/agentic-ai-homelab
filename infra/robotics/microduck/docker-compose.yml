@@ -1,0 +1,54 @@
+# Microduck walking-policy training on the DGX (pollen-robotics/microduck_rl: mjlab on MuJoCo Warp +
+# rsl_rl PPO). A GPU slot like the vLLM stacks: `gpu-mode-swap.sh robotics` brings it up, every other
+# mode brings it down. Recipe: docs/recipes/robotics-training.md.
+#
+# The training repo is checked out at /opt/robotics/microduck_rl by ./prepare.sh (a pinned commit);
+# its venv, uv's cache and the Python uv installs live under /opt/robotics/cache; checkpoints and
+# TensorBoard logs land in the checkout's logs/ (rsl_rl's default). Nothing is installed on the host.
+#
+# GB10 memory is one pool for CPU and GPU (121 GiB usable): the container is capped so a runaway job
+# cannot squeeze the host (the wedges in infra/dgx/bin/gpu-mode-swap.sh's notes). Raise the cap only
+# from a measured run.
+services:
+  train:
+    # ghcr.io/astral-sh/uv:python3.12-bookworm, the multi-arch index (linux/arm64 for the GB10)
+    image: ghcr.io/astral-sh/uv@sha256:85d4cb1afa769a7338e095b927bee941cf5ec92266c7424b3f6c0f2748567248
+    container_name: robotics-train
+    runtime: nvidia
+    user: "${ROBOTICS_UID:-1001}:${ROBOTICS_GID:-1001}"
+    mem_limit: ${ROBOTICS_MEM_LIMIT:-64g}
+    memswap_limit: ${ROBOTICS_MEM_LIMIT:-64g}
+    shm_size: 8g
+    working_dir: /work/microduck_rl
+    volumes:
+      - ${ROBOTICS_ROOT:-/opt/robotics}/microduck_rl:/work/microduck_rl
+      - ${ROBOTICS_ROOT:-/opt/robotics}/cache:/cache
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - HOME=/cache/home
+      - UV_CACHE_DIR=/cache/uv
+      - UV_PYTHON_INSTALL_DIR=/cache/python
+      - UV_PROJECT_ENVIRONMENT=/cache/venv
+      - UV_LINK_MODE=copy
+      # the first sync pulls ~2 GB of CUDA wheels (the repo's README, for DGX Spark)
+      - UV_HTTP_TIMEOUT=600
+    # One run, bounded: past ROBOTICS_MAX_RUNTIME the trainer gets SIGINT (and the stack's grace below);
+    # it resumes from its last checkpoint with ROBOTICS_TRAIN_ARGS="--agent.resume True ...".
+    command:
+      - sh
+      - -c
+      - >-
+        uv sync --frozen &&
+        exec timeout --signal=INT --kill-after=120 ${ROBOTICS_MAX_RUNTIME:-2h}
+        uv run --frozen train ${ROBOTICS_TASK:-Mjlab-Velocity-Flat-MicroDuck}
+        --env.scene.num-envs ${ROBOTICS_NUM_ENVS:-4096} ${ROBOTICS_TRAIN_ARGS:-}
+    restart: "no"
+    # leaving the mode stops the trainer; give it time to finish writing a checkpoint
+    stop_signal: SIGINT
+    stop_grace_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
