@@ -42,9 +42,12 @@ services:
         uv sync --frozen &&
         exec timeout --signal=INT --kill-after=120 ${ROBOTICS_MAX_RUNTIME:-2h}
         uv run --frozen train ${ROBOTICS_TASK:-Mjlab-Velocity-Flat-MicroDuck}
-        --env.scene.num-envs ${ROBOTICS_NUM_ENVS:-4096} ${ROBOTICS_TRAIN_ARGS:-}
+        --env.scene.num-envs ${ROBOTICS_NUM_ENVS:-4096}
+        --agent.logger ${ROBOTICS_LOGGER:-tensorboard} ${ROBOTICS_TRAIN_ARGS:-}
     restart: "no"
-    # leaving the mode stops the trainer; give it time to finish writing a checkpoint
+    # Leaving the mode stops the trainer. rsl_rl does NOT save on an interrupt (measured 2026-11-13:
+    # stopped at ~iteration 140, only model_0.pt): work since the last save_interval is lost, so set
+    # --agent.save_interval in ROBOTICS_TRAIN_ARGS. The grace lets it end cleanly, nothing more.
     stop_signal: SIGINT
     stop_grace_period: 120s
     logging:
