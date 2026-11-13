@@ -238,6 +238,23 @@ model_list:
       model: openrouter/openai/gpt-5.5
       api_key: os.environ/OPENROUTER_API_KEY_EVALS
 
+  # ── the robot brain (chipi/robotics-lab), phase 1, 2026-11-13 ──────────────────
+  #
+  # The brain calls these two aliases, never a provider: robot-vlm for camera frames
+  # ("which room, where is the table"), robot-planner for the instruction's tool calls.
+  # Open-weight only (operator, 2026-11-13), so phase 2 can point them at a local vLLM
+  # on the DGX without the brain changing: Qwen3-VL-30B-A3B (3B active) runs on the GB10.
+  # Added at runtime (/model/new) the same day, so live and file agree. The key:
+  # `robotics-brain` ($10 / 30 days, these two aliases only).
+  - model_name: robot-vlm
+    litellm_params:
+      model: openrouter/qwen/qwen3-vl-30b-a3b-instruct
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
+  - model_name: robot-planner
+    litellm_params:
+      model: openrouter/qwen/qwen3-vl-30b-a3b-instruct
+      api_key: os.environ/OPENROUTER_API_KEY_EVALS
+
 litellm_settings:
   # full-package observability from day one (operator requirement):
   # Langfuse traces on success+failure, GlitchTip (sentry-compatible) on failure
