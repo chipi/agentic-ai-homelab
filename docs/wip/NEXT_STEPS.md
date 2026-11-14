@@ -76,6 +76,12 @@ state was last verified against the live system.
       `lf/langfuse/events`).
 - [ ] **Can the caddy-tailscale auth key be revoked?** Tailscale admin console → Settings →
       Keys. `infra/reverse-proxy/docker-compose.yml` requires `TS_AUTHKEY` to be set either way.
+- [ ] **The caddy-tailscale auth key expires 2027-02-12** (made 2026-11-14 for 90 days, after the
+      last one expired 2026-11-13 and the new `flotilla` node could not register: "invalid key",
+      which failed caddy's whole config and took every node down for about 90 s). Only adding a
+      node needs it; enrolled nodes keep their state. Before adding a node after that date, make a
+      new key (reusable, `tag:homelab-svc`, pre-approved) into `infra/reverse-proxy/.env` on the
+      mini first. check: the key's expiry in the Tailscale console → Settings → Keys.
 - [ ] **Renew the fleet GitHub token before 2027-01-25 19:03 UTC** (chipi/podcast_scraper,
       orrery, agentic-ai-homelab, humancopilot.eu, eval-harness; Issues read/write). check: on
       the mini, `curl -sI -H "Authorization: Bearer $GITHUB_TOKEN"
