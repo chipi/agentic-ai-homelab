@@ -1,0 +1,7 @@
+{
+  "TCP": {
+    "8487": {
+      "TCPForward": "flotillad:8487"
+    }
+  }
+}

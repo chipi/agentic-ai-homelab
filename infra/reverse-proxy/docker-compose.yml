@@ -26,9 +26,32 @@ services:
       - home-automation_default
       - flotilla_ui
 
+  # flotilla's host-agent endpoint (chipi/flotilla ADR-0006): the agents' mutual TLS is flotillad's
+  # own, so this node only passes TCP 8487 through to flotillad (TS_SERVE_CONFIG, raw TCP forward);
+  # Caddy cannot, and keeping it out of Caddy means a fault here leaves every other node up. The
+  # name agents dial, flotilla-hosts.tail6d0ed4.ts.net, is in flotillad's hosts.server_names.
+  flotilla-hosts:
+    image: tailscale/tailscale@sha256:72c1e19e0aedca96b8533bbb0b4368564410ff20b17e53b804eb6c1f04a31be4   # 1.104.7
+    container_name: flotilla-hosts
+    hostname: flotilla-hosts
+    restart: unless-stopped
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:?set TS_AUTHKEY (reusable, tag:homelab-svc) in .env}
+      - TS_HOSTNAME=flotilla-hosts
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./flotilla-hosts.serve.json:/config/serve.json:ro
+      - flotilla_hosts_state:/var/lib/tailscale   # the node's identity, so it keeps its name
+    networks:
+      - default       # out to Tailscale's coordination server
+      - flotilla_ui   # to flotillad:8487
+
 volumes:
   caddy_data:
   caddy_config:
+  flotilla_hosts_state:
 
 networks:
   backend_default:
