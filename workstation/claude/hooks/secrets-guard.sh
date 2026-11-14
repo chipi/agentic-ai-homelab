@@ -301,10 +301,12 @@ fi
 
 # --- gitleaks, when installed: its ~200 provider rules catch shapes the regexes above don't
 # (Stripe, Twilio, SendGrid, …). Same placeholder-filtered added lines; rule ids only, never
-# values (--redact). Fail-open: a gitleaks error (exit other than 0/1) never blocks.
+# values (--redact). Fail-open: a gitleaks error (exit other than 0/1) never blocks. The lines go in
+# without the diff's leading `+`, as the file holds them, so a repo's .gitleaks.toml allowlist anchored
+# at the line's start matches (it had to be written `^\+?`, 2026-11-13).
 if [ -z "$hits" ] && command -v gitleaks >/dev/null 2>&1 && [ -n "$scan" ]; then
     rep="$(mktemp 2>/dev/null)" || allow
-    printf '%s\n' "$scan" | gitleaks stdin --redact --no-banner --log-level error \
+    printf '%s\n' "$scan" | sed 's/^+//' | gitleaks stdin --redact --no-banner --log-level error \
         --report-format json --report-path "$rep" >/dev/null 2>&1
     rc=$?
     if [ "$rc" = 1 ]; then

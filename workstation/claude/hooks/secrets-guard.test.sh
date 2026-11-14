@@ -54,6 +54,16 @@ if command -v gitleaks >/dev/null 2>&1; then
   run deny  "git commit -m x"         "staged Stripe live key (gitleaks rule)"; git reset -q st.txt; rm -f st.txt
   printf 'clean line, nothing secret\n' > gl.txt; git add gl.txt
   run allow "git commit -m x"         "clean change with gitleaks present"; git reset -q gl.txt; rm -f gl.txt
+  # The repo's own .gitleaks.toml applies, and an allowlist anchored at the line's start matches the line as the
+  # file holds it: gitleaks reads the added lines without the diff's leading `+` (2026-11-13: an allowance had to
+  # be written `^\+?` to match). Allowed is that one line only; the same key on another line is still found.
+  printf '[extend]\nuseDefault = true\n[[allowlists]]\nregexTarget = "line"\nregexes = ['"'(?m)^stripe = %s%s$'"']\n' \
+    "$ST" "$SV" > .gitleaks.toml
+  printf 'stripe = %s%s\n' "$ST" "$SV" > st.txt; git add st.txt
+  run allow "git commit -m x"         "repo allowlist anchored at ^ matches the added line"; git reset -q st.txt; rm -f st.txt
+  printf 'other = %s%s\n' "$ST" "$SV" > st.txt; git add st.txt
+  run deny  "git commit -m x"         "repo allowlist: the key on another line is still found"; git reset -q st.txt; rm -f st.txt
+  rm -f .gitleaks.toml
 fi
 
 printf 'api_key = ${MY_KEY}\n' > p.txt; git add p.txt
