@@ -33,7 +33,8 @@ services:
       - UV_LINK_MODE=copy
       # the first sync pulls ~2 GB of CUDA wheels (the repo's README, for DGX Spark)
       - UV_HTTP_TIMEOUT=600
-    # One run, bounded: past ROBOTICS_MAX_RUNTIME the trainer gets SIGINT (and the stack's grace below);
+    # One run, bounded: past ROBOTICS_MAX_RUNTIME (GNU timeout: one number, one unit, e.g. 210m, never
+    # 3h30m) the trainer gets SIGINT (and the stack's grace below);
     # it resumes from its last checkpoint with ROBOTICS_TRAIN_ARGS="--agent.resume True ...".
     command:
       - sh

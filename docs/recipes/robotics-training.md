@@ -38,7 +38,7 @@ on the DGX (not in git), as for the vLLM stacks:
 | Variable | Default | |
 |---|---|---|
 | `ROBOTICS_MEM_LIMIT` | `64g` | the container's memory cap: GB10 memory is one pool for CPU and GPU (121 GiB) |
-| `ROBOTICS_MAX_RUNTIME` | `2h` | one run's bound |
+| `ROBOTICS_MAX_RUNTIME` | `2h` | one run's bound, as GNU `timeout` reads it: one number and one unit (`210m`, not `3h30m`) |
 | `ROBOTICS_NUM_ENVS` | `4096` | parallel environments |
 | `ROBOTICS_LOGGER` | `tensorboard` | mjlab's default is `wandb`, which stops at once without an API key (the first run, 2026-11-13) |
 | `ROBOTICS_TRAIN_ARGS` | | more trainer flags, e.g. `--agent.resume True --agent.load-checkpoint ...` to resume |
@@ -98,5 +98,6 @@ What it taught:
   user is what the DGX's hard wedges were tied to (see gpu-mode-swap.sh), so robotics stays its own mode.
 
 A full run: `ROBOTICS_TRAIN_ARGS="--agent.max_iterations 4000 --agent.save_interval 100"` and
-`ROBOTICS_MAX_RUNTIME=3h30m`, in a window of about 3 h 45 min with the swaps; after the nightly is done
+`ROBOTICS_MAX_RUNTIME=210m` (3 h 30 min; `3h30m` is refused by `timeout`, which failed the first
+swap on 2026-11-14), in a window of about 3 h 45 min with the swaps; after the nightly is done
 (it runs from 00:00Z; infra keeps 23:45Z to 03:00Z clear).
