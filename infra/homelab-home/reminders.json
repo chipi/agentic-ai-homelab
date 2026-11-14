@@ -1,0 +1,23 @@
+[
+  {
+    "text": "Renew the fleet GitHub token (chipi/podcast_scraper, orrery, agentic-ai-homelab, humancopilot.eu, eval-harness; Issues read/write)",
+    "due": "2027-01-25",
+    "warn_days": 14,
+    "link": "https://github.com/settings/personal-access-tokens",
+    "about": "expires 2027-01-25 19:03 UTC; docs/wip/NEXT_STEPS.md has the check"
+  },
+  {
+    "text": "Renew the assistant's GitHub token (homelab assistant read-only)",
+    "due": "2027-02-02",
+    "warn_days": 14,
+    "link": "https://github.com/settings/personal-access-tokens",
+    "about": "expires 2027-02-02 12:13 UTC; docs/wip/NEXT_STEPS.md has the check"
+  },
+  {
+    "text": "The caddy-tailscale auth key expires: make a new one before adding a tailnet node",
+    "due": "2027-02-12",
+    "warn_days": 14,
+    "link": "https://login.tailscale.com/admin/settings/keys",
+    "about": "made 2026-11-14 for 90 days; only adding a node needs it (infra/reverse-proxy/.env on the mini)"
+  }
+]

@@ -60,8 +60,13 @@ async function newErrors(from) {
 }
 
 // what needs the operator, most urgent first, at most 5 (decided here, in code)
-function needsYou(st, errors) {
+function needsYou(st, errors, rem) {
   const items = [];
+  // the operator's dated reminders (reminders.json, HS.reminders): overdue beside a site down, coming beside the fleet's queue
+  for (const r of (rem && rem.items) || []) items.push({ rank: r.state === 'overdue' ? 1 : 3,
+    text: 'Reminder: ' + r.text + ' (' + (r.days < 0 ? -r.days + ' day' + (r.days === -1 ? '' : 's') + ' overdue' : r.days === 0 ? 'due today' : 'due in ' + r.days + ' day' + (r.days === 1 ? '' : 's')) + ', ' + r.due + ')',
+    link: r.link || PUBLIC + '/' });
+  if (rem && rem.bad && rem.bad.length) items.push({ rank: 5, text: 'reminders.json: ' + rem.bad.length + ' entr' + (rem.bad.length === 1 ? 'y' : 'ies') + ' not understood', link: PUBLIC + '/' });
   const al = st.alerts && st.alerts.ok ? st.alerts : { critical: [], warning: [] };
   al.critical.forEach(a => items.push({ rank: 0, text: 'Critical alert: ' + a.name + (a.instance ? ' (' + a.instance + ')' : ''), link: 'https://grafana.tail6d0ed4.ts.net/alerting/list' }));
   if (st.sites && st.sites.state === 'down') items.push({ rank: 1, text: 'Site down now: ' + st.sites.down.join(', '), link: PUBLIC + '/#sites' });
@@ -140,7 +145,8 @@ async function main() {
   // open new issues are listed; new ones already resolved/ignored only counted (same rule as status.json)
   const allNew = await safe('GlitchTip', () => newErrors(from));
   const errors = allNew ? allNew.filter(HS.isOpen) : null, resolvedNew = allNew ? allNew.length - errors.length : null;
-  const needs = needsYou(status, errors || []);
+  const rem = await safe('reminders.json', () => HS.reminders(JSON.parse(fs.readFileSync(process.env.HUB_REMINDERS || path.join(__dirname, 'reminders.json'), 'utf8')), now.getTime()));
+  const needs = needsYou(status, errors || [], rem);
   const green = [];
   if (status.sites && status.sites.state === 'up') green.push('sites ' + status.sites.up + '/' + status.sites.total);
   for (const [box, b] of Object.entries(status.boxes || {})) if (b.state === 'up') green.push(box);

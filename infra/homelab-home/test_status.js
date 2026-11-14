@@ -240,6 +240,29 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
   check('assistantSpend: on the 1st, "this month" has no completed day: zero, no query, no share', as1.windows.month.days === 0 && as1.windows.month.localShare === null, as1.windows.month);
   check('assistantSpend: without a LiteLLM source (the page) it says so', (await HS.assistantSpend({ now: NOW })).ok === false);
 
+  // reminders: shown from warn_days before the date, overdue after it, the soonest first, bad entries reported
+  const T = Date.UTC(2026, 10, 14, 15, 30);   // 2026-11-14 15:30Z
+  const R = HS.reminders([
+    { text: 'far', due: '2026-12-30', warn_days: 14 },
+    { text: 'soon', due: '2026-11-20', warn_days: 14, link: 'https://x' },
+    { text: 'edge', due: '2026-11-28', warn_days: 14 },
+    { text: 'past edge', due: '2026-11-29', warn_days: 14 },
+    { text: 'today', due: '2026-11-14', warn_days: 0 },
+    { text: 'late', due: '2026-11-10', warn_days: 3 },
+    { text: 'no date', warn_days: 3 }, { text: 'bad date', due: '14.11.2026', warn_days: 3 },
+    { text: 'no warn', due: '2026-11-20' }, { due: '2026-11-20', warn_days: 1 },
+  ], T);
+  check('reminders: inside the window and overdue shown, soonest first; outside it not',
+    R.items.map(r => r.text + ':' + r.days + ':' + r.state).join() === 'late:-4:overdue,today:0:soon,soon:6:soon,edge:14:soon', R.items);
+  check('reminders: the link is kept', R.items.find(r => r.text === 'soon').link === 'https://x', R.items);
+  check('reminders: a bad entry makes ok false and is named, not dropped silently',
+    R.ok === false && R.bad.length === 4 && R.bad.includes('no date') && R.bad.includes('bad date') && R.bad.includes('no warn'), R.bad);
+  check('reminders: days count calendar days in UTC, not 24 h from now',
+    HS.reminders([{ text: 'x', due: '2026-11-15', warn_days: 1 }], Date.UTC(2026, 10, 14, 23, 59)).items[0].days === 1);
+  const repo = HS.reminders(JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'reminders.json'), 'utf8')), T);
+  check('reminders: the repo\'s reminders.json is understood, every entry', repo.ok && repo.bad.length === 0, repo.bad);
+  check('reminders: not a list is nothing, not a crash', HS.reminders(null, T).items.length === 0 && HS.reminders(null, T).ok);
+
   // all: one failing area does not hide the rest
   const all = await HS.all({ now: NOW, q: async e => { if (e.includes('delivery')) throw new Error('boom'); return []; }, alerts: async () => [] });
   check('all: a throwing area is reported as an error, the others still present', all.delivery.error === 'boom' && all.sites.state === 'stale' && all.takenAt, all.delivery);

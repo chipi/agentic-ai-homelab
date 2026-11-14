@@ -164,6 +164,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <div id=cfbar></div>
 <div id=provbar></div>
 <div id=alertbar></div>
+<div id=remindbar></div>
 </details>
 <nav class=tabs>
   <a href="#overview" target=_self>Overview</a><a href="#projects" target=_self>Projects</a><a href="#sites" target=_self>Sites</a><a href="#hosts" target=_self>Hosts</a><a href="#fleets" target=_self>Fleets</a><a href="#spend" target=_self>Spend</a>
@@ -430,6 +431,8 @@ TOK
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-status.js"; echo '</script>'
 # the Projects tab (hub-project.js), tested by test_project.js
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-project.js"; echo '</script>'
+# the operator's dated reminders (reminders.json): in the page as it was when generated
+echo '<script>const REMINDERS='; cat "$(cd "$(dirname "$0")" && pwd)/reminders.json"; echo ';</script>'
 cat <<'SCRIPT'
 <script>
 const W=260,H=40,TS='tail6d0ed4.ts.net',G='https://grafana.'+TS;
@@ -640,6 +643,17 @@ async function hetzner(){
   rows.sort((a,b)=>(order[a.metric.relevance]??9)-(order[b.metric.relevance]??9));
   el.innerHTML=rows.map(r=>{const m=r.metric;return '<a class="abar '+(cls[m.relevance]||'plumb')+'" href="'+esc(m.link)+'">'
     +'<span class=hz>Hetzner &middot; '+esc(m.kind)+' &middot; '+esc(what[m.relevance]||m.relevance)+'</span><b>'+esc(m.category)+'</b> &mdash; '+esc(m.title)+' <span style="opacity:.75">('+esc(when(m))+')</span></a>';}).join('');
+}
+function reminders(){
+  // The operator's dated reminders (reminders.json, decided by HubStatus.reminders): overdue is red, so it
+  // is also in the critical bar on every tab; one coming within its warn_days is amber.
+  const el=document.getElementById('remindbar');if(!el)return;
+  const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const R=HubStatus.reminders(typeof REMINDERS==='undefined'?[]:REMINDERS,Date.now());
+  const when=r=>r.days<0?(-r.days)+' day'+(r.days===-1?'':'s')+' overdue':r.days===0?'today':'in '+r.days+' day'+(r.days===1?'':'s');
+  el.innerHTML=R.items.map(r=>'<a class="abar '+(r.state==='overdue'?'crit':'warn')+'"'+(r.link?' href="'+esc(r.link)+'"':'')+'>'
+    +'<span class=hz>Reminder &middot; '+esc(r.due)+'</span>'+esc(r.text)+' <span style="opacity:.75">('+when(r)+')</span></a>').join('')
+    +(R.bad.length?'<a class="abar plumb"><span class=hz>Reminders</span>'+R.bad.length+' entr'+(R.bad.length===1?'y':'ies')+' in reminders.json not understood: '+esc(R.bad.join('; '))+'</a>':'');
 }
 async function cloudflare(){
   // Cloudflare status items that are ours (infra/cloudflare-edge/ours.json + PoPs carrying our
@@ -1602,12 +1616,12 @@ function mirror(){
   document.querySelectorAll('[data-dot]').forEach(e=>{const s=document.getElementById(e.dataset.dot);if(s)e.className=s.className;});
   document.querySelectorAll('[data-text]').forEach(e=>{const s=document.getElementById(e.dataset.text);if(s)e.textContent=s.textContent.trim();});}
 function notices(){
-  const bars=['hetznerbar','cfbar','alertbar','provbar'].map(i=>document.getElementById(i));
+  const bars=['hetznerbar','cfbar','alertbar','provbar','remindbar'].map(i=>document.getElementById(i));
   const crit=bars.flatMap(b=>[...b.querySelectorAll('.abar.crit')]).map(e=>e.outerHTML).join('');
   const cb=document.getElementById('critbar');if(cb.innerHTML!==crit)cb.innerHTML=crit;
   const n=(b,sel)=>b.querySelectorAll(sel).length,a=bars[2].dataset;
-  const parts=[[+(a.warn||0),'alert'],[n(bars[0],'.abar:not(.crit)'),'Hetzner'],[n(bars[1],'.abar:not(.crit)'),'Cloudflare'],[n(bars[3],'.abar[data-provider="github"]:not(.crit)'),'GitHub'],[n(bars[3],'.abar[data-provider="openrouter"]:not(.crit)'),'OpenRouter'],[+(a.plumb||0),'plumbing']]
-    .filter(p=>p[0]).map(p=>p[0]+' '+p[1]+(p[1]==='alert'&&p[0]>1?'s':''));
+  const parts=[[+(a.warn||0),'alert'],[n(bars[0],'.abar:not(.crit)'),'Hetzner'],[n(bars[1],'.abar:not(.crit)'),'Cloudflare'],[n(bars[3],'.abar[data-provider="github"]:not(.crit)'),'GitHub'],[n(bars[3],'.abar[data-provider="openrouter"]:not(.crit)'),'OpenRouter'],[n(bars[4],'.abar.warn'),'reminder'],[+(a.plumb||0)+n(bars[4],'.abar.plumb'),'plumbing']]
+    .filter(p=>p[0]).map(p=>p[0]+' '+p[1]+((p[1]==='alert'||p[1]==='reminder')&&p[0]>1?'s':''));
   const det=document.getElementById('notices');det.hidden=!parts.length;
   const t=parts.length?'Notices: '+parts.join(' &middot; '):'';
   const sm=document.getElementById('nsum');if(sm.innerHTML!==t)sm.innerHTML=t;}
@@ -1621,7 +1635,7 @@ async function overview(){
   const low=C.low;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
+function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT

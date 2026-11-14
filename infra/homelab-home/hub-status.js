@@ -338,6 +338,24 @@
              sites: out.sort((a, b) => ((b.last7d || {}).visitors || 0) - ((a.last7d || {}).visitors || 0)) };
   }
 
+  // Reminders (reminders.json): a dated thing the operator must do, shown from warn_days before its
+  // date and overdue after it. Decided here, from the list and the clock: no source to query. `now` in
+  // ms. Returns the ones to show, the soonest first; a bad entry is reported, never silently dropped.
+  function reminders(list, now) {
+    const day = 86400e3, out = [], bad = [];
+    for (const r of Array.isArray(list) ? list : []) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(r && r.due || '');
+      const warn = r && Number.isInteger(r.warn_days) && r.warn_days >= 0 ? r.warn_days : null;
+      if (!m || !r.text || warn === null) { bad.push(r && r.text || JSON.stringify(r)); continue; }
+      const due = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+      const today = Math.floor(now / day) * day, days = Math.round((due - today) / day);
+      if (days > warn) continue;
+      out.push({ text: r.text, due: r.due, days, state: days < 0 ? 'overdue' : 'soon', link: r.link || '' });
+    }
+    out.sort((a, b) => a.days - b.days);
+    return { ok: !bad.length, items: out, bad };
+  }
+
   // Everything, with when it was taken; each area isolated so one failing source does not hide the rest.
   const AREAS = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors };
   async function all(src) {
@@ -348,7 +366,7 @@
     return out;
   }
 
-  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, alertChanges, timeline, analytics, fleetQueue, assistantSpend, all, AREAS };
+  const api = { sites, boxes, podcast, alerts, needsYou, delivery, credit, spend, capacity, errors, newIssues, isOpen, alertChanges, timeline, analytics, fleetQueue, assistantSpend, reminders, all, AREAS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HubStatus = api;
 })(typeof window !== 'undefined' ? window : globalThis);

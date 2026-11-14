@@ -93,6 +93,21 @@ done
 # undo: sudo launchctl bootout system/com.homelab.<job>; sudo rm /Library/LaunchDaemons/com.homelab.<job>.plist
 ```
 
+## Reminders (`reminders.json`)
+
+The operator's dated to-dos: a token to renew, a key that expires. Each entry is `text`, `due`
+(`YYYY-MM-DD`), `warn_days` and optionally `link` and `about`. `HubStatus.reminders` decides, from the
+list and the clock: an entry shows from `warn_days` before its date, and is overdue after it.
+- **The page:** a notice bar (`remindbar`). Coming entries are amber and counted in the Notices
+  summary. Overdue ones are red, so they are also in the critical bar on every tab. An entry the
+  module does not understand shows as a plumbing bar that names it.
+- **The briefing:** in Needs you. Overdue ranks beside a site down, coming beside the fleet's queue.
+  The first three items go to the phone with the 07:00 push.
+
+To add one: edit `reminders.json`, push, then run `gen.sh` on the mini. The page embeds the list
+when it is generated; the briefing reads the file at each run. `test_status.js` fails on an entry it
+does not understand, so CI catches a typo.
+
 ## Not in git (mini-local, gitignored)
 `www/index.html` (generated), `.env`. (`.htpasswd` and `.basic-auth-cred` are left over from the basic auth removed on 2026-10-24.)
 
