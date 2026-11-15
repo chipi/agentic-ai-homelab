@@ -2,9 +2,11 @@
 # subagent-model-guard.sh — Claude Code PreToolUse hook (Agent|Task matcher). Blocks a
 # subagent launch that names no `model`, enforcing AGENTS.md "Subagent delegation":
 # every Agent call names its model (sonnet for implementers, reviewers, planners and
-# searches; haiku for mechanical work). Without it the subagent inherits the main
-# conversation's model (Opus): one session of 2026-11-14 spent 41% of its subagent
-# tokens that way (83 general-purpose calls, 14 Explore).
+# searches; haiku for mechanical work). Without it the subagent runs on the fallback:
+# CLAUDE_CODE_SUBAGENT_MODEL where the host sets it (sonnet here), else the main
+# conversation's model (Opus) — one session of 2026-11-14 spent 41% of its subagent
+# tokens that way (83 general-purpose calls, 14 Explore). The fallback is a default,
+# not a choice: the block makes every call pick its tier.
 #
 # PreToolUse contract: reads {tool_name, tool_input} as JSON on stdin. A launch with no
 # non-empty `tool_input.model` gets a `deny` decision (exit 0) whose reason names the fix;
@@ -42,4 +44,4 @@ stype="$(jq -r '.tool_input.subagent_type // empty' <<<"$payload" 2>/dev/null)" 
 model="$(jq -r '.tool_input.model // empty | tostring | gsub("^\\s+|\\s+$"; "")' <<<"$payload" 2>/dev/null)" || allow
 [ -n "$model" ] && allow
 
-deny "subagent-model-guard: this ${tool} call (subagent_type: ${stype:-default}) names no model, so the subagent would inherit the main conversation's model. Re-issue it with model: \"sonnet\" (implementers, reviewers, planners, searches) or \"haiku\" (mechanical work: tests, docs, small edits). Rule: ~/.config/AGENTS.md, Subagent delegation."
+deny "subagent-model-guard: this ${tool} call (subagent_type: ${stype:-default}) names no model, so the subagent would run on the fallback (CLAUDE_CODE_SUBAGENT_MODEL, else the main conversation's model) instead of a chosen tier. Re-issue it with model: \"sonnet\" (implementers, reviewers, planners, searches) or \"haiku\" (mechanical work: tests, docs, small edits). Rule: ~/.config/AGENTS.md, Subagent delegation."

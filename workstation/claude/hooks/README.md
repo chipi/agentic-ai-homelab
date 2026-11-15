@@ -12,7 +12,7 @@ alone is never auto-loaded, so that pointer is what makes any of this discoverab
 | `session-reap.sh`        | SessionEnd  | Reaps this session's tool processes + sweeps runaway `gh run` poll loops and orphaned `tail -f … \| grep` watchers in the project family (↓ documented in full). |
 | `session-orphan-report.sh` | SessionStart | Reports (never kills) long-running CPU-heavy processes in the project family (↓ documented in full). |
 | `secrets-guard.sh`       | PreToolUse  | Blocks writes/commits that would leak secrets. |
-| `subagent-model-guard.sh` | PreToolUse | Blocks an `Agent`/`Task` call that names no `model` (it would inherit the main conversation's Opus); forks, any named model and `SUBAGENT_MODEL_GUARD=off` pass. Fail-open. Tests: `bash subagent-model-guard.test.sh`. |
+| `subagent-model-guard.sh` | PreToolUse | Blocks an `Agent`/`Task` call that names no `model` (it would run on the fallback: `CLAUDE_CODE_SUBAGENT_MODEL`, else the main conversation's model); forks, any named model and `SUBAGENT_MODEL_GUARD=off` pass. Fail-open. Tests: `bash subagent-model-guard.test.sh`. |
 | `lean-ctx-*`             | Pre/Post    | lean-ctx tool redirect/rewrite shims. |
 
 ## Wiring into settings.json
