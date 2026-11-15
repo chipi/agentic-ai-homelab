@@ -56,12 +56,14 @@ link() {  # link <workstation-relative or absolute src> <absolute-home-target>
 
 # Add the template's ~/.claude/hooks/* entries to an existing settings.json
 # (e.g. one written by `lean-ctx setup`). A hook whose command is already
-# present is left alone; nothing else in the file changes.
+# present is left alone. Each template `env` key the file lacks is added; a key
+# the host already sets keeps its value. Nothing else in the file changes.
 HOOK_MERGE='reduce ($t[0].hooks | to_entries[] | .key as $e | .value[] | .matcher as $m
                    | .hooks[] | select(.command | contains("/.claude/hooks/"))
                    | {e: $e, m: $m, h: .}) as $x (.;
   if any(.hooks[$x.e][]?.hooks[]?; .command == $x.h.command) then .
-  else .hooks[$x.e] += [{matcher: $x.m, hooks: [$x.h]}] end)'
+  else .hooks[$x.e] += [{matcher: $x.m, hooks: [$x.h]}] end)
+  | if ($t[0].env // {}) == {} then . else .env = ($t[0].env + (.env // {})) end'
 
 SETTINGS="$HOME/.claude/settings.json"
 SETTINGS_MERGED=""
@@ -84,10 +86,14 @@ wire_hooks() {
   local s="$SETTINGS"
   if [ ! -f "$s" ]; then echo "WARN  hooks: no $s yet (copy the template below)"; return 0; fi
   if [ "$(jq -cS . "$s")" = "$(printf '%s\n' "$SETTINGS_MERGED" | jq -cS .)" ]; then
-    echo "OK    hooks already wired: $s"; return 0
+    echo "OK    hooks and env already wired: $s"; return 0
   fi
+  local added
+  added="$(jq -rn --argjson a "$(jq -c '.env // {}' "$s")" --argjson b "$(printf '%s\n' "$SETTINGS_MERGED" | jq -c '.env // {}')" \
+    '[$b | keys[] | . as $k | select($a | has($k) | not)] | join(" ")')"
   echo "BACK  $s -> $s.bak.$TS"
   echo "HOOK  wire workstation hooks into $s"
+  [ -z "$added" ] || echo "ENV   add to $s: $added"
   if [ "$DRY" = 0 ]; then
     cp -p "$s" "$s.bak.$TS"
     printf '%s\n' "$SETTINGS_MERGED" > "$s"    # in-place write keeps the file's mode and owner
