@@ -32,6 +32,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/subagent-model-guard.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
