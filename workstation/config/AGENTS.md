@@ -670,6 +670,14 @@ context-rebuild tax — the 2026-07-02 experiment (ADR-0004) put inline at ~$0.1
 against ~$1–18 for the multi-agent variants. It's the exception, not the reflex.
 I delegate on judgment and tell you — I don't stop to ask each time.
 
+**Every subagent runs on a named, lower tier.** A subagent with no model of its own inherits the main conversation's
+(Opus): one session of 2026-11-14 spent 41% of its subagent tokens on Opus that way, 83 `general-purpose` calls and
+14 `Explore` ones. So: `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` is set in `~/.claude/settings.json` (`env`) for every
+agent without its own `model`; `Explore` is our own `agents/Explore.md` on Sonnet (it overrides the built-in); and
+every Agent call I make names its model — `sonnet` for implementers, reviewers, planners and searches, `haiku` for
+mechanical work (tests, docs, small edits). `fable` stays the advisor's only. A `fork` always runs on the main model
+(no setting changes it): no forks for heavy work.
+
 ## Skills — load the right one before you start
 
 A skill is a packaged, tested procedure for a task that keeps coming back (a review, a

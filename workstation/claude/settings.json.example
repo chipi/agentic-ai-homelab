@@ -153,5 +153,8 @@
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
   "skipDangerousModePermissionPrompt": true,
-  "skipWorkflowUsageWarning": true
+  "skipWorkflowUsageWarning": true,
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+  }
 }
