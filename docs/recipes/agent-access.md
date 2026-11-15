@@ -321,6 +321,18 @@ humancopilot.eu and devwhateverops.com also run Cloudflare Web Analytics (cookie
 speed); their CSP allows it and their privacy pages say so. eval-harness is on GitHub Pages, not
 behind Cloudflare.
 
+**Read-only users** (role `view-only`; each is a `team-view-only` member of a team that owns only
+its websites, so it sees nothing else; editing is refused):
+
+| User | Team | Websites | Password | Used by |
+|---|---|---|---|---|
+| `podcast-obs` | `observability-read` | the Close Listening player and operator sites | none: chipi/infra secret `PODCAST_OBS_UMAMI_PASSWORD` (`config/observability.prod.yaml`) | `podcast_obs` |
+| `flotilla-seo` | `seo-read` | Orrery, humancopilot.eu, Eval Harness, devwhateverops.com, markodragoljevic.com, airandspacehistory.com (moved into the team 2026-11-15) | `~/flotilla/marketing/umami.env` (`UMAMI_USERNAME`, `UMAMI_PASSWORD`) | flotilla's SEO fleet (RFC-0012) |
+
+The admin still reads a team's website by id (checked for Orrery's stats, 2026-11-15), but the
+admin's `GET /api/websites` lists only the admin's own websites, not the teams'. A new site for the SEO fleet: transfer it into `seo-read`
+(`POST /api/websites/<id>/transfer` with `{"teamId": ...}`); its id and tracker are unchanged.
+
 **API** (run from a script file on the mini):
 
 ```sh
