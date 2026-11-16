@@ -140,6 +140,7 @@ nav:
     - RFC-0006 — Self-hosted Infisical (engineering secrets): rfc/RFC-0006-self-hosted-infisical-engineering-secrets.md
     - RFC-0007 — Engineering secrets in sops + age: rfc/RFC-0007-sops-age-engineering-secrets.md
     - RFC-0008 — Local assistant on the X3: rfc/RFC-0008-x3-local-assistant.md
+    - RFC-0009 — Service levels (SLIs and SLOs): rfc/RFC-0009-service-slos.md
   - In progress:
     - Overview: wip/README.md
     - Next steps: wip/NEXT_STEPS.md
