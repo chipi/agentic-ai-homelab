@@ -116,6 +116,26 @@ details.sect summary::before{content:"\25B8  "}details.sect[open] summary::befor
 #notices[open] summary{margin-bottom:8px}
 table.models td{white-space:nowrap}table.models th,table.models td{padding-left:7px;padding-right:7px}table.models td.ven img{margin-right:6px}
 .mstats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,170px));gap:8px;margin:0 0 18px}.mstats div{background:#14141f;border:1px solid #26263a;border-radius:8px;padding:9px 11px}.mstats span{display:block;font-size:11px;color:#8888aa;text-transform:uppercase;letter-spacing:.04em}.mstats b{display:block;font-size:18px;font-weight:600;color:#e6e6ef;margin-top:2px}.mstats i{display:block;font-style:normal;font-size:11px;color:#8888aa}
+.slo-list{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}
+.slo-row{box-sizing:border-box;min-width:0;background:#14141f;border:1px solid #26263a;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.slo-row.down{border-color:#f85149}
+.slo-head{display:flex;align-items:center;gap:8px;min-width:0}.slo-head .dot{margin:0;flex:none}
+.slo-id{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
+.slo-svc{font-weight:600;color:#e6e6ef;text-decoration:none;overflow-wrap:anywhere}.slo-svc:hover{text-decoration:underline}
+.slo-sli{font-size:12px;color:#8888aa}
+.slo-state{flex:none;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#8888aa}
+.slo-row.up .slo-state{color:#3fb950}.slo-row.mid .slo-state{color:#d29922}.slo-row.down .slo-state{color:#f85149}
+.slo-nums{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12.5px;font-variant-numeric:tabular-nums}
+.slo-nums i{font-style:normal;color:#8888aa;margin-right:4px}.slo-nums b{font-weight:600;color:#e6e6ef}
+.slo-left,.slo-days{flex-basis:100%;color:#8888aa;font-size:12px}
+.slo-spark{display:block;width:100%;height:24px}
+.slo-spark polyline{fill:none;stroke:#7aa2ff;stroke-width:1.5;vector-effect:non-scaling-stroke}.slo-spark circle{fill:#7aa2ff}
+.slo-spark line{stroke:#5a5a78;stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.slo-spark.grey polyline{stroke:#7a7a8c}.slo-spark.grey circle{fill:#7a7a8c}
+@media(min-width:641px){
+  .slo-row{display:grid;grid-template-columns:minmax(220px,1.3fr) minmax(330px,2fr) 130px;align-items:center;gap:14px}
+  .slo-left,.slo-days{flex-basis:auto}
+}
 @media(max-width:640px){
   body{margin:14px}
   h1{font-size:20px;margin-bottom:14px}
@@ -167,12 +187,13 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <div id=remindbar></div>
 </details>
 <nav class=tabs>
-  <a href="#overview" target=_self>Overview</a><a href="#projects" target=_self>Projects</a><a href="#sites" target=_self>Sites</a><a href="#hosts" target=_self>Hosts</a><a href="#fleets" target=_self>Fleets</a><a href="#spend" target=_self>Spend</a>
+  <a href="#overview" target=_self>Overview</a><a href="#projects" target=_self>Projects</a><a href="#sites" target=_self>Sites</a><a href="#levels" target=_self>Levels</a><a href="#hosts" target=_self>Hosts</a><a href="#fleets" target=_self>Fleets</a><a href="#spend" target=_self>Spend</a>
 </nav>
 <section class=tab id=t-overview>
 <div class=charts>
   <a class=card href="#sites" target=_self><h3>Sites up now</h3><div data-mirror=up_now>&hellip;</div></a>
   <a class=card href="#sites" target=_self><h3>Availability 24h</h3><div data-mirror=up_24h>&hellip;</div></a>
+  <a class=card href="#levels" target=_self><h3>Service levels</h3><div id=ov_slo>&hellip;</div></a>
   <a class=card href="#fleets" target=_self><h3>Triage needs you</h3><div data-mirror=f_inbox>&hellip;</div></a>
   <a class=card href="#spend" target=_self><h3>OpenRouter this month</h3><div id=ov_month>&hellip;</div></a>
   <a class=card href="#spend" target=_self><h3>OpenRouter credit left</h3><div id=ov_credit>&hellip;</div></a>
@@ -207,6 +228,10 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <section class=tab id=t-projects>
 <nav class=subtabs id=pj_apps><a href="#projects/cl" target=_self data-app=cl>Close Listening</a><a href="#projects/orrery" target=_self data-app=orrery>Orrery</a><a href="#projects/evals" target=_self data-app=evals>Evals</a><a href="#projects/web" target=_self data-app=web>Websites</a></nav>
 <div id=pj_page></div>
+<div class=pband id=pj_slo></div>
+</section>
+<section class=tab id=t-levels>
+<div id=slo_tab><p class=muted>loading&hellip;</p></div>
 </section>
 <section class=tab id=t-sites>
 <!-- Uptime: outside-in probes from the mini (job site-probe, every minute through Cloudflare)
@@ -431,6 +456,8 @@ TOK
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-status.js"; echo '</script>'
 # the Projects tab (hub-project.js), tested by test_project.js
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-project.js"; echo '</script>'
+# the service levels (hub-slo.js), tested by test_slo.js; the page reads the status job's slo.json
+echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-slo.js"; echo '</script>'
 # the operator's dated reminders (reminders.json): in the page as it was when generated
 echo '<script>const REMINDERS='; cat "$(cd "$(dirname "$0")" && pwd)/reminders.json"; echo ';</script>'
 cat <<'SCRIPT'
@@ -1389,7 +1416,7 @@ document.getElementById('sp_mven')?.addEventListener('change',modelFilter);
 document.getElementById('sp_mq')?.addEventListener('input',modelFilter);
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
-const TABS=['overview','projects','sites','hosts','fleets','spend'],SUBS=['prod','mini','dgx','x3','delivery'];
+const TABS=['overview','projects','sites','levels','hosts','fleets','spend'],SUBS=['prod','mini','dgx','x3','delivery'];
 // Projects: #projects/<app>/<period>/<compare>, rendered by hub-project.js from the page's proxies.
 const PJ_SRC={now:()=>Date.now()/1000,
   async vmRange(e,s,en,st){const j=await(await fetch('/vm/api/v1/query_range?query='+encodeURIComponent(e)+'&start='+s+'&end='+en+'&step='+st)).json();return((j.data.result[0]||{}).values||[]).map(p=>[+p[0],+p[1]]);},
@@ -1400,10 +1427,23 @@ const PJ_SRC={now:()=>Date.now()/1000,
     const f=((r.results||{}).A||{}).frames;if(!f||!f[0])return[];const n=f[0].schema.fields.map(x=>x.name),v=f[0].data.values;
     return (v[0]||[]).map((_,i)=>Object.fromEntries(n.map((k,j)=>[k,v[j][i]])));},
   async vl(q){const t=await(await fetch('/vl/select/logsql/query',{method:'POST',body:new URLSearchParams({query:q})})).text();return t.split('\n').filter(Boolean).map(l=>JSON.parse(l));}};
+// Service levels (hub-slo.js): the status job's slo.json as it is, drawn on the Levels tab, the Overview card
+// and the Projects band; the page computes no number, and numbers older than 15 minutes are grey.
+let SLO_DOC=null;
+async function sloLevels(){
+  try{const r=await fetch('/slo.json',{cache:'no-store'});SLO_DOC=r.ok?await r.json():null;}catch(e){SLO_DOC=null;}
+  sloPaint();
+}
+function sloPaint(){
+  const v=HubSlo.view(SLO_DOC,Date.now()/1000),set=(id,h)=>{const e=document.getElementById(id);if(e&&e.innerHTML!==h)e.innerHTML=h;};
+  set('slo_tab',HubSlo.levelsHtml(v));set('ov_slo',HubSlo.cardHtml(v));
+  const a=location.hash.slice(1).split('/')[1];
+  set('pj_slo',location.hash.startsWith('#projects')?HubSlo.bandHtml(v,HubProject.APPS[a]?a:'cl'):'');
+}
 let PJ_KEY='',PJ_T=0;
 function projectsPage(force){const [,a,p,c,u]=location.hash.slice(1).split('/'),apps=HubProject.APPS,id=apps[a]?a:'cl';
   const period=HubProject.PERIODS[p]?p:'7d',compare=HubProject.COMPARES[c]&&(c!=='week'||period==='today')?c:'prev',aud=u==='beta'?'beta':'all',k=id+'/'+period+'/'+compare+'/'+aud;
-  document.querySelectorAll('#pj_apps a').forEach(x=>x.classList.toggle('on',x.dataset.app===id));
+  document.querySelectorAll('#pj_apps a').forEach(x=>x.classList.toggle('on',x.dataset.app===id));sloPaint();
   // re-read every 5 minutes, or when the view changes; the numbers move slowly
   if(!force&&k===PJ_KEY&&Date.now()-PJ_T<300000)return;PJ_KEY=k;PJ_T=Date.now();
   HubProject.render(document.getElementById('pj_page'),HubProject.resolve(apps[id],UMAMI_SITES,HUB_OPERATOR_IDS),period,compare,PJ_SRC,aud);}
@@ -1635,7 +1675,7 @@ async function overview(){
   const low=C.low;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
+function refresh(){sloLevels();overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT

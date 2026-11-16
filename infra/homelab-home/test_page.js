@@ -7,10 +7,13 @@
 const fs = require('fs');
 const path = require('path');
 const HubStatus = require('./hub-status.js'); // the page's status semantics (gen.sh inlines the same file)
+const HubSlo = require('./hub-slo.js');       // the service levels the page draws (gen.sh inlines it too)
 
 const src = fs.readFileSync(path.join(__dirname, 'gen.sh'), 'utf8');
 const m = src.match(/async function podcastHealth\(\)\{[\s\S]*?\n\}/);
 if (!m) { console.error('FAIL: podcastHealth() not found in gen.sh'); process.exit(1); }
+const mSloFetch = src.match(/async function sloLevels\(\)\{[\s\S]*?\n\}/), mSloPaint = src.match(/function sloPaint\(\)\{[\s\S]*?\n\}/);
+if (!mSloFetch || !mSloPaint) { console.error('FAIL: sloLevels() / sloPaint() not found in gen.sh'); process.exit(1); }
 
 // --- minimal DOM stub -------------------------------------------------------
 function makeDom() {
@@ -166,6 +169,43 @@ const check = (name, cond, detail) => {
     await ph(); await ph();
     check('one selftest card after two refreshes', chartsRow.cards.length === 2, String(chartsRow.cards.length));
     check('selftest still GREEN', /GREEN/.test(byId.ph_selftest.innerHTML), byId.ph_selftest.innerHTML);
+  }
+
+  // 7. Service levels: the page draws the status job's slo.json, grey when it is old, never green without numbers
+  {
+    console.log('scenario: service levels (Levels tab, Overview card, Projects band)');
+    const row = (service, group, state, left, app) => ({ service, group, sli: 'availability', objective: 0.995, state, left, leftSeconds: left == null ? null : Math.round(left * 12096), budgetSeconds: 12096,
+      ratio: { '28d': left == null ? null : 0.995 + left * 0.005, '7d': null, '1d': null }, daily: Array(28).fill(0.999), link: '#projects/' + (app || 'cl'), app: app || null });
+    const rows = [row('Orrery www', 'Public sites and apps', 'meeting', 0.9, 'orrery'), row('analytics.closelistening.app', 'Telemetry intake', 'breached', -4.8, 'cl'), row('Hub status job', 'Platform', 'meeting', 1)];
+    const takenAt = ago => new Date((NOW - ago) * 1000).toISOString();
+    const run = async (doc, hash) => {
+      const els = {};
+      const document = { getElementById: id => els[id] || (els[id] = { innerHTML: '' }) };
+      const fetchStub = async () => doc === null ? { ok: false, json: async () => ({}) } : doc instanceof Error ? (() => { throw doc; })() : { ok: true, json: async () => doc };
+      const body = 'let SLO_DOC=null;' + mSloFetch[0] + '\n' + mSloPaint[0] + '\nreturn sloLevels();';
+      await new Function('document', 'fetch', 'location', 'Date', 'HubSlo', 'HubProject', body)(document, fetchStub, { hash }, { now: () => NOW * 1000 }, HubSlo, require('./hub-project.js'));
+      return els;
+    };
+    let e = await run({ takenAt: takenAt(60), rows }, '#overview');
+    check('levels tab: breached row first in its group, groups as headings', /Telemetry intake/.test(e.slo_tab.innerHTML) && /dot down/.test(e.slo_tab.innerHTML) && /BREACHED|breached/.test(e.slo_tab.innerHTML), e.slo_tab.innerHTML.slice(0, 200));
+    check('overview card: "2 of 3 meeting", red because one is breached', />2 of 3</.test(e.ov_slo.innerHTML) && /meeting/.test(e.ov_slo.innerHTML) && /color:#f85149/.test(e.ov_slo.innerHTML), e.ov_slo.innerHTML);
+    check('projects band: empty off the Projects tab', e.pj_slo.innerHTML === '', e.pj_slo.innerHTML);
+    e = await run({ takenAt: takenAt(60), rows }, '#projects/orrery/7d/prev/all');
+    check('projects band: Orrery page shows Orrery rows only', /Orrery www/.test(e.pj_slo.innerHTML) && !/analytics\.closelistening/.test(e.pj_slo.innerHTML), e.pj_slo.innerHTML.slice(0, 200));
+    e = await run({ takenAt: takenAt(60), rows }, '#projects');
+    check('projects band: no app in the hash is Close Listening', /analytics\.closelistening/.test(e.pj_slo.innerHTML) && !/Orrery www/.test(e.pj_slo.innerHTML));
+    e = await run({ takenAt: takenAt(20 * 60), rows }, '#overview');
+    check('stale slo.json (20 min): every row grey, no green or red dot', /dot stale/.test(e.slo_tab.innerHTML) && !/dot up|dot down|dot mid/.test(e.slo_tab.innerHTML), e.slo_tab.innerHTML.slice(0, 200));
+    check('stale slo.json: the card is grey, not red or green', /color:#7a7a8c/.test(e.ov_slo.innerHTML) && !/f85149/.test(e.ov_slo.innerHTML) && /old/.test(e.ov_slo.innerHTML), e.ov_slo.innerHTML);
+    for (const [name, doc] of [['missing (404)', null], ['unreachable', new Error('offline')], ['not a snapshot', { rows: 'x' }]]) {
+      e = await run(doc, '#overview');
+      check('slo.json ' + name + ': says so, grey dash, nothing green', /missing or unreadable/.test(e.slo_tab.innerHTML) && /7a7a8c/.test(e.ov_slo.innerHTML) && !/dot up/.test(e.slo_tab.innerHTML + e.ov_slo.innerHTML), e.slo_tab.innerHTML);
+    }
+    // gen.sh wiring: the tab between Sites and Hosts, the card, the Projects slot, the module inlined, the refresh
+    check('gen.sh: Levels tab sits between Sites and Hosts, in TABS too', /<a href="#sites"[^>]*>Sites<\/a><a href="#levels"[^>]*>Levels<\/a><a href="#hosts"/.test(src) && /TABS=\['overview','projects','sites','levels','hosts'/.test(src));
+    check('gen.sh: the section, the Overview card and the Projects slot exist', /<section class=tab id=t-levels>/.test(src) && /id=slo_tab/.test(src) && /id=ov_slo/.test(src) && /id=pj_slo/.test(src));
+    check('gen.sh: hub-slo.js is inlined and refreshed with the page', /cat .*\/hub-slo\.js"/.test(src) && /function refresh\(\)\{sloLevels\(\);/.test(src));
+    check('gen.sh: mobile first (a row stacks by default, one line from 641 px)', /\.slo-row\{[^}]*flex-direction:column/.test(src) && /@media\(min-width:641px\)\{\s*\.slo-row\{display:grid/.test(src));
   }
 
   if (failures) { console.log('TEST_PAGE FAIL (' + failures + ')'); process.exit(1); }
