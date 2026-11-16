@@ -1,8 +1,8 @@
 # RFC-0009 — Service levels: SLIs and SLOs for every service, shown on the Hub
 
-**Status:** Proposed (2026-11-16). The operator's decisions so far: every service, not a first few;
-the proposed target levels; a view on the Hub only for now, with burn-rate alerts thought about
-afterwards.
+**Status:** Accepted, built (2026-11-16): every service, the proposed target levels, a view on the Hub
+only for now (the Levels tab), burn-rate alerts thought about afterwards. How it is built, and what
+changed from this text (a status job instead of recording rules): [the plan](../wip/slo-plan.md).
 **Relates to:** the Hub ([`infra/homelab-home/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/homelab-home):
 `hub-status.js`, `hub-project.js`), the mini's site probe (`infra/observability/hosts/homelab/config.alloy`,
 job `site-probe`), the Grafana alert rules (`infra/observability/backend/grafana/provisioning/alerting/rules.yaml`),
@@ -124,3 +124,6 @@ morning brief and flotilla's ops fleet. To be thought through once a month of th
 
 - 2026-11-16 — drafted from the operator's ask; the catalogue is what the site probe, the alert
   rules and the Hub's sources measure today.
+- 2026-11-16 — accepted with the plan's four decisions; built as the Hub's Levels tab (47 SLIs).
+  Close Listening API latency leaves out health checks and background polls (what users wait for);
+  the nightly pipeline row reads the pipeline's own `podcast_pipeline_last_success_age_seconds`.

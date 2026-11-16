@@ -1,8 +1,8 @@
 # Service levels: the build plan, and how they show on the Hub
 
-The plan for [RFC-0009](../rfc/RFC-0009-service-slos.md). It needs the RFC accepted first (with its open
-questions). The operator's decisions so far (2026-11-16): every service, the RFC's target levels, a
-view on the Hub only (no alerts yet).
+The plan for [RFC-0009](../rfc/RFC-0009-service-slos.md), accepted and built 2026-11-16 (the Hub's Levels
+tab). The operator's decisions: every service, the RFC's target levels, a view on the Hub only (no
+alerts yet), and §6 below.
 
 ## 1. What the data says today
 
@@ -61,8 +61,9 @@ Each objective comes from the RFC's table. The error budget is `1 - objective` o
 left is how much of it the window has not used.
 
 **Gaps found while planning:** the Close Listening nightly pipeline has no "finished by 07:00"
-metric. Its SLI starts from `prod_ops_health_last_run_timestamp` until one exists, and the catalogue
-says so. The DGX models and LiteLLM have `up` only (the RFC's first open question).
+metric. Its SLI reads the pipeline's own `podcast_pipeline_last_success_age_seconds` (the full
+incremental run, as the 36 h alert does) within 26 h, and the catalogue says so (operator,
+2026-11-16). The DGX models and LiteLLM have `up` only (the RFC's first open question).
 
 ## 4. How it shows on the Hub
 
