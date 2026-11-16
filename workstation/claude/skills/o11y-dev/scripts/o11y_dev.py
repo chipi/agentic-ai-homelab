@@ -40,10 +40,12 @@ PROJECTS = {
         "logs": "app:orrery", "logs_branch": True,
         "traces": ["orrery-lab-api", "orrery-mcp"],
     },
+    # from podcast_scraper b647d1633 on: dev errors (pipeline, API, viewer), log pushes and trace resources carry
+    # `worktree` = branch; dev runs from before it carry no label and are not seen by a branch filter
     "chipi/podcast_scraper": {
-        "glitchtip": ["podcast-pipeline-dev", "podcast-api-dev", "player-dev"], "branch_tag": False,
+        "glitchtip": ["podcast-pipeline-dev", "podcast-api-dev", "player-dev", "gi-kg-viewer-dev"], "branch_tag": True,
         "logs": "(service:podcast-pipeline OR service:podcast-api OR service:player-api OR service:pipeline)",
-        "logs_branch": False,
+        "logs_branch": True,
         "traces": ["podcast-pipeline", "podcast-api", "player-api"],
     },
     # the player app (web and native) sends its dev errors to player-dev, tagged worktree = branch (player

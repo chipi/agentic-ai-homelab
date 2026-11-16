@@ -79,14 +79,16 @@ class DevTests(unittest.TestCase):
         self.assertNotIn("ORRERY-DEV-2", out)
         self.assertIn("O11Y-DEV chipi/orrery feat/x: errors=1 (branch-filtered), error-logs=0, failed-traces=0", out)
 
-    def test_podcast_says_it_is_not_branch_filtered_and_queries_every_dev_project(self):
+    def test_podcast_queries_every_dev_project_by_branch(self):
+        # from podcast_scraper b647d1633 its dev errors, logs and traces carry `worktree` (ingestion, 2026-11-16)
         fake = Fake(issues=[issue("PIPE-1", "2026-11-15T10:00:00Z")])
         rc, out = run(["--project", "podcast_scraper", "--branch", "b", "--since", "7d"], fake)
         self.assertEqual(rc, 0, out)
         gt = [u for u in fake.urls if "/api/0/projects/" in u]
-        self.assertEqual(len(gt), 3)
-        self.assertNotIn("worktree", gt[0])
-        self.assertIn("errors=3 (not branch-filtered)", out)
+        self.assertEqual(len(gt), 4)
+        self.assertTrue(any("gi-kg-viewer-dev" in u for u in gt))
+        self.assertTrue(all("worktree" in u for u in gt))
+        self.assertIn("(branch-filtered)", out)
 
     def test_a_logs_failure_is_not_checked_and_exits_2_never_zero_errors(self):
         rc, out = run(["--project", "orrery", "--branch", "b", "--since", "7d"], Fake(logs_error=OSError("timed out")))
