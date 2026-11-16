@@ -3,12 +3,15 @@
 // hub-status.js the page runs, against the mini's localhost services, and writes www/status.json
 // (served by the hub at /status.json) and www/timeline.json, the last 48 h of events for incident
 // write-ups (use case H7, served at /timeline.json) and www/analytics.json, the Umami sites' numbers for
-// the assistant (served at /analytics.json). Each snapshot also goes to VictoriaLogs
-// (job=hub-status), so any past hour can be checked against what the briefing said. Run every 5
-// minutes by launchd (com.homelab.hub-status); one run, then exit. Sources and env overrides: hub-sources.js.
+// the assistant (served at /analytics.json) and www/slo.json, the service levels (RFC-0009, served at
+// /slo.json). Each snapshot also goes to VictoriaLogs (job=hub-status), so any past hour can be checked
+// against what the briefing said. Run every 5 minutes by launchd (com.homelab.hub-status); one run, then
+// exit; `--slo-only` runs just the service levels. Sources and env overrides: hub-sources.js.
 'use strict';
+const fs = require('fs');
 const path = require('path');
 const HS = require('./hub-status.js');
+const HSLO = require('./hub-slo.js');
 const S = require('./hub-sources.js');
 
 const OUT = process.env.HUB_OUT || path.join(__dirname, 'www/status.json');
@@ -16,9 +19,29 @@ const TIMELINE = path.join(path.dirname(OUT), 'timeline.json'), TIMELINE_DIR = p
 const TIMELINE_HOURS = 48;
 const ANALYTICS = path.join(path.dirname(OUT), 'analytics.json');
 const FLEET = path.join(path.dirname(OUT), 'fleet.json'), FLEET_DIR = path.join(path.dirname(OUT), 'fleet');
+const SLO_CATALOGUE = path.join(__dirname, 'slo-catalogue.json'), SLO = path.join(path.dirname(OUT), 'slo.json');
+
+// The service levels: slo.json for the page and hub_slo_* gauges for Grafana, from the same numbers. Last,
+// and on its own, so a failure here never touches the rest of the job; it records its own last success.
+async function serviceLevels(src) {
+  const doc = await HSLO.all(Object.assign({}, src, { now: Date.now() / 1000 }), JSON.parse(fs.readFileSync(SLO_CATALOGUE, 'utf8')));
+  S.writeAtomic(SLO, JSON.stringify(doc, null, 1));
+  const gauges = [];
+  for (const r of doc.rows) {
+    const l = { service: r.service, sli: r.sli };
+    for (const w of Object.keys(r.ratio)) if (r.ratio[w] != null) gauges.push(['hub_slo_ratio', r.ratio[w], Object.assign({ window: w }, l)]);
+    gauges.push(['hub_slo_objective', r.objective, l]);
+    if (r.left != null) gauges.push(['hub_slo_budget_left', r.left, l]);
+  }
+  await S.pushGauges(gauges);
+  await S.pushGauge('hub_slo_last_success_timestamp', Math.round(Date.now() / 1000));
+  const c = doc.summary;
+  return c.meeting + ' of ' + c.total + ' meeting, ' + c.atRisk + ' at risk, ' + c.breached + ' breached, ' + c.stale + ' stale';
+}
 
 async function main() {
   const src = S.statusSource();
+  if (process.argv.includes('--slo-only')) { console.log('service levels: ' + await serviceLevels(src)); return; }
   const status = await HS.all(src);
   // the assistant's local / OpenRouter split (job only: it reads LiteLLM's database), in status.json for the
   // assistant and the briefing, and as gauges for the Spend tab (window = the tab's period)
@@ -58,10 +81,12 @@ async function main() {
   const bad = Object.entries(status).filter(([, v]) => v && v.error).map(([k, v]) => k + ': ' + v.error);
   // the heartbeat the hub-status-stale alert reads (written even when an area failed: the file was)
   try { await S.pushGauge('hub_status_last_success_timestamp', Math.round(Date.now() / 1000)); } catch (e) { console.error('heartbeat: ' + e.message); }
+  let slo; try { slo = await serviceLevels(src); } catch (e) { slo = 'failed: ' + (e && e.message || e); }
   console.log(status.takenAt + ' wrote ' + OUT + ' (' + body.length + ' bytes), ' + logged
     + '; timeline ' + tl.count + ' events' + (tl.missing.length ? ' (missing: ' + tl.missing.join('; ') + ')' : '')
     + '; fleet ' + (fq.ok ? fq.needsYou + ' need you, ' + fq.openEscalatedCount + ' open escalated' + (fq.unreadable.length ? ' (unreadable: ' + fq.unreadable.join('; ') + ')' : '') : 'failed: ' + fq.reason)
     + '; analytics ' + (an.ok ? an.sites.length + ' sites' + (an.sites.some(x => x.error) ? ' (errors: ' + an.sites.filter(x => x.error).map(x => x.site).join(', ') + ')' : '') : 'failed: ' + an.reason)
+    + '; service levels ' + slo
     + (bad.length ? '; area errors: ' + bad.join('; ') : ''));
   process.exit(bad.length ? 1 : 0);
 }

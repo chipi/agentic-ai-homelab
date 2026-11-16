@@ -21,6 +21,20 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   red for sites, boxes, Close Listening health, alerts, Needs you, delivery, credit, spend and
   capacity. It returns data; `gen.sh` inlines it and the page draws from it. Tests:
   `test_status.js` (the module), `test_page.js` / `test_uptime.js` (the page on top of it).
+- `hub-slo.js` + `slo-catalogue.json` — the service levels (RFC-0009, plan `docs/wip/slo-plan.md`): the
+  catalogue has one entry per SLI (`service`, `group`, `sli`, `good_ratio`, `objective`, `link`, optional
+  `app` for the Projects band and `note`). `good_ratio` is a PromQL ratio of good to all with a `[window]`
+  placeholder the job fills with `28d`, `7d` and `1d` (`[window:1m]` for a subquery). The module turns a ratio
+  into the error budget (`1 - objective` of 28 days), a state (meeting: 25 % of the budget or more left; at risk:
+  under 25 %; breached: under 0; stale: no data, or numbers older than 15 minutes), the rows sorted by budget left
+  inside each group and 28 daily values for the sparkline, and draws the **Levels** tab (between Sites and Hosts),
+  the Overview card ("<meeting> of <all> meeting", red when one is breached) and a "Service levels" band on each
+  Projects page (rows with that `app`). A query with no data is stale, never 100 %. Probe SLIs carry the Sites
+  tab's egress gate (`mini_vm_egress_ok`: minutes while the mini itself was offline leave the window); the test
+  refuses a probe query without it. To add an SLI: add an entry and run it once in VictoriaMetrics (vmui or
+  `curl --data-urlencode query=...`, with `[window]` replaced by `28d`); an entry whose query returns nothing
+  does not belong in the catalogue. Tests: `test_slo.js` (the module and the catalogue file), `test_page.js`
+  (the page's part).
 - `hub-project.js` — the Projects tab (`#projects/<app>/<period>/<compare>/<audience>`), one page
   per app: Close Listening, Orrery, Evals, Websites. Bands:
   - usage (Umami, through Grafana's `umami-pg`);
@@ -67,6 +81,12 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   in `hub-sources.js` `FLEET_REPOS`); a repo GitHub refuses is named in `unreadable`. The assistant reads
   it one list at a time, `www/fleet/needs-you.json` and `open-escalated.json` (count and finished lines),
   as `getFleetQueue(list)`; `fleet.json` is for scoring.
+  And `www/slo.json` (served at `/slo.json`): every catalogue SLI's ratio over 28 d, 7 d and 1 d, objective, budget
+  left, state and 28 daily values, which the page reads (no number is computed twice). The job also pushes
+  `hub_slo_ratio{service,sli,window}`, `hub_slo_objective{service,sli}` and `hub_slo_budget_left{service,sli}` so Grafana
+  graphs the same numbers, and records `hub_slo_last_success_timestamp`. It runs after the heartbeat, on its own: a
+  failure there is logged on the job's line (`service levels failed: ...`) and never changes the rest of the job or its
+  exit code. `node status-job.js --slo-only` runs just this part (writes `slo.json`, pushes the gauges).
   `status.json` also carries `assistantSpend`: the assistant's answers by backend (X3 local, free; OpenRouter
   `assistant-cloud`, paid) per Spend-tab window, read from the mini LiteLLM's spend log through
   `docker exec litellm-postgres psql` (the container's own credentials), and pushed as

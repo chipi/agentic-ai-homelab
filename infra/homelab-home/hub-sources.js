@@ -66,6 +66,7 @@ function statusSource() {
   return {
     now: Date.now() / 1000,
     q: async e => (await getJson(URLS.vm + '/api/v1/query?query=' + encodeURIComponent(e))).data.result,
+    qr: async (e, start, end, step) => (await getJson(URLS.vm + '/api/v1/query_range?query=' + encodeURIComponent(e) + '&start=' + start + '&end=' + end + '&step=' + step)).data.result,
     alerts: async () => {
       if (!tok) throw new Error('no GRAFANA_TOKEN in ' + FILES.grafana);
       return getJson(URLS.grafana + '/api/alertmanager/grafana/api/v2/alerts', { headers: { Authorization: 'Bearer ' + tok } });
@@ -130,6 +131,16 @@ async function pushGauge(name, value, labels = {}) {
   if (!r.ok) throw new Error('VictoriaMetrics import HTTP ' + r.status);
 }
 
+// several gauges in one import: [[name, value, labels], ...]
+async function pushGauges(list) {
+  const body = list.map(([name, value, labels = {}]) => {
+    const l = Object.entries(labels).map(([k, v]) => k + '="' + String(v).replace(/["\\\n]/g, '') + '"').join(',');
+    return name + (l ? '{' + l + '}' : '') + ' ' + value + '\n';
+  }).join('');
+  const r = await fetch(URLS.vm + '/api/v1/import/prometheus', { method: 'POST', body, signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error('VictoriaMetrics import HTTP ' + r.status);
+}
+
 // write a file atomically, so a reader never sees half of it
 function writeAtomic(file, body, mode = 0o644) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -137,4 +148,4 @@ function writeAtomic(file, body, mode = 0o644) {
   fs.renameSync(file + '.tmp', file);
 }
 
-module.exports = { URLS, FILES, secret, getJson, statusSource, logLine, pushGauge, writeAtomic };
+module.exports = { URLS, FILES, secret, getJson, statusSource, logLine, pushGauge, pushGauges, writeAtomic };
