@@ -47,7 +47,11 @@ PROJECTS = {
         "traces": ["podcast-pipeline", "podcast-api", "player-api"],
     },
     "chipi/humancopilot.eu": None,
-    "chipi/eval-harness": None,
+    "chipi/eval-harness": {
+        "glitchtip": ["evals-dev"], "branch_tag": True,
+        "logs": "(service:evals-inspector OR service:evals-mcp)", "logs_branch": True,
+        "traces": ["evals-inspector", "evals-mcp"],
+    },
     "chipi/oceancanvas": None,
 }
 
@@ -213,7 +217,8 @@ def check_traces(cfg, branch, start, end, get=None):
     for svc in cfg["traces"]:
         q = urllib.parse.urlencode({
             "service": svc, "start": int(start.timestamp() * 1e6), "end": int(end.timestamp() * 1e6),
-            "limit": 200, "tags": json.dumps({"deployment.environment": "dev"})})
+            # a resource attribute is matched only as resource_attr:<name> (VictoriaTraces' Jaeger API)
+            "limit": 200, "tags": json.dumps({"resource_attr:deployment.environment": "dev"})})
         try:
             data = json.loads(get(f"{VTRACES}/select/jaeger/api/traces?{q}")).get("data") or []
         except Exception as e:

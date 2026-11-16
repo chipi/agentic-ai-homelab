@@ -158,6 +158,22 @@ class DevTests(unittest.TestCase):
         self.assertNotIn("tprod", out)
         self.assertNotIn("tother", out)
 
+    def test_the_trace_query_names_the_resource_attribute(self):
+        # VictoriaTraces' Jaeger API matches a resource attribute only as resource_attr:<name>: the bare
+        # "deployment.environment" matched no trace (eval-harness session, 2026-11-16: 0 vs 4 over 2h)
+        fake = Fake()
+        run(["--project", "orrery", "--branch", "b", "--since", "7d"], fake)
+        jaeger = [u for u in fake.urls if "/jaeger/api/traces" in u]
+        self.assertTrue(jaeger)
+        for u in jaeger:
+            self.assertIn("resource_attr%3Adeployment.environment", u)
+
+    def test_eval_harness_is_on_the_contract(self):
+        cfg = o11y_dev.PROJECTS["chipi/eval-harness"]
+        self.assertEqual(cfg["glitchtip"], ["evals-dev"])
+        self.assertTrue(cfg["branch_tag"] and cfg["logs_branch"])
+        self.assertEqual(cfg["traces"], ["evals-inspector", "evals-mcp"])
+
     def test_helpers(self):
         self.assertEqual(o11y_dev.project_from_remote("git@github.com:chipi/orrery.git"), "chipi/orrery")
         self.assertEqual(o11y_dev.project_from_remote("https://github.com/chipi/podcast_scraper"), "chipi/podcast_scraper")
