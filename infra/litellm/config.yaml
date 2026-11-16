@@ -21,14 +21,24 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
   # bugfix-fleet triage/dispatch (cheap) + reviewer (glm). Routes the bugfix-fleet
   # through the gateway too (was OpenRouter-direct) — one budget key, one meter.
+  # Pinned providers (2026-11-16, operator's go; fleet-eval-data projects/bugfix-cost C6): bug-fix calls
+  # are long cached prompts, and flash billed 4-5x more per input token on 11-16 than on 11-15 at the same
+  # cache share, with the serving provider unrecorded. Only fp8 providers with a cached-read price, cheapest
+  # first; no fallback outside the list, so a price change cannot come from routing. The lists are the
+  # cheap fp8 providers this OpenRouter account may use (checked by one pinned call each, 2026-11-16:
+  # StreamLake, SiliconFlow, GMICloud, Venice, Fireworks, CoreWeave, DigitalOcean and Morph are refused).
   - model_name: fleet-bugfix-flash
     litellm_params:
       model: openrouter/deepseek/deepseek-v4-flash
       api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider: {order: [baidu/fp8, deepinfra/fp8], allow_fallbacks: false}
   - model_name: fleet-bugfix-reviewer
     litellm_params:
       model: openrouter/z-ai/glm-5.2
       api_key: os.environ/OPENROUTER_API_KEY
+      extra_body:
+        provider: {order: [baidu/fp8, novita/fp8], allow_fallbacks: false}
 
   # --- direct-provider test aliases (provider bake-off; A/B vs OpenRouter) --
   # Same underlying models via api.deepseek.com. Names follow DeepSeek's
