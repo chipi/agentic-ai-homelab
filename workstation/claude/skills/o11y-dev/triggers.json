@@ -1,0 +1,5 @@
+{
+  "prompt": [
+    "\\b(check my branch'?s? (errors|logs)|what did my branch log|dev errors|dev glitchtip)\\b"
+  ]
+}

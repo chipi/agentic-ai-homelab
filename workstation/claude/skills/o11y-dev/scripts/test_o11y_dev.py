@@ -1,0 +1,138 @@
+"""Tests for o11y_dev.py with fake HTTP: `python3 -m unittest test_o11y_dev` from this directory."""
+
+from __future__ import annotations
+
+import contextlib
+import datetime as dt
+import io
+import json
+import os
+import unittest
+import urllib.parse
+from unittest import mock
+
+import o11y_dev
+
+NOW = dt.datetime(2026, 11, 16, 12, 0, tzinfo=dt.timezone.utc)
+
+
+def issue(short, last, title="TypeError: x"):
+    return {"shortId": short, "count": "2", "lastSeen": last, "title": title, "culprit": "mod.fn",
+            "permalink": f"https://glitchtip.example/{short}"}
+
+
+def trace(env, spans, worktree=None, tid="abc123"):
+    tags = [{"key": "deployment.environment", "value": env}]
+    if worktree:
+        tags.append({"key": "worktree", "value": worktree})
+    return {"traceID": tid, "processes": {"p1": {"tags": tags}}, "spans": spans}
+
+
+def span(op="GET", start=0, dur=1_000_000, **tags):
+    return {"operationName": op, "startTime": start, "duration": dur,
+            "tags": [{"key": k, "value": v} for k, v in tags.items()]}
+
+
+class Fake:
+    """Routes by URL; records every URL. A value that is an Exception is raised."""
+
+    def __init__(self, issues=None, stats=None, err_count=0, rows=None, traces=None, logs_error=None):
+        self.issues, self.stats, self.err_count, self.rows = issues or [], stats or [], err_count, rows or []
+        self.traces, self.logs_error, self.urls = traces or [], logs_error, []
+
+    def __call__(self, url, headers=None, timeout=60):
+        self.urls.append(url)
+        if "/api/0/projects/" in url:
+            assert headers and headers["Authorization"].startswith("Bearer ")
+            return json.dumps(self.issues)
+        if "/select/logsql/query" in url:
+            if self.logs_error:
+                raise self.logs_error
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)["query"][0]
+            if "stats by (level)" in q:
+                return "\n".join(json.dumps(r) for r in self.stats)
+            if "stats count()" in q:
+                return json.dumps({"n": str(self.err_count)})
+            return "\n".join(json.dumps(r) for r in self.rows)
+        if "/jaeger/api/traces" in url:
+            return json.dumps({"data": self.traces})
+        raise AssertionError(url)
+
+
+def run(args, fake, token="tok"):
+    out = io.StringIO()
+    env = {"GLITCHTIP_DEV_TOKEN": token} if token else {}
+    with mock.patch.dict(os.environ, env, clear=True), \
+            mock.patch.object(o11y_dev, "load_token", lambda: token), contextlib.redirect_stdout(out):
+        rc = o11y_dev.main(args, get=fake, now=NOW)
+    return rc, out.getvalue()
+
+
+class DevTests(unittest.TestCase):
+    def test_orrery_is_branch_filtered_and_drops_issues_outside_the_window(self):
+        fake = Fake(issues=[issue("ORRERY-DEV-1", "2026-11-15T10:00:00Z"), issue("ORRERY-DEV-2", "2026-10-01T10:00:00Z")])
+        rc, out = run(["--project", "orrery", "--branch", "feat/x", "--since", "7d"], fake)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("worktree%3Afeat%2Fx", fake.urls[0])
+        self.assertTrue(any('worktree%3A%22feat%2Fx%22' in u for u in fake.urls if "logsql" in u))
+        self.assertIn("ORRERY-DEV-1", out)
+        self.assertNotIn("ORRERY-DEV-2", out)
+        self.assertIn("O11Y-DEV chipi/orrery feat/x: errors=1 (branch-filtered), error-logs=0, failed-traces=0", out)
+
+    def test_podcast_says_it_is_not_branch_filtered_and_queries_every_dev_project(self):
+        fake = Fake(issues=[issue("PIPE-1", "2026-11-15T10:00:00Z")])
+        rc, out = run(["--project", "podcast_scraper", "--branch", "b", "--since", "7d"], fake)
+        self.assertEqual(rc, 0, out)
+        gt = [u for u in fake.urls if "/api/0/projects/" in u]
+        self.assertEqual(len(gt), 3)
+        self.assertNotIn("worktree", gt[0])
+        self.assertIn("errors=3 (not branch-filtered)", out)
+
+    def test_a_logs_failure_is_not_checked_and_exits_2_never_zero_errors(self):
+        rc, out = run(["--project", "orrery", "--branch", "b", "--since", "7d"], Fake(logs_error=OSError("timed out")))
+        self.assertEqual(rc, 2)
+        self.assertIn("NOT CHECKED logs: VictoriaLogs: timed out", out)
+
+    def test_no_token_is_not_checked_and_exits_2(self):
+        rc, out = run(["--project", "orrery", "--branch", "b", "--since", "7d"], Fake(), token="")
+        self.assertEqual(rc, 2)
+        self.assertIn("NOT CHECKED glitchtip: no GLITCHTIP_DEV_TOKEN", out)
+
+    def test_project_without_dev_telemetry_is_said_plainly(self):
+        rc, out = run(["--project", "chipi/oceancanvas", "--branch", "b"], Fake())
+        self.assertEqual(rc, 2)
+        self.assertIn("sends no dev telemetry yet", out)
+        self.assertIn("o11y-dev.md", out)
+
+    def test_error_logs_levels_and_normalized_patterns(self):
+        fake = Fake(stats=[{"level": "info", "n": "40"}, {"level": "error", "n": "3"}], err_count=3, rows=[
+            {"level": "error", "_msg": "fetch failed for episode 1234 id 0123456789abcdef"},
+            {"level": "error", "_msg": "fetch failed for episode 99 id fedcba9876543210"},
+            {"level": "warn", "_msg": "slow"}])
+        rc, out = run(["--project", "orrery", "--branch", "b", "--since", "7d"], fake)
+        self.assertIn("info=40", out)
+        self.assertIn("2  error  fetch failed for episode <n> id <id>", out.replace("   ", " "))
+        self.assertIn("error-logs=3", out)
+
+    def test_traces_keep_dev_only_count_failed_and_respect_a_worktree_tag(self):
+        fake = Fake(traces=[
+            trace("dev", [span(**{"http.status_code": 500})], tid="t500"),
+            trace("dev", [span(error=True)], worktree="other", tid="tother"),
+            trace("dev", [span(error="true")], worktree="b", tid="tmine"),
+            trace("prod", [span(error=True)], tid="tprod"),
+            trace("dev", [span(**{"http.status_code": 200})], tid="tok")])
+        rc, out = run(["--project", "orrery", "--branch", "b", "--since", "7d"], fake)
+        self.assertIn("orrery-lab-api: 3 dev traces, 2 failed (2 without a `worktree` label, not branch-filtered)", out)
+        self.assertIn("failed-traces=4", out)
+        self.assertNotIn("tprod", out)
+        self.assertNotIn("tother", out)
+
+    def test_helpers(self):
+        self.assertEqual(o11y_dev.project_from_remote("git@github.com:chipi/orrery.git"), "chipi/orrery")
+        self.assertEqual(o11y_dev.project_from_remote("https://github.com/chipi/podcast_scraper"), "chipi/podcast_scraper")
+        self.assertEqual(o11y_dev.parse_since("14d", NOW), NOW - dt.timedelta(days=14))
+        self.assertEqual(o11y_dev.trace_failed([span(**{"http.response.status_code": "503"})]), True)
+
+
+if __name__ == "__main__":
+    unittest.main()
