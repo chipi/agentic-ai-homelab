@@ -65,3 +65,11 @@ docs-clean: ## Remove built site
 
 .PHONY: clean
 clean: docs-clean ## Remove all build artifacts
+
+.PHONY: llms-txt
+llms-txt: ## Regenerate llms.txt, the agent-facing index of the docs (scripts/llms_txt.py, llms.config.json)
+	@python3 scripts/llms_txt.py --write
+
+.PHONY: llms-check
+llms-check: ## Fail when llms.txt is stale or a link in it does not resolve (CI: llms-txt.yml)
+	@python3 scripts/llms_txt.py --check
