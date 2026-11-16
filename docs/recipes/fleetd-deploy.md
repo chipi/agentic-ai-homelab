@@ -1,5 +1,7 @@
 # fleetd — build, deploy, operate (Mac mini)
 
+> **Retired 2026-11-16.** The fleets run in [flotilla](https://github.com/chipi/flotilla) (its `docs/operations/`); the code this page describes left this repo, and the mini's `fleetd` and `bugfix-metrics` jobs are gone. Kept for the record; the commands below no longer apply.
+
 The fleet supervisor ([RFC-0004](../rfc/RFC-0004-fleetd-supervisor.md),
 tech rationale [ADR-0008](../adr/ADR-0008-fleet-daemon-tech-and-framework-non-adoption.md))
 as an operable service. Everything below is a `make` target in `fleetd/` —

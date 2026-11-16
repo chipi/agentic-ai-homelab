@@ -1,5 +1,7 @@
 # Triage fleet (Fleet 2) — how it works and why
 
+> **Retired 2026-11-16.** The fleets run in [flotilla](https://github.com/chipi/flotilla) (its `docs/operations/`); the code this page describes left this repo, and the mini's `fleetd` and `bugfix-metrics` jobs are gone. Kept for the record; the commands below no longer apply.
+
 This guide explains the triage fleet (`signal-fleet`, Fleet 2): its parts, one signal's path through it, the two ledgers that hold its memory, and the reasoning behind each rule. It is the "why" for the next agent who has to change it.
 
 - **How to install, run, review and improve it:** [Triage fleet runbook](recipes/signal-fleet-runbook.md).

@@ -61,9 +61,7 @@ for rel in \
   infra/docker-maintenance/com.homelab.docker-prune.plist \
   infra/caffeinate/com.homelab.caffeinate.plist \
   infra/node-exporter/homebrew.mxcl.node_exporter.plist \
-  infra/tailscale/com.homelab.tailscale-up.plist \
-  bugfix-fleet/deploy/com.homelab.bugfix-metrics.plist \
-  fleetd/deploy/com.homelab.fleetd.plist ; do
+  infra/tailscale/com.homelab.tailscale-up.plist ; do
   src="$REPO/$rel"
   b=$(basename "$rel")
   label=${b%.plist}

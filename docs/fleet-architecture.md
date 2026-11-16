@@ -1,5 +1,7 @@
 # Agentic fleets — the architecture
 
+> **Retired 2026-11-16.** The fleets run in [flotilla](https://github.com/chipi/flotilla) (its `docs/operations/`); the code this page describes left this repo, and the mini's `fleetd` and `bugfix-metrics` jobs are gone. Kept for the record; the commands below no longer apply.
+
 The homelab's autonomous-agent system, in one picture. This page ties the
 RFCs together; each RFC owns its own depth. Written 2026-07-25, at the
 lab→wild transition. Where each fleet stands now: [Rollout status](#rollout-status).

@@ -21,10 +21,10 @@ duplicates or contradicts.
   commit "just the example values" comes up regularly. Compose stacks
   read a repo-root or stack-local `.env` depending on the stack (see
   [`infra/AGENTS.md`](infra/AGENTS.md)).
-- **The fleet code moved to [flotilla](https://github.com/chipi/flotilla) (2026-11-08).**
-  `fleetd/`, `signal-fleet/` and `bugfix-fleet/` are frozen here: new work lands in flotilla. The
-  live fleet still runs this copy until flotilla's phase 2, so a fix it needs before then lands
-  here first and is ported to flotilla.
+- **The fleets live in [flotilla](https://github.com/chipi/flotilla).** `fleetd/`, `signal-fleet/`
+  and `bugfix-fleet/` moved there on 2026-11-08 and left this repo on 2026-11-16, when the mini's
+  `fleetd` and `bugfix-metrics` jobs were retired (archived in `~/flotilla/retired/` on the mini).
+  Their history stays in git; the triage fleet runs flotilla's `signal-fleet/mvp`.
 
 ## Scoped AGENTS.md in this repo
 
@@ -39,7 +39,6 @@ folder wins (e.g. `infra/dgx/` over `infra/` over root).
 | [`infra/vllm/AGENTS.md`](infra/vllm/AGENTS.md) | Local vLLM stacks — ports, dummy key, GPU sizing |
 | [`infra/x3/AGENTS.md`](infra/x3/AGENTS.md) | The X3 workstation as a deployment surface — deploy checkout, user units, the eval-harness GPU rule |
 | [`provider-bakeoff/AGENTS.md`](provider-bakeoff/AGENTS.md) | provider-bakeoff sub-project |
-| [`bugfix-fleet/AGENTS.md`](bugfix-fleet/AGENTS.md) | autonomous bug-fix fleet MVP (RFC-0002) — Pi vs opencode bake-off |
 
 Templates (not active rules — copy-out artifacts; see pillar 4 for context):
 - `templates/new-project/AGENTS.md` — bootstrap for fresh project repos

@@ -7,8 +7,6 @@ any gate is red.
 ```bash
 # on the mini
 bash ~/agentic-ai-homelab/deploy/mini-deploy.sh
-# the old entry point does the same:
-bash ~/agentic-ai-homelab/signal-fleet/deploy/deploy.sh
 ```
 
 It prints `pulled : <sha>`, then each hook's result, then one of:

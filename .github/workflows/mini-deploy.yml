@@ -9,12 +9,10 @@ on:
     branches: [main]
     paths:
       - 'deploy/**'
-      - 'signal-fleet/deploy/**'
       - '.github/workflows/mini-deploy.yml'
   pull_request:
     paths:
       - 'deploy/**'
-      - 'signal-fleet/deploy/**'
       - '.github/workflows/mini-deploy.yml'
   workflow_dispatch:
 
@@ -30,7 +28,7 @@ jobs:
 
       - name: bash syntax
         run: |
-          for f in deploy/mini-deploy.sh deploy/test_mini_deploy.sh deploy/hooks/*/*.sh signal-fleet/deploy/*.sh; do
+          for f in deploy/mini-deploy.sh deploy/test_mini_deploy.sh deploy/hooks/*/*.sh; do
             bash -n "$f"
           done
 

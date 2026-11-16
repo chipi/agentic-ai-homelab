@@ -66,7 +66,6 @@ workstation/config/opencode/opencode.json
 # backup files with non-standard suffixes (compose snapshots etc.)
 *.bak*
 *-bak
-bugfix-fleet/bakeoff/advisor-eval/archive/
 infra/mini-metrics/openrouter-verticals.env
 infra/mini-metrics/openrouter-provisioning.env
 

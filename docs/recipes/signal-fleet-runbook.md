@@ -1,5 +1,7 @@
 # Triage fleet runbook — install, run, review, improve
 
+> **Retired 2026-11-16.** The fleets run in [flotilla](https://github.com/chipi/flotilla) (its `docs/operations/`); the code this page describes left this repo, and the mini's `fleetd` and `bugfix-metrics` jobs are gone. Kept for the record; the commands below no longer apply.
+
 How to operate the triage fleet (`signal-fleet`, Fleet 2), written so a different agent can pick it up each week. For what the parts are and why they work the way they do, read the [Triage fleet guide](../signal-fleet-guide.md) first. For the operator's own rituals (inbox, routing, labels, judging a fleet PR), see [§7](#7-operator-rituals).
 
 Facts below were checked against the running system on 2026-10-02, re-checked on 2026-10-17 where this page changed (env file, logs, the sync, proposals, gates), and on 2026-11-05 for the env table, the gate list and measuring a change (§5). Host today: the Mac mini (`homelab`), user `markodragoljevic`, reached from a laptop with `ssh -i ~/.ssh/homelab_mini -o IdentitiesOnly=yes markodragoljevic@homelab`. Commands marked **[host]** run on the fleet host.

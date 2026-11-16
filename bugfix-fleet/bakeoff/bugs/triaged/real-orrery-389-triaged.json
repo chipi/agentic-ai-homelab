@@ -1,9 +1,0 @@
-{
-  "code_files": [],
-  "description": "705 of 2086 image alt-text entries in static/data/image-alt-text/en-US.json are raw Wikimedia \"File:\" filenames (e.g. \"File:Beidou satellite mockup at FING UNLP 03.jpg\") — screen-reader users hear filenames instead of descriptions. A further 1309 entries are \"NASA Images search result — …\" labels from the provenance title field — also not descriptive alt-text.\n\nExpected: Every image served to users has descriptive alt-text: a non-templated sentence describing the image content, never a raw filename or internal search result label.\n\nAcceptance criteria:\n- No entry in static/data/image-alt-text/en-US.json has a value starting with \"File:\" or ending with a bare extension (.jpg, .png, .webp) [code-invariant: a screen reader announcing \"File:something.jpg\" as alt-text is a bug — the app must not do it, no spec needed]\n- After rebuild, every key in static/data/image-alt-text/en-US.json has a non-empty string value [code-invariant: missing/dropped alt-text is a regression from current behavior]\n- After re-localization (option B/follow-up), all 13 locale files under static/data/image-alt-text/ contain translated entries for all 2086 en-US keys (not skipping filenames) [reporter: the report states \"drop the filename skip → full coverage\" for the translation follow-up]",
-  "id": "real-orrery-389-triaged",
-  "level": "L1-triaged",
-  "oracle_test_file": "",
-  "repo": "orrery",
-  "source_url": "https://github.com/chipi/orrery/issues/389"
-}

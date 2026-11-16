@@ -1,2 +1,0 @@
-project.inlang/.gitignore
-src/lib/mission-arc.ts
