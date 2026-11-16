@@ -93,10 +93,13 @@ def cmd_litellm(a):
     body = {"key_alias": a.alias, "models": models, "max_budget": a.budget, "metadata": md}
     if a.duration:
         body["duration"] = a.duration
+    if a.budget_duration:   # the budget resets this often (LiteLLM budget_duration: 1d, 30d), the key stays
+        body["budget_duration"] = a.budget_duration
     code, r = http(f"{LL}/key/generate", body, headers=master(), method="POST")
     if code != 200 or "key" not in r:
         sys.exit(f"mint failed: HTTP {code} {str(r.get('error', r))[:200]}")
     path = write_secret_file(a.out, [f"# LiteLLM virtual key {a.alias}: models {models}, budget ${a.budget}"
+                                     + (f" per {a.budget_duration}" if a.budget_duration else "")
                                      + (f", expires {a.duration}" if a.duration else ""),
                                      f"LITELLM_API_KEY={r['key']}",
                                      f"LITELLM_API_BASE={a.base}"])
@@ -114,7 +117,7 @@ def cmd_litellm(a):
         check(code in (401, 403), f"model outside the key ({other}) is refused (HTTP {code})")
     print("\nAdd this row to the credentials table in docs/recipes/agent-access.md:")
     print(f"| LiteLLM `{a.alias}` | `set -a; . {a.out}; set +a` | `LITELLM_API_KEY` (models {', '.join(models)}; "
-          f"${a.budget} cap{'; expires ' + a.duration if a.duration else ''}{'; traces to Langfuse' if a.langfuse_keys else ''}) "
+          f"${a.budget} cap{' per ' + a.budget_duration if a.budget_duration else ''}{'; expires ' + a.duration if a.duration else ''}{'; traces to Langfuse' if a.langfuse_keys else ''}) "
           f"+ `LITELLM_API_BASE={a.base}` |")
 
 
@@ -192,6 +195,7 @@ def main():
     l = sub.add_parser("litellm")
     l.add_argument("--alias", required=True); l.add_argument("--models", required=True)
     l.add_argument("--budget", type=float, required=True); l.add_argument("--duration")
+    l.add_argument("--budget-duration", help="reset the budget this often (1d, 30d); the key does not expire")
     l.add_argument("--out", required=True); l.add_argument("--langfuse-keys")
     l.add_argument("--base", default="http://homelab:4001/v1")
     l.add_argument("--owner", default="minted by mint-credential")
