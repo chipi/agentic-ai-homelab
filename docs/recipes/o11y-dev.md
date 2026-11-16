@@ -36,6 +36,14 @@ signal is absent from the sibling target).
 | eval-harness | Nothing. | No dev telemetry and no dev GlitchTip project. |
 | oceancanvas | Nothing. | No dev telemetry and no dev GlitchTip project. |
 
+A project that sends nothing finds out, through its own agent, what dev observability fits it, and either
+meets the contract or declares why there is nothing to check: a file `.o11y-dev.json` at its repo root,
+`{"nothing_to_check": "static pages; local checks send nothing"}`. `o11y-dev` then prints that reason
+and passes. The declaration counts only for a project `o11y-dev`'s map lists as sending nothing, so it
+cannot hide telemetry that exists. The project revisits it when it changes (for example when a static
+site gains real JavaScript). Exceptions to the contract are not made; a project that cannot meet it
+says so in the declaration.
+
 Creating a GlitchTip project needs the GlitchTip superuser session on the mini
 ([handbook section 7](agent-access.md)); the agents' tokens cannot create projects. That is the
 homelab session's lane.

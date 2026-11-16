@@ -26,6 +26,9 @@ VLOGS = "https://vlogs.tail6d0ed4.ts.net"
 VTRACES = "https://vtraces.tail6d0ed4.ts.net"
 TOKEN_FILE = "~/.config/glitchtip/dev-agents-read.env"
 CONTRACT_DOC = "docs/recipes/o11y-dev.md in chipi/agentic-ai-homelab"
+# A project with no dev telemetry declares why at its repo root: {"nothing_to_check": "<reason>"}. Finding out what
+# dev observability fits is the project's own job; the declaration counts only for a project this map lists as None.
+DECLARATION = ".o11y-dev.json"
 
 # One place for what each project sends. glitchtip = dev project slugs; branch_tag = events carry
 # the `worktree` tag; logs = a VictoriaLogs filter (environment:dev is always added);
@@ -236,6 +239,19 @@ def check_traces(cfg, branch, start, end, get=None):
     return lines, failed_total, ""
 
 
+def declared_reason(cwd=None):
+    """The project's own `nothing_to_check` reason from DECLARATION at the repo root, or ""."""
+    top = git("rev-parse", "--show-toplevel", cwd=cwd)
+    if not top:
+        return ""
+    try:
+        with open(os.path.join(top, DECLARATION)) as f:
+            reason = json.load(f).get("nothing_to_check", "")
+    except (OSError, ValueError, AttributeError):
+        return ""
+    return reason.strip() if isinstance(reason, str) else ""
+
+
 def main(argv=None, get=None, now=None, cwd=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--project", help="orrery, podcast_scraper, or chipi/<repo>; default from git remote origin")
@@ -260,9 +276,16 @@ def main(argv=None, get=None, now=None, cwd=None):
         return 2
     cfg = PROJECTS[project]
     if cfg is None:
+        reason = declared_reason(cwd)
+        if reason:
+            print(f"{project} declares nothing to check ({DECLARATION}): {reason}")
+            print(f"O11Y-DEV {project} {branch}: nothing to check (declared by the project)")
+            return 0
         print(f"{project} sends no dev telemetry yet and has no dev GlitchTip project; nothing to read.")
-        print(f"The contract it has to follow is in {CONTRACT_DOC}.")
-        print(f"NOT CHECKED all: {project} has no dev telemetry")
+        print(f"Its agent finds out what dev observability fits ({CONTRACT_DOC}) and either meets the contract or")
+        print(f"declares why there is nothing to check: {DECLARATION} at the repo root, "
+              '{"nothing_to_check": "<reason>"}.')
+        print(f"NOT CHECKED all: {project} has no dev telemetry and no declaration")
         return 2
 
     unchecked = []

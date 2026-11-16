@@ -99,10 +99,41 @@ class DevTests(unittest.TestCase):
         self.assertIn("NOT CHECKED glitchtip: no GLITCHTIP_DEV_TOKEN", out)
 
     def test_project_without_dev_telemetry_is_said_plainly(self):
-        rc, out = run(["--project", "chipi/oceancanvas", "--branch", "b"], Fake())
+        with mock.patch.object(o11y_dev, "declared_reason", lambda cwd=None: ""):
+            rc, out = run(["--project", "chipi/oceancanvas", "--branch", "b"], Fake())
         self.assertEqual(rc, 2)
         self.assertIn("sends no dev telemetry yet", out)
         self.assertIn("o11y-dev.md", out)
+        self.assertIn(".o11y-dev.json", out)
+
+    def test_a_declared_project_has_nothing_to_check_and_passes(self):
+        fake = Fake()
+        with mock.patch.object(o11y_dev, "declared_reason", lambda cwd=None: "static pages; local checks send nothing"):
+            rc, out = run(["--project", "chipi/humancopilot.eu", "--branch", "b"], fake)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("static pages; local checks send nothing", out)
+        self.assertIn("O11Y-DEV chipi/humancopilot.eu b: nothing to check (declared by the project)", out)
+        self.assertEqual(fake.urls, [])
+
+    def test_a_declaration_does_not_silence_a_project_with_telemetry(self):
+        with mock.patch.object(o11y_dev, "declared_reason", lambda cwd=None: "nothing here"):
+            rc, out = run(["--project", "orrery", "--branch", "feat/x", "--since", "7d"], Fake())
+        self.assertNotIn("nothing to check", out)
+        self.assertIn("O11Y-DEV chipi/orrery feat/x: errors=", out)
+
+    def test_declared_reason_reads_the_repo_root(self):
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["git", "init", "-q", d], check=True)
+            os.makedirs(os.path.join(d, "sub"))
+            self.assertEqual(o11y_dev.declared_reason(os.path.join(d, "sub")), "")
+            with open(os.path.join(d, ".o11y-dev.json"), "w") as f:
+                json.dump({"nothing_to_check": " static site "}, f)
+            self.assertEqual(o11y_dev.declared_reason(os.path.join(d, "sub")), "static site")
+            with open(os.path.join(d, ".o11y-dev.json"), "w") as f:
+                f.write("not json")
+            self.assertEqual(o11y_dev.declared_reason(d), "")
 
     def test_error_logs_levels_and_normalized_patterns(self):
         fake = Fake(stats=[{"level": "info", "n": "40"}, {"level": "error", "n": "3"}], err_count=3, rows=[
