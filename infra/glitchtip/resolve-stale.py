@@ -9,6 +9,15 @@ loses nothing; it only stops old noise from looking current.
     python3 resolve-stale.py              # dry run: what would be resolved, per project
     python3 resolve-stale.py --apply      # resolve
     python3 resolve-stale.py --days 30    # another threshold
+    python3 resolve-stale.py --dev-days 7 # another threshold for dev projects
+
+Dev projects (slug ending -dev) use a shorter threshold, --dev-days (default 3): a dev error belongs to a
+branch someone is working on, nobody resolves it by hand (dev agents only read GlitchTip), and a recurrence
+reopens it (operator 2026-11-16, docs/recipes/o11y-dev.md).
+
+Issues are listed project by project. The org-wide listing this used before skipped some issues: on
+2026-11-16 it returned 40 of podcast-pipeline-dev's 42 unresolved (PODCAST-PIPELINE-DEV-8 and -9, last seen
+2026-10-15, were never resolved), while every other project matched its own listing.
 
 Runs on the mini (LaunchDaemon com.homelab.glitchtip-resolve-stale, daily), as the
 GlitchTip superuser from infra/glitchtip/.env (the fleet's read token cannot write).
@@ -63,40 +72,59 @@ class Session:
                   {"email": os.environ["DJANGO_SUPERUSER_EMAIL"], "password": os.environ["DJANGO_SUPERUSER_PASSWORD"]})
 
 
-def unresolved(s):
-    cursor = ""
+def _paged(s, path):
+    """Every item of a paged GET (GlitchTip's Link header, rel="next" with results="true")."""
+    cursor, sep = "", "&" if "?" in path else "?"
     while True:
-        q = urllib.parse.urlencode({"query": "is:unresolved", "limit": 100})
-        page, headers = s.call("GET", f"/api/0/organizations/{ORG}/issues/?{q}{cursor}")
+        page, headers = s.call("GET", f"{path}{cursor}")
         yield from page or []
         nxt = [p for p in (headers.get("Link") or "").split(",") if 'rel="next"' in p and 'results="true"' in p]
         if not nxt:
             return
-        cursor = "&cursor=" + urllib.parse.quote(nxt[0].split("cursor=")[1].split(">")[0].split("&")[0])
+        cursor = sep + "cursor=" + urllib.parse.quote(nxt[0].split("cursor=")[1].split(">")[0].split("&")[0])
+
+
+def unresolved(s):
+    """(project slug, issue) for every unresolved issue, read project by project."""
+    q = urllib.parse.urlencode({"query": "is:unresolved", "limit": 100})
+    for p in _paged(s, f"/api/0/organizations/{ORG}/projects/?limit=100"):
+        for i in _paged(s, f"/api/0/projects/{ORG}/{p['slug']}/issues/?{q}"):
+            yield p["slug"], i
+
+
+def is_dev(slug):
+    return slug.lower().endswith("-dev")
+
+
+def plan(items, now, days, dev_days):
+    """Issue ids to resolve per project, and the count kept open, from (slug, issue) pairs."""
+    cutoff, dev_cutoff = now - dt.timedelta(days=days), now - dt.timedelta(days=dev_days)
+    stale, kept = collections.defaultdict(list), collections.Counter()
+    for project, i in items:
+        seen = dt.datetime.fromisoformat(i["lastSeen"].replace("Z", "+00:00"))
+        if seen < (dev_cutoff if is_dev(project) else cutoff):
+            stale[project].append(i["id"])
+        else:
+            kept[project] += 1
+    return stale, kept
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--days", type=int, default=14)
+    ap.add_argument("--dev-days", type=int, default=3, help="threshold for dev projects (slug ending -dev)")
     ap.add_argument("--apply", action="store_true")
     a = ap.parse_args()
     _env()
     s = Session()
     s.login()
-    cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=a.days)
-    stale, kept = collections.defaultdict(list), collections.Counter()
-    for i in unresolved(s):
-        project = (i.get("project") or {}).get("slug", "?")
-        seen = dt.datetime.fromisoformat(i["lastSeen"].replace("Z", "+00:00"))
-        if seen < cutoff:
-            stale[project].append(i["id"])
-        else:
-            kept[project] += 1
+    stale, kept = plan(unresolved(s), dt.datetime.now(dt.timezone.utc), a.days, a.dev_days)
     total = sum(len(v) for v in stale.values())
     for project in sorted(set(stale) | set(kept)):
         print(f"  {project:28} resolve {len(stale[project]):4}   keep open {kept[project]:4}")
     if not a.apply:
-        print(f"DRY RUN: would resolve {total} issue(s) not seen for {a.days} days (pass --apply)")
+        print(f"DRY RUN: would resolve {total} issue(s) not seen for {a.days} days, {a.dev_days} in dev projects "
+              "(pass --apply)")
         return
     done = 0
     for project, ids in stale.items():
@@ -105,7 +133,7 @@ def main():
             q = "&".join(f"id={x}" for x in batch)
             s.call("PUT", f"/api/0/organizations/{ORG}/issues/?{q}", {"status": "resolved"})
             done += len(batch)
-    print(f"resolved {done} issue(s) not seen for {a.days} days")
+    print(f"resolved {done} issue(s) not seen for {a.days} days, {a.dev_days} in dev projects")
 
 
 if __name__ == "__main__":
