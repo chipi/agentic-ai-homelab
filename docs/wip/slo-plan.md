@@ -117,6 +117,10 @@ About a day of work. Nothing changes in the observability stack itself.
 
 ## 6. Decisions for the operator
 
+**Decided 2026-11-16:** 1-3 yes (the status job and JSON, a "Levels" tab, the three breached
+endpoints red from day one). 4: start with `up` for the DGX models and LiteLLM and evolve from
+there; the nightly pipeline's SLI from its last-run timestamp, as it is today.
+
 1. The status job instead of recording rules (§2), and JSON in `infra/homelab-home/` instead of the
    RFC's `infra/observability/slo/catalogue.yaml`.
 2. The tab's name and place: "Levels", between Sites and Hosts.
