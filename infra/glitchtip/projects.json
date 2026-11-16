@@ -44,6 +44,12 @@
       "reports": "operator viewer web (prod)"
     },
     {
+      "slug": "gi-kg-viewer-dev",
+      "team": "podcast",
+      "platform": "javascript-vue",
+      "reports": "operator viewer web dev runs (podcast_scraper b647d1633: environment dev, tag worktree). Master copy of the DSN ~/glitchtip/gi-kg-viewer-dev.env on the mini (mode 600)"
+    },
+    {
       "slug": "podcast-pipeline-dev",
       "team": "podcast",
       "platform": "python",
