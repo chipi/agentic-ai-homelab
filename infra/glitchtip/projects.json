@@ -152,6 +152,12 @@
       "reports": "the eval-harness MCP server on prod-podcast (evals.humancopilot.eu/mcp; Sentry SDK, environment prod, release sha-<7>); master copy of the DSN ~/glitchtip/evals-mcp.env on the mini"
     },
     {
+      "slug": "evals-dev",
+      "team": "podcast",
+      "platform": "python",
+      "reports": "eval-harness dev runs on the workstation (Sentry SDK, environment dev, the service in a tag); one dev project for every eval-harness service. Master copy of the DSN ~/glitchtip/evals-dev.env on the mini, the eval harness session's copy ~/.config/glitchtip/evals-dev.env on the workstation (both mode 600)"
+    },
+    {
       "slug": "flotilla",
       "team": "podcast",
       "platform": "go",
