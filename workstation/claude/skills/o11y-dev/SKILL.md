@@ -40,7 +40,7 @@ there is not "no errors".
    only yours. Compare the title and culprit with what you changed before claiming one is yours.
 2. **Before a PR:** open each listed issue link, decide whether your change caused it. Fix yours; leave
    the rest. Do not resolve anything.
-3. **Dev errors close themselves** 14 days after they were last seen (the daily resolve-stale job); a new
+3. **Dev errors close themselves** 3 days after they were last seen (the daily resolve-stale job); a new
    event reopens the issue.
 
 ## Projects

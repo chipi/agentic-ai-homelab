@@ -65,19 +65,13 @@ every dev error of that project in the window, not only the branch's.
 Agents never resolve a dev error. An issue in a `-dev` GlitchTip project clears on its own:
 
 - `infra/glitchtip/resolve-stale.py` runs daily at 05:15 on the mini (LaunchDaemon
-  `com.homelab.glitchtip-resolve-stale`, `--apply`, default `--days 14`). It runs as the GlitchTip
-  superuser, covers every project including the `-dev` ones, and resolves any issue not seen for
-  14 days.
+  `com.homelab.glitchtip-resolve-stale`, `--apply`). It runs as the GlitchTip superuser and resolves
+  any issue not seen for 3 days in a `-dev` project (`--dev-days`, operator 2026-11-16) and for 14 days
+  everywhere else (`--days`). It lists issues project by project: the org-wide listing it used before
+  skipped some (two podcast-pipeline-dev issues from 2026-10-15 were never resolved).
 - A resolved issue that gets a new event is reopened by GlitchTip (a regression).
-- The 2026-11-16 05:15 run resolved 4 `orrery-dev` issues and left 33 open.
 
-So a dev error stays in the unresolved list for up to 14 days after it was last seen, whoever caused it.
+So a dev error stays in the unresolved list for up to 3 days after it was last seen, whoever caused it.
 
 GlitchTip's retention is not used for this (it is instance-wide, default 90 days, and deletes issues at
 about 97 days), and neither is the GitHub sync (it acts only on issues the fleet filed).
-
-### Open question
-
-The operator has not decided whether dev projects need a shorter threshold than 14 days. One option is a
-shorter `--days` for the `-dev` projects only; that would mean changing `resolve-stale.py`, since today
-one threshold applies to every project. Until it is decided, the 14-day rule above is what happens.

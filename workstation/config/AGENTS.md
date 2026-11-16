@@ -496,7 +496,7 @@ dev cycle, with dev kept apart from production (contract and lifecycle:
 - **Never file a GitHub issue from a dev error.** The triage fleet skips dev; dev errors are for the
   agent on that branch.
 - **Never resolve, ignore or delete a GlitchTip issue from dev.** Dev agents only read
-  (`GLITCHTIP_DEV_TOKEN`); dev errors clear on their own 14 days after last seen.
+  (`GLITCHTIP_DEV_TOKEN`); dev errors clear on their own 3 days after last seen.
 - **Prod questions** ("what happened overnight", "since the deploy") use `o11y-prod`; after a
   deploy use `deploy-verify`.
 
