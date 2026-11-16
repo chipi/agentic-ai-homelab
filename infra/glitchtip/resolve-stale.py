@@ -109,10 +109,18 @@ def plan(items, now, days, dev_days):
     return stale, kept
 
 
+def days(v):
+    """A threshold of at least one day: 0 or less would resolve issues seen a minute ago."""
+    n = int(v)
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"{v}: at least 1 day")
+    return n
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--days", type=int, default=14)
-    ap.add_argument("--dev-days", type=int, default=3, help="threshold for dev projects (slug ending -dev)")
+    ap.add_argument("--days", type=days, default=14)
+    ap.add_argument("--dev-days", type=days, default=3, help="threshold for dev projects (slug ending -dev)")
     ap.add_argument("--apply", action="store_true")
     a = ap.parse_args()
     _env()

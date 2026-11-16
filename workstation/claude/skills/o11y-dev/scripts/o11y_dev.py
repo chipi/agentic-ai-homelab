@@ -140,6 +140,10 @@ def check_glitchtip(cfg, branch, start, get=None):
     branch_filtered = cfg["branch_tag"]
     query = "is:unresolved" + (f" worktree:{branch}" if branch_filtered else "")
     lines, total = [], 0
+    # infra/glitchtip/resolve-stale.py resolves dev issues 3 days after they were last seen, and only
+    # unresolved ones are read: an error that stopped recurring earlier in a longer window is not counted.
+    if dt.datetime.now(dt.timezone.utc) - start > dt.timedelta(days=3):
+        lines.append("  note: window longer than 3 days; dev errors not seen for 3 days are auto-resolved and not counted")
     for slug in cfg["glitchtip"]:
         url = (f"{GLITCHTIP}/api/0/projects/homelab/{slug}/issues/?"
                + urllib.parse.urlencode({"query": query, "limit": 100}))

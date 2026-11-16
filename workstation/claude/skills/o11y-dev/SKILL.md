@@ -61,3 +61,4 @@ only for a project the map lists as sending nothing. What every project must sen
 - **Branch filtering of podcast_scraper logs and traces,** until that app adds the `worktree` label; orrery dev runs from before 8f62ac7c00a carry no label.
 - **More than 100 issues per dev project** (one page is read) and the newest 1000 error/warn log lines.
 - **Issue detail** (stack traces, breadcrumbs): open the printed link.
+- **Errors that stopped more than 3 days ago.** Only unresolved issues are read, and dev issues are resolved 3 days after they were last seen (`infra/glitchtip/resolve-stale.py`). For an older branch, the count covers errors still recurring; the output says so.
