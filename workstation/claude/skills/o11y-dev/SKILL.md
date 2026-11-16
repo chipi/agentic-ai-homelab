@@ -48,7 +48,8 @@ there is not "no errors".
 The map is `PROJECTS` in the script. Today: `chipi/orrery` (errors, logs and traces filtered by `worktree`; the server labels need orrery commit 8f62ac7c00a, on its main after the 0.9.9 release, so older dev runs are not branch-filtered), `chipi/podcast_scraper`
 (GlitchTip, logs and traces, not branch-filtered), `chipi/eval-harness` (GlitchTip `evals-dev`, logs and
 traces of evals-inspector and evals-mcp, all filtered by `worktree`, from eval-harness e6662bf6c on its 080
-branch). `chipi/humancopilot.eu` and `chipi/oceancanvas` send no dev telemetry yet. Finding out what dev observability fits is that project's
+branch), `chipi/closelistening-player` (GlitchTip `player-dev` filtered by `worktree` from its PR #26;
+`player-api` logs and traces, not branch-filtered). `chipi/humancopilot.eu` and `chipi/oceancanvas` send no dev telemetry yet. Finding out what dev observability fits is that project's
 own job: it either meets the contract or declares why there is nothing to check, in `.o11y-dev.json` at
 its repo root (`{"nothing_to_check": "<reason>"}`). With a declaration the script prints the reason and
 exits 0 (`nothing to check (declared by the project)`); without one it exits 2. The declaration counts

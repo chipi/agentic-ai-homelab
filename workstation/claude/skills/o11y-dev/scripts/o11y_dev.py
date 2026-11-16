@@ -46,6 +46,14 @@ PROJECTS = {
         "logs_branch": False,
         "traces": ["podcast-pipeline", "podcast-api", "player-api"],
     },
+    # the player app (web and native) sends its dev errors to player-dev, tagged worktree = branch (player
+    # PR #26); player-api runs inside podcast_scraper's server, so its logs and traces carry public's labels
+    # and no worktree yet
+    "chipi/closelistening-player": {
+        "glitchtip": ["player-dev"], "branch_tag": True,
+        "logs": "service:player-api", "logs_branch": False,
+        "traces": ["player-api"],
+    },
     "chipi/humancopilot.eu": None,
     "chipi/eval-harness": {
         "glitchtip": ["evals-dev"], "branch_tag": True,

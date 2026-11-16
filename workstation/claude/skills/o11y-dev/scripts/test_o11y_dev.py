@@ -168,6 +168,13 @@ class DevTests(unittest.TestCase):
         for u in jaeger:
             self.assertIn("resource_attr%3Adeployment.environment", u)
 
+    def test_the_player_app_reads_player_dev_by_branch(self):
+        cfg = o11y_dev.PROJECTS["chipi/closelistening-player"]
+        self.assertEqual(cfg["glitchtip"], ["player-dev"])
+        self.assertTrue(cfg["branch_tag"])
+        self.assertFalse(cfg["logs_branch"])
+        self.assertEqual(cfg["traces"], ["player-api"])
+
     def test_eval_harness_is_on_the_contract(self):
         cfg = o11y_dev.PROJECTS["chipi/eval-harness"]
         self.assertEqual(cfg["glitchtip"], ["evals-dev"])
