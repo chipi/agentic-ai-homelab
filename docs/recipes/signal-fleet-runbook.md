@@ -141,7 +141,7 @@ Recreating a project is the homelab side's change (e.g. `infra/glitchtip/project
 
 ## 4. The weekly review — "how is the fleet doing?"
 
-Automated by the **`triage-fleet-review`** skill (`python3 ~/.claude/skills/triage-fleet-review/scripts/review.py --days 7`), which runs every check below read-only and flags fan-out, reopens and rollup burials for you to judge. For what never reaches the fleet (warnings, logs), add the **`o11y-review`** skill for the same window. Both skills live in [`workstation/claude/skills/`](https://github.com/chipi/agentic-ai-homelab/tree/main/workstation/claude/skills).
+Automated by the **`triage-fleet-review`** skill (`python3 ~/.claude/skills/triage-fleet-review/scripts/review.py --days 7`), which runs every check below read-only and flags fan-out, reopens and rollup burials for you to judge. For what never reaches the fleet (warnings, logs), add the **`o11y-prod`** skill for the same window. Both skills live in [`workstation/claude/skills/`](https://github.com/chipi/agentic-ai-homelab/tree/main/workstation/claude/skills).
 
 Run these read-only checks, then report in four parts: what it did, what went wrong, what it missed, what to improve. Each check states what "healthy" looks like.
 

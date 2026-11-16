@@ -7,9 +7,9 @@ description: Before/after gate for a deploy's telemetry — snapshot before, the
 
 After every deploy on 2026-10-16/17, someone wrote a fresh verify script per service by hand.
 This is that script, once, for both projects. It is a **gate**: expected against live,
-PASS/FAIL. `o11y-review` is a **review**: patterns and counts over a window. Use both:
+PASS/FAIL. `o11y-prod` is a **review**: patterns and counts over a window. Use both:
 - the gate first;
-- then `o11y-review` for anything the gate flags.
+- then `o11y-prod` for anything the gate flags.
 
 ## Run (on the mini, through host-run)
 
@@ -91,4 +91,4 @@ site yet, so those sections have nothing to check.
 - **Release names:** GlitchTip release tags aren't checked, because orrery and podcast name
   them differently.
 - **An unknown regression with no error:** the gate sees signals, not intent. Read the
-  `o11y-review` output for warnings.
+  `o11y-prod` output for warnings.

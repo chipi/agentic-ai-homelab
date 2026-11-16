@@ -1,17 +1,17 @@
 ---
-name: o11y-review
-description: Review one project's observability over a time window, read-only. Covers log volume, warning and error patterns (normalized and counted), GlitchTip errors (new vs. old), traces (slow operations and outbound calls), and what the triage fleet did on the project's repo, with an optional handover file. Use for "what happened overnight / during the ingest / since the deploy" questions on Close Listening (podcast + player), Orrery, or homelab services. Runs against the homelab observability stack (VictoriaLogs, GlitchTip, VictoriaTraces).
+name: o11y-prod
+description: Review one project's PRODUCTION observability over a time window, read-only. Runs on the homelab mini (prod-shaped data, no environment or branch filter); for a branch's dev errors use o11y-dev. Covers log volume, warning and error patterns (normalized and counted), GlitchTip errors (new vs. old), traces (slow operations and outbound calls), and what the triage fleet did on the project's repo, with an optional handover file. Use for "what happened overnight / during the ingest / since the deploy" questions on Close Listening (podcast + player), Orrery, or homelab services. Runs against the homelab observability stack (VictoriaLogs, GlitchTip, VictoriaTraces).
 ---
 
-# o11y-review
+# o11y-prod
 
-One project, one window, the observability lens. It's read-only: queries only, no writes anywhere.
+One project, one window, the production observability lens (no environment or branch filter; the dev side is `o11y-dev`). It's read-only: queries only, no writes anywhere.
 
 ## Run
 
 ```bash
-python3 ~/.claude/skills/o11y-review/scripts/review.py --project closelistening --since 16h
-python3 ~/.claude/skills/o11y-review/scripts/review.py --project orrery \
+python3 ~/.claude/skills/o11y-prod/scripts/review.py --project closelistening --since 16h
+python3 ~/.claude/skills/o11y-prod/scripts/review.py --project orrery \
     --start 2026-10-01T18:00:00Z --end 2026-10-02T08:00:00Z --handover /tmp/handover.md
 ```
 

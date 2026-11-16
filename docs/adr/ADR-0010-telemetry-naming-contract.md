@@ -82,7 +82,7 @@ Every log source gains `service` + `environment` next to the old labels:
      2026-10-14);
    - signal-fleet `correlate.py`;
    - the podcast_obs MCP (`obs_surface` is built on `surface`);
-   - the o11y-review skill;
+   - the o11y-prod skill;
    - the smoke/deploy workflows.
    - During the 30-day overlap a query that needs older history ORs the old labels.
 

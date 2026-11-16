@@ -167,7 +167,7 @@ def main():
     print(f"- dispositions.tsv lines: {h['ledger_lines']}; filed.tsv rows: {h['filed_rows']} ({len(h['filed_new'])} new in window)")
     print(f"- deferred signals (.deferred.json): {h['deferred'] or 'none'}")
     print("\n## Not covered by this script")
-    print("- warnings and errors that never reach the fleet: run the `o11y-review` skill for the same window")
+    print("- warnings and errors that never reach the fleet: run the `o11y-prod` skill for the same window")
     print("- spend vs the $2/day cap: Grafana 'Fleet Workforce — Triage (Fleet 2)', fleetd_spend_day")
     print("- whether each flagged item is right or wrong: that is the reviewer's judgement, not the script's")
 

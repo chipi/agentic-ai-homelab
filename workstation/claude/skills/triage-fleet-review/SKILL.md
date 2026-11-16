@@ -50,7 +50,7 @@ The script finds candidates; it can't tell right from wrong. For each flag:
 3. **Report in four parts, each with numbers:**
    - **did:** cycles, dispositions, GitHub writes, new issues;
    - **went wrong:** flags you confirmed, with the evidence;
-   - **missed:** what never reached the fleet. Run the `o11y-review` skill for the same window to find warnings and errors.
+   - **missed:** what never reached the fleet. Run the `o11y-prod` skill for the same window to find warnings and errors.
    - **improve:** each confirmed problem as one of: an operator action (close, mute or route an issue), a fleet fix through the runbook's §5 loop (use the `replay-proven-fix` skill), or a known gap to add to the guide.
 4. **Follow the operator's rules:**
    - never open GitHub issues without approval;
@@ -90,4 +90,4 @@ tuning proposals whose errors were still recent, e.g. the podcast pipeline's dea
 
 - **Spend:** check the Grafana dashboard "Fleet Workforce — Triage (Fleet 2)" (`fleetd_spend_day`, $2/day cap).
 - **The LLM's reasoning quality** beyond the five-dismissal sample: measured in eval-harness on labelled decisions (runbook §5, `signal-fleet/EVAL-LESSONS-0.6.0.md` §7), not by this review.
-- **Signals the fleet never sees** (warnings, logs without errors): see `o11y-review`.
+- **Signals the fleet never sees** (warnings, logs without errors): see `o11y-prod`.

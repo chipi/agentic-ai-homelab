@@ -11,7 +11,7 @@ A stall has a cause you can measure. This is the order that found one fast (podc
 
 ## 1. Read what production already recorded (no SSH yet)
 
-- Load `o11y-review` for the window: logs, errors and traces around the stall.
+- Load `o11y-prod` for the window: logs, errors and traces around the stall.
 - Look for: the exact request that did not answer (an access-log line missing is itself the
   signal), what else was running then (warmers, migrations, backfills), and per-step timings
   if the service logs them.

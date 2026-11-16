@@ -50,4 +50,4 @@ After any boot: run step 1 again, and it must PASS.
 
 - **Dashboards:** this check doesn't look at their content. Open Grafana.
 - **Alert delivery:** whether an alert would actually reach you by email; see chipi/infra infra/delivery.
-- **Whether a specific app emits telemetry:** use the `o11y-review` skill for one project's logs, errors and traces.
+- **Whether a specific app emits telemetry:** use the `o11y-prod` skill for one project's logs, errors and traces.
