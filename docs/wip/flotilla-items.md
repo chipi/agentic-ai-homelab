@@ -45,3 +45,41 @@ Where each fleet stands: [fleet architecture → Rollout status](../fleet-archit
       real harness integration is its own work item.
 - [ ] **Split advisor consultation** (redirect → glm, confirm → flash), deferred on 2026-07-26;
       `fleetd/chain.go` still has one advisor.
+
+## From the agent platform evaluation (2026-11-08), input for the next cycle
+
+The evaluation that chose flotilla (closed 2026-11-17; kept in flotilla as
+[history 0000](https://chipi.github.io/flotilla/history/0000-origin-evaluation/)).
+These are what flotilla's RFCs, ADRs and routines did not cover, as checked on 2026-11-17.
+Already covered:
+- A1-A3 and most of A4 (seo/search-console, seo/site-check);
+- A6 and A7 (RFC-0012, seo/traffic's referrers);
+- B1 (triage) and the B2 post-incident review (ADR-0016);
+- the runtime choice (ADR-0001: no Hermes, no OpenClaw, for now);
+- per-routine model policy (RFC-0002 §3);
+- Google access (a service account);
+- where findings live (the ledger).
+
+- [ ] **Search Console's BigQuery bulk export is not started.** It has no backfill: Search Console keeps
+      16 months, then the data is gone. Neither flotilla nor homelab mentions it.
+- [ ] **Operator: Bing Webmaster data** (clicks, impressions, position by API key). site-check only checks
+      that Bingbot may crawl; whether to add Bing was never decided.
+- [ ] **A4, the rest of a crawl audit:** broken links and redirect chains across the site.
+      site-check covers fixed pages and one sampled page per prefix.
+- [ ] **A5 content and refresh proposals** (what a page should add, which new page is worth
+      writing). Not in RFC-0012.
+- [ ] **Phase 4 of RFC-0001 §9 is not built:** `ops/daily-brief` (the Hub briefing job still runs
+      from homelab) and `ops/postgres-review` (still a scheduled prompt). There are no routines for either.
+- [ ] **B3, investigating a slowdown or an incident** (traces, logs, metrics). Only the
+      after-the-fact review exists (ADR-0016).
+- [ ] **B4, capacity and cost watch** (mini memory and disk, spend per key) as routines with
+      proposals. Today spend shows in the UI and the alerts, and capacity has no routine.
+- [ ] **C3 a cross-domain weekly digest** (sites, infra, home, spend), **C2 home**, and **D product
+      insight** (Umami funnels and feature use, interpreted). None is planned.
+- [ ] **When to revisit an agent runtime:** the evaluation's Phase 0 (OpenClaw first, Hermes as the
+      challenger, beside a plain routine on the same candidates, for A5 and B3 work). ADR-0001
+      rejected both "for now" and names no trigger to look again.
+- [ ] **Operator: tool calling on the DGX prod vLLM** (needs a prod vLLM restart). Still not enabled,
+      so tool-calling routines can only use the X3's Ollama.
+- [ ] **Operator: the X3 as a 24/7 dependency.** The X3 is a workstation, and its always-on model and
+      the remote bugfix workers now run there.

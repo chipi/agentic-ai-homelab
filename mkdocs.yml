@@ -154,7 +154,6 @@ nav:
     - Triage fleet opportunities: wip/triage-fleet-opportunities.md
     - eval-harness feedback (fleet): wip/eval-harness-feedback-fleet.md
     - Translation service plan: wip/translation-service-plan.md
-    - Agent platform evaluation (SEO, briefs, infra): wip/agent-platform-evaluation.md
     - Service levels build plan: wip/slo-plan.md
   - History:
     - Overview: history/README.md
@@ -166,6 +165,7 @@ nav:
     - "0006 — Delivery comms-platform arc": history/0006-delivery-comms-platform-arc.md
     - "0007 — docs/wip cleanup": history/0007-wip-notes-closed.md
     - "0008 — App move closed, research bench": history/0008-app-move-and-research-bench.md
+    - "0009 — Fleet items and notes handed over": history/0009-fleet-notes-handed-over.md
 
 extra:
   social:
