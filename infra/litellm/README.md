@@ -65,6 +65,14 @@ key) — so their spend shows on the hub's **"Lab (shared key)"** OpenRouter ver
 (and per-key via `/key/info`). `max_budget` is a hard lifetime cap (raise
 deliberately = auditable top-up).
 
+Above every virtual key sits the shared key's OpenRouter workspace (`bugfix-fleet`): its
+default guardrail caps the workspace at **$30 a week** (`limit_usd`, `reset_interval: weekly`;
+raised from $15 on 2026-11-17, operator's go, after the cap stopped every model on
+`OPENROUTER_API_KEY` at 17:50Z with OpenRouter 403 "Budget limit exceeded (weekly limit)").
+When it trips, LiteLLM's own budgets still pass and the call fails upstream. Read or change it
+with the provisioning key (`infra/mini-metrics/openrouter-provisioning.env` on the mini): `GET`
+or `PATCH https://openrouter.ai/api/v1/guardrails/6aeee4ca-4c5d-56d6-8e9b-d843d939a28d`.
+
 The `eval-harness` cap was raised $20 -> $35 on 2026-09-26, and $60 -> $100 on 2026-10-30 for the
 triage-model arms (operator's go): a 24-arm sweep over 200
 articles stopped mid-flight at 12 arms on `budget_exceeded`. Two things to know if it
