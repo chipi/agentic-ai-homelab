@@ -168,7 +168,7 @@ then     the gates (section 3 above) may turn the decision into an escalation
 - **The filing stage** has a regression guard in eval-harness (`examples/signal-fleet-dedup`, four per-signal
   functions against their own past output); measuring it against what the operator did is planned.
 - **How to measure a change:** [runbook, the improvement loop](recipes/signal-fleet-runbook.md); what is planned
-  next: [triage fleet improvement plan](wip/triage-fleet-improvement-plan.md).
+  next: the fleet session's roadmap (`ROADMAP.md` in the private repo chipi/fleet-eval-data).
 
 ## The two ledgers
 

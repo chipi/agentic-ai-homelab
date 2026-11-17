@@ -35,11 +35,14 @@ Where each fleet stands: [fleet architecture → Rollout status](../fleet-archit
       service-worker load is filed, not dismissed) deployed 2026-11-04 16:30 UTC (`8213775`); no decision used it in
       its first hour. check: `awk -F'\t' '$11=="219b34bf"' ~/signal-fleet/results/dispositions.tsv | wc -l`, then
       the escalation share of the week after against the week before. Measured effect:
-      `signal-fleet/EVAL-LESSONS-0.6.0.md` section 7.
+      `signal-fleet/EVAL-LESSONS-0.6.0.md` section 7. *2026-11-17: the brief has changed since (prompt `d99c9ab6`,
+      flotilla 3859d3c), and decisions are on flotilla's ledger; the live counts are ROADMAP T0.4's decision-mix
+      report, the confirmation M4.*
 - [ ] **(fleet session) A held-out set.** Every r4 change was designed and measured on the same 65 labelled
       decisions. The decisions captured exactly since 2026-10-29 (`~/signal-fleet/results/probes/`, 75 on
       2026-11-04, about 15 of them Orrery) need labels (outcome rules first, the operator on disagreements) before the
-      next change is confirmed on them.
+      next change is confirmed on them. *2026-11-17: split fixed, D = 2026-11-07T00:00Z (fleet-eval-data
+      `projects/triage-heldout/SPLIT.md`); outcome labels mature from about 2026-11-20; the confirmation is ROADMAP M4.*
 - [ ] **(fleet session) Parked: the client-noise gate** (`01226ca`, branch `fleet/noise-gate`, not pushed). The
       gate's marker works; the brief around it made 4 real problems cleanup/dismiss in 1 of 3 passes. A smaller version
       (the gate, extension and old-browser classes, no mirrored-bundle sentence) is to be confirmed on the held-out
@@ -48,8 +51,12 @@ Where each fleet stands: [fleet architecture → Rollout status](../fleet-archit
       not a reopen). 3 of the fleet's 63 real reopens/regressions are that case; GlitchTip's releases cannot tell which
       build was live (it records a release on its first event), so it needs deploy history. Corpus freezer:
       `freeze_stale_client.py`, in the private repo chipi/fleet-eval-data `projects/stale-client-rule/` (moved 2026-11-05).
-- [ ] **(fleet session) The plan for what comes next:** [triage fleet improvement plan](triage-fleet-improvement-plan.md)
-      (code evals first: filing, the gates, the rest of the fleet's code as black boxes; then a held-out set and a tuning loop); its decisions are the operator's.
+- [x] ~~**(fleet session) The plan for what comes next:** the triage fleet improvement plan~~ — *superseded
+      2026-11-17: the plan of record is `ROADMAP.md` in the private chipi/fleet-eval-data (the operator, 2026-11-16);
+      the note closed ([history 0010](../history/0010-fleet-wip-notes-closed.md)), its ideas and their status in
+      fleet-eval-data `projects/triage-ops/OPPORTUNITIES.md`.*
+- [ ] **(fleet session) The eval-harness feedback log's open entries** ([eval-harness feedback (fleet)](eval-harness-feedback-fleet.md)):
+      each marked open or recorded there is followed up with the eval harness session, the 0.8 beta included.
 - [ ] **Operator: cleanup autonomy** (track A3): cleanup still waits for the operator.
 - [ ] **Operator: one label to check, ORRERY-PROD-S** (`TypeError: Failed to fetch`, labelled real because its issue
       closed as fixed). Two other `Failed to fetch` decisions are labelled noise: a real fix, or an umbrella close?

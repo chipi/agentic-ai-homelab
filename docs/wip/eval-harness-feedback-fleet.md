@@ -4,6 +4,10 @@
 where the tool made a step harder than it should be, what was missing, what could be simpler, and what helped.
 Each entry says what was run, what happened, what would help, and whether it was sent to the eval harness session
 (which folds it into the next release). **Started** 2026-11-05, seeded with the findings of 2026-11-04.
+Paths such as `signal-fleet/` are as recorded at the time: the fleet code is in
+[flotilla](https://github.com/chipi/flotilla) since 2026-11-08, and the evaluation (its datasets, runs and
+`projects/`) in the private repo chipi/fleet-eval-data since 2026-11-05. Reviewed 2026-11-17 and kept open
+([history 0010](../history/0010-fleet-wip-notes-closed.md)).
 
 Status: **fixed** (in a release, named), **recorded** (accepted, not yet in a release), **open** (not sent, or no
 answer yet).
@@ -33,7 +37,7 @@ answer yet).
 
 ## 2026-11-05 onwards: Track A, the fleet's code as black boxes (harness 0.7.2)
 
-The plan: [triage fleet improvement plan](triage-fleet-improvement-plan.md). Questions asked before starting (sent
+The plan: the triage fleet improvement plan (closed 2026-11-17, [history 0010](../history/0010-fleet-wip-notes-closed.md)). Questions asked before starting (sent
 2026-11-05): how an item carries a system's external state at decision time; how a goal treats a deterministic
 system (k=1, no variance); pair-level scoring (an item per signal, per pair, or per fingerprint history); gold from
 links between items (`duplicateOf`); where a new code example lives.

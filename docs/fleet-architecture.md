@@ -223,9 +223,9 @@ closed this day; its finished parts are below, its open ones are in
   cleanup stays queued for the operator. Since 2026-10-29 every decision's probe answers are captured
   (`results/probes/`), so new decisions replay exactly. On 2026-11-04 the first brief change measured in
   eval-harness shipped (`8213775`: the app's failures to load its own code are filed; `triage_cost` 0.872 →
-  0.446 on the labelled decisions). What comes next is the
-  [triage fleet improvement plan](wip/triage-fleet-improvement-plan.md): the fleet's deterministic code
-  measured against what the operator did, a held-out set, a tuning loop.
+  0.446 on the labelled decisions). What comes next is the fleet
+  session's roadmap (`ROADMAP.md` in the private repo chipi/fleet-eval-data, since 2026-11-16): triage v2
+  (known gaps, knowledge, a self-hosted model, held-out confirmation), then bug fixing.
 - **Track B, bug-fix (Fleet 1):** dormant on purpose after one real batch;
   it targets `chipi/orrery` only (`fleetd/deploy/chain.json`).
 

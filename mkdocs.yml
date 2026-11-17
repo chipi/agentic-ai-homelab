@@ -149,9 +149,6 @@ nav:
     - Fleet items (fleet session): wip/fleet-items.md
     - X3 assistant plan: wip/x3-assistant-v1-plan.md
     - X3 assistant evals (what to evaluate): wip/x3-assistant-evals.md
-    - Fleet evals handover: wip/fleet-evals-handover.md
-    - Triage fleet improvement plan: wip/triage-fleet-improvement-plan.md
-    - Triage fleet opportunities: wip/triage-fleet-opportunities.md
     - eval-harness feedback (fleet): wip/eval-harness-feedback-fleet.md
     - Translation service plan: wip/translation-service-plan.md
     - Service levels build plan: wip/slo-plan.md
@@ -166,6 +163,7 @@ nav:
     - "0007 — docs/wip cleanup": history/0007-wip-notes-closed.md
     - "0008 — App move closed, research bench": history/0008-app-move-and-research-bench.md
     - "0009 — Fleet items and notes handed over": history/0009-fleet-notes-handed-over.md
+    - "0010 — Fleet wip notes reviewed": history/0010-fleet-wip-notes-closed.md
 
 extra:
   social:
