@@ -24,6 +24,7 @@ bm25_max_cache_mb = 128
 memory_profile = "balanced"
 memory_cleanup = "aggressive"
 shell_allowlist_extra = [
+    "chromium",
     "gitleaks",
     "docker",
     "python3.12",
