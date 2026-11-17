@@ -45,7 +45,7 @@ there is not "no errors".
 
 ## Projects
 
-The map is `PROJECTS` in the script. Today: `chipi/orrery` (errors, logs and traces filtered by `worktree`; the server labels need orrery commit 8f62ac7c00a, on its main after the 0.9.9 release, so older dev runs are not branch-filtered), `chipi/podcast_scraper`
+The map is `PROJECTS` in the script. Today: `chipi/orrery` (errors, logs and traces filtered by `worktree`; the server labels need orrery commit 30bf6f674c7 on `tech-debt/0.9.10`, on its main from the 0.9.10 merge, so older dev runs are not branch-filtered), `chipi/podcast_scraper`
 (GlitchTip incl. `gi-kg-viewer-dev`, logs and traces, filtered by `worktree` from podcast_scraper b647d1633), `chipi/eval-harness` (GlitchTip `evals-dev`, logs and
 traces of evals-inspector and evals-mcp, all filtered by `worktree`, from eval-harness e6662bf6c on its 080
 branch), `chipi/closelistening-player` (GlitchTip `player-dev` filtered by `worktree` from its PR #26;
@@ -59,8 +59,9 @@ only for a project the map lists as sending nothing. What every project must sen
 ## Not covered
 
 - **Metrics.** Dev series are not read.
+- **The last few tens of seconds.** A trace can reach VictoriaTraces 20 s or more after the run (orrery, 2026-11-17: 0 traces 20 s after a probe, 1 on the next run). Right after a probe, run it again before calling a source empty.
 - **Production.** Use `o11y-prod`; after a deploy use `deploy-verify`.
-- **Dev runs from before the `worktree` label:** podcast_scraper's before b647d1633 and orrery's before 8f62ac7c00a carry no label, so a branch filter does not see them.
+- **Dev runs from before the `worktree` label:** podcast_scraper's before b647d1633 and orrery's before 30bf6f674c7 (`tech-debt/0.9.10`) carry no label, so a branch filter does not see them.
 - **More than 100 issues per dev project** (one page is read) and the newest 1000 error/warn log lines.
 - **Issue detail** (stack traces, breadcrumbs): open the printed link.
 - **Errors that stopped more than 3 days ago.** Only unresolved issues are read, and dev issues are resolved 3 days after they were last seen (`infra/glitchtip/resolve-stale.py`). For an older branch, the count covers errors still recurring; the output says so.
