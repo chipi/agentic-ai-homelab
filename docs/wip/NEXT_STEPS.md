@@ -147,7 +147,7 @@ gateway (`proj-podcast-dev`, the DGX model).
 
 ## X3 assistant (RFC-0008), known gaps (recorded 2026-11-04)
 
-- The fleet session's gaps (a hung X3's 31 s failover, the 30 s timeout, rebuild-testing the Langfuse judge scripts, H6/H7 re-measures) moved to [flotilla items](flotilla-items.md) on 2026-11-17.
+- The fleet session's gaps (a hung X3's 31 s failover, the 30 s timeout, rebuild-testing the Langfuse judge scripts, H6/H7 re-measures) moved to [flotilla items](flotilla-items.md) on 2026-11-17, then to [fleet items](fleet-items.md) (the fleet session's) the same day.
 - [ ] **`status.json` short read** (HTTP/2 stream error) once during its 5-minute rewrite, 2026-11-03.
       Unresolved; the eval runner retries. Theory, unverified: the bind mount sees the rename mid-read.
 - [ ] **LibreChat conversation titles invent dates.** Its title model writes a date the conversation does not
@@ -167,7 +167,7 @@ gateway (`proj-podcast-dev`, the DGX model).
 
 ## Fleets
 
-Moved to [flotilla items](flotilla-items.md) on 2026-11-17: the flotilla session owns every fleet item (triage fleet, bug-fix fleet) from now on.
+Moved out on 2026-11-17: the platform and fleet code items to [flotilla items](flotilla-items.md) (the flotilla session's), running, measuring and tuning the fleets to [fleet items](fleet-items.md) (the fleet session's).
 
 ## Moving app pieces out (D-0014)
 
