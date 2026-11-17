@@ -41,7 +41,7 @@ Hooks run in name order with `bash`, and get `CHECKOUT`, `PREV` and `NOW` (short
 environment.
 
 Registered: `pre-pull.d/10-flotilla-standdown.sh`, a deploy stand-down on the mini in
-[flotilla](https://github.com/chipi/flotilla) (its `deploy/mini/standdown.sh`): flotilla defers its
+[flotilla](https://github.com/chipi/flotilla) (its `deploy/server/standdown.sh`, `deploy/mini/` before flotilla 30feecd): flotilla defers its
 planned actions on the mini for 30 minutes. It skips itself when flotilla's checkout is not at
 `~/flotilla/repo` or flotilla cannot take the hold, and never blocks the deploy.
 
