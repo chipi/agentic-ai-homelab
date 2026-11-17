@@ -47,7 +47,7 @@ note). Current consumers:
 | key_alias | models | max_budget (lifetime) | consumer |
 |---|---|---|---|
 | `fleet-triage` | `fleet-triage-flash`, `fleet-triage-pro`, `fleet-triage-local` (the DGX vLLM, $0; added 2026-11-16 for M2a, proven 200 in 0.31 s) | $2 a day (budget_duration 1d; from $50 lifetime on 2026-11-17, $1 then $2 a day, operator's go; spend reset to 0 the same minute, or the $10.78 already spent would have blocked it until midnight UTC) | signal-fleet triager (`OPENROUTER_API_KEY` in `~/signal-fleet/fleet-gateway.env`) |
-| `fleet-bugfix` | `fleet-bugfix-flash`, `fleet-bugfix-pro`, `fleet-bugfix-reviewer` | $100 | bugfix-fleet — routes via the gateway (`LLM_BASE_URL=http://localhost:4001/v1` + `LLM_API_KEY=LITELLM_FLEET_BUGFIX_KEY`), was OpenRouter-direct |
+| ~~`fleet-bugfix`~~ | `fleet-bugfix-flash`, `fleet-bugfix-pro`, `fleet-bugfix-reviewer` | $100 | **revoked 2026-11-17** (operator's go): the shared bugfix-fleet key, replaced by the per-routine `fleet-bugfix-fix` and `fleet-bugfix-fix-podcast`; last call 2026-11-16 18:16:48Z ($5.08 spent). Stale copies of its value (`~/flotilla/config/bugfix-model.key`, `LITELLM_FLEET_BUGFIX_KEY` in `~/signal-fleet/fleet-gateway.env`) now get 401 |
 | `hub-briefing` | `assistant`, `assistant-cloud` | $2 | the hub's morning briefing (`infra/homelab-home/briefing-job.js`), key in `~/hub-briefing-litellm.env` (mode 600); minted 2026-11-03. `assistant-cloud` bills its own OpenRouter key, `assistant-cloud` in the misc-experiments workspace ($10 a month, `OPENROUTER_API_KEY_ASSISTANT` in `.env`), because the bugfix-fleet workspace's guardrail behind `OPENROUTER_API_KEY` excludes every provider of `qwen/qwen3-30b-a3b-instruct-2507` (404 "provider not allowed by guardrail") |
 | `grafana-llm` | `assistant` | $2 | Grafana's LLM app (titles, descriptions, change summaries on 11.6), key in `~/grafana-llm-litellm.env` and Grafana's `.env` as `GRAFANA_LLM_LITELLM_KEY`; Grafana calls `litellm:4000` on `litellm_default`; minted 2026-11-04 |
 | `eval-fleet-triage` | `eval-fleet-triage-pro` | $8 (from $5, 2026-11-17) | the fleet session's eval-harness triage arms (signal-fleet changes replayed over `orrery_triage_v1_labelled`), key in `~/eval-fleet-triage-litellm.env` on the mini and on the X3 (mode 600); minted 2026-11-04 |
@@ -127,7 +127,7 @@ call 401s with a body naming `LiteLLM_VerificationTokenTable`.
 | Consumer | Key alias | Models |
 |---|---|---|
 | signal-fleet triage | `fleet-triage` | `fleet-triage-flash`, `fleet-triage-pro` |
-| bugfix fleet (Track B, when wired) | `fleet-bugfix` | `fleet-bugfix-pro` |
+| bugfix fleet (Track B, when wired) | `fleet-bugfix-fix`, `fleet-bugfix-fix-podcast` (`fleet-bugfix` revoked 2026-11-17) | `fleet-bugfix-pro` |
 
 Division of labor: **OpenRouter direct stays the lab** (bake-off, model
 variety); **this gateway is production routing**. Handover / deeper ops:
