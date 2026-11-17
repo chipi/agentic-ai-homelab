@@ -1128,6 +1128,45 @@ groups:
               expression: reduced
               conditions: [{ evaluator: { type: gt, params: [0] } }]
 
+      # --- Prod cannot reach GlitchTip (2026-11-17, chipi/infra IADR-008 point 5) -----
+      # Errors have no buffer on the prod box: while the edge cannot reach GlitchTip over the
+      # tailnet, every Sentry envelope is a 502 and is lost (the 2026-10-31 Umami outage was the
+      # same path failing for one tsnet node for 14 h). Counts 502/503/504 on GlitchTip's ingest
+      # paths across the telemetry vhosts; a 500 is GlitchTip answering, not unreachable.
+      # Thresholds from 30 days (rules-drift/glitchtip_unreachable_replay.py): every 502 episode
+      # was a restart of the mini's caddy (1-8 min, at most 37 in 10m); the quietest traffic
+      # still sends >= 78 envelopes in 15m, so a full outage passes 29 in 10m and holds it.
+      # Not seen: a mini that is down entirely (this log arrives late; prod-silent and the mini's
+      # own alerts cover it) and an outage of one project's DSN only.
+      - uid: glitchtip-unreachable-from-prod
+        title: "Prod cannot reach GlitchTip (edge 502s on error ingest, 20m)"
+        condition: threshold
+        for: 10m
+        noDataState: OK
+        execErrState: OK
+        labels: { tenant: common, severity: warning, kind: availability }
+        annotations:
+          summary: "The prod edge answered {{ $values.reduced }} GlitchTip ingest requests with 502/503/504 in the last 10 minutes, for 10 minutes: errors raised now are lost. Drill-down: VictoriaLogs job:caddy request.host:~\"^telemetry[.]\" status:in(502,503,504); then the mini's caddy (container:caddy) and glitchtip-web-1, and prod's tailscaled journal (home relay, as in the 2026-10-31 Umami outage)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'job:caddy request.host:~"^telemetry[.]" request.uri:~"^/api/[0-9]+/(envelope|store|security)/" status:in(502,503,504) | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: q
+              reducer: last
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [29] } }]
+
       # --- Edge 5xx burst, per vhost (2026-10-18) ---------------------------------
       # Every host on the prod Caddy edge (apps, analytics/telemetry vhosts, static sites)
       # writes /var/log/caddy/access.log -> VictoriaLogs job:caddy. No other rule sees

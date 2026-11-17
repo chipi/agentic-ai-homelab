@@ -45,3 +45,18 @@ On the mini's `/usr/bin/python3` it falls back to macOS's system Ruby YAML parse
 `python3 test_drift.py` replays the real 2026-09-30 state (`fixtures/`). Before
 the reload, the repo against live Grafana reports exactly the five real drifts
 (4 missing delivery rules, the changed #58 rule). After it, it reports zero.
+
+## Rule replays
+
+Each replays one rule from `rules.yaml` over real history; run it after changing that rule.
+
+- `glitchtip_unreachable_replay.py` — `glitchtip-unreachable-from-prod`, offline over a frozen
+  month of prod edge history (`fixtures/glitchtip-unreachable-corpus.json`, 2026-10-18 to 11-17:
+  106 GlitchTip-path 502s in 5 episodes, all restarts of the mini's caddy, and per-minute ingest
+  traffic). PASS = no firing on that history, a full outage injected at each of the 10 quietest
+  hours caught within 25 min, and the rule's filter unchanged since the freeze (`--freeze`
+  re-freezes from VictoriaLogs). Five mutants (for 0m / 30m, threshold 9 / 99, a narrower filter)
+  each fail it.
+- `edge_5xx_replay.py` — `edge-caddy-5xx-burst`, live against VictoriaLogs on the mini; its
+  window (2026-09-18 .. 10-18) is leaving the 30-day retention.
+- `rule_history_replay.py` — any VictoriaMetrics rule by uid, live.
