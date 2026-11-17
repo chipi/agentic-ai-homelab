@@ -57,6 +57,10 @@ Each replays one rule from `rules.yaml` over real history; run it after changing
   hours caught within 25 min, and the rule's filter unchanged since the freeze (`--freeze`
   re-freezes from VictoriaLogs). Five mutants (for 0m / 30m, threshold 9 / 99, a narrower filter)
   each fail it.
-- `edge_5xx_replay.py` — `edge-caddy-5xx-burst`, live against VictoriaLogs on the mini; its
-  window (2026-09-18 .. 10-18) is leaving the 30-day retention.
+- `edge_5xx_replay.py` — `edge-caddy-5xx-burst`, offline over a frozen month
+  (`fixtures/edge-5xx-corpus.json`, 2026-10-18 to 11-17, frozen 2026-11-17 when the rule's own
+  2026-09-18..10-18 window left retention unfrozen). PASS = exactly the 7 labelled episodes (4 player
+  API 502/504 bursts, 3 GlitchTip ingest 502s during mini caddy restarts). Mutants threshold 15 / 5 and
+  a 15-minute window each fail it. It does not fire on the 2026-10-31 Umami outage (14 h of 502s too
+  sparse for 10 in 5m); `site-probe-failing` covers that.
 - `rule_history_replay.py` — any VictoriaMetrics rule by uid, live.
