@@ -12,7 +12,7 @@ Same conventions as `NEXT_STEPS.md`: strike an item when it's done, don't delete
 
 ## Fleets
 
-Where each fleet stands: [fleet architecture → Rollout status](../fleet-architecture.md#rollout-status).
+Where each fleet stands: [fleet architecture → Rollout status](https://github.com/chipi/flotilla/blob/main/docs/history/homelab/fleet-architecture.md#rollout-status).
 
 **Triage fleet (Fleet 2)**
 - [ ] **Client-side corroboration probe** (Umami) for front-end signals.

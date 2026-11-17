@@ -23,7 +23,7 @@ Same conventions as `NEXT_STEPS.md`: strike an item when it's done, don't delete
 
 ## Triage fleet (Fleet 2)
 
-Where each fleet stands: [fleet architecture → Rollout status](../fleet-architecture.md#rollout-status).
+Where each fleet stands: [fleet architecture → Rollout status](https://github.com/chipi/flotilla/blob/main/docs/history/homelab/fleet-architecture.md#rollout-status).
 
 - [ ] **Seeded-defect fixtures** — `signal-fleet/EVAL.md` calls them "still the thin spot".
 - [ ] **Ground-truth labels for STAGING-2/3/4** (`signal-fleet/reference/glitchtip-ORRERY-STAGING-*.json`,

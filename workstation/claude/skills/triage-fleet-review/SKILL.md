@@ -10,8 +10,8 @@ different agent each week gets comparable answers. It never changes the fleet,
 the ledgers, or any issue.
 
 Background, read once per session if you haven't:
-- **What the fleet is and why each rule exists:** `docs/signal-fleet-guide.md` in `chipi/agentic-ai-homelab`.
-- **How to operate and improve it:** `docs/recipes/signal-fleet-runbook.md`. §4 is the review this skill automates; §5 is the improvement loop.
+- **What the fleet is and why each rule exists:** `docs/operations/triage.md` in `chipi/flotilla` (moved from homelab 2026-11-17).
+- **How to operate and improve it:** `docs/operations/triage-runbook.md` in `chipi/flotilla`. §4 is the review this skill automates; §5 is the improvement loop.
 
 ## Run
 

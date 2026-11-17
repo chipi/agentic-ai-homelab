@@ -12,7 +12,7 @@ VictoriaMetrics, logs in VictoriaLogs, bounce→suppression, dead-letter→Glitc
 Full o11y wired (dashboard, 4 alerts, home-page section). Two handovers left in
 the repo for the app-side (#1441) and homelab agents.
 
-> Sibling to [`0005-bakeoff-matrix-arc.md`](0005-bakeoff-matrix-arc.md).
+> Sibling to [`0005-bakeoff-matrix-arc.md`](https://github.com/chipi/flotilla/blob/main/docs/history/homelab/0005-bakeoff-matrix-arc.md).
 > Cold-start reading order: `infra/delivery/README.md` → `HANDOVER-homelab.md`
 > (what's deployed + polish list) → `HANDOVER-app-side.md` (the app handshake) →
 > this doc's Open threads.

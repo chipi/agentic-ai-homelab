@@ -50,7 +50,7 @@ Keep it short. ADRs that grow past 200 lines usually need to be split.
 - [ADR-0005 — Self-hosted observability platform: metrics/logs, Langfuse, GlitchTip](ADR-0005-langfuse-glitchtip-self-host.md)
 - [ADR-0006 — Mac mini observability host: fresh-start migration + bootstrap/sops provisioning](ADR-0006-mac-mini-observability-provisioning.md)
 - [ADR-0007 — Umami self-hosted analytics](ADR-0007-umami-self-host-analytics.md)
-- [ADR-0008 — Fleet daemon in Go; framework non-adoption (Temporal/LiteLLM tracks open)](ADR-0008-fleet-daemon-tech-and-framework-non-adoption.md)
+- [ADR-0008 — Fleet daemon in Go; framework non-adoption (Temporal/LiteLLM tracks open)](https://github.com/chipi/flotilla/blob/main/docs/history/homelab/ADR-0008-fleet-daemon-tech-and-framework-non-adoption.md) — *moved to flotilla 2026-11-17 (its history)*
 - [ADR-0009 — An on-demand dev Docker engine on the mini, separate from production](ADR-0009-on-demand-dev-docker-engine.md)
 - [ADR-0010 — One telemetry naming contract, set once at the source](ADR-0010-telemetry-naming-contract.md)
 - [ADR-0011 — Workstation storage: /work and Docker leave the root rollback domain](ADR-0011-workstation-storage-subvolumes.md)

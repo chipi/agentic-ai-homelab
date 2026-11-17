@@ -35,10 +35,10 @@ landed on an answer.
 ## Index
 
 - [RFC-0001 — LiteLLM proxy as the Langfuse capture layer](RFC-0001-litellm-langfuse-capture.md) — *Proposed*
-- [RFC-0002 — Autonomous bug-fix fleet (cheap workers, Claude PR-gate)](RFC-0002-autonomous-bug-fix-fleet.md) — *Proposed*
-- [RFC-0003 — Signal-to-action fleet (o11y triage: dismiss / file / escalate)](RFC-0003-signal-to-action-fleet.md) — *Proposed*
-- [RFC-0004 — fleetd: the fleet supervisor daemon](RFC-0004-fleetd-supervisor.md) — *Proposed*
-- [RFC-0005 — Fleet 3 v1: unattended recovery of prod after a reboot](RFC-0005-remediation-fleet-post-reboot-recovery.md) — *Proposed*
+- [RFC-0002 — Autonomous bug-fix fleet (cheap workers, Claude PR-gate)](https://github.com/chipi/flotilla/blob/main/docs/history/homelab/RFC-0002-autonomous-bug-fix-fleet.md) — *moved to flotilla 2026-11-17 (its history)*
+- [RFC-0003 — Signal-to-action fleet (o11y triage: dismiss / file / escalate)](https://github.com/chipi/flotilla/blob/main/docs/history/homelab/RFC-0003-signal-to-action-fleet.md) — *moved to flotilla 2026-11-17 (its history)*
+- [RFC-0004 — fleetd: the fleet supervisor daemon](https://github.com/chipi/flotilla/blob/main/docs/history/homelab/RFC-0004-fleetd-supervisor.md) — *moved to flotilla 2026-11-17 (its history)*
+- [RFC-0005 — Fleet 3 v1: unattended recovery of prod after a reboot](https://github.com/chipi/flotilla/blob/main/docs/history/homelab/RFC-0005-remediation-fleet-post-reboot-recovery.md) — *moved to flotilla 2026-11-17 (its history)*
 - [RFC-0006 — Self-hosted Infisical on the Mac mini for engineering secrets](RFC-0006-self-hosted-infisical-engineering-secrets.md) — *Proposed*
 - [RFC-0007 — Engineering secrets in sops + age, per project and environment](RFC-0007-sops-age-engineering-secrets.md) — *Proposed* (counter-proposal to RFC-0006)
 - [RFC-0008 — A local assistant on the X3, and the X3 as a deployment surface](RFC-0008-x3-local-assistant.md) — *Proposed*
