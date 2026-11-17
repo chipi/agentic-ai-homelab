@@ -43,7 +43,7 @@ This is the **only** env file fleetd loads for the triage fleet; the old `fleet.
 | `SF_CAPTURE_EAGER`, `SF_CAPTURE_DIR` | `config.py` → `capture.py` | with capture on: also record the rest of the probe menu (default `1`); where to write (default `results/probes/`) |
 | `SF_ASSISTANT_BACKEND` | `config.py` | the X3 assistant's backend address, for the `assistant-failover` operational class (default `100.92.54.65:11435`) |
 
-Present in the file but **not read by the fleet code** (as of 2026-10-17): `LITELLM_FLEET_TRIAGE_KEY`, `LITELLM_FLEET_BUGFIX_KEY` (the bug-fix fleet's), `GLITCHTIP_FLEET_DSN`.
+Present in the file but **not read by the fleet code** (as of 2026-10-17): `LITELLM_FLEET_TRIAGE_KEY`, `LITELLM_FLEET_BUGFIX_KEY` (the bug-fix fleet's; its key `fleet-bugfix` was revoked 2026-11-17, the value is dead), `GLITCHTIP_FLEET_DSN`.
 
 Optional knobs, with their defaults:
 
