@@ -71,16 +71,15 @@ state was last verified against the live system.
       [colima/lima forwarding recovery](../recipes/colima-lima-forwarding-recovery.md). Related:
       the usernet outbound limit, homelab #118 (needs gvisor-tap-vsock >= 0.9.0; check: `curl -s
       https://raw.githubusercontent.com/lima-vm/lima/<tag>/go.mod | grep gvisor-tap-vsock`).
-- [ ] **Langfuse MinIO retention: expiry runs, but the bucket is 2.5x the estimate.** Checked
-      2026-11-17: the lifecycle rule is in place (`mc ilm rule ls`: `events/`, 30 days, Enabled), and the
-      scanner expires objects (`mc admin scanner status --json`: `ilm_ops.DeleteAction` 3,870 since the
-      process started 3 days earlier; `minio_node_ilm_expiry_missed_tasks` 0). But `events/` holds 8.9 GB
-      (`du` in the container) against the README's ~3.6 GB steady state. Not known: whether the
-      scanner (`MINIO_SCANNER_SPEED: slowest`, ~10 objects a minute) keeps up, or traffic simply grew. A
-      search for objects older than 31 days ran 10 minutes without a hit and did not finish
-      (inconclusive). Next: object counts per day of age from one bounded listing, then the scanner speed.
-      Run `mc` inside `langfuse-minio-1` with `MC_HOST_l=http://$MINIO_ROOT_USER:$MINIO_ROOT_PASSWORD@localhost:9000`;
-      a recursive listing takes over 10 minutes, so do it once.
+- [x] ~~**Langfuse MinIO retention not verified.**~~ — *done 2026-11-17: the 30-day expiry works.
+      The lifecycle rule is in place (`mc ilm rule ls`: `events/`, 30 days, Enabled); the scanner expires
+      (`ilm_ops.DeleteAction` 3,870 in 3 days, `minio_node_ilm_expiry_missed_tasks` 0); a 50-minute listing
+      of 129,999 objects (key order, not the whole bucket) found nothing older than 2026-10-18, exactly 30
+      days back. `events/` is 9.3 GB, above the README's ~3.6 GB, because writes rose from 5-300 MB a day to
+      1.2-1.7 GB a day from 11-15 (the flotilla work's LLM calls; the operator: expected, and it slows down when that work does). At that rate it
+      settles near 40-50 GB on the docker VM disk (98 GB, 52 GB free on 11-17). Run `mc` inside
+      `langfuse-minio-1` with `MC_HOST_l=http://$MINIO_ROOT_USER:$MINIO_ROOT_PASSWORD@localhost:9000`; a
+      recursive listing takes over 50 minutes, so bound it with `timeout`.*
 - [ ] **Can the caddy-tailscale auth key be revoked?** Tailscale admin console → Settings →
       Keys. `infra/reverse-proxy/docker-compose.yml` requires `TS_AUTHKEY` to be set either way.
 - [ ] **The caddy-tailscale auth key expires 2027-02-12** (made 2026-11-14 for 90 days, after the
