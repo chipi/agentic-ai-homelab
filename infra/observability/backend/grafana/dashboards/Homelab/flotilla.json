@@ -301,7 +301,7 @@
     {
       "id": 8,
       "type": "logs",
-      "title": "Egress refused by the proxy",
+      "title": "Egress refused by the proxy (live)",
       "description": "Every connection the egress proxy refused (Smokescreen: the host is not on the allowlist in egress-acl.yaml). The heartbeat's own refused probe (example.com) shows here every 10 minutes; anything else is a routine reaching where it should not.",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
@@ -534,6 +534,38 @@
       "targets": [
         {
           "expr": "{service=\"flotilla-worker-triage\"} msg:~\"^run (start|end)$\" shadow:true",
+          "refId": "A",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    },
+    {
+      "id": 16,
+      "type": "logs",
+      "title": "Egress refused by the proxy (shadow: flotilla-egress-shadow)",
+      "description": "Every connection the egress proxy refused (Smokescreen: the host is not on the allowlist in egress-acl.yaml). The heartbeat's own refused probe (example.com) shows here every 10 minutes; anything else is a routine reaching where it should not.",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "targets": [
+        {
+          "expr": "{service=\"flotilla-egress-shadow\"} allow:false",
           "refId": "A",
           "datasource": {
             "type": "victoriametrics-logs-datasource",
