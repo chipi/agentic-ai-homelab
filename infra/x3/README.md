@@ -14,8 +14,9 @@ The assistant's system prompt has one source, `assistant-ui-eval/system-prompt.t
 Edit it, then run `./apply-ui-config.py` in that directory: it writes LibreChat's "Homelab assistant" agent and default spec
 and Open WebUI's `assistant` model, with the same tools in both (Grafana MCP, and the hub status from `infra/homelab-home/openapi.json`), and checks what each stored.
 
-The eval harness's own Ollama (`127.0.0.1:11434`, started by its long-job runs) is not ours: same
-binary and model directory, separate process. See the GPU memory rule in `AGENTS.md`.
+`ollama-assistant` is the only Ollama on the X3 (operator, 2026-11-19): the eval harness's ad-hoc
+instance on `127.0.0.1:11434` was stopped that day. Its model directory, `~/.ollama/models`, still holds
+the harness's other models; the GPU memory rule is in `AGENTS.md`.
 
 The LiteLLM alias `assistant` on the mini sends to this model first and falls back to
 `assistant-cloud` (the same model on OpenRouter) when the X3 does not answer.

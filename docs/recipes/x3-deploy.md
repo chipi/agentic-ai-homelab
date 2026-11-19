@@ -45,7 +45,7 @@ The Tailscale ACL (chipi/infra `tailscale/policy.hujson`) lets `tag:homelab-host
 - From the mini: `curl -s http://100.92.54.65:11435/api/version` answers; another X3 port does not.
 - `curl -s http://100.92.54.65:11435/api/ps` lists `qwen3:30b-a3b-instruct-2507-q4_K_M` with
   `size_vram` equal to its size (on the GPU).
-- The eval harness's Ollama on `127.0.0.1:11434` keeps its PID.
+- Nothing listens on `127.0.0.1:11434` (`ss -tln`): the assistant is the only Ollama.
 - The hub: Hosts → X3 lamp green, with service cards (Assistant, Assistant eval UIs, X3 collectors); the
   `x3-assistant-down` alert is not firing.
 - `x3-host`: `container_uptime_seconds{box="x3"}` and `service_up{box="x3"}` in VictoriaMetrics, and
@@ -66,8 +66,9 @@ Then revert the ACL rule in chipi/infra, and point LiteLLM's `assistant` alias a
 
 - **The unit restarts every 15 s right after boot:** it binds the tailnet address, which exists
   only once `tailscaled` is up; it settles by itself.
-- **Slow answers, swap rising:** something else holds GPU memory (GTT 62 GiB), usually an eval
-  harness model. `curl -s http://127.0.0.1:11434/api/ps` shows it; see the rule above.
+- **Slow answers, swap rising:** something else holds GPU memory (GTT 62 GiB), or a request for
+  another model swapped the assistant's out. `curl -s http://100.92.54.65:11435/api/ps` shows what is
+  loaded; `ss -tlnp | grep ollama` shows whether a second `ollama serve` was started.
 - **The assistant's log:** `x3-host.sh` caps it at 50 MB (`X3_ASSISTANT_LOG_CAP_MB`): copied to `ollama.log.1`,
   then truncated in place; the unit appends and the collector follows the truncation. logrotate is not
   installed here.

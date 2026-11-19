@@ -10,13 +10,16 @@ the same box for its own runs.
   --ff-only` + a restart deploys a change. Recipe: `docs/recipes/x3-deploy.md`.
 - **User units only** (`systemctl --user`, linger is on). No root on this box for our services;
   the operator runs the few `sudo` steps (ufw, `tailscale serve`) by hand.
-- **The eval harness rule.** The assistant (port 11435) and the harness's Ollama (127.0.0.1:11434)
-  share 62 GiB of GPU memory (GTT). Before a harness run of a model over ~35 GB:
-  `systemctl --user stop ollama-assistant`; start it again after. Phase 1 measured gpt-oss:120b
-  beside the assistant: 37% CPU offload and swap 16 → 41 GB.
-- **Ollama upgrades are the operator's call.** Both instances use
-  `~/.local/opt/ollama-<version>`; the unit names the version. Changing it changes the eval
-  harness's baseline too, so ask first.
+- **One Ollama on this box: the assistant** (operator, 2026-11-19). The eval harness's ad-hoc
+  `ollama serve` on `127.0.0.1:11434` (a long-job since 2026-10-30, no model call after 11-03) was
+  stopped and its long-job files deleted that day. Don't start a second `ollama serve`: anything that
+  needs a local model uses the assistant (`100.92.54.65:11435`, or LiteLLM's `assistant` alias). It holds
+  ~25 GB of the 62 GiB of GPU memory (GTT) and keeps one model loaded (`OLLAMA_MAX_LOADED_MODELS=1`), so a
+  request for another model swaps the assistant's model out until the next call reloads it. Phase 1
+  measured gpt-oss:120b beside the assistant: 37% CPU offload and swap 16 → 41 GB. A test of a model over
+  ~35 GB is the operator's call.
+- **Ollama upgrades are the operator's call.** The unit runs `~/.local/opt/ollama-<version>` and names
+  the version; the eval harness's results were measured on it, so ask first.
 - **Port 11435 is the only one open to the tailnet** for our services, and only `tag:homelab-host`
   may reach it (chipi/infra `tailscale/policy.hujson`). Don't publish another port without the
   ACL and ufw change being agreed.

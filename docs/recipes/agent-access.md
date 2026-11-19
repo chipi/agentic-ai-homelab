@@ -707,8 +707,7 @@ on 2026-10-09 an interrupted request plus an unload hung the server until a rest
 
 | Port | Service | Notes |
 |---|---|---|
-| `100.92.54.65:11435` | the assistant (user unit `ollama-assistant`) | Ollama API; `qwen3:30b-a3b-instruct-2507-q4_K_M` kept loaded; reachable from `tag:homelab-host` (the mini) only. Use it through LiteLLM's `assistant` alias, which fails over to OpenRouter |
-| `127.0.0.1:11434` | the eval harness's Ollama | not a service: started by the harness's long-job runs; leave it alone |
+| `100.92.54.65:11435` | the assistant (user unit `ollama-assistant`) | Ollama API; `qwen3:30b-a3b-instruct-2507-q4_K_M` kept loaded; reachable from `tag:homelab-host` (the mini) only. Use it through LiteLLM's `assistant` alias, which fails over to OpenRouter. The only Ollama on the X3 since 2026-11-19 (the eval harness's `127.0.0.1:11434` instance was stopped) |
 
 ```sh
 systemctl --user status ollama-assistant        # on the X3
