@@ -25,6 +25,7 @@ memory_profile = "balanced"
 memory_cleanup = "aggressive"
 shell_allowlist_extra = [
     "chromium",
+    "claude",
     "gitleaks",
     "docker",
     "python3.12",
