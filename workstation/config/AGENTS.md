@@ -692,8 +692,10 @@ mechanical work (tests, docs, small edits). `fable` stays the advisor's only. **
 (2026-11-19, after sessions launched Opus subagents anyway): the `subagent-model-guard.sh` PreToolUse hook
 (`Agent|Task|Workflow`) denies a fork, a call that names no `model`, and a model naming `opus` or `fable`
 (`claude-opus-…`, `opusplan`, `claude-fable-…`) unless `subagent_type` is `advisor`; for a `Workflow` it reads the
-script and denies an `opus`/`fable` model literal or a fork. `SUBAGENT_MODEL_GUARD=off` is the escape hatch; see
-`workstation/claude/hooks/README.md`.
+script and denies an `opus`/`fable` model literal or a fork. `SUBAGENT_MODEL_GUARD=off` is the escape hatch, and it
+is the operator's only: **an agent never sets it** (in a command, a script, a session's environment or a settings
+file) unless the operator explicitly says so for that case. A denied launch is re-issued on `sonnet`/`haiku` or
+through the advisor, never worked around. See `workstation/claude/hooks/README.md`.
 
 ## Skills — load the right one before you start
 
