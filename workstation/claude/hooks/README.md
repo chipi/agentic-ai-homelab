@@ -12,7 +12,7 @@ alone is never auto-loaded, so that pointer is what makes any of this discoverab
 | `session-reap.sh`        | SessionEnd  | Reaps this session's tool processes + sweeps runaway `gh run` poll loops and orphaned `tail -f … \| grep` watchers in the project family (↓ documented in full). |
 | `session-orphan-report.sh` | SessionStart | Reports (never kills) long-running CPU-heavy processes in the project family (↓ documented in full). |
 | `secrets-guard.sh`       | PreToolUse  | Blocks writes/commits that would leak secrets. |
-| `subagent-model-guard.sh` | PreToolUse | Blocks an `Agent`/`Task` call that names no `model` (it would run on the fallback: `CLAUDE_CODE_SUBAGENT_MODEL`, else the main conversation's model); forks, any named model and `SUBAGENT_MODEL_GUARD=off` pass. Fail-open. Tests: `bash subagent-model-guard.test.sh`. |
+| `subagent-model-guard.sh` | PreToolUse | No subagent on Opus; fable for the advisor only (operator, 2026-11-19). Denies on `Agent`/`Task`: a fork (it always runs on the main model, Opus), a call that names no `model` (it would run on the fallback: `CLAUDE_CODE_SUBAGENT_MODEL`, else the main model), and a model naming `opus` or `fable` (any case, full ids, `opusplan`) unless `subagent_type` is `advisor`. On `Workflow` it reads the script (inline, `scriptPath`, or a saved workflow by `name`) and denies an `opus`/`fable` model literal or a fork; a model name built at runtime is not seen. `SUBAGENT_MODEL_GUARD=off` passes everything. Fail-open on its own errors. Tests: `bash subagent-model-guard.test.sh` (37). |
 | `lean-ctx-*`             | Pre/Post    | lean-ctx tool redirect/rewrite shims. |
 
 ## Wiring into settings.json
@@ -24,7 +24,7 @@ alone is never auto-loaded, so that pointer is what makes any of this discoverab
 | Event | Matcher | Hook | Timeout |
 |---|---|---|---|
 | `PreToolUse` | `Bash\|bash` | `$HOME/.claude/hooks/secrets-guard.sh` | default (600 s) |
-| `PreToolUse` | `Agent\|Task` | `$HOME/.claude/hooks/subagent-model-guard.sh` | 5 s |
+| `PreToolUse` | `Agent\|Task\|Workflow` | `$HOME/.claude/hooks/subagent-model-guard.sh` | 5 s |
 | `SessionStart` | `.*` | `$HOME/.claude/hooks/session-orphan-report.sh` | 20 s |
 | `SessionEnd` | `.*` | `$HOME/.claude/hooks/session-reap.sh` | 30 s |
 

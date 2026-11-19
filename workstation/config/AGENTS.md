@@ -687,9 +687,12 @@ I delegate on judgment and tell you — I don't stop to ask each time.
 14 `Explore` ones. So: `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` is set in `~/.claude/settings.json` (`env`) for every
 agent without its own `model`; `Explore` is our own `agents/Explore.md` on Sonnet (it overrides the built-in); and
 every Agent call I make names its model — `sonnet` for implementers, reviewers, planners and searches, `haiku` for
-mechanical work (tests, docs, small edits). `fable` stays the advisor's only. A `fork` always runs on the main model
-(no setting changes it): no forks for heavy work. The `subagent-model-guard.sh` PreToolUse hook blocks an Agent
-call that names no `model` (forks pass; `SUBAGENT_MODEL_GUARD=off` is the escape hatch); see
+mechanical work (tests, docs, small edits). `fable` stays the advisor's only. **No subagent runs on Opus.** A
+`fork` always runs on the main model (no setting changes it), so forks are not allowed. Enforced, not advised
+(2026-11-19, after sessions launched Opus subagents anyway): the `subagent-model-guard.sh` PreToolUse hook
+(`Agent|Task|Workflow`) denies a fork, a call that names no `model`, and a model naming `opus` or `fable`
+(`claude-opus-…`, `opusplan`, `claude-fable-…`) unless `subagent_type` is `advisor`; for a `Workflow` it reads the
+script and denies an `opus`/`fable` model literal or a fork. `SUBAGENT_MODEL_GUARD=off` is the escape hatch; see
 `workstation/claude/hooks/README.md`.
 
 ## Skills — load the right one before you start
