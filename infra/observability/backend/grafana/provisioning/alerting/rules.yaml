@@ -26,6 +26,8 @@ deleteRules:
     uid: fleetd-silent                   # likewise
   - orgId: 1
     uid: bugfix-mass-stuck               # the bugfix-metrics job that fed it retired 2026-11-16
+  - orgId: 1
+    uid: x3-assistant-down               # renamed x3-ollama-down (the X3's unit is plain ollama), 2026-11-19
 
 # A NOTE ON execErrState — read before setting it to OK again.
 #
