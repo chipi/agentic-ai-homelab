@@ -24,7 +24,7 @@ Do not create logins, publish ports or change groups to "get access".
 | Mac mini, `claude` account | where agents on the mini run; dev engine only | `ssh homelab-claude` |
 | Prod VPS (`prod-podcast`) | Close Listening (player, operator, viewer, MCP, obs), Orrery, LiteLLM (prod) | `ssh deploy@prod-podcast` |
 | DGX (`dgx-llm-1`) | vLLM (prod + translate), faster-whisper, pyannote, moss | `ssh dgx-llm-1` |
-| X3 (`omarchy`, the operator's workstation) | the assistant model (Ollama, `:11435` on the tailnet), the X3 collector; agents usually run here | local; from the mini nothing but `100.92.54.65:11435` is reachable |
+| X3 (`omarchy`, the operator's workstation) | Ollama (`:11435` on the tailnet; LiteLLM's assistant model), the X3 collector; agents usually run here | local; from the mini nothing but `100.92.54.65:11435` is reachable |
 
 - Plain `ssh homelab` is refused: no `Host homelab` alias exists; the key flags are required.
 - From the Omarchy workstation (X3, local login `marko`) the remote user must be explicit:
@@ -707,10 +707,10 @@ on 2026-10-09 an interrupted request plus an unload hung the server until a rest
 
 | Port | Service | Notes |
 |---|---|---|
-| `100.92.54.65:11435` | the assistant (user unit `ollama-assistant`) | Ollama API; `qwen3:30b-a3b-instruct-2507-q4_K_M` kept loaded; reachable from `tag:homelab-host` (the mini) only. Use it through LiteLLM's `assistant` alias, which fails over to OpenRouter. The only Ollama on the X3 since 2026-11-19 (the eval harness's `127.0.0.1:11434` instance was stopped) |
+| `100.92.54.65:11435` | Ollama (user unit `ollama`; `ollama-assistant` before 2026-11-19) | Ollama API; `qwen3:30b-a3b-instruct-2507-q4_K_M` kept loaded; reachable from `tag:homelab-host` (the mini) only. Use it through LiteLLM's `assistant` alias, which fails over to OpenRouter. The only Ollama on the X3 since 2026-11-19 (the eval harness's `127.0.0.1:11434` instance was stopped) |
 
 ```sh
-systemctl --user status ollama-assistant        # on the X3
+systemctl --user status ollama                  # on the X3
 curl -s http://100.92.54.65:11435/api/ps        # what is loaded (from the X3 or the mini)
 ```
 

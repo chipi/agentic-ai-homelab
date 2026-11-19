@@ -7,9 +7,8 @@ tailnet with the same series names as the DGX (`instance="x3"`, `cluster="workst
 |---|---|
 | CPU, memory, memory pressure (PSI) | `prometheus.exporter.unix` (`job="integrations/unix"`) |
 | AMD Strix Halo GPU busy % and VRAM | the exporter's `drm` collector (`node_drm_*`) |
-| Ollama log (loads, offload, per-request `tg = N t/s`) | the long-job file eval-harness runs `ollama serve` under (`job="ollama"`) |
 | Assistant UI evaluation containers' logs (`assistant-*` only) | `loki.source.docker` (`service` = container name) |
-| The assistant's log (`ollama-assistant` unit) | `~/.local/state/ollama-assistant/ollama.log` (`service="assistant"`) |
+| Ollama's log (the `ollama` unit: loads, offload, per-request `tg = N t/s`) | `~/.local/state/ollama/ollama.log` (`job="ollama"`, `service="ollama"`; `service="assistant"` before 2026-11-19, and the eval harness's long-job Ollama log is gone) |
 | LibreChat and mcp-grafana metrics | `/metrics` on `127.0.0.1:3080` (bearer secret in `~/.config/assistant-ui-eval/metrics-secret`) and `:3082` (`job="librechat"`, `job="mcp-grafana"`) |
 
 The evaluation UIs also send their own traces to VictoriaTraces (services `librechat`,

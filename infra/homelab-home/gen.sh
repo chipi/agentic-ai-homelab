@@ -410,7 +410,7 @@ cat <<MID2
     <a class=card href="$DASH_X3"><h3>Network</h3><div id=x_net>&hellip;</div></a>
   </div>
   <div id=svc_x3 class=svcs></div>
-  <p class=sec>The operator's workstation; also runs the eval harness's Ollama and the local assistant (RFC-0008). Containers and unit health come from <code>infra/x3/x3-host.sh</code> (a user timer, every minute); no cAdvisor here, so the cards show state and uptime, not memory or CPU.</p>
+  <p class=sec>The operator's workstation; also runs Ollama (the ollama unit, :11435), which serves LiteLLM's assistant (RFC-0008). Containers and unit health come from <code>infra/x3/x3-host.sh</code> (a user timer, every minute); no cAdvisor here, so the cards show state and uptime, not memory or CPU.</p>
 </div>
 <div class="col sub" data-sub=prod>
   <h2><span class="dot stale" id=st_prod></span><a href="$DASH_PROD">Production &middot; prod-podcast &rarr;</a></h2>
@@ -840,7 +840,7 @@ const SVCS={
   ['Speech','MOSS',['moss'],[],'moss'],
   ['Collectors','Collectors',['alloy','cadvisor','dcgm-exporter'],[],'cadvisor']],
  x3:[
-  ['Assistant','Local model (ollama-assistant, :11435)',[],[],'assistant'],
+  ['Ollama','Ollama (:11435; LiteLLM assistant)',[],[],'ollama'],
   ['Assistant eval UIs','LibreChat',['assistant-eval-librechat','assistant-eval-mongodb','assistant-eval-meilisearch'],[]],
   ['Assistant eval UIs','Open WebUI',['assistant-eval-openwebui'],[]],
   ['Assistant eval UIs','Grafana MCP',['assistant-eval-mcp-grafana'],[]],
@@ -1225,8 +1225,8 @@ async function spendModels(){
       oLine=oLine.map((v,k)=>st+(k+1)*86400000<=OLLAMA_LOGS_FROM?null:v);}}catch(x){}
   const add=(...ls)=>{const ok=ls.filter(Boolean);return ok.length?ok[0].map((_,i)=>ok.some(l=>l[i]!=null)?ok.reduce((p,l)=>p+(l[i]||0),0):null):null;};
   const spR=n=>src('Speech').find(r=>r.model.startsWith(n))||{},orU=sum(src('OpenRouter'),'usd');
-  // Ollama per host (DGX, X3: the assistant and the eval harness, MacBook), from the per-host rows above;
-  // the X3 assistant's own tokens are in its Ollama log (job=ollama, service=assistant), so already in here
+  // Ollama per host (DGX, X3, MacBook), from the per-host rows above;
+  // the X3's tokens are in its Ollama log (job=ollama, service=ollama; service=assistant before 2026-11-19)
   const oH=h=>{const rr=src('Ollama').filter(r=>r.by===h);return sum(rr,'i')+sum(rr,'o');};
   const oRows=['DGX','X3','MacBook'].filter(h=>oH(h)).map(h=>['Ollama &middot; '+h,tk(oH(h))]);
   set('sp_totals',card('All tokens',tk(allT)+sparkT(add(vtk,vLine,oLine)),[['OpenRouter',tk(t('OpenRouter'))],['vLLM',tk(t('vLLM'))],['Ollama',tk(t('Ollama'))]],'')

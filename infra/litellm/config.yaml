@@ -91,12 +91,12 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY_ASSISTANT
       timeout: 60
 
-  # `assistant`: the X3's local copy first (infra/x3/ollama-assistant.service, Ollama's
+  # `assistant`: the X3's local copy first (infra/x3/ollama.service, Ollama's
   # OpenAI-compatible /v1, reachable from the mini only), `assistant-cloud` when it does not answer
   # (the fallbacks below). 30 s and no retries on the local one. Measured 2026-11-03: a stopped X3
   # fails over in ~3 s; a hung one (SIGSTOP) costs ~31 s on EVERY call, because LiteLLM does not
   # cool down the only deployment of a group, until the X3 recovers or is stopped (the
-  # x3-assistant-down alert); a recovered X3 serves the next call. Local calls cost nothing.
+  # x3-ollama-down alert); a recovered X3 serves the next call. Local calls cost nothing.
   - model_name: assistant
     litellm_params:
       model: openai/qwen3:30b-a3b-instruct-2507-q4_K_M

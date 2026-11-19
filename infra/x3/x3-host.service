@@ -1,5 +1,5 @@
 [Unit]
-Description=X3 host jobs: container inventory, unit health, assistant log cap (-> the mini)
+Description=X3 host jobs: container inventory, unit health, Ollama log cap (-> the mini)
 After=network-online.target
 
 [Service]

@@ -10,10 +10,10 @@ the same box for its own runs.
   --ff-only` + a restart deploys a change. Recipe: `docs/recipes/x3-deploy.md`.
 - **User units only** (`systemctl --user`, linger is on). No root on this box for our services;
   the operator runs the few `sudo` steps (ufw, `tailscale serve`) by hand.
-- **One Ollama on this box: the assistant** (operator, 2026-11-19). The eval harness's ad-hoc
+- **One Ollama on this box: the `ollama` unit** (operator, 2026-11-19; it was `ollama-assistant`). The eval harness's ad-hoc
   `ollama serve` on `127.0.0.1:11434` (a long-job since 2026-10-30, no model call after 11-03) was
   stopped and its long-job files deleted that day. Don't start a second `ollama serve`: anything that
-  needs a local model uses the assistant (`100.92.54.65:11435`, or LiteLLM's `assistant` alias). It holds
+  needs a local model uses it (`100.92.54.65:11435`, or LiteLLM's `assistant` alias). The assistant's model holds
   ~25 GB of the 62 GiB of GPU memory (GTT) and keeps one model loaded (`OLLAMA_MAX_LOADED_MODELS=1`), so a
   request for another model swaps the assistant's model out until the next call reloads it. Phase 1
   measured gpt-oss:120b beside the assistant: 37% CPU offload and swap 16 → 41 GB. A test of a model over

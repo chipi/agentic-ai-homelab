@@ -1,9 +1,11 @@
 [Unit]
-Description=Homelab assistant model (Ollama, qwen3 30B-A3B) on the tailnet, port 11435 (RFC-0008)
+Description=Ollama on the X3, on the tailnet, port 11435 (keeps LiteLLM's assistant model loaded)
 After=network-online.target
 
 [Service]
-# The only Ollama on the X3 (operator, 2026-11-19; the eval harness's 127.0.0.1:11434 instance is gone),
+# The X3's one Ollama (operator, 2026-11-19: plain `ollama`, for whatever needs a local model; renamed from
+# ollama-assistant, and the eval harness's 127.0.0.1:11434 instance is gone). It preloads and keeps the model
+# behind LiteLLM's `assistant` alias (LOAD below),
 # bound to the tailnet address only (ufw allows 11435 on tailscale0; the ACL lets only
 # tag:homelab-host in). Binding fails while tailscaled is down, so it restarts until the address exists.
 Environment=OLLAMA_HOST=100.92.54.65:11435
@@ -12,7 +14,7 @@ Environment=OLLAMA_CONTEXT_LENGTH=65536
 Environment=OLLAMA_KEEP_ALIVE=-1
 Environment=OLLAMA_MAX_LOADED_MODELS=1
 Environment='LOAD={"model":"qwen3:30b-a3b-instruct-2507-q4_K_M","keep_alive":-1}'
-Environment=LOG_DIR=%h/.local/state/ollama-assistant
+Environment=LOG_DIR=%h/.local/state/ollama
 # The log goes to a file the X3 collector tails. The shell makes the directory first: systemd's
 # StandardOutput=append: is opened before LogsDirectory= exists, and the unit then cannot start.
 ExecStart=/bin/sh -c 'mkdir -p "$$LOG_DIR" && exec %h/.local/opt/ollama-0.40.13/bin/ollama serve >>"$$LOG_DIR/ollama.log" 2>&1'

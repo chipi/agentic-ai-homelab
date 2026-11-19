@@ -357,12 +357,12 @@ prometheus.scrape "sites" {
   scrape_interval = "60s"
 }
 
-// ---------- The X3 assistant (RFC-0008, infra/x3/ollama-assistant.service) ----------
-// Green only when the assistant model is loaded (Ollama's /api/ps lists it), not merely when the
+// ---------- The X3's Ollama (infra/x3/ollama.service; the assistant probe before 2026-11-19) ----------
+// Green only when LiteLLM's assistant model is loaded (Ollama's /api/ps lists it), not merely when the
 // port answers: an empty /api/ps means the first chat waits for a load, or the X3 is out of GPU
 // memory. The mini is the only tailnet source the ACL lets reach 100.92.54.65:11435.
-// Alert: x3-assistant-down (rules.yaml); LiteLLM's assistant alias fails over meanwhile.
-prometheus.exporter.blackbox "assistant" {
+// Alert: x3-ollama-down (rules.yaml); LiteLLM's assistant alias fails over meanwhile.
+prometheus.exporter.blackbox "x3_ollama" {
   config = `
 modules:
   model_loaded:
@@ -374,32 +374,32 @@ modules:
       fail_if_body_not_matches_regexp: ["qwen3:30b-a3b-instruct-2507"]
 `
   target {
-    name    = "x3-assistant"
+    name    = "x3-ollama"
     address = "http://100.92.54.65:11435/api/ps"
     module  = "model_loaded"
   }
 }
 
-discovery.relabel "assistant" {
-  targets = prometheus.exporter.blackbox.assistant.targets
+discovery.relabel "x3_ollama" {
+  targets = prometheus.exporter.blackbox.x3_ollama.targets
   rule {
     target_label = "instance"
     replacement  = "x3"
   }
   rule {
     target_label = "service"
-    replacement  = "assistant"
+    replacement  = "ollama"
   }
   rule {
     target_label = "job"
-    replacement  = "assistant-probe"
+    replacement  = "x3-ollama-probe"
   }
 }
 
-prometheus.scrape "assistant" {
-  targets         = discovery.relabel.assistant.output
+prometheus.scrape "x3_ollama" {
+  targets         = discovery.relabel.x3_ollama.output
   forward_to      = [prometheus.remote_write.local.receiver]
-  job_name        = "assistant-probe"
+  job_name        = "x3-ollama-probe"
   scrape_interval = "60s"
 }
 
