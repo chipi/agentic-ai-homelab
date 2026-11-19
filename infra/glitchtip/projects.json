@@ -168,6 +168,12 @@
       "team": "podcast",
       "platform": "go",
       "reports": "flotillad (chipi/flotilla) on the mini: its own ERROR log records via sentry-go, environment operations, release sha-<7>. Substrate: the triage fleet's issues poll leaves this slug out (signal-fleet sources.SUBSTRATE_GLITCHTIP_PROJECTS). Master copy of the DSN ~/glitchtip/flotilla.env on the mini"
+    },
+    {
+      "slug": "flotilla-shadow",
+      "team": "podcast",
+      "platform": "go",
+      "reports": "flotillad's errors raised during shadow runs (flotilla v2: a candidate version of a routine running beside the live one, which must never alarm the operator), sent to this DSN instead of flotilla's, environment operations, tag shadow=1. A separate project because GlitchTip's issue search cannot negate a tag (2026-11-19: os.name:linux returned 4 issues, !nosuchtag:1 returned 0), so shadows could not be filtered out of flotilla. Triage skips it (signal-fleet sources.py treats a -shadow slug like -dev). Master copy of the DSN ~/glitchtip/flotilla-shadow.env on the mini"
     }
   ]
 }

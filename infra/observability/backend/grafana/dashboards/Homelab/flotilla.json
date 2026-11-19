@@ -135,7 +135,7 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "Runs per hour, by routine and status",
+      "title": "Runs per hour, by routine and status (live)",
       "description": "count_over_time(flotilla_run[1h]): one sample per run. ok, error, timeout, skipped (STOP, pause or budget; the reason is in `flotilla runs`), interrupted (flotillad restarted during the run).",
       "datasource": {
         "type": "prometheus",
@@ -149,7 +149,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (routine, status) (count_over_time(flotilla_run[1h]))",
+          "expr": "sum by (routine, status) (count_over_time(flotilla_run{shadow!=\"1\"}[1h]))",
           "legendFormat": "{{routine}} {{status}}",
           "refId": "A",
           "datasource": {
@@ -174,7 +174,7 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Run duration",
+      "title": "Run duration (live)",
       "description": "flotilla_run_seconds per routine: how long each run took in its worker. A triage cycle that triages nothing new takes ~15 s; one with model calls takes minutes (timeout 20m).",
       "datasource": {
         "type": "prometheus",
@@ -188,7 +188,7 @@
       },
       "targets": [
         {
-          "expr": "max by (routine) (flotilla_run_seconds)",
+          "expr": "max by (routine) (flotilla_run_seconds{shadow!=\"1\"})",
           "legendFormat": "{{routine}}",
           "refId": "A",
           "datasource": {
@@ -211,7 +211,7 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Spend today, per routine",
+      "title": "Spend today, per routine (live)",
       "description": "flotilla_spend_day_usd: the routine's model spend so far on its local day, as the routine reported it. flotillad skips the routine's runs once this reaches its daily budget.",
       "datasource": {
         "type": "prometheus",
@@ -225,7 +225,7 @@
       },
       "targets": [
         {
-          "expr": "max by (routine) (flotilla_spend_day_usd)",
+          "expr": "max by (routine) (flotilla_spend_day_usd{shadow!=\"1\"})",
           "legendFormat": "{{routine}}",
           "refId": "A",
           "datasource": {
@@ -269,7 +269,7 @@
     {
       "id": 7,
       "type": "logs",
-      "title": "flotillad warnings and errors",
+      "title": "flotillad warnings and errors (live)",
       "description": "flotillad's own JSON log lines at WARN or ERROR: failed runs (with the worker's output tail), refused calls (an agent asking for an operator-only change), push failures.",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
@@ -283,7 +283,7 @@
       },
       "targets": [
         {
-          "expr": "{service=\"flotillad\"} level:~\"WARN|ERROR\"",
+          "expr": "{service=\"flotillad\"} level:~\"WARN|ERROR\" -shadow:true",
           "refId": "A",
           "datasource": {
             "type": "victoriametrics-logs-datasource",
@@ -333,7 +333,7 @@
     {
       "id": 9,
       "type": "logs",
-      "title": "Runs in the triage worker",
+      "title": "Runs in the triage worker (live)",
       "description": "The worker's start and end line for every run (routine, run id, status, duration, spend). A run's full output is in the same stream (\"run output\" lines, by run_id).",
       "datasource": {
         "type": "victoriametrics-logs-datasource",
@@ -347,7 +347,193 @@
       },
       "targets": [
         {
-          "expr": "{service=\"flotilla-worker-triage\"} msg:~\"^run (start|end)$\"",
+          "expr": "{service=\"flotilla-worker-triage\"} msg:~\"^run (start|end)$\" -shadow:true",
+          "refId": "A",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Shadow runs (flotilla v2 candidates; never alarm)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Runs per hour, by routine and status (shadow)",
+      "description": "count_over_time(flotilla_run[1h]): one sample per run. ok, error, timeout, skipped (STOP, pause or budget; the reason is in `flotilla runs`), interrupted (flotillad restarted during the run).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      },
+      "targets": [
+        {
+          "expr": "sum by (routine, status) (count_over_time(flotilla_run{shadow=\"1\"}[1h]))",
+          "legendFormat": "{{routine}} {{status}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 60
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Run duration (shadow)",
+      "description": "flotilla_run_seconds per routine: how long each run took in its worker. A triage cycle that triages nothing new takes ~15 s; one with model calls takes minutes (timeout 20m).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "targets": [
+        {
+          "expr": "max by (routine) (flotilla_run_seconds{shadow=\"1\"})",
+          "legendFormat": "{{routine}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "points",
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Spend today, per routine (shadow)",
+      "description": "flotilla_spend_day_usd: the routine's model spend so far on its local day, as the routine reported it. flotillad skips the routine's runs once this reaches its daily budget.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 51
+      },
+      "targets": [
+        {
+          "expr": "max by (routine) (flotilla_spend_day_usd{shadow=\"1\"})",
+          "legendFormat": "{{routine}}",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 14,
+      "type": "logs",
+      "title": "flotillad warnings and errors (shadow)",
+      "description": "flotillad's own JSON log lines at WARN or ERROR: failed runs (with the worker's output tail), refused calls (an agent asking for an operator-only change), push failures.",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "targets": [
+        {
+          "expr": "{service=\"flotillad\"} level:~\"WARN|ERROR\" shadow:true",
+          "refId": "A",
+          "datasource": {
+            "type": "victoriametrics-logs-datasource",
+            "uid": "victorialogs"
+          }
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    },
+    {
+      "id": 15,
+      "type": "logs",
+      "title": "Runs in the triage worker (shadow)",
+      "description": "The worker's start and end line for every run (routine, run id, status, duration, spend). A run's full output is in the same stream (\"run output\" lines, by run_id).",
+      "datasource": {
+        "type": "victoriametrics-logs-datasource",
+        "uid": "victorialogs"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 66
+      },
+      "targets": [
+        {
+          "expr": "{service=\"flotilla-worker-triage\"} msg:~\"^run (start|end)$\" shadow:true",
           "refId": "A",
           "datasource": {
             "type": "victoriametrics-logs-datasource",

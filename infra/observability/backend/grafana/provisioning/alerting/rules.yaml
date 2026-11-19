@@ -1368,6 +1368,7 @@ groups:
       # A routine is stale when its last ok run is older than the freshness its spec declares
       # (flotilla_routine_freshness_seconds, pushed per routine), or it has none in a day. platform/heartbeat
       # stale = the platform is broken whatever the fleets say. 10m grace covers a deploy.
+      # shadow!="1": a flotilla v2 shadow run must never alarm. Shadows send neither series (flotilla, 2026-11-19); the label filter is a second guard.
       - uid: flotilla-routine-stale
         title: "flotilla routine stale (no ok run within its freshness)"
         condition: threshold
@@ -1381,7 +1382,7 @@ groups:
             relativeTimeRange: { from: 86400, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: '((time() - max by (routine) (last_over_time(flotilla_routine_last_success_timestamp_seconds[1d]))) > max by (routine) (last_over_time(flotilla_routine_freshness_seconds[10m]))) or (max by (routine) (last_over_time(flotilla_routine_freshness_seconds[10m])) unless on (routine) max by (routine) (last_over_time(flotilla_routine_last_success_timestamp_seconds[1d])))'
+              expr: '((time() - max by (routine) (last_over_time(flotilla_routine_last_success_timestamp_seconds{shadow!="1"}[1d]))) > max by (routine) (last_over_time(flotilla_routine_freshness_seconds{shadow!="1"}[10m]))) or (max by (routine) (last_over_time(flotilla_routine_freshness_seconds{shadow!="1"}[10m])) unless on (routine) max by (routine) (last_over_time(flotilla_routine_last_success_timestamp_seconds{shadow!="1"}[1d])))'
               instant: true
               queryType: instant
           - refId: threshold
