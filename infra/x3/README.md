@@ -20,3 +20,6 @@ the harness's other models; the GPU memory rule is in `AGENTS.md`.
 
 The LiteLLM alias `assistant` on the mini sends to this model first and falls back to
 `assistant-cloud` (the same model on OpenRouter) when the X3 does not answer.
+
+Using it from a coding harness (Claude Code as an external model, opencode): what works, what does not,
+and the tested setup are in [`docs/recipes/local-models-in-harnesses.md`](../../docs/recipes/local-models-in-harnesses.md).

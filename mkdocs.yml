@@ -96,7 +96,8 @@ nav:
     - Consuming homelab services (${VAR} substitution): recipes/consuming-homelab-services.md
     - Token management (lean-ctx): recipes/token-management-lean-ctx-rtk.md
     - Chrome DevTools MCP agent loop: recipes/chrome-devtools-mcp-agent-loop.md
-    - X3 deploy (the assistant and the collector): recipes/x3-deploy.md
+    - X3 deploy (Ollama and the collector): recipes/x3-deploy.md
+    - Local models in coding harnesses: recipes/local-models-in-harnesses.md
     - X3 storage separation (one-time migration): recipes/x3-storage-separation.md
     - X3 storage safety-copy retirement: recipes/x3-storage-safety-copy-retirement.md
   - Reading:
