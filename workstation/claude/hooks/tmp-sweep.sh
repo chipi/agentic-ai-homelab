@@ -2,7 +2,8 @@
 # tmp-sweep.sh — remove what agents and test runs leave in /tmp (the workstation's /tmp is a tmpfs
 # with a fixed inode count; it filled to 97% on 2026-11-11 and new files failed).
 #
-#   tmp-sweep.sh --session <session-id>   that session's scratchpad: /tmp/claude-<uid>/<project>/<id>
+#   tmp-sweep.sh --session <session-id>   that session's scratchpad: /tmp/claude-<uid>/<project>/<id>,
+#                                         and its TMPDIR ~/.cache/agent-tmp/<id> (session-tmpdir.sh)
 #                                         (session-reap.sh calls it at SessionEnd)
 #   tmp-sweep.sh --daily                  older than TMP_SWEEP_MAX_AGE_H (default 48 h), per path:
 #                                         - /tmp/pytest-of-<user>/pytest-N, except the 3 newest and
@@ -13,6 +14,10 @@
 #                                           (a session that ended without the hook), except in a
 #                                           project where a live Claude holds no scratchpad open
 #                                         - loose files directly in /tmp/claude-<uid>
+#                                         - session TMPDIRs ~/.cache/agent-tmp/<uuid> (a session that
+#                                           ended without the hook)
+#                                         - /tmp/tmpXXXXXXXX (Python tempfile) and /tmp/tmp.XXXXXXXXXX
+#                                           (mktemp) left by test runs (~60,000 on 2026-11-19)
 #
 # SAFETY — every removal needs all of: owned by this user; the newest file in it older than the
 # age floor (--daily); no process has its cwd or an open file inside it, except the processes
@@ -24,12 +29,21 @@
 # Env: TMP_SWEEP_DRY_RUN=1 -> print and log, remove nothing.
 #      TMP_SWEEP_MAX_AGE_H -> the age floor in hours for --daily (default 48).
 #      TMP_SWEEP_ROOT      -> the /tmp to sweep (tests).
+#      AGENT_TMP_ROOT      -> the per-session TMPDIR parent (default ~/.cache/agent-tmp).
 set -u
 cd / || exit 0   # its own subshells must not sit in a folder it judges (they inherit the cwd)
 ROOT="${TMP_SWEEP_ROOT:-/tmp}"
 ROOT="${ROOT%/}"
 UIDN="$(id -u)"; ME="$(id -un)"
 CROOT="$ROOT/claude-$UIDN"
+# Claude Code puts its scratchpads under $CLAUDE_CODE_TMPDIR/claude-<uid> when that is set (the
+# workstation template sets ~/.cache/claude-tmp since 2026-11-19); sessions started before keep
+# /tmp/claude-<uid>. Both are swept. TMP_SWEEP_CLAUDE_TMPDIR overrides (tests).
+CTMP="${TMP_SWEEP_CLAUDE_TMPDIR:-${CLAUDE_CODE_TMPDIR:-$HOME/.cache/claude-tmp}}"
+CROOTS="$CROOT"
+[ "${CTMP%/}/claude-$UIDN" = "$CROOT" ] || CROOTS="$CROOT ${CTMP%/}/claude-$UIDN"
+AROOT="${AGENT_TMP_ROOT:-$HOME/.cache/agent-tmp}"
+AROOT="${AROOT%/}"
 DRY="${TMP_SWEEP_DRY_RUN:-0}"
 MAXH="${TMP_SWEEP_MAX_AGE_H:-48}"
 LOG="$HOME/.claude/hooks/tmp-sweep.log"
@@ -70,7 +84,11 @@ held_projects() {
     pid="${d#/proc/}"
     [ -O "$d" ] && [ "$(cat "$d/comm" 2>/dev/null)" = claude ] || continue
     holds=0
-    for f in "$d"/fd/*; do case "$(readlink "$f" 2>/dev/null)" in "$CROOT"/*) holds=1; break ;; esac; done
+    for f in "$d"/fd/*; do
+      t="$(readlink "$f" 2>/dev/null)"
+      for r in $CROOTS; do case "$t" in "$r"/*) holds=1 ;; esac; done
+      [ "$holds" = 1 ] && break
+    done
     [ "$holds" = 1 ] && continue
     cwd="$(readlink "$d/cwd" 2>/dev/null)" || continue
     printf '%s\n' "${cwd//[^[:alnum:]]/-}"
@@ -96,9 +114,11 @@ case "${1:-}" in
     id="${2:-}"
     [[ "$id" =~ $UUID_RE ]] || { echo "$ts SKIP session id not a uuid: '$id'" >>"$LOG"; exit 0; }
     OPEN="$(open_paths)"
-    for d in "$CROOT"/*/"$id"; do
+    for d in $(for r in $CROOTS; do printf '%s\n' "$r"/*/"$id"; done); do
       [ -d "$d" ] && [ ! -L "$d" ] && remove "$d" "session ended"
     done
+    d="$AROOT/$id"
+    [ -d "$d" ] && [ ! -L "$d" ] && remove "$d" "session ended, TMPDIR"
     ;;
   --daily)
     OPEN="$(open_paths)"
@@ -118,7 +138,7 @@ case "${1:-}" in
       [ "$(age_h "$d")" -ge "$MAXH" ] && remove "$d" "test leftover, $(age_h "$d") h"
     done
     HELD="$(held_projects)"
-    for d in "$CROOT"/*/*; do
+    for d in $(for r in $CROOTS; do printf '%s\n' "$r"/*/*; done); do
       [ -d "$d" ] && [ ! -L "$d" ] || continue
       [[ "$(basename "$d")" =~ $UUID_RE ]] || continue
       proj="$(basename "$(dirname "$d")")"
@@ -127,9 +147,19 @@ case "${1:-}" in
       fi
       [ "$(age_h "$d")" -ge "$MAXH" ] && remove "$d" "session scratchpad, $(age_h "$d") h"
     done
-    for f in "$CROOT"/*; do
+    for f in $(for r in $CROOTS; do printf '%s\n' "$r"/*; done); do
       [ -f "$f" ] && [ ! -L "$f" ] || continue
       [ "$(age_h "$f")" -ge "$MAXH" ] && remove "$f" "loose file, $(age_h "$f") h"
+    done
+    for d in "$AROOT"/*; do
+      [ -d "$d" ] && [ ! -L "$d" ] || continue
+      [[ "$(basename "$d")" =~ $UUID_RE ]] || continue
+      [ "$(age_h "$d")" -ge "$MAXH" ] && remove "$d" "session TMPDIR, $(age_h "$d") h"
+    done
+    for d in "$ROOT"/tmp*; do
+      [ -e "$d" ] && [ ! -L "$d" ] || continue
+      [[ "$(basename "$d")" =~ ^tmp([a-z0-9_]{8}|\.[A-Za-z0-9]{10})$ ]] || continue
+      [ "$(age_h "$d")" -ge "$MAXH" ] && remove "$d" "tempfile leftover, $(age_h "$d") h"
     done
     ;;
   *) echo "usage: tmp-sweep.sh --session <id> | --daily" >&2; exit 2 ;;

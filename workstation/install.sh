@@ -57,13 +57,16 @@ link() {  # link <workstation-relative or absolute src> <absolute-home-target>
 # Add the template's ~/.claude/hooks/* entries to an existing settings.json
 # (e.g. one written by `lean-ctx setup`). A hook whose command is already
 # present is left alone. Each template `env` key the file lacks is added; a key
-# the host already sets keeps its value. Nothing else in the file changes.
+# the host already sets keeps its value; "$HOME" in a template env value becomes this machine's
+# home (settings env values are not shell-expanded). Nothing else in the file changes.
 HOOK_MERGE='reduce ($t[0].hooks | to_entries[] | .key as $e | .value[] | .matcher as $m
                    | .hooks[] | select(.command | contains("/.claude/hooks/"))
                    | {e: $e, m: $m, h: .}) as $x (.;
   if any(.hooks[$x.e][]?.hooks[]?; .command == $x.h.command) then .
   else .hooks[$x.e] += [{matcher: $x.m, hooks: [$x.h]}] end)
-  | if ($t[0].env // {}) == {} then . else .env = ($t[0].env + (.env // {})) end'
+  | if ($t[0].env // {}) == {} then . else
+      .env = (($t[0].env | map_values(if type == "string" then gsub("\\$HOME"; $home) else . end))
+              + (.env // {})) end'
 
 SETTINGS="$HOME/.claude/settings.json"
 SETTINGS_MERGED=""
@@ -78,7 +81,7 @@ preflight() {
   [ -f "$SETTINGS" ] || return 0   # fresh machine: the template copy brings the hooks
   jq -e 'type == "object"' "$SETTINGS" >/dev/null 2>&1 \
     || die "$SETTINGS is not valid settings JSON (expected an object); fix it and re-run"
-  SETTINGS_MERGED="$(jq --slurpfile t "$WS/claude/settings.json.example" "$HOOK_MERGE" "$SETTINGS" 2>/dev/null)" \
+  SETTINGS_MERGED="$(jq --arg home "$HOME" --slurpfile t "$WS/claude/settings.json.example" "$HOOK_MERGE" "$SETTINGS" 2>/dev/null)" \
     || die "$SETTINGS is not valid settings JSON; fix it and re-run"
 }
 

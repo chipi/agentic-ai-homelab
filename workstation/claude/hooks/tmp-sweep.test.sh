@@ -15,7 +15,7 @@ cleanup() {   # stop only processes whose cwd is under this scratch dir
 trap cleanup EXIT
 pass=0; fail=0
 chk() { if eval "$2"; then echo "  ok   $1"; pass=$((pass+1)); else echo "  FAIL $1"; fail=$((fail+1)); fi; }
-export HOME="$T/home" TMP_SWEEP_ROOT="$T/tmp"; mkdir -p "$HOME"
+export HOME="$T/home" TMP_SWEEP_ROOT="$T/tmp" TMP_SWEEP_CLAUDE_TMPDIR="$T/ctmp" AGENT_TMP_ROOT="$T/home/.cache/agent-tmp"; mkdir -p "$HOME"
 U="$(id -u)"; ME="$(id -un)"; C="$T/tmp/claude-$U"
 S1=11111111-2222-3333-4444-555555555555; S2=66666666-7777-8888-9999-000000000000
 old() { touch -d '5 days ago' "$1"; find "$1" -exec touch -d '5 days ago' {} +; }
@@ -85,6 +85,48 @@ mk "$C/-work-d/$S1"
 printf '{"session_id":"%s"}' "$S1" | (cd "$R" && SESSION_REAP_NO_TMP_SWEEP=1 SESSION_REAP_NO_LOOP_SWEEP=1 \
   SESSION_REAP_NO_WATCH_SWEEP=1 bash "$HERE/session-reap.sh" "$R" >/dev/null 2>&1)
 chk "SESSION_REAP_NO_TMP_SWEEP=1 keeps it" "[ -d '$C/-work-d/$S1' ]"
+
+echo "== per-session TMPDIRs (~/.cache/agent-tmp, session-tmpdir.sh) and /tmp/tmp* leftovers"
+A="$HOME/.cache/agent-tmp"
+mk "$A/$S1/pytest-of-$ME/pytest-1"; mk "$A/$S2"
+sweep --session "$S1"
+chk "--session removes the session's TMPDIR" "[ ! -e '$A/$S1' ]"
+chk "--session leaves another session's TMPDIR" "[ -d '$A/$S2' ]"
+S3=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee; S4=12345678-1234-1234-1234-123456789abc
+mk "$A/$S3"; old "$A/$S3"; mk "$A/$S4"; old "$A/$S4"; mk "$A/notes"; old "$A/notes"
+(cd "$A/$S4" && setsid -f sleep 300 </dev/null >/dev/null 2>&1)
+mk "$T/tmp/tmpab12cd_9"; old "$T/tmp/tmpab12cd_9"
+mk "$T/tmp/tmp.AbCdEf1234"; old "$T/tmp/tmp.AbCdEf1234"
+mk "$T/tmp/tmpzz99yy88"
+echo x > "$T/tmp/tmpq1w2e3r4"; old "$T/tmp/tmpq1w2e3r4"
+mk "$T/tmp/tmux-1000"; old "$T/tmp/tmux-1000"; mk "$T/tmp/tmp-keepme"; old "$T/tmp/tmp-keepme"
+mk "$T/tmp/tmp1234567"; old "$T/tmp/tmp1234567"
+sleep 0.3; sweep --daily
+chk "an old session TMPDIR goes" "[ ! -e '$A/$S3' ]"
+chk "an old session TMPDIR a process works in stays" "[ -d '$A/$S4' ]"
+chk "a young session TMPDIR (a live session's) stays" "[ -d '$A/$S2' ]"
+chk "a non-uuid folder under agent-tmp stays" "[ -d '$A/notes' ]"
+chk "an old Python tempfile folder goes" "[ ! -e '$T/tmp/tmpab12cd_9' ]"
+chk "an old mktemp folder goes" "[ ! -e '$T/tmp/tmp.AbCdEf1234' ]"
+chk "an old Python tempfile file goes" "[ ! -e '$T/tmp/tmpq1w2e3r4' ]"
+chk "a young tempfile folder stays" "[ -d '$T/tmp/tmpzz99yy88' ]"
+chk "names that only start with tmp stay (tmux-1000, tmp-keepme, 7 characters)" \
+  "[ -d '$T/tmp/tmux-1000' ] && [ -d '$T/tmp/tmp-keepme' ] && [ -d '$T/tmp/tmp1234567' ]"
+
+echo "== scratchpads under CLAUDE_CODE_TMPDIR (~/.cache/claude-tmp/claude-<uid>), beside /tmp/claude-<uid>"
+C2="$T/ctmp/claude-$U"
+mk "$C2/-work-e/$S1/scratchpad"; mk "$C/-work-e/$S1"; mk "$C2/-work-e/$S2"
+sweep --session "$S1"
+chk "--session removes the session's scratchpad under the new root" "[ ! -e '$C2/-work-e/$S1' ]"
+chk "--session still removes one under /tmp/claude-<uid> (sessions started before)" "[ ! -e '$C/-work-e/$S1' ]"
+chk "--session leaves another session's scratchpad under the new root" "[ -d '$C2/-work-e/$S2' ]"
+mk "$C2/-work-f/$S3"; old "$C2/-work-f/$S3"; mk "$C2/-work-f/$S4"
+echo x > "$C2/old-loose.txt"; old "$C2/old-loose.txt"; mk "$C2/bash-edit-diff"; old "$C2/bash-edit-diff"
+sweep --daily
+chk "--daily removes an old scratchpad under the new root" "[ ! -e '$C2/-work-f/$S3' ]"
+chk "--daily keeps a young one under the new root" "[ -d '$C2/-work-f/$S4' ]"
+chk "--daily removes an old loose file under the new root, keeps Claude Code's folders" \
+  "[ ! -e '$C2/old-loose.txt' ] && [ -d '$C2/bash-edit-diff' ]"
 
 echo; echo "RESULT: pass=$pass fail=$fail"
 [ "$fail" = 0 ]

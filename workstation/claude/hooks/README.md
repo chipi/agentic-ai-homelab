@@ -163,21 +163,39 @@ negatives (live parent, file still there, other family, prefix-sharing project).
 
 ---
 
-## tmp-sweep.sh — what agents and test runs leave in /tmp (Linux)
+## Agent temp files off /tmp (Linux): session-tmpdir.sh, CLAUDE_CODE_TMPDIR, tmp-sweep.sh
 
-The workstation's `/tmp` is a 63 G tmpfs with a fixed 1,048,576 inodes. On 2026-11-11 it reached
-97 % and new files failed, Claude's own tool output included. Nothing deleted agent scratchpads,
-`pytest-of-<user>` folders beyond pytest's own pruning, or the `TemporaryDirectory` folders of
-killed test runs.
+The workstation's `/tmp` is a 63 G tmpfs with a fixed 1,048,576 inodes shared by every session. On
+2026-11-11 it reached 97 %; on 2026-11-19 ~17:50 CET it reached 100 % (with 35 G free) and every
+session's commands failed with "No space left on device". The bulk was test runs: ~60,000
+`/tmp/tmp*` folders (Python `tempfile`), `/tmp/pytest-of-<user>` (pytest's default basetemp, named
+after the Linux user), repo copies and hand-picked folders in session scratchpads. Since
+2026-11-19 nothing an agent writes by default lands in `/tmp`:
+
+- **Each session's own `TMPDIR`.** The SessionStart hook `session-tmpdir.sh` makes
+  `~/.cache/agent-tmp/<session id>` (mode 700, the home disk, outside any git worktree) and exports
+  `TMPDIR` to it through `CLAUDE_ENV_FILE`, so every command the session runs gets it. Python's
+  `tempfile`, `mktemp` and pytest's default basetemp follow it. A tool that hardcodes `/tmp` does not.
+- **Claude Code's own scratchpads.** `CLAUDE_CODE_TMPDIR=$HOME/.cache/claude-tmp` in the settings
+  `env` block (the template; `install.sh` writes the machine's real home, since settings env values
+  are not shell-expanded) moves `claude-<uid>/<project>/<id>` there. Sessions started before keep
+  `/tmp/claude-<uid>` until they restart.
+- **pytest's folder name.** Even under a session `TMPDIR`, pytest names its default folder
+  `pytest-of-<user>`. To keep the operator's name out, a test script passes its own
+  `--basetemp`, a fresh folder per run (pytest wipes a reused one at start).
+
+**Cleanup**, by `tmp-sweep.sh` (log `~/.claude/hooks/tmp-sweep.log`):
 
 - **At SessionEnd**, `session-reap.sh` reads `session_id` from the hook's stdin JSON and runs
-  `tmp-sweep.sh --session <id>`: that session's scratchpad `/tmp/claude-<uid>/<project>/<id>` goes.
-  `SESSION_REAP_NO_TMP_SWEEP=1` keeps it.
+  `tmp-sweep.sh --session <id>`: that session's scratchpad (under `/tmp/claude-<uid>` and under
+  `$CLAUDE_CODE_TMPDIR/claude-<uid>`) and its `~/.cache/agent-tmp/<id>` go.
+  `SESSION_REAP_NO_TMP_SWEEP=1` keeps them.
 - **Daily**, the user timer `claude-tmp-sweep.timer` (`workstation/claude/systemd/`, installed by
   `install.sh` on Linux) runs `tmp-sweep.sh --daily`. It removes anything older than
   `TMP_SWEEP_MAX_AGE_H` (48 h): old `pytest-N` folders (never the 3 newest or `pytest-current`),
-  `/tmp/*-tests-*` folders, scratchpads of sessions that ended without the hook, and loose files
-  directly in `/tmp/claude-<uid>`.
+  `/tmp/*-tests-*` folders, `/tmp/tmpXXXXXXXX` (Python) and `/tmp/tmp.XXXXXXXXXX` (mktemp)
+  leftovers, scratchpads and session `TMPDIR`s of sessions that ended without the hook, and loose
+  files directly in either `claude-<uid>` folder.
 
 **Gates, all of them:** owned by this user; no process has its cwd or an open file inside, except
 the processes that called the sweep (at SessionEnd the ending Claude still holds its own files); a
@@ -185,10 +203,18 @@ session id of uuid shape; Claude Code's own folders (`bash-edit-diff`, `bundled-
 touched. A live Claude normally holds its scratchpad's `tasks/` open. One that holds none (4 of 18
 on 2026-11-11) cannot be matched to a scratchpad, so every scratchpad of its project folder (its cwd
 with each non-alphanumeric character as `-`) is kept. `TMP_SWEEP_DRY_RUN=1` lists without removing.
-The log is `~/.claude/hooks/tmp-sweep.log`.
 
-Tests: `bash workstation/claude/hooks/tmp-sweep.test.sh` (23 checks in a scratch `/tmp`, including
-an id like `../<project>` and a fake live `claude`).
+**Proven 2026-11-19** with the live settings: headless sessions' `tempfile.mkdtemp()` landed in
+their own `~/.cache/agent-tmp/<id>/`, none in `/tmp`; the scratchpad was created under
+`~/.cache/claude-tmp/claude-1000/`; at SessionEnd the log showed `REMOVE (session ended)` for the
+scratchpad and `REMOVE (session ended, TMPDIR)` for the session folder.
+
+**Not covered:** opencode (not done; whether it can give each session its own TMPDIR is not checked, so its sessions keep `/tmp`), and any tool
+that writes to `/tmp` by hard-coded path.
+
+Tests: `bash workstation/claude/hooks/tmp-sweep.test.sh` (40 checks in a scratch `/tmp` and home,
+including an id like `../<project>`, a fake live `claude`, names that only start with `tmp`, and
+both scratchpad roots) and `bash workstation/claude/hooks/session-tmpdir.test.sh` (10 checks).
 
 ---
 

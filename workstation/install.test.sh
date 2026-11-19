@@ -295,16 +295,17 @@ chk "a directory without SKILL.md under skills/ is not linked" \
 rm -rf "$NS"
 
 echo "== settings.json: template env keys merged, host keys kept"
-TENV="$(jq -c '.env' "$HERE/claude/settings.json.example")"
+TENV_RAW="$(jq -c '.env' "$HERE/claude/settings.json.example")"
 setj() { mkdir -p "$H/.claude"; printf '%s\n' "$1" > "$H/.claude/settings.json"; chmod 600 "$H/.claude/settings.json"; }
 envj() { jq -c '.env' "$H/.claude/settings.json"; }
 home env-add "$BASE"; setj '{"model":"opus","hooks":{}}'; run
+TENV="$(printf '%s' "$TENV_RAW" | jq -c --arg home "$H" 'map_values(if type == "string" then gsub("\\$HOME"; $home) else . end)')"
 chk "no env block: every template env key added, other keys kept, backup made, ENV line printed" \
   "[ $(rc) = 0 ] && [ \"\$(envj)\" = '$TENV' ] && [ \"\$(jq -r .model '$H/.claude/settings.json')\" = opus ] && ls '$H'/.claude/settings.json.bak.* >/dev/null 2>&1 && grep -q '^ENV   add to .*CLAUDE_CODE_SUBAGENT_MODEL' '$H.out' && [ \"\$(stat -c %a '$H/.claude/settings.json')\" = 600 ]"
 run
 chk "rerun: already wired, no second backup" \
   "[ $(rc) = 0 ] && grep -q '^OK    hooks and env already wired' '$H.out' && [ \$(ls '$H'/.claude/settings.json.bak.* | wc -l) = 1 ]"
-home env-keep "$BASE"; setj '{"env":{"CLAUDE_CODE_SUBAGENT_MODEL":"haiku","OTHER":"1"}}'; run
+home env-keep "$BASE"; setj '{"env":{"CLAUDE_CODE_SUBAGENT_MODEL":"haiku","CLAUDE_CODE_TMPDIR":"/elsewhere","OTHER":"1"}}'; run
 chk "a key the host already sets keeps its value; the host's other env keys stay" \
   "[ $(rc) = 0 ] && [ \"\$(jq -r .env.CLAUDE_CODE_SUBAGENT_MODEL '$H/.claude/settings.json')\" = haiku ] && [ \"\$(jq -r .env.OTHER '$H/.claude/settings.json')\" = 1 ] && ! grep -q '^ENV ' '$H.out'"
 home env-dry "$BASE"; setj '{"model":"opus"}'; before=$(md5sum < "$H/.claude/settings.json"); run --dry-run

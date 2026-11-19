@@ -99,6 +99,11 @@
             "type": "command",
             "command": "$HOME/.claude/hooks/session-orphan-report.sh",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/session-tmpdir.sh",
+            "timeout": 10
           }
         ]
       },
@@ -165,6 +170,7 @@
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
   "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet",
+    "CLAUDE_CODE_TMPDIR": "$HOME/.cache/claude-tmp"
   }
 }
