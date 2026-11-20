@@ -188,6 +188,24 @@ model_list:
       input_cost_per_token: 0
       output_cost_per_token: 0
 
+  # The DGX's coder-next (Qwen3-Coder-Next-FP8 on vLLM :9000), up only while gpu-mode-swap.sh is in
+  # `code` mode (operator, 2026-11-20: code mode is for coding agents on the X3). Reached by tailnet
+  # address (the container cannot resolve dgx-llm-1); needs the chipi/infra ACL grant
+  # tag:homelab-host -> tag:dgx-llm-host:9000. Through this gateway coding harnesses that speak the
+  # Anthropic API (Claude Code) reach it: vLLM 0.11 has no /v1/messages of its own (404). $0.
+  # Added live through /model/new; this entry is the same, for the next restart.
+  - model_name: dgx-coder-next
+    litellm_params:
+      model: hosted_vllm/Qwen/Qwen3-Coder-Next-FP8
+      api_base: http://100.69.49.126:9000/v1
+      api_key: os.environ/DGX_CODER_NEXT_API_KEY
+      timeout: 600
+    model_info:
+      mode: chat
+      max_input_tokens: 131072
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
   # ── Orrery Physics Lab /ask (dev path — mirrors the prod gateway's alias;
   # same DEDICATED OpenRouter key on both, operator 2026-09-06) ──
   - model_name: orrery-ask
