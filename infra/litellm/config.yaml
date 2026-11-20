@@ -206,6 +206,148 @@ model_list:
       input_cost_per_token: 0
       output_cost_per_token: 0
 
+  # ── harness-bakeoff (chipi/harness-bakeoff; operator's go 2026-11-20) ──────
+  # The coding-harness bake-off's contenders: Claude Code on the X3 (and inside Harbor's task
+  # containers) calls these through this gateway's Anthropic endpoint, so every call is in one
+  # place, priced, and traced (Langfuse project harness-bakeoff, via the key's metadata).
+  # The operator's own coding keys (*_API_KEY_BAKEOFF); ONLY the harness-bakeoff virtual key may
+  # call these models. Each forwards to the provider's own Anthropic-compatible endpoint, the
+  # same one the direct smoke used. Prices: provider list prices fetched 2026-11-20 (Kimi from
+  # third-party listings: its page did not render; k2.7-code-highspeed priced as k2.7-code,
+  # unverified). Qwen is on a token plan, priced at list for comparison. Added live via /model/new.
+  - model_name: bakeoff-deepseek-flash
+    litellm_params:
+      model: anthropic/deepseek-flash
+      api_base: https://api.deepseek.com/anthropic
+      api_key: os.environ/DEEPSEEK_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.15e-6
+      output_cost_per_token: 0.6e-6
+      cache_read_input_token_cost: 0.003e-6
+  - model_name: bakeoff-deepseek-v4-pro
+    litellm_params:
+      model: anthropic/deepseek-v4-pro
+      api_base: https://api.deepseek.com/anthropic
+      api_key: os.environ/DEEPSEEK_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.66e-6
+      output_cost_per_token: 1.98e-6
+      cache_read_input_token_cost: 0.022e-6
+  - model_name: bakeoff-kimi-k27-code-highspeed
+    litellm_params:
+      model: anthropic/kimi-k2.7-code-highspeed
+      api_base: https://api.moonshot.ai/anthropic
+      api_key: os.environ/MOONSHOT_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.95e-6
+      output_cost_per_token: 4.0e-6
+      cache_read_input_token_cost: 0.19e-6
+  - model_name: bakeoff-kimi-k27-code
+    litellm_params:
+      model: anthropic/kimi-k2.7-code
+      api_base: https://api.moonshot.ai/anthropic
+      api_key: os.environ/MOONSHOT_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.95e-6
+      output_cost_per_token: 4.0e-6
+      cache_read_input_token_cost: 0.19e-6
+  - model_name: bakeoff-kimi-k31-pro
+    litellm_params:
+      model: anthropic/kimi-k3.1-pro
+      api_base: https://api.moonshot.ai/anthropic
+      api_key: os.environ/MOONSHOT_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 2.0e-6
+      output_cost_per_token: 10.0e-6
+      cache_read_input_token_cost: 0.2e-6
+  - model_name: bakeoff-glm-53-flash
+    litellm_params:
+      model: anthropic/glm-5.3-flash
+      api_base: https://api.z.ai/api/anthropic
+      api_key: os.environ/ZAI_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.15e-6
+      output_cost_per_token: 0.5e-6
+      cache_read_input_token_cost: 0.03e-6
+  - model_name: bakeoff-glm-52
+    litellm_params:
+      model: anthropic/glm-5.2
+      api_base: https://api.z.ai/api/anthropic
+      api_key: os.environ/ZAI_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 1.4e-6
+      output_cost_per_token: 4.4e-6
+      cache_read_input_token_cost: 0.26e-6
+  - model_name: bakeoff-glm-53
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_base: https://api.z.ai/api/anthropic
+      api_key: os.environ/ZAI_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 1.4e-6
+      output_cost_per_token: 4.4e-6
+      cache_read_input_token_cost: 0.26e-6
+  - model_name: bakeoff-qwen38-flash
+    litellm_params:
+      model: anthropic/qwen3.8-flash
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      api_key: os.environ/DASHSCOPE_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.15e-6
+      output_cost_per_token: 0.47e-6
+      cache_read_input_token_cost: 0.15e-6
+  - model_name: bakeoff-qwen37-plus
+    litellm_params:
+      model: anthropic/qwen3.7-plus
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      api_key: os.environ/DASHSCOPE_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.4e-6
+      output_cost_per_token: 1.6e-6
+      cache_read_input_token_cost: 0.4e-6
+  - model_name: bakeoff-qwen4-max
+    litellm_params:
+      model: anthropic/qwen4-max
+      api_base: https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic
+      api_key: os.environ/DASHSCOPE_API_KEY_BAKEOFF
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 1.5e-6
+      output_cost_per_token: 4.5e-6
+      cache_read_input_token_cost: 0.075e-6
+  - model_name: bakeoff-x3-qwen3-30b
+    litellm_params:
+      model: anthropic/qwen3:30b-a3b-instruct-2507-q4_K_M
+      api_base: http://100.92.54.65:11435
+      api_key: ollama
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 0e-6
+      output_cost_per_token: 0e-6
+      cache_read_input_token_cost: 0e-6
+
   # ── Orrery Physics Lab /ask (dev path — mirrors the prod gateway's alias;
   # same DEDICATED OpenRouter key on both, operator 2026-09-06) ──
   - model_name: orrery-ask
