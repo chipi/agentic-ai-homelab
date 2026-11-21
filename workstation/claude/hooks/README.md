@@ -218,6 +218,36 @@ both scratchpad roots) and `bash workstation/claude/hooks/session-tmpdir.test.sh
 
 ---
 
+## command-ask-guard.sh — ask the operator before a push, an issue, a destructive command or an install (PreToolUse)
+
+Makes the "ask first" rules of the global `AGENTS.md` (section 1) deterministic. A shell command that
+pushes, opens a GitHub issue, deletes or prunes destructively, or installs into a shared environment gets
+`permissionDecision: "ask"`. In an interactive session Claude Code asks the operator; in a headless run
+(`claude -p`) it is refused (`permission_denials`). The patterns and what they don't cover are at the top of
+the script.
+
+**Why a hook and not only `permissions.ask`:** `Bash(...)` permission rules match the native Bash tool
+only, and the lean-ctx policy routes agents' commands through `mcp__lean-ctx__ctx_shell`. On 2026-11-21 a
+headless `git push` went through `ctx_shell` while `Bash(git push:*)` was in `permissions.ask`. So the hook's
+matcher names both: `Bash|bash|mcp__lean-ctx__ctx_shell|mcp__lean-ctx__shell|mcp__lean-ctx__ctx_execute`.
+For the same reason, `secrets-guard.sh`'s matcher was widened to the same list; it parses
+`tool_input.command`, which both tools send. The `permissions.ask` rules stay as a second layer for native
+Bash.
+
+**Proven 2026-11-21:**
+
+- `command-ask-guard.test.sh`: 40/40 cases (both tools, compound commands, near misses such as
+  `git status`, `rm -f file`, `npm install`, `docker compose down`).
+- Live, headless:
+  - `git push` through Bash was refused;
+  - `git push` through `ctx_shell` was refused with the guard's reason;
+  - `git status` ran;
+  - the throwaway remote never moved.
+
+**Escape hatch:** `COMMAND_ASK_GUARD=off`. It is the operator's alone; an agent never sets it.
+
+---
+
 ## skill-nudge.py — tell the agent when a skill matches (UserPromptSubmit + PreToolUse Bash)
 
 Skills load by description matching, which an agent deep in a task skips (orrery,

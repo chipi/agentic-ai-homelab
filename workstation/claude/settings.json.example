@@ -15,7 +15,7 @@
         ]
       },
       {
-        "matcher": "Bash|bash",
+        "matcher": "Bash|bash|mcp__lean-ctx__ctx_shell|mcp__lean-ctx__shell|mcp__lean-ctx__ctx_execute",
         "hooks": [
           {
             "type": "command",
@@ -40,6 +40,16 @@
             "type": "command",
             "command": "$HOME/.claude/hooks/subagent-model-guard.sh",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|bash|mcp__lean-ctx__ctx_shell|mcp__lean-ctx__shell|mcp__lean-ctx__ctx_execute",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/command-ask-guard.sh",
+            "timeout": 10
           }
         ]
       }
@@ -151,7 +161,29 @@
     "additionalDirectories": [
       "/tmp"
     ],
-    "allow": []
+    "allow": [],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(gh issue create:*)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(docker system prune:*)",
+      "Bash(docker volume prune:*)",
+      "Bash(docker image prune:*)",
+      "Bash(docker volume rm:*)",
+      "Bash(docker compose down -v:*)",
+      "Bash(terraform apply:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -m pip install:*)",
+      "Bash(uv pip install:*)",
+      "Bash(uv add:*)",
+      "Bash(uv tool install:*)",
+      "Bash(npm install -g:*)",
+      "Bash(npm i -g:*)",
+      "Bash(brew install:*)"
+    ]
   },
   "effortLevel": "high",
   "enabledPlugins": {
