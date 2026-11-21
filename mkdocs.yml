@@ -98,6 +98,7 @@ nav:
     - Chrome DevTools MCP agent loop: recipes/chrome-devtools-mcp-agent-loop.md
     - X3 deploy (Ollama and the collector): recipes/x3-deploy.md
     - Local models in coding harnesses: recipes/local-models-in-harnesses.md
+    - Writing agent instructions (CLAUDE.md, AGENTS.md): recipes/agent-instructions-guide.md
     - X3 storage separation (one-time migration): recipes/x3-storage-separation.md
     - X3 storage safety-copy retirement: recipes/x3-storage-safety-copy-retirement.md
   - Reading:
@@ -145,6 +146,7 @@ nav:
     - eval-harness feedback (fleet): wip/eval-harness-feedback-fleet.md
     - Translation service plan: wip/translation-service-plan.md
     - Service levels build plan: wip/slo-plan.md
+    - Agent instructions refactor plan: wip/agent-instructions-refactor-plan.md
   - History:
     - Overview: history/README.md
     - "0001 — Genesis": history/0001-genesis.md
