@@ -9,6 +9,33 @@ state was last verified against the live system.
 
 ## Decisions waiting on the operator
 
+### X3 maintenance window (reboot + updates), planned for early in the week of 2026-11-23, added 2026-11-21
+
+The operator is travelling; the X3 is not rebooted before then. Until the window, **no `docker commit` /
+`docker build` that writes large new layers on the X3** (robotics-lab is on hold for its commits).
+
+Why: the kernel's fs-verity check refuses corrupted reads of freshly written containerd content-store blobs
+("fs-verity ... FILE CORRUPTED!", blocks reading back as zeros or other data; `input/output error` to Docker).
+68 such kernel lines on 9 files: 2026-11-06, 11-12, 11-13 (each at a `docker build` session's end) and
+11-20/21 (robotics-lab's three `docker commit`s of the same layer). The disk is healthy (operator's checks
+2026-11-21: btrfs device stats all 0; NVMe SMART: no critical warning, 0 media errors, 0 error-log entries).
+The same block read twice gave two different answers (01:38:44), which points at a read-path fault in the
+kernel (btrfs with zstd compression + fs-verity), not the stored data. Not proven. The X3 has run kernel
+7.2.5-3-omarchy, containerd 2.3.5 and docker 29.7.2 since they were installed 2026-09-30, up since 2026-10-02.
+
+- [ ] **In the window, in this order:**
+  1. stop or let finish whatever runs on the X3 (bake-off smokes, flotilla's remote containers, robotics-lab);
+  2. system update (`sudo pacman -Syu`: kernel, containerd, docker, btrfs-progs), read what moved;
+  3. the GPU-memory change below (it needs a restart anyway);
+  4. reboot.
+- [ ] **After the reboot:** robotics-lab retries its `docker commit rl-hostsetup-proof rl-hostsetup-proof:setup`
+      once, with the kernel log watched. check: `journalctl -k --since "-1 hour" | grep -c "FILE CORRUPTED"` = 0.
+- [ ] **If it comes back:** stop btrfs compressing new containerd writes
+      (`sudo btrfs property set /var/lib/containerd compression none`; affects new files only; undo with `zstd`).
+      Untested; it fits the pattern. Then a newer kernel, or an upstream report (similar: Red Hat bug 2399898).
+- [ ] **Keep fs-verity on** (operator, 2026-11-21): it is what caught every one of these; with it off the same
+      reads would land in images silently.
+
 ### From the X3 assistant work (RFC-0008), added 2026-11-04
 
 - [ ] **Pick the chat UI: LibreChat or Open WebUI.** The operator tests both over the coming weeks
