@@ -1526,6 +1526,32 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: gt, params: [600] } }]
+      # x3-host.sh part 4 pushes, every minute, how many storage-error lines this boot's kernel log holds, by
+      # kind. The rule compares now with an hour ago, so a reboot (the count drops) never fires it, and the
+      # first push of a new series (nothing an hour ago) does not either. Not covered: errors in the first
+      # hour after a reboot that stay below the pre-reboot count.
+      - uid: x3-storage-errors
+        title: "X3 storage errors in the kernel log (fs-verity / btrfs / NVMe / block I/O)"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        labels: { severity: warning, kind: infra, host: x3 }
+        annotations:
+          summary: "The X3's kernel logged new storage-error lines in the last hour (x3_storage_kernel_errors, by kind). fsverity = containerd refused a corrupted read of a content-store blob (a docker build/commit fails with input/output error; seen 2026-11-06..21, disk healthy, kernel read-path fault suspected, maintenance window in docs/wip/NEXT_STEPS.md). btrfs / nvme / io = check the disk now. On the X3: journalctl -k --since -2h | grep -E 'FILE CORRUPTED|BTRFS (error|critical)|csum failed|I/O error|nvme'; sudo btrfs device stats /; sudo smartctl -a /dev/nvme0n1."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 3900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(last_over_time(x3_storage_kernel_errors{box="x3"}[5m]) - last_over_time(x3_storage_kernel_errors{box="x3"}[5m] offset 1h)) or vector(0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
       - uid: x3-gpu-memory-full
         title: "X3 GPU memory nearly full (>95% of GTT for 15m)"
         condition: threshold

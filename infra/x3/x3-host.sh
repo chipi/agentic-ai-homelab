@@ -7,7 +7,11 @@
 #      Ollama (the ollama unit, :11435) and its Alloy collector (alloy-research);
 #   3. a size cap on Ollama's log (logrotate is not installed here): over CAP_MB it is copied to
 #      ollama.log.1 and truncated in place. The ollama unit appends (>>), and Alloy's file tail follows a
-#      truncation, so neither needs a restart.
+#      truncation, so neither needs a restart;
+#   4. storage errors in this boot's kernel log, by kind, as x3_storage_kernel_errors{kind=fsverity|btrfs|
+#      nvme|io}: a count since boot (it only grows until a reboot; the alert x3-storage-errors uses increase()).
+#      Nothing else reads the X3's kernel log: fs-verity refused 27 corrupted reads during docker builds on
+#      2026-11-06..13 and nobody saw them until robotics-lab's commits failed on 11-20.
 # Pushes to VictoriaMetrics over the tailnet, as the X3's Alloy does. Each part is best effort: one failing
 # never stops the others.
 set -uo pipefail
@@ -39,3 +43,15 @@ printf 'service_up{box="x3",service="ollama"} %s\nservice_up{box="x3",service="a
 if [ -f "$LOG" ] && [ "$(stat -c %s "$LOG")" -gt $((CAP_MB * 1024 * 1024)) ]; then
   cp -p "$LOG" "$LOG.1" && : > "$LOG"
 fi
+
+# 4. storage errors in this boot's kernel log (one journalctl pass, sorted into kinds by awk). The patterns
+# match none of this boot's normal nvme/BTRFS info lines ("using crc32c checksum algorithm" included).
+journalctl -k -b --no-pager -q \
+  --grep 'fs-verity .*FILE CORRUPTED|BTRFS (error|critical)|csum failed|checksum error|nvme[0-9n]*: .*(I/O error|timeout|resetting controller|Abort status|failed)|blk_update_request|I/O error, dev|Buffer I/O error' \
+  2>/dev/null | awk '
+    /fs-verity .*FILE CORRUPTED/ { f++; next }
+    /BTRFS (error|critical)|csum failed|checksum error/ { b++; next }
+    /nvme[0-9n]*: / { n++; next }
+    { i++ }
+    END { printf "x3_storage_kernel_errors{box=\"x3\",kind=\"fsverity\"} %d\nx3_storage_kernel_errors{box=\"x3\",kind=\"btrfs\"} %d\nx3_storage_kernel_errors{box=\"x3\",kind=\"nvme\"} %d\nx3_storage_kernel_errors{box=\"x3\",kind=\"io\"} %d\n", f, b, n, i }' \
+  | push storage
