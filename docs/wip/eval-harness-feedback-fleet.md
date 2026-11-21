@@ -142,3 +142,19 @@ path and L3's not-scorable count were tried after the fix and work (25 left out;
 variant acts otherwise).
 
 fleet-eval-data pinned to 0ccea92bd (2026-11-12): `evh validate` passes there, V5 included (the dedup pair is a declared guard).
+
+## 2026-11-18: 0.8.0.dev0 at 4b5d8bc17 on a trial branch (G1-G6)
+
+fleet-eval-data branch `evh-080-4b5d8bc17` (a worktree of main, never main; the operator's go). Everything we use
+passed (migrate, validate, the project tests, reads, catalog, charts, the Workbench, dry runs); the findings, ranked:
+
+| # | Where it hurt | What would help | Status |
+|---|---|---|---|
+| 56 | G1: `evh run` labelled our bugfix spend "the system's price table ... the provider sent no bill"; the system has no price table, the figure is the adapter's own (the gateway key's spend, `cost_source: gateway`) | a third basis, "the adapter's figure" | fixed at 5ea87c02e, retested 2026-11-18 (with the harness's own functions, not a paid run) |
+| 57 | G2: UPGRADING made `comparison-show --runs` look like `inspect --runs`, but it takes arm or system ids; with no `--metric` it compared two bugfix systems on `actionable`, not their primary `oracle_pass` | say so; compare on the arms' own primary | note fixed at 5ea87c02e; the metric at 0cb18d24a, retested 2026-11-18. Half ours: repro2 had no silver scoring (re-scored, fleet-eval-data 3d0a7b5). With `--label silver`: repro2 0.000, repro3 0.250, n=2 |
+| 58 | G3: `chart trend --goal triage_orrery` refused with "no baseline versions or closed rounds" while the goal had 4 closed rounds and baseline v1 (triage_cost is computed at read time, never stored) | the true cause, or compute it as the leaderboard does | fixed at 5ea87c02e: draws baseline v1 and r1 at 0.7846 |
+| 59 | G4 (security, small): `catalog-serve` printed the Workbench sign-in URL with the token to stdout, so any captured log held a working token | the link without the token, pointing to `.build/api-token` | fixed at 5ea87c02e; the access log shows `token=<masked>` |
+| 60 | G5: a Makefile target running `evh overview` broke ("unknown command"); the upgrade note listed removed commands but not where they hide | one line naming Makefiles and READMEs | fixed at 5ea87c02e (a grep in UPGRADING); our Makefile now runs `overview-show` |
+| 61 | G6: a migrated baseline printed "promoted 2026-10-31 by before 0.8..." | readable wording for a pre-0.8 promote | fixed at 5ea87c02e: "by nobody recorded (before 0.8.0)" |
+
+fleet-eval-data main stays pinned to e1a7fcf53; the trial branch is pinned to 0cb18d24a (records in its `BETA-080.md`).
