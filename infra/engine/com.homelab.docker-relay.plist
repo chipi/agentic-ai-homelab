@@ -29,13 +29,21 @@
   command kept running (found 2026-10-03; `-i`, or the colima socket directly, were
   unaffected). The daemon closes its side when the command ends, so connections do
   not linger.
+
+  backlog=128: socat's default listen queue is tiny, and macOS refuses a connect()
+  to a full unix-socket queue at once (ECONNREFUSED, which the docker CLI reports as
+  "Cannot connect to the Docker daemon"), before socat ever accepts, so nothing is
+  logged. Measured 2026-11-21 on a scratch socket with these exact options: of 10
+  simultaneous connects 4 were refused, of 20 13, of 40 31; with backlog=128 all of
+  10/20/40 connected (128 is kern.ipc.somaxconn, the cap). flotilla's compose ups had
+  dropped this way in 6 of 7 runs.
 -->
 <plist version="1.0"><dict>
   <key>Label</key><string>com.homelab.docker-relay</string>
   <key>ProgramArguments</key><array>
     <string>/usr/local/bin/socat</string>
     <string>-t</string><string>86400</string>
-    <string>UNIX-LISTEN:/var/run/docker.sock,fork,user=root,group=admin,mode=0660</string>
+    <string>UNIX-LISTEN:/var/run/docker.sock,fork,user=root,group=admin,mode=0660,backlog=128</string>
     <string>UNIX-CONNECT:/var/_dockerhost/.colima/default/docker.sock</string>
   </array>
   <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>

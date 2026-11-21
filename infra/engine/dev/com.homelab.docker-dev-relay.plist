@@ -6,7 +6,8 @@
   engine (ADR-0009). Production is the separate /var/run/docker.sock (root:admin).
   Always loaded: while the dev VM is stopped, connections close immediately (docker
   reports EOF); `devengine status` says why. -t 86400 for the same reason as the
-  production relay (non-interactive `docker exec` was cut at 0.5 s).
+  production relay (non-interactive `docker exec` was cut at 0.5 s), and backlog=128
+  for the same reason too (socat's tiny default queue refused bursts of new connections).
   Installed by infra/mini-dev-engine-setup.sh.
 -->
 <plist version="1.0"><dict>
@@ -14,7 +15,7 @@
   <key>ProgramArguments</key><array>
     <string>/usr/local/bin/socat</string>
     <string>-t</string><string>86400</string>
-    <string>UNIX-LISTEN:/var/run/docker-dev.sock,fork,user=root,group=staff,mode=0660</string>
+    <string>UNIX-LISTEN:/var/run/docker-dev.sock,fork,user=root,group=staff,mode=0660,backlog=128</string>
     <string>UNIX-CONNECT:/var/_dockerdev/.colima/default/docker.sock</string>
   </array>
   <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
