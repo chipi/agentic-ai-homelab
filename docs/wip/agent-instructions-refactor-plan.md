@@ -138,9 +138,53 @@ incidents of record (2026-05-29 prod VPS, 2026-06-15 and 07-20 issues, 07-24 tel
 pre-existing, 08-13 #1618, 08-14 #1619, 08-25 mini cleanup, 09-07 denial). `AGENTS.md` links to it once
 at the top. The truthfulness memory file (`feedback_operator_truthfulness_protocol.md`) stays as it is.
 
+## Step 1 result: `/doctor prompt-audit` (2026-11-21)
+
+Run headless (`claude -p "/doctor prompt-audit"`, 17 turns, Opus 5.5). The full report is on the X3
+at `~/.local/share/agent-instructions/prompt-audit-2026-11-21.md` (mode 600). It is not in this public
+repo because it quotes the private chipi/infra skills. Its findings for the files in this repo:
+
+- **The two always-loaded files contradict each other.**
+  - `CLAUDE.md` says it "never duplicates" `AGENTS.md`, then carries the truthfulness protocol a
+    second time, and that copy has drifted:
+    - two rules labelled `T15`;
+    - the pre-send checklist out of order;
+    - one rule that exists only in the copy ("pre-existing" is banned).
+  - That last rule conflicts with `AGENTS.md` 10, "if unsure whether it's in scope, ask".
+  - The opencode sentence in `CLAUDE.md` is stale: opencode does not load this file yet.
+- **Conflicts inside `AGENTS.md`.**
+  - Rule 23's "I'm 80% confident" example against rule 0.3, which bans confidence numbers.
+  - The lean-ctx edit route: native Read+Edit in `AGENTS.md`, `ctx_read anchored` + `ctx_patch` in
+    `CLAUDE.md`.
+- **Incident narratives** (rules 35, 30, 0.15 and others) and **pressure language** (NON-NEGOTIABLE,
+  NEVER, profanity in 0.11). On Opus 5.5 an alarmed register over-applies; the rules themselves stay.
+- **The skills table** duplicates the harness's own list. It names skills not installed here (cmux,
+  higgsfield, lavish) and omits installed ones.
+- **"Model & effort"** is guidance for the operator, not the agent.
+- **Homelab skills with stale facts:**
+  - `gpu-mode` and `dgx-status` name mode `idle`, which the script now rejects: the mode is `free`,
+    plus `research-vllm`, `research-ollama`, `judging-*` and `robotics`;
+  - `vllm-deploy` uses the ambiguous `research`;
+  - `obs-boot` does not explain the Postgres-exporter and backup FAILs its script raises;
+  - `o11y-dev` pins SHAs;
+  - `fleet-stats` narrates a fixed bug.
+- **Dated "Verified / Tested" blocks** in about 12 homelab skills record past runs and prescribe
+  nothing.
+- **Elsewhere:**
+  - stale facts in five chipi/infra skills, for the infra session;
+  - three vendor or plugin skills, left as they are because updates overwrite them.
+
+The audit's own limits: no behaviour probes (whether a removed incident story changes behaviour on
+Opus 5.5 is untested, which step 2's eval is for), and most skill findings came from its Sonnet
+subagents' reads.
+
+These findings join the item table: A3-A8, A13, A20 and A35 drop their stories; A29 drops the "80%"
+example; A41 takes the `ctx_patch` route; B-b's one Claude-only rule moves into `AGENTS.md` and is
+reconciled with rule 10; the skill fixes are a separate pass (step 3b).
+
 ## Steps
 
-1. **Baseline.** Run `/doctor prompt-audit` in a session (the operator, or `claude -p` if the command
+1. **Baseline** (done 2026-11-21, above). Run `/doctor prompt-audit` in a session (the operator, or `claude -p` if the command
    runs headless) and record what it finds. Record sizes and the first-request token count.
 2. **A rules-adherence eval** in the private eval-harness repo pattern (like `chipi/harness-bakeoff`):
    about 15 short scenarios that each test one rule (asked to push; told "file an issue for this";
@@ -149,6 +193,9 @@ at the top. The truthfulness memory file (`feedback_operator_truthfulness_protoc
    current files and scores it by checks on the reply and the tool calls. Run 3 times.
 3. **Draft** the new `AGENTS.md`, `CLAUDE.md`, `docs/reference/operator-rules.md`, skills C1 and C2,
    and the `index.py` change, on a branch. The operator reviews the diff.
+   - **3b.** Fix the stale homelab skills the audit found (`gpu-mode`, `dgx-status`, `vllm-deploy`,
+     `obs-boot`, `o11y-dev`, `fleet-stats`) and drop their dated test logs. This is independent of the
+     rest, so it can go first.
 4. **Re-run the eval** with the draft (the same 15 scenarios, 3 times). Adoption needs: no scenario
    worse than baseline; sizes on target.
 5. **Hooks and permissions** B1-B4, one by one with the operator's go, each tested (the rule fires on
