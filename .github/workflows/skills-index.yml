@@ -1,4 +1,4 @@
-# Fail when the skills index in the global AGENTS.md is stale.
+# Fail when the skills index (workstation/claude/skills/INDEX.md) is stale.
 #
 # The index is generated from every workstation/claude/skills/*/SKILL.md frontmatter by
 # workstation/claude/skills/index.py. Agents read it to decide which skill to load, so a
@@ -13,12 +13,10 @@ on:
     branches: [main]
     paths:
       - 'workstation/claude/skills/**'
-      - 'workstation/config/AGENTS.md'
       - '.github/workflows/skills-index.yml'
   pull_request:
     paths:
       - 'workstation/claude/skills/**'
-      - 'workstation/config/AGENTS.md'
       - '.github/workflows/skills-index.yml'
   workflow_dispatch:
 

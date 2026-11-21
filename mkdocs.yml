@@ -101,6 +101,8 @@ nav:
     - Writing agent instructions (CLAUDE.md, AGENTS.md): recipes/agent-instructions-guide.md
     - X3 storage separation (one-time migration): recipes/x3-storage-separation.md
     - X3 storage safety-copy retirement: recipes/x3-storage-safety-copy-retirement.md
+  - Reference:
+    - Operator rules (reasons and incidents): reference/operator-rules.md
   - Reading:
     - Overview: reading/README.md
     - LLM stack — end-to-end: reading/llm-end-to-end.md
