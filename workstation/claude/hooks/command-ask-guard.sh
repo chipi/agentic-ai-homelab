@@ -81,11 +81,21 @@ function flushq() { if (buf ~ /[ \t\n]/) out = out " "; else out = out " " buf "
 }
 END { if (q != "") flushq(); printf "%s", out }')" || code="$cmd"
 
-# Text that a shell runs again (bash -c "...", ssh host "...", eval, a heredoc into bash or ssh, | sh):
-# there the quoted text and the heredoc bodies are commands, so the whole command is checked as written,
-# with its quote characters as spaces.
+# Text that a shell runs again (bash -c "...", ssh host "...", eval, a heredoc into bash or ssh, | sh, or a
+# script this same command writes with a heredoc and then runs): there the quoted text and the heredoc
+# bodies are commands, so the whole command is checked as written, with its quote characters as spaces.
+# `bash file.sh` alone runs the file, not the command's quoted text (2026-11-23: a sed edit quoting
+# "git push" followed by `bash cases.sh` asked).
+SH='(bash|sh|zsh|dash|ksh)'
+reruns() {
+    printf '%s' "$code" | grep -Eq -- "${S}(ssh|eval|su)([[:space:]]|\$)" && return 0
+    printf '%s' "$code" | grep -Eq -- "${S}${SH}[[:space:]]+-[A-Za-z]*[cs]" && return 0
+    printf '%s' "$code" | grep -Eq -- "${S}${SH}[[:space:]]*(<|\$|[;&|)])" && return 0
+    printf '%s' "$code" | grep -q -- '<<' && printf '%s' "$code" | grep -Eq -- "${S}${SH}[[:space:]]+[^-[:space:]]" && return 0
+    return 1
+}
 text="$code"
-if printf '%s' "$code" | grep -Eq -- "${S}(bash|sh|zsh|dash|ksh|ssh|eval|su)([[:space:]]|\$)"; then
+if reruns; then
     text="$(printf '%s' "$cmd" | tr "\"'" '  ')"
 fi
 

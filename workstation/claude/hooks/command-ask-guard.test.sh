@@ -63,6 +63,12 @@ t allow Bash                      'd=$(mktemp -d); do_work "$d"; rm -rf "$d"'
 t allow Bash                      'T="$(mktemp -d)" && trap '\''rm -rf "$T"'\'' EXIT; make -C "$T"'
 t allow Bash                      "rm -rf /tmp/claude-$(id -u)/proj/session/scratchpad/egress-test"
 t allow Bash                      "rm -rf /private/tmp/claude-$(id -u)/proj/session/scratchpad/x"
+# 2026-11-23: running a script file does not run the command's quoted text (this one asked)
+t allow Bash                      'cd /tmp/s && sed -i '\''s|^t "#2" .*|t "#2" "$(printf "%s" "$C2" \| grep -v "git push -q -u")"|'\'' cases.sh && bash cases.sh'
+t allow Bash                      'grep -n "rm -rf" README.md; bash scripts/check.sh'
+t ask   Bash                      'bash -lc "git push origin main"'
+t ask   Bash                      "sh -ec 'rm -rf /srv/data'"
+t ask   Bash                      "printf 'git push origin main\\n' | bash"
 # ... and a real one next to or inside text that runs still asks
 t ask   Bash                      'git commit -m "release" && git push origin main'
 t ask   Bash                      $'cat > x.sh <<\'EOF\'\nrm -rf build\nEOF\nbash x.sh'

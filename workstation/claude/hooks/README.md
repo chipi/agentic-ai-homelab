@@ -264,6 +264,17 @@ with BSD awk on the mini. All 7 mutants of the fix failed the suite (`replay-pro
 no re-run detection, any variable taken as a mktemp folder, `..` allowed, heredoc bodies kept, quoted
 text kept, comments kept, every `rm -rf` allowed.
 
+**2026-11-23: `bash file.sh` alone is not a re-run.** The first fix treated any `bash` as running text
+again, so a `sed` edit whose quoted expression contained `git push`, followed by `bash cases.sh`, asked.
+Now a shell counts as re-running text only:
+
+- with `-c` or `-s` (`bash -lc`, `sh -ec` too);
+- bare, reading stdin (a heredoc or `| bash`);
+- running a file after this same command wrote a heredoc, because that file may be the heredoc.
+
+There are now 68 cases, passing on the X3 and on the mini's bash 3.2. All 5 mutants of the detection
+failed the suite.
+
 **Escape hatch:** `COMMAND_ASK_GUARD=off`. It is the operator's alone; an agent never sets it.
 
 ---
