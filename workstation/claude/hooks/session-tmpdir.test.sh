@@ -14,7 +14,7 @@ E="$T/env1"; : >"$E"
 rc="$(run "{\"session_id\":\"$S1\",\"hook_event_name\":\"SessionStart\",\"source\":\"startup\"}" "$E")"
 chk "exits 0" "[ '$rc' = 0 ]"
 chk "makes the session's folder" "[ -d '$T/agent-tmp/$S1' ]"
-chk "the folder is mode 700" "[ \"\$(stat -c %a '$T/agent-tmp/$S1')\" = 700 ]"
+chk "the folder is mode 700" "[ \"\$(stat -c %a '$T/agent-tmp/$S1' 2>/dev/null || stat -f %Lp '$T/agent-tmp/$S1')\" = 700 ]"
 chk "exports TMPDIR to it in the env file" "grep -qx 'export TMPDIR=$T/agent-tmp/$S1' '$E'"
 chk "the env file sets TMPDIR when sourced" "[ \"\$(bash -c '. $E; echo \$TMPDIR')\" = '$T/agent-tmp/$S1' ]"
 
