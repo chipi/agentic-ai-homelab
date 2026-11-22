@@ -92,6 +92,24 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   `docker exec litellm-postgres psql` (the container's own credentials), and pushed as
   `hub_assistant_calls` / `hub_assistant_usd{backend,window}` for the Spend tab's "Assistant: local or
   OpenRouter" cards.
+- **Direct spend on the Spend tab** (since 2026-11-23): calls the mini LiteLLM sends straight to DeepSeek, Qwen
+  (Alibaba), Z (GLM) or Kimi (Moonshot), not through OpenRouter.
+  - **Which models count:** `gen.sh` builds `DIRECTMODELS` from `infra/litellm/config.yaml`. That is every alias
+    whose `api_base` is one of those vendors' APIs, or a native `deepseek/` `moonshot/` `dashscope/` `zai/` model.
+    A new direct alias appears on the next `gen.sh` with no Hub change.
+  - **Where the numbers come from:** the page reads those models' rows from `LiteLLM_DailyUserSpend`
+    (`litellm-pg`) for the same completed UTC days.
+  - **Where they show:**
+    - the "Direct to vendors" totals card, with one line per vendor even at $0;
+    - source `Direct` in the model table, with its own filter;
+    - the vendor cards (`OpenRouter + Direct` with both amounts);
+    - the callers' and projects' "direct" tokens.
+  - **Not counted as local:** before this, the gateway's non-OpenRouter rows were all "local", so these paid
+    calls were shown as free local tokens.
+  - **What the dollars mean:** LiteLLM's estimate from the list prices set on each alias, not the vendor's bill.
+    Qwen's aliases are on a prepaid token plan, priced at list for comparison.
+  - **Not covered:** the vendors' balances (no reader), and direct calls through prod's gateway (none so far;
+    prod pushes `litellm_model_*` by provider, which the tab does not split by vendor).
 - `briefing-job.js` — the morning briefing (RFC-0008 use case H1), at 07:00 (launchd
   `com.homelab.hub-briefing`): needs-you first, then the night (alert changes from Grafana's state
   history, containers started, new GlitchTip issues), numbers, all-green. Every number comes from
