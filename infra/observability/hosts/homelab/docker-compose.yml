@@ -24,6 +24,7 @@ services:
       - backend
       - langfuse
       - home-automation
+      - plumbing
     environment:
       HA_PROMETHEUS_TOKEN: ${HA_PROMETHEUS_TOKEN:?set HA_PROMETHEUS_TOKEN (Home Assistant long-lived token) in .env}
     volumes:
@@ -72,6 +73,10 @@ networks:
   home-automation:
     external: true
     name: home-automation_default
+  # n8n's /metrics, by container name (infra/n8n owns the network; its stack must be up first).
+  plumbing:
+    external: true
+    name: plumbing
 
 volumes:
   alloy-data:

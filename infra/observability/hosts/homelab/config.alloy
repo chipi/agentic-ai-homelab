@@ -114,6 +114,16 @@ prometheus.scrape "delivery" {
   scrape_interval = "30s"
 }
 
+// ---------- n8n (infra/n8n, the installation's plumbing tool) ----------
+// N8N_METRICS=true serves /metrics; scraped over the internal `plumbing` network by container
+// name. up{job="n8n"} == 0 fires the generic infra-target-down.
+prometheus.scrape "n8n" {
+  targets         = [{ __address__ = "n8n:5678", instance = "homelab" }]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "n8n"
+  scrape_interval = "30s"
+}
+
 // ---------- Home Assistant (chipi/home-automation) ----------
 // HA's /api/prometheus (its `prometheus:` integration, filtered to the entities worth
 // keeping), over home-automation_default by container name. Bearer token: a long-lived HA

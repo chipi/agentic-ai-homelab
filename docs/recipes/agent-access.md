@@ -52,6 +52,8 @@ Do not create logins, publish ports or change groups to "get access".
 |---|---|---|
 | Grafana | `set -a; . ~/agentic-ai-homelab/infra/observability/backend/.env; set +a` | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` |
 | Umami | `set -a; . ~/umami/.env; set +a` (note: `~/umami`, not the repo) | `UMAMI_ADMIN_PASSWORD` (user `admin`) |
+| n8n (stack) | `set -a; . ~/agentic-ai-homelab/infra/n8n/.env; set +a` (mode 600) | `N8N_DB_PASSWORD`, `N8N_ENCRYPTION_KEY` (encrypts every credential n8n stores; without it a restored database's credentials are unreadable). Made 2026-11-22 |
+| n8n (owner login) | `set -a; . ~/n8n/owner.env; set +a` (mode 600) | `N8N_OWNER_EMAIL`, `N8N_OWNER_PASSWORD`: the owner account, made by `infra/n8n/owner-setup.sh` 2026-11-22 |
 | GlitchTip (read) | `set -a; . ~/signal-fleet/fleet-gateway.env; set +a` | `GLITCHTIP_TOKEN` (read-only) |
 | GlitchTip `agents issue status` | `set -a; . ~/agents-glitchtip.env; set +a` (copy for `claude`: `/Users/claude/agents-glitchtip.env`, owner `claude`, mode 600) | `GLITCHTIP_ISSUE_TOKEN` (event:read, event:write, project:read, org:read, org-wide): resolve/delete issues, probe events; cannot create projects |
 | GlitchTip (write) | `set -a; . ~/agentic-ai-homelab/infra/glitchtip/.env; set +a` | `DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_PASSWORD` |
@@ -616,6 +618,16 @@ API runs in container `litellm` (master key in its env); run the calls from the 
 - Real test send (sends a REAL email): chipi/infra `infra/delivery/README.md` → "Deployed-service e2e".
 - Pause all sends: `cd ~/chipi-infra/infra/delivery && /usr/local/bin/docker compose stop` (outbox keeps the backlog).
 
+## 10b. n8n (the plumbing tool on the mini, no host port)
+
+- Flotilla's plumbing layer (flotilla RFC-0014): `infra/n8n/`, `docker.n8n.io/n8nio/n8n` pinned, its own
+  Postgres `n8n-db`. Internal networks only: `plumbing` (n8n, flotillad, alloy-homelab) and `n8n_db`.
+- Base URL inside the installation: `http://n8n:5678/` (webhooks `/webhook/<path>`), from any container on
+  `plumbing`. Nothing is published on the host and there is no tailnet name.
+- Health: `docker inspect -f '{{.State.Health.Status}}' n8n`; `up{job="n8n"}` in VictoriaMetrics
+  (alert `infra-target-down`). Logs: `service:n8n` in VictoriaLogs.
+- REST calls as the owner, from inside the container: see `infra/n8n/owner-setup.sh` for the pattern.
+
 ## 11. Close Listening (prod VPS)
 
 | Service | Where it answers |
@@ -738,12 +750,13 @@ Deploy, logs, undo, and the GPU memory rule against the eval harness: `recipes/x
 | mini | `langfuse-postgres-1` | Postgres | `postgres` / `postgres` |
 | mini | `langfuse-clickhouse-1` | ClickHouse | env `CLICKHOUSE_USER` / `default` |
 | mini | `litellm-postgres` | Postgres | `litellm` / `litellm` |
+| mini | `n8n-db` | Postgres | `n8n` / `n8n` |
 | VPS | `litellm-postgres` | Postgres | `litellm` / `litellm` |
 
 ### Backups of the mini (since 2026-10-29)
 
 - **Nightly, 04:30 local** (`com.homelab.db-backup`, `infra/backup/dump-observability-dbs.sh`, root):
-  Postgres dumps of `glitchtip`, `umami`, `langfuse`, `litellm`, plus tar archives of
+  Postgres dumps of `glitchtip`, `umami`, `langfuse`, `litellm`, `n8n` (since 2026-11-22), plus tar archives of
   home-assistant's `/config` and mosquitto's data/config, and flotillad's daily store copies
   (`flotillad-<stamp>.tar.gz`, the container's `/var/lib/flotilla/backup`, since 2026-11-09),
   into `~/db-backups` (dir 700, files 600, 14 kept). Log: `/tmp/com.homelab.db-backup.log`.

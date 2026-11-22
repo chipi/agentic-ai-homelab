@@ -51,6 +51,8 @@ local endpoint (`http://<dgx>:9000/v1`, `:8003/v1`):
   the DGX)
 - `glitchtip/`, `langfuse/`, `umami/` — error tracking, LLM tracing, web
   analytics — all on the Mac mini hub
+- `n8n/` — the plumbing tool between the company's tools and flotilla (flotilla
+  RFC-0014), on the mini, internal networks only
 - `mini-metrics/`, `dgx-scrape/`, `homelab-home/` — mini launchd collectors +
   the tailnet start page
 - `vllm/` — local vLLM compose stacks (coder-next, judges) on the DGX; prod-vllm,

@@ -21,7 +21,7 @@ mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
 # container : pg-user : db
-DBS="glitchtip-postgres-1:glitchtip:glitchtip umami-db:umami:umami langfuse-postgres-1:postgres:postgres litellm-postgres:litellm:litellm"
+DBS="glitchtip-postgres-1:glitchtip:glitchtip umami-db:umami:umami langfuse-postgres-1:postgres:postgres litellm-postgres:litellm:litellm n8n-db:n8n:n8n"
 
 rc=0
 for spec in $DBS; do
@@ -93,7 +93,7 @@ else echo "SKIP $FL -> not running"; fi
 for c in "$HA" "$MQ" "$FL"; do
   ls -1t "$BACKUP_DIR/${c}-"*.tar.gz 2>/dev/null | tail -n +$((KEEP+1)) | while read -r f; do rm -f "$f"; done
 done
-for c in glitchtip-postgres-1 umami-db langfuse-postgres-1 litellm-postgres; do
+for c in glitchtip-postgres-1 umami-db langfuse-postgres-1 litellm-postgres n8n-db; do
   ls -1t "$BACKUP_DIR/${c}-"*.sql.gz 2>/dev/null | tail -n +$((KEEP+1)) | while read -r f; do rm -f "$f"; done
 done
 # Off-mini copy (age-encrypted to the operator's key, chipi/homelab-backup). DB_BACKUP_OFFSITE=0
