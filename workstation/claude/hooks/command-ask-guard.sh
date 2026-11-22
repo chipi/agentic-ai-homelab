@@ -18,8 +18,9 @@
 #   npm install -g / npm i -g · brew install
 # Not asked about: the same words in text that is not run (a heredoc written to a file, a commit message, an
 # echo, a comment). Inside bash -c / sh -c / ssh / eval / su / a heredoc into a shell, the text is checked.
-# Not covered: a command assembled at runtime (a variable expanded, a script file that pushes), a heredoc
-# into python3 or node whose code shells out, and `trap '...'` handlers (their text is quoted, so skipped).
+# Not covered: a command assembled at runtime (a variable expanded, a script file that pushes, even one this
+# same command just wrote with a heredoc), a heredoc into python3 or node whose code shells out, and
+# `trap '...'` handlers (their text is quoted, so skipped).
 #
 # PreToolUse contract: reads {tool_name, tool_input} as JSON on stdin; "ask" is printed as JSON, exit 0. Every
 # other path allows (no output, exit 0), including COMMAND_ASK_GUARD=off (the operator's escape hatch; agents
@@ -42,6 +43,17 @@ tool="$(jq -r '.tool_name // empty' <<<"$payload" 2>/dev/null)" || allow
 case "$tool" in Bash|bash|mcp__lean-ctx__ctx_shell|mcp__lean-ctx__shell|mcp__lean-ctx__ctx_execute) ;; *) allow ;; esac
 cmd="$(jq -r '.tool_input.command // .tool_input.code // empty' <<<"$payload" 2>/dev/null)" || allow
 [ -n "$cmd" ] || allow
+
+# lean-ctx's rewrite of a Bash command, `[{ ].../lean-ctx -c '<command>'[ newline } && pwd -P >| <file>]`, runs
+# <command>: check that (its '\'' escapes read the same to the quote scanner below). One that does not have
+# this shape is checked as written (reruns).
+if [[ "$cmd" =~ ^[[:space:]]*(\{[[:space:]]*)?([^[:space:]]*/)?lean-ctx[[:space:]]+-c[[:space:]]+\' ]]; then
+    rest="${cmd:${#BASH_REMATCH[0]}}"
+    tail_re="'([[:space:]]*\\}[[:space:]]*(&&[[:space:]]*pwd -P >\\|[[:space:]]*[^;&|[:space:]]+)?)?[[:space:]]*\$"
+    if [[ "$rest" =~ $tail_re ]]; then
+        cmd="${rest:0:$(( ${#rest} - ${#BASH_REMATCH[0]} ))}"
+    fi
+fi
 
 S='(^|[;&|(`[:space:]])'   # start of a command word: line start or a separator / whitespace before it
 
@@ -81,17 +93,17 @@ function flushq() { if (buf ~ /[ \t\n]/) out = out " "; else out = out " " buf "
 }
 END { if (q != "") flushq(); printf "%s", out }')" || code="$cmd"
 
-# Text that a shell runs again (bash -c "...", ssh host "...", eval, a heredoc into bash or ssh, | sh, or a
-# script this same command writes with a heredoc and then runs): there the quoted text and the heredoc
-# bodies are commands, so the whole command is checked as written, with its quote characters as spaces.
-# `bash file.sh` alone runs the file, not the command's quoted text (2026-11-23: a sed edit quoting
-# "git push" followed by `bash cases.sh` asked).
+# Text that a shell runs again (bash -c "...", ssh host "...", eval, a heredoc into bash or ssh, | sh, a
+# lean-ctx -c the unwrapping above did not match): there the quoted text and the heredoc bodies are
+# commands, so the whole command is checked as written, with its quote characters as spaces.
+# `bash file.sh` runs a file, which is not checked, even one this same command wrote with a heredoc
+# (2026-11-23, operator: a test script pushing to a throwaway local repo asked).
 SH='(bash|sh|zsh|dash|ksh)'
 reruns() {
     printf '%s' "$code" | grep -Eq -- "${S}(ssh|eval|su)([[:space:]]|\$)" && return 0
+    printf '%s' "$code" | grep -Eq -- "${S}([^[:space:]]*/)?lean-ctx[[:space:]]+-c([[:space:]]|\$)" && return 0
     printf '%s' "$code" | grep -Eq -- "${S}${SH}[[:space:]]+-[A-Za-z]*[cs]" && return 0
     printf '%s' "$code" | grep -Eq -- "${S}${SH}[[:space:]]*(<|\$|[;&|)])" && return 0
-    printf '%s' "$code" | grep -q -- '<<' && printf '%s' "$code" | grep -Eq -- "${S}${SH}[[:space:]]+[^-[:space:]]" && return 0
     return 1
 }
 text="$code"

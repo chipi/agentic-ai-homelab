@@ -275,6 +275,19 @@ Now a shell counts as re-running text only:
 There are now 68 cases, passing on the X3 and on the mini's bash 3.2. All 5 mutants of the detection
 failed the suite.
 
+**2026-11-23, later: two corrections.**
+
+- **The heredoc-then-run rule is dropped (operator).** A test script written by a heredoc and run in the
+  same command pushed to a throwaway local repo, and it asked. A script file was never checked when run
+  on its own, so this rule only added prompts, not protection.
+- **`lean-ctx -c '…'` is unwrapped.** That is lean-ctx's rewrite of a Bash command, including the
+  `{ …; } && pwd -P >| <file>` form. The first fix dropped its quoted argument, so it allowed
+  `lean-ctx -c 'rm -rf /work/t/x'`, which the first version had caught. Now the argument is checked as
+  the command, and a `lean-ctx -c` of any other shape is checked as written.
+
+There are now 77 cases, passing on the X3 and on the mini's bash 3.2. Both mutants of the unwrapping
+(none, and no fallback) failed the suite.
+
 **Escape hatch:** `COMMAND_ASK_GUARD=off`. It is the operator's alone; an agent never sets it.
 
 ---

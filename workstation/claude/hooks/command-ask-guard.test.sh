@@ -69,9 +69,21 @@ t allow Bash                      'grep -n "rm -rf" README.md; bash scripts/chec
 t ask   Bash                      'bash -lc "git push origin main"'
 t ask   Bash                      "sh -ec 'rm -rf /srv/data'"
 t ask   Bash                      "printf 'git push origin main\\n' | bash"
+# 2026-11-23 (operator): a script written by a heredoc and run in the same command is a script file like any
+# other, not checked (a test script pushing to a throwaway local repo asked)
+t allow Bash                      $'cat > t.sh <<\'EOF\'\nW="$(mktemp -d)"\ntrap \'rm -rf "$W"\' EXIT\ngit push -q origin HEAD:refs/heads/main\nEOF\nbash t.sh; echo EXIT=$?'
+t allow Bash                      $'cat > x.sh <<\'EOF\'\nrm -rf build\nEOF\nbash x.sh'
+# 2026-11-23: lean-ctx's rewrite `lean-ctx -c '...'` runs its argument: it is checked as the command itself
+t ask   Bash                      $'/home/marko/.local/bin/lean-ctx -c \'S=/tmp/x\nrm -rf /work/t/run_steps4 && cp -a a b\''
+t ask   Bash                      "lean-ctx -c 'git push origin main'"
+t ask   Bash                      $'{ /home/marko/.local/bin/lean-ctx -c \'cd /w && git push\'\n} && pwd -P >| /home/marko/.cache/claude-tmp/claude-0b4f-cwd'
+t ask   Bash                      "lean-ctx -c 'cd /w && sudo -u x sh -c '\\''docker volume rm y'\\'''"
+t ask   Bash                      "lean-ctx -c 'git push origin main'; echo done"
+t allow Bash                      "lean-ctx -c 'git status --short'"
+t allow Bash                      $'lean-ctx -c \'git commit -q -F - <<\'\\\'\'EOF\'\\\'\'\nsee the git push docs\nEOF\''
+t allow Bash                      "lean-ctx -c 'sed -i '\\''s|git push|x|'\\'' f && bash f'"
 # ... and a real one next to or inside text that runs still asks
 t ask   Bash                      'git commit -m "release" && git push origin main'
-t ask   Bash                      $'cat > x.sh <<\'EOF\'\nrm -rf build\nEOF\nbash x.sh'
 t ask   Bash                      $'bash <<\'EOF\'\ngit push origin main\nEOF'
 t ask   Bash                      $'ssh host \'bash -s\' <<\'EOF\'\nrm -rf ~/data\nEOF'
 t ask   Bash                      'bash -c "rm -rf /srv/data"'
