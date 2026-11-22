@@ -43,4 +43,4 @@ landed on an answer.
 - [RFC-0007 — Engineering secrets in sops + age, per project and environment](RFC-0007-sops-age-engineering-secrets.md) — *Proposed* (counter-proposal to RFC-0006)
 - [RFC-0008 — A local assistant on the X3, and the X3 as a deployment surface](RFC-0008-x3-local-assistant.md) — *Proposed*
 - [RFC-0009 — Service levels: SLIs and SLOs for every service, shown on the Hub](RFC-0009-service-slos.md) — *Proposed*
-- [RFC-0010 — What n8n is for on the homelab, and which flows to build](RFC-0010-n8n-flows.md) — *Proposed*
+- [RFC-0010 — What n8n is for on the homelab, and which flows to build](RFC-0010-n8n-flows.md) — *Accepted*

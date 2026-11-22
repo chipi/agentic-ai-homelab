@@ -1,8 +1,8 @@
 # RFC-0010 — What n8n is for on the homelab, and which flows to build
 
-**Status:** Proposed (2026-11-22). Reviewed by the flotilla session the same day: no competition with
+**Status:** Accepted (operator, 2026-11-22). Reviewed by the flotilla session the same day: no competition with
 flotilla; its changes are in (the rule's wording, the two allowed ways to write, the read path, shadows,
-the smoke hook, the route out). For the operator's decision.
+the smoke hook, the route out).
 **Relates to:** [`infra/n8n/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/n8n) (the
 service, set up 2026-11-22), flotilla
 [RFC-0014](https://github.com/chipi/flotilla/blob/main/docs/rfc/RFC-0014-visual-plane-and-mashups.md)
