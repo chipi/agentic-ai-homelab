@@ -44,7 +44,7 @@ Do not create logins, publish ports or change groups to "get access".
 - Recipes below run **on the mini** unless marked otherwise. From the laptop, every
   web service also has its own tailnet name (`https://<name>.tail6d0ed4.ts.net`:
   `grafana`, `vm`, `vlogs`, `vtraces`, `litellm`, `langfuse`, `umami`, `glitchtip`,
-  `hub`, `evals`, `fleet-evals`) — see [observability endpoints](observability-endpoints.md).
+  `hub`, `evals`, `fleet-evals`, `n8n`) — see [observability endpoints](observability-endpoints.md).
 
 **Credentials** — load them from the file, never print them, never copy them anywhere:
 
@@ -621,9 +621,9 @@ API runs in container `litellm` (master key in its env); run the calls from the 
 ## 10b. n8n (the plumbing tool on the mini, no host port)
 
 - Flotilla's plumbing layer (flotilla RFC-0014): `infra/n8n/`, `docker.n8n.io/n8nio/n8n` pinned, its own
-  Postgres `n8n-db`. Internal networks only: `plumbing` (n8n, flotillad, alloy-homelab) and `n8n_db`.
+  Postgres `n8n-db`. Internal networks only: `plumbing` (n8n, flotillad, alloy-homelab), `n8n_db` and `n8n_ui` (n8n and caddy).
 - Base URL inside the installation: `http://n8n:5678/` (webhooks `/webhook/<path>`), from any container on
-  `plumbing`. Nothing is published on the host and there is no tailnet name.
+  `plumbing`. Nothing is published on the host. Editor: `https://n8n.tail6d0ed4.ts.net` (tailnet, owner login; webhook paths answer 404 there).
 - Health: `docker inspect -f '{{.State.Health.Status}}' n8n`; `up{job="n8n"}` in VictoriaMetrics
   (alert `infra-target-down`). Logs: `service:n8n` in VictoriaLogs.
 - REST calls as the owner, from inside the container: see `infra/n8n/owner-setup.sh` for the pattern.

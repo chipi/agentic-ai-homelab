@@ -7,6 +7,9 @@
 #             flotillad reaches n8n's webhooks at http://n8n:5678/webhook/..., n8n reaches flotillad by
 #             container name on the same network.
 #   db        n8n and its Postgres only.
+#   ui        n8n and the installation's caddy only (named n8n_ui): the editor at
+#             https://n8n.tail6d0ed4.ts.net. Caddy is not on plumbing, so the tailnet node reaches
+#             n8n's editor and nothing of flotilla's. Deploy this stack before reverse-proxy.
 # No workflows and no connectors: the operator adds those case by case. A connector that needs the
 # internet (Slack, Google, GitHub) needs a route out, which this stack does not give n8n yet.
 #
@@ -16,7 +19,7 @@ name: n8n
 
 services:
   n8n-db:
-    image: postgres:16-alpine
+    image: postgres:17-alpine   # n8n 2.x supports 17+; 16 runs in compatibility mode only
     container_name: n8n-db
     restart: unless-stopped
     mem_limit: 256m
@@ -55,8 +58,10 @@ services:
       N8N_HOST: n8n
       N8N_PORT: "5678"
       N8N_PROTOCOL: http
-      WEBHOOK_URL: http://n8n:5678/
-      N8N_SECURE_COOKIE: "false"   # plain http on an internal network; no browser reaches it today
+      WEBHOOK_URL: http://n8n:5678/              # webhooks are called inside the installation only
+      N8N_EDITOR_BASE_URL: https://n8n.tail6d0ed4.ts.net/
+      N8N_PROXY_HOPS: "1"                        # caddy in front of the editor
+      N8N_SECURE_COOKIE: "true"                  # the browser reaches the editor over https only
       GENERIC_TIMEZONE: UTC
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
       N8N_METRICS: "true"
@@ -67,7 +72,7 @@ services:
       N8N_PERSONALIZATION_ENABLED: "false"
     volumes:
       - n8n-data:/home/node/.n8n
-    networks: [plumbing, db]
+    networks: [plumbing, db, ui]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz >/dev/null || exit 1"]
       interval: 30s
@@ -83,6 +88,9 @@ networks:
     name: plumbing
     internal: true
   db:
+    internal: true
+  ui:
+    name: n8n_ui
     internal: true
 
 volumes:

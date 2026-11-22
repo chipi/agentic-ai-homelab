@@ -99,3 +99,12 @@ https://flotilla.tail6d0ed4.ts.net {
 	bind tailscale/flotilla
 	reverse_proxy flotillad:8486
 }
+
+# n8n's editor (infra/n8n), over the internal n8n_ui network. n8n has its own login (the owner in
+# ~/n8n/owner.env); webhooks are not served here, only inside the installation on `plumbing`.
+https://n8n.tail6d0ed4.ts.net {
+	bind tailscale/n8n
+	@webhooks path /webhook/* /webhook-test/* /webhook-waiting/*
+	respond @webhooks 404
+	reverse_proxy n8n:5678
+}

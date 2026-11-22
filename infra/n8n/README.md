@@ -10,11 +10,12 @@ offered to others as a service.
 
 ## Stack
 
-- `n8n` (`docker.n8n.io/n8nio/n8n:2.48.7`, pinned) and `n8n-db` (`postgres:16-alpine`, its own).
+- `n8n` (`docker.n8n.io/n8nio/n8n:2.48.7`, pinned) and `n8n-db` (`postgres:17-alpine`, its own).
 - Networks, all internal, nothing published on the host:
   - `plumbing`: n8n, flotillad (flotilla's compose joins it as an external network) and alloy-homelab
     (scrapes `/metrics`).
   - `n8n_db`: n8n and its Postgres only.
+  - `n8n_ui`: n8n and caddy only: the editor at **https://n8n.tail6d0ed4.ts.net** (tailnet only; caddy answers 404 for webhook paths there). Deploy n8n before `infra/reverse-proxy`.
 - **Base URL for webhooks, as flotillad's container sees it:** `http://n8n:5678/` (webhooks under
   `/webhook/<path>`, test webhooks under `/webhook-test/<path>`).
 - No route out: a connector that needs the internet needs a network decision first.
@@ -55,5 +56,5 @@ n8n migrates its database on start. Bump the tag here, take a dump first
 
 ## Not covered
 
-- No UI on the tailnet: nobody reaches the editor yet. Adding one means a caddy node like umami's.
+- The editor is reachable by every tailnet device; n8n's own login (the owner) is what protects it.
 - The hook and `plumbing.call` (flotilla's side) are not built; nothing calls n8n yet.

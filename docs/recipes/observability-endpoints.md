@@ -38,6 +38,7 @@ each service is a real Tailscale host (no `tailscale serve`). Access by node FQD
 | Grafana | `https://grafana.tail6d0ed4.ts.net` |
 | Langfuse (web UI) | `https://langfuse.tail6d0ed4.ts.net` |
 | Umami (admin UI) | `https://umami.tail6d0ed4.ts.net` |
+| n8n (editor) | `https://n8n.tail6d0ed4.ts.net` |
 | GlitchTip (admin UI) | `https://glitchtip.tail6d0ed4.ts.net` |
 | LiteLLM (admin UI) | `https://litellm.tail6d0ed4.ts.net/ui/` |
 | VictoriaMetrics | `https://vm.tail6d0ed4.ts.net` |

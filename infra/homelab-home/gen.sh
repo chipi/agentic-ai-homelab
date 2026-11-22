@@ -10,6 +10,7 @@ GF_U=$(get "$REPO/observability/backend/.env" GRAFANA_ADMIN_USER); GF_P=$(get "$
 GT_U=$(get "$REPO/glitchtip/.env" DJANGO_SUPERUSER_EMAIL); GT_P=$(get "$REPO/glitchtip/.env" DJANGO_SUPERUSER_PASSWORD)
 LF_U=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_EMAIL); LF_P=$(get "$REPO/langfuse/.env" LANGFUSE_INIT_USER_PASSWORD)
 UM_U=admin; UM_P=$(get ~/umami/.env UMAMI_ADMIN_PASSWORD)
+N8_U=$(get ~/n8n/owner.env N8N_OWNER_EMAIL); N8_P=$(get ~/n8n/owner.env N8N_OWNER_PASSWORD)
 LL_K=$(get "$REPO/litellm/.env" LITELLM_MASTER_KEY)
 # the RFC-0008 chat UI evaluation on the X3 (both UIs, one login; mode-600 file on the mini)
 AE_U=$(get ~/assistant-ui-eval-accounts.env ASSISTANT_EVAL_USER); AE_P=$(get ~/assistant-ui-eval-accounts.env ASSISTANT_EVAL_PASSWORD)
@@ -357,6 +358,7 @@ row "VictoriaTraces"  "$VT"           "&mdash;" "tailnet" "10428"
 row "LibreChat (evaluation, X3)"  "https://omarchy.$TS:8443" "$AE_U" "$AE_P" "8443"
 row "Open WebUI (evaluation, X3)" "https://omarchy.$TS:8444" "$AE_U" "$AE_P" "8444"
 row "Home Assistant"  "https://homeassistant.$TS" "own account" "&mdash;" "8123"
+row "n8n"             "https://n8n.$TS" "$N8_U" "$N8_P" "5678"
 cat <<MID
   </tbody></table>
   </details>
@@ -466,7 +468,7 @@ const W=260,H=40,TS='tail6d0ed4.ts.net',G='https://grafana.'+TS;
 // Service LINK targets = per-service caddy-tailscale nodes (real certs). The
 // metric/alert FETCHES below stay same-origin (/vm/, /grafana/) — nginx proxies
 // those to the backends; they must NOT become cross-origin (CORS).
-const MINILINK={grafana:G,glitchtip:'https://glitchtip.'+TS,langfuse:'https://langfuse.'+TS,umami:'https://umami.'+TS,litellm:'https://litellm.'+TS+'/ui/',victoriametrics:'https://vm.'+TS+'/vmui',victorialogs:'https://vlogs.'+TS,victoriatraces:'https://vtraces.'+TS};
+const MINILINK={grafana:G,glitchtip:'https://glitchtip.'+TS,langfuse:'https://langfuse.'+TS,umami:'https://umami.'+TS,litellm:'https://litellm.'+TS+'/ui/',victoriametrics:'https://vm.'+TS+'/vmui',victorialogs:'https://vlogs.'+TS,victoriatraces:'https://vtraces.'+TS,n8n:'https://n8n.'+TS};
 const DGXDASH=G+'/d/dgx-services/dgx-e28094-services';
 const X3DASH=G+'/d/rYdddlPWk/node-exporter-full?var-job=integrations%2Funix&var-node=x3';
 async function q(query){try{const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(query))).json();return j.data.result;}catch(e){return[];}}
@@ -831,6 +833,7 @@ const SVCS={
   ['Apps','Evals docs + compare',['evals-docs','evals-compare'],[]],
   ['Apps','Edge (Caddy)',['caddy'],[]],
   ['Apps','Hub',['homelab-home'],[]],
+  ['Apps','n8n (plumbing)',['n8n','n8n-db'],[],'n8n'],
   ['Home','Home automation',['home-assistant','mosquitto','unifi-poller'],[]]],
  dgx:[
   ['GPU','Main LLM',[],[],'MAIN'],
