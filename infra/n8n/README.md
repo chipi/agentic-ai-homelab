@@ -3,7 +3,7 @@
 The layer between the company's tools and flotilla (flotilla
 [RFC-0014](https://github.com/chipi/flotilla/blob/main/docs/rfc/RFC-0014-visual-plane-and-mashups.md) §4.0, §4.7):
 it calls flotilla through flotilla's signed webhook, and flotilla calls it back through signed HTTP. Set up on
-2026-11-22 at the operator's go. **No workflows and no connectors**: the operator adds those case by case.
+2026-11-22 at the operator's go. One workflow, the smoke flow below, and **no connectors**: the operator adds those case by case.
 
 **Licence.** n8n is under the Sustainable Use License: the installation's own internal use is fine; it is never
 offered to others as a service.
@@ -73,7 +73,31 @@ n8n migrates its database on start. Bump the tag here, take a dump first
 ## Not covered
 
 - The editor is reachable by every tailnet device; n8n's own login (the owner) is what protects it.
-- The hook and `plumbing.call` (flotilla's side) are not built; nothing calls n8n yet.
+- `plumbing.call` (flotilla's side) is not built; nothing calls n8n yet.
+- On 2026-11-22 the owner setup was found undone (login 401, `isInstanceOwnerSetUp=false`, the user row
+  never updated) although deploy2's `owner-setup.sh` had printed "owner created" and login 200 that
+  morning. Re-running it at 14:08Z stuck (checked in the database). Cause unknown; if the login fails
+  again, compare `select "updatedAt" from "user"` with the time of the last deploy.
+
+## The smoke flow (flotilla's `smoke` hook)
+
+Workflow **"flotilla smoke hook (manual)"** (`flotillasmoke001`), manual trigger only (RFC-0010: the one
+homelab flow). It proves `plumbing`, the signing secret and flotilla's hook end to end:
+
+1. a Code node builds the timestamp, the delivery (`n8n-smoke-<execution id>-<ms>`) and the body
+   `{"probe":"n8n-smoke-<execution id>"}` once, as a string;
+2. a Crypto node (v2, HMAC-SHA256, hex) signs `timestamp.delivery.body` with the credential
+   **"flotilla smoke hook (HMAC)"** (type `crypto`; the secret from `~/flotilla/config/hooks/smoke.secret`,
+   whitespace stripped, put in through stdin and never printed);
+3. two HTTP Request nodes POST those exact bytes to `http://flotillad:8488/hooks/smoke` with the
+   `X-Flotilla-*` headers: the first must answer 202 (a case opened and closed `resolved_itself`), the
+   re-send of the same delivery 200 (a replay);
+4. a Code node fails the run on anything else.
+
+Run it from the editor, or on the mini:
+`docker exec -e N8N_RUNNERS_BROKER_PORT=5690 n8n n8n execute --id=flotillasmoke001 --rawOutput` (the
+other port keeps the one-off process off the running instance's task broker). First run: 2026-11-22,
+202 then 200.
 - The proxy has no metrics scrape and no alert of its own: a dead `n8n-egress` shows only as failing
   connector calls in n8n's executions.
 - The proxy filters by host name, not by path or tool: a listed host is reachable in full.
