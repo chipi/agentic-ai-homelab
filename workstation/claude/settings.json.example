@@ -203,6 +203,7 @@
   "skipWorkflowUsageWarning": true,
   "env": {
     "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet",
-    "CLAUDE_CODE_TMPDIR": "$HOME/.cache/claude-tmp"
+    "CLAUDE_CODE_TMPDIR": "$HOME/.cache/claude-tmp",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "500000"
   }
 }

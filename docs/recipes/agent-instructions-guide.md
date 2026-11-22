@@ -67,7 +67,8 @@ read 2026-11-21.
 - The auto-compact point: `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (a token count, `100000` or more) in the
   `env` of `~/.claude/settings.json` sets it for every session; `/autocompact 300k` for one session.
   Here, sessions ran to about 967,000 tokens before compacting (2026-11-07..21), so a typical request
-  re-sent 520,000-580,000 tokens.
+  re-sent 520,000-580,000 tokens. Set to `500000` on every machine on 2026-11-22; `/clear` when a new
+  task starts does more than any window (Anthropic: a new task wants a new session).
 - `/context` shows the live breakdown by category, including which instruction files loaded.
 
 ## How it is wired here

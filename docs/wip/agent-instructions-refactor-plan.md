@@ -297,8 +297,9 @@ baseline, so read it as "not worse", not as "better".
 6. **Roll out** on the X3 first (install.sh links it), use it for a day, then the mini and the laptop
    with a pull.
 7. **The auto-compact window**: `CLAUDE_CODE_AUTO_COMPACT_WINDOW` in `~/.claude/settings.json`
-   (`settings.json.example` in this repo too), a value chosen from the token data, for example 300000;
-   watched for a few days with the same token analytics.
+   (`settings.json.example` in this repo too). **Done 2026-11-22:** `500000` on the X3, the laptop and
+   the mini's `claude` account (the operator's choice over 300000/400000), plus `/clear` between
+   tasks. Watch the token analytics for a few days; 300000 is the next step if requests stay large.
 
 ## Not covered yet
 
