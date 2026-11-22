@@ -1,6 +1,6 @@
 ---
 name: gpu-mode
-description: Coordinate which vLLM owns the single DGX GPU before using a local vLLM endpoint. Checks the active mode (prod/ollama/code/research/idle/BROKEN-BOTH) read-only, and switches only on explicit request. Use before pointing any tool at a local vLLM (http://<dgx>:9000/v1 or :8003/v1), when a vLLM call fails to connect, or when asked to bring the coder-next or autoresearch vLLM up or down. Switching is shared-state — never switch without explicit approval.
+description: Coordinate which vLLM owns the single DGX GPU before using a local vLLM endpoint. Checks the active mode (prod/code/research-vllm/judging-*/robotics/free/BROKEN-BOTH) read-only, and switches only on explicit request. Use before pointing any tool at a local vLLM (http://<dgx>:9000/v1 or :8003/v1), when a vLLM call fails to connect, or when asked to bring the coder-next or autoresearch vLLM up or down. Switching is shared-state — never switch without explicit approval.
 ---
 
 # gpu-mode
@@ -26,21 +26,22 @@ ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh <args>'
 Before ANY local vLLM call, confirm the right stack owns the GPU:
 
 ```bash
-ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh --mode-only'    # → prod | ollama | code | research | idle | BROKEN-BOTH
+ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh --mode-only'    # → prod | code | research-vllm | judging-* | robotics | free | BROKEN-BOTH
 ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh status --json'  # full machine-readable state
 ```
 
 - **prod** — the production serving vLLM on `:8003` (chipi/infra `infra/ai/vllm/prod-vllm`), plus the
   co-resident translation vLLM on `:8005`. Ollama and its `ollama-metrics` exporter are stopped.
-  The DGX's normal state (2026-10-17).
-- **ollama** — the podcast_scraper pipeline's Ollama mode: no vLLM, Ollama warm on `:11434`.
+  The DGX's normal state.
 - **code** — coder-next up on `:9000`
-- **research** — autoresearch up on `:8003`
+- **research-vllm** — autoresearch up on `:8003` (`research` is its old name, still accepted as an argument)
+- **judging-a / judging-b / judging-qwen-next / judging-nemotron** — a judge vLLM owns the GPU
 - **robotics** — the Microduck training container (`robotics-train`) owns the GPU: every vLLM and
   Ollama down. A training job; do not take the GPU. `docs/recipes/robotics-training.md`.
-- **idle** / **free** — both down; nothing the script runs holds the GPU (a hand-started job
-  might: confirm with the operator before taking it)
-- **BROKEN-BOTH** — both listening (bad state); needs a human, do not pile on
+- **free** (older name: idle) — no vLLM runs. The podcast pipeline's Ollama mode (`ollama`) and
+  `research-ollama` also report `free`, since they run no vLLM; and a hand-started job may hold the
+  GPU. Confirm with the operator before taking it.
+- **BROKEN-BOTH** — more than one GPU owner is up (bad state); needs a human, do not pile on
 
 If the mode already matches what you need, proceed. If not, see below — but do
 not switch on your own.
@@ -51,14 +52,15 @@ Switching brings one vLLM up and the other down; it interrupts whatever is using
 the GPU right now (a sweep, a training job, Ollama). Treat the DGX as production:
 
 - Never switch as a side effect of "I need the endpoint." Ask first.
-- `idle` does not mean the GPU is idle — a training job or Ollama can hold it
-  directly while gpu-mode-swap reports `idle`. Confirm with the operator before
+- `free` does not mean the GPU is idle — a training job or Ollama can hold it
+  directly while gpu-mode-swap reports `free`. Confirm with the operator before
   taking the GPU.
 - Only after an explicit go, and by absolute path:
   ```bash
-  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh code --json'      # coder-next up, autoresearch down
-  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh research-vllm --json'  # autoresearch up, coder-next down
-  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh idle --json'      # both down
+  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh code --json'           # coder-next up, the others down
+  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh research-vllm --json'  # autoresearch up, the others down
+  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh prod --json'           # the prod + translation vLLMs (normal state)
+  ssh markodragoljevic@dgx-llm-1 '~/bin/gpu-mode-swap.sh free --json'           # every vLLM down
   ```
 
 ## Report

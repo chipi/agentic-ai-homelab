@@ -48,16 +48,6 @@ timer's next run, and removes the copies. Nothing is installed. It also prints w
 host's existing drop-ins: on 2026-10-17 that is how Caddy's unquoted `CADDY_BIND_ADDRS` (IPv6 bind
 dropped) was found. Read every line, not only your unit's.
 
-## Tested 2026-10-17
-
-- `run_step.py` on `prod-ssh-key/action.yml`:
-  - unresolved inputs → REFUSED (exit 4);
-  - right key → exit 0, `SSH_PROD_IDENTITY` in the temp GITHUB_ENV, written in the temp HOME, not
-    yours;
-  - garbage key → exit 1 with the action's own `::error::`.
-- `verify_units.sh` on prod with the #1877 units: reported the wrapper missing from the box checkout
-  (expected before deploy), the timer's next run, and the Caddy drop-in warning. Temp dir removed.
-
 ## Not covered
 
 - `uses:` steps (marketplace actions such as checkout or tailscale) are not run. Supply their outputs

@@ -81,12 +81,3 @@ in CI against ~1 s locally, and its tests hit the 5 s default.
 - In the Actions-jobs fallback: annotations (warnings, failures hidden in green jobs) and checks
   from other apps (a GitHub App, a commit status) are not read. The verdict line says so; it does
   not mean they were clean. A classic token or a GitHub App with Checks: read closes it.
-
-## Tested 2026-10-31 (gh 2.96.0, a fine-grained token without Checks: read)
-
-- Private repo, green commit: fallback line, three jobs, `VERDICT GREEN … Actions jobs only`, exit 0.
-- Private repo, a commit whose job a newer push cancelled: `NOT RUN — cancelled; the next commit
-  on main is …`, `VERDICT INCOMPLETE`, exit 2.
-- Private repo, red commit: `VERDICT RED`, and the log tail shows the `ERROR:` and `##[error]`
-  lines of the failing job.
-- Public repo: check-runs read as before, no fallback line.

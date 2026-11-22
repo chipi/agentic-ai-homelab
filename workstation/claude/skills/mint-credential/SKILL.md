@@ -74,16 +74,6 @@ Set the one the workflow actually reads.
    `sudo install -m 600 -o claude -g staff <file> /Users/claude/<file>`. Record that copy too.
 3. Tell the agent that asked: the file path and variable name, **never the value**.
 
-## Verified
-
-2026-10-17 on the mini:
-- **LiteLLM:** minted `zz-mint-test` (DGX model only, $0.05, 1h). The allowed call returned 200,
-  and `fleet-triage-flash` was refused with 403. A second mint under the same alias was refused.
-  Revoked; the alias is gone.
-- **GlitchTip:** minted test tokens with `org:read`, and with `project:releases,org:read`. Each
-  authenticated on its scope's endpoint. Revoked with HTTP 204.
-- All test files were removed.
-
 ## Not covered
 
 - **Langfuse key pairs:** created in the Langfuse UI (project settings); there's no API for it

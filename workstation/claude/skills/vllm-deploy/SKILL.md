@@ -23,7 +23,7 @@ is read-only; the deploy is shared-state and gated on explicit approval.**
 Only after preflight is clean and the operator says go. The stack owns the GPU;
 treat the DGX as production.
 
-- Prefer `gpu-mode-swap.sh <code|research>` — it sequences the swap (brings the
+- Prefer `gpu-mode-swap.sh <code|research-vllm>` — it sequences the swap (brings the
   right stack up and the other down) rather than a bare `up`.
 - Or, run from the stack dir in place (repo-root `.env` convention):
   `docker compose up -d`.

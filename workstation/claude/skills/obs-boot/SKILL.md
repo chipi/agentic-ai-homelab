@@ -29,7 +29,10 @@ It checks:
 - the backend and collector containers on the mini and the DGX;
 - the collector loops;
 - how many seconds since each host's last metric sample (FAIL over the threshold, default 600 s, or if a host is missing entirely);
-- the alert-rule drift check (`drift: 0 rule(s)` = live Grafana matches the repo).
+- the alert-rule drift check (`drift: 0 rule(s)` = live Grafana matches the repo);
+- the prod Postgres exporter's scrape (`job=postgres`, `instance=prod-podcast`, the same stale threshold) and the
+  age of the last prod Postgres backup (`closelistening_pg_backup_last_success_timestamp_seconds`; FAIL over
+  26 h, or none pushed in 3 days).
 
 SSH defaults to the mini and `dgx-llm-1`; override with `HOMELAB_SSH` / `DGX_SSH`.
 
@@ -37,6 +40,8 @@ SSH defaults to the mini and `dgx-llm-1`; override with `HOMELAB_SSH` / `DGX_SSH
 - **Endpoint or container down** → step 2.
 - **One host's metrics stale, the others fresh** → that host's collector or the network path. Probe from **another tailnet node**: a broken colima forward on the mini makes everything look down from the mini itself (runbook `docs/recipes/colima-lima-forwarding-recovery.md`).
 - **Drift** → reload alert provisioning (`POST /api/admin/provisioning/alerting/reload`) after confirming the repo is the intended state.
+- **Postgres exporter stale, or the backup too old** → the prod VPS side, not the mini: the prod collector's
+  scrape of the exporter, or the backup job on prod-podcast (its unit's log). That is the prod session's lane.
 
 ## 2. Boot or recreate — SHARED STATE, explicit approval per action
 

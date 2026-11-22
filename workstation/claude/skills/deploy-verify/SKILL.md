@@ -44,47 +44,14 @@ $R homelab $V compare --project orrery --since 2026-10-17T08:21:00Z --sourcemaps
 | umami | each site got events since the deploy, with the latest event's time. Zero events is INCONCLUSIVE while the time since the deploy is shorter than the quiet gap before it, from the site's last event to the deploy (sparse traffic: re-run `compare` later), and WARN once it is older. A failed Umami query is a FAIL, not "0 events" |
 | sourcemaps | every live `_app/immutable` JS with a debugId has a stored GlitchTip bundle. Unmatched stubs under 1 KB are INFO. |
 
-## Verified
-
-**2026-10-17, podcast deploy `sha-ded80e0`** (since 2026-10-16 19:31):
-- logs, traces, metrics and Langfuse passed;
-- it FAILed on four new GlitchTip issues, three already known (the smoke alert, two reprocess
-  issues);
-- one **was not known**: `PLAYER-1I`, an Android `ForegroundServiceStartNotAllowedException`.
-  The manual checks had missed it, and it was handed to the mobile session.
-
-**orrery** (since 08:21):
-- PASS, with 59 of 61 live JS files matched to bundles, the two map-less stubs as INFO, and
-  dev lines from omarchy as INFO.
-
-**Fixes made while testing:**
-- Cloudflare 403s Python's default User-Agent, so the script uses a browser UA;
-- `litellm-acompletion` traces are LiteLLM's own, so they're ignored;
-- dev lines are INFO, not FAIL.
-
-**2026-11-02, orrery v0.9.3 (`sha-b4ddf1e`):** PASS (58 of 58 live JS with a debugId, 56 matched,
-2 stubs as INFO; `up{job=orrery}` 1 on both targets). Two gaps fixed first:
-- served orrery JS carries the id as `sentry-dbid-<uuid>` (sentryVitePlugin; only the artifact
-  copy has `//# debugId=`), so the check found 0 ids and still passed. It now reads both forms
-  and fails when no live file has an id;
-- the orrery profile had no scrape job, so metrics were skipped; it now checks `orrery`.
-- A service with no traffic since the deploy shows 0 traces (mcp, 20 min after this deploy):
-  send it one request and re-run before calling tracing broken.
-
-**2026-11-08, MCP trace probe (from the orrery session):** no probe credential exists for
-`mcp.orrerylearn.com`, so the probe sends none — the 401 is still a traced request.
-- `compare --project orrery`: `[PASS] orrery-mcp probe: 401 from https://mcp.orrerylearn.com/mcp,
-  trace a5af2f688d8e7fc371d22f58a91b78cf in VictoriaTraces after 21 s`.
-- Failure paths, run from a throwaway copy: expected status 200 → `[FAIL] … answered 401, expected
-  200 … — trace d3bfd59ed91d86173ec61ed260ce5022`; a service that never appears → `[FAIL] … trace
-  a3260bf1c3b79e1959e91aaaf9094b47 NOT in VictoriaTraces after 20 s` (limit lowered for the test).
-
-**2026-11-08, flotilla `sha-75a7491`** (since 18:45Z, its first deploy): `DEPLOY-VERIFY: PASS`. 21
-flotillad, 142 worker and 272 egress lines (environment=operations), 6 flotillad traces with
-service.version sha-75a7491, the three counters present. No GlitchTip project, Langfuse keys or
-site yet, so those sections have nothing to check.
-
 ## Not covered
+
+- Orrery's served JS carries the debug id as `sentry-dbid-<uuid>` (sentryVitePlugin; only the artifact copy
+  has `//# debugId=`): the check reads both forms, and fails when no live file has an id.
+- A service with no traffic since the deploy shows 0 traces: send it one request and re-run before calling
+  tracing broken.
+- The MCP probe has no credential for `mcp.orrerylearn.com`, so it sends none; the 401 is still a traced
+  request.
 
 - **App behaviour** (user-facing smoke tests): the deploy workflows' own smoke steps do that.
 - **The DGX services** (vLLM, pyannote): use `dgx-status` and `infra-drift`.

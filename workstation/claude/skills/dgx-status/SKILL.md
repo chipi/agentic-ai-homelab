@@ -24,7 +24,7 @@ ssh markodragoljevic@dgx-llm-1 '
 ## Report
 
 One compact block:
-- **mode** (code/research/idle/BROKEN-BOTH) + `gpu_compute_app_count`
+- **mode** (prod / code / research-vllm / judging-* / robotics / free / BROKEN-BOTH) + `gpu_compute_app_count`
 - **GPU**: utilization %. NOTE: on GB10 (unified memory) `nvidia-smi`
   `memory.used/total` returns `[N/A]` — don't rely on it. Use the compute-apps
   `used_memory` below (and DCGM/Grafana) for real memory pressure.
@@ -34,7 +34,7 @@ One compact block:
 
 ## Flag mismatches
 
-- `idle` but a compute app is present → a training job / Ollama holds the GPU
+- `free` but a compute app is present → a training job / Ollama holds the GPU
   directly (switching would fight it — see the `gpu-mode` skill).
-- `code` but `:9000` not healthy → the stack didn't come up cleanly.
+- `code` but `:9000` not healthy, or `prod` but `:8003` not healthy → the stack didn't come up cleanly.
 - `BROKEN-BOTH`, or both ports answering → bad state; surface it, don't fix blindly.

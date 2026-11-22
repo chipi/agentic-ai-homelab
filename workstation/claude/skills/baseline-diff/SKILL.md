@@ -49,15 +49,6 @@ A FAIL BOTH is evidence for a sentence like "main at b0edbb94 shows the identica
 It is not permission to leave the gate red. Whether to fix it in this branch is the operator's
 call. Report it, don't bury it.
 
-## Tested 2026-10-17
-
-- Synthetic repo, one target per verdict: all five verdicts and both exit codes came out as
-  expected, and the branch log shows `PYTHONPATH=<branch>/src`.
-- podcast_scraper PR 2138 (`acdfed1b`) against `b0edbb94` with `make type`: FAIL BOTH, 0 lines
-  only on the branch. That matches the by-hand finding (same `test_app_episodes.py:307` error on
-  main). The first version called it NEW ON BRANCH because mypy's "checked 2356 / 2322 source
-  files" differed when the branch deleted files. That is why numbers are masked.
-
 ## Not covered
 
 - Masking numbers means an error that differs from a base error only in a number (same message,

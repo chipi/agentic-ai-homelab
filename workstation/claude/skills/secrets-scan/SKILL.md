@@ -32,12 +32,6 @@ wired in `~/.claude/settings.json` since 2026-07-30) blocks a `git commit`/`git 
 Claude whose change matches. Since 2026-10-17 it also runs gitleaks when installed. This script is
 the on-demand report with file:line; `ship` runs it as its secrets gate.
 
-Verified 2026-10-17:
-- clean staged passes;
-- a staged Stripe key, a bad commit range and a staged `.env` each FAIL with file:line or the
-  file name;
-- without gitleaks, the regex fallback FAILs on an AWS key;
-- `--tree workstation/claude/skills` passes.
 
 ## Report
 

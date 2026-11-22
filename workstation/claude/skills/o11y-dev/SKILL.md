@@ -45,11 +45,9 @@ there is not "no errors".
 
 ## Projects
 
-The map is `PROJECTS` in the script. Today: `chipi/orrery` (errors, logs and traces filtered by `worktree`; the server labels need orrery commit 30bf6f674c7 on `tech-debt/0.9.10`, on its main from the 0.9.10 merge, so older dev runs are not branch-filtered), `chipi/podcast_scraper`
-(GlitchTip incl. `gi-kg-viewer-dev`, logs and traces, filtered by `worktree` from podcast_scraper b647d1633), `chipi/eval-harness` (GlitchTip `evals-dev`, logs and
-traces of evals-inspector and evals-mcp, all filtered by `worktree`, from eval-harness e6662bf6c on its 080
-branch), `chipi/closelistening-player` (GlitchTip `player-dev` filtered by `worktree` from its PR #26;
-`player-api` logs and traces, not branch-filtered). `chipi/humancopilot.eu` and `chipi/oceancanvas` send no dev telemetry yet. Finding out what dev observability fits is that project's
+The map is `PROJECTS` in `scripts/o11y_dev.py`, the one source of truth: per project, its GlitchTip dev
+slugs, whether logs and traces carry the `worktree` label (so a branch can be filtered), and which trace
+services it reads. Read it there rather than from a copy here. Finding out what dev observability fits is a project's
 own job: it either meets the contract or declares why there is nothing to check, in `.o11y-dev.json` at
 its repo root (`{"nothing_to_check": "<reason>"}`). With a declaration the script prints the reason and
 exits 0 (`nothing to check (declared by the project)`); without one it exits 2. The declaration counts
@@ -61,7 +59,7 @@ only for a project the map lists as sending nothing. What every project must sen
 - **Metrics.** Dev series are not read.
 - **The last few tens of seconds.** A trace can reach VictoriaTraces 20 s or more after the run (orrery, 2026-11-17: 0 traces 20 s after a probe, 1 on the next run). Right after a probe, run it again before calling a source empty.
 - **Production.** Use `o11y-prod`; after a deploy use `deploy-verify`.
-- **Dev runs from before the `worktree` label:** podcast_scraper's before b647d1633 and orrery's before 30bf6f674c7 (`tech-debt/0.9.10`) carry no label, so a branch filter does not see them.
+- **Dev runs from before a project started sending the `worktree` label** carry no label, so a branch filter does not see them; the script's `PROJECTS` comments name the commit each project started at.
 - **More than 100 issues per dev project** (one page is read) and the newest 1000 error/warn log lines.
 - **Issue detail** (stack traces, breadcrumbs): open the printed link.
 - **Errors that stopped more than 3 days ago.** Only unresolved issues are read, and dev issues are resolved 3 days after they were last seen (`infra/glitchtip/resolve-stale.py`). For an older branch, the count covers errors still recurring; the output says so.

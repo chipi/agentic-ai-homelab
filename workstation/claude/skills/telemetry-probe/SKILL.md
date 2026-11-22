@@ -57,16 +57,6 @@ Umami hostname `telemetry-probe.localhost`. Nothing real is mistaken for one.
   - `trace-create` through `/api/public/ingestion`, read back by id;
   - `DELETE` is asynchronous, so the script waits for a 404.
 
-## Verified
-
-2026-10-17, all on dev targets:
-- **GlitchTip:** a `player-dev` probe, absent from `player` and `player-api`, deleted, 404
-  confirmed.
-- **Umami:** a `Player (dev)` probe, absent from `Player`, deleted with its session.
-- **Langfuse:** a `podcast-dev` probe, deleted, 404 confirmed.
-- **Negative control:** `--assert-absent "Player (dev)"` on its own target reported `FAIL`
-  (exit 1) and still deleted the probe, leaving 0 `zz-probe` events.
-
 ## Rules
 
 - **Prefer dev targets.** A probe into a **prod** project or site needs the operator's go, and

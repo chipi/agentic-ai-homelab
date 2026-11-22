@@ -44,17 +44,6 @@ It's read-only: `git fetch` plus `docker ps`, `inspect` and `compose config`. It
 Pinning is judged on the compose file, i.e. what a recreate would pull, not on the running
 reference. A digest pin counts as matching when the running image has that digest.
 
-## Verified
-
-2026-10-17:
-- **mini, 4 findings:**
-  - checkout 11 behind (pulled after);
-  - LiteLLM running `main-stable` vs compose `v1.96.2`;
-  - Langfuse ClickHouse and MinIO with no tag.
-- **DGX, 1 finding:** checkout 6 behind (pulled after); `librechat-api` was allowed.
-- The first version reported Umami as drifted although it runs the pinned digest. It compared
-  strings; it now compares digests.
-
 ## Known limits
 
 - **Cosmetic tag differences:** the mini's LiteLLM is `1.96.2` under the `main-stable` tag,

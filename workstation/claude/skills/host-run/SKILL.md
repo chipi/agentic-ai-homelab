@@ -42,17 +42,6 @@ them.
   as running those commands by hand.
 - Keep the file in your scratchpad, not in a repo.
 
-## Verified
-
-2026-10-17 on `homelab` and `dgx`:
-- arguments `"arg one" '$HOME' '=x'` arrived literally;
-- JSON with spaces round-tripped;
-- `echo =====` printed;
-- an f-string with a backslash ran;
-- `docker` resolved;
-- `exit 7` came back as 7, and an unknown host exited 2;
-- no `/tmp/host-run.*` files were left on either host.
-
 ## Not covered
 
 - Interactive commands (`sudo` with a password, TUI tools).

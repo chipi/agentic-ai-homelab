@@ -34,20 +34,15 @@ invocation) for `totalTokens` + `resolvedModel`, then walks
 Cost rates in the script are approximate — update to current pricing (see the
 `claude-api` skill); tokens-per-model is the real signal.
 
-## How nesting is counted (v2)
+## How nesting is counted
 
 Only **top-level** subagent calls (those the orchestrator spawned) appear in the
 main transcript. A **nested** call — an executor consulting the `advisor` — runs
-as a separate sub-agent, recorded in `<session>/subagents/agent-<id>.jsonl`, and
-never lands in the main transcript. v1 read only the main transcript, so nested
-escalations were **invisible**: escalation showed `0 nested` and the advisor's
-(fable) tokens went uncounted entirely (they do *not* roll into the parent — a
-parent's `totalTokens` is its own final-context, disjoint from the child's).
+as a separate sub-agent, recorded in `<session>/subagents/agent-<id>.jsonl`; its
+tokens do *not* roll into the parent (a parent's `totalTokens` is its own
+final-context, disjoint from the child's). So the script reads both:
 
-v2 walks the `subagents/` dir too:
-
-- **Top-level** rows use the authoritative `totalTokens` from the main transcript
-  — identical numbers to v1.
+- **Top-level** rows use the authoritative `totalTokens` from the main transcript.
 - **Nested** rows read the sub-agent's own final-context (input + cache + output
   of its last turn — exactly what `totalTokens` measures) from its transcript, and
   link back to the parent that spawned it via `meta.toolUseId`. Some escalations
