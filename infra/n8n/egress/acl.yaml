@@ -1,0 +1,9 @@
+# The internet hosts n8n may reach; everything else is refused and logged. Empty until a connector is
+# decided (docs/rfc/RFC-0010-n8n-flows.md: each one is an amendment naming the tool and its hosts).
+# Changing this file needs `docker compose up -d egress` (a recreate) to take effect.
+version: v1
+services: []
+default:
+  project: n8n
+  action: enforce
+  allowed_domains: []

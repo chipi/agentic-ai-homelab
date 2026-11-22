@@ -1,0 +1,7 @@
+# n8n's egress proxy (Smokescreen). No allow_ranges: every private, loopback and link-local address is
+# refused, so n8n cannot reach the LAN, the tailnet or the host through it; the installation's services
+# are reached on their own networks, never through the proxy.
+ip: 0.0.0.0
+port: 4750
+acl_file: /etc/smokescreen/acl.yaml
+allow_missing_role: true   # one client (n8n), no client certificates: the default ACL applies

@@ -622,6 +622,7 @@ API runs in container `litellm` (master key in its env); run the calls from the 
 
 - Flotilla's plumbing layer (flotilla RFC-0014): `infra/n8n/`, `docker.n8n.io/n8nio/n8n` pinned, its own
   Postgres `n8n-db`. Internal networks only: `plumbing` (n8n, flotillad, alloy-homelab), `n8n_db` and `n8n_ui` (n8n and caddy).
+  The internet only through its proxy `n8n-egress` (allowlist `infra/n8n/egress/acl.yaml`, empty: refuses everything).
 - Base URL inside the installation: `http://n8n:5678/` (webhooks `/webhook/<path>`), from any container on
   `plumbing`. Nothing is published on the host. Editor: `https://n8n.tail6d0ed4.ts.net` (tailnet, owner login; webhook paths answer 404 there).
 - Health: `docker inspect -f '{{.State.Health.Status}}' n8n`; `up{job="n8n"}` in VictoriaMetrics

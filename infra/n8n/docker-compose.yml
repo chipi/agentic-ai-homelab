@@ -2,7 +2,7 @@
 # Runs on the homelab Mac mini's production engine beside flotilla. n8n is under the Sustainable Use
 # License: the installation's own internal use only, never offered to others as a service.
 #
-# Networks, all internal (no route out, nothing published on the host; RFC-0014 §5):
+# Networks, all internal but `out` (nothing published on the host; RFC-0014 §5):
 #   plumbing  n8n, flotillad (joins it as an external network) and alloy-homelab (scrapes /metrics).
 #             flotillad reaches n8n's webhooks at http://n8n:5678/webhook/..., n8n reaches flotillad by
 #             container name on the same network.
@@ -10,8 +10,10 @@
 #   ui        n8n and the installation's caddy only (named n8n_ui): the editor at
 #             https://n8n.tail6d0ed4.ts.net. Caddy is not on plumbing, so the tailnet node reaches
 #             n8n's editor and nothing of flotilla's. Deploy this stack before reverse-proxy.
-# No workflows and no connectors: the operator adds those case by case. A connector that needs the
-# internet (Slack, Google, GitHub) needs a route out, which this stack does not give n8n yet.
+#   egress    n8n and its egress proxy only.
+#   out       the proxy alone: its way to the internet. n8n itself has no route out.
+# The proxy (Smokescreen, the image flotilla builds, pinned by digest) admits only the hosts in
+# egress/acl.yaml, empty until a connector is decided (RFC-0010), and no private address at all.
 #
 # Secrets: the stack-local .env (mode 600, never in git; .env.example lists the names). The owner
 # login lives in ~/n8n/owner.env on the mini (README).
@@ -70,15 +72,38 @@ services:
       N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
       N8N_TEMPLATES_ENABLED: "false"
       N8N_PERSONALIZATION_ENABLED: "false"
+      HTTP_PROXY: http://egress:4750
+      HTTPS_PROXY: http://egress:4750
+      NO_PROXY: flotillad,n8n-db,egress,localhost,127.0.0.1
     volumes:
       - n8n-data:/home/node/.n8n
-    networks: [plumbing, db, ui]
+    networks: [plumbing, db, ui, egress]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 60s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  egress:
+    # flotilla's Smokescreen build (deploy/docker/smokescreen.Dockerfile there: a pinned upstream commit
+    # on distroless), by digest so a flotilla release never changes it underneath.
+    image: ghcr.io/chipi/flotilla-smokescreen@sha256:0be268a82ee678d60b96f9bdb12e2b3676c0f36e1129662ae0876732153cb677
+    container_name: n8n-egress
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 64m
+    cpus: 0.25
+    command: ["--config-file", "/etc/smokescreen/smokescreen.yaml"]
+    volumes:
+      - ./egress/smokescreen.yaml:/etc/smokescreen/smokescreen.yaml:ro
+      - ./egress/acl.yaml:/etc/smokescreen/acl.yaml:ro
+    networks: [egress, out]
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
@@ -92,6 +117,9 @@ networks:
   ui:
     name: n8n_ui
     internal: true
+  egress:
+    internal: true
+  out: {}
 
 volumes:
   n8n-db-data:

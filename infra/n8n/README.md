@@ -18,7 +18,21 @@ offered to others as a service.
   - `n8n_ui`: n8n and caddy only: the editor at **https://n8n.tail6d0ed4.ts.net** (tailnet only; caddy answers 404 for webhook paths there). Deploy n8n before `infra/reverse-proxy`.
 - **Base URL for webhooks, as flotillad's container sees it:** `http://n8n:5678/` (webhooks under
   `/webhook/<path>`, test webhooks under `/webhook-test/<path>`).
-- No route out: a connector that needs the internet needs a network decision first.
+- **The route out: only through `n8n-egress`** (Smokescreen, flotilla's build pinned by digest; added 2026-11-22).
+  n8n sets `HTTP(S)_PROXY=http://egress:4750` (`NO_PROXY` keeps flotillad and n8n-db direct) and has no
+  route of its own: the proxy alone is on the non-internal network `n8n_out`, n8n and the proxy share
+  the internal `n8n_egress`.
+  - **The allowlist** is [`egress/acl.yaml`](egress/acl.yaml), **empty**: every host is refused (407) and
+    logged. A connector's hosts are added there with its RFC-0010 amendment, then
+    `docker compose up -d egress` (a recreate; n8n keeps running).
+  - **Private addresses are refused** even when listed (no `allow_ranges` in
+    [`egress/smokescreen.yaml`](egress/smokescreen.yaml)): the proxy never reaches the LAN, the tailnet or
+    the host.
+  - n8n itself calls `api.n8n.io` at start even with diagnostics, version checks and templates off; the
+    proxy refuses it and logs one line per start.
+  - Proven on the X3 on 2026-11-22 with this image and config: a direct `fetch` from n8n failed
+    (`EAI_AGAIN`); an HTTP Request node got 407 for an unlisted host, 200 for `example.com` once listed in
+    a test ACL, and 407 "Deny: Private Range" for `192.168.1.1` even when listed.
 
 ## Run (on the mini, in this checkout)
 
@@ -41,7 +55,9 @@ unreadable. The stacks' `.env` files are not in the backups: keep a copy in the 
 
 ## Observability and backup
 
-- **Logs:** alloy-homelab ships the containers' stdout like every other container (`service="n8n"`).
+- **Logs:** alloy-homelab ships the containers' stdout like every other container (`service="n8n"`;
+  the proxy's decisions as `msg="CANONICAL-PROXY-DECISION"` lines from `n8n-egress`, with `allow`,
+  `requested_host` and `decision_reason`).
 - **Health:** the container healthcheck (`/healthz`), and alloy scrapes `n8n:5678/metrics` (job `n8n`).
   The generic alert `infra-target-down` (warning) fires when `up{job="n8n"}` is 0 for 5 minutes; a
   missing container scrapes as 0 too.
@@ -58,3 +74,6 @@ n8n migrates its database on start. Bump the tag here, take a dump first
 
 - The editor is reachable by every tailnet device; n8n's own login (the owner) is what protects it.
 - The hook and `plumbing.call` (flotilla's side) are not built; nothing calls n8n yet.
+- The proxy has no metrics scrape and no alert of its own: a dead `n8n-egress` shows only as failing
+  connector calls in n8n's executions.
+- The proxy filters by host name, not by path or tool: a listed host is reachable in full.

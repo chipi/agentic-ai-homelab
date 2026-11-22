@@ -92,7 +92,8 @@ Added from the review: the read path, shadows, the `smoke` hook, and the route o
 ## Not covered
 
 - Which company tools connect first, and the hook's design: flotilla RFC-0014.
-- **n8n's route out to the internet, which comes before RFC-0014 case 3's live run** (it needs Slack,
-  Google and the tracker). None today. It needs a network decision first: an egress proxy like
-  flotilla's, not a plain default network.
+- **Which hosts n8n may reach.** The route out exists since 2026-11-22: an egress proxy like flotilla's
+  (`n8n-egress`, `infra/n8n/egress/`), and n8n has no other. Its allowlist is empty; RFC-0014 case 3's
+  live run needs its tools' hosts (Slack, the documents, the tracker) added, each with an amendment here
+  naming the connector and its hosts.
 - Who may log in to the editor: the owner account only, today.
