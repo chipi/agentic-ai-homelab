@@ -92,8 +92,10 @@ Added from the review: the read path, shadows, the `smoke` hook, and the route o
 ## Not covered
 
 - Which company tools connect first, and the hook's design: flotilla RFC-0014.
-- **Which hosts n8n may reach.** The route out exists since 2026-11-22: an egress proxy like flotilla's
-  (`n8n-egress`, `infra/n8n/egress/`), and n8n has no other. Its allowlist is empty; RFC-0014 case 3's
-  live run needs its tools' hosts (Slack, the documents, the tracker) added, each with an amendment here
-  naming the connector and its hosts.
+- **Which hosts n8n may reach, and the rest of each example's e2e.** The route out exists since
+  2026-11-22: an egress proxy like flotilla's (`n8n-egress`, `infra/n8n/egress/`), and n8n has no other.
+  Its allowlist is empty on purpose. It grows with the examples (operator, 2026-11-22): as each RFC-0014
+  case is built, the hosts its tools need are added, along with the credentials, connectors and flows
+  it needs on n8n. Each is a short amendment here naming the case, the connector, its hosts and its
+  credential, so the allowlist always matches the cases that run, and nothing is added ahead of one.
 - Who may log in to the editor: the owner account only, today.

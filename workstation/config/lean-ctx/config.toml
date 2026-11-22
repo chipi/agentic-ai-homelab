@@ -92,6 +92,7 @@ shell_allowlist_extra = [
     "scan.sh",
     "long-job.sh",
     "run.sh",
+    "scp",
 ]
 
 [cloud]
