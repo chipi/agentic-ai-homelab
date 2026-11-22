@@ -236,13 +236,33 @@ Bash.
 
 **Proven 2026-11-21:**
 
-- `command-ask-guard.test.sh`: 40/40 cases (both tools, compound commands, near misses such as
+- `command-ask-guard.test.sh` (first version): 40/40 cases (both tools, compound commands, near misses such as
   `git status`, `rm -f file`, `npm install`, `docker compose down`).
 - Live, headless:
   - `git push` through Bash was refused;
   - `git push` through `ctx_shell` was refused with the guard's reason;
   - `git status` ran;
   - the throwaway remote never moved.
+
+**Fixed 2026-11-22: text that only mentions a command no longer asks.** The first version matched its
+patterns anywhere in the command's text, so the operator saw constant prompts in every session: the fleet
+session's message draft (a heredoc writing a file that quoted `git push origin HEAD:main`) asked, as did
+commit messages, echoes, comments, and the inline `rm -rf "$d"` of a command's own `mktemp -d` folder.
+The guard now checks what the shell runs:
+
+- It drops heredoc bodies, comments, and quoted strings containing whitespace. Every pattern spans a
+  space, so a quoted word without one, such as `"$d"`, is kept.
+- When the command hands text to a shell again (`bash -c`, `sh -c`, `ssh`, `eval`, `su`, a heredoc into
+  `bash`, `| sh`), the whole command is checked as written. The first version missed
+  `bash -c "rm -rf …"`, `eval "git push …"` and `sudo … sh -c '…'`, because the quote right before the
+  command hid it.
+- `rm -rf` passes when every target is the command's own `mktemp` folder, `/tmp/claude-<uid>/…`
+  (`/private/tmp` on macOS), or under `CLAUDE_CODE_TMPDIR`, with no `..`.
+
+The tests now cover 63 cases, 23 of them new, and pass with GNU bash 5 on the X3 and macOS bash 3.2.57
+with BSD awk on the mini. All 7 mutants of the fix failed the suite (`replay-proven-fix`'s `mutate.py`):
+no re-run detection, any variable taken as a mktemp folder, `..` allowed, heredoc bodies kept, quoted
+text kept, comments kept, every `rm -rf` allowed.
 
 **Escape hatch:** `COMMAND_ASK_GUARD=off`. It is the operator's alone; an agent never sets it.
 

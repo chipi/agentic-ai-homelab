@@ -52,6 +52,32 @@ t allow Bash                      "npm install"
 t allow Bash                      "npm ci"
 t allow Bash                      "pip show evaluation-harness"
 t allow Bash                      "uv venv .venv"
+# 2026-11-22: text that only mentions a guarded command is not a command (the operator saw constant prompts;
+# the fleet session's message draft below, which quoted "git push" lines, asked)
+t allow Bash                      $'F=/tmp/claude-1000/p/s/scratchpad/msg.txt; cat > $F <<\'EOF\'\n- 6 asks, shape `cd <repo> && git push origin HEAD:main`.\nEOF\npython3 ~/.claude/skills/session-handoff-msg/scripts/lint_msg.py $F'
+t allow Bash                      'git commit -m "docs: how to git push safely"'
+t allow Bash                      'echo "never run docker volume rm here"'
+t allow Bash                      'python3 x.py  # needs: pip install foo'
+t allow Bash                      $'cat > x.sh <<\'EOF\'\nrm -rf "$HOME/x"\nEOF'
+t allow Bash                      'd=$(mktemp -d); do_work "$d"; rm -rf "$d"'
+t allow Bash                      'T="$(mktemp -d)" && trap '\''rm -rf "$T"'\'' EXIT; make -C "$T"'
+t allow Bash                      "rm -rf /tmp/claude-$(id -u)/proj/session/scratchpad/egress-test"
+t allow Bash                      "rm -rf /private/tmp/claude-$(id -u)/proj/session/scratchpad/x"
+# ... and a real one next to or inside text that runs still asks
+t ask   Bash                      'git commit -m "release" && git push origin main'
+t ask   Bash                      $'cat > x.sh <<\'EOF\'\nrm -rf build\nEOF\nbash x.sh'
+t ask   Bash                      $'bash <<\'EOF\'\ngit push origin main\nEOF'
+t ask   Bash                      $'ssh host \'bash -s\' <<\'EOF\'\nrm -rf ~/data\nEOF'
+t ask   Bash                      'bash -c "rm -rf /srv/data"'
+t ask   Bash                      'ssh homelab "cd repo && git push origin main"'
+t ask   Bash                      "sudo -u claude sh -c 'docker volume rm x'"
+t ask   Bash                      'eval "git push origin main"'
+t ask   Bash                      'echo "git push origin main" | sh'
+t ask   Bash                      'd=$(mktemp -d); rm -rf "$d" "$HOME/data"'
+t ask   Bash                      'rm -rf "$d"'
+t ask   Bash                      "rm -rf /tmp/claude-$(id -u)/../../home/x"
+t ask   Bash                      "rm -rf /tmp/other"
+t ask   Bash                      'docker compose down -v # cleanup'
 # other tools and the escape hatch
 t allow Read                      "git push origin main"
 out="$(jq -n '{tool_name:"Bash",tool_input:{command:"git push"}}' | COMMAND_ASK_GUARD=off bash "$H")"
