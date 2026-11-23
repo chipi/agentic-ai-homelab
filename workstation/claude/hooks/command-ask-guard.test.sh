@@ -25,9 +25,9 @@ t ask   Bash                      "gh issue create --title x --body y"
 t allow Bash                      "gh issue view 87 --repo chipi/x"
 t allow Bash                      "gh issue close 172 --reason 'not planned'"
 # destructive
-t ask   Bash                      "rm -rf build/"
+t ask   Bash                      "rm -rf src/"
 t ask   mcp__lean-ctx__ctx_shell  "cd /tmp && rm -fr cache"
-t ask   Bash                      "rm -r -f dist"
+t ask   Bash                      "rm -r -f src"
 t allow Bash                      "rm build/out.o"
 t allow Bash                      "rm -f /tmp/x.json"
 t ask   Bash                      "docker system prune -af"
@@ -95,6 +95,22 @@ t ask   Bash                      'd=$(mktemp -d); rm -rf "$d" "$HOME/data"'
 t ask   Bash                      'rm -rf "$d"'
 t ask   Bash                      "rm -rf /tmp/claude-$(id -u)/../../home/x"
 t ask   Bash                      "rm -rf /tmp/other"
+# 2026-11-23: generated-output folders (relative) and Claude temp areas on other hosts
+t allow Bash                      'cd /work/eval-harness/worktrees/081/harness && rm -rf .build/f3-new; .venv/bin/python scripts/cli.py catalog --out .build/f3-new'
+t allow Bash                      'rm -rf build dist node_modules .pytest_cache'
+t allow Bash                      'rm -rf ./__pycache__ ./.mypy_cache'
+t allow Bash                      $'timeout 60 ssh -i k host \'docker exec db psql -tAc "select 1"; rm -rf /tmp/claude-work/case3 && echo removed\''
+t ask   Bash                      $'timeout 60 ssh -i k host \'rm -rf /tmp/case3\''
+t ask   Bash                      'rm -rf .'
+t ask   Bash                      'rm -rf ./'
+t ask   Bash                      'rm -rf build/../src'
+t ask   Bash                      'rm -rf build/*'
+t ask   Bash                      'rm -rf src build'
+t ask   Bash                      'rm -rf ~/build'
+t ask   Bash                      'rm -rf /work/proj/build'
+t ask   Bash                      'rm -rf .git'
+t ask   Bash                      'rm -rf .venv'
+t ask   Bash                      'rm -rf /tmp/claude-/x'
 t ask   Bash                      'docker compose down -v # cleanup'
 # other tools and the escape hatch
 t allow Read                      "git push origin main"

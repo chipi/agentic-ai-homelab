@@ -383,3 +383,18 @@ runnable by hand anywhere.)
 
 `session-reap.sh` is global (fires everywhere, automatically); `cleanup-worktree.sh`
 is repo-local and on-demand. They share the stale-loop sweep logic and the 2h gate.
+
+## 2026-11-23: build folders and remote Claude temp folders
+
+The operator collected three prompts, all an `rm -rf` of something the session had made itself: an eval-harness
+session's `rm -rf .build/f3-new` before each rebuild (twice), and this repo's session removing `/tmp/case3` on the
+mini over ssh. `rm -rf` is now also allowed on:
+
+- a relative path whose first part is a generated-output folder (`BUILD_DIRS` in the hook: `.build`, `build`,
+  `dist`, `target`, the Python, JS and Gradle caches, `node_modules`, coverage output);
+- `/tmp/claude-<anything>/<sub>`, so a work folder made on another host (use `/tmp/claude-work/` there) counts as a
+  Claude temp area like the local `/tmp/claude-<uid>/`.
+
+It still asks for `..`, a glob, `~`, `.`, `.git`, `.venv`, an absolute project path and any other relative path.
+`/tmp/case3` itself still asks: agents use `/tmp/claude-work/` on remote hosts instead. Tests: 92 of 92 on the X3
+(bash 5) and the mini (`/bin/bash` 3.2.57, BSD awk).

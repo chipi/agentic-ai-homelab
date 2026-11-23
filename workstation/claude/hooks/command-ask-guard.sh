@@ -111,9 +111,15 @@ if reruns; then
     text="$(printf '%s' "$cmd" | tr "\"'" '  ')"
 fi
 
-# rm -rf is allowed when every target is the command's own `mktemp` folder (VAR=$(mktemp ...), then "$VAR"
-# or "$VAR/sub") or a path in the session's temp areas: /tmp/claude-<uid>/ (/private/tmp on macOS, the
-# scratchpads) and CLAUDE_CODE_TMPDIR. Anything else, or a ".." anywhere, asks.
+# rm -rf is allowed when every target is:
+# - the command's own `mktemp` folder (VAR=$(mktemp ...), then "$VAR" or "$VAR/sub");
+# - a path in a Claude temp area: /tmp/claude-<anything>/<sub> (this machine's scratchpads under /tmp/claude-<uid>,
+#   /private/tmp on macOS, and a work folder an agent made on another host, e.g. /tmp/claude-work over ssh) or
+#   CLAUDE_CODE_TMPDIR;
+# - a relative path whose first part is a generated-output folder (BUILD_DIRS), which the next build remakes.
+# Anything else asks: a "..", a glob, "~", ".", an absolute project path, any other relative path
+# (2026-11-23, operator: an eval-harness session's `rm -rf .build/f3-new` before each rebuild asked every time).
+BUILD_DIRS=".build build dist out target .cache .pytest_cache .mypy_cache .ruff_cache __pycache__ node_modules htmlcov .coverage coverage .tox .nox .next .nuxt .turbo .parcel-cache .gradle"
 rm_target_ok() {
     local t="$1" v
     case "$t" in *..*) return 1 ;; esac
@@ -123,7 +129,11 @@ rm_target_ok() {
         return
     fi
     case "$t" in
-        "/tmp/claude-${UID}/"?*|"/private/tmp/claude-${UID}/"?*) return 0 ;;
+        /tmp/claude-?*/?*|/private/tmp/claude-?*/?*) return 0 ;;
+    esac
+    case "$t" in
+        /*|~*|*[*?[]*) ;;
+        *) t="${t#./}"; case " $BUILD_DIRS " in *" ${t%%/*} "*) return 0 ;; esac ;;
     esac
     [ -n "${CLAUDE_CODE_TMPDIR:-}" ] && case "$t" in "${CLAUDE_CODE_TMPDIR%/}/"?*) return 0 ;; esac
     return 1
