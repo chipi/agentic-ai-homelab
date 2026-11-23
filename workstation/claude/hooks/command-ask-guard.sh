@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
-# command-ask-guard.sh — Claude Code PreToolUse hook. Makes the AGENTS.md "ask first" rules deterministic:
-# a command that pushes, opens a GitHub issue, deletes or prunes destructively, or installs into a shared
-# environment gets `permissionDecision: "ask"`, so Claude Code asks the operator (in a headless run, where
-# nobody can answer, it is refused).
+# command-ask-guard.sh — Claude Code PreToolUse hook. A short backstop for the few actions that leave the
+# machine or can't be undone: a push to main (or another default or release branch), opening a GitHub issue,
+# a docker prune or volume removal, compose down -v, terraform apply/destroy. Those get
+# `permissionDecision: "ask"`, so the operator is asked (a headless run, where nobody can answer, refuses).
 #
-# Why a hook and not only permissions.ask: Bash(...) permission rules match the native Bash tool only, and the
-# lean-ctx policy routes agents' shell commands through mcp__lean-ctx__ctx_shell, which those rules never see
-# (2026-11-21: `claude -p "... git push origin main"` pushed through ctx_shell with Bash(git push:*) in ask).
-# This hook reads the command from either: matcher `Bash|bash|mcp__lean-ctx__ctx_shell|mcp__lean-ctx__shell|
-# mcp__lean-ctx__ctx_execute`.
+# Everything else is left to auto mode and the agent's judgment of ~/.config/AGENTS.md: deletes and installs
+# are scoped there ("on shared infra", "into a shared environment"), and a text pattern can't see that scope.
+# The 2026-11-21 refactor put rm -rf and installs here and in 20 permissions.ask rules; every delete of an
+# agent's own folder and every .venv install then asked, auto mode stopped working, and each prompt led to
+# another exception pattern. On 2026-11-23 the operator had them removed (README, "2026-11-23: back to a
+# short list").
 #
-# Asked about (anywhere the shell runs it, so `cd x && git push` is caught too):
-#   git push (incl. `git -C dir push`, --force; a feature-branch push is let through, see push_ok) · gh issue create · rm -rf / -fr / -r -f (except on the
-#   command's own mktemp folder or the session temp areas) ·
-#   docker system|volume|image|container|builder|network prune · docker volume rm · compose down -v/--volumes ·
-#   terraform apply|destroy · pip/pip3/python -m pip/uv pip install · uv add · uv tool install ·
-#   npm install -g / npm i -g · brew install
+# Why a hook at all: Bash(...) permission rules match the native Bash tool only, and the lean-ctx policy routes
+# agents' shell commands through mcp__lean-ctx__ctx_shell, which those rules never see (2026-11-21:
+# `claude -p "... git push origin main"` pushed through ctx_shell). This hook reads the command from either:
+# matcher `Bash|bash|mcp__lean-ctx__ctx_shell|mcp__lean-ctx__shell|mcp__lean-ctx__ctx_execute`.
+#
+# Asked about (anywhere the shell runs it, so `cd x && git push origin main` is caught too):
+#   git push to a default or release branch, or one whose branch can't be seen (see push_ok) ·
+#   gh issue create · docker system|volume|image|container|builder|network prune · docker volume rm ·
+#   compose down -v/--volumes · terraform apply|destroy
 # Not asked about: the same words in text that is not run (a heredoc written to a file, a commit message, an
 # echo, a comment). Inside bash -c / sh -c / ssh / eval / su / a heredoc into a shell, the text is checked.
 # Not covered: a command assembled at runtime (a variable expanded, a script file that pushes, even one this
@@ -111,50 +115,6 @@ if reruns; then
     text="$(printf '%s' "$cmd" | tr "\"'" '  ')"; raw=1
 fi
 
-# rm -rf is allowed when every target is:
-# - the command's own `mktemp` folder (VAR=$(mktemp ...) or VAR=$(ssh host 'mktemp ...'), then "$VAR" or "$VAR/sub");
-# - a path in a Claude temp area: /tmp/claude-<anything>/<sub> (this machine's scratchpads under /tmp/claude-<uid>,
-#   /private/tmp on macOS, and a work folder an agent made on another host, e.g. /tmp/claude-work over ssh) or
-#   CLAUDE_CODE_TMPDIR;
-# - a relative path whose first part is a generated-output folder (BUILD_DIRS), which the next build remakes.
-# Anything else asks: a "..", a glob, "~", ".", an absolute project path, any other relative path
-# (2026-11-23, operator: an eval-harness session's `rm -rf .build/f3-new` before each rebuild asked every time).
-BUILD_DIRS=".build build dist out target .cache .pytest_cache .mypy_cache .ruff_cache __pycache__ node_modules htmlcov .coverage coverage .tox .nox .next .nuxt .turbo .parcel-cache .gradle"
-rm_target_ok() {
-    local t="$1" v
-    case "$t" in *..*) return 1 ;; esac
-    if [[ "$t" =~ ^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?(/.*)?$ ]]; then
-        v="${BASH_REMATCH[1]}"
-        printf '%s' "$cmd" | grep -Eq -- "(^|[;&|(\`[:space:]])${v}=\"?(\\\$\\(|\`)mktemp([[:space:]]|\\)|\`)" && return 0
-        # the same made on another host: VAR=$(ssh host 'mktemp -d'), then rm -rf "$VAR" there (2026-11-23)
-        printf '%s' "$cmd" | grep -Eq -- "(^|[;&|(\`[:space:]])${v}=\"?\\\$\\((timeout[[:space:]]+[0-9]+[[:space:]]+)?ssh[[:space:]][^)\`;&|]*[[:space:]'\"]mktemp([[:space:]'\"]|\\))"
-        return
-    fi
-    case "$t" in
-        /tmp/claude-?*/?*|/private/tmp/claude-?*/?*) return 0 ;;
-    esac
-    case "$t" in
-        /*|~*|*[*?[]*) ;;
-        *) t="${t#./}"; case " $BUILD_DIRS " in *" ${t%%/*} "*) return 0 ;; esac ;;
-    esac
-    [ -n "${CLAUDE_CODE_TMPDIR:-}" ] && case "$t" in "${CLAUDE_CODE_TMPDIR%/}/"?*) return 0 ;; esac
-    return 1
-}
-rm_ok() {   # every recursive forced rm in $text targets only allowed paths
-    local seg flags t
-    while IFS= read -r seg; do
-        seg="${seg#"${seg%%rm*}"}"
-        set -f; set -- $seg; set +f
-        shift
-        flags=""
-        while [ $# -gt 0 ] && [ "${1#-}" != "$1" ]; do flags="$flags$1"; shift; done
-        case "$flags" in *recursive*force*|*force*recursive*) ;; *r*f*|*f*r*) case "$flags" in *--*) continue ;; esac ;; *) continue ;; esac
-        [ $# -gt 0 ] || return 1
-        for t in "$@"; do t="${t//\\/}"; [ -n "$t" ] || continue; rm_target_ok "$t" || return 1; done   # \"$D\" inside ssh "..."
-    done < <(printf '%s\n' "$text" | grep -oE -- "${S}rm[[:space:]][^;&|)]*")
-    return 0
-}
-
 # A push of a feature branch needs no go (operator, 2026-11-23): every push in the command names a remote and
 # only branches that are not a default or release branch, with no flag beyond these (--force-with-lease after
 # a rebase is one). Still asks: a bare `git push` or one with no branch (where it goes depends on the checkout),
@@ -188,20 +148,14 @@ push_ok() {
 
 check() {   # $1 = ERE, $2 = what, $3 = the AGENTS.md rule
     if printf '%s' "$text" | grep -Eq -- "$1"; then
-        [ "$2" = "a recursive forced delete" ] && rm_ok && return 0
-        [ "$2" = "git push" ] && push_ok && return 0
+        [ "$2" = "git push to a default branch" ] && push_ok && return 0
         ask "command-ask-guard: ${2}. The operator approves this per instance (~/.config/AGENTS.md, ${3}). Ask in the conversation before running it; in a headless run it is refused."
     fi
 }
-check "${S}git([[:space:]]+-[^;&|]*)?([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+push([[:space:]]|\$)" "git push" "1: never push without the operator's go"
+check "${S}git([[:space:]]+-[^;&|]*)?([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+push([[:space:]]|\$)" "git push to a default branch" "1: never push to main without the operator's go"
 check "${S}gh[[:space:]]+issue[[:space:]]+create" "opening a GitHub issue" "1: never open a GitHub issue without the operator's explicit ask"
-check "${S}rm[[:space:]]+(-[A-Za-z]*r[A-Za-z]*f|-[A-Za-z]*f[A-Za-z]*r|-r[[:space:]]+-f|-f[[:space:]]+-r|--recursive[[:space:]]+--force|--force[[:space:]]+--recursive)" "a recursive forced delete" "1: destructive changes need a per-instance go; deletes cover the exact paths named"
 check "${S}docker[[:space:]]+(system|volume|image|container|builder|network)[[:space:]]+prune" "a docker prune" "1: destructive changes need a per-instance go"
 check "${S}docker[[:space:]]+volume[[:space:]]+rm" "deleting a docker volume" "1: destructive changes need a per-instance go"
 check "compose([[:space:]]+[^;&|]*)?[[:space:]]+down([[:space:]]+[^;&|]*)?[[:space:]]+(-v|--volumes)([[:space:]]|\$)" "compose down with volumes" "1: destructive changes need a per-instance go"
 check "${S}terraform[[:space:]]+(apply|destroy)" "terraform apply/destroy" "1: destructive changes need a per-instance go"
-check "${S}(pip3?|python3?[[:space:]]+-m[[:space:]]+pip|uv[[:space:]]+pip)[[:space:]]+install([[:space:]]|\$)" "a pip install" "1: no new dependencies and no installs into a shared environment without approval"
-check "${S}uv[[:space:]]+(add|tool[[:space:]]+install)([[:space:]]|\$)" "a uv add / tool install" "1: no new dependencies without approval"
-check "${S}npm[[:space:]]+(install|i)([[:space:]]+[^;&|]*)?[[:space:]]+(-g|--global)([[:space:]]|\$)" "a global npm install" "1: no installs into a shared environment without approval"
-check "${S}brew[[:space:]]+install" "a brew install" "1: no installs into a shared environment without approval"
 allow

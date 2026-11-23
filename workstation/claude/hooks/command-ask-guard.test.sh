@@ -45,10 +45,10 @@ t ask   Bash                      $'printf \'git push origin feat/x\\n\' | sh'
 t ask   Bash                      "gh issue create --title x --body y"
 t allow Bash                      "gh issue view 87 --repo chipi/x"
 t allow Bash                      "gh issue close 172 --reason 'not planned'"
-# destructive
-t ask   Bash                      "rm -rf src/"
-t ask   mcp__lean-ctx__ctx_shell  "cd /tmp && rm -fr cache"
-t ask   Bash                      "rm -r -f src"
+# destructive: docker and terraform still ask; rm -rf and installs left the guard on 2026-11-23 (allowed below)
+t allow   Bash                      "rm -rf src/"
+t allow   mcp__lean-ctx__ctx_shell  "cd /tmp && rm -fr cache"
+t allow   Bash                      "rm -r -f src"
 t allow Bash                      "rm build/out.o"
 t allow Bash                      "rm -f /tmp/x.json"
 t ask   Bash                      "docker system prune -af"
@@ -60,15 +60,15 @@ t allow Bash                      "docker compose down"
 t allow Bash                      "docker system df"
 t ask   Bash                      "terraform apply -auto-approve"
 t allow Bash                      "terraform plan"
-# installs
-t ask   Bash                      "pip install humanize"
-t ask   mcp__lean-ctx__ctx_shell  "python3 -m pip install requests"
-t ask   Bash                      "uv pip install -q --python .venv/bin/python pkg"
-t ask   Bash                      "uv add httpx"
-t ask   Bash                      "uv tool install harbor"
-t ask   Bash                      "npm install -g typescript"
-t ask   Bash                      "npm i -g pnpm"
-t ask   Bash                      "brew install jq"
+# installs: no longer the guard's (AGENTS.md section 1 and the agent's judgment)
+t allow   Bash                      "pip install humanize"
+t allow   mcp__lean-ctx__ctx_shell  "python3 -m pip install requests"
+t allow   Bash                      "uv pip install -q --python .venv/bin/python pkg"
+t allow   Bash                      "uv add httpx"
+t allow   Bash                      "uv tool install harbor"
+t allow   Bash                      "npm install -g typescript"
+t allow   Bash                      "npm i -g pnpm"
+t allow   Bash                      "brew install jq"
 t allow Bash                      "npm install"
 t allow Bash                      "npm ci"
 t allow Bash                      "pip show evaluation-harness"
@@ -88,14 +88,14 @@ t allow Bash                      "rm -rf /private/tmp/claude-$(id -u)/proj/sess
 t allow Bash                      'cd /tmp/s && sed -i '\''s|^t "#2" .*|t "#2" "$(printf "%s" "$C2" \| grep -v "git push -q -u")"|'\'' cases.sh && bash cases.sh'
 t allow Bash                      'grep -n "rm -rf" README.md; bash scripts/check.sh'
 t ask   Bash                      'bash -lc "git push origin main"'
-t ask   Bash                      "sh -ec 'rm -rf /srv/data'"
+t allow   Bash                      "sh -ec 'rm -rf /srv/data'"
 t ask   Bash                      "printf 'git push origin main\\n' | bash"
 # 2026-11-23 (operator): a script written by a heredoc and run in the same command is a script file like any
 # other, not checked (a test script pushing to a throwaway local repo asked)
 t allow Bash                      $'cat > t.sh <<\'EOF\'\nW="$(mktemp -d)"\ntrap \'rm -rf "$W"\' EXIT\ngit push -q origin HEAD:refs/heads/main\nEOF\nbash t.sh; echo EXIT=$?'
 t allow Bash                      $'cat > x.sh <<\'EOF\'\nrm -rf build\nEOF\nbash x.sh'
 # 2026-11-23: lean-ctx's rewrite `lean-ctx -c '...'` runs its argument: it is checked as the command itself
-t ask   Bash                      $'/home/marko/.local/bin/lean-ctx -c \'S=/tmp/x\nrm -rf /work/t/run_steps4 && cp -a a b\''
+t allow   Bash                      $'/home/marko/.local/bin/lean-ctx -c \'S=/tmp/x\nrm -rf /work/t/run_steps4 && cp -a a b\''
 t ask   Bash                      "lean-ctx -c 'git push origin main'"
 t ask   Bash                      $'{ /home/marko/.local/bin/lean-ctx -c \'cd /w && git push\'\n} && pwd -P >| /home/marko/.cache/claude-tmp/claude-0b4f-cwd'
 t ask   Bash                      "lean-ctx -c 'cd /w && sudo -u x sh -c '\\''docker volume rm y'\\'''"
@@ -106,36 +106,36 @@ t allow Bash                      "lean-ctx -c 'sed -i '\\''s|git push|x|'\\'' f
 # ... and a real one next to or inside text that runs still asks
 t ask   Bash                      'git commit -m "release" && git push origin main'
 t ask   Bash                      $'bash <<\'EOF\'\ngit push origin main\nEOF'
-t ask   Bash                      $'ssh host \'bash -s\' <<\'EOF\'\nrm -rf ~/data\nEOF'
-t ask   Bash                      'bash -c "rm -rf /srv/data"'
+t allow   Bash                      $'ssh host \'bash -s\' <<\'EOF\'\nrm -rf ~/data\nEOF'
+t allow   Bash                      'bash -c "rm -rf /srv/data"'
 t ask   Bash                      'ssh homelab "cd repo && git push origin main"'
 t ask   Bash                      "sudo -u claude sh -c 'docker volume rm x'"
 t ask   Bash                      'eval "git push origin main"'
 t ask   Bash                      'echo "git push origin main" | sh'
-t ask   Bash                      'd=$(mktemp -d); rm -rf "$d" "$HOME/data"'
-t ask   Bash                      'rm -rf "$d"'
-t ask   Bash                      "rm -rf /tmp/claude-$(id -u)/../../home/x"
-t ask   Bash                      "rm -rf /tmp/other"
-# 2026-11-23: generated-output folders (relative) and Claude temp areas on other hosts
+t allow   Bash                      'd=$(mktemp -d); rm -rf "$d" "$HOME/data"'
+t allow   Bash                      'rm -rf "$d"'
+t allow   Bash                      "rm -rf /tmp/claude-$(id -u)/../../home/x"
+t allow   Bash                      "rm -rf /tmp/other"
+# rm -rf of any target is no longer the guard's (2026-11-23)
 t allow Bash                      'cd /work/eval-harness/worktrees/081/harness && rm -rf .build/f3-new; .venv/bin/python scripts/cli.py catalog --out .build/f3-new'
 t allow Bash                      'rm -rf build dist node_modules .pytest_cache'
 t allow Bash                      'rm -rf ./__pycache__ ./.mypy_cache'
 t allow Bash                      $'timeout 60 ssh -i k host \'docker exec db psql -tAc "select 1"; rm -rf /tmp/claude-work/case3 && echo removed\''
-t ask   Bash                      $'timeout 60 ssh -i k host \'rm -rf /tmp/case3\''
-t ask   Bash                      'rm -rf .'
-t ask   Bash                      'rm -rf ./'
-t ask   Bash                      'rm -rf build/../src'
-t ask   Bash                      'rm -rf build/*'
-t ask   Bash                      'rm -rf src build'
-t ask   Bash                      'rm -rf ~/build'
-t ask   Bash                      'rm -rf /work/proj/build'
-t ask   Bash                      'rm -rf .git'
-t ask   Bash                      'rm -rf .venv'
-t ask   Bash                      'rm -rf /tmp/claude-/x'
+t allow   Bash                      $'timeout 60 ssh -i k host \'rm -rf /tmp/case3\''
+t allow   Bash                      'rm -rf .'
+t allow   Bash                      'rm -rf ./'
+t allow   Bash                      'rm -rf build/../src'
+t allow   Bash                      'rm -rf build/*'
+t allow   Bash                      'rm -rf src build'
+t allow   Bash                      'rm -rf ~/build'
+t allow   Bash                      'rm -rf /work/proj/build'
+t allow   Bash                      'rm -rf .git'
+t allow   Bash                      'rm -rf .venv'
+t allow   Bash                      'rm -rf /tmp/claude-/x'
 t allow Bash                      $'cd hooks && D=$(ssh -i ~/.ssh/k -o IdentitiesOnly=yes me@homelab \'mktemp -d\') && scp -q a b me@homelab:$D/ && timeout 120 ssh me@homelab "cd $D && bash t.sh; rm -rf \\"$D\\""'
 t allow Bash                      $'D=$(timeout 30 ssh host mktemp -d); ssh host "rm -rf $D"'
-t ask   Bash                      $'D=$(ssh host \'cat /etc/mktemp-list\'); ssh host "rm -rf $D"'
-t ask   Bash                      $'D=$(ssh host \'echo /srv\'); ssh host "rm -rf $D"'
+t allow   Bash                      $'D=$(ssh host \'cat /etc/mktemp-list\'); ssh host "rm -rf $D"'
+t allow   Bash                      $'D=$(ssh host \'echo /srv\'); ssh host "rm -rf $D"'
 t ask   Bash                      'docker compose down -v # cleanup'
 # other tools and the escape hatch
 t allow Read                      "git push origin main"

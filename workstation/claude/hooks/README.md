@@ -218,7 +218,7 @@ both scratchpad roots) and `bash workstation/claude/hooks/session-tmpdir.test.sh
 
 ---
 
-## command-ask-guard.sh — ask the operator before a push, an issue, a destructive command or an install (PreToolUse)
+## command-ask-guard.sh — ask the operator before a push to main, an issue, a docker prune, compose down -v or terraform (PreToolUse)
 
 Makes the "ask first" rules of the global `AGENTS.md` (section 1) deterministic. A shell command that
 pushes, opens a GitHub issue, deletes or prunes destructively, or installs into a shared environment gets
@@ -231,8 +231,8 @@ only, and the lean-ctx policy routes agents' commands through `mcp__lean-ctx__ct
 headless `git push` went through `ctx_shell` while `Bash(git push:*)` was in `permissions.ask`. So the hook's
 matcher names both: `Bash|bash|mcp__lean-ctx__ctx_shell|mcp__lean-ctx__shell|mcp__lean-ctx__ctx_execute`.
 For the same reason, `secrets-guard.sh`'s matcher was widened to the same list; it parses
-`tool_input.command`, which both tools send. The `permissions.ask` rules stay as a second layer for native
-Bash.
+`tool_input.command`, which both tools send. The `permissions.ask` rules were removed on 2026-11-23 (last
+section).
 
 **Proven 2026-11-21:**
 
@@ -412,3 +412,25 @@ destination, `--force`/`-f`, a `+refspec`, a `:branch` delete, `--all`, `--mirro
 other flag, and any push in text another shell re-runs (ssh, eval, `bash -c`, a pipe into sh).
 `~/.config/AGENTS.md` section 1 and the `ship` skill say the same. Tests: 116 of 116 on the X3 and the mini's
 bash 3.2; three mutants (no re-run check, no default-branch check, `+`/`:` refspecs let through) each fail it.
+
+## 2026-11-23: back to a short list
+
+The operator, after a day of prompts: "This guard is fully blocking automatic mode ... let's zoom out." What went
+wrong in the 2026-11-21 refactor: the AGENTS.md rules are scoped and need judgment ("deletes on shared infra",
+"installs into a shared environment"), but they were turned into text patterns, here and as 20
+`permissions.ask` rules in `settings.json`. A pattern can't see the scope, so it asked for the whole category:
+every `rm -rf` of an agent's own folder, every `.venv` install, every push. An `ask` from a rule or hook
+overrides auto mode, so auto mode stopped being automatic, and each prompt led to one more exception pattern
+(build folders, remote temp folders, mktemp over ssh, ...), which could never end.
+
+Now:
+- `settings.json` has no `permissions.ask` rules (removed from `settings.json.example` and the live settings on
+  the X3, the laptop and the mini's claude account).
+- This hook asks only for what leaves the machine or can't be undone: a push to main or another default or
+  release branch (or one whose branch it can't see), `gh issue create`, docker prunes and `docker volume rm`,
+  `compose down -v`, `terraform apply/destroy`.
+- `rm -rf` and installs are the agent's judgment again, under AGENTS.md section 1, with auto mode's own checks.
+  The exception code from earlier today (BUILD_DIRS, remote temp folders, mktemp over ssh) is gone with them.
+- Tests: the 32 cases that expected a prompt for `rm -rf` or an install now expect none; 116 of 116 pass.
+- Not covered: what auto mode itself does with a risky `rm -rf` or a push to main once these layers are gone;
+  checked separately on a throwaway repo (see the commit that follows this one).

@@ -121,6 +121,12 @@ the file keeps one line) · **doc** (moved to `docs/reference/operator-rules.md`
   system/volume/image prune`, `terraform apply`, `git push --force` (rule 4).
 - **B4** `permissions.ask` for installs: `pip install`, `uv pip install`, `npm i -g`, `brew install`
   (rule 12/30).
+- **Reversed 2026-11-23 (operator):** B1 to B4 as `permissions.ask` rules, and `rm -rf` and installs in the
+  command-ask-guard hook, made auto mode prompt on every delete of an agent's own folder, every `.venv` install
+  and every push. The rules they came from are scoped ("on shared infra", "into a shared environment") and a
+  text pattern can't see the scope. All 20 `permissions.ask` rules are gone. The hook keeps only pushes to a
+  default branch, `gh issue create`, docker prunes and volume removal, `compose down -v` and terraform. Why:
+  `workstation/claude/hooks/README.md`, "2026-11-23: back to a short list".
 - **B5** on the mini only: a PreToolUse check that refuses `docker` commands that would reach
   `/var/run/docker.sock` from an agent session that is not the operator's (rule A26). Needs a design
   look first.

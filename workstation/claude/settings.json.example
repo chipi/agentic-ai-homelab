@@ -161,29 +161,7 @@
     "additionalDirectories": [
       "/tmp"
     ],
-    "allow": [],
-    "ask": [
-      "Bash(git push:*)",
-      "Bash(gh issue create:*)",
-      "Bash(rm -rf:*)",
-      "Bash(rm -fr:*)",
-      "Bash(docker system prune:*)",
-      "Bash(docker volume prune:*)",
-      "Bash(docker image prune:*)",
-      "Bash(docker volume rm:*)",
-      "Bash(docker compose down -v:*)",
-      "Bash(terraform apply:*)",
-      "Bash(terraform destroy:*)",
-      "Bash(pip install:*)",
-      "Bash(pip3 install:*)",
-      "Bash(python3 -m pip install:*)",
-      "Bash(uv pip install:*)",
-      "Bash(uv add:*)",
-      "Bash(uv tool install:*)",
-      "Bash(npm install -g:*)",
-      "Bash(npm i -g:*)",
-      "Bash(brew install:*)"
-    ]
+    "allow": []
   },
   "effortLevel": "high",
   "enabledPlugins": {
