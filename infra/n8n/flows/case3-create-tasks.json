@@ -1,0 +1,412 @@
+[
+ {
+  "id": "case3createtasks",
+  "name": "case 3: flotilla create_tasks -> Google Tasks",
+  "active": true,
+  "settings": {
+   "executionOrder": "v1"
+  },
+  "nodes": [
+   {
+    "id": "case3createtasks-0",
+    "name": "Webhook",
+    "type": "n8n-nodes-base.webhook",
+    "typeVersion": 2,
+    "position": [
+     220,
+     0
+    ],
+    "webhookId": "7d4e1c52-3a0b-4f61-9b7e-0c3a5b1e2d01",
+    "parameters": {
+     "httpMethod": "POST",
+     "path": "flotilla-create-tasks",
+     "responseMode": "responseNode",
+     "options": {
+      "rawBody": true
+     }
+    }
+   },
+   {
+    "id": "case3createtasks-1",
+    "name": "Verify",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     440,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// flotilla's plumbing.call: HMAC-SHA256(secret, timestamp + \".\" + delivery + \".\" + raw body), 5-minute window\nlet raw = '';\ntry { raw = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8'); } catch (e) { raw = ''; }\nconst h = $input.first().json.headers || {};\nconst ts = String(h['x-flotilla-timestamp'] || ''), delivery = String(h['x-flotilla-delivery'] || ''), sig = String(h['x-flotilla-signature'] || '');\nconst fresh = /^\\d+$/.test(ts) && Math.abs(Math.floor(Date.now() / 1000) - Number(ts)) <= 300;\nreturn [{ json: { ts, delivery, sig, raw, fresh, okDelivery: /^[A-Za-z0-9._:-]{1,128}$/.test(delivery), toSign: ts + '.' + delivery + '.' + raw } }];"
+    }
+   },
+   {
+    "id": "case3createtasks-2",
+    "name": "Sign",
+    "type": "n8n-nodes-base.crypto",
+    "typeVersion": 2,
+    "position": [
+     660,
+     0
+    ],
+    "credentials": {
+     "crypto": {
+      "id": "c3createtasks001",
+      "name": "flotilla create_tasks callback (HMAC)"
+     }
+    },
+    "parameters": {
+     "action": "hmac",
+     "type": "SHA256",
+     "value": "={{ $json.toSign }}",
+     "dataPropertyName": "expected",
+     "encoding": "hex"
+    }
+   },
+   {
+    "id": "case3createtasks-3",
+    "name": "Check",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     880,
+     0
+    ],
+    "parameters": {
+     "jsCode": "const v = $input.first().json;\nconst fail = (code, error) => [{ json: { valid: false, code, response: { error } } }];\nif (!v.raw) return fail(400, 'no body');\nif (!v.okDelivery) return fail(400, 'bad delivery id');\nif (!v.fresh) return fail(401, 'stale or missing timestamp');\nif (v.sig !== 'sha256=' + v.expected) return fail(401, 'bad signature');\nlet b; try { b = JSON.parse(v.raw); } catch (e) { return fail(400, 'body is not JSON'); }\nif (b.action !== 'plumbing.create_tasks') return fail(400, 'this webhook takes plumbing.create_tasks only');\nif (b.mode !== 'send' && b.mode !== 'status') return fail(400, 'mode must be send or status');\nconst p = b.params || {};\nlet items = [];\nif (b.mode === 'send') {\n  items = Array.isArray(p.items) ? p.items : [];\n  if (items.length < 1 || items.length > 20) return fail(400, 'params.items: 1 to 20 follow-ups');\n  for (const it of items) if (!it || typeof it.what !== 'string' || !it.what.trim() || typeof it.who !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(it.by)))\n    return fail(400, 'each item needs who, what and by (YYYY-MM-DD)');\n}\nreturn [{ json: { valid: true, mode: b.mode, delivery: v.delivery, case_id: String(b.case_id || ''), items } }];"
+    }
+   },
+   {
+    "id": "case3createtasks-4",
+    "name": "Valid?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     1100,
+     0
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "id": "c1",
+        "leftValue": "={{ $json.valid }}",
+        "rightValue": "",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   },
+   {
+    "id": "case3createtasks-5",
+    "name": "Refuse",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1.1,
+    "position": [
+     1320,
+     0
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ JSON.stringify($json.response) }}",
+     "options": {
+      "responseCode": "={{ $json.code }}"
+     }
+    }
+   },
+   {
+    "id": "case3createtasks-6",
+    "name": "Existing",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1540,
+     0
+    ],
+    "credentials": {
+     "googleTasksOAuth2Api": {
+      "id": "t7nA9h2E8Af6s8jm",
+      "name": "Google Tasks account"
+     }
+    },
+    "parameters": {
+     "method": "GET",
+     "url": "https://www.googleapis.com/tasks/v1/lists/ai1ER3E5cXFzZWRCUnNTZQ/tasks?showCompleted=true&showHidden=true&maxResults=100",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleTasksOAuth2Api",
+     "options": {
+      "response": {
+       "response": {
+        "neverError": true
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case3createtasks-7",
+    "name": "Decide",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1760,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// a re-send of a delivery already made makes nothing twice: the delivery id is in each task's notes\nconst c = $('Check').first().json, mark = 'flotilla delivery: ' + c.delivery;\nconst mine = ($input.first().json.items || []).filter(t => String(t.notes || '').includes(mark));\nconst ref = ('Google Tasks list \"homelab n8n follow-ups\": ' + mine.length + ' task(s), e.g. ' + (mine[0] && mine[0].id)).slice(0, 200);\nif (c.mode === 'status') return [{ json: { create: false, code: 200, response: mine.length ? { done: true, ref } : { done: false } } }];\nif (mine.length) return [{ json: { create: false, code: 200, response: { ref } } }];\nreturn c.items.map(it => ({ json: { create: true, title: it.what.trim().slice(0, 1024), due: it.by + 'T00:00:00.000Z',\n  notes: ('who: ' + it.who + '\\n' + mark + '\\ncase: ' + c.case_id).slice(0, 8000) } }));"
+    }
+   },
+   {
+    "id": "case3createtasks-8",
+    "name": "Create?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     1980,
+     0
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "id": "c1",
+        "leftValue": "={{ $json.create }}",
+        "rightValue": "",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   },
+   {
+    "id": "case3createtasks-9",
+    "name": "Answer",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1.1,
+    "position": [
+     2200,
+     0
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ JSON.stringify($json.response) }}",
+     "options": {
+      "responseCode": "={{ $json.code }}"
+     }
+    }
+   },
+   {
+    "id": "case3createtasks-10",
+    "name": "Create task",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     2420,
+     0
+    ],
+    "credentials": {
+     "googleTasksOAuth2Api": {
+      "id": "t7nA9h2E8Af6s8jm",
+      "name": "Google Tasks account"
+     }
+    },
+    "parameters": {
+     "method": "POST",
+     "url": "https://www.googleapis.com/tasks/v1/lists/ai1ER3E5cXFzZWRCUnNTZQ/tasks",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleTasksOAuth2Api",
+     "options": {
+      "response": {
+       "response": {
+        "neverError": true
+       }
+      }
+     },
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify({ title: $json.title, due: $json.due, notes: $json.notes }) }}"
+    }
+   },
+   {
+    "id": "case3createtasks-11",
+    "name": "Made",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     2640,
+     0
+    ],
+    "parameters": {
+     "jsCode": "const ids = $input.all().map(i => i.json.id);\nif (!ids.length || ids.some(id => !id)) return [{ json: { code: 502, response: { error: 'Google Tasks did not create every task: ' + JSON.stringify($input.all().map(i => i.json.error || null)).slice(0, 300) } } }];\nreturn [{ json: { code: 200, response: { ref: ('Google Tasks list \"homelab n8n follow-ups\": ' + ids.length + ' task(s), e.g. ' + ids[0]).slice(0, 200) } } }];"
+    }
+   },
+   {
+    "id": "case3createtasks-12",
+    "name": "Answer made",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1.1,
+    "position": [
+     2860,
+     0
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ JSON.stringify($json.response) }}",
+     "options": {
+      "responseCode": "={{ $json.code }}"
+     }
+    }
+   }
+  ],
+  "connections": {
+   "Webhook": {
+    "main": [
+     [
+      {
+       "node": "Verify",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Verify": {
+    "main": [
+     [
+      {
+       "node": "Sign",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Sign": {
+    "main": [
+     [
+      {
+       "node": "Check",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Check": {
+    "main": [
+     [
+      {
+       "node": "Valid?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Valid?": {
+    "main": [
+     [
+      {
+       "node": "Existing",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Refuse",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Existing": {
+    "main": [
+     [
+      {
+       "node": "Decide",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Decide": {
+    "main": [
+     [
+      {
+       "node": "Create?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Create?": {
+    "main": [
+     [
+      {
+       "node": "Create task",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Answer",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Create task": {
+    "main": [
+     [
+      {
+       "node": "Made",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Made": {
+    "main": [
+     [
+      {
+       "node": "Answer made",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  }
+ }
+]

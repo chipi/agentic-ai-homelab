@@ -1,0 +1,296 @@
+[
+ {
+  "id": "case3meetinghook",
+  "name": "case 3: Drive meeting notes -> flotilla meeting hook",
+  "active": false,
+  "settings": {
+   "executionOrder": "v1"
+  },
+  "nodes": [
+   {
+    "id": "case3meetinghook-0",
+    "name": "New file",
+    "type": "n8n-nodes-base.googleDriveTrigger",
+    "typeVersion": 1,
+    "position": [
+     220,
+     0
+    ],
+    "credentials": {
+     "googleDriveOAuth2Api": {
+      "id": "hnWVwuND8WJ56zgN",
+      "name": "Google Drive account"
+     }
+    },
+    "parameters": {
+     "pollTimes": {
+      "item": [
+       {
+        "mode": "everyMinute"
+       }
+      ]
+     },
+     "triggerOn": "specificFolder",
+     "folderToWatch": {
+      "__rl": true,
+      "value": "19-16sCI6H6egNTbB1G6RJx6cdVdJnq5Q",
+      "mode": "id"
+     },
+     "event": "fileCreated",
+     "options": {}
+    }
+   },
+   {
+    "id": "case3meetinghook-1",
+    "name": "Changed file",
+    "type": "n8n-nodes-base.googleDriveTrigger",
+    "typeVersion": 1,
+    "position": [
+     440,
+     0
+    ],
+    "credentials": {
+     "googleDriveOAuth2Api": {
+      "id": "hnWVwuND8WJ56zgN",
+      "name": "Google Drive account"
+     }
+    },
+    "parameters": {
+     "pollTimes": {
+      "item": [
+       {
+        "mode": "everyMinute"
+       }
+      ]
+     },
+     "triggerOn": "specificFolder",
+     "folderToWatch": {
+      "__rl": true,
+      "value": "19-16sCI6H6egNTbB1G6RJx6cdVdJnq5Q",
+      "mode": "id"
+     },
+     "event": "fileUpdated",
+     "options": {}
+    }
+   },
+   {
+    "id": "case3meetinghook-2",
+    "name": "Pick",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     660,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// text-like files only: a Google Doc (exported as plain text), .txt, .md\nconst ok = ['application/vnd.google-apps.document', 'text/plain', 'text/markdown'];\nreturn $input.all().filter(i => ok.includes(i.json.mimeType))\n  .map(i => ({ json: { id: i.json.id, name: String(i.json.name || 'meeting-notes'), mimeType: i.json.mimeType, modifiedTime: i.json.modifiedTime || i.json.createdTime || '' } }));"
+    }
+   },
+   {
+    "id": "case3meetinghook-3",
+    "name": "Text",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     880,
+     0
+    ],
+    "credentials": {
+     "googleDriveOAuth2Api": {
+      "id": "hnWVwuND8WJ56zgN",
+      "name": "Google Drive account"
+     }
+    },
+    "parameters": {
+     "method": "GET",
+     "url": "={{ $json.mimeType === 'application/vnd.google-apps.document' ? 'https://www.googleapis.com/drive/v3/files/' + $json.id + '/export?mimeType=text/plain' : 'https://www.googleapis.com/drive/v3/files/' + $json.id + '?alt=media' }}",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleDriveOAuth2Api",
+     "options": {
+      "response": {
+       "response": {
+        "neverError": false,
+        "responseFormat": "text",
+        "outputPropertyName": "data"
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case3meetinghook-4",
+    "name": "Build",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1100,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// flotilla's meeting hook body {file, date?, text}; the delivery id is the file's id and version, so a\n// re-send of the same version opens nothing and an edited file is a new delivery\nconst f = $('Pick').item.json, text = String($json.data || '');\nconst file = f.name.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 120) || 'meeting-notes';\nconst m = f.name.match(/(\\d{4}-\\d{2}-\\d{2})/);\nconst delivery = (f.id + ':' + (f.modifiedTime || 'v')).replace(/[^A-Za-z0-9._:-]/g, '-').slice(0, 128);\nconst body = JSON.stringify(m ? { file, date: m[1], text } : { file, text });\nconst size = new TextEncoder().encode(body).length;\nif (size > 200000) throw new Error('notes too large for the meeting hook: ' + size + ' bytes (about 200 KB at most)');\nconst ts = String(Math.floor(Date.now() / 1000));\nreturn { json: { file, ts, delivery, body, toSign: ts + '.' + delivery + '.' + body } };",
+     "mode": "runOnceForEachItem"
+    }
+   },
+   {
+    "id": "case3meetinghook-5",
+    "name": "Sign",
+    "type": "n8n-nodes-base.crypto",
+    "typeVersion": 2,
+    "position": [
+     1320,
+     0
+    ],
+    "credentials": {
+     "crypto": {
+      "id": "c3meetingsecret1",
+      "name": "flotilla meeting hook (HMAC)"
+     }
+    },
+    "parameters": {
+     "action": "hmac",
+     "type": "SHA256",
+     "value": "={{ $json.toSign }}",
+     "dataPropertyName": "expected",
+     "encoding": "hex"
+    }
+   },
+   {
+    "id": "case3meetinghook-6",
+    "name": "Send",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1540,
+     0
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "http://flotillad:8488/hooks/meeting",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "X-Flotilla-Timestamp",
+        "value": "={{ $json.ts }}"
+       },
+       {
+        "name": "X-Flotilla-Delivery",
+        "value": "={{ $json.delivery }}"
+       },
+       {
+        "name": "X-Flotilla-Signature",
+        "value": "=sha256={{ $json.expected }}"
+       }
+      ]
+     },
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ $json.body }}",
+     "options": {
+      "response": {
+       "response": {
+        "fullResponse": true,
+        "neverError": true,
+        "responseFormat": "text"
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case3meetinghook-7",
+    "name": "Check",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1760,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// 202: a case opened; 200: a replay of this version. Anything else fails the run, so it shows in n8n.\nconst r = $json, f = $('Build').item.json;\nif (r.statusCode !== 202 && r.statusCode !== 200) throw new Error('flotilla meeting hook answered ' + r.statusCode + ' for ' + f.file + ': ' + String(r.body).slice(0, 300));\nreturn { json: { file: f.file, delivery: f.delivery, status: r.statusCode, body: String(r.body).slice(0, 300) } };",
+     "mode": "runOnceForEachItem"
+    }
+   }
+  ],
+  "connections": {
+   "New file": {
+    "main": [
+     [
+      {
+       "node": "Pick",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Changed file": {
+    "main": [
+     [
+      {
+       "node": "Pick",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Pick": {
+    "main": [
+     [
+      {
+       "node": "Text",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Text": {
+    "main": [
+     [
+      {
+       "node": "Build",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Build": {
+    "main": [
+     [
+      {
+       "node": "Sign",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Sign": {
+    "main": [
+     [
+      {
+       "node": "Send",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Send": {
+    "main": [
+     [
+      {
+       "node": "Check",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  }
+ }
+]
