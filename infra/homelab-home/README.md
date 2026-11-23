@@ -98,7 +98,8 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   `flotilla_routine_freshness_seconds` and `flotilla_spend_day_usd`, each linking to the routine in flotilla's UI;
   then every fleet, triage included, as one shared row (runs, failures by cause, spend, typical run, from flotillad's "run end"
   log lines, the last failure in its own words, plus ops' off-site backup age, platform's heartbeat pass rate and
-  bug-fix's routable issues); then n8n (up, version and active workflows from its metrics; one card per RFC-0014
+  bug-fix's routable issues, and a Cases card from flotilla_cases_open and flotilla_case_moves_total: open by status,
+  waiting for your approval, all-time opened and closed); then n8n (up, version and active workflows from its metrics; one card per RFC-0014
   case with its flows' runs (n8n_workflow_*_total) and flotilla's hook calls; the
   flows in `infra/n8n/flows` and the egress allowlist, read when `gen.sh` runs). Paused or stopped routines are
   not in the metrics, so they show as grey (nothing recent), not as paused.

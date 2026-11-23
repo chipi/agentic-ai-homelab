@@ -1554,11 +1554,27 @@ async function fleetDetail(){
         +mut(h.ok+' passed &middot; '+h.error+' failed<br>checks the scheduler, a worker, the store, the proxy, telemetry and the models; line: pass rate per day'),FL+'/fleets/platform/heartbeat')];},
     bugfix:async()=>{let n='&rarr;';try{const r=await(await fetch('https://api.github.com/search/issues?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')).json();if(typeof r.total_count==='number')n=String(r.total_count);}catch(e){}
       return [card('Routable now',cv(n)+mut('open issues triage marked actionable (a GitHub search: no history, so no line)'),'https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')];}};
+  // Cases (flotilla_cases_open, a gauge, and flotilla_case_moves_total, a counter since 2026-11-23 whose first
+  // sample holds the store's whole history, so its value is shown as "all time", not as a window). A case's
+  // fleet is the routine that opened it, or a hook's project (meetings, platform). Triage files through its
+  // ledger, not cases.
+  const CST={awaiting_approval:['waiting for you','#bc8cff'],escalated:['escalated','#d29922'],handed_over:['handed over','#7aa2ff'],
+    planned:['planned','#56d4dd'],executing:['executing','#f0883e'],checking:['checking','#8888aa']};
+  const openC={},movC={};
+  (await q('sum by (fleet, status) (flotilla_cases_open)')).forEach(r=>{const v=+r.value[1];if(v>0)(openC[r.metric.fleet]=openC[r.metric.fleet]||{})[r.metric.status]=v;});
+  (await q('sum by (fleet, to, resolution) (flotilla_case_moves_total{to=~"detected|closed"})')).forEach(r=>{const m=movC[r.metric.fleet]=movC[r.metric.fleet]||{opened:0,closed:0,how:{}},v=Math.round(+r.value[1]);
+    if(r.metric.to==='detected')m.opened+=v;else{m.closed+=v;const k=(r.metric.resolution||'other').replace(/_/g,' ');m.how[k]=(m.how[k]||0)+v;}});
+  const casesCard=f=>{const o=openC[f]||{},m=movC[f];if(!m&&!Object.keys(o).length)return null;
+    const tot=Object.values(o).reduce((a,b)=>a+b,0),wait=o.awaiting_approval||0,ks=Object.keys(o).sort((a,b)=>o[b]-o[a]);
+    return card('Cases',cv(tot+(wait?' <a href="'+FL+'/approvals" style="font-size:13px;color:#bc8cff">'+wait+' waiting for you &rarr;</a>':''))
+      +bar(ks.map(k=>[(CST[k]||[k.replace(/_/g,' ')])[0],o[k],(CST[k]||[0,'#55556b'])[1]]))
+      +(tot?'':mut('none open'))
+      +(m?mut('all time: '+m.opened+' opened &middot; '+m.closed+' closed'+(m.closed?' ('+Object.keys(m.how).map(k=>m.how[k]+' '+esc(k)).join(', ')+')':'')):''),FL+'/cases');};
   const html=[];
   for(const f of Object.keys(F).sort()){const x=F[f],lf=x.fails[0];if(!Object.keys(x.r).length)continue;
     const row1='<div class=charts>'+shared(f).join('')+'</div>';
     if(f==='triage'){const t=document.getElementById('au_sh_triage');if(t&&t.innerHTML!==shared(f).join(''))t.innerHTML=shared(f).join('');continue;}
-    const mine=own[f]?await own[f]():[];
+    const cc=casesCard(f),mine=(cc?[cc]:[]).concat(own[f]?await own[f]():[]);
     const dot=lf&&now-Date.parse(lf._time)/1000<86400?'down':(x.st.error?'mid':'up');
     html.push('<div style="margin:0 0 22px"><h2><span class="dot '+dot+'"></span><a href="'+FL+'/fleets/'+encodeURIComponent(f)+'">'+esc(f)+' fleet &rarr;</a> <span class=muted style="font-size:13px;font-weight:400">in flotilla</span></h2>'
       +row1+(mine.length?'<div class=charts>'+mine.join('')+'</div>':'')+'</div>');}
