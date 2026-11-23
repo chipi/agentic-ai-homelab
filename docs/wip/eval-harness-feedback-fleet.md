@@ -158,3 +158,13 @@ passed (migrate, validate, the project tests, reads, catalog, charts, the Workbe
 | 61 | G6: a migrated baseline printed "promoted 2026-10-31 by before 0.8..." | readable wording for a pre-0.8 promote | fixed at 5ea87c02e: "by nobody recorded (before 0.8.0)" |
 
 fleet-eval-data main stays pinned to e1a7fcf53; the trial branch is pinned to 0cb18d24a (records in its `BETA-080.md`).
+
+## 2026-11-23: the v0.8.0 release on main (G7)
+
+fleet-eval-data main pinned to v0.8.0 (094aa680, its commit aff63c3). `migrate --check`: "data format 7; this release
+reads 7"; `--dry-run`: "nothing to do". Validate, the reads that replaced the removed commands, pair-test, catalog, a
+run dry run and the project tests all pass. AGENTS.md's generic part is now 0.8.0's `evh init` text.
+
+| # | Where it hurt | What would help | Status |
+|---|---|---|---|
+| 62 | G7: a pass lost to a gateway refusal left `triage_v2_station_dc3315d_v1` with 2 runs; the third went in as `run --purpose repeat --of <r1>`, which the harness reads as a separate "· repeats" arm, so `pair-test` and the arm list say "×2" and `runs-list` leaves it out, while the system has 3 passes (bar 2 needs k >= 3; our compare_bar2.py counts it) | count a repeat whose `of` is in the arm among that arm's repeats, or a pair-test line naming the same system's repeat runs it leaves out | open (sent 2026-11-23; the eval harness session put it to the owner, likely 0.9.0; its RUNBOOK also contradicts itself on repeats) |
