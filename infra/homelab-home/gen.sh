@@ -1521,7 +1521,7 @@ async function fleetDetail(){
   named(fails).forEach(r=>fl(fleetOf(r.routine)).fails.push(r));
   // a failure's own words: its FAIL lines if it has any, else its last lines
   const words=d=>{const l=String(d||'').split('\n').map(s=>s.trim()).filter(Boolean),f=l.filter(s=>/FAIL|Error|error/.test(s));return esc((f.length?f:l.slice(-2)).slice(0,3).join(' · ').slice(0,240));};
-  const cause=d=>{d=String(d||'');return /worker/i.test(d)?'worker':/model|litellm|timed out|APIError/i.test(d)?'model':/proxy|egress|407/i.test(d)?'proxy':/store|postgres|registry|Errno/i.test(d)?'store / files':'other';};
+  const cause=d=>{d=String(d||'');return /Errno|Read-only file system|No such file|Permission denied|postgres|store error/i.test(d)?'store / files':/worker/i.test(d)?'worker':/model|litellm|timed out|APIError/i.test(d)?'model':/proxy|egress|407/i.test(d)?'proxy':'other';};
   const CAUSE_COL={worker:'#d29922',model:'#7aa2ff','proxy':'#bc8cff','store / files':'#f85149',other:'#8888aa'};
   const RCOL=['#7aa2ff','#3fb950','#d29922','#bc8cff','#56d4dd','#f0883e'];
   const shared=f=>{const x=F[f],tot=x.st.ok+x.st.error+x.st.skipped,ks=Object.keys(x.r).sort();
