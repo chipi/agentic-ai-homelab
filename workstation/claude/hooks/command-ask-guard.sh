@@ -11,7 +11,7 @@
 # mcp__lean-ctx__ctx_execute`.
 #
 # Asked about (anywhere the shell runs it, so `cd x && git push` is caught too):
-#   git push (incl. `git -C dir push`, --force) · gh issue create · rm -rf / -fr / -r -f (except on the
+#   git push (incl. `git -C dir push`, --force; a feature-branch push is let through, see push_ok) · gh issue create · rm -rf / -fr / -r -f (except on the
 #   command's own mktemp folder or the session temp areas) ·
 #   docker system|volume|image|container|builder|network prune · docker volume rm · compose down -v/--volumes ·
 #   terraform apply|destroy · pip/pip3/python -m pip/uv pip install · uv add · uv tool install ·
@@ -106,9 +106,9 @@ reruns() {
     printf '%s' "$code" | grep -Eq -- "${S}${SH}[[:space:]]*(<|\$|[;&|)])" && return 0
     return 1
 }
-text="$code"
+text="$code"; raw=0
 if reruns; then
-    text="$(printf '%s' "$cmd" | tr "\"'" '  ')"
+    text="$(printf '%s' "$cmd" | tr "\"'" '  ')"; raw=1
 fi
 
 # rm -rf is allowed when every target is:
@@ -155,9 +155,41 @@ rm_ok() {   # every recursive forced rm in $text targets only allowed paths
     return 0
 }
 
+# A push of a feature branch needs no go (operator, 2026-11-23): every push in the command names a remote and
+# only branches that are not a default or release branch, with no flag beyond these (--force-with-lease after
+# a rebase is one). Still asks: a bare `git push` or one with no branch (where it goes depends on the checkout),
+# main, master and the like, HEAD without a destination, --force/-f, a +refspec, a :branch delete, --all,
+# --mirror, --tags, --delete, any other flag, and any push in text another shell re-runs (ssh, eval, bash -c,
+# a pipe into sh), where the words can't be trusted.
+PUSH_DEFAULT_BRANCHES="main master trunk develop development production prod stable release gh-pages HEAD"
+push_ok() {
+    local seg a dest n
+    [ "$raw" = 0 ] || return 1
+    while IFS= read -r seg; do
+        seg="${seg#* push}"
+        set -f; set -- $seg; set +f
+        n=0
+        for a in "$@"; do
+            case "$a" in
+                *'>'*|*'<'*) continue ;;
+                --force-with-lease|--force-with-lease=*|-u|--set-upstream|-q|--quiet|-v|--verbose|--no-verify|--porcelain|-n|--dry-run) continue ;;
+                -*|+*|:*) return 1 ;;
+            esac
+            n=$((n + 1))
+            [ $n -eq 1 ] && continue
+            dest="${a#*:}"; dest="${dest#refs/heads/}"
+            case " $PUSH_DEFAULT_BRANCHES " in *" $dest "*) return 1 ;; esac
+            case "$dest" in ""|release/*|releases/*|*[!A-Za-z0-9._/-]*) return 1 ;; esac
+        done
+        [ $n -ge 2 ] || return 1
+    done < <(printf '%s\n' "$text" | grep -oE -- "${S}git([[:space:]]+-[^;&|]*)?([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+push([[:space:]][^;&|)]*)?")
+    return 0
+}
+
 check() {   # $1 = ERE, $2 = what, $3 = the AGENTS.md rule
     if printf '%s' "$text" | grep -Eq -- "$1"; then
         [ "$2" = "a recursive forced delete" ] && rm_ok && return 0
+        [ "$2" = "git push" ] && push_ok && return 0
         ask "command-ask-guard: ${2}. The operator approves this per instance (~/.config/AGENTS.md, ${3}). Ask in the conversation before running it; in a headless run it is refused."
     fi
 }

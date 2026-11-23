@@ -6,8 +6,10 @@ description: The pre-push ritual — rebase onto the trunk, run the right valida
 # ship
 
 The disciplined path from "work is done" to "pushed and green", so nothing lands unrebased,
-unvalidated, unapproved or unwatched. **A push is shared state and needs the operator's
-approval** (below: per push, or for an arc when the operator grants it that way).
+unvalidated, unapproved or unwatched. **A push to main (or another default or release branch)
+is shared state and needs the operator's approval** (below: per push, or for an arc when the
+operator grants it that way). A push of a feature branch, including `--force-with-lease` after a
+rebase, needs none (operator, 2026-11-23); the other steps still apply to it.
 
 ## Pick the path
 
@@ -34,15 +36,18 @@ Path B is never self-granted. Without the operator's word for this repo and arc,
    in the report.
 5. **Show what ships.** `git status`, plus `git --no-pager diff origin/main...HEAD --stat`, plus
    the commit log about to land. Summarize it.
-6. **Approval.**
+6. **Approval** (path B, and any push to a default or release branch; path A's feature branch
+   needs none).
    - *Per push* by default: wait for "push" / "ship it" / "go". Approval for a previous push
      does not carry to this one.
    - *Per arc* only when the operator granted it that way ("push everything when done", "stop
      asking me per commit"). That covers this arc's pushes, never the next arc's. Never ask per
      commit inside it.
 7. **Push.**
-   - *A:* `git push --force-with-lease` if the branch is already on the remote, else
-     `git push -u origin <branch>`. PRs default to ready, not draft, unless asked otherwise.
+   - *A:* `git push --force-with-lease origin <branch>` if the branch is already on the remote,
+     else `git push -u origin <branch>`. Name the remote and the branch: the command-ask-guard
+     hook lets a feature-branch push through only when it can see both. PRs default to ready, not
+     draft, unless asked otherwise.
    - *B:* `git push origin HEAD:main`. If it is rejected because main moved, fetch, rebase and
      re-check step 3; never force main.
 8. **Watch what you pushed.** Load `ci-watch` and run it on the pushed SHA under the Monitor
@@ -56,8 +61,8 @@ Path B is never self-granted. Without the operator's word for this repo and arc,
 
 ## Non-negotiables this enforces
 
-- **Never push without explicit approval** (rule #1): per push, unless the operator granted an
-  arc.
+- **Never push to main without explicit approval** (rule #1): per push, unless the operator granted
+  an arc. A feature branch needs none.
 - **Always rebase onto the trunk before pushing** (rule #2).
 - **Red required CI = fix until green** (rule #3). "Green" means a `VERDICT GREEN` line from
   `ci-watch` (or the repo's gate), cited.

@@ -402,3 +402,13 @@ It still asks for `..`, a glob, `~`, `.`, `.git`, `.venv`, an absolute project p
 Later the same day: a folder made with `D=$(ssh host 'mktemp -d')` and removed there with `rm -rf "$D"` (or
 `\"$D\"` inside an ssh "..." string) counts as the command's own mktemp folder; the guard now drops backslashes
 before checking a target. Tests: 96 of 96 on the X3 and on the mini's bash 3.2.
+
+## 2026-11-23: a feature-branch push needs no go
+
+Operator's decision (option 1). `git push origin <feature-branch>` (also `-u`, `-q`, `--force-with-lease`,
+`HEAD:refs/heads/<branch>`, `git -C dir push`) no longer asks. Still asks: a bare `git push` or one without a
+branch, main, master, trunk, develop, production, prod, stable, release(/...), gh-pages, HEAD without a
+destination, `--force`/`-f`, a `+refspec`, a `:branch` delete, `--all`, `--mirror`, `--tags`, `--delete`, any
+other flag, and any push in text another shell re-runs (ssh, eval, `bash -c`, a pipe into sh).
+`~/.config/AGENTS.md` section 1 and the `ship` skill say the same. Tests: 116 of 116 on the X3 and the mini's
+bash 3.2; three mutants (no re-run check, no default-branch check, `+`/`:` refspecs let through) each fail it.

@@ -20,6 +20,27 @@ t allow Bash                      "git status --short"
 t allow Bash                      "git log --oneline origin/main..HEAD"
 t allow Bash                      "echo 'remember to git-push later'"
 t allow Bash                      "grep -n push README.md"
+# 2026-11-23, operator: a push of a feature branch needs no go; default branches, force and deletes still ask
+t allow mcp__lean-ctx__ctx_shell  'cd /work/infra/wt-runsteps && git fetch -q origin && git rebase origin/main 2>&1 | tail -1 && git push --force-with-lease origin feat/corpus-migration-run-steps 2>&1 | tail -1'
+t allow Bash                      'git push -u origin fix/guard-rm'
+t allow Bash                      'git push -q origin HEAD:refs/heads/feat/x'
+t allow Bash                      'git -C /work/x push origin chore/harness-v0.8.0'
+t ask   Bash                      'git push origin'
+t ask   Bash                      'git push -u origin HEAD'
+t ask   Bash                      'git push origin master'
+t ask   Bash                      'git push origin HEAD:refs/heads/main'
+t ask   Bash                      'git push origin release/1.2'
+t ask   Bash                      'git push -f origin feat/x'
+t ask   Bash                      'git push --force origin feat/x'
+t ask   Bash                      'git push origin +feat/x'
+t ask   Bash                      'git push origin :feat/x'
+t ask   Bash                      'git push origin --delete feat/x'
+t ask   Bash                      'git push --all origin'
+t ask   Bash                      'git push --tags origin'
+t ask   Bash                      'git push origin feat/x main'
+t ask   Bash                      'git push origin feat/x && git push origin main'
+t ask   Bash                      'ssh host "cd r && git push origin feat/x"'
+t ask   Bash                      $'printf \'git push origin feat/x\\n\' | sh'
 # issues
 t ask   Bash                      "gh issue create --title x --body y"
 t allow Bash                      "gh issue view 87 --repo chipi/x"

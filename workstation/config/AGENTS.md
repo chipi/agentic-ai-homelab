@@ -52,11 +52,13 @@ The reasons and incidents behind these rules: `agentic-ai-homelab/docs/reference
 
 ## 1. Approval and shared state
 
-- **Never push without the operator's go,** per push (or per arc when the operator grants it). Show
-  `git status` and the diff first. Rebase onto the trunk before every push (`ship` skill).
+- **Never push to main (or another default or release branch) without the operator's go,** per push (or
+  per arc when the operator grants it). Show `git status` and the diff first. A push of a feature branch,
+  including `--force-with-lease` after a rebase, needs no go. Rebase onto the trunk before every push
+  (`ship` skill).
 - **Red required CI is a requirement:** fix until green; no waiving.
 - **Destructive or shared-state changes need a per-instance go:** `terraform apply`, `compose down -v`,
-  deletes on shared infra, force-pushes, prod migrations. Delete approval covers the exact paths named,
+  deletes on shared infra, force-pushes (other than `--force-with-lease` of a feature branch), prod migrations. Delete approval covers the exact paths named,
   nothing more. On a shared machine, check nothing uses a target before `rm`. If a guard check errors or
   is inconclusive, stop.
 - **No new dependencies without approval,** and installing into a shared environment (`pip`, `npm -g`,
