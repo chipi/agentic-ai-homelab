@@ -50,7 +50,7 @@ FLOT=https://flotilla.$TS; N8N=https://n8n.$TS
 N8N_FLOWS=$(for f in "$REPO"/n8n/flows/*.json; do [ -f "$f" ] || continue
   awk -v base="$N8N" '/^  "id":/ && !id { id = $2; gsub(/[",]/, "", id) } /^  "name":/ && !nm { nm = $0; sub(/^  "name": "/, "", nm); sub(/",?$/, "", nm) }
     END { if (id) printf "<a href=\"%s/workflow/%s\">%s</a><br>", base, id, nm }' "$f"; done)
-N8N_HOSTS=$(awk '/^ *- [a-z0-9.-]+$/ { printf "%s<code>%s</code>", (n++ ? " " : ""), $2 }' "$REPO/n8n/egress/acl.yaml" 2>/dev/null)
+N8N_HOSTS=$(awk '/^ *- [a-z0-9.-]+$/ { printf "<code style=\"display:block;overflow-wrap:normal\">%s</code>", $2 }' "$REPO/n8n/egress/acl.yaml" 2>/dev/null)
 {
 cat <<HDR
 <!doctype html><html><head><meta charset=utf-8><title>homelab</title>
@@ -70,6 +70,7 @@ code{background:#1a1a2b;padding:2px 7px;border-radius:4px;font-size:13px}
 .charts{display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap}
 a.card{box-sizing:border-box;background:#14141f;border:1px solid #26263a;border-radius:8px;padding:10px 12px;flex:0 1 200px;min-width:110px;overflow-wrap:anywhere;display:block;text-decoration:none;color:inherit}
 a.card:hover{border-color:#3d3d63}
+div.card{box-sizing:border-box;background:#14141f;border:1px solid #26263a;border-radius:8px;padding:10px 12px;flex:0 1 200px;min-width:110px;overflow-wrap:anywhere}
 .card h3{margin:0 0 3px;font-size:10px;color:#9a9ac2;text-transform:uppercase;letter-spacing:.05em}
 .cv{font-size:19px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:6px;white-space:nowrap;min-height:26px}.subkv{display:grid;grid-template-columns:auto 1fr;gap:1px 12px;font-size:12px;line-height:1.55;margin-top:4px}.subkv span{color:#8888aa}.subkv b{color:#b8b8d0;font-weight:500;text-align:right;font-variant-numeric:tabular-nums}a.card[data-msrc]{cursor:pointer}.cv .tr{order:-1}.cv .sl{order:9;margin-left:auto;flex:none}a.card.site .cv svg.sl{display:block;width:56px;height:16px;margin-top:0}
 .spark{width:100%;height:40px;display:block}.spark polyline{fill:none;stroke:#7aa2ff;stroke-width:2;vector-effect:non-scaling-stroke}
@@ -293,7 +294,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <h2><span class="dot stale" id=au_ndot></span><a href="$N8N">n8n &rarr;</a></h2>
   <div class=charts>
     <a class=card href="$N8N"><h3>Editor</h3><div id=au_n8n>&hellip;</div></a>
-    <a class=card href="$N8N/home/workflows"><h3>Flows in the repo</h3><div class=muted style="font-size:12px;line-height:1.7">${N8N_FLOWS:-none}</div></a>
+    <div class=card style="flex:0 1 330px"><h3><a href="$N8N/home/workflows" style="color:inherit">Flows in the repo</a></h3><div class=muted style="font-size:12px;line-height:1.7">${N8N_FLOWS:-none}</div></div>
     <a class=card href="https://github.com/chipi/agentic-ai-homelab/blob/main/infra/n8n/egress/acl.yaml"><h3>Internet it may reach</h3><div class=muted style="font-size:12px;line-height:1.7">${N8N_HOSTS:-nothing}</div></a>
   </div>
   <p class=sec>n8n runs the flows flotilla calls and the ones that call flotilla (RFC-0010). It reaches the internet only through its egress proxy, and only the hosts listed here; flotilla it reaches directly. The flows and hosts are as in the repo when this page was built.</p>
@@ -1487,7 +1488,7 @@ async function automation(){
         +'<a href="'+FL+'/fleets/'+encodeURIComponent(f)+'/'+encodeURIComponent(base)+'" style="flex:1">'+r+'</a>'
         +'<span class=muted>'+what+(spend[n]>=0.005?' &middot; $'+spend[n].toFixed(2)+' today':'')+'</span></div>';}).join('');
     const worst=fleets[f].map(dotOf).sort((a,b)=>rank[b]-rank[a])[0];
-    return '<div class=card style="min-width:280px"><h3><span class="dot '+worst+'"></span><a href="'+FL+'/fleets/'+encodeURIComponent(f)+'">'+f+'</a>'
+    return '<div class=card style="flex:0 1 300px;min-width:260px"><h3><span class="dot '+worst+'"></span><a href="'+FL+'/fleets/'+encodeURIComponent(f)+'">'+f+'</a>'
       +' <span class=muted style="font-weight:400">'+fleets[f].length+' routine'+(fleets[f].length>1?'s':'')+'</span></h3>'+rows+'</div>';});
   set('au_fleets',cards.length?cards.join(''):'<div class=muted>no flotilla metrics</div>');
   set('au_fver',up?(up.metric.version||'')+(+up.value[1]?'':' &middot; down'):'no heartbeat');
