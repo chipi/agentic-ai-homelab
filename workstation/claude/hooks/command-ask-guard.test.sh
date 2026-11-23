@@ -111,6 +111,10 @@ t ask   Bash                      'rm -rf /work/proj/build'
 t ask   Bash                      'rm -rf .git'
 t ask   Bash                      'rm -rf .venv'
 t ask   Bash                      'rm -rf /tmp/claude-/x'
+t allow Bash                      $'cd hooks && D=$(ssh -i ~/.ssh/k -o IdentitiesOnly=yes me@homelab \'mktemp -d\') && scp -q a b me@homelab:$D/ && timeout 120 ssh me@homelab "cd $D && bash t.sh; rm -rf \\"$D\\""'
+t allow Bash                      $'D=$(timeout 30 ssh host mktemp -d); ssh host "rm -rf $D"'
+t ask   Bash                      $'D=$(ssh host \'cat /etc/mktemp-list\'); ssh host "rm -rf $D"'
+t ask   Bash                      $'D=$(ssh host \'echo /srv\'); ssh host "rm -rf $D"'
 t ask   Bash                      'docker compose down -v # cleanup'
 # other tools and the escape hatch
 t allow Read                      "git push origin main"

@@ -398,3 +398,7 @@ mini over ssh. `rm -rf` is now also allowed on:
 It still asks for `..`, a glob, `~`, `.`, `.git`, `.venv`, an absolute project path and any other relative path.
 `/tmp/case3` itself still asks: agents use `/tmp/claude-work/` on remote hosts instead. Tests: 92 of 92 on the X3
 (bash 5) and the mini (`/bin/bash` 3.2.57, BSD awk).
+
+Later the same day: a folder made with `D=$(ssh host 'mktemp -d')` and removed there with `rm -rf "$D"` (or
+`\"$D\"` inside an ssh "..." string) counts as the command's own mktemp folder; the guard now drops backslashes
+before checking a target. Tests: 96 of 96 on the X3 and on the mini's bash 3.2.

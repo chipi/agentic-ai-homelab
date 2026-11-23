@@ -112,7 +112,7 @@ if reruns; then
 fi
 
 # rm -rf is allowed when every target is:
-# - the command's own `mktemp` folder (VAR=$(mktemp ...), then "$VAR" or "$VAR/sub");
+# - the command's own `mktemp` folder (VAR=$(mktemp ...) or VAR=$(ssh host 'mktemp ...'), then "$VAR" or "$VAR/sub");
 # - a path in a Claude temp area: /tmp/claude-<anything>/<sub> (this machine's scratchpads under /tmp/claude-<uid>,
 #   /private/tmp on macOS, and a work folder an agent made on another host, e.g. /tmp/claude-work over ssh) or
 #   CLAUDE_CODE_TMPDIR;
@@ -125,7 +125,9 @@ rm_target_ok() {
     case "$t" in *..*) return 1 ;; esac
     if [[ "$t" =~ ^\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?(/.*)?$ ]]; then
         v="${BASH_REMATCH[1]}"
-        printf '%s' "$cmd" | grep -Eq -- "(^|[;&|(\`[:space:]])${v}=\"?(\\\$\\(|\`)mktemp([[:space:]]|\\)|\`)"
+        printf '%s' "$cmd" | grep -Eq -- "(^|[;&|(\`[:space:]])${v}=\"?(\\\$\\(|\`)mktemp([[:space:]]|\\)|\`)" && return 0
+        # the same made on another host: VAR=$(ssh host 'mktemp -d'), then rm -rf "$VAR" there (2026-11-23)
+        printf '%s' "$cmd" | grep -Eq -- "(^|[;&|(\`[:space:]])${v}=\"?\\\$\\((timeout[[:space:]]+[0-9]+[[:space:]]+)?ssh[[:space:]][^)\`;&|]*[[:space:]'\"]mktemp([[:space:]'\"]|\\))"
         return
     fi
     case "$t" in
@@ -148,7 +150,7 @@ rm_ok() {   # every recursive forced rm in $text targets only allowed paths
         while [ $# -gt 0 ] && [ "${1#-}" != "$1" ]; do flags="$flags$1"; shift; done
         case "$flags" in *recursive*force*|*force*recursive*) ;; *r*f*|*f*r*) case "$flags" in *--*) continue ;; esac ;; *) continue ;; esac
         [ $# -gt 0 ] || return 1
-        for t in "$@"; do rm_target_ok "$t" || return 1; done
+        for t in "$@"; do t="${t//\\/}"; [ -n "$t" ] || continue; rm_target_ok "$t" || return 1; done   # \"$D\" inside ssh "..."
     done < <(printf '%s\n' "$text" | grep -oE -- "${S}rm[[:space:]][^;&|)]*")
     return 0
 }
