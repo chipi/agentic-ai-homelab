@@ -267,15 +267,15 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <h2><span class="dot stale" id=au_fdot></span><a href="$FLOT">Flotilla &rarr;</a> <span class=muted id=au_fver style="font-size:13px;font-weight:400"></span></h2>
   <p class=sec style="margin:-6px 0 10px"><a href="$FLOT/fleets">Fleets</a> &middot; <a href="$FLOT/approvals">Approvals</a> &middot; <a href="$FLOT/cases">Cases</a> &middot; <a href="$FLOT/runs">Runs</a> &middot; <a href="$FLOT/brief">Brief</a> &middot; <a href="$G/d/flotilla">Grafana dashboard</a></p>
   <div class=charts id=au_fleets>&hellip;</div>
-  <p class=sec>One card per fleet, one row per routine flotilla has reported. Green: the last success is within the routine&#39;s freshness window (or, without one, the last run was ok). Red: the last run failed. Grey: nothing recent. Whether a routine is paused or stopped is not in the metrics; the fleet&#39;s page says.</p>
+  <p class=sec>One card per fleet, one row per routine flotilla has reported, with its last 14 days as squares (red: a day with a failure, green: ok runs, grey: only skipped). The dot: green the last success is within the routine&#39;s freshness window (or, without one, the last run was ok). Red: the last run failed. Grey: nothing recent. Whether a routine is paused or stopped is not in the metrics; the fleet&#39;s page says.</p>
 </div>
 <div style="margin:0 0 22px">
   <h2><span class="dot stale" id=fl_tdot></span><a href="$DASH_FLEET">Triage fleet &rarr;</a> <a href="$FLOT/fleets/triage" class=muted style="font-size:13px;font-weight:400">in flotilla</a></h2>
+  <div class=charts id=au_sh_triage>&hellip;</div>
   <div class=charts>
     <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div><div id=fl_backlog class=muted style="font-size:12px"></div></a>
-    <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=fl_dec>&hellip;</div></a>
+    <a class=card href="$DASH_FLEET"><h3>Decisions 7d</h3><div id=fl_dec>&hellip;</div></a>
     <a class=card href="$DASH_INBOX"><h3>Escalations 7d</h3><div id=fl_esc>&hellip;</div></a>
-    <a class=card href="$DASH_FLEET"><h3>Spend this month</h3><div id=fl_spend>&hellip;</div></a>
     <a class=card href="$DASH_FLEET"><h3>Last cycle</h3><div id=fl_cycle>&hellip;</div></a>
     <a class=card href="$DASH_FLEET"><h3>Sources</h3><div id=fl_src>&hellip;</div></a>
   </div>
@@ -1412,8 +1412,8 @@ async function fleetCards(){
   const qd=await by('last_over_time(signal_fleet_queue_depth{service="triage-fleet"}[2h])','kind'),old=await one('max(last_over_time(signal_fleet_queue_oldest_age_seconds{service="triage-fleet"}[2h]))');
   const bl=Object.entries(qd).filter(([k,v])=>k!=='bug'&&v>0);
   set('fl_backlog',bl.length?'backlog '+bl.map(([k,v])=>v+' '+k).join(' &middot; ')+(old?' &middot; oldest '+fmtUp(old):''):'');
-  // decisions: 24h count, 14-day line, 7-day mix
-  const dec=await one('sum(count_over_time(signal_fleet_disposition{service="triage-fleet",disposition!="recurrence"}[24h]))');
+  // decisions: 7-day count (recurrences left out), 14-day line, 7-day mix; spend is in the shared Spend 7d card
+  const dec=await one('sum(count_over_time(signal_fleet_disposition{service="triage-fleet",disposition!="recurrence"}[7d]))');
   const decD=await daily('sum(count_over_time(signal_fleet_disposition{service="triage-fleet",disposition!="recurrence"}[1d]))');
   const mix=await by('sum by (disposition) (count_over_time(signal_fleet_disposition{service="triage-fleet"}[7d]))','disposition');
   const col={file:'#7aa2ff',recurrence:'#8888aa',escalate:'#d29922',dismiss:'#3d3d63'},tot=Object.values(mix).reduce((a,b)=>a+b,0);
@@ -1422,12 +1422,6 @@ async function fleetCards(){
   set('fl_dec',cv((dec==null?'&mdash;':Math.round(dec))+spark(decD))+bar);
   const esc=await one('sum(last_over_time(signal_fleet_escalations_7d{service="triage-fleet"}[2h]))'),escD=await daily('sum(count_over_time(signal_fleet_disposition{service="triage-fleet",disposition="escalate"}[1d]))');
   set('fl_esc',cv((esc==null?'&mdash;':Math.round(esc))+spark(escD))+mut('line: escalations per day, 14 days'));
-  // spend: this month vs last month, daily line, cost per decision this month
-  const n=new Date(),mS=Math.max(3600,Math.floor((n-new Date(n.getFullYear(),n.getMonth(),1))/1000));
-  const pS=Math.floor((new Date(n.getFullYear(),n.getMonth(),1)-new Date(n.getFullYear(),n.getMonth()-1,1))/1000);
-  const mo=await one('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}['+mS+'s]))'),lm=await one('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}['+pS+'s] offset '+mS+'s))');
-  const decM=await one('sum(count_over_time(signal_fleet_disposition{service="triage-fleet"}['+mS+'s]))'),spD=await daily('sum(sum_over_time(signal_fleet_cost_usd{service="triage-fleet"}[1d]))');
-  set('fl_spend',cv(usd(mo)+spark(spD))+mut('last month '+usd(lm)+(decM?' &middot; $'+((mo||0)/decM).toFixed(4)+' per decision':'')));
   // last triage cycle: flotilla's triage/cycle routine since the switch (2026-11-11); one flotilla_run
   // series per status, autonomy and version, so the newest series is the last run
   const cy=(await q('tlast_over_time(flotilla_run{routine="triage/cycle",status!="skipped"}[1d])')).sort((a,b)=>b.value[1]-a.value[1])[0];
@@ -1451,7 +1445,7 @@ async function automation(){
   const runs=await q('tlast_over_time(flotilla_run[7d])');
   const okAt=await by('max by (routine) (flotilla_routine_last_success_timestamp_seconds)');
   const fresh=await by('max by (routine) (flotilla_routine_freshness_seconds)');
-  const spend=await by('max by (routine) (last_over_time(flotilla_spend_day_usd[2h]))');
+  const spend=await by('max by (routine) (last_over_time(flotilla_spend_day_usd[2h]))'),DAYS=await runDays();
   const last={};runs.forEach(r=>{const k=r.metric.routine,t=+r.value[1];if(!last[k]||t>last[k].t)last[k]={t,status:r.metric.status,autonomy:r.metric.autonomy};});
   const names=[...new Set([...Object.keys(last),...Object.keys(okAt),...Object.keys(fresh)])].filter(Boolean).sort();
   const fleets={};names.forEach(n=>{const f=n.split('/')[0];(fleets[f]=fleets[f]||[]).push(n);});
@@ -1467,9 +1461,9 @@ async function automation(){
       const what=l?'<span style="color:'+(l.status==='error'?'#f85149':l.status==='ok'?'#3fb950':'#8888aa')+'">'+l.status+'</span> '+when:when;
       return '<div style="display:flex;gap:6px;align-items:baseline;font-size:12px;margin:3px 0"><span class="dot '+d+'"></span>'
         +'<a href="'+FL+'/fleets/'+encodeURIComponent(f)+'/'+encodeURIComponent(base)+'" style="flex:1">'+r+'</a>'
-        +'<span class=muted>'+what+(spend[n]>=0.005?' &middot; $'+spend[n].toFixed(2)+' today':'')+'</span></div>';}).join('');
+        +'<span class=muted>'+what+(spend[n]>=0.005?' &middot; $'+spend[n].toFixed(2)+' today':'')+'</span>'+dayStrip(DAYS[n])+'</div>';}).join('');
     const worst=fleets[f].map(dotOf).sort((a,b)=>rank[b]-rank[a])[0];
-    return '<div class=card style="flex:0 1 300px;min-width:260px"><h3><span class="dot '+worst+'"></span><a href="'+FL+'/fleets/'+encodeURIComponent(f)+'">'+f+'</a>'
+    return '<div class=card style="flex:0 1 370px;min-width:330px"><h3><span class="dot '+worst+'"></span><a href="'+FL+'/fleets/'+encodeURIComponent(f)+'">'+f+'</a>'
       +' <span class=muted style="font-weight:400">'+fleets[f].length+' routine'+(fleets[f].length>1?'s':'')+'</span></h3>'+rows+'</div>';});
   set('au_fleets',cards.length?cards.join(''):'<div class=muted>no flotilla metrics</div>');
   set('au_fver',up?(up.metric.version||'')+(+up.value[1]?'':' &middot; down'):'no heartbeat');
@@ -1488,55 +1482,105 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 async function vlq(query){try{const t=await(await fetch('/vl/select/logsql/query',{method:'POST',body:new URLSearchParams({query})})).text();
   return t.split('\n').filter(Boolean).map(l=>JSON.parse(l));}catch(e){return[];}}
 const RUN_END='service:flotillad (msg:"run end" OR msg:"shadow run end")';
+// One time frame on the whole tab: counts and spend over the last 7 days against the 7 before, lines over 14
+// days (one point per UTC day), states (needs you, last cycle, backup age) as they are now.
+// runDays(): flotillad's "run end" lines per UTC day, routine and status, shared by the overview strips and the
+// fleet sections; cached for the refresh.
+async function runDays(){
+  if(runDays.p&&Date.now()-runDays.t<240000)return runDays.p;runDays.t=Date.now();
+  runDays.p=(async()=>{const rows=await vlq('_time:14d '+RUN_END+' | stats by (_time:1d, routine, status) count() n, sum(spend_usd) usd, quantile(0.5, duration_s) p50');
+    const mid=Math.floor(Date.now()/86400000)*86400,D={};
+    rows.forEach(r=>{const i=13-Math.round((mid-Date.parse(r._time)/1000)/86400);if(i<0||i>13||!r.routine)return;
+      const d=D[r.routine]=D[r.routine]||{};const s=d[r.status]=d[r.status]||{n:Array(14).fill(0),usd:Array(14).fill(0),p50:Array(14).fill(null)};
+      s.n[i]+= +r.n;s.usd[i]+= +r.usd||0;s.p50[i]=+r.p50;});
+    return D;})();
+  return runDays.p;
+}
+// a routine's last 14 days as squares: red a day with a failure, green with an ok run, grey only skipped, dark none
+function dayStrip(d){if(!d)return '';const c=[];for(let i=0;i<14;i++){const e=d.error&&d.error.n[i],o=d.ok&&d.ok.n[i],s=d.skipped&&d.skipped.n[i];
+  c.push('<span title="'+(13-i)+'d ago: '+(o||0)+' ok, '+(e||0)+' failed" style="display:inline-block;width:5px;height:9px;margin-left:1px;border-radius:1px;background:'+(e?'#f85149':o?'#3fb950':s?'#55556b':'#22222f')+'"></span>');}
+  return '<span style="white-space:nowrap">'+c.join('')+'</span>';}
 async function fleetDetail(){
   const FL='https://flotilla.tail6d0ed4.ts.net',now=Date.now()/1000;
   const mut=t=>'<div class=muted style="font-size:12px">'+t+'</div>',cv=v=>'<div class=cv>'+v+'</div>';
-  const card=(h,body,href,wide)=>(href?'<a class=card href="'+href+'"':'<div class=card')+' style="flex:0 1 '+(wide||250)+'px"><h3>'+h+'</h3>'+body+(href?'</a>':'</div>');
-  const runs=await vlq('_time:7d '+RUN_END+' | stats by (routine, status) count() n, sum(spend_usd) usd, quantile(0.5, duration_s) p50');
-  const fails=await vlq('_time:7d '+RUN_END+' status:error | sort by (_time desc) | limit 200 | fields _time, routine, run_id, detail');
-  const hb=await vlq('_time:1d '+RUN_END+' routine:"platform/heartbeat" | stats by (status) count() n');
-  const F={};runs.forEach(r=>{const f=r.routine.split('/')[0];if(f==='triage')return;const x=F[f]=F[f]||{ok:0,error:0,skipped:0,usd:0,r:{}};
-    const n=+r.n;x[r.status]=(x[r.status]||0)+n;x.usd+= +r.usd||0;const k=r.routine.slice(f.length+1),y=x.r[k]=x.r[k]||{ok:0,error:0,skipped:0,p50:null};y[r.status]=(y[r.status]||0)+n;if(r.status==='ok')y.p50=+r.p50;});
-  const col={ok:'#3fb950',error:'#f85149',skipped:'#8888aa'};
-  const lastFail={};fails.forEach(r=>{const f=r.routine.split('/')[0];if(!lastFail[f])lastFail[f]=r;});
-  // the failure's own words: its FAIL lines if it has any, else its last lines
-  const words=d=>{const l=String(d||'').split('\n').map(s=>s.trim()).filter(Boolean),fl=l.filter(s=>/FAIL|Error|error/.test(s));return esc((fl.length?fl:l.slice(-2)).slice(0,3).join(' · ').slice(0,260));};
-  const extra={
+  const card=(h,body,href)=>(href?'<a class=card href="'+href+'"':'<div class=card')+'><h3>'+h+'</h3>'+body+(href?'</a>':'</div>');
+  const sq=c=>'<span style="color:'+c+'">&#9632;</span> ';
+  const bar=parts=>{const p=parts.filter(x=>x[1]>0);return p.length?'<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">'+p.map(([,v,c])=>'<span style="flex:'+v+';background:'+c+'"></span>').join('')+'</div>'+mut(p.map(([k,v,c])=>sq(c)+(typeof v==='number'&&v%1?'$'+v.toFixed(2):Math.round(v).toLocaleString())+' '+k).join(' &middot; ')):'';};
+  const sum=a=>a.reduce((x,y)=>x+(y||0),0),add=(a,b)=>a.map((x,i)=>(x||0)+((b&&b[i])||0));
+  const dur=s=>s==null?'&mdash;':s<60?s.toFixed(1)+' s':(s/60).toFixed(1)+' min';
+  const [D,cur,prev,fails,hbD]=await Promise.all([runDays(),
+    vlq('_time:7d '+RUN_END+' | stats by (routine, status) count() n, sum(spend_usd) usd, quantile(0.5, duration_s) p50'),
+    vlq('_time:7d offset 7d '+RUN_END+' | stats by (routine) count() n, sum(spend_usd) usd'),
+    vlq('_time:7d '+RUN_END+' status:error | sort by (_time desc) | limit 500 | fields _time, routine, run_id, detail'),
+    vlq('_time:14d '+RUN_END+' routine:"platform/heartbeat" | stats by (_time:1d, status) count() n')]);
+  const fleetOf=r=>String(r||'').split('/')[0],F={},named=a=>a.filter(r=>r.routine);
+  const fl=f=>F[f]=F[f]||{st:{ok:0,error:0,skipped:0},usd:0,prevUsd:0,prevN:0,r:{},fails:[]};
+  named(cur).forEach(r=>{const x=fl(fleetOf(r.routine)),k=r.routine.slice(fleetOf(r.routine).length+1),y=x.r[k]=x.r[k]||{ok:0,error:0,skipped:0,usd:0,p50:null};
+    x.st[r.status]=(x.st[r.status]||0)+ +r.n;y[r.status]=(y[r.status]||0)+ +r.n;x.usd+= +r.usd||0;y.usd+= +r.usd||0;if(r.status==='ok')y.p50=+r.p50;});
+  named(prev).forEach(r=>{const x=fl(fleetOf(r.routine));x.prevUsd+= +r.usd||0;x.prevN+= +r.n;});
+  named(fails).forEach(r=>fl(fleetOf(r.routine)).fails.push(r));
+  // a failure's own words: its FAIL lines if it has any, else its last lines
+  const words=d=>{const l=String(d||'').split('\n').map(s=>s.trim()).filter(Boolean),f=l.filter(s=>/FAIL|Error|error/.test(s));return esc((f.length?f:l.slice(-2)).slice(0,3).join(' · ').slice(0,240));};
+  const cause=d=>{d=String(d||'');return /worker/i.test(d)?'worker':/model|litellm|timed out|APIError/i.test(d)?'model':/proxy|egress|407/i.test(d)?'proxy':/store|postgres|registry|Errno/i.test(d)?'store / files':'other';};
+  const CAUSE_COL={worker:'#d29922',model:'#7aa2ff','proxy':'#bc8cff','store / files':'#f85149',other:'#8888aa'};
+  const RCOL=['#7aa2ff','#3fb950','#d29922','#bc8cff','#56d4dd','#f0883e'];
+  const shared=f=>{const x=F[f],tot=x.st.ok+x.st.error+x.st.skipped,ks=Object.keys(x.r).sort();
+    const rd=ks.map(k=>D[f+'/'+k]||{}),daySum=(st,key)=>rd.reduce((a,d)=>add(a,d[st]&&d[st][key]),Array(14).fill(0));
+    const runsD=add(add(daySum('ok','n'),daySum('error','n')),daySum('skipped','n')),failD=daySum('error','n'),usdD=['ok','error','skipped'].reduce((a,s)=>add(a,daySum(s,'usd')),Array(14).fill(0));
+    const delta=(a,b)=>b?' &middot; '+(a>=b?'&#9650;':'&#9660;')+Math.abs(Math.round((a-b)/b*100))+'% vs the 7 days before':'';
+    const lf=x.fails[0],fc={};x.fails.forEach(r=>{const c=cause(r.detail);fc[c]=(fc[c]||0)+1;});
+    const slow=ks.filter(k=>x.r[k].p50!=null).sort((a,b)=>x.r[b].p50-x.r[a].p50)[0],slowD=slow&&D[f+'/'+slow]&&D[f+'/'+slow].ok?D[f+'/'+slow].ok.p50:null;
+    return [
+      card('Runs 7d',cv(tot.toLocaleString()+spark(runsD))+bar([['ok',x.st.ok,'#3fb950'],['failed',x.st.error,'#f85149'],['skipped',x.st.skipped,'#55556b']])
+        +mut(ks.map(k=>{const y=x.r[k];return esc(k)+' '+y.ok+(y.error?' / <span style="color:#f85149">'+y.error+'</span>':'');}).join(' &middot; ')+delta(tot,x.prevN)),FL+'/fleets/'+encodeURIComponent(f)),
+      card('Failures 7d',cv((x.st.error?'<span style="color:#f85149">'+x.st.error+'</span>':'<span style="color:#3fb950">0</span>')+spark(failD))
+        +bar(Object.keys(fc).sort((a,b)=>fc[b]-fc[a]).map(c=>[c,fc[c],CAUSE_COL[c]]))
+        +(lf?mut('last '+fmtUp(now-Date.parse(lf._time)/1000)+' ago, '+esc(lf.routine.slice(f.length+1))+': '+words(lf.detail)):mut('no failed run in 7 days')),lf?FL+'/runs/'+encodeURIComponent(lf.run_id):null),
+      card('Spend 7d',x.usd>=0.005?cv('$'+x.usd.toFixed(2)+spark(usdD))+bar(ks.filter(k=>x.r[k].usd>=0.005).map((k,i)=>[esc(k),x.r[k].usd,RCOL[i%RCOL.length]]))+mut('the 7 days before $'+x.prevUsd.toFixed(2)+delta(x.usd,x.prevUsd).replace(' vs the 7 days before',''))
+        :cv('<span class=muted style="font-size:15px">no model calls</span>')+mut('$0.00 this week &middot; $'+x.prevUsd.toFixed(2)+' the 7 days before')),
+      card('Typical run',cv(dur(slow?x.r[slow].p50:null)+spark(slowD))+mut((slow?'slowest: '+esc(slow)+' (line: its median per day)<br>':'')+ks.filter(k=>k!==slow&&x.r[k].p50!=null).map(k=>esc(k)+' '+dur(x.r[k].p50)).join(' &middot; ')))];};
+  // each fleet's own cards (states, or what it does), after the shared row
+  const own={
     ops:async()=>{const ts=(await q('max(last_over_time(homelab_backup_offsite_last_success_timestamp[3d]))'))[0],by=(await q('max(last_over_time(homelab_backup_offsite_bytes[3d]))'))[0],fi=(await q('max(last_over_time(homelab_backup_offsite_files[3d]))'))[0];
-      const age=ts?now- +ts.value[1]:null;
-      return card('Off-site DB backup',cv(age==null?'&mdash;':'<span style="color:'+(age>129600?'#f85149':'#3fb950')+'">'+fmtUp(age)+' ago</span>')+mut((by?(+by.value[1]/1e6).toFixed(0)+' MB':'')+(fi?' &middot; '+(+fi.value[1])+' files':'')+' &middot; what backup-monitor watches; red after 36 h'));},
-    platform:async()=>{const m={};hb.forEach(r=>m[r.status]=+r.n);const t=(m.ok||0)+(m.error||0);
-      return card('Heartbeat 24h',cv(t?'<span style="color:'+(m.error?'#d29922':'#3fb950')+'">'+(100*(m.ok||0)/t).toFixed(1)+'%</span>':'&mdash;')+mut((m.ok||0)+' passed &middot; '+(m.error||0)+' failed (scheduler, worker, store, proxy, telemetry, models)'),FL+'/fleets/platform/heartbeat');},
+      const ageD=await daily('max(time() - last_over_time(homelab_backup_offsite_last_success_timestamp[3d]))/3600'),byD=await daily('max(last_over_time(homelab_backup_offsite_bytes[3d]))');
+      const age=ts?now- +ts.value[1]:null,b0=byD&&byD.find(v=>v!=null),b1=by?+by.value[1]:null;
+      return [card('Off-site DB backup',cv((age==null?'&mdash;':'<span style="color:'+(age>129600?'#f85149':'#3fb950')+'">'+fmtUp(age)+' ago</span>')+spark(ageD))
+        +mut((b1?(b1/1e6).toFixed(0)+' MB':'')+(fi?' &middot; '+(+fi.value[1])+' files':'')+(b0&&b1?' &middot; '+(b1>=b0?'+':'')+((b1-b0)/1e6).toFixed(0)+' MB in 14 days':'')+'<br>line: its age each day (a missed night is a peak); red after 36 h'))];},
+    platform:async()=>{const okD=Array(14).fill(null),erD=Array(14).fill(0),mid=Math.floor(Date.now()/86400000)*86400;
+      hbD.forEach(r=>{const i=13-Math.round((mid-Date.parse(r._time)/1000)/86400);if(i<0||i>13)return;if(r.status==='ok')okD[i]=(okD[i]||0)+ +r.n;if(r.status==='error')erD[i]+= +r.n;});
+      const rate=okD.map((o,i)=>o==null&&!erD[i]?null:100*(o||0)/((o||0)+erD[i])),x=(F.platform||{}).r||{},h=x.heartbeat||{ok:0,error:0};
+      const t=h.ok+h.error;
+      return [card('Heartbeat 7d',cv((t?'<span style="color:'+(h.error?'#d29922':'#3fb950')+'">'+(100*h.ok/t).toFixed(1)+'%</span>':'&mdash;')+spark(rate,90,100))
+        +mut(h.ok+' passed &middot; '+h.error+' failed<br>checks the scheduler, a worker, the store, the proxy, telemetry and the models; line: pass rate per day'),FL+'/fleets/platform/heartbeat')];},
     bugfix:async()=>{let n='&rarr;';try{const r=await(await fetch('https://api.github.com/search/issues?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')).json();if(typeof r.total_count==='number')n=String(r.total_count);}catch(e){}
-      return card('Routable now',cv(n)+mut('open issues triage marked actionable'),'https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22');}};
+      return [card('Routable now',cv(n)+mut('open issues triage marked actionable (a GitHub search: no history, so no line)'),'https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')];}};
   const html=[];
-  for(const f of Object.keys(F).sort()){const x=F[f],tot=x.ok+x.error+x.skipped,lf=lastFail[f];
-    const bar='<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">'+['ok','error','skipped'].filter(k=>x[k]).map(k=>'<span style="flex:'+x[k]+';background:'+col[k]+'"></span>').join('')+'</div>';
-    const per=Object.keys(x.r).sort().map(k=>{const y=x.r[k];return esc(k)+' '+y.ok+' ok'+(y.error?' <span style="color:#f85149">'+y.error+' failed</span>':'')+(y.skipped?' &middot; '+y.skipped+' skipped':'');}).join('<br>');
-    const dur=Object.keys(x.r).sort().filter(k=>x.r[k].p50!=null).map(k=>esc(k)+' '+(x.r[k].p50<60?x.r[k].p50.toFixed(1)+' s':(x.r[k].p50/60).toFixed(1)+' min')).join('<br>');
-    const dot=lf&&now-Date.parse(lf._time)/1000<86400?'down':(x.error?'mid':'up');
-    const cards=[card('Runs 7d',cv(tot.toLocaleString())+bar+mut(per),FL+'/runs',280),
-      card('Last failure',lf?cv('<span style="color:#f85149;font-size:15px">'+fmtUp(now-Date.parse(lf._time)/1000)+' ago</span>')+mut(esc(lf.routine.slice(f.length+1))+': '+words(lf.detail)):cv('<span style="color:#3fb950">none</span>')+mut('no failed run in 7 days'),lf?FL+'/runs/'+encodeURIComponent(lf.run_id):null,300),
-      card('Spend 7d &middot; typical run',cv('$'+x.usd.toFixed(2))+mut(dur||'no ok run'))];
-    if(extra[f])cards.push(await extra[f]());
-    html.push('<div style="margin:0 0 22px"><h2><span class="dot '+dot+'"></span><a href="'+FL+'/fleets/'+encodeURIComponent(f)+'">'+esc(f)+' fleet &rarr;</a> <span class=muted style="font-size:13px;font-weight:400">in flotilla</span></h2><div class=charts>'+cards.join('')+'</div></div>');}
+  for(const f of Object.keys(F).sort()){const x=F[f],lf=x.fails[0];if(!Object.keys(x.r).length)continue;
+    const row1='<div class=charts>'+shared(f).join('')+'</div>';
+    if(f==='triage'){const t=document.getElementById('au_sh_triage');if(t&&t.innerHTML!==shared(f).join(''))t.innerHTML=shared(f).join('');continue;}
+    const mine=own[f]?await own[f]():[];
+    const dot=lf&&now-Date.parse(lf._time)/1000<86400?'down':(x.st.error?'mid':'up');
+    html.push('<div style="margin:0 0 22px"><h2><span class="dot '+dot+'"></span><a href="'+FL+'/fleets/'+encodeURIComponent(f)+'">'+esc(f)+' fleet &rarr;</a> <span class=muted style="font-size:13px;font-weight:400">in flotilla</span></h2>'
+      +row1+(mine.length?'<div class=charts>'+mine.join('')+'</div>':'')+'</div>');}
   const el=document.getElementById('au_detail'),h=html.join('');if(el&&el.innerHTML!==h)el.innerHTML=h;
-  // RFC-0014 cases: each one's n8n flows (n8n's per-workflow counters, reset at an n8n restart, so increase())
-  // and flotilla's side (its hook calls, and the runs of the routines the case uses)
+  // RFC-0014 cases: each one's n8n flows (n8n's per-workflow counters, which restart at zero when n8n does, so
+  // increase()) and flotilla's side (its hook calls, and the runs of the routines the case uses)
   const CASES=[{name:'Case 3: a meeting into decisions and follow-ups',hook:'meeting',fleets:['meetings','plumbing'],
     flows:[['case3meetinghook','Drive notes &rarr; flotilla'],['case3createtasks','create_tasks &rarr; Google Tasks'],['case3postdecisio','post_decisions &rarr; Google Doc']],
     links:[['Drive folder','https://drive.google.com/drive/folders/19-16sCI6H6egNTbB1G6RJx6cdVdJnq5Q'],['Decisions Doc','https://docs.google.com/document/d/1uzHJ3t00ZdVsUlyLHQdYLo05z-Ugd5FnRLU8V4BW0os/edit'],['Tasks','https://tasks.google.com/'],['Approvals',FL+'/approvals']]}];
   const wf=async m=>{const o={};(await q('sum by (workflow_id) (increase(n8n_workflow_'+m+'_total[7d]))')).forEach(r=>o[r.metric.workflow_id]=Math.round(+r.value[1]));return o;};
-  const st=await wf('started'),ok=await wf('success'),bad=await wf('failed');
-  const N8='https://n8n.tail6d0ed4.ts.net';
-  const out=[];
-  for(const c of CASES){const hk=await vlq('_time:7d service:flotillad msg:"hook call" hook:"'+c.hook+'" | stats by (how) count() n');
-    const hm={};hk.forEach(r=>hm[r.how]=+r.n);
-    const cr=runs.filter(r=>c.fleets.includes(r.routine.split('/')[0])),cm={};cr.forEach(r=>cm[r.status]=(cm[r.status]||0)+ +r.n);
-    const rows=c.flows.map(([id,label])=>{const s=st[id]||0,o=ok[id]||0,b=bad[id]||0;
-      return '<div style="display:flex;gap:6px;font-size:12px;margin:3px 0"><span class="dot '+(b?'down':(s?'up':'stale'))+'"></span><a href="'+N8+'/workflow/'+id+'" style="flex:1">'+label+'</a><span class=muted>'+s+' runs'+(b?' &middot; <span style="color:#f85149">'+b+' failed</span>':'')+'</span></div>';}).join('');
-    out.push('<div class=card style="flex:1 1 520px"><h3>'+c.name+'</h3>'+rows
-      +mut('flotilla: hook <b>'+c.hook+'</b> '+((hm.opened||0)+' opened a case')+(hm.replay?' &middot; '+hm.replay+' replays':'')+' &middot; its routines '+((cm.ok||0)+(cm.error||0)+(cm.skipped||0))+' runs'+(cm.error?' (<span style="color:#f85149">'+cm.error+' failed</span>)':'')+' (7 days)')
+  const st=await wf('started'),bad=await wf('failed'),N8='https://n8n.tail6d0ed4.ts.net',out=[];
+  for(const c of CASES){const hk=await vlq('_time:7d service:flotillad msg:"hook call" hook:"'+c.hook+'" | stats by (how) count() n'),hm={};hk.forEach(r=>hm[r.how]=+r.n);
+    const hkD=Array(14).fill(0),mid=Math.floor(Date.now()/86400000)*86400;
+    (await vlq('_time:14d service:flotillad msg:"hook call" hook:"'+c.hook+'" how:opened | stats by (_time:1d) count() n')).forEach(r=>{const i=13-Math.round((mid-Date.parse(r._time)/1000)/86400);if(i>=0&&i<14)hkD[i]+= +r.n;});
+    const cr={};Object.keys(D).filter(r=>c.fleets.includes(fleetOf(r))).forEach(r=>{const d=D[r];cr[r]=sum(['ok','error','skipped'].map(s=>d[s]?sum(d[s].n.slice(7)):0));});
+    const rows=[];for(const [id,label] of c.flows){const s=st[id]||0,b=bad[id]||0,ln=await daily('sum(increase(n8n_workflow_started_total{workflow_id="'+id+'"}[1d]))');
+      rows.push('<div style="display:flex;gap:6px;align-items:center;font-size:12px;margin:3px 0"><span class="dot '+(b?'down':(s?'up':'stale'))+'"></span><a href="'+N8+'/workflow/'+id+'" style="flex:1">'+label+'</a>'
+        +'<span class=muted>'+s+' runs'+(b?' &middot; <span style="color:#f85149">'+b+' failed</span>':'')+'</span>'+spark(ln)+'</div>');}
+    out.push('<div class=card style="flex:1 1 520px"><h3>'+c.name+'</h3>'+rows.join('')
+      +'<div style="margin-top:6px">'+mut('flotilla, 7 days: hook <b>'+c.hook+'</b> opened '+(hm.opened||0)+' case'+((hm.opened||0)===1?'':'s')+(hm.replay?' &middot; '+hm.replay+' replays':'')+' '+spark(hkD))+'</div>'
+      +bar(Object.keys(cr).sort().map((r,i)=>[esc(r),cr[r],RCOL[i%RCOL.length]]))
+      +(Object.keys(cr).length?'':mut('its routines (meetings/*, plumbing/*) have not run yet'))
       +mut(c.links.map(([t,u])=>'<a href="'+u+'">'+t+'</a>').join(' &middot; '))+'</div>');}
   const ce=document.getElementById('au_cases'),ch=out.join('');if(ce&&ce.innerHTML!==ch)ce.innerHTML=ch;
 }

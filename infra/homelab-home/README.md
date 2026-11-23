@@ -92,10 +92,11 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   `docker exec litellm-postgres psql` (the container's own credentials), and pushed as
   `hub_assistant_calls` / `hub_assistant_usd{backend,window}` for the Spend tab's "Assistant: local or
   OpenRouter" cards.
-- **The Automation tab** (since 2026-11-23, was Fleets; `#fleets` still opens it): flotilla first, one card per
+- **The Automation tab** (since 2026-11-23, was Fleets; `#fleets` still opens it). One time frame throughout: counts
+  and spend over the last 7 days against the 7 before, lines over 14 days, states as they are now. Flotilla first, one card per
   fleet with a row per routine from `flotilla_run`, `flotilla_routine_last_success_timestamp_seconds`,
   `flotilla_routine_freshness_seconds` and `flotilla_spend_day_usd`, each linking to the routine in flotilla's UI;
-  then the triage detail; then every other fleet (runs, failures and spend over 7 days from flotillad's "run end"
+  then every fleet, triage included, as one shared row (runs, failures by cause, spend, typical run, from flotillad's "run end"
   log lines, the last failure in its own words, plus ops' off-site backup age, platform's heartbeat pass rate and
   bug-fix's routable issues); then n8n (up, version and active workflows from its metrics; one card per RFC-0014
   case with its flows' runs (n8n_workflow_*_total) and flotilla's hook calls; the
