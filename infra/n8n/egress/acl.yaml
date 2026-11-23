@@ -1,6 +1,6 @@
 # The internet hosts n8n may reach; everything else is refused and logged. Each host is added with the
 # RFC-0014 case that needs it (docs/rfc/RFC-0010-n8n-flows.md, "Amendments": the case, connector, hosts).
-# Changing this file needs `docker compose up -d egress` (a recreate) to take effect.
+# Changing this file needs `docker compose up -d --force-recreate egress`: the proxy reads it only at start.
 version: v1
 services: []
 default:

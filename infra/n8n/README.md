@@ -26,7 +26,7 @@ offered to others as a service.
     Since 2026-11-23 it has Google's hosts for case 3 (RFC-0010 amendment A1): `oauth2.googleapis.com`,
     `www.googleapis.com`, `docs.googleapis.com`. A connector's hosts are added there with its RFC-0010
     amendment, then
-    `docker compose up -d egress` (a recreate; n8n keeps running).
+    `docker compose up -d --force-recreate egress` (n8n keeps running; a plain `up -d` keeps the old proxy, which reads the list only at start, 2026-11-23).
   - **Private addresses are refused** even when listed (no `allow_ranges` in
     [`egress/smokescreen.yaml`](egress/smokescreen.yaml)): the proxy never reaches the LAN, the tailnet or
     the host.
