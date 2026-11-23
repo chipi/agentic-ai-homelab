@@ -111,7 +111,7 @@ ids are in its first lines):
 
 | Workflow | id | State | What it does |
 |---|---|---|---|
-| case 3: Drive meeting notes -> flotilla meeting hook | `case3meetinghook` | off until flotilla's `meeting` hook is deployed | polls the Drive folder `homelab n8n meeting notes` each minute; a new or changed Doc, .txt or .md is sent signed to `http://flotillad:8488/hooks/meeting` (delivery id = file id + modified time) |
+| case 3: Drive meeting notes -> flotilla meeting hook | `case3meetinghook` | on since 2026-11-23 (flotilla sha-ff08c18) | polls the Drive folder `homelab n8n meeting notes` each minute; a new or changed Doc, .txt or .md is sent signed to `http://flotillad:8488/hooks/meeting` (delivery id = file id + modified time) |
 | case 3: flotilla create_tasks -> Google Tasks | `case3createtasks` | published | `POST /webhook/flotilla-create-tasks`: checks flotilla's signature and timestamp, adds the items to the Tasks list `homelab n8n follow-ups`; the delivery id in each task's notes makes a re-send create nothing |
 | case 3: flotilla post_decisions -> Google Doc | `case3postdecisio` | published | `POST /webhook/flotilla-post-decisions`: the same checks, appends the text to the Doc `homelab n8n decisions`; the delivery id line makes a re-send append nothing |
 
