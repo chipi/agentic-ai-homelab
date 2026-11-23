@@ -1503,7 +1503,7 @@ function dayStrip(d){if(!d)return '';const c=[];for(let i=0;i<14;i++){const e=d.
 async function fleetDetail(){
   const FL='https://flotilla.tail6d0ed4.ts.net',now=Date.now()/1000;
   const mut=t=>'<div class=muted style="font-size:12px">'+t+'</div>',cv=v=>'<div class=cv>'+v+'</div>';
-  const card=(h,body,href)=>(href?'<a class=card href="'+href+'"':'<div class=card')+'><h3>'+h+'</h3>'+body+(href?'</a>':'</div>');
+  const card=(h,body,href)=>(href?'<a class=card href="'+href+'"':'<div class=card')+' style="flex:0 1 270px;min-width:230px"><h3>'+h+'</h3>'+body+(href?'</a>':'</div>');
   const sq=c=>'<span style="color:'+c+'">&#9632;</span> ';
   const bar=parts=>{const p=parts.filter(x=>x[1]>0);return p.length?'<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">'+p.map(([,v,c])=>'<span style="flex:'+v+';background:'+c+'"></span>').join('')+'</div>'+mut(p.map(([k,v,c])=>sq(c)+(typeof v==='number'&&v%1?'$'+v.toFixed(2):Math.round(v).toLocaleString())+' '+k).join(' &middot; ')):'';};
   const sum=a=>a.reduce((x,y)=>x+(y||0),0),add=(a,b)=>a.map((x,i)=>(x||0)+((b&&b[i])||0));
