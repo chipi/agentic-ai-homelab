@@ -101,7 +101,9 @@ groups:
       # Nearest real value is 33% free, so 10% is pure headroom — only a genuine
       # fill trips it. Critical tier below at 5%. CoreSimulator volumes excluded:
       # iOS runtime images are fixed-size and permanently ~full by design
-      # (2026-08-05: iOS_23D8133 at 2% free false-fired the critical tier).
+      # (2026-08-05: iOS_23D8133 at 2% free false-fired the critical tier). Since Xcode 26 the
+      # runtimes also mount read-only under /private/var/run/com.apple.security.cryptexd/mnt/
+      # (2026-11-23: five of them at 2-3% fired critical for the macbook while its disk was 24% free).
       # One alert per DISK, not per mountpoint (both tiers): macOS mounts one APFS
       # container as several volumes (/dev/disk1s1, disk1s2, ... disk1s7s1) that all
       # report the container's free space, so per-mountpoint grouping turned one full
@@ -125,7 +127,7 @@ groups:
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min by (instance, disk) (label_replace(label_replace(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/Library/Developer/CoreSimulator/.*"} / node_filesystem_size_bytes, "disk", "$1", "device", "(.+)"), "disk", "$1", "device", "/dev/(disk[0-9]+)s[0-9]+.*"))'
+              expr: 'min by (instance, disk) (label_replace(label_replace(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/Library/Developer/CoreSimulator/.*|/private/var/run/com.apple.security.cryptexd/mnt/.*"} / node_filesystem_size_bytes, "disk", "$1", "device", "(.+)"), "disk", "$1", "device", "/dev/(disk[0-9]+)s[0-9]+.*"))'
               instant: true
               queryType: instant
           - refId: threshold
@@ -152,7 +154,7 @@ groups:
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min by (instance, disk) (label_replace(label_replace(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/Library/Developer/CoreSimulator/.*"} / node_filesystem_size_bytes, "disk", "$1", "device", "(.+)"), "disk", "$1", "device", "/dev/(disk[0-9]+)s[0-9]+.*"))'
+              expr: 'min by (instance, disk) (label_replace(label_replace(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs",mountpoint!~"/Library/Developer/CoreSimulator/.*|/private/var/run/com.apple.security.cryptexd/mnt/.*"} / node_filesystem_size_bytes, "disk", "$1", "device", "(.+)"), "disk", "$1", "device", "/dev/(disk[0-9]+)s[0-9]+.*"))'
               instant: true
               queryType: instant
           - refId: threshold
