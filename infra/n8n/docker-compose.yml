@@ -67,6 +67,12 @@ services:
       GENERIC_TIMEZONE: UTC
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
       N8N_METRICS: "true"
+      # per-workflow counters for the Hub (n8n_workflow_{started,success,failed}_total by workflow id and
+      # name) and the Drive trigger's polls; they reset when n8n restarts, so the Hub reads increase()
+      N8N_METRICS_INCLUDE_MESSAGE_EVENT_BUS_METRICS: "true"
+      N8N_METRICS_INCLUDE_WORKFLOW_ID_LABEL: "true"
+      N8N_METRICS_INCLUDE_WORKFLOW_NAME_LABEL: "true"
+      N8N_METRICS_INCLUDE_POLL_TRIGGER_METRICS: "true"
       # nothing calls home: the networks give no route out, and these stop it trying
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
