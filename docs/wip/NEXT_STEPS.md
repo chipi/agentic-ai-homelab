@@ -7,6 +7,52 @@ notes were closed and their open items folded in here
 ([history 0007](../history/0007-wip-notes-closed.md)). "Checked" dates say when an item's
 state was last verified against the live system.
 
+## Where we are (2026-11-23, end of the homelab owner session)
+
+All work from that session is pushed (main at `e443c96` or later) and pulled on the X3, the laptop and both
+mini checkouts. Live: the command-ask guard cut back to a short list, with no `permissions.ask` rules
+(`workstation/claude/hooks/README.md`, "back to a short list"); the Hub's Automation tab (fleet cards,
+per-fleet detail, a Cases card per fleet, the case 3 card, the n8n section with "Egress 7d"); n8n egress
+alerts (group `n8n-egress`); the OpenRouter credit alert at under USD 1; the MacBook disk alert without
+simulator and cryptex mounts. Nothing below is started. The operator picks them up when there is time.
+
+Time-sensitive:
+
+- [ ] **Google sign-ins for n8n expire about 2026-11-30.** The OAuth app is in Testing, where a sign-in lasts
+      7 days (Docs and Tasks signed early 2026-11-23, Drive re-signed later that day). Either publish the app
+      (unverified is fine for the operator's own account; about 5 min in Google's console, then re-sign once),
+      or re-sign all three credentials weekly. Until then case 3 stops when they lapse.
+      check: n8n editor, Credentials; the Drive trigger's state at `/rest/active-workflows` (infra/n8n/README.md).
+- [ ] **Case 3 end-to-end test.** Blocked on the operator: set `plumbing.create_tasks` and
+      `plumbing.post_decisions` to `propose` on the mini (flotilla UI, or a go to the flotilla session). The
+      2026-11-23 run (case-20261123-095622d575) planned 3 follow-ups and 3 decisions, then closed as
+      `plan_recorded` because both actions were at `record`; nothing reached n8n or Google. Then: a small edit
+      to the test Doc "2026-11-23 homelab weekly sync (test notes)" (a new modifiedTime opens a new case),
+      approve it, and watch the n8n callbacks write the Google Tasks and the decisions Doc.
+- [ ] **X3 maintenance window**: the section below (update, GPU memory, reboot). Planned for this week.
+
+Small:
+
+- [ ] **Hook tests on the laptop**: the Maintenance item "Test secrets-guard.sh on a Mac (bash 3.2)" below.
+      (command-ask-guard's tests already pass on the mini's bash 3.2, 2026-11-23.)
+- [ ] **Vendor balances on the Hub**: credit left for each direct vendor next to OpenRouter's. First check
+      which vendors have a balance API.
+- [ ] **Which n8n feature calls `api.n8n.io`** (a few times a day, refused by the proxy, left out of the
+      refused alert) with diagnostics, version notifications, templates and personalization all off. Low value.
+- [ ] **Clean up the Google test data** once case 3 has run end to end: one `[test]` task, one `[test]` line
+      in the decisions Doc, and the test notes Doc.
+
+Agent hooks (operator's call after the 2026-11-23 guard reversal):
+
+- [ ] **B5**: refuse agent `docker` commands that reach the mini's production engine socket. A deny on one
+      path, not a prompt. `agent-instructions-refactor-plan.md`, section B.
+- [ ] **B6**: a Stop hook checking final messages for hedge words and a missing first-word answer.
+      Recommendation: skip, or report-only, so it never blocks.
+
+Parked: the provider bake-off (on hold); the operator's thinking on the Sites tab; token use at the
+500k auto-compact window (nothing to do unless cost or slowness shows); the older operator decisions below
+(chat UI pick, colima downsizing, the RAM install, preference conflicts, mini leftovers).
+
 ## Decisions waiting on the operator
 
 ### X3 maintenance window (reboot + updates), planned for early in the week of 2026-11-23, added 2026-11-21
