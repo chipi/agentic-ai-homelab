@@ -44,6 +44,13 @@ DASH_DELIVERY=$G/d/delivery-worker/delivery-worker
 DASH_UPTIME=$G/d/prod-uptime
 row(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td><code>%s</code></td><td><code>%s</code></td></tr>\n' "$2" "$1" "$5" "$3" "$4"; }
 dsvc(){ printf '<tr><td><a href="%s">%s</a></td><td><code>:%s</code></td><td class=muted>%s</td></tr>\n' "$4" "$1" "$2" "$3"; }
+# Automation tab, n8n: the flows kept in the repo (infra/n8n/flows, each an n8n import file) and the hosts its
+# egress proxy lets through (infra/n8n/egress/acl.yaml), as they are in this checkout when the page is built.
+FLOT=https://flotilla.$TS; N8N=https://n8n.$TS
+N8N_FLOWS=$(for f in "$REPO"/n8n/flows/*.json; do [ -f "$f" ] || continue
+  awk -v base="$N8N" '/^  "id":/ && !id { id = $2; gsub(/[",]/, "", id) } /^  "name":/ && !nm { nm = $0; sub(/^  "name": "/, "", nm); sub(/",?$/, "", nm) }
+    END { if (id) printf "<a href=\"%s/workflow/%s\">%s</a><br>", base, id, nm }' "$f"; done)
+N8N_HOSTS=$(awk '/^ *- [a-z0-9.-]+$/ { printf "%s<code>%s</code>", (n++ ? " " : ""), $2 }' "$REPO/n8n/egress/acl.yaml" 2>/dev/null)
 {
 cat <<HDR
 <!doctype html><html><head><meta charset=utf-8><title>homelab</title>
@@ -176,7 +183,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <a href="#hosts/dgx" target=_self><span class="dot stale" data-dot=st_dgx></span>DGX</a>
   <a href="#hosts/x3" target=_self><span class="dot stale" data-dot=st_x3></span>X3</a>
   <a href="#hosts/delivery" target=_self><span class="dot stale" data-dot=st_delivery></span>Delivery</a>
-  <a href="#fleets" target=_self>Needs you <b data-text=f_inbox>&hellip;</b></a>
+  <a href="#automation" target=_self>Needs you <b data-text=f_inbox>&hellip;</b></a>
   <a href="#spend" target=_self>Credit left <b id=ov_credit_s>&hellip;</b></a>
   <a href="briefing/" target=_self>Briefing</a>
 </div>
@@ -188,14 +195,14 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <div id=remindbar></div>
 </details>
 <nav class=tabs>
-  <a href="#overview" target=_self>Overview</a><a href="#projects" target=_self>Projects</a><a href="#sites" target=_self>Sites</a><a href="#levels" target=_self>Levels</a><a href="#hosts" target=_self>Hosts</a><a href="#fleets" target=_self>Fleets</a><a href="#spend" target=_self>Spend</a>
+  <a href="#overview" target=_self>Overview</a><a href="#projects" target=_self>Projects</a><a href="#sites" target=_self>Sites</a><a href="#levels" target=_self>Levels</a><a href="#hosts" target=_self>Hosts</a><a href="#automation" target=_self>Automation</a><a href="#spend" target=_self>Spend</a>
 </nav>
 <section class=tab id=t-overview>
 <div class=charts>
   <a class=card href="#sites" target=_self><h3>Sites up now</h3><div data-mirror=up_now>&hellip;</div></a>
   <a class=card href="#sites" target=_self><h3>Availability 24h</h3><div data-mirror=up_24h>&hellip;</div></a>
   <a class=card href="#levels" target=_self><h3>Service levels</h3><div id=ov_slo>&hellip;</div></a>
-  <a class=card href="#fleets" target=_self><h3>Triage needs you</h3><div data-mirror=f_inbox>&hellip;</div></a>
+  <a class=card href="#automation" target=_self><h3>Triage needs you</h3><div data-mirror=f_inbox>&hellip;</div></a>
   <a class=card href="#spend" target=_self><h3>OpenRouter this month</h3><div id=ov_month>&hellip;</div></a>
   <a class=card href="#spend" target=_self><h3>OpenRouter credit left</h3><div id=ov_credit>&hellip;</div></a>
   <a class=card href="#hosts/delivery" target=_self><h3>Delivery workers</h3><div data-mirror=dl_up>&hellip;</div></a>
@@ -254,9 +261,15 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <p class=sec>Checked from the mini (home internet) through Cloudflare every minute; minutes when the mini itself was offline are left out. Edge 5xx = Cloudflare's count for every visitor (520-530: it could not reach our origin).</p>
 </div>
 </section>
-<section class=tab id=t-fleets>
+<section class=tab id=t-automation>
 <div style="margin:0 0 22px">
-  <h2><span class="dot stale" id=fl_tdot></span><a href="$DASH_FLEET">Triage fleet &rarr;</a></h2>
+  <h2><span class="dot stale" id=au_fdot></span><a href="$FLOT">Flotilla &rarr;</a> <span class=muted id=au_fver style="font-size:13px;font-weight:400"></span></h2>
+  <p class=sec style="margin:-6px 0 10px"><a href="$FLOT/fleets">Fleets</a> &middot; <a href="$FLOT/approvals">Approvals</a> &middot; <a href="$FLOT/cases">Cases</a> &middot; <a href="$FLOT/runs">Runs</a> &middot; <a href="$FLOT/brief">Brief</a> &middot; <a href="$G/d/flotilla">Grafana dashboard</a></p>
+  <div class=charts id=au_fleets>&hellip;</div>
+  <p class=sec>One card per fleet, one row per routine flotilla has reported. Green: the last success is within the routine&#39;s freshness window (or, without one, the last run was ok). Red: the last run failed. Grey: nothing recent. Whether a routine is paused or stopped is not in the metrics; the fleet&#39;s page says.</p>
+</div>
+<div style="margin:0 0 22px">
+  <h2><span class="dot stale" id=fl_tdot></span><a href="$DASH_FLEET">Triage fleet &rarr;</a> <a href="$FLOT/fleets/triage" class=muted style="font-size:13px;font-weight:400">in flotilla</a></h2>
   <div class=charts>
     <a class=card href="$DASH_INBOX"><h3>Needs you</h3><div id=f_inbox>&hellip;</div><div id=fl_backlog class=muted style="font-size:12px"></div></a>
     <a class=card href="$DASH_FLEET"><h3>Decisions 24h</h3><div id=fl_dec>&hellip;</div></a>
@@ -267,7 +280,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   </div>
 </div>
 <div style="margin:0 0 22px">
-  <h2><span class="dot stale" id=fl_bdot></span><a href="$DASH_BUGFIX">Bug-fix fleet &rarr;</a></h2>
+  <h2><span class="dot stale" id=fl_bdot></span><a href="$DASH_BUGFIX">Bug-fix fleet &rarr;</a> <a href="$FLOT/fleets/bugfix" class=muted style="font-size:13px;font-weight:400">in flotilla</a></h2>
   <div class=charts>
     <a class=card href="$DASH_BUGFIX" style="min-width:100%"><h3>Pipeline</h3><div id=fl_pipe>&hellip;</div></a>
     <a class=card href="$DASH_BUGFIX"><h3>Shipped</h3><div id=fl_ship>&hellip;</div></a>
@@ -275,6 +288,15 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
     <a class=card href="https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22"><h3>Routable now</h3><div id=b_route>&hellip;</div></a>
   </div>
   <p class=sec>The bug-fix fleet reports no spend of its own; its model calls are in the Spend tab under the key it uses.</p>
+</div>
+<div style="margin:0 0 22px">
+  <h2><span class="dot stale" id=au_ndot></span><a href="$N8N">n8n &rarr;</a></h2>
+  <div class=charts>
+    <a class=card href="$N8N"><h3>Editor</h3><div id=au_n8n>&hellip;</div></a>
+    <a class=card href="$N8N/home/workflows"><h3>Flows in the repo</h3><div class=muted style="font-size:12px;line-height:1.7">${N8N_FLOWS:-none}</div></a>
+    <a class=card href="https://github.com/chipi/agentic-ai-homelab/blob/main/infra/n8n/egress/acl.yaml"><h3>Internet it may reach</h3><div class=muted style="font-size:12px;line-height:1.7">${N8N_HOSTS:-nothing}</div></a>
+  </div>
+  <p class=sec>n8n runs the flows flotilla calls and the ones that call flotilla (RFC-0010). It reaches the internet only through its egress proxy, and only the hosts listed here; flotilla it reaches directly. The flows and hosts are as in the repo when this page was built.</p>
 </div>
 </section>
 <section class=tab id=t-spend>
@@ -284,6 +306,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   <p class=sec id=sp_range style="margin:-8px 0 12px"></p>
   <div id=sp_main>
   <h2>Totals</h2>
+  <p class=sec style="margin:-6px 0 10px">Where these come from: <a href="$LL/ui/">LiteLLM on the mini</a> (its UI) &middot; <a href="$G/d/llm-gateway">LLM Gateway dashboard</a> (both gateways; the VPS LiteLLM has no UI on the tailnet) &middot; <a href="https://openrouter.ai/activity">OpenRouter activity</a> &middot; vendor consoles: <a href="https://platform.deepseek.com/usage">DeepSeek</a>, <a href="https://platform.moonshot.ai/console">Kimi</a>, <a href="https://z.ai/manage-apikey/billing">Z</a>, <a href="https://modelstudio.console.alibabacloud.com/">Qwen (Alibaba)</a></p>
   <div class=charts id=sp_totals>&hellip;</div>
   <h2>Assistant: local or OpenRouter</h2>
   <div class=charts id=sp_assistant>&hellip;</div>
@@ -1434,6 +1457,48 @@ async function fleetCards(){
   set('fl_stuck',cv('<span style="'+((fl.stuck||0)?'color:#f85149':'')+'">'+(fl.stuck||0)+'</span>'+spark(stD))+mut('need you to unblock'));
   const bdot=document.getElementById('fl_bdot');if(bdot)bdot.className='dot '+(!Object.keys(fl).length?'stale':((fl.stuck||0)?'mid':'up'));
 }
+// ---- Automation tab: flotilla's fleets (one card per fleet, a row per routine it reports) and n8n.
+// flotilla_run has one series per routine, status, autonomy and version; the newest of a routine is its
+// last run. A routine named with "@v2" is a shadow or a new version of the one before the "@".
+async function automation(){
+  const FL='https://flotilla.tail6d0ed4.ts.net';
+  const set=(id,h)=>{const e=document.getElementById(id);if(e&&e.innerHTML!==h)e.innerHTML=h;};
+  const mut=t=>'<div class=muted style="font-size:12px">'+t+'</div>',now=Date.now()/1000;
+  const by=async qq=>{const m={};(await q(qq)).forEach(r=>m[r.metric.routine]=+r.value[1]);return m;};
+  const up=(await q('max by (version) (last_over_time(flotilla_up[15m]))'))[0];
+  const runs=await q('tlast_over_time(flotilla_run[7d])');
+  const okAt=await by('max by (routine) (flotilla_routine_last_success_timestamp_seconds)');
+  const fresh=await by('max by (routine) (flotilla_routine_freshness_seconds)');
+  const spend=await by('max by (routine) (last_over_time(flotilla_spend_day_usd[2h]))');
+  const last={};runs.forEach(r=>{const k=r.metric.routine,t=+r.value[1];if(!last[k]||t>last[k].t)last[k]={t,status:r.metric.status,autonomy:r.metric.autonomy};});
+  const names=[...new Set([...Object.keys(last),...Object.keys(okAt),...Object.keys(fresh)])].filter(Boolean).sort();
+  const fleets={};names.forEach(n=>{const f=n.split('/')[0];(fleets[f]=fleets[f]||[]).push(n);});
+  const dotOf=n=>{const l=last[n],ok=okAt[n],w=fresh[n];
+    if(l&&l.status==='error')return 'down';
+    if(ok&&w)return now-ok<=w*1.5?'up':'mid';
+    if(l&&now-l.t<86400)return l.status==='ok'||l.status==='skipped'?'up':'mid';
+    return 'stale';};
+  const rank={down:3,mid:2,up:1,stale:0};
+  const cards=Object.keys(fleets).sort().map(f=>{
+    const rows=fleets[f].map(n=>{const l=last[n],d=dotOf(n),r=n.slice(f.length+1),base=r.split('@')[0];
+      const when=l?fmtUp(now-l.t)+' ago':(okAt[n]?'ok '+fmtUp(now-okAt[n])+' ago':'no run in 7d');
+      const what=l?'<span style="color:'+(l.status==='error'?'#f85149':l.status==='ok'?'#3fb950':'#8888aa')+'">'+l.status+'</span> '+when:when;
+      return '<div style="display:flex;gap:6px;align-items:baseline;font-size:12px;margin:3px 0"><span class="dot '+d+'"></span>'
+        +'<a href="'+FL+'/fleets/'+encodeURIComponent(f)+'/'+encodeURIComponent(base)+'" style="flex:1">'+r+'</a>'
+        +'<span class=muted>'+what+(spend[n]>=0.005?' &middot; $'+spend[n].toFixed(2)+' today':'')+'</span></div>';}).join('');
+    const worst=fleets[f].map(dotOf).sort((a,b)=>rank[b]-rank[a])[0];
+    return '<div class=card style="min-width:280px"><h3><span class="dot '+worst+'"></span><a href="'+FL+'/fleets/'+encodeURIComponent(f)+'">'+f+'</a>'
+      +' <span class=muted style="font-weight:400">'+fleets[f].length+' routine'+(fleets[f].length>1?'s':'')+'</span></h3>'+rows+'</div>';});
+  set('au_fleets',cards.length?cards.join(''):'<div class=muted>no flotilla metrics</div>');
+  set('au_fver',up?(up.metric.version||'')+(+up.value[1]?'':' &middot; down'):'no heartbeat');
+  const fd=document.getElementById('au_fdot');if(fd)fd.className='dot '+(!up?'stale':(+up.value[1]?'up':'down'));
+  // n8n: its own /metrics, scraped as job="n8n"
+  const nUp=(await q('max(last_over_time(up{job="n8n"}[15m]))'))[0],nv=(await q('max by (version) (last_over_time(n8n_version_info[1h]))'))[0];
+  const nAct=(await q('max(last_over_time(n8n_active_workflow_count[1h]))'))[0],nOk=nUp&&+nUp.value[1]>0;
+  set('au_n8n','<div class=cv>'+(nUp?(nOk?'<span style="color:#3fb950">up</span>':'<span style="color:#f85149">down</span>'):'&mdash;')+'</div>'
+    +mut((nv?nv.metric.version+' &middot; ':'')+(nAct?(+nAct.value[1]).toFixed(0)+' active workflow'+(+nAct.value[1]===1?'':'s'):'workflows unknown')));
+  const nd=document.getElementById('au_ndot');if(nd)nd.className='dot '+(!nUp?'stale':(nOk?'up':'down'));
+}
 // By model filters (source, vendor, text) and the totals row that follows them; client-side only.
 let modelSrc='';
 function modelFilter(){
@@ -1464,7 +1529,7 @@ document.getElementById('sp_mven')?.addEventListener('change',modelFilter);
 document.getElementById('sp_mq')?.addEventListener('input',modelFilter);
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
-const TABS=['overview','projects','sites','levels','hosts','fleets','spend'],SUBS=['prod','mini','dgx','x3','delivery'];
+const TABS=['overview','projects','sites','levels','hosts','automation','spend'],SUBS=['prod','mini','dgx','x3','delivery'];
 // Projects: #projects/<app>/<period>/<compare>, rendered by hub-project.js from the page's proxies.
 const PJ_SRC={now:()=>Date.now()/1000,
   async vmRange(e,s,en,st){const j=await(await fetch('/vm/api/v1/query_range?query='+encodeURIComponent(e)+'&start='+s+'&end='+en+'&step='+st)).json();return((j.data.result[0]||{}).values||[]).map(p=>[+p[0],+p[1]]);},
@@ -1495,7 +1560,7 @@ function projectsPage(force){const [,a,p,c,u]=location.hash.slice(1).split('/'),
   // re-read every 5 minutes, or when the view changes; the numbers move slowly
   if(!force&&k===PJ_KEY&&Date.now()-PJ_T<300000)return;PJ_KEY=k;PJ_T=Date.now();
   HubProject.render(document.getElementById('pj_page'),HubProject.resolve(apps[id],UMAMI_SITES,HUB_OPERATOR_IDS),period,compare,PJ_SRC,aud);}
-function showTab(){const [h,sb,mk,...mr]=location.hash.slice(1).split('/'),t=TABS.includes(h)?h:'overview',u=SUBS.includes(sb)?sb:'prod';
+function showTab(){const [h0,sb,mk,...mr]=location.hash.slice(1).split('/'),h=h0==='fleets'?'automation':h0,t=TABS.includes(h)?h:'overview',u=SUBS.includes(sb)?sb:'prod';
   if(t==='projects')projectsPage();
   MODEL_ID=t==='spend'&&mk==='m'?decodeURIComponent(mr.join('/')):'';
   document.querySelectorAll('section.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
@@ -1723,7 +1788,7 @@ async function overview(){
   const low=C.low;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){sloLevels();overview();services().then(projects);spendModels();siteGroups();fleetCards();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
+function refresh(){sloLevels();overview();services().then(projects);spendModels();siteGroups();fleetCards();automation();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT

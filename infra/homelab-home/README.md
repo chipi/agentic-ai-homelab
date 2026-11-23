@@ -92,6 +92,14 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   `docker exec litellm-postgres psql` (the container's own credentials), and pushed as
   `hub_assistant_calls` / `hub_assistant_usd{backend,window}` for the Spend tab's "Assistant: local or
   OpenRouter" cards.
+- **The Automation tab** (since 2026-11-23, was Fleets; `#fleets` still opens it): flotilla first, one card per
+  fleet with a row per routine from `flotilla_run`, `flotilla_routine_last_success_timestamp_seconds`,
+  `flotilla_routine_freshness_seconds` and `flotilla_spend_day_usd`, each linking to the routine in flotilla's UI;
+  then the triage and bug-fix detail as before; then n8n (up, version and active workflows from its metrics; the
+  flows in `infra/n8n/flows` and the egress allowlist, read when `gen.sh` runs). Paused or stopped routines are
+  not in the metrics, so they show as grey (nothing recent), not as paused.
+- **Spend tab links** (2026-11-23): the mini LiteLLM UI, the LLM Gateway dashboard, OpenRouter activity and the
+  four vendor consoles. The VPS LiteLLM has no UI on the tailnet.
 - **Direct spend on the Spend tab** (since 2026-11-23): calls the mini LiteLLM sends straight to DeepSeek, Qwen
   (Alibaba), Z (GLM) or Kimi (Moonshot), not through OpenRouter.
   - **Which models count:** `gen.sh` builds `DIRECTMODELS` from `infra/litellm/config.yaml`. That is every alias
