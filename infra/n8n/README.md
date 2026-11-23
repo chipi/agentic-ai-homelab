@@ -60,6 +60,15 @@ unreadable. The stacks' `.env` files are not in the backups: keep a copy in the 
 - **Logs:** alloy-homelab ships the containers' stdout like every other container (`service="n8n"`;
   the proxy's decisions as `msg="CANONICAL-PROXY-DECISION"` lines from `n8n-egress`, with `allow`,
   `requested_host` and `decision_reason`).
+- **Egress alerts** (Grafana, group `n8n-egress` in `rules.yaml`, 2026-11-23), all on the proxy's log lines:
+  - `n8n-egress-refused`: a host outside `egress/acl.yaml` was refused in the last 30 min. `api.n8n.io` is
+    left out: n8n calls it a few times a day with its four phone-home settings off (which feature, not
+    found) and it is refused as intended.
+  - `n8n-egress-errors`: more than 3 allowed connections failed in 30 min (Google unreachable, proxy broken).
+  - `n8n-egress-silent`: no connection in 30 min. The case 3 Drive trigger polls every minute, so this means
+    the proxy, n8n or the trigger stopped. While that flow is deliberately off, pause this rule.
+- **Hub:** the Automation tab's n8n section has an "Egress 7d" card (allowed, refused, failed, top hosts, the
+  last refused host, connections per day).
 - **Health:** the container healthcheck (`/healthz`), and alloy scrapes `n8n:5678/metrics` (job `n8n`).
   The generic alert `infra-target-down` (warning) fires when `up{job="n8n"}` is 0 for 5 minutes; a
   missing container scrapes as 0 too.

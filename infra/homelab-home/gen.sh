@@ -287,6 +287,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
     <a class=card href="$N8N"><h3>Editor</h3><div id=au_n8n>&hellip;</div></a>
     <div class=card style="flex:0 1 330px"><h3><a href="$N8N/home/workflows" style="color:inherit">Flows in the repo</a></h3><div class=muted style="font-size:12px;line-height:1.7">${N8N_FLOWS:-none}</div></div>
     <a class=card href="https://github.com/chipi/agentic-ai-homelab/blob/main/infra/n8n/egress/acl.yaml"><h3>Internet it may reach</h3><div class=muted style="font-size:12px;line-height:1.7">${N8N_HOSTS:-nothing}</div></a>
+    <a class=card href="https://vlogs.$TS/select/vmui/?#/?query=container%3A%3D%22n8n-egress%22" style="flex:0 1 300px"><h3>Egress 7d</h3><div id=au_egress>&hellip;</div></a>
   </div>
   <div class=charts id=au_cases>&hellip;</div>
   <p class=sec>n8n runs the flows flotilla calls and the ones that call flotilla (RFC-0010). It reaches the internet only through its egress proxy, and only the hosts listed here; flotilla it reaches directly. The flows and hosts are as in the repo when this page was built.</p>
@@ -1474,6 +1475,25 @@ async function automation(){
   set('au_n8n','<div class=cv>'+(nUp?(nOk?'<span style="color:#3fb950">up</span>':'<span style="color:#f85149">down</span>'):'&mdash;')+'</div>'
     +mut((nv?nv.metric.version+' &middot; ':'')+(nAct?(+nAct.value[1]).toFixed(0)+' active workflow'+(+nAct.value[1]===1?'':'s'):'workflows unknown')));
   const nd=document.getElementById('au_ndot');if(nd)nd.className='dot '+(!nUp?'stale':(nOk?'up':'down'));
+  // n8n's egress proxy, from its log lines in VictoriaLogs (container n8n-egress): a refused connection logs
+  // only its decision, an allowed one also a close line, with `error` set when it failed. Alerts on the same
+  // queries: rules.yaml, group n8n-egress.
+  const E='container:="n8n-egress" ',cnt=async s=>{const r=(await vlq(E+'_time:7d '+s+' | stats count() as n'))[0];return r?+r.n:0;};
+  const okN=await cnt('msg:"CANONICAL-PROXY-CN-CLOSE" -error:!""'),refN=await cnt('allow:false'),errN=await cnt('error:!""');
+  const t0=Math.floor(Date.now()/864e5)-13,days=Array(14).fill(null);
+  (await vlq(E+'_time:14d msg:"CANONICAL-PROXY-CN-CLOSE" | stats by (_time:1d) count() as n')).forEach(r=>{const i=Math.floor(Date.parse(r._time)/864e5)-t0;if(i>=0&&i<14)days[i]=+r.n;});
+  const fi=days.findIndex(x=>x!=null);for(let i=Math.max(fi,0);i<14&&fi>=0;i++)if(days[i]==null)days[i]=0;
+  const hs=await vlq(E+'_time:7d msg:"CANONICAL-PROXY-CN-CLOSE" | stats by (requested_host) count() as n | sort by (n desc) | limit 3');
+  const lr=(await vlq(E+'_time:7d allow:false | sort by (_time desc) | limit 1'))[0];
+  const ag=t=>{const s=Date.now()/1000-Date.parse(t)/1000;return s<3600?Math.round(s/60)+' min ago':s<86400?Math.round(s/3600)+' h ago':Math.round(s/86400)+' d ago';};
+  const hx=s=>String(s||'').replace(/:443$/,'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const parts=[[okN,'#3fb950','allowed'],[refN,'#d29922','refused'],[errN,'#f85149','failed']],tot=okN+refN+errN;
+  set('au_egress','<div class=cv>'+tot.toLocaleString()+spark(days)+'</div>'
+    +(tot?'<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">'+parts.filter(p=>p[0]).map(p=>'<span style="flex:'+p[0]+';background:'+p[1]+'"></span>').join('')+'</div>':'')
+    +mut(parts.map(p=>'<span style="color:'+p[1]+'">&#9632;</span> '+p[0]+' '+p[2]).join(' &middot; '))
+    +(hs.length?mut(hs.map(r=>hx(r.requested_host)+' '+r.n).join(' &middot; ')):'')
+    +mut(lr?'last refused: '+hx(lr.requested_host)+', '+ag(lr._time):'nothing refused in 7 days')
+    +mut('line: connections per day, 14 days'));
 }
 // ---- Automation tab, per-fleet detail (every fleet but triage, which has its own cards above) and the
 // RFC-0014 case cards. Runs come from flotillad's "run end" log lines in VictoriaLogs (status, duration, spend,

@@ -4048,3 +4048,99 @@ groups:
             model:
               type: math
               expression: '$instances > 1 && $deploys < 1'
+
+  # --- n8n's egress proxy (smokescreen, infra/n8n/egress; 2026-11-23) ------------------------------
+  # Every outbound call n8n makes goes through the proxy, which logs one JSON decision line and one
+  # close line per connection; Alloy ships them to VictoriaLogs as container n8n-egress. Checked
+  # against live logs 2026-11-23: 265 connections since 11-22 14:02Z, 0 upstream errors, 15 refused
+  # (6 api.n8n.io, the rest before the Google hosts were allowed or deliberate tests).
+  - orgId: 1
+    name: n8n-egress
+    folder: "Alerts"
+    interval: 5m
+    rules:
+      # A refused host: a flow or node wants a host acl.yaml does not allow. Either the flow is new
+      # and the host needs a reviewed acl.yaml entry, or something is calling out that should not.
+      # api.n8n.io is left out: n8n itself calls it a few times a day with diagnostics, version
+      # notifications, templates and personalization all off (which feature, not found), and it is
+      # refused as intended.
+      - uid: n8n-egress-refused
+        title: "n8n egress proxy refused a host"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra, instance: homelab }
+        annotations:
+          summary: "n8n tried to reach a host its egress allowlist does not allow ({{ printf `%.0f` $values.reduced.Value }} refused in 30 min). Which host: VictoriaLogs `container:=\"n8n-egress\" allow:false`. A new flow: add the host to infra/n8n/egress/acl.yaml (reviewed) and recreate egress with --force-recreate. Otherwise find what called it."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'container:="n8n-egress" allow:false -requested_host:="api.n8n.io:443" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model: { type: reduce, expression: q, reducer: last }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+      # Allowed connections that failed (DNS, connect, TLS, a reset): Google unreachable from the mini,
+      # or the proxy itself broken. More than 3 in 30 min, so one dropped poll does not page.
+      - uid: n8n-egress-errors
+        title: "n8n egress proxy: outbound connections failing"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra, instance: homelab }
+        annotations:
+          summary: "{{ printf `%.0f` $values.reduced.Value }} of n8n's outbound connections ended with an error in 30 min. Which and why: VictoriaLogs `container:=\"n8n-egress\" error:!\"\"`. The case 3 flows (Drive trigger, Docs, Tasks) fail while this lasts."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'container:="n8n-egress" error:!"" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model: { type: reduce, expression: q, reducer: last }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: gt, params: [3] } }]
+      # Silence: the case 3 Drive trigger polls Google every minute through the proxy, so 30 min with
+      # no connection means the proxy, n8n or the trigger stopped. While that flow is deliberately
+      # off, this fires: pause the rule then.
+      - uid: n8n-egress-silent
+        title: "n8n egress proxy silent for 30 min (Drive trigger not polling)"
+        condition: threshold
+        for: 0m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra, instance: homelab }
+        annotations:
+          summary: "No outbound connection from n8n in 30 min, while the case 3 Drive trigger should poll every minute. Check `docker ps` for n8n and n8n-egress on the mini, and the trigger's state at /rest/active-workflows (infra/n8n/README.md)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: victorialogs
+            model:
+              expr: 'container:="n8n-egress" msg:"CANONICAL-PROXY-CN-CLOSE" | stats count() as value'
+              queryType: stats
+          - refId: reduced
+            datasourceUid: __expr__
+            model: { type: reduce, expression: q, reducer: last }
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: reduced
+              conditions: [{ evaluator: { type: lt, params: [1] } }]

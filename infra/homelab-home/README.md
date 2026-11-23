@@ -101,7 +101,7 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   bug-fix's routable issues, and a Cases card from flotilla_cases_open and flotilla_case_moves_total: open by status,
   waiting for your approval, all-time opened and closed); then n8n (up, version and active workflows from its metrics; one card per RFC-0014
   case with its flows' runs (n8n_workflow_*_total) and flotilla's hook calls; the
-  flows in `infra/n8n/flows` and the egress allowlist, read when `gen.sh` runs). Paused or stopped routines are
+  flows in `infra/n8n/flows` and the egress allowlist, read when `gen.sh` runs; Egress 7d from the proxy's log lines). Paused or stopped routines are
   not in the metrics, so they show as grey (nothing recent), not as paused.
 - **Spend tab links** (2026-11-23): the mini LiteLLM UI, the LLM Gateway dashboard, OpenRouter activity and the
   four vendor consoles. The VPS LiteLLM has no UI on the tailnet.
