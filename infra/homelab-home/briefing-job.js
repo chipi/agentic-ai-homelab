@@ -75,7 +75,7 @@ function needsYou(st, errors, rem) {
   if (st.delivery && st.delivery.state === 'down') items.push({ rank: 1, text: 'Delivery: ' + st.delivery.workersUp + '/' + st.delivery.workers + ' workers up', link: PUBLIC + '/#hosts/delivery' });
   if (errors.length) items.push({ rank: 2, text: errors.length + ' new GlitchTip issue' + (errors.length > 1 ? 's' : '') + ': ' + errors.slice(0, 3).map(e => e.id).join(', '), link: errors[0].link });
   if (st.needsYou && st.needsYou.total) items.push({ rank: 3, text: 'Triage fleet: ' + st.needsYou.total + ' waiting for you', link: PUBLIC + '/#fleets' });
-  if (st.credit && st.credit.low) items.push({ rank: 3, text: 'OpenRouter credit ' + usd(st.credit.leftUsd) + ', under $10: top up', link: 'https://openrouter.ai/settings/credits' });
+  if (st.credit && st.credit.low) items.push({ rank: 3, text: 'OpenRouter credit ' + usd(st.credit.leftUsd) + ', under $1: auto top-up did not refill it', link: 'https://openrouter.ai/settings/credits' });
   al.warning.filter(a => !/credit/i.test(a.name)).forEach(a => items.push({ rank: 4, text: 'Warning: ' + a.name + (a.instance ? ' (' + a.instance + ')' : ''), link: 'https://grafana.tail6d0ed4.ts.net/alerting/list' }));
   if (st.sites && st.sites.state === 'mid') st.sites.below999.forEach(h => items.push({ rank: 5, text: h.host + ' at ' + (h.avail24h * 100).toFixed(2) + '% over 24 h', link: PUBLIC + '/#sites' }));
   items.sort((a, b) => a.rank - b.rank);

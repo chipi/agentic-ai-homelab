@@ -949,19 +949,20 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [100] } }]
 
-      # --- OpenRouter credit running out (2026-11-02) --------------------------------
+      # --- OpenRouter credit running out (2026-11-02; threshold 10 -> 1 on 2026-11-23) ----
       # Source: openrouter_account_usd (mini-metrics/openrouter-spend.sh, account-wide
       # /api/v1/credits). At 0 every OpenRouter call on every key fails (fleet, podcast,
-      # evals, orrery /ask). $5.38 left when this was written, so it fires on day one.
+      # evals, orrery /ask). Threshold USD 1 (operator, 2026-11-23): auto top-up adds about USD 10 when the
+      # balance drops, so a USD 10 threshold fired between top-ups and was noise. Under 1 means top-up failed.
       # noDataState OK: pushed metric — a paused collector isn't an empty account.
       - uid: billing-openrouter-credit-low
-        title: "OpenRouter credit low (under USD 10 left)"
+        title: "OpenRouter credit low (under USD 1 left)"
         condition: threshold
         for: 0s
         noDataState: OK
         labels: { severity: warning, kind: billing }
         annotations:
-          summary: "OpenRouter account has USD {{ printf `%.2f` $values.q.Value }} of credit left (threshold 10). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits."
+          summary: "OpenRouter account has USD {{ printf `%.2f` $values.q.Value }} of credit left (threshold 1; auto top-up should have refilled it). At 0 every OpenRouter call fails. Top up at openrouter.ai/settings/credits."
         data:
           - refId: q
             relativeTimeRange: { from: 7200, to: 0 }
@@ -975,7 +976,7 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: lt, params: [10] } }]
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
 
       # --- hub jobs (RFC-0008): the morning briefing and the status file ----------
       # Each job records its last success in VictoriaMetrics (infra/homelab-home). The briefing

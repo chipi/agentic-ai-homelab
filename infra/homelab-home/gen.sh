@@ -1296,7 +1296,7 @@ async function spendModels(){
     +card('OpenRouter spend',usd(orU)+sparkT(orLine),[['Requests',Math.round(sum(src('OpenRouter'),'req')).toLocaleString()],['Today (live)',usd(today)]],'OpenRouter')
     +card('Direct to vendors',usd(dU)+sparkT(dvDay._||null),[...dRows,['Requests',Math.round(sum(src('Direct'),'req')).toLocaleString()],['With OpenRouter',usd(orU+dU)]],'Direct')
     +card('OpenRouter fleets',usd(fl),[['Share',orU?(fl/orU*100).toFixed(1)+'%':'&mdash;'],['Fleets','triage + bug-fix']])
-    +card('OpenRouter credit left','<span style="'+(cr<10?'color:#f85149':'')+'">'+usd(cr)+'</span>',[['Top up','openrouter.ai']]));
+    +card('OpenRouter credit left','<span style="'+(cr<1?'color:#f85149':'')+'">'+usd(cr)+'</span>',[['Top up','openrouter.ai']]));
   // ---- By caller ----
   const cl=await gatewayCallers(p),dKeys={};
   // mini callers' daily tokens over 14 days, one query (prod's gateway pushes period totals only)
@@ -1887,7 +1887,7 @@ async function overview(){
   const usd=x=>x?'$'+(+x[1]).toFixed(2):'&mdash;';
   set('ov_month','<div class=cv>'+usd(m)+'</div><div class=muted style="font-size:12px">all keys, UTC month</div>');
   const low=C.low;
-  set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
+  set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $1: auto top-up did not refill it':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
 function refresh(){sloLevels();overview();services().then(projects);spendModels();siteGroups();fleetCards();automation();fleetDetail();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
 refresh();setInterval(refresh,30000);

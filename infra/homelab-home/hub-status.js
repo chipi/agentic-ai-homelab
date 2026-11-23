@@ -110,7 +110,7 @@
   // the threshold of the billing-openrouter-credit-low alert.
   async function credit(src) {
     const left = await one(src, 'max(last_over_time(openrouter_account_usd{kind="credits"}[2h])) - max(last_over_time(openrouter_account_usd{kind="usage"}[2h]))');
-    return { leftUsd: left, low: left != null && left < 10 };
+    return { leftUsd: left, low: left != null && left < 1 };
   }
 
   // OpenRouter spend: per key x model series with a key (key!="": the old collector's keyless series

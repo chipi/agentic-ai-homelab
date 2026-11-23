@@ -79,7 +79,9 @@ const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else
 
   // credit
   let c = await HS.credit(src([['openrouter_account_usd', [vec(4.24)]]]));
-  check('credit: under $10 is low', c.low === true && c.leftUsd === 4.24, c);
+  check('credit: $4.24 is not low (auto top-up refills it; operator, 2026-11-23)', c.low === false && c.leftUsd === 4.24, c);
+  c = await HS.credit(src([['openrouter_account_usd', [vec(0.5)]]]));
+  check('credit: under $1 is low', c.low === true && c.leftUsd === 0.5, c);
   c = await HS.credit(src([]));
   check('credit: no data is null and not low', c.leftUsd === null && c.low === false, c);
 
