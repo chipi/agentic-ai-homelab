@@ -23,12 +23,6 @@ Time-sensitive:
       (unverified is fine for the operator's own account; about 5 min in Google's console, then re-sign once),
       or re-sign all three credentials weekly. Until then case 3 stops when they lapse.
       check: n8n editor, Credentials; the Drive trigger's state at `/rest/active-workflows` (infra/n8n/README.md).
-- [ ] **Case 3 end-to-end test.** Blocked on the operator: set `plumbing.create_tasks` and
-      `plumbing.post_decisions` to `propose` on the mini (flotilla UI, or a go to the flotilla session). The
-      2026-11-23 run (case-20261123-095622d575) planned 3 follow-ups and 3 decisions, then closed as
-      `plan_recorded` because both actions were at `record`; nothing reached n8n or Google. Then: a small edit
-      to the test Doc "2026-11-23 homelab weekly sync (test notes)" (a new modifiedTime opens a new case),
-      approve it, and watch the n8n callbacks write the Google Tasks and the decisions Doc.
 - [ ] **X3 maintenance window**: the section below (update, GPU memory, reboot). Planned for this week.
 
 Small:
@@ -39,8 +33,6 @@ Small:
       which vendors have a balance API.
 - [ ] **Which n8n feature calls `api.n8n.io`** (a few times a day, refused by the proxy, left out of the
       refused alert) with diagnostics, version notifications, templates and personalization all off. Low value.
-- [ ] **Clean up the Google test data** once case 3 has run end to end: one `[test]` task, one `[test]` line
-      in the decisions Doc, and the test notes Doc.
 
 Agent hooks (operator's call after the 2026-11-23 guard reversal):
 
@@ -343,6 +335,23 @@ Per ADR-0001 — for context if anyone asks why something isn't here.
 ## Done (paper trail)
 
 Struck items, kept verbatim as they were written.
+
+- [x] ~~**Case 3 end-to-end test.** Blocked on the operator: set `plumbing.create_tasks` and
+      `plumbing.post_decisions` to `propose` on the mini (flotilla UI, or a go to the flotilla session). The
+      2026-11-23 run (case-20261123-095622d575) planned 3 follow-ups and 3 decisions, then closed as
+      `plan_recorded` because both actions were at `record`; nothing reached n8n or Google. Then: a small edit
+      to the test Doc "2026-11-23 homelab weekly sync (test notes)" (a new modifiedTime opens a new case),
+      approve it, and watch the n8n callbacks write the Google Tasks and the decisions Doc.~~ — *done
+      2026-11-23: both actions at `propose` 12:34Z; the Doc edit opened case-20261123-083d19eb2f (n8n execution
+      22, 12:36Z); after the operator's approval n8n execution 23 created 3 tasks in "homelab n8n follow-ups"
+      and execution 25 appended the 3 decisions to "homelab n8n decisions"; flotilla's status calls
+      (executions 24 and 26) read both back from Google, each written once. flotilla closed the case as
+      verified.*
+- [x] ~~**Clean up the Google test data** once case 3 has run end to end: one `[test]` task, one `[test]` line
+      in the decisions Doc, and the test notes Doc.~~ — *done 2026-11-23 12:52Z by a one-off n8n workflow
+      (imported, run once from the CLI, deleted): the `[test]` task deleted, the two `[test]` paragraphs
+      removed from the decisions Doc, the test notes Doc moved to the Drive trash (restorable for 30 days;
+      no new meeting-hook run followed). Kept: the 3 tasks and the decisions block case 3 wrote.*
 
 - [x] ~~`chmod 0600 /work/orrery/main/.env`~~ — *done; checked 2026-10-29: mode 600.*
 - [x] ~~**Triage fleet GitHub token expires 2026-10-27 15:59 UTC**~~ Done 2026-10-27: it lapsed
