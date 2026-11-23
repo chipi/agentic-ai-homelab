@@ -22,8 +22,10 @@ offered to others as a service.
   n8n sets `HTTP(S)_PROXY=http://egress:4750` (`NO_PROXY` keeps flotillad and n8n-db direct) and has no
   route of its own: the proxy alone is on the non-internal network `n8n_out`, n8n and the proxy share
   the internal `n8n_egress`.
-  - **The allowlist** is [`egress/acl.yaml`](egress/acl.yaml), **empty**: every host is refused (407) and
-    logged. A connector's hosts are added there with its RFC-0010 amendment, then
+  - **The allowlist** is [`egress/acl.yaml`](egress/acl.yaml): every other host is refused (407) and logged.
+    Since 2026-11-23 it has Google's hosts for case 3 (RFC-0010 amendment A1): `oauth2.googleapis.com`,
+    `www.googleapis.com`, `docs.googleapis.com`. A connector's hosts are added there with its RFC-0010
+    amendment, then
     `docker compose up -d egress` (a recreate; n8n keeps running).
   - **Private addresses are refused** even when listed (no `allow_ranges` in
     [`egress/smokescreen.yaml`](egress/smokescreen.yaml)): the proxy never reaches the LAN, the tailnet or

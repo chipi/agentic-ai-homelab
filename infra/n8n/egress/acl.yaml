@@ -1,9 +1,13 @@
-# The internet hosts n8n may reach; everything else is refused and logged. Empty until a connector is
-# decided (docs/rfc/RFC-0010-n8n-flows.md: each one is an amendment naming the tool and its hosts).
+# The internet hosts n8n may reach; everything else is refused and logged. Each host is added with the
+# RFC-0014 case that needs it (docs/rfc/RFC-0010-n8n-flows.md, "Amendments": the case, connector, hosts).
 # Changing this file needs `docker compose up -d egress` (a recreate) to take effect.
 version: v1
 services: []
 default:
   project: n8n
   action: enforce
-  allowed_domains: []
+  allowed_domains:
+    # case 3 (2026-11-23): Google Drive trigger, Google Docs, Google Tasks; OAuth2 token exchange
+    - oauth2.googleapis.com
+    - www.googleapis.com
+    - docs.googleapis.com

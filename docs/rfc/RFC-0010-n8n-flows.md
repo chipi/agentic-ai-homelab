@@ -89,6 +89,28 @@ The flotilla session found nothing here that competes with flotilla:
 
 Added from the review: the read path, shadows, the `smoke` hook, and the route out below.
 
+## Amendments
+
+### A1. RFC-0014 case 3, a meeting into decisions and follow-ups (operator's go, 2026-11-23)
+
+- **The connector:** Google, as the operator's own Google account, through three n8n credentials:
+  `google drive (homelab)`, `google docs (homelab)` and `google tasks (homelab)`. All three use one
+  OAuth client in the Google Cloud project `homelab-n8n`; the operator did the consent in the editor.
+- **The hosts** (`infra/n8n/egress/acl.yaml`):
+  - `oauth2.googleapis.com` for the token exchange;
+  - `www.googleapis.com` for Drive and Tasks;
+  - `docs.googleapis.com` for Docs.
+
+  The first runs' proxy log shows whether n8n's Google nodes call any other host.
+- **The flows, each a flow allowed by rule 2:**
+  - a Drive trigger on the folder `homelab n8n meeting notes` sends a new or changed file's text to
+    flotilla's `meeting` hook (a hook flow);
+  - `plumbing.create_tasks` adds tasks to the Tasks list `homelab n8n follow-ups` (a callback flow, 2a);
+  - `plumbing.post_decisions` appends to the Doc `homelab n8n decisions` (a callback flow, 2a).
+- **Their single outputs:** the Tasks list and the Doc. The Drive folder is read only.
+- **The secrets:** the `meeting` hook's secret and the two callback secrets are n8n credentials
+  (option a, as the smoke flow's).
+
 ## Not covered
 
 - Which company tools connect first, and the hook's design: flotilla RFC-0014.
