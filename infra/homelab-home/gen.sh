@@ -280,16 +280,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
     <a class=card href="$DASH_FLEET"><h3>Sources</h3><div id=fl_src>&hellip;</div></a>
   </div>
 </div>
-<div style="margin:0 0 22px">
-  <h2><span class="dot stale" id=fl_bdot></span><a href="$DASH_BUGFIX">Bug-fix fleet &rarr;</a> <a href="$FLOT/fleets/bugfix" class=muted style="font-size:13px;font-weight:400">in flotilla</a></h2>
-  <div class=charts>
-    <a class=card href="$DASH_BUGFIX" style="min-width:100%"><h3>Pipeline</h3><div id=fl_pipe>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Shipped</h3><div id=fl_ship>&hellip;</div></a>
-    <a class=card href="$DASH_BUGFIX"><h3>Stuck</h3><div id=fl_stuck>&hellip;</div></a>
-    <a class=card href="https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22"><h3>Routable now</h3><div id=b_route>&hellip;</div></a>
-  </div>
-  <p class=sec>The bug-fix fleet reports no spend of its own; its model calls are in the Spend tab under the key it uses.</p>
-</div>
+<div id=au_detail></div>
 <div style="margin:0 0 22px">
   <h2><span class="dot stale" id=au_ndot></span><a href="$N8N">n8n &rarr;</a></h2>
   <div class=charts>
@@ -297,6 +288,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
     <div class=card style="flex:0 1 330px"><h3><a href="$N8N/home/workflows" style="color:inherit">Flows in the repo</a></h3><div class=muted style="font-size:12px;line-height:1.7">${N8N_FLOWS:-none}</div></div>
     <a class=card href="https://github.com/chipi/agentic-ai-homelab/blob/main/infra/n8n/egress/acl.yaml"><h3>Internet it may reach</h3><div class=muted style="font-size:12px;line-height:1.7">${N8N_HOSTS:-nothing}</div></a>
   </div>
+  <div class=charts id=au_cases>&hellip;</div>
   <p class=sec>n8n runs the flows flotilla calls and the ones that call flotilla (RFC-0010). It reaches the internet only through its egress proxy, and only the hosts listed here; flotilla it reaches directly. The flows and hosts are as in the repo when this page was built.</p>
 </div>
 </section>
@@ -1408,9 +1400,8 @@ async function siteGroups(){
   if(el.innerHTML!==html)el.innerHTML=html;
 }
 // ---- Fleets tab. Triage: needs-you (bug queue + escalations, as before) with the backlog beside
-// it, the decision mix, escalations, spend, the last cycle (flotilla) and the signal sources. Bug-fix:
-// issues per stage from bugfix_fleet_issues{flow} (the previous cards read bugfix_fleet_flow and
-// bugfix_fleet_cost_usd, which no collector writes, so they showed 0 while 7 issues existed).
+// it, the decision mix, escalations, spend, the last cycle (flotilla) and the signal sources. The bug-fix
+// cards (bugfix_fleet_issues) went with the job that wrote them (retired 2026-11-16); fleetDetail() covers it.
 async function fleetCards(){
   const set=(id,h)=>{const e=document.getElementById(id);if(e&&e.innerHTML!==h)e.innerHTML=h;};
   const cv=v=>'<div class=cv>'+v+'</div>',mut=t=>'<div class=muted style="font-size:12px">'+t+'</div>';
@@ -1447,16 +1438,6 @@ async function fleetCards(){
   const pr=await by('last_over_time(signal_fleet_probes{service="triage-fleet"}[1d])','source'),gs=await by('last_over_time(signal_fleet_glitchtip_sync{service="triage-fleet"}[1d])','kind');
   set('fl_src',cv(Object.keys(pr).length+' sources')+mut('watching '+Object.keys(pr).sort().join(', ')+(gs.mapped!=null?'<br>GlitchTip: '+Math.round(gs.mapped||0)+' mapped &middot; '+Math.round(gs.merged||0)+' merged &middot; '+Math.round(gs.resolved||0)+' resolved'+(gs.errors?' &middot; <span style=color:#f85149>'+Math.round(gs.errors)+' errors</span>':''):'')));
   const tdot=document.getElementById('fl_tdot');if(tdot)tdot.className='dot '+(!cy?'stale':(!ok?'down':(age!=null&&age>7200?'mid':'up')));
-  // bug-fix pipeline
-  const fl=await by('last_over_time(bugfix_fleet_issues[2h])','flow');
-  const stages=['untriaged','triaging','fixing','in-review','changes-requested','approved','fixed','shipped'],sc={shipped:'#3fb950',stuck:'#f85149'};
-  const all=stages.concat(['stuck']),total=all.reduce((a,k)=>a+(fl[k]||0),0);
-  set('fl_pipe',Object.keys(fl).length?'<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:8px 0 6px;background:#1a1a2b">'+all.filter(k=>fl[k]).map(k=>'<span title="'+k+'" style="flex:'+fl[k]+';background:'+(sc[k]||'#7aa2ff')+';opacity:'+(sc[k]?1:0.45+0.07*stages.indexOf(k))+'"></span>').join('')+'</div>'
-    +mut(stages.map(k=>'<span style="'+(fl[k]?'color:#c8c8e0':'')+'">'+k+' <b>'+(fl[k]||0)+'</b></span>').join(' &rarr; ')+(fl.stuck?' &middot; <span style="color:#f85149">stuck <b>'+fl.stuck+'</b></span>':'')+' &middot; '+total+' issues'):'<div class=muted>no data</div>');
-  const shD=await daily('max(last_over_time(bugfix_fleet_issues{flow="shipped"}[1d]))'),stD=await daily('max(last_over_time(bugfix_fleet_issues{flow="stuck"}[1d]))');
-  set('fl_ship',cv((fl.shipped||0)+spark(shD))+mut('issues shipped (line: 14 days)'));
-  set('fl_stuck',cv('<span style="'+((fl.stuck||0)?'color:#f85149':'')+'">'+(fl.stuck||0)+'</span>'+spark(stD))+mut('need you to unblock'));
-  const bdot=document.getElementById('fl_bdot');if(bdot)bdot.className='dot '+(!Object.keys(fl).length?'stale':((fl.stuck||0)?'mid':'up'));
 }
 // ---- Automation tab: flotilla's fleets (one card per fleet, a row per routine it reports) and n8n.
 // flotilla_run has one series per routine, status, autonomy and version; the newest of a routine is its
@@ -1499,6 +1480,65 @@ async function automation(){
   set('au_n8n','<div class=cv>'+(nUp?(nOk?'<span style="color:#3fb950">up</span>':'<span style="color:#f85149">down</span>'):'&mdash;')+'</div>'
     +mut((nv?nv.metric.version+' &middot; ':'')+(nAct?(+nAct.value[1]).toFixed(0)+' active workflow'+(+nAct.value[1]===1?'':'s'):'workflows unknown')));
   const nd=document.getElementById('au_ndot');if(nd)nd.className='dot '+(!nUp?'stale':(nOk?'up':'down'));
+}
+// ---- Automation tab, per-fleet detail (every fleet but triage, which has its own cards above) and the
+// RFC-0014 case cards. Runs come from flotillad's "run end" log lines in VictoriaLogs (status, duration, spend,
+// and on a failure the run's output in `detail`); a fleet is the routine name's prefix.
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+async function vlq(query){try{const t=await(await fetch('/vl/select/logsql/query',{method:'POST',body:new URLSearchParams({query})})).text();
+  return t.split('\n').filter(Boolean).map(l=>JSON.parse(l));}catch(e){return[];}}
+const RUN_END='service:flotillad (msg:"run end" OR msg:"shadow run end")';
+async function fleetDetail(){
+  const FL='https://flotilla.tail6d0ed4.ts.net',now=Date.now()/1000;
+  const mut=t=>'<div class=muted style="font-size:12px">'+t+'</div>',cv=v=>'<div class=cv>'+v+'</div>';
+  const card=(h,body,href,wide)=>(href?'<a class=card href="'+href+'"':'<div class=card')+' style="flex:0 1 '+(wide||250)+'px"><h3>'+h+'</h3>'+body+(href?'</a>':'</div>');
+  const runs=await vlq('_time:7d '+RUN_END+' | stats by (routine, status) count() n, sum(spend_usd) usd, quantile(0.5, duration_s) p50');
+  const fails=await vlq('_time:7d '+RUN_END+' status:error | sort by (_time desc) | limit 200 | fields _time, routine, run_id, detail');
+  const hb=await vlq('_time:1d '+RUN_END+' routine:"platform/heartbeat" | stats by (status) count() n');
+  const F={};runs.forEach(r=>{const f=r.routine.split('/')[0];if(f==='triage')return;const x=F[f]=F[f]||{ok:0,error:0,skipped:0,usd:0,r:{}};
+    const n=+r.n;x[r.status]=(x[r.status]||0)+n;x.usd+= +r.usd||0;const k=r.routine.slice(f.length+1),y=x.r[k]=x.r[k]||{ok:0,error:0,skipped:0,p50:null};y[r.status]=(y[r.status]||0)+n;if(r.status==='ok')y.p50=+r.p50;});
+  const col={ok:'#3fb950',error:'#f85149',skipped:'#8888aa'};
+  const lastFail={};fails.forEach(r=>{const f=r.routine.split('/')[0];if(!lastFail[f])lastFail[f]=r;});
+  // the failure's own words: its FAIL lines if it has any, else its last lines
+  const words=d=>{const l=String(d||'').split('\n').map(s=>s.trim()).filter(Boolean),fl=l.filter(s=>/FAIL|Error|error/.test(s));return esc((fl.length?fl:l.slice(-2)).slice(0,3).join(' · ').slice(0,260));};
+  const extra={
+    ops:async()=>{const ts=(await q('max(last_over_time(homelab_backup_offsite_last_success_timestamp[3d]))'))[0],by=(await q('max(last_over_time(homelab_backup_offsite_bytes[3d]))'))[0],fi=(await q('max(last_over_time(homelab_backup_offsite_files[3d]))'))[0];
+      const age=ts?now- +ts.value[1]:null;
+      return card('Off-site DB backup',cv(age==null?'&mdash;':'<span style="color:'+(age>129600?'#f85149':'#3fb950')+'">'+fmtUp(age)+' ago</span>')+mut((by?(+by.value[1]/1e6).toFixed(0)+' MB':'')+(fi?' &middot; '+(+fi.value[1])+' files':'')+' &middot; what backup-monitor watches; red after 36 h'));},
+    platform:async()=>{const m={};hb.forEach(r=>m[r.status]=+r.n);const t=(m.ok||0)+(m.error||0);
+      return card('Heartbeat 24h',cv(t?'<span style="color:'+(m.error?'#d29922':'#3fb950')+'">'+(100*(m.ok||0)/t).toFixed(1)+'%</span>':'&mdash;')+mut((m.ok||0)+' passed &middot; '+(m.error||0)+' failed (scheduler, worker, store, proxy, telemetry, models)'),FL+'/fleets/platform/heartbeat');},
+    bugfix:async()=>{let n='&rarr;';try{const r=await(await fetch('https://api.github.com/search/issues?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22')).json();if(typeof r.total_count==='number')n=String(r.total_count);}catch(e){}
+      return card('Routable now',cv(n)+mut('open issues triage marked actionable'),'https://github.com/search?q=owner%3Achipi+is%3Aissue+is%3Aopen+label%3A%22triage-fleet%2Factionable%22');}};
+  const html=[];
+  for(const f of Object.keys(F).sort()){const x=F[f],tot=x.ok+x.error+x.skipped,lf=lastFail[f];
+    const bar='<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">'+['ok','error','skipped'].filter(k=>x[k]).map(k=>'<span style="flex:'+x[k]+';background:'+col[k]+'"></span>').join('')+'</div>';
+    const per=Object.keys(x.r).sort().map(k=>{const y=x.r[k];return esc(k)+' '+y.ok+' ok'+(y.error?' <span style="color:#f85149">'+y.error+' failed</span>':'')+(y.skipped?' &middot; '+y.skipped+' skipped':'');}).join('<br>');
+    const dur=Object.keys(x.r).sort().filter(k=>x.r[k].p50!=null).map(k=>esc(k)+' '+(x.r[k].p50<60?x.r[k].p50.toFixed(1)+' s':(x.r[k].p50/60).toFixed(1)+' min')).join('<br>');
+    const dot=lf&&now-Date.parse(lf._time)/1000<86400?'down':(x.error?'mid':'up');
+    const cards=[card('Runs 7d',cv(tot.toLocaleString())+bar+mut(per),FL+'/runs',280),
+      card('Last failure',lf?cv('<span style="color:#f85149;font-size:15px">'+fmtUp(now-Date.parse(lf._time)/1000)+' ago</span>')+mut(esc(lf.routine.slice(f.length+1))+': '+words(lf.detail)):cv('<span style="color:#3fb950">none</span>')+mut('no failed run in 7 days'),lf?FL+'/runs/'+encodeURIComponent(lf.run_id):null,300),
+      card('Spend 7d &middot; typical run',cv('$'+x.usd.toFixed(2))+mut(dur||'no ok run'))];
+    if(extra[f])cards.push(await extra[f]());
+    html.push('<div style="margin:0 0 22px"><h2><span class="dot '+dot+'"></span><a href="'+FL+'/fleets/'+encodeURIComponent(f)+'">'+esc(f)+' fleet &rarr;</a> <span class=muted style="font-size:13px;font-weight:400">in flotilla</span></h2><div class=charts>'+cards.join('')+'</div></div>');}
+  const el=document.getElementById('au_detail'),h=html.join('');if(el&&el.innerHTML!==h)el.innerHTML=h;
+  // RFC-0014 cases: each one's n8n flows (n8n's per-workflow counters, reset at an n8n restart, so increase())
+  // and flotilla's side (its hook calls, and the runs of the routines the case uses)
+  const CASES=[{name:'Case 3: a meeting into decisions and follow-ups',hook:'meeting',fleets:['meetings','plumbing'],
+    flows:[['case3meetinghook','Drive notes &rarr; flotilla'],['case3createtasks','create_tasks &rarr; Google Tasks'],['case3postdecisio','post_decisions &rarr; Google Doc']],
+    links:[['Drive folder','https://drive.google.com/drive/folders/19-16sCI6H6egNTbB1G6RJx6cdVdJnq5Q'],['Decisions Doc','https://docs.google.com/document/d/1uzHJ3t00ZdVsUlyLHQdYLo05z-Ugd5FnRLU8V4BW0os/edit'],['Tasks','https://tasks.google.com/'],['Approvals',FL+'/approvals']]}];
+  const wf=async m=>{const o={};(await q('sum by (workflow_id) (increase(n8n_workflow_'+m+'_total[7d]))')).forEach(r=>o[r.metric.workflow_id]=Math.round(+r.value[1]));return o;};
+  const st=await wf('started'),ok=await wf('success'),bad=await wf('failed');
+  const N8='https://n8n.tail6d0ed4.ts.net';
+  const out=[];
+  for(const c of CASES){const hk=await vlq('_time:7d service:flotillad msg:"hook call" hook:"'+c.hook+'" | stats by (how) count() n');
+    const hm={};hk.forEach(r=>hm[r.how]=+r.n);
+    const cr=runs.filter(r=>c.fleets.includes(r.routine.split('/')[0])),cm={};cr.forEach(r=>cm[r.status]=(cm[r.status]||0)+ +r.n);
+    const rows=c.flows.map(([id,label])=>{const s=st[id]||0,o=ok[id]||0,b=bad[id]||0;
+      return '<div style="display:flex;gap:6px;font-size:12px;margin:3px 0"><span class="dot '+(b?'down':(s?'up':'stale'))+'"></span><a href="'+N8+'/workflow/'+id+'" style="flex:1">'+label+'</a><span class=muted>'+s+' runs'+(b?' &middot; <span style="color:#f85149">'+b+' failed</span>':'')+'</span></div>';}).join('');
+    out.push('<div class=card style="flex:1 1 520px"><h3>'+c.name+'</h3>'+rows
+      +mut('flotilla: hook <b>'+c.hook+'</b> '+((hm.opened||0)+' opened a case')+(hm.replay?' &middot; '+hm.replay+' replays':'')+' &middot; its routines '+((cm.ok||0)+(cm.error||0)+(cm.skipped||0))+' runs'+(cm.error?' (<span style="color:#f85149">'+cm.error+' failed</span>)':'')+' (7 days)')
+      +mut(c.links.map(([t,u])=>'<a href="'+u+'">'+t+'</a>').join(' &middot; '))+'</div>');}
+  const ce=document.getElementById('au_cases'),ch=out.join('');if(ce&&ce.innerHTML!==ch)ce.innerHTML=ch;
 }
 // By model filters (source, vendor, text) and the totals row that follows them; client-side only.
 let modelSrc='';
@@ -1789,7 +1829,7 @@ async function overview(){
   const low=C.low;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $10: top up':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){sloLevels();overview();services().then(projects);spendModels();siteGroups();fleetCards();automation();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
+function refresh(){sloLevels();overview();services().then(projects);spendModels();siteGroups();fleetCards();automation();fleetDetail();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT

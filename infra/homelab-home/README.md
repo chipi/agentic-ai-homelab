@@ -95,7 +95,10 @@ chart/badge deep-links to the matching Grafana dashboard or service.
 - **The Automation tab** (since 2026-11-23, was Fleets; `#fleets` still opens it): flotilla first, one card per
   fleet with a row per routine from `flotilla_run`, `flotilla_routine_last_success_timestamp_seconds`,
   `flotilla_routine_freshness_seconds` and `flotilla_spend_day_usd`, each linking to the routine in flotilla's UI;
-  then the triage and bug-fix detail as before; then n8n (up, version and active workflows from its metrics; the
+  then the triage detail; then every other fleet (runs, failures and spend over 7 days from flotillad's "run end"
+  log lines, the last failure in its own words, plus ops' off-site backup age, platform's heartbeat pass rate and
+  bug-fix's routable issues); then n8n (up, version and active workflows from its metrics; one card per RFC-0014
+  case with its flows' runs (n8n_workflow_*_total) and flotilla's hook calls; the
   flows in `infra/n8n/flows` and the egress allowlist, read when `gen.sh` runs). Paused or stopped routines are
   not in the metrics, so they show as grey (nothing recent), not as paused.
 - **Spend tab links** (2026-11-23): the mini LiteLLM UI, the LLM Gateway dashboard, OpenRouter activity and the
