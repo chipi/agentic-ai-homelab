@@ -276,8 +276,17 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
   1. **Done 2026-11-24:** the three sub-accounts exist (chipi/infra #101, infra-apply 45368710732: "1 added, 2 changed,
      0 destroyed"). Usernames are tofu outputs, kept out of this public repo. Hetzner's password rule needs upper,
      lower, digit and a special character, and `-`/`_` count; `openssl rand -base64` can miss the special one.
-  2. Per host: `restic` installed (brew / pacman / apt), an SSH key into its jail, a repository password
-     (mode 600 + the password manager), and known hosts from infra's `storagebox_known_hosts`.
+  2. **Done 2026-11-24, per host:**
+     - restic: X3 0.19.1 (pacman, the operator); the mini (`markodragoljevic`) and the DGX (`claude`) run 0.20.0
+       in `~/bin`. That is the official release, its SHA256SUMS signature checked against restic's documented key
+       `CF8F…D3F7A907` (brew on the mini stops on outdated Command Line Tools).
+     - In `~/.config/homelab-backup/` on each host:
+       - `id_<host>`: the ed25519 key, installed in that host's jail; the passwords used once were shredded;
+       - `known_hosts`: infra's pinned file; all 3 host keys equal to a live scan;
+       - `restic.pw`: mode 600;
+       - `restic.env`: the repository, the password file, and the sftp command on port 23.
+     - Repositories created: x3 `25369932`, mini `93511e8a`, dgx `6ee57114`.
+     - **Operator:** copy each `restic.pw` into the password manager; without it a repository cannot be read.
   3. mini: `.env` files first, then the nightly dumps via restic. GitHub Releases keep running until 14 green nights.
   4. X3: robotics-lab after its cut-over, from its keep table: `sqlite3 .backup` of `mission-control.sqlite`;
      `state/mission-control`, `state/deploy/*.json` + `state/deploy/robotics-lab/`, `data`, `data-archive`.
