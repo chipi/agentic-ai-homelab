@@ -45,10 +45,10 @@ one() {
 
   local built=""
   if [ "$deployed" != "$sha" ] || [ "$force" = --force ]; then
-    dc run --rm -T catalog-build >/dev/null 2>&1 || { say "FAIL catalog build at ${sha:0:7}; the previous catalog still serves"; return 1; }
+    out="$(dc run --rm -T catalog-build 2>&1)" || { say "FAIL catalog build at ${sha:0:7}; the previous catalog still serves: $(echo "$out" | tail -2 | tr '\n' ' ')"; return 1; }
     built=1
   fi
-  dc up -d --quiet-pull catalog mcp >/dev/null 2>&1 || { say "FAIL catalog/mcp up"; return 1; }
+  out="$(dc up -d --quiet-pull catalog mcp 2>&1)" || { say "FAIL catalog/mcp up: $(echo "$out" | tail -2 | tr '\n' ' ')"; return 1; }
   if [ -n "$built" ]; then say "OK ${deployed:0:7}${deployed:+ }-> ${sha:0:7} (harness ${ref:0:8})"
   else say "UP TO DATE ${sha:0:7} (harness ${ref:0:8})"; fi
 }
