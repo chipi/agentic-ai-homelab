@@ -35,7 +35,10 @@ src=$(findmnt -n -o SOURCE --mountpoint /) ; dev=${src%%\[*}
 top=$(mktemp -d)
 mount -o subvolid=5 "$dev" "$top" || { rmdir "$top"; echo "!! could not mount the top level of $dev"; exit 1; }
 for sv in @docker-prod @robotics-prod; do
-  if [ -d "$top/$sv" ]; then echo "   exists $sv"; else btrfs subvolume create "$top/$sv" >/dev/null && echo "   created $sv"; fi
+  if [ -d "$top/$sv" ]; then echo "   exists $sv"
+  elif btrfs subvolume create "$top/$sv" >/dev/null; then echo "   created $sv"
+  else umount "$top"; rmdir "$top"; echo "!! could not create $sv"; exit 1
+  fi
 done
 umount "$top"; rmdir "$top"
 
@@ -43,7 +46,7 @@ echo "== 2. fstab and mounts =="
 missing=0
 while IFS= read -r line; do
   path=$(cut -f2 <<<"$line"); sv=$(cut -f4 <<<"$line" | sed 's/.*subvol=\///')
-  if ! grep -qE "^[^#].*[[:space:]]$path[[:space:]].*subvol=/?$sv([,[:space:]]|$)" /etc/fstab; then
+  if ! grep -qE "^[[:space:]]*[^#[:space:]].*[[:space:]]$path[[:space:]].*subvol=/?$sv([,[:space:]]|$)" /etc/fstab; then
     echo "   NOT IN /etc/fstab: $path"; missing=1
   elif ! findmnt -n -o SOURCE --mountpoint "$path" | grep -q "\[/$sv\]"; then
     echo "   in fstab, NOT MOUNTED from $sv: $path"; missing=1
@@ -66,9 +69,14 @@ id -nG "$SVC" | tr ' ' '\n' | grep -qxE 'docker|wheel' && { echo "!! $SVC is in 
 
 echo "== 4. folders =="
 install -d -o root -g root -m 711 "$ENG" "$ENG/containerd" "$ENG/docker" "$ENG/containerd-opt"
+# No compression for new files in prod's content store: btrfs zstd with fs-verity is the suspect in the
+# X3's containerd read faults (NEXT_STEPS). Undo: btrfs property set $ENG/containerd compression zstd
+btrfs property set "$ENG/containerd" compression none || { echo "!! could not turn off compression on $ENG/containerd"; exit 1; }
 install -d -o root -g root -m 755 "$PROD"
 install -d -o root -g "$SVC" -m 750 /etc/robotics-prod
+# robotics owns these, so a symlink here could aim root's chown elsewhere: refuse one.
 for d in home home/tmp data data-archive state state/observatory state/mission-control state/deploy; do
+  [ -L "$PROD/$d" ] && { echo "!! $PROD/$d is a symlink; not following it"; exit 1; }
   install -d -o "$SVC" -g "$SVC" -m 750 "$PROD/$d"
 done
 [ -e /etc/robotics-prod/installation.json ] || echo "   NOTE /etc/robotics-prod/installation.json absent: robotics-lab supplies it (root:$SVC 0640)"
@@ -108,7 +116,9 @@ ck "prod engine: data root $ENG/docker, containerd image store" \
 ck "prod containerd: its own socket answers, namespace moby on it only" \
    "ctr -a $CSOCK namespaces ls -q | grep -qx moby"
 ck "socket $SOCK is root:$SVC 0660" "[ \"\$(stat -c '%U:%G %a' $SOCK)\" = 'root:$SVC 660' ]"
-ck "the operator's uid cannot open it" "! runuser -u ${SUDO_USER:-marko} -- docker -H unix://$SOCK version --format '{{.Server.Version}}'"
+ck "the operator's uid is refused at the socket (permission denied)" \
+   "runuser -u ${SUDO_USER:-marko} -- docker -H unix://$SOCK version --format '{{.Server.Version}}' 2>&1 | grep -qi 'permission denied'"
+ck "prod's content store is not compressed" "btrfs property get $ENG/containerd compression | grep -qx 'compression=none'"
 ck "no bridge network on prod (compose on host networking creates none)" \
    "[ \"\$(dk --context prod network ls --format '{{.Name}}' | sort | tr '\n' ' ')\" = 'host none ' ]"
 ck "iptables rules unchanged by the prod engine" "[ '$before' = '$after' ]"

@@ -31,8 +31,10 @@ chk "units: no flag on ExecStart that daemon.json also sets (dockerd refuses the
 
 echo "== sudoers: valid, the operator only, the script's four verbs only"
 chk "visudo -cf parses it" "visudo -cf '$HERE/robotics-prod.sudoers' >/dev/null 2>&1"
-rule=$(code "$HERE/robotics-prod.sudoers" | grep -v '^$')
+rule=$(code "$HERE/robotics-prod.sudoers" | grep -v -e '^$' -e '^Defaults')
 chk "one rule, for marko, as root, NOPASSWD" "[ \$(wc -l <<<\"\$rule\") = 1 ] && grep -q '^marko ALL=(root) NOPASSWD: ' <<<\"\$rule\""
+chk "Defaults for the script: env_reset, !setenv; nothing else" \
+  "[ \"\$(code '$HERE/robotics-prod.sudoers' | grep '^Defaults')\" = 'Defaults!/usr/local/libexec/robotics-prod-deploy env_reset, !setenv' ]"
 chk "commands: only the deploy script with up, up *, rollback, smoke, status" \
   "[ \"\$(sed 's/.*NOPASSWD: //' <<<\"\$rule\" | tr ',' '\n' | sed 's/^ *//' | sort | tr '\n' '|')\" = '/usr/local/libexec/robotics-prod-deploy rollback|/usr/local/libexec/robotics-prod-deploy smoke|/usr/local/libexec/robotics-prod-deploy status|/usr/local/libexec/robotics-prod-deploy up|/usr/local/libexec/robotics-prod-deploy up *|' ]"
 chk "no SETENV, no ALL command, no wildcard path" "! grep -qE 'SETENV|NOPASSWD: *ALL|libexec/\\*' <<<\"\$rule\""
@@ -47,10 +49,15 @@ for a in "up" "up $(printf 'a%.0s' {1..40})" "rollback" "smoke" "status"; do
   chk "accepted, then refuses as non-root (exit 1): '$a'" "[ \"\$(d \"\$a\")\" = 1 ]"
 done
 chk "runs deploy.py as the service user from the root checkout, environment cleared" \
-  "code '$DEP' | grep -q 'exec runuser -u \"\$SVC\" -- env -i' && code '$DEP' | grep -q 'python3 \"\$CO/scripts/deploy.py\"'"
+  "code '$DEP' | grep -q 'runuser -u \"\$SVC\" -- env -i' && code '$DEP' | grep -q 'python3 \"\$CO/scripts/deploy.py\"'"
 chk "the checkout is fetched from GitHub over https, not taken from ~/deploy or /work" \
   "grep -qx 'REPO_URL=https://github.com/chipi/robotics-lab' '$DEP' && ! code '$DEP' | grep -qE '~/deploy|/home/marko|/work/'"
 chk "a commit outside GitHub's main is refused" "code '$DEP' | grep -q 'merge-base --is-ancestor \"\$sha\" \"\$main\"'"
+chk "starts again with an empty environment, before anything else" \
+  "grep -n 'exec env -i _RPD_CLEAN=1' '$DEP' | grep -q . && [ \$(grep -n 'exec env -i _RPD_CLEAN=1' '$DEP' | cut -d: -f1) -lt \$(grep -n '^verb=' '$DEP' | cut -d: -f1) ]"
+chk "only up fetches (a rollback works without GitHub); status takes no lock" \
+  "[ \$(code '$DEP' | grep -c 'fetch --quiet origin main') = 1 ] && code '$DEP' | grep -q 'elif \[ \"\$verb\" = up \]; then' && code '$DEP' | grep -q 'if \[ \"\$verb\" != status \]; then'"
+chk "deploy.py runs in a session of its own (setsid), not on the caller's terminal" "code '$DEP' | grep -q 'exec setsid -w runuser'"
 chk "one deploy at a time; each call logged with the sudo user" \
   "code '$DEP' | grep -q 'flock -n 9' && code '$DEP' | grep -q 'logger -t robotics-prod-deploy'"
 

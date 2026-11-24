@@ -1,4 +1,4 @@
-# ADR-0013 — A prod Docker engine on the X3 for robotics-lab, behind a wall agents cannot cross
+# ADR-0013 — A prod Docker engine on the X3 for robotics-lab, behind its own socket and a sudo-only deploy
 
 **Status:** Proposed (2026-11-24). The files are written and tested as a normal user; nothing
 is installed. The operator runs the one root step ([recipe](../recipes/x3-prod-engine.md)).
@@ -87,14 +87,24 @@ containerd and a wall, after the homelab's review.
 
 - A prune, `compose down`, rebuild or port clash on the system engine cannot touch prod's
   images, containers or volumes, and the X3's containerd fault stays on the system store.
-- Agents can read prod only through the script's `status` and `smoke`. They cannot open the
-  socket or write prod's data. With `NOPASSWD`, any agent can also run `up` or `rollback`. The
+- **What the wall does not stop, while the operator's uid is in `docker`:** the system socket
+  is root-equivalent, so an agent can run `docker run -v /:/host …` on the system engine and be
+  root, and from there open the prod socket, write prod's data or change the sudoers rule. The
+  separation holds against accidents (a prune, a `down`, a rebuild, a port clash) and against an
+  agent that follows its rules. It does not hold against one that sets out to break it. A real
+  wall needs the operator's uid out of `docker`, so that dev work goes through a socket agents cannot
+  turn into root. That is a separate decision for the operator (review finding B1, 2026-11-24).
+- Through the script, agents read prod with `status` and `smoke`; the prod socket refuses
+  their uid. With `NOPASSWD`, any agent can also run `up` or `rollback`. The
   rule "prod changes only with the operator's go" is held by the agents' rules (the recipe)
   and, if the operator wants it, a `command-ask-guard` pattern for those two verbs.
 - Membership in `robotics`, or the prod socket, is root-equivalent, as with any Docker socket.
   That is why the group has one member, a user nobody logs in as. It also means a commit on
   robotics-lab's `main` is code that runs with root's reach on the X3, so the wall is only as
   strong as who may push to that `main`.
+- Prod's content store (`/var/lib/docker-prod/containerd`) is written without btrfs compression
+  (`btrfs property set … compression none`). zstd with fs-verity is the suspect in the system
+  store's read faults, so prod's store avoids it from the start.
 - About 1 GB of duplicated images (the prod builds), on `@docker-prod`.
 - `deploy.py` needs `--context prod` (robotics-lab's change); the script's interface is in
   the recipe.
