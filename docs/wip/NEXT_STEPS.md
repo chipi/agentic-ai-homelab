@@ -273,8 +273,9 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
       so it waits for the maintenance window.
 - [ ] **Homelab backups to the Hetzner Storage Box** ([ADR-0014](../adr/ADR-0014-homelab-backups-storage-box.md);
       operator, 2026-11-24: everything to the box, restic, one sub-account per host). Order:
-  1. chipi/infra PR for sub-accounts `homelab_mini`/`homelab_x3`/`homelab_dgx` (operator's go for the PR given;
-     infra writes it). Then the operator's go for `infra-apply`, and the password secrets if the provider needs them.
+  1. **Done 2026-11-24:** the three sub-accounts exist (chipi/infra #101, infra-apply 45368710732: "1 added, 2 changed,
+     0 destroyed"). Usernames are tofu outputs, kept out of this public repo. Hetzner's password rule needs upper,
+     lower, digit and a special character, and `-`/`_` count; `openssl rand -base64` can miss the special one.
   2. Per host: `restic` installed (brew / pacman / apt), an SSH key into its jail, a repository password
      (mode 600 + the password manager), and known hosts from infra's `storagebox_known_hosts`.
   3. mini: `.env` files first, then the nightly dumps via restic. GitHub Releases keep running until 14 green nights.
