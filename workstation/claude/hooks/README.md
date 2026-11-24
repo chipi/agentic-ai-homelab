@@ -13,6 +13,7 @@ alone is never auto-loaded, so that pointer is what makes any of this discoverab
 | `session-orphan-report.sh` | SessionStart | Reports (never kills) long-running CPU-heavy processes in the project family (↓ documented in full). |
 | `secrets-guard.sh`       | PreToolUse  | Blocks writes/commits that would leak secrets. |
 | `subagent-model-guard.sh` | PreToolUse | No subagent on Opus; fable for the advisor only (operator, 2026-11-19). Denies on `Agent`/`Task`: a fork (it always runs on the main model, Opus), a call that names no `model` (it would run on the fallback: `CLAUDE_CODE_SUBAGENT_MODEL`, else the main model), and a model naming `opus` or `fable` (any case, full ids, `opusplan`) unless `subagent_type` is `advisor`. On `Workflow` it reads the script (inline, `scriptPath`, or a saved workflow by `name`) and denies an `opus`/`fable` model literal or a fork; a model name built at runtime is not seen. `SUBAGENT_MODEL_GUARD=off` passes everything; it is the operator's only, agents never set it unless the operator explicitly says so (AGENTS.md). Fail-open on its own errors. Tests: `bash subagent-model-guard.test.sh` (37). |
+| `lean-ctx-rewrite-gate.sh` | PreToolUse | Bash: lean-ctx's `hook rewrite`, except a command that names git inside an agent worktree (`*/.claude/worktrees/*`), which runs unwrapped so Claude Code's worktree isolation can verify it (↓ 2026-11-24). Tests: `bash lean-ctx-rewrite-gate.test.sh` (11). |
 | `lean-ctx-*`             | Pre/Post    | lean-ctx tool redirect/rewrite shims. |
 
 ## Wiring into settings.json
@@ -434,3 +435,25 @@ Now:
 - Tests: the 32 cases that expected a prompt for `rm -rf` or an install now expect none; 116 of 116 pass.
 - Not covered: what auto mode itself does with a risky `rm -rf` or a push to main once these layers are gone;
   checked separately on a throwaway repo (see the commit that follows this one).
+
+## 2026-11-24: git in an isolated agent worktree (lean-ctx-rewrite-gate.sh)
+
+orrery's worktree-isolated subagents (`isolation: worktree`) could not run git on 2026-11-23: every call was
+refused with "this command runs lean-ctx with the text … in a plain command, so what it runs cannot be shown not
+to be git". `lean-ctx hook rewrite` turns each Bash command into `lean-ctx -c '<command>'`, and Claude Code's
+isolation check cannot see into that wrapper. Reproduced on 2026-11-24 with a probe subagent in a worktree of
+this repo: `git status --short`, `git status --short; echo b` and `echo $(git rev-parse --short HEAD)` were all
+refused.
+
+- lean-ctx (3.10.5) has no per-command rewrite exclusion: `excluded_commands = ["git"]` in a copy of the config
+  (through `XDG_CONFIG_HOME`) still wrapped every git command.
+- So `lean-ctx-rewrite-gate.sh` replaces `lean-ctx hook rewrite` in the Bash PreToolUse entry. When the call's
+  `cwd` is under `/.claude/worktrees/` and the command names git, it answers nothing and the command runs as
+  written; every other call goes to `lean-ctx hook rewrite` unchanged. `install.sh` swaps the entry on an
+  existing settings.json, and the template names the gate.
+- After the swap, the same probe: `git status --short`, `git status --short; echo probe-b` and
+  `git log --oneline -1` ran. `echo $(git rev-parse --short HEAD)` is still refused, now by Claude Code itself
+  ("names git in a form too complex to verify"): by design, so isolated agents keep git out of `$(…)`.
+- Not covered: such a git command loses lean-ctx's output compression; a hand-made worktree outside
+  `.claude/worktrees/` is wrapped as before (it has no isolation check); `lean-ctx setup` or an update that
+  rewrites settings.json puts the raw `lean-ctx hook rewrite` back (re-run `install.sh`).

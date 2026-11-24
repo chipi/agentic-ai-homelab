@@ -305,7 +305,7 @@ chk "no env block: every template env key added, other keys kept, backup made, E
 run
 chk "rerun: already wired, no second backup" \
   "[ $(rc) = 0 ] && grep -q '^OK    hooks and env already wired' '$H.out' && [ \$(ls '$H'/.claude/settings.json.bak.* | wc -l) = 1 ]"
-home env-keep "$BASE"; setj '{"env":{"CLAUDE_CODE_SUBAGENT_MODEL":"haiku","CLAUDE_CODE_TMPDIR":"/elsewhere","OTHER":"1"}}'; run
+home env-keep "$BASE"; setj '{"env":{"CLAUDE_CODE_SUBAGENT_MODEL":"haiku","CLAUDE_CODE_TMPDIR":"/elsewhere","CLAUDE_CODE_AUTO_COMPACT_WINDOW":"200000","OTHER":"1"}}'; run
 chk "a key the host already sets keeps its value; the host's other env keys stay" \
   "[ $(rc) = 0 ] && [ \"\$(jq -r .env.CLAUDE_CODE_SUBAGENT_MODEL '$H/.claude/settings.json')\" = haiku ] && [ \"\$(jq -r .env.OTHER '$H/.claude/settings.json')\" = 1 ] && ! grep -q '^ENV ' '$H.out'"
 home env-dry "$BASE"; setj '{"model":"opus"}'; before=$(md5sum < "$H/.claude/settings.json"); run --dry-run

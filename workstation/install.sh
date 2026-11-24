@@ -58,8 +58,12 @@ link() {  # link <workstation-relative or absolute src> <absolute-home-target>
 # (e.g. one written by `lean-ctx setup`). A hook whose command is already
 # present is left alone. Each template `env` key the file lacks is added; a key
 # the host already sets keeps its value; "$HOME" in a template env value becomes this machine's
-# home (settings env values are not shell-expanded). Nothing else in the file changes.
-HOOK_MERGE='reduce ($t[0].hooks | to_entries[] | .key as $e | .value[] | .matcher as $m
+# home (settings env values are not shell-expanded). lean-ctx's own `lean-ctx hook rewrite` entry becomes the
+# gate in front of it (claude/hooks/lean-ctx-rewrite-gate.sh), so the two never both run. Nothing else changes.
+HOOK_MERGE='(if .hooks.PreToolUse then .hooks.PreToolUse |= map(.hooks |= map(
+                if ((.command // "") | test("lean-ctx hook rewrite$"))
+                then .command = "$HOME/.claude/hooks/lean-ctx-rewrite-gate.sh" else . end)) else . end)
+  | reduce ($t[0].hooks | to_entries[] | .key as $e | .value[] | .matcher as $m
                    | .hooks[] | select(.command | contains("/.claude/hooks/"))
                    | {e: $e, m: $m, h: .}) as $x (.;
   if any(.hooks[$x.e][]?.hooks[]?; .command == $x.h.command) then .

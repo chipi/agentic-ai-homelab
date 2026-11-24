@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "lean-ctx hook rewrite"
+            "command": "$HOME/.claude/hooks/lean-ctx-rewrite-gate.sh"
           }
         ]
       },
