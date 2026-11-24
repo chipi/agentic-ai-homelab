@@ -9,6 +9,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; INST="$HERE/install.sh"
 for c in jq wt; do command -v "$c" >/dev/null || { echo "SKIP: $c not installed"; exit 0; }; done
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 export INFRA_CHECKOUT="$T/no-infra"   # no chipi/infra checkout unless a case names one
+export WS_OMARCHY_CRASH_WATCH="$T/no-omarchy"   # no Omarchy unless a case names one
 pass=0; fail=0
 chk() { if eval "$2"; then echo "  ok   $1"; pass=$((pass+1)); else echo "  FAIL $1"; fail=$((fail+1)); fi; }
 
@@ -32,6 +33,8 @@ case "$*" in
   "--user show-environment")                 [ ! -e "$FAKE_STATE/no_user_manager" ] ;;
   "--user is-enabled wb-tmux-save.timer")    if [ -e "$FAKE_STATE/timer" ]; then echo enabled; else echo disabled; fi ;;
   "--user is-active --quiet wb-tmux-save.timer") [ -e "$FAKE_STATE/timer" ] ;;
+  "--user is-active --quiet omarchy-crash-watch.service") [ -e "$FAKE_STATE/crashwatch" ] ;;
+  "--user stop omarchy-crash-watch.service") rm -f "$FAKE_STATE/crashwatch" ;;
   "--user daemon-reload")                    : ;;
   "--user enable --now wb-tmux-save.timer")  touch "$FAKE_STATE/timer" ;;
   *) exit 1 ;;
@@ -311,6 +314,31 @@ chk "a key the host already sets keeps its value; the host's other env keys stay
 home env-dry "$BASE"; setj '{"model":"opus"}'; before=$(md5sum < "$H/.claude/settings.json"); run --dry-run
 chk "--dry-run: ENV line printed, settings.json unchanged, no backup" \
   "[ $(rc) = 0 ] && grep -q '^ENV   add to' '$H.out' && [ \"\$(md5sum < '$H/.claude/settings.json')\" = '$before' ] && ! ls '$H'/.claude/settings.json.bak.* >/dev/null 2>&1"
+
+echo "== Omarchy's crash agent: notifications off, its skill links removed"
+OW="$T/fake-omarchy/omarchy-crash-watch"; mkdir -p "$(dirname "$OW")" "$T/fake-omarchy/share/omarchy/skills/diagnose-crash"
+printf '#!/bin/sh\n' > "$OW"; chmod +x "$OW"; OSK="$T/fake-omarchy/share/omarchy/skills/diagnose-crash"
+FLAG=.local/state/omarchy/toggles/crash-capture-off
+omhome() {
+  home "$1" "$BASE"; touch "$S/crashwatch"
+  mkdir -p "$H/.claude/skills" "$H/.agents/skills" "$H/.codex/skills/diagnose-crash"
+  ln -s "$OSK" "$H/.claude/skills/diagnose-crash"; ln -s "$OSK" "$H/.agents/skills/diagnose-crash"
+}
+omhome om-dry; WS_OMARCHY_CRASH_WATCH="$OW" run --dry-run
+chk "dry-run: OFF, UNIT stop and UNLINK announced; no flag, links kept, watcher not stopped" \
+  "[ $(rc) = 0 ] && grep -q '^OFF   Omarchy crash notifications' '$H.out' && grep -q '^UNIT  systemctl --user stop omarchy-crash-watch.service' '$H.out' && [ \$(grep -c '^UNLINK .*/diagnose-crash' '$H.out') = 2 ] && [ ! -e '$H/$FLAG' ] && [ -L '$H/.claude/skills/diagnose-crash' ] && ! grep -q 'stop omarchy' '$S/calls'"
+omhome om; mkdir -p "$H/.pi/agent/skills"; ln -s /elsewhere/diagnose-crash "$H/.pi/agent/skills/diagnose-crash"
+WS_OMARCHY_CRASH_WATCH="$OW" run
+chk "real run: flag written, watcher stopped once, both Omarchy links gone" \
+  "[ $(rc) = 0 ] && [ -f '$H/$FLAG' ] && [ \$(grep -c '^--user stop omarchy-crash-watch.service\$' '$S/calls') = 1 ] && [ ! -e '$H/.claude/skills/diagnose-crash' ] && [ ! -L '$H/.claude/skills/diagnose-crash' ] && [ ! -L '$H/.agents/skills/diagnose-crash' ]"
+chk "a real diagnose-crash folder and a link outside Omarchy's tree are left alone" \
+  "[ -d '$H/.codex/skills/diagnose-crash' ] && [ ! -L '$H/.codex/skills/diagnose-crash' ] && [ \"\$(readlink '$H/.pi/agent/skills/diagnose-crash')\" = /elsewhere/diagnose-crash ]"
+: > "$S/calls"; WS_OMARCHY_CRASH_WATCH="$OW" run
+chk "rerun: OK line, no stop, nothing unlinked" \
+  "[ $(rc) = 0 ] && grep -q '^OK    Omarchy crash notifications off' '$H.out' && ! grep -q -e '^UNLINK' -e '^OFF ' '$H.out' && ! grep -q 'stop omarchy' '$S/calls'"
+home om-none "$BASE"; run
+chk "without Omarchy: no crash-agent lines, no flag, no stop" \
+  "[ $(rc) = 0 ] && ! grep -q -e 'Omarchy crash notifications' -e '^UNLINK' -e 'omarchy-crash-watch' '$H.out' && [ ! -e '$H/$FLAG' ] && ! grep -q 'omarchy' '$S/calls'"
 
 echo "== macOS path unchanged"
 home mac "$BASE" disabled; before=$(sig); OSV=macos run

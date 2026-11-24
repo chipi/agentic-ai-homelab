@@ -297,6 +297,35 @@ tmp_sweep_timer() {
   return 0
 }
 
+# Omarchy's crash watcher offers "diagnose with AI" on every core dump and opens a coding-agent
+# session in a foot window; three such sessions sat unnoticed for 23 days (operator, 2026-11-24:
+# off). Its own flag keeps the watcher off across logins and updates; core dumps are still kept
+# (coredumpctl). Omarchy's migration also links its diagnose-crash skill into every agent's
+# skills folder: only those links into Omarchy's tree are removed, never a real folder.
+omarchy_crash_agent_off() {
+  [ -x "${WS_OMARCHY_CRASH_WATCH:-/usr/bin/omarchy-crash-watch}" ] || return 0
+  local flag="$HOME/.local/state/omarchy/toggles/crash-capture-off" d l
+  if [ -e "$flag" ]; then
+    echo "OK    Omarchy crash notifications off ($flag)"
+  else
+    echo "OFF   Omarchy crash notifications: $flag"
+    if [ "$DRY" = 0 ]; then mkdir -p "$(dirname "$flag")" && : > "$flag"; fi
+  fi
+  if command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet omarchy-crash-watch.service 2>/dev/null; then
+    echo "UNIT  systemctl --user stop omarchy-crash-watch.service"
+    if [ "$DRY" = 0 ]; then systemctl --user stop omarchy-crash-watch.service || echo "WARN  could not stop omarchy-crash-watch.service; the flag stops it at the next login"; fi
+  fi
+  for d in "$HOME/.claude/skills" "$HOME/.agents/skills" "$HOME/.codex/skills" "$HOME/.pi/agent/skills"; do
+    l="$d/diagnose-crash"
+    [ -L "$l" ] || continue
+    case "$(readlink "$l")" in
+      */omarchy/*) echo "UNLINK $l -> $(readlink "$l")"
+                   if [ "$DRY" = 0 ]; then unlink "$l"; fi ;;
+    esac
+  done
+  return 0
+}
+
 tmux_persistence() {
   if ! command -v tmux >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
     echo "WARN  tmux persistence: tmux or git not installed; skipped"; return 0
@@ -389,6 +418,7 @@ for _hk in "$WS"/claude/hooks/*; do
   link "claude/hooks/$_n" "$HOME/.claude/hooks/$_n"
 done
 [ "$OS" = linux ] && tmp_sweep_timer
+[ "$OS" = linux ] && omarchy_crash_agent_off
 for _wf in "$WS"/claude/workflows/*; do
   [ -e "$_wf" ] || continue
   _n="$(basename "$_wf")"

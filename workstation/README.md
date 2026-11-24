@@ -75,6 +75,8 @@ each. Only the OS-specific block differs:
 | user tmux config (`~/.tmux.conf`, else `~/.config/tmux/tmux.conf`) | — | Linux | appends one marked `source-file` line once; the distro's config is kept |
 | `~/.local/bin/wb-tmux` | `tmux/wb-tmux` | Linux | symlink |
 | `~/.config/systemd/user/wb-tmux-save.{service,timer}` | `tmux/systemd/…` | Linux | symlinks + `systemctl --user enable --now wb-tmux-save.timer` if not already |
+| `~/.local/state/omarchy/toggles/crash-capture-off` | — | Linux (Omarchy) | flag written once and `omarchy-crash-watch` stopped: no "diagnose with AI" crash toast opening agent sessions in stray `foot` windows (operator, 2026-11-24); core dumps are still kept (`coredumpctl`) |
+| `diagnose-crash` in `~/.claude/skills`, `~/.agents/skills`, `~/.codex/skills`, `~/.pi/agent/skills` | — | Linux (Omarchy) | removed where it is a link into Omarchy's tree (an Omarchy migration adds it); a real folder or another link is left alone |
 | `~/.config/opencode/opencode.json` | `config/opencode/opencode.json.example` | both | **template** — copy + fill |
 | `~/.claude/settings.json` | `claude/settings.json.example` | both | **template** — copy + fill |
 
