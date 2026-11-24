@@ -376,6 +376,10 @@ row "LibreChat (evaluation, X3)"  "https://omarchy.$TS:8443" "$AE_U" "$AE_P" "84
 row "Open WebUI (evaluation, X3)" "https://omarchy.$TS:8444" "$AE_U" "$AE_P" "8444"
 row "Home Assistant"  "https://homeassistant.$TS" "own account" "&mdash;" "8123"
 row "n8n"             "https://n8n.$TS" "$N8_U" "$N8_P" "5678"
+# infra/evh-serve: each eval project's catalog; its MCP server is the same name's /mcp
+row "Fleet evals (MCP: /mcp)"    "https://fleet-evals.$TS"   "&mdash;" "tailnet" "&mdash;"
+row "Podcast evals (MCP: /mcp)"  "https://podcast-evals.$TS" "&mdash;" "tailnet" "&mdash;"
+row "Bake-off evals (MCP: /mcp)" "https://bakeoff-evals.$TS" "&mdash;" "tailnet" "&mdash;"
 cat <<MID
   </tbody></table>
   </details>
