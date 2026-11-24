@@ -96,11 +96,11 @@ rm -f "$tmp"
 /usr/bin/dockerd --validate --config-file /etc/docker-prod/daemon.json >/dev/null || { echo "!! daemon.json invalid"; exit 1; }
 
 echo "== 6. start (the system engine's iptables rules must not change) =="
-before=$(iptables-save 2>/dev/null | grep -v '^#' | md5sum)
+before=$(iptables-save 2>/dev/null | grep -v '^#' | sed -E 's/\[[0-9]+:[0-9]+\]//')
 systemctl daemon-reload
 systemctl enable --now containerd-prod.service docker-prod.service
 for _ in $(seq 30); do [ -S "$SOCK" ] && break; sleep 1; done
-after=$(iptables-save 2>/dev/null | grep -v '^#' | md5sum)
+after=$(iptables-save 2>/dev/null | grep -v '^#' | sed -E 's/\[[0-9]+:[0-9]+\]//')
 
 echo "== 7. docker context prod for $SVC =="
 dk() { runuser -u "$SVC" -- env -i HOME="$PROD/home" PATH=/usr/bin docker "$@"; }
@@ -113,15 +113,18 @@ ck() { if eval "$2" >/dev/null 2>&1; then echo "   ok   $1"; else echo "   FAIL 
 ck "containerd-prod and docker-prod active" "systemctl is-active --quiet containerd-prod docker-prod"
 ck "prod engine: data root $ENG/docker, containerd image store" \
    "[ \"\$(dk --context prod info --format '{{.DockerRootDir}}')\" = $ENG/docker ] && dk --context prod info --format '{{json .DriverStatus}}' | grep -q io.containerd.snapshotter"
-ck "prod containerd: its own socket answers, namespace moby on it only" \
-   "ctr -a $CSOCK namespaces ls -q | grep -qx moby"
+# containerd makes a namespace only with its first object, so a fresh engine has none to list.
+ck "prod containerd answers on its own socket" "ctr -a $CSOCK version | grep -q '^Server:'"
 ck "socket $SOCK is root:$SVC 0660" "[ \"\$(stat -c '%U:%G %a' $SOCK)\" = 'root:$SVC 660' ]"
 ck "the operator's uid is refused at the socket (permission denied)" \
-   "runuser -u ${SUDO_USER:-marko} -- docker -H unix://$SOCK version --format '{{.Server.Version}}' 2>&1 | grep -qi 'permission denied'"
+   "{ runuser -u ${SUDO_USER:-marko} -- docker -H unix://$SOCK version --format '{{.Server.Version}}' 2>&1 || true; } | grep -qi 'permission denied'"
 ck "prod's content store is not compressed" "btrfs property get $ENG/containerd compression | grep -qx 'compression=none'"
 ck "no bridge network on prod (compose on host networking creates none)" \
    "[ \"\$(dk --context prod network ls --format '{{.Name}}' | sort | tr '\n' ' ')\" = 'host none ' ]"
-ck "iptables rules unchanged by the prod engine" "[ '$before' = '$after' ]"
+# Rules only, without the packet counters. On a rerun the engine was already up, so this proves
+# only the first start; the system engine adding a rule for a container in those seconds shows here too.
+ck "iptables rules unchanged by the prod engine's start" "[ \"\$before\" = \"\$after\" ]"
+[ "$before" = "$after" ] || diff <(echo "$before") <(echo "$after") | sed 's/^/      /'
 ck "system engine untouched: its data root unchanged" \
    "[ \"\$(docker -H unix:///run/docker.sock info --format '{{.DockerRootDir}}')\" = /var/lib/docker ]"
 ck "sudoers rule installed and valid" "visudo -cf /etc/sudoers.d/robotics-prod"

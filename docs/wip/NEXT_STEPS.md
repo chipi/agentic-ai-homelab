@@ -264,6 +264,14 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
 - [ ] **Later, never automatic:** retire the `*.pre-subvol` safety copies with the
       [retirement procedure](../recipes/x3-storage-safety-copy-retirement.md), after
       its readiness checks and explicit approval.
+- [x] **robotics-lab's prod engine installed** (operator, 2026-11-24; [ADR-0013](../adr/ADR-0013-x3-prod-docker-engine.md),
+      [recipe](../recipes/x3-prod-engine.md)): `containerd-prod` + `docker-prod` active, `@docker-prod` and
+      `@robotics-prod` mounted, user `robotics` (uid 960). The first `up` builds images, so it waits for the
+      maintenance window; robotics-lab adds `deploy.py --context prod` and the installation file.
+- [ ] **Idea, backlog (operator, 2026-11-24: not now):** take the operator's uid out of the `docker` group,
+      as the dev setup tightens. Today any agent can reach root through the system socket (`docker run -v /:/host`),
+      so the prod engine's separation stops accidents, not a determined agent (ADR-0013, review finding B1).
+      Needs a way for dev work to reach Docker that agents cannot turn into root.
 
 ## Maintenance (parallel, not urgent)
 
