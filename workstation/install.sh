@@ -42,7 +42,7 @@ link() {  # link <workstation-relative or absolute src> <absolute-home-target>
   # copy of the skill, so a link pointing elsewhere is replaced, not backed up.
   if [ -L "$dst" ]; then
     echo "RELINK $dst: $(readlink "$dst") -> $src"
-    if [ "$DRY" = 0 ]; then rm "$dst"; ln -s "$src" "$dst"; fi
+    if [ "$DRY" = 0 ]; then ln -sfn "$src" "$dst"; fi
     return 0
   fi
   if [ -e "$dst" ]; then
