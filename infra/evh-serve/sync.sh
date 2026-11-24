@@ -3,7 +3,8 @@
 # decides on: the commit, the harness pin in pyproject.toml (empty when it has none) and the commit
 # the served catalog was built from.
 set -eu
-cp /run/deploy_key /tmp/deploy_key && chmod 600 /tmp/deploy_key
+# The deploy key arrives on stdin: the engine runs as another user and cannot read the owner-only key folder.
+umask 077; cat > /tmp/deploy_key
 export GIT_SSH_COMMAND="ssh -i /tmp/deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=/run/known_hosts -o StrictHostKeyChecking=yes"
 git config --global --add safe.directory /project
 cd /project

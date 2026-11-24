@@ -19,7 +19,6 @@ services:
     volumes:
       - repo:/project
       - build:/project/.build
-      - ${DEPLOY_KEY:?}:/run/deploy_key:ro
       - ./github_known_hosts:/run/known_hosts:ro
       - ./sync.sh:/sync.sh:ro
     entrypoint: ["sh", "/sync.sh"]

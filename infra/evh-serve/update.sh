@@ -32,11 +32,11 @@ one() {
   dc() { docker compose -p "$inst" --project-directory "$HERE" -f "$HERE/docker-compose.yml" --env-file "$env" "$@"; }
 
   local out sha pin deployed ref
-  out="$(DEPLOY_KEY="$key" HARNESS_REF="${own_ref:-none}" dc run --rm -T sync 2>&1)" || { say "FAIL sync: $(echo "$out" | tail -2 | tr '\n' ' ')"; return 1; }
+  out="$(HARNESS_REF="${own_ref:-none}" dc run --rm -T sync < "$key" 2>&1)" || { say "FAIL sync: $(echo "$out" | tail -2 | tr '\n' ' ')"; return 1; }
   sha="$(sed -n 's/^SHA=//p' <<<"$out")"; pin="$(sed -n 's/^PIN=//p' <<<"$out")"; deployed="$(sed -n 's/^DEPLOYED=//p' <<<"$out")"
   ref="${pin:-$own_ref}"
   [ -n "$ref" ] || { say "FAIL no harness pin: none in pyproject.toml, none in $env"; return 1; }
-  export DEPLOY_KEY="$key" HARNESS_REF="$ref" COMMIT="$sha"
+  export HARNESS_REF="$ref" COMMIT="$sha"
 
   if ! docker image inspect "local/evh-serve:$ref" >/dev/null 2>&1; then
     say "building the image for harness ${ref:0:8}"

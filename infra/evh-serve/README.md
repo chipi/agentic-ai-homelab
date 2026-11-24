@@ -28,7 +28,7 @@ committed.
 | Piece | What it does |
 |---|---|
 | `instances/<name>.env` | one per project: tailnet host, repository, branch, catalog options; `HARNESS_REF` only for a project with no pin in its `pyproject.toml` |
-| `sync` (`sync.sh`, `alpine/git`) | brings the checkout volume to `origin/<branch>` with the instance's read-only deploy key; GitHub's host keys are pinned in `github_known_hosts` (from `gh api meta`) |
+| `sync` (`sync.sh`, `alpine/git`) | brings the checkout volume to `origin/<branch>` with the instance's read-only deploy key, passed on stdin (colima's engine cannot read the owner-only key folder); GitHub's host keys are pinned in `github_known_hosts` (from `gh api meta`) |
 | `local/evh-serve:<ref>` | `python:3.12-slim` plus the harness at the pinned commit; built when a pin is new |
 | `catalog-build` | builds the catalog pages into the build volume when the commit moved, and swaps them in only when the build passed (no network) |
 | `catalog` | `evh catalog-serve --behind-proxy <host>`: the pages and the run inspector, which reads the data live |
