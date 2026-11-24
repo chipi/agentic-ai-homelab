@@ -75,7 +75,7 @@ btrfs property set "$ENG/containerd" compression none || { echo "!! could not tu
 install -d -o root -g root -m 755 "$PROD"
 install -d -o root -g "$SVC" -m 750 /etc/robotics-prod
 # robotics owns these, so a symlink here could aim root's chown elsewhere: refuse one.
-for d in home home/tmp data data-archive state state/observatory state/mission-control state/deploy; do
+for d in home home/tmp data data-archive robots state state/observatory state/mission-control state/deploy; do
   [ -L "$PROD/$d" ] && { echo "!! $PROD/$d is a symlink; not following it"; exit 1; }
   install -d -o "$SVC" -g "$SVC" -m 750 "$PROD/$d"
 done

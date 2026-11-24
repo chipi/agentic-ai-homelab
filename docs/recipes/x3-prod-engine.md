@@ -51,16 +51,20 @@ runuser -u robotics -- env -i HOME=/srv/robotics-lab/home PATH=/usr/local/bin:/u
     --control-state /srv/robotics-lab/state/mission-control \
     --deploy-state /srv/robotics-lab/state/deploy \
     --installation /etc/robotics-prod/installation.json \
-    [--commit <sha>]  [--no-browser]   # --commit for up; --no-browser for up, rollback, smoke
+    [--commit <sha>] [--robots-dir /srv/robotics-lab/robots] [--no-browser]
+    # --commit: up; --robots-dir: up, rollback; --no-browser: up, rollback, smoke
 ```
 
 - `/srv/robotics-lab/checkout` is a root-owned clone of `https://github.com/chipi/robotics-lab`,
-  fetched on every call and checked out at `origin/main`, so the `deploy.py` that runs is
-  always main's. It exports the commit it deploys with `git archive`.
+  fetched by `up` and checked out at `origin/main`, so the `deploy.py` that runs is main's as
+  of the last `up`. It exports the commit it deploys with `git archive`.
 - The `prod` context exists in `robotics`'s Docker config and points at
   `unix:///run/docker-prod.sock`. `DOCKER_CONTEXT=prod` is set as well as `--context prod`.
 - The containers run as `robotics` (`deploy.py` uses its own UID), which owns `data`,
-  `data-archive` and `state`. `data-archive` is created; nothing passes it yet.
+  `data-archive`, `robots` and `state`. `data-archive` is created; nothing passes it yet.
+- `/srv/robotics-lab/robots` is the robots folder the Observatory mounts (`--robots-dir`):
+  `robots/` plus the generated meshes, which are not in git, so the clone has none.
+  robotics-lab's cut-over fills it.
 - `/etc/robotics-prod/installation.json` is robotics-lab's to supply (`root:robotics 0640`;
   the operator puts it there).
 - The browser part of the smoke: run it as the operator against 127.0.0.1, as robotics-lab's

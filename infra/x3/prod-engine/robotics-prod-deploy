@@ -68,8 +68,9 @@ args=("$verb" --context prod
       --data "$PROD/data" --viewer-state "$PROD/state/observatory" --control-state "$PROD/state/mission-control"
       --deploy-state "$PROD/state/deploy" --installation "$INSTALLATION")
 case "$verb" in
-  up)             args+=(--commit "${sha:-$main}" --no-browser) ;;
-  rollback|smoke) args+=(--no-browser) ;;
+  up)             args+=(--commit "${sha:-$main}" --no-browser --robots-dir "$PROD/robots") ;;
+  rollback)       args+=(--no-browser --robots-dir "$PROD/robots") ;;
+  smoke)          args+=(--no-browser) ;;
 esac
 
 cd "$PROD/home"
