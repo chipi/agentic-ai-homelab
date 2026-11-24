@@ -278,6 +278,10 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
     infra's PR, the operator's go for `infra-apply`.
   - Auth: SSH key on the sub-account (restic's sftp backend; port 23; `install-ssh-key`), not infra's
     password pattern, which needs rclone.
+  - The tofu side probably still needs a password: both existing sub-accounts set one from a tofu var and are
+    gated on it (infra, 2026-11-24; unverified whether the hcloud provider requires it). So plan a new var
+    `homelab_storage_box_subaccount_password` and its GH secret for `infra-apply`, set by the operator. The SSH key goes
+    into the jail's `.ssh/authorized_keys` afterwards; tofu does not manage that.
   - Known hosts: infra's pinned `infra/postgres/storagebox_known_hosts`.
   - Runs as `robotics` from a system timer, a second exception to the X3's user-units rule.
   - Needs the operator's yes to install `restic` (pacman) on the X3.
