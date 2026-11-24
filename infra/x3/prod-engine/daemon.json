@@ -1,0 +1,16 @@
+{
+  "hosts": ["unix:///run/docker-prod.sock"],
+  "group": "robotics",
+  "data-root": "/var/lib/docker-prod/docker",
+  "exec-root": "/run/docker-prod",
+  "pidfile": "/run/docker-prod.pid",
+  "containerd": "/run/containerd-prod/containerd.sock",
+  "features": { "containerd-snapshotter": true },
+  "bridge": "none",
+  "iptables": false,
+  "ip6tables": false,
+  "ip-forward": false,
+  "ip-masq": false,
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "10m", "max-file": "5" }
+}

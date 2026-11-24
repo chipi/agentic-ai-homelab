@@ -1,0 +1,69 @@
+#!/bin/bash
+# /usr/local/libexec/robotics-prod-deploy (root:root 755): the one way to the X3 prod engine (ADR-0013).
+# Run through sudo (/etc/sudoers.d/robotics-prod), never directly:
+#
+#   sudo robotics-prod-deploy up [<40-hex commit>]   deploy that commit of GitHub's main (default: main's head)
+#   sudo robotics-prod-deploy rollback               deploy the commit recorded before the current one
+#   sudo robotics-prod-deploy smoke                  the smoke without the browser
+#   sudo robotics-prod-deploy status                 what is recorded, what runs
+#
+# The code it runs comes from a root-owned checkout of https://github.com/chipi/robotics-lab, fetched
+# here, never from a checkout the operator's uid (and so every agent) can write. deploy.py runs as the
+# service user `robotics`, so the containers run under its UID and own prod's data. The browser part
+# of the smoke runs as the operator against 127.0.0.1; it needs no engine access.
+set -euo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/bin
+
+REPO_URL=https://github.com/chipi/robotics-lab
+PROD=/srv/robotics-lab
+CO=$PROD/checkout
+INSTALLATION=/etc/robotics-prod/installation.json
+SVC=robotics
+
+usage() { echo "usage: robotics-prod-deploy up [<40-hex commit>] | rollback | smoke | status" >&2; exit 2; }
+
+verb="${1:-}"; sha=""
+case "$verb" in
+  up)                    [ $# -le 2 ] || usage; sha="${2:-}"
+                         [ -z "$sha" ] || [[ $sha =~ ^[0-9a-f]{40}$ ]] || usage ;;
+  rollback|smoke|status) [ $# = 1 ] || usage ;;
+  *)                     usage ;;
+esac
+
+[ "$(id -u)" = 0 ] || { echo "robotics-prod-deploy: must run as root, through sudo" >&2; exit 1; }
+for m in /var/lib/docker-prod "$PROD"; do
+  mountpoint -q "$m" || { echo "robotics-prod-deploy: $m is not mounted (ADR-0013)" >&2; exit 1; }
+done
+systemctl is-active --quiet docker-prod || { echo "robotics-prod-deploy: docker-prod is not running" >&2; exit 1; }
+
+exec 9>/run/robotics-prod-deploy.lock
+flock -n 9 || { echo "robotics-prod-deploy: another deploy is running" >&2; exit 1; }
+logger -t robotics-prod-deploy "${SUDO_USER:-root}: $*"
+
+if [ ! -d "$CO/.git" ]; then
+  git clone --quiet --no-checkout "$REPO_URL" "$CO"
+fi
+git -C "$CO" fetch --quiet origin main
+main=$(git -C "$CO" rev-parse --verify origin/main^{commit})
+if [ -n "$sha" ]; then
+  git -C "$CO" cat-file -e "$sha^{commit}" 2>/dev/null \
+    && git -C "$CO" merge-base --is-ancestor "$sha" "$main" \
+    || { echo "robotics-prod-deploy: $sha is not a commit on GitHub's main" >&2; exit 1; }
+fi
+# The script deploy.py runs is always main's; it exports the commit it deploys with git archive.
+git -C "$CO" checkout --quiet --detach --force "$main"
+
+args=("$verb" --context prod
+      --data "$PROD/data" --viewer-state "$PROD/state/observatory" --control-state "$PROD/state/mission-control"
+      --deploy-state "$PROD/state/deploy" --installation "$INSTALLATION")
+case "$verb" in
+  up)             args+=(--commit "${sha:-$main}" --no-browser) ;;
+  rollback|smoke) args+=(--no-browser) ;;
+esac
+
+cd "$PROD/home"
+exec runuser -u "$SVC" -- env -i \
+  HOME="$PROD/home" PATH=/usr/local/bin:/usr/bin LANG=C.UTF-8 TMPDIR="$PROD/home/tmp" \
+  DOCKER_CONTEXT=prod PYTHONDONTWRITEBYTECODE=1 \
+  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$CO" \
+  python3 "$CO/scripts/deploy.py" "${args[@]}"

@@ -1,0 +1,21 @@
+# /etc/containerd-prod/config.toml: the X3 prod engine's containerd (ADR-0013). Every path differs
+# from the system containerd's, so the two never share a socket, a state folder or a content store.
+version = 3
+root = "/var/lib/docker-prod/containerd"
+state = "/run/containerd-prod"
+disabled_plugins = ["io.containerd.grpc.v1.cri", "io.containerd.cri.v1.images", "io.containerd.cri.v1.runtime"]
+
+[grpc]
+  address = "/run/containerd-prod/containerd.sock"
+
+[ttrpc]
+  address = "/run/containerd-prod/containerd.sock.ttrpc"
+
+[debug]
+  address = "/run/containerd-prod/debug.sock"
+
+[plugins."io.containerd.internal.v1.opt"]
+  path = "/var/lib/docker-prod/containerd-opt"
+
+[plugins."io.containerd.image-verifier.v1.bindir"]
+  bin_dir = "/var/lib/docker-prod/containerd-opt/image-verifier/bin"

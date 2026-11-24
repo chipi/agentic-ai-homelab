@@ -101,6 +101,7 @@ nav:
     - Writing agent instructions (CLAUDE.md, AGENTS.md): recipes/agent-instructions-guide.md
     - X3 storage separation (one-time migration): recipes/x3-storage-separation.md
     - X3 storage safety-copy retirement: recipes/x3-storage-safety-copy-retirement.md
+    - X3 prod engine (robotics-lab): recipes/x3-prod-engine.md
   - Reference:
     - Operator rules (reasons and incidents): reference/operator-rules.md
   - Reading:
@@ -131,6 +132,7 @@ nav:
     - ADR-0010 — Telemetry naming contract: adr/ADR-0010-telemetry-naming-contract.md
     - ADR-0011 — Workstation storage subvolumes: adr/ADR-0011-workstation-storage-subvolumes.md
     - ADR-0012 — tmux workspace persistence: adr/ADR-0012-tmux-workspace-persistence.md
+    - ADR-0013 — X3 prod Docker engine: adr/ADR-0013-x3-prod-docker-engine.md
   - Proposals (RFC):
     - Overview: rfc/README.md
     - RFC-0001 — LiteLLM ↔ Langfuse capture: rfc/RFC-0001-litellm-langfuse-capture.md

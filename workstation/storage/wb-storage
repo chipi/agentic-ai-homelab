@@ -7,6 +7,8 @@
 #
 #   wb-storage status [--brief]       read-only: classify this machine's layout
 #   wb-storage fstab                  read-only: print the fstab entries for this machine
+#   wb-storage fstab --prod           read-only: print the two entries of the X3 prod engine
+#                                     (@docker-prod, @robotics-prod; ADR-0013). status ignores them.
 #   wb-storage install-dropins [--dry-run]
 #                                     install the two systemd drop-ins (idempotent; root)
 #   wb-storage users [path...]        read-only: processes using the paths (cwd, root,
@@ -36,6 +38,8 @@ TS="$(date +%Y%m%d-%H%M%S)"
 
 # <path>:<subvolume>, in fstab order.
 LAYOUT=("/work:@work" "/var/lib/containerd:@containerd" "/var/lib/docker:@docker")
+# The X3 prod engine's two (ADR-0013): only on a machine that runs it, so `status` never asks for them.
+PROD_LAYOUT=("/var/lib/docker-prod:@docker-prod" "/srv/robotics-lab:@robotics-prod")
 DROPINS=("docker.service.d/50-x3-storage-mounts.conf" "containerd.service.d/50-x3-storage-mounts.conf")
 
 say() { echo "wb-storage: $*" >&2; }
@@ -70,10 +74,11 @@ root_fs() {
 
 cmd_fstab() {
   root_fs || exit 2
-  local e p sv
+  local e p sv layout=("${LAYOUT[@]}")
+  [ "${1:-}" = --prod ] && layout=("${PROD_LAYOUT[@]}")
   echo "# Workstation storage layout (workstation/storage/README.md): top-level siblings of @,"
   echo "# outside the root Snapper domain. No nofail: a missing mount must stop the boot."
-  for e in "${LAYOUT[@]}"; do
+  for e in "${layout[@]}"; do
     p=${e%%:*}; sv=${e#*:}
     printf 'UUID=%s\t%s\tbtrfs\t%s,subvol=/%s\t0 0\n' "$ROOT_UUID" "$p" "$ROOT_OPTS" "$sv"
   done
@@ -262,7 +267,7 @@ cmd_install_dropins() {
 
 case "${1:-}" in
   status)          shift; cmd_status "$@" ;;
-  fstab)           shift; [ $# = 0 ] || die "usage: wb-storage fstab"; cmd_fstab ;;
+  fstab)           shift; [ $# = 0 ] || [ "$*" = --prod ] || die "usage: wb-storage fstab [--prod]"; cmd_fstab "$@" ;;
   install-dropins) shift; cmd_install_dropins "$@" ;;
   users)           shift; cmd_users "$@" ;;
   -h|--help|help)  usage ;;

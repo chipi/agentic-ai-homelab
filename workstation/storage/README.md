@@ -45,6 +45,7 @@ entries exist the only such unit is the root mount and the drop-ins change nothi
 ```
 wb-storage status [--brief]        read-only: classify this machine's layout
 wb-storage fstab                   read-only: print the three fstab entries for this machine
+wb-storage fstab --prod            read-only: the two entries of the X3 prod engine (ADR-0013); status ignores them
 wb-storage users [path...]         read-only: processes using the paths (cwd, root, fds, maps)
 wb-storage install-dropins [--dry-run]   install the two drop-ins (idempotent, needs root)
 ```
