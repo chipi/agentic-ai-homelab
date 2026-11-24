@@ -109,7 +109,8 @@ else dk context create prod --docker "host=unix://$SOCK" >/dev/null && echo "   
 
 echo "== 8. checks =="
 fail=0
-ck() { if eval "$2" >/dev/null 2>&1; then echo "   ok   $1"; else echo "   FAIL $1"; fail=1; fi; }
+# Without pipefail: `cmd | grep -q` would fail on the SIGPIPE cmd gets once grep has its match.
+ck() { if (set +o pipefail; eval "$2") >/dev/null 2>&1; then echo "   ok   $1"; else echo "   FAIL $1"; fail=1; fi; }
 ck "containerd-prod and docker-prod active" "systemctl is-active --quiet containerd-prod docker-prod"
 ck "prod engine: data root $ENG/docker, containerd image store" \
    "[ \"\$(dk --context prod info --format '{{.DockerRootDir}}')\" = $ENG/docker ] && dk --context prod info --format '{{json .DriverStatus}}' | grep -q io.containerd.snapshotter"

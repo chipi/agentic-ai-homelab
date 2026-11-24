@@ -69,6 +69,8 @@ chk "writes nothing under /var/lib/docker or /var/lib/containerd (the one read i
 chk "never edits /etc/fstab (prints the lines; the operator adds them)" "! code '$SETUP' | grep -qE '>>?[[:space:]]*/etc/fstab|sed -i.*fstab|tee.*fstab'"
 chk "no prune, no rm -rf, no compose down" "! code '$SETUP' '$DEP' | grep -qE 'prune|rm -rf|compose.*down'"
 chk "the fstab lines come from wb-storage fstab --prod" "code '$SETUP' | grep -q '\"\$WB\" fstab --prod'"
+chk "setup's checks run without pipefail (a 'cmd | grep -q' check must not fail on SIGPIPE)" \
+  "grep -q '^ck() { if (set +o pipefail; eval \"\$2\")' '$SETUP' && (set -o pipefail; (echo Server:; sleep 0.2; echo more) | grep -q '^Server:'; [ \$? = 141 ])"
 chk "installs exactly what the units and the deploy script name" \
   "! for p in /etc/containerd-prod/config.toml /etc/docker-prod/daemon.json /usr/local/libexec/robotics-prod-deploy /etc/sudoers.d/robotics-prod; do grep -q \"\$p\" '$SETUP' || echo missing; done | grep -q missing"
 
