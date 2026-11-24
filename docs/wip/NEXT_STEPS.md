@@ -287,6 +287,20 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
   - Needs the operator's yes to install `restic` (pacman) on the X3.
   - The restic repository password goes in a mode-600 file plus the operator's password manager.
   - The box's weekly snapshots (account level, out of a sub-account's reach) cover a leaked key.
+  - What to back up, from robotics-lab (2026-11-24, read from code, no restore tried):
+    - `state/mission-control`: everything. It holds sites, goals, run history, tokens (secrets) and
+      `profiles/`, the profile store, which is not rebuildable.
+    - `state/observatory`: `index.sqlite` and the renders are rebuildable (`observatory index`). The rest
+      waits on robotics-lab's keep/rebuild table.
+    - `state/deploy`: the `*.json` records; `trees/` is rebuildable.
+    - SQLite: never copy a live database with its WAL. Run `sqlite3 <db> ".backup <dest>"` per database first;
+      robotics-lab will list them.
+    - A finished run (`run.mcap`, no `writer.lock`) is not rewritten.
+    - `data` growth: an estimate of about 5-10 GB/month in batch weeks; 1.9 GB after 8 days today.
+  - Tools on the X3:
+    - `sqlite3`: present (`/usr/bin`).
+    - `age`, `rclone`: only as the operator's mise shims, so a system timer can't use them as they are.
+    - `restic`: absent.
   - Later, the same sub-account pattern for other homelab backups (the mini's observability DB dumps,
     n8n's database), one sub-account each.
 - [ ] **Idea, backlog (operator, 2026-11-24: not now):** take the operator's uid out of the `docker` group,
