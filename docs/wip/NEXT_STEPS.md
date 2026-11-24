@@ -264,10 +264,27 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
 - [ ] **Later, never automatic:** retire the `*.pre-subvol` safety copies with the
       [retirement procedure](../recipes/x3-storage-safety-copy-retirement.md), after
       its readiness checks and explicit approval.
-- [x] **robotics-lab's prod engine installed** (operator, 2026-11-24; [ADR-0013](../adr/ADR-0013-x3-prod-docker-engine.md),
-      [recipe](../recipes/x3-prod-engine.md)): `containerd-prod` + `docker-prod` active, `@docker-prod` and
-      `@robotics-prod` mounted, user `robotics` (uid 960). The first `up` builds images, so it waits for the
-      maintenance window; robotics-lab adds `deploy.py --context prod` and the installation file.
+- [x] **robotics-lab's X3 engine installed** (operator, 2026-11-24; [ADR-0013](../adr/ADR-0013-x3-staging-docker-engine.md),
+      [recipe](../recipes/x3-staging-engine.md)), user `robotics` (uid 960). Installed as "prod", renamed
+      **staging** the same day (operator: prod comes later, possibly a Hetzner VPS).
+- [ ] **The rename on the box** (operator's paste: stop the prod-named units, rename the subvolumes to
+      `@docker-staging`/`@robotics-staging`, two fstab lines, setup again), then robotics-lab's cut-over
+      (`mission-control/docs/wip/PROD-CUTOVER.md` in robotics-lab, to be renamed). The first `up` builds images,
+      so it waits for the maintenance window.
+- [ ] **robotics-lab backups** (operator, 2026-11-24: A + B1, on the existing Hetzner Storage Box):
+  - A: `/srv/robotics-lab/state` (SQLite), age-encrypted nightly into chipi/homelab-backup.
+  - B1: restic, `data` + `data-archive`, into a new Storage Box sub-account `homelab`, jailed to
+    `homelab/`. The sub-account is tofu in chipi/infra (`storage_box.tf`, like `audio_archive` and `pg_backup`):
+    infra's PR, the operator's go for `infra-apply`.
+  - Auth: SSH key on the sub-account (restic's sftp backend; port 23; `install-ssh-key`), not infra's
+    password pattern, which needs rclone.
+  - Known hosts: infra's pinned `infra/postgres/storagebox_known_hosts`.
+  - Runs as `robotics` from a system timer, a second exception to the X3's user-units rule.
+  - Needs the operator's yes to install `restic` (pacman) on the X3.
+  - The restic repository password goes in a mode-600 file plus the operator's password manager.
+  - The box's weekly snapshots (account level, out of a sub-account's reach) cover a leaked key.
+  - Later, the same sub-account pattern for other homelab backups (the mini's observability DB dumps,
+    n8n's database), one sub-account each.
 - [ ] **Idea, backlog (operator, 2026-11-24: not now):** take the operator's uid out of the `docker` group,
       as the dev setup tightens. Today any agent can reach root through the system socket (`docker run -v /:/host`),
       so the prod engine's separation stops accidents, not a determined agent (ADR-0013, review finding B1).

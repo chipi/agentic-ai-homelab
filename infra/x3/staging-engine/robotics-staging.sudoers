@@ -1,0 +1,5 @@
+# /etc/sudoers.d/robotics-staging (ADR-0013): the only way to the X3 staging engine. The script checks its
+# arguments itself (a 40-hex commit on GitHub's main for `up`) and clears its own environment; the
+# Defaults line keeps the caller's environment out at sudo as well.
+Defaults!/usr/local/libexec/robotics-staging-deploy env_reset, !setenv
+marko ALL=(root) NOPASSWD: /usr/local/libexec/robotics-staging-deploy up, /usr/local/libexec/robotics-staging-deploy up *, /usr/local/libexec/robotics-staging-deploy rollback, /usr/local/libexec/robotics-staging-deploy smoke, /usr/local/libexec/robotics-staging-deploy status, /usr/local/libexec/robotics-staging-deploy stop

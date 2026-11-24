@@ -80,12 +80,12 @@ box render-nosub "$OPTS"
 chk "root entry without subvol=/@: refuses (exit 2)" "ws fstab >/dev/null 2>&1; [ \$? = 2 ]"
 box render-mismatch; sed -i "s/^UUID=$FAKE_UUID\t\/\t/UUID=99999999-0000-4000-8000-000000000000\t\/\t/" "$B/etc/fstab"
 chk "fstab root UUID differs from the mounted root: refuses (exit 2)" "ws fstab >/dev/null 2>&1; [ \$? = 2 ]"
-box render-prod
-chk "fstab --prod: exactly the two prod-engine entries (ADR-0013)" \
-  "[ \"\$(ws fstab --prod | grep -v '^#')\" = \"\$(printf 'UUID=%s\t/var/lib/docker-prod\tbtrfs\t%s,subvol=/@docker-prod\t0 0\nUUID=%s\t/srv/robotics-lab\tbtrfs\t%s,subvol=/@robotics-prod\t0 0' \"$FAKE_UUID\" \"$OPTS\" \"$FAKE_UUID\" \"$OPTS\")\" ]"
+box render-staging
+chk "fstab --staging: exactly the two staging-engine entries (ADR-0013)" \
+  "[ \"\$(ws fstab --staging | grep -v '^#')\" = \"\$(printf 'UUID=%s\t/var/lib/docker-staging\tbtrfs\t%s,subvol=/@docker-staging\t0 0\nUUID=%s\t/srv/robotics-lab\tbtrfs\t%s,subvol=/@robotics-staging\t0 0' \"$FAKE_UUID\" \"$OPTS\" \"$FAKE_UUID\" \"$OPTS\")\" ]"
 chk "fstab with any other argument: usage error, no entries" "! ws fstab --bogus 2>/dev/null | grep -q '^UUID='"
-box prod-not-in-status; mkdir -p "$B/work" "$B/var/lib/docker" "$B/var/lib/containerd"
-chk "status never asks for the prod entries (fresh box stays 'fresh')" "[ \$(st) = 3 ] && ! grep -q -e docker-prod -e robotics-prod '$B.out'"
+box staging-not-in-status; mkdir -p "$B/work" "$B/var/lib/docker" "$B/var/lib/containerd"
+chk "status never asks for the staging entries (fresh box stays 'fresh')" "[ \$(st) = 3 ] && ! grep -q -e docker-staging -e robotics-staging '$B.out'"
 
 echo "== status: classification, and it never changes anything"
 box fresh-absent; before=$(sig)

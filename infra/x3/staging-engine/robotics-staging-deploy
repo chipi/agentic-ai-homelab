@@ -1,0 +1,89 @@
+#!/bin/bash
+# /usr/local/libexec/robotics-staging-deploy (root:root 755): the one way to the X3 staging engine (ADR-0013).
+# Run through sudo (/etc/sudoers.d/robotics-staging), never directly:
+#
+#   sudo robotics-staging-deploy up [<40-hex commit>]   deploy that commit of GitHub's main (default: main's head)
+#   sudo robotics-staging-deploy rollback               deploy the commit recorded before the current one
+#   sudo robotics-staging-deploy smoke                  the smoke without the browser
+#   sudo robotics-staging-deploy status                 what is recorded, what runs
+#   sudo robotics-staging-deploy stop                   stop the stack (containers kept), so the host's ports are free
+#
+# The code it runs comes from a root-owned checkout of https://github.com/chipi/robotics-lab, fetched
+# here, never from a checkout the operator's uid (and so every agent) can write. deploy.py runs as the
+# service user `robotics`, so the containers run under its UID and own staging's data. The browser part
+# of the smoke runs as the operator against 127.0.0.1; it needs no engine access.
+set -euo pipefail
+# The safety of a root script must not hang on sudoers' env_reset: start again with an empty environment.
+[ -n "${_RSD_CLEAN:-}" ] || exec env -i _RSD_CLEAN=1 PATH=/usr/local/sbin:/usr/local/bin:/usr/bin LANG=C.UTF-8 \
+  SUDO_USER="${SUDO_USER:-}" GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null /bin/bash "$0" "$@"
+
+REPO_URL=https://github.com/chipi/robotics-lab
+STG=/srv/robotics-lab
+CO=$STG/checkout
+INSTALLATION=/etc/robotics-staging/installation.json
+SVC=robotics
+PROJECT=robotics-lab
+
+usage() { echo "usage: robotics-staging-deploy up [<40-hex commit>] | rollback | smoke | status | stop" >&2; exit 2; }
+
+verb="${1:-}"; sha=""
+case "$verb" in
+  up)                    [ $# -le 2 ] || usage; sha="${2:-}"
+                         [ -z "$sha" ] || [[ $sha =~ ^[0-9a-f]{40}$ ]] || usage ;;
+  rollback|smoke|status|stop) [ $# = 1 ] || usage ;;
+  *)                     usage ;;
+esac
+
+[ "$(id -u)" = 0 ] || { echo "robotics-staging-deploy: must run as root, through sudo" >&2; exit 1; }
+for m in /var/lib/docker-staging "$STG"; do
+  mountpoint -q "$m" || { echo "robotics-staging-deploy: $m is not mounted (ADR-0013)" >&2; exit 1; }
+done
+logger -t robotics-staging-deploy "${SUDO_USER:-root}: $*"
+
+# status reads only: no lock, no fetch, and it still answers while docker-staging is down.
+if [ "$verb" != status ]; then
+  systemctl is-active --quiet docker-staging || { echo "robotics-staging-deploy: docker-staging is not running" >&2; exit 1; }
+  exec 9>/run/robotics-staging-deploy.lock
+  flock -n 9 || { echo "robotics-staging-deploy: another deploy is running" >&2; exit 1; }
+fi
+if [ "$verb" = status ] && ! systemctl is-active --quiet docker-staging; then
+  echo "robotics-staging-deploy: docker-staging is not running" >&2
+fi
+
+as_svc() {
+  cd "$STG/home"
+  exec setsid -w runuser -u "$SVC" -- env -i \
+    HOME="$STG/home" PATH=/usr/local/bin:/usr/bin LANG=C.UTF-8 TMPDIR="$STG/home/tmp" \
+    DOCKER_CONTEXT=staging PYTHONDONTWRITEBYTECODE=1 \
+    GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$CO" "$@"
+}
+
+# stop keeps the containers (a rollback to another engine needs the host's ports back).
+[ "$verb" = stop ] && as_svc docker --context staging compose -p "$PROJECT" stop
+
+# Only up fetches: rollback, smoke and status work from the checkout already here, so a GitHub outage
+# cannot block a rollback.
+if [ ! -d "$CO/.git" ]; then
+  git clone --quiet --no-checkout "$REPO_URL" "$CO"
+elif [ "$verb" = up ]; then
+  git -C "$CO" fetch --quiet origin main
+fi
+main=$(git -C "$CO" rev-parse --verify 'origin/main^{commit}')
+if [ -n "$sha" ]; then
+  git -C "$CO" cat-file -e "$sha^{commit}" 2>/dev/null \
+    && git -C "$CO" merge-base --is-ancestor "$sha" "$main" \
+    || { echo "robotics-staging-deploy: $sha is not a commit on GitHub's main" >&2; exit 1; }
+fi
+# The script deploy.py runs is always main's (as last fetched); it exports the commit it deploys with git archive.
+git -C "$CO" checkout --quiet --detach --force "$main"
+
+args=("$verb" --context staging
+      --data "$STG/data" --viewer-state "$STG/state/observatory" --control-state "$STG/state/mission-control"
+      --deploy-state "$STG/state/deploy" --installation "$INSTALLATION")
+case "$verb" in
+  up)             args+=(--commit "${sha:-$main}" --no-browser --robots-dir "$STG/robots") ;;
+  rollback)       args+=(--no-browser --robots-dir "$STG/robots") ;;
+  smoke)          args+=(--no-browser) ;;
+esac
+
+as_svc python3 "$CO/scripts/deploy.py" "${args[@]}"

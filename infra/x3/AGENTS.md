@@ -10,10 +10,10 @@ the same box for its own runs.
   --ff-only` + a restart deploys a change. Recipe: `docs/recipes/x3-deploy.md`.
 - **User units only** (`systemctl --user`, linger is on). No root on this box for our services;
   the operator runs the few `sudo` steps (ufw, `tailscale serve`) by hand. **The one exception:
-  robotics-lab's prod engine** (ADR-0013): `containerd-prod` and `docker-prod` system units, the
-  `robotics-prod-deploy` script and its sudoers rule, installed by the operator with
-  `x3-prod-engine-setup.sh`. Agents reach prod only through `sudo -n robotics-prod-deploy`, and
-  `up`/`rollback` only with the operator's go (`docs/recipes/x3-prod-engine.md`).
+  robotics-lab's staging engine** (ADR-0013): `containerd-staging` and `docker-staging` system units, the
+  `robotics-staging-deploy` script and its sudoers rule, installed by the operator with
+  `x3-staging-engine-setup.sh`. Agents reach staging only through `sudo -n robotics-staging-deploy`, and
+  `up`/`rollback` only with the operator's go (`docs/recipes/x3-staging-engine.md`).
 - **One Ollama on this box: the `ollama` unit** (operator, 2026-11-19; it was `ollama-assistant`). The eval harness's ad-hoc
   `ollama serve` on `127.0.0.1:11434` (a long-job since 2026-10-30, no model call after 11-03) was
   stopped and its long-job files deleted that day. Don't start a second `ollama serve`: anything that

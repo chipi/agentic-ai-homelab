@@ -1,0 +1,23 @@
+# The X3 staging engine's own containerd (ADR-0013). The distro's containerd.service, with its own
+# config: root on @docker-staging, its own state and sockets under /run/containerd-staging.
+[Unit]
+Description=containerd for the X3 staging engine (ADR-0013)
+Documentation=https://github.com/chipi/agentic-ai-homelab/blob/main/docs/adr/ADR-0013-x3-staging-docker-engine.md
+After=network.target dbus.service
+RequiresMountsFor=/var/lib/docker-staging
+
+[Service]
+ExecStartPre=-/usr/bin/modprobe overlay
+ExecStart=/usr/bin/containerd --config /etc/containerd-staging/config.toml
+Type=notify
+Delegate=yes
+KillMode=process
+Restart=always
+RestartSec=5
+LimitNPROC=infinity
+LimitCORE=infinity
+TasksMax=infinity
+OOMScoreAdjust=-999
+
+[Install]
+WantedBy=multi-user.target
