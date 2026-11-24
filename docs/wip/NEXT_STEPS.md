@@ -271,38 +271,25 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
       `@docker-staging`/`@robotics-staging`, two fstab lines, setup again), then robotics-lab's cut-over
       (`mission-control/docs/wip/PROD-CUTOVER.md` in robotics-lab, to be renamed). The first `up` builds images,
       so it waits for the maintenance window.
-- [ ] **robotics-lab backups** (operator, 2026-11-24: A + B1, on the existing Hetzner Storage Box):
-  - A: `/srv/robotics-lab/state` (SQLite), age-encrypted nightly into chipi/homelab-backup.
-  - B1: restic, `data` + `data-archive`, into a new Storage Box sub-account `homelab`, jailed to
-    `homelab/`. The sub-account is tofu in chipi/infra (`storage_box.tf`, like `audio_archive` and `pg_backup`):
-    infra's PR, the operator's go for `infra-apply`.
-  - Auth: SSH key on the sub-account (restic's sftp backend; port 23; `install-ssh-key`), not infra's
-    password pattern, which needs rclone.
-  - The tofu side probably still needs a password: both existing sub-accounts set one from a tofu var and are
-    gated on it (infra, 2026-11-24; unverified whether the hcloud provider requires it). So plan a new var
-    `homelab_storage_box_subaccount_password` and its GH secret for `infra-apply`, set by the operator. The SSH key goes
-    into the jail's `.ssh/authorized_keys` afterwards; tofu does not manage that.
-  - Known hosts: infra's pinned `infra/postgres/storagebox_known_hosts`.
-  - Runs as `robotics` from a system timer, a second exception to the X3's user-units rule.
-  - Needs the operator's yes to install `restic` (pacman) on the X3.
-  - The restic repository password goes in a mode-600 file plus the operator's password manager.
-  - The box's weekly snapshots (account level, out of a sub-account's reach) cover a leaked key.
-  - What to back up, from robotics-lab (2026-11-24, read from code, no restore tried):
-    - `state/mission-control`: everything. It holds sites, goals, run history, tokens (secrets) and
-      `profiles/`, the profile store, which is not rebuildable.
-    - `state/observatory`: `index.sqlite` and the renders are rebuildable (`observatory index`). The rest
-      waits on robotics-lab's keep/rebuild table.
-    - `state/deploy`: the `*.json` records; `trees/` is rebuildable.
-    - SQLite: never copy a live database with its WAL. Run `sqlite3 <db> ".backup <dest>"` per database first;
-      robotics-lab will list them.
-    - A finished run (`run.mcap`, no `writer.lock`) is not rewritten.
-    - `data` growth: an estimate of about 5-10 GB/month in batch weeks; 1.9 GB after 8 days today.
-  - Tools on the X3:
-    - `sqlite3`: present (`/usr/bin`).
-    - `age`, `rclone`: only as the operator's mise shims, so a system timer can't use them as they are.
-    - `restic`: absent.
-  - Later, the same sub-account pattern for other homelab backups (the mini's observability DB dumps,
-    n8n's database), one sub-account each.
+- [ ] **Homelab backups to the Hetzner Storage Box** ([ADR-0014](../adr/ADR-0014-homelab-backups-storage-box.md);
+      operator, 2026-11-24: everything to the box, restic, one sub-account per host). Order:
+  1. chipi/infra PR for sub-accounts `homelab_mini`/`homelab_x3`/`homelab_dgx` (operator's go for the PR given;
+     infra writes it). Then the operator's go for `infra-apply`, and the password secrets if the provider needs them.
+  2. Per host: `restic` installed (brew / pacman / apt), an SSH key into its jail, a repository password
+     (mode 600 + the password manager), and known hosts from infra's `storagebox_known_hosts`.
+  3. mini: `.env` files first, then the nightly dumps via restic. GitHub Releases keep running until 14 green nights.
+  4. X3: robotics-lab after its cut-over, from its keep table: `sqlite3 .backup` of `mission-control.sqlite`;
+     `state/mission-control`, `state/deploy/*.json` + `state/deploy/robotics-lab/`, `data`, `data-archive`.
+     Leave out the Observatory index and its backups, `deploy/trees`. Plus the runbook's `.env` files.
+     A system timer as `robotics`.
+  5. mini volumes (`n8n_n8n-data`, `backend_grafana-data`, `glitchtip_uploads`, `reverse-proxy_caddy_data`,
+     `reverse-proxy_flotilla_hosts_state`); Langfuse ClickHouse `BACKUP` + MinIO mirror.
+  6. DGX Open WebUI (`webui.db` via SQLite `.backup`).
+  7. Monthly restore test on the mini, with a metric and an alert.
+  - Open: why the mini's 2026-11-21 night failed (`OFFSITE FAIL: no files for stamp 20261121-043004`), and whether
+    `homelab-backup-offsite-stale` fired (11-20 03:50Z to 11-22 03:46Z is 48 h).
+  - Open: the box's usage against 1 TB (asked of infra). robotics-lab's data is estimated at 5-10 GB/month in batch weeks.
+  - X3 tools: `sqlite3` present; `age`/`rclone` only as the operator's mise shims; `restic` absent.
 - [ ] **Idea, backlog (operator, 2026-11-24: not now):** take the operator's uid out of the `docker` group,
       as the dev setup tightens. Today any agent can reach root through the system socket (`docker run -v /:/host`),
       so the prod engine's separation stops accidents, not a determined agent (ADR-0013, review finding B1).

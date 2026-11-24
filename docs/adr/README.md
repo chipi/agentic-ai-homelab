@@ -56,3 +56,4 @@ Keep it short. ADRs that grow past 200 lines usually need to be split.
 - [ADR-0011 — Workstation storage: /work and Docker leave the root rollback domain](ADR-0011-workstation-storage-subvolumes.md)
 - [ADR-0012 — tmux workspace persistence: durable topology, ephemeral processes](ADR-0012-tmux-workspace-persistence.md)
 - [ADR-0013 — A staging Docker engine on the X3 for robotics-lab, behind its own socket and a sudo-only deploy](ADR-0013-x3-staging-docker-engine.md)
+- [ADR-0014 — Homelab backups go to the Hetzner Storage Box, with restic, one sub-account per host](ADR-0014-homelab-backups-storage-box.md)
