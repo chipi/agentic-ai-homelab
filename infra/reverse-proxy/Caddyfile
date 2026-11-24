@@ -76,12 +76,40 @@ https://compare.tail6d0ed4.ts.net {
 	reverse_proxy evals-compare:8501
 }
 
-# The triage fleet's eval catalog — chipi/fleet-eval-data (private), static pages built by
-# infra/fleet-evals. Production-derived content: tailnet-only exposure is the access control.
+# The eval projects' catalogs and MCP servers (infra/evh-serve): fleet-eval-data, podcast-scraper-eval-data
+# and harness-bakeoff, all private. Item text and outputs are served unwithheld: tailnet-only exposure is
+# the access control. /mcp is the MCP server; it streams, so it is not compressed.
 https://fleet-evals.tail6d0ed4.ts.net {
 	bind tailscale/fleet-evals
-	encode zstd gzip
-	reverse_proxy fleet-evals-web:80
+	handle /mcp* {
+		reverse_proxy fleet-evals-mcp:8081
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy fleet-evals-catalog:8080
+	}
+}
+
+https://podcast-evals.tail6d0ed4.ts.net {
+	bind tailscale/podcast-evals
+	handle /mcp* {
+		reverse_proxy podcast-evals-mcp:8081
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy podcast-evals-catalog:8080
+	}
+}
+
+https://bakeoff-evals.tail6d0ed4.ts.net {
+	bind tailscale/bakeoff-evals
+	handle /mcp* {
+		reverse_proxy bakeoff-evals-mcp:8081
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy bakeoff-evals-catalog:8080
+	}
 }
 
 # Home Assistant — chipi/home-automation, deploy/homelab/. HA trusts this proxy's

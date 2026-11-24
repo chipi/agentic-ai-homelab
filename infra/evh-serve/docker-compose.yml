@@ -1,0 +1,76 @@
+# One instance per eval project, as its own compose project: update.sh runs
+#   docker compose -p <NAME> --env-file instances/<instance>.env ...
+# The checkout lives in a volume inside the engine's VM: through colima's mount a full read of
+# fleet-eval-data took 25 s against 0.9 s from a volume (2026-11-24), and the inspector and MCP read
+# it on every request.
+#
+# The guard (evh 0.8.0 offers study-ask and study-tell, which write and can run a trial, to any
+# non-public MCP server; eval-harness drops them on request in 0.8.2): the checkout is mounted
+# read-only, no model key is in any environment, EVAL_MAX_COST_USD=0, and the network is internal,
+# so nothing here reaches LiteLLM, the DGX or the internet. Caddy is its only other member.
+services:
+  sync:
+    profiles: [tools]
+    image: alpine/git:v2.49.1   # the harness ref is read from what this fetches, so not the harness image
+    network_mode: bridge        # the one step that reaches GitHub (a read-only deploy key)
+    environment:
+      REPO_URL: ${REPO_URL:?}
+      BRANCH: ${BRANCH:?}
+    volumes:
+      - repo:/project
+      - build:/project/.build
+      - ${DEPLOY_KEY:?}:/run/deploy_key:ro
+      - ./github_known_hosts:/run/known_hosts:ro
+      - ./sync.sh:/sync.sh:ro
+    entrypoint: ["sh", "/sync.sh"]
+
+  catalog-build:
+    profiles: [tools]
+    image: local/evh-serve:${HARNESS_REF:?}
+    network_mode: none
+    environment:
+      EVAL_MAX_COST_USD: "0"
+      COMMIT: ${COMMIT:-unknown}
+    volumes:
+      - repo:/project:ro
+      - build:/project/.build
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        set -e; rm -rf .build/next .build/old;
+        evh catalog --out .build/next ${CATALOG_ARGS:-};
+        printf %s "$$COMMIT" > .build/next/.deployed;
+        { [ ! -d .build/catalog ] || mv .build/catalog .build/old; };
+        mv .build/next .build/catalog; rm -rf .build/old
+
+  catalog:
+    image: local/evh-serve:${HARNESS_REF:?}
+    container_name: ${NAME:?}-catalog
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      EVAL_MAX_COST_USD: "0"
+    volumes:
+      - repo:/project:ro
+      - build:/project/.build
+    command: ["evh", "catalog-serve", "--behind-proxy", "${HOST:?}", "--bind", "0.0.0.0", "--port", "8080"]
+
+  mcp:
+    image: local/evh-serve:${HARNESS_REF:?}
+    container_name: ${NAME:?}-mcp
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      EVAL_MAX_COST_USD: "0"
+    volumes:
+      - repo:/project:ro
+    command: ["evh", "mcp", "--http", "--bind", "0.0.0.0", "--port", "8081", "--path", "/mcp", "--allowed-host", "${HOST:?}"]
+
+volumes:
+  repo:
+  build:
+
+networks:
+  default:
+    name: ${NAME:?}_internal
+    internal: true
