@@ -63,6 +63,8 @@ for i in $(seq 20); do [ -S "/run/user/$UID_R/bus" ] && break; sleep 0.5; done
 
 step "units and runner files in $HOMEDIR"
 install -d -m 755 -o "$U" -g "$U" "$HOMEDIR/.config" "$HOMEDIR/.config/systemd" "$HOMEDIR/.config/systemd/user" "$HOMEDIR/ci-runner"
+engine_changed=""
+cmp -s "$CR/docker.service" "$HOMEDIR/.config/systemd/user/docker.service" || engine_changed=1
 install -m 644 -o "$U" -g "$U" "$CR/docker.service" "$CR/ci-runner@.service" "$HOMEDIR/.config/systemd/user/"
 install -m 755 -o "$U" -g "$U" "$CR/entrypoint.sh" "$HOMEDIR/ci-runner/entrypoint.sh"
 ok "docker.service, ci-runner@.service, entrypoint.sh"
@@ -71,6 +73,8 @@ UC() { systemctl --user -M "$U@" "$@"; }
 step "the rootless engine"
 UC daemon-reload
 UC enable --now docker.service >/dev/null 2>&1
+# A changed engine unit takes effect only on a restart; it stops the runners' running jobs.
+if [ -n "$engine_changed" ]; then UC restart docker.service; ok "engine restarted for its changed unit"; fi
 for i in $(seq 30); do [ -S "/run/user/$UID_R/docker.sock" ] && break; sleep 1; done
 AS() { sudo -u "$U" env XDG_RUNTIME_DIR="/run/user/$UID_R" DOCKER_HOST="unix:///run/user/$UID_R/docker.sock" "$@"; }
 if AS docker info --format '{{.SecurityOptions}} {{.Driver}}' 2>/dev/null | grep -q rootless; then
