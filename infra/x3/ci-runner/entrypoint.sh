@@ -3,6 +3,9 @@
 # with the token register.sh left there; then run. Everything else (the work folder, tools a job
 # installs) lives in the container and is gone when it restarts.
 set -euo pipefail
+# Ubuntu's container images delete every downloaded .deb after an install; GitHub's runner VMs do
+# not, and jobs that cache their apt downloads (podcast_scraper's install-ffmpeg) count on them.
+rm -f /etc/apt/apt.conf.d/docker-clean
 cd /home/runner
 S=/home/runner/state
 for f in .runner .credentials .credentials_rsaparams; do
