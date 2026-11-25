@@ -1,0 +1,29 @@
+# One GitHub Actions runner, as a container on gh-runner's rootless engine (a user unit; ADR-0015).
+# %i is the instance, e.g. closelistening-studio-1; its settings are in ~/ci-runner/%i.env and its
+# registration in the volume ci-runner-%i (register.sh writes both). One runner takes one job at a time.
+[Unit]
+Description=GitHub Actions runner %i
+After=docker.service
+Requires=docker.service
+
+[Service]
+Environment=DOCKER_HOST=unix://%t/docker.sock
+Environment=IMAGE=ghcr.io/actions/actions-runner:2.338.2
+ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
+# Root in the container is gh-runner on the X3 (rootless), so the runner may run as root; that is
+# also what lets it open the engine's socket. --network host is the engine's own network, where a
+# job's service containers publish their ports.
+ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --network host \
+  --env-file %h/ci-runner/%i.env -e RUNNER_ALLOW_RUNASROOT=1 \
+  -v ci-runner-%i:/home/runner/state \
+  -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
+  -v %t/docker.sock:/var/run/docker.sock \
+  ${IMAGE} bash /entrypoint.sh
+ExecStop=/usr/bin/docker stop -t 60 ci-runner-%i
+Restart=always
+RestartSec=10
+# 3: not registered yet (entrypoint.sh); restarting would not help.
+RestartPreventExitStatus=3
+
+[Install]
+WantedBy=default.target

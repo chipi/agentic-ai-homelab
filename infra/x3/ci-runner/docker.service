@@ -1,0 +1,28 @@
+# gh-runner's rootless Docker engine (a user unit; ADR-0015). Docker's upstream rootless unit, with:
+# - PORT_DRIVER=none: a job's published ports (a service container's 5432:5432) stay inside this
+#   engine's network and are never bound on the X3's interfaces, LAN or tailnet;
+# - host loopback disabled (the script's default): a job cannot reach the X3's own 127.0.0.1.
+[Unit]
+Description=Docker Application Container Engine (rootless, CI)
+
+[Service]
+Environment=PATH=/usr/local/bin:/usr/bin
+Environment=DOCKERD_ROOTLESS_ROOTLESSKIT_PORT_DRIVER=none
+ExecStart=/usr/local/bin/dockerd-rootless.sh
+ExecReload=/bin/kill -s HUP $MAINPID
+TimeoutSec=0
+RestartSec=2
+Restart=always
+StartLimitBurst=3
+StartLimitInterval=60s
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+TasksMax=infinity
+Delegate=yes
+Type=notify
+NotifyAccess=all
+KillMode=mixed
+
+[Install]
+WantedBy=default.target

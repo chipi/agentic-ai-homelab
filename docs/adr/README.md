@@ -57,3 +57,4 @@ Keep it short. ADRs that grow past 200 lines usually need to be split.
 - [ADR-0012 — tmux workspace persistence: durable topology, ephemeral processes](ADR-0012-tmux-workspace-persistence.md)
 - [ADR-0013 — A staging Docker engine on the X3 for robotics-lab, behind its own socket and a sudo-only deploy](ADR-0013-x3-staging-docker-engine.md)
 - [ADR-0014 — Homelab backups go to the Hetzner Storage Box, with restic, one sub-account per host](ADR-0014-homelab-backups-storage-box.md)
+- [ADR-0015 — The private repos' GitHub Actions run on self-hosted runners, rootless, on the X3 first](ADR-0015-x3-github-actions-runners.md)

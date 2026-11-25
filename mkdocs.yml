@@ -134,6 +134,7 @@ nav:
     - ADR-0012 — tmux workspace persistence: adr/ADR-0012-tmux-workspace-persistence.md
     - ADR-0013 — X3 staging Docker engine: adr/ADR-0013-x3-staging-docker-engine.md
     - ADR-0014 — Homelab backups on the Storage Box: adr/ADR-0014-homelab-backups-storage-box.md
+    - ADR-0015 — GitHub Actions runners on the X3: adr/ADR-0015-x3-github-actions-runners.md
   - Proposals (RFC):
     - Overview: rfc/README.md
     - RFC-0001 — LiteLLM ↔ Langfuse capture: rfc/RFC-0001-litellm-langfuse-capture.md
