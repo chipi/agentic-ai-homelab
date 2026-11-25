@@ -251,6 +251,18 @@ adopts a piece, delete homelab's copy in the same change (dashboards share uids)
 
 ## X3 (operator picks the window; layout codified 2026-10-16)
 
+- [ ] **Self-hosted Actions runners, next repos** ([ADR-0015](../adr/ADR-0015-x3-github-actions-runners.md)).
+      Done 2026-11-25: closelistening-studio's Tests run on `x3-closelistening-studio-1` (#20 merged;
+      main 3f942746a green, run 45712960038); runners for player and common registered and online,
+      each on its own rootless engine; a fresh container per job. **Open, in this order:**
+      1. Prove the fresh container per job: database's Studio PR (refs move with public #2557) is the
+         first push since it; e2e must pass after another job on the same runner.
+      2. After the 2026-11-26 morning deploy (operator, 2026-11-25): common's `runs-on` PR (one job),
+         then player (six jobs: register `closelistening-player-2` and `-3`, its session changes
+         `runs-on`), then closelistening-integration.
+      3. Later: true ephemeral runners (a token that may register runners), an image prune per engine,
+         runner metrics and an alert; move everything to the CI mini PC when it arrives.
+
 - [ ] **Storage separation window** — move `/work`, `/var/lib/docker`,
       `/var/lib/containerd` into `@work`, `@docker`, `@containerd`
       ([ADR-0011](../adr/ADR-0011-workstation-storage-subvolumes.md)) with the
