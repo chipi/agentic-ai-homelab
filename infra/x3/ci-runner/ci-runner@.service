@@ -12,8 +12,10 @@ Environment=IMAGE=ghcr.io/actions/actions-runner:2.338.2
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
 # Root in the container is gh-runner on the X3 (rootless), so the runner may run as root; that is
 # also what lets it open the engine's socket. --network host is the engine's own network, where a
-# job's service containers publish their ports.
-ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --network host \
+# job's service containers publish their ports. Jobs written for GitHub's runners call sudo; this
+# image's /etc/sudoers allows only the sudo group (no sudoers.d), and a group added after start does
+# not reach the running process, so root joins it here (--group-add sudo).
+ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo --network host \
   --env-file %h/ci-runner/%i.env -e RUNNER_ALLOW_RUNASROOT=1 \
   -v ci-runner-%i:/home/runner/state \
   -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
