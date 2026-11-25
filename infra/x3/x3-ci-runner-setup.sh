@@ -63,8 +63,10 @@ for i in $(seq 20); do [ -S "/run/user/$UID_R/bus" ] && break; sleep 0.5; done
 
 step "units and runner files in $HOMEDIR"
 install -d -m 755 -o "$U" -g "$U" "$HOMEDIR/.config" "$HOMEDIR/.config/systemd" "$HOMEDIR/.config/systemd/user" "$HOMEDIR/ci-runner"
-engine_changed=""
+engine_changed=""; runner_changed=""
 cmp -s "$CR/docker.service" "$HOMEDIR/.config/systemd/user/docker.service" || engine_changed=1
+cmp -s "$CR/ci-runner@.service" "$HOMEDIR/.config/systemd/user/ci-runner@.service" || runner_changed=1
+cmp -s "$CR/entrypoint.sh" "$HOMEDIR/ci-runner/entrypoint.sh" || runner_changed=1
 install -m 644 -o "$U" -g "$U" "$CR/docker.service" "$CR/ci-runner@.service" "$HOMEDIR/.config/systemd/user/"
 install -m 755 -o "$U" -g "$U" "$CR/entrypoint.sh" "$HOMEDIR/ci-runner/entrypoint.sh"
 ok "docker.service, ci-runner@.service, entrypoint.sh"
@@ -93,6 +95,13 @@ if AS docker run --rm -d --name ci-smoke -p 15432:80 nginx:alpine >/dev/null 2>&
   [ "$host" != 200 ] && ok "port not on the X3 itself (${host:-000})" || bad "port is published on the X3"
 else
   bad "could not run a container"
+fi
+
+if [ -n "$runner_changed$engine_changed" ]; then
+  step "runners: restart the registered ones for their changed files (a running job is stopped)"
+  for u in $(UC list-units --all --plain --no-legend 'ci-runner@*' 2>/dev/null | awk '{print $1}'); do
+    UC restart "$u" && ok "restarted $u" || bad "could not restart $u"
+  done
 fi
 
 echo
