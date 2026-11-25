@@ -7,7 +7,7 @@ when it arrives.
 | Piece | What it does |
 |---|---|
 | `../x3-ci-runner-setup.sh` | as root, once: the packages, the `gh-runner` user, the cap, its rootless engine, a smoke test |
-| `docker.service` | gh-runner's rootless Docker engine (user unit); publishes no port on the X3 |
+| `docker@.service` | one rootless Docker engine per runner (user unit), e.g. `docker@closelistening-studio-1`; publishes no port on the X3 |
 | `ci-runner@.service` | one runner container per instance (user unit), e.g. `ci-runner@closelistening-studio-1` |
 | `entrypoint.sh` | inside the container: restore or make the registration, then run |
 | `register.sh` | as root, per runner: write its settings, hand it a registration token, start it |
@@ -27,7 +27,7 @@ sudo bash ~/deploy/agentic-ai-homelab/infra/x3/ci-runner/register.sh <repo> 1 <f
 ## Operate
 
 - Status: `sudo systemctl --user -M gh-runner@ status 'ci-runner@*'`; the runner's log:
-  `sudo -u gh-runner env XDG_RUNTIME_DIR=/run/user/$(id -u gh-runner) DOCKER_HOST=unix:///run/user/$(id -u gh-runner)/docker.sock docker logs ci-runner-<instance>`.
+  `sudo -u gh-runner env XDG_RUNTIME_DIR=/run/user/$(id -u gh-runner) DOCKER_HOST=unix:///run/user/$(id -u gh-runner)/e-<instance>/docker.sock docker logs ci-runner-<instance>`.
 - The cap: `systemctl show user-$(id -u gh-runner).slice -p CPUQuotaPerSecUSec -p MemoryMax`.
 - A new runner image: change `IMAGE` in `ci-runner@.service`, rerun the setup, restart the instances.
 - The runner does not update itself (`--disableupdate`); GitHub refuses runners that fall too far
@@ -36,7 +36,7 @@ sudo bash ~/deploy/agentic-ai-homelab/infra/x3/ci-runner/register.sh <repo> 1 <f
 ## Not covered
 
 - Ephemeral runners (a fresh container per job): needs a token that may register runners.
-- Two runners with services on the same port at once: one engine for all of them (ADR-0015).
+- Disk use: each runner's engine keeps its own images (`~gh-runner/.local/share/docker-<runner>`); nothing prunes them yet.
 - Docker-based actions (`uses: docker://…`, a Dockerfile action) mount the work folder by host path,
   which this layout does not provide. None of closelistening-studio's jobs use one.
 - No metrics or alert on the runners yet.

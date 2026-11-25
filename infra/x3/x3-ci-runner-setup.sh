@@ -1,6 +1,6 @@
 #!/bin/bash
 # The X3 — self-hosted GitHub Actions runners for the private repos (ADR-0015): a service user
-# `gh-runner` outside the docker group, its own rootless Docker engine, and one container per runner.
+# `gh-runner` outside the docker group, and per runner a container on its own rootless Docker engine.
 # Everything gh-runner runs is capped together in its user slice (8 cores, 32 GB), so CI cannot
 # starve the operator's sessions or robotics-lab. The system engine is never touched.
 #
@@ -8,9 +8,9 @@
 #   sudo bash ~/deploy/agentic-ai-homelab/infra/x3/x3-ci-runner-setup.sh
 # Then register a runner per repo with ci-runner/register.sh (it prints the next step).
 #
-# Undo: for each instance, systemctl --user -M gh-runner@ disable --now ci-runner@<instance>, and
-#       delete the runner in the repo's Settings → Actions → Runners; then
-#       systemctl --user -M gh-runner@ disable --now docker; loginctl disable-linger gh-runner;
+# Undo: for each instance, systemctl --user -M gh-runner@ disable --now ci-runner@<instance>
+#       docker@<instance>, and delete the runner in the repo's Settings → Actions → Runners; then
+#       loginctl disable-linger gh-runner;
 #       userdel -r gh-runner; remove /etc/systemd/system/user-<uid>.slice.d/50-ci-cap.conf,
 #       /usr/local/bin/dockerd-rootless.sh and the gh-runner lines in /etc/subuid and /etc/subgid;
 #       pacman -Rs rootlesskit slirp4netns.
@@ -61,43 +61,60 @@ loginctl enable-linger "$U"
 for i in $(seq 20); do [ -S "/run/user/$UID_R/bus" ] && break; sleep 0.5; done
 [ -S "/run/user/$UID_R/bus" ] && ok "user manager up" || bad "no user manager for $U"
 
+
 step "units and runner files in $HOMEDIR"
-install -d -m 755 -o "$U" -g "$U" "$HOMEDIR/.config" "$HOMEDIR/.config/systemd" "$HOMEDIR/.config/systemd/user" "$HOMEDIR/ci-runner"
-engine_changed=""; runner_changed=""
-cmp -s "$CR/docker.service" "$HOMEDIR/.config/systemd/user/docker.service" || engine_changed=1
-cmp -s "$CR/ci-runner@.service" "$HOMEDIR/.config/systemd/user/ci-runner@.service" || runner_changed=1
+UD="$HOMEDIR/.config/systemd/user"
+install -d -m 755 -o "$U" -g "$U" "$HOMEDIR/.config" "$HOMEDIR/.config/systemd" "$UD" "$HOMEDIR/ci-runner"
+runner_changed=""
+for f in docker@.service ci-runner@.service; do cmp -s "$CR/$f" "$UD/$f" || runner_changed=1; done
 cmp -s "$CR/entrypoint.sh" "$HOMEDIR/ci-runner/entrypoint.sh" || runner_changed=1
-install -m 644 -o "$U" -g "$U" "$CR/docker.service" "$CR/ci-runner@.service" "$HOMEDIR/.config/systemd/user/"
+install -m 644 -o "$U" -g "$U" "$CR/docker@.service" "$CR/ci-runner@.service" "$UD/"
 install -m 755 -o "$U" -g "$U" "$CR/entrypoint.sh" "$HOMEDIR/ci-runner/entrypoint.sh"
-ok "docker.service, ci-runner@.service, entrypoint.sh"
+ok "docker@.service, ci-runner@.service, entrypoint.sh"
 
 UC() { systemctl --user -M "$U@" "$@"; }
-step "the rootless engine"
+# AS <instance> <command…>: a command as gh-runner against that instance's engine.
+AS() { local i=$1; shift; sudo -u "$U" env XDG_RUNTIME_DIR="/run/user/$UID_R" DOCKER_HOST="unix:///run/user/$UID_R/e-$i/docker.sock" "$@"; }
 UC daemon-reload
-UC enable --now docker.service >/dev/null 2>&1
-# A changed engine unit takes effect only on a restart; it stops the runners' running jobs.
-if [ -n "$engine_changed" ]; then UC restart docker.service; ok "engine restarted for its changed unit"; fi
-for i in $(seq 30); do [ -S "/run/user/$UID_R/docker.sock" ] && break; sleep 1; done
-AS() { sudo -u "$U" env XDG_RUNTIME_DIR="/run/user/$UID_R" DOCKER_HOST="unix:///run/user/$UID_R/docker.sock" "$@"; }
-if AS docker info --format '{{.SecurityOptions}} {{.Driver}}' 2>/dev/null | grep -q rootless; then
-  ok "rootless engine: $(AS docker info --format '{{.ServerVersion}}, {{.Driver}}, {{.DockerRootDir}}')"
-else
-  bad "the rootless engine is not up: journalctl _UID=$UID_R -n 30"
+
+# Until 2026-11-25 all runners shared one engine (docker.service); each now has its own.
+if [ -f "$UD/docker.service" ]; then
+  step "retire the shared engine of the first version"
+  UC disable --now docker.service >/dev/null 2>&1
+  rm -f "$UD/docker.service"; UC daemon-reload
+  rm -rf "$HOMEDIR/.local/share/docker"
+  ok "docker.service stopped and removed, with its images and volumes"
+  echo "NOTE  runners registered on it lost their registration: register each again with register.sh"
 fi
 
-step "smoke: a container runs, a published port stays inside the engine"
-if AS docker run --rm -d --name ci-smoke -p 15432:80 nginx:alpine >/dev/null 2>&1; then
+step "smoke: two engines side by side, each publishing port 15432, neither on the X3"
+smoke_ok=1
+for i in smoke-a smoke-b; do
+  UC start "docker@$i.service" >/dev/null 2>&1
+  for t in $(seq 40); do [ -S "/run/user/$UID_R/e-$i/docker.sock" ] && break; sleep 1; done
+  if AS "$i" docker info --format '{{json .SecurityOptions}}' 2>/dev/null | grep -q rootless \
+     && AS "$i" docker run -d --name ci-smoke -p 15432:80 nginx:alpine >/dev/null 2>&1; then
+    ok "engine $i up, a container publishing 15432"
+  else
+    bad "engine $i: no rootless engine or no container (journalctl _UID=$UID_R -n 30)"; smoke_ok=""
+  fi
+done
+if [ -n "$smoke_ok" ]; then
   sleep 2
-  inside=$(AS docker run --rm --network host curlimages/curl -s -o /dev/null -w '%{http_code}' -m 5 http://127.0.0.1:15432/ 2>/dev/null)
+  for i in smoke-a smoke-b; do
+    inside=$(AS "$i" docker run --rm --network host curlimages/curl -s -o /dev/null -w '%{http_code}' -m 8 http://127.0.0.1:15432/ 2>/dev/null)
+    [ "$inside" = 200 ] && ok "engine $i: port reachable inside its own network (200)" || bad "engine $i: port not reachable inside ($inside)"
+  done
   host=$(curl -s -o /dev/null -w '%{http_code}' -m 3 http://127.0.0.1:15432/ 2>/dev/null)
-  AS docker rm -f ci-smoke >/dev/null 2>&1
-  [ "$inside" = 200 ] && ok "port reachable inside the engine (200)" || bad "port not reachable inside the engine ($inside)"
   [ "$host" != 200 ] && ok "port not on the X3 itself (${host:-000})" || bad "port is published on the X3"
-else
-  bad "could not run a container"
 fi
+for i in smoke-a smoke-b; do
+  AS "$i" docker rm -f ci-smoke >/dev/null 2>&1
+  UC stop "docker@$i.service" >/dev/null 2>&1
+  rm -rf "$HOMEDIR/.local/share/docker-$i"
+done
 
-if [ -n "$runner_changed$engine_changed" ]; then
+if [ -n "$runner_changed" ]; then
   step "runners: restart the registered ones for their changed files (a running job is stopped)"
   for u in $(UC list-units --all --plain --no-legend 'ci-runner@*' 2>/dev/null | awk '{print $1}'); do
     UC restart "$u" && ok "restarted $u" || bad "could not restart $u"

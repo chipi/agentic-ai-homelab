@@ -50,9 +50,10 @@ organization or an enterprise, not on a personal account: each repo gets its own
 
 - One runner runs one job at a time. More jobs at once means more runner instances (`register.sh
   <repo> 2`), all inside the same cap.
-- **Two runners cannot both run a job with a service on the same port** (two Postgres on 5432):
-  they share one engine and one network. Until this is solved (one engine per runner), a repo whose
-  jobs use services runs one runner.
+- **Each runner has its own rootless engine** (`docker@<runner>`), with its own network and image
+  store, so two runners' jobs can each start a Postgres on 5432 (tested 2026-11-25). The first
+  version shared one engine; studio, player and common all use a 5432 service, so it would have
+  collided. The cost is disk: each engine pulls its own images.
 - The runner is not ephemeral: a job sees what the previous job on that runner left in the
   container. Acceptable for the operator's own private repos; an ephemeral runner needs a token
   that may register runners, which a later step can add.

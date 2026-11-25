@@ -1,18 +1,23 @@
-# gh-runner's rootless Docker engine (a user unit; ADR-0015). Docker's upstream rootless unit, with:
-# - PORT_DRIVER=none: a job's published ports (a service container's 5432:5432) stay inside this
-#   engine's network and are never bound on the X3's interfaces, LAN or tailnet;
+# One rootless Docker engine per runner (a user unit of gh-runner; ADR-0015). %i is the runner
+# instance, e.g. closelistening-player-1. Its own runtime folder, image store and network, so two
+# runners' jobs can both start a Postgres on 5432 (tested 2026-11-25: two engines publishing the same
+# port, each reachable inside its own network, neither on the X3). Docker's upstream rootless unit, with:
+# - PORT_DRIVER=none: a job's published ports stay inside this engine's network and are never bound
+#   on the X3's interfaces, LAN or tailnet;
 # - host loopback disabled (the script's default): a job cannot reach the X3's own 127.0.0.1;
 # - DETACH_NETNS=false: the engine's bridge networks and a --network host container share one
 #   namespace, so the runner reaches a job's service on 127.0.0.1 (detached, host-net reached
 #   neither a container's address nor a published port; 2026-11-25 diagnosis).
 [Unit]
-Description=Docker Application Container Engine (rootless, CI)
+Description=Docker engine (rootless) for runner %i
 
 [Service]
 Environment=PATH=/usr/local/bin:/usr/bin
+Environment=XDG_RUNTIME_DIR=%t/e-%i
 Environment=DOCKERD_ROOTLESS_ROOTLESSKIT_PORT_DRIVER=none
 Environment=DOCKERD_ROOTLESS_ROOTLESSKIT_DETACH_NETNS=false
-ExecStart=/usr/local/bin/dockerd-rootless.sh
+ExecStartPre=/usr/bin/mkdir -p -m 700 %t/e-%i
+ExecStart=/usr/local/bin/dockerd-rootless.sh --data-root %h/.local/share/docker-%i
 ExecReload=/bin/kill -s HUP $MAINPID
 TimeoutSec=0
 RestartSec=2

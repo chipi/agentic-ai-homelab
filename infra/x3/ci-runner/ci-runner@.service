@@ -3,11 +3,11 @@
 # registration in the volume ci-runner-%i (register.sh writes both). One runner takes one job at a time.
 [Unit]
 Description=GitHub Actions runner %i
-After=docker.service
-Requires=docker.service
+After=docker@%i.service
+Requires=docker@%i.service
 
 [Service]
-Environment=DOCKER_HOST=unix://%t/docker.sock
+Environment=DOCKER_HOST=unix://%t/e-%i/docker.sock
 Environment=IMAGE=ghcr.io/actions/actions-runner:2.338.2
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
 # Root in the container is gh-runner on the X3 (rootless), so the runner may run as root; that is
@@ -19,7 +19,7 @@ ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo
   --env-file %h/ci-runner/%i.env -e RUNNER_ALLOW_RUNASROOT=1 \
   -v ci-runner-%i:/home/runner/state \
   -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
-  -v %t/docker.sock:/var/run/docker.sock \
+  -v %t/e-%i/docker.sock:/var/run/docker.sock \
   ${IMAGE} bash /entrypoint.sh
 ExecStop=/usr/bin/docker stop -t 60 ci-runner-%i
 Restart=always
