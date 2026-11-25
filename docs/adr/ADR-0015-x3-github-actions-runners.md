@@ -54,9 +54,7 @@ organization or an enterprise, not on a personal account: each repo gets its own
   store, so two runners' jobs can each start a Postgres on 5432 (tested 2026-11-25). The first
   version shared one engine; studio, player and common all use a 5432 service, so it would have
   collided. The cost is disk: each engine pulls its own images.
-- The runner is not ephemeral: a job sees what the previous job on that runner left in the
-  container. Acceptable for the operator's own private repos; an ephemeral runner needs a token
-  that may register runners, which a later step can add.
+- Each job gets a fresh container (a job-completed hook stops the runner, systemd starts a new one): on 2026-11-25 a job's leftover server and files broke the next job's e2e. The registration itself is kept, so the runner is not ephemeral in GitHub's sense; that needs a token that may register runners.
 - If the X3 is off, the jobs wait; GitHub does not fall back to its own runners.
 - macOS jobs stay on GitHub.
 - Never attach a runner to a public repo: a fork's pull request would run code on the X3.

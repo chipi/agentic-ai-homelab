@@ -35,7 +35,7 @@ sudo bash ~/deploy/agentic-ai-homelab/infra/x3/ci-runner/register.sh <repo> 1 <f
 
 ## Not covered
 
-- Ephemeral runners (a fresh container per job): needs a token that may register runners.
+- Ephemeral registration: each job gets a fresh container, but the runner keeps its registration (a token that may register runners would allow true ephemeral runners). Between a job's end and the restart (about 2 s) the runner could take another job; that job would then be cut off.
 - Disk use: each runner's engine keeps its own images (`~gh-runner/.local/share/docker-<runner>`); nothing prunes them yet.
 - Docker-based actions (`uses: docker://…`, a Dockerfile action) mount the work folder by host path,
   which this layout does not provide. None of closelistening-studio's jobs use one.

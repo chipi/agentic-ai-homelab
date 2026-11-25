@@ -18,4 +18,18 @@ if [ ! -f .runner ]; then
   cp .runner .credentials .credentials_rsaparams "$S/"
   rm -f "$S/token"
 fi
-exec ./run.sh
+# One job per container, as on GitHub's VMs: a job left its API server on its port, or its
+# web/.e2e-corpus, and the next job's e2e web server "exited early" (studio main, 2026-11-25). The
+# job-completed hook marks the job done; once its worker has exited, the runner stops cleanly and
+# systemd starts a fresh container (Restart=always). The registration survives in the state volume.
+printf '#!/bin/sh\ntouch /tmp/.job-done\n' > /tmp/job-done.sh && chmod 755 /tmp/job-done.sh
+export ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/tmp/job-done.sh
+./run.sh & pid=$!
+while kill -0 "$pid" 2>/dev/null; do
+  if [ -f /tmp/.job-done ] && ! pgrep -f Runner.Worker >/dev/null; then
+    echo "job finished: stopping for a fresh container"
+    kill -INT "$pid"; wait "$pid"; exit 0
+  fi
+  sleep 2
+done
+wait "$pid"
