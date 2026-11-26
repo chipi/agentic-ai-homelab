@@ -25,6 +25,7 @@ services:
       - langfuse
       - home-automation
       - plumbing
+      - mcp
     environment:
       HA_PROMETHEUS_TOKEN: ${HA_PROMETHEUS_TOKEN:?set HA_PROMETHEUS_TOKEN (Home Assistant long-lived token) in .env}
     volumes:
@@ -77,6 +78,10 @@ networks:
   plumbing:
     external: true
     name: plumbing
+  # sb-mcp's /metrics, by container name (infra/second-brain owns the network; its stack must be up first).
+  mcp:
+    external: true
+    name: mcp
 
 volumes:
   alloy-data:

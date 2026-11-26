@@ -124,6 +124,16 @@ prometheus.scrape "n8n" {
   scrape_interval = "30s"
 }
 
+// ---------- second-brain (infra/second-brain, sb serve for flotilla's reads worker) ----------
+// /metrics is unauthenticated (only /mcp takes the token); scraped over the internal `mcp` network.
+// The weekly build's own metrics are pushed (job="second-brain" too, from update.sh).
+prometheus.scrape "second_brain" {
+  targets         = [{ __address__ = "sb-mcp:8790", instance = "homelab" }]
+  forward_to      = [prometheus.remote_write.local.receiver]
+  job_name        = "second-brain"
+  scrape_interval = "30s"
+}
+
 // ---------- Home Assistant (chipi/home-automation) ----------
 // HA's /api/prometheus (its `prometheus:` integration, filtered to the entities worth
 // keeping), over home-automation_default by container name. Bearer token: a long-lived HA

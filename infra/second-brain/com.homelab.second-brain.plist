@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- second-brain's weekly run (update.sh): Sundays 05:30 local, after docker-prune (04:00) and the
+     nightly backup (04:30). -->
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.homelab.second-brain</string>
+    <key>UserName</key><string>markodragoljevic</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH HOME=/Users/markodragoljevic; exec /Users/markodragoljevic/agentic-ai-homelab/infra/second-brain/update.sh</string>
+    </array>
+    <key>WorkingDirectory</key><string>/Users/markodragoljevic/agentic-ai-homelab/infra/second-brain</string>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key><integer>0</integer>
+        <key>Hour</key><integer>5</integer>
+        <key>Minute</key><integer>30</integer>
+    </dict>
+    <key>StandardOutPath</key><string>/tmp/second-brain.log</string>
+    <key>StandardErrorPath</key><string>/tmp/second-brain.log</string>
+</dict>
+</plist>
