@@ -12,7 +12,7 @@
 #             n8n's editor and nothing of flotilla's. Deploy this stack before reverse-proxy.
 #   mcp       n8n and flotilla's reads proxy (egress-reads), an EXTERNAL network created before this stack: n8n's MCP read servers
 #             (case 1, flows/case1-mcp-*.json) at http://n8n:5678/mcp/<path>. Not internal: the network is flotilla's plan, n8n joins it only.
-#   litellm_clients  EXTERNAL, created by infra/litellm: n8n and the LiteLLM gateway only (the second brain agent's model, RFC-0010 A4); not LiteLLM's default network, which holds its database.
+#   litellm_clients  EXTERNAL and INTERNAL, made by hand (`docker network create --internal litellm_clients`; infra/n8n/README.md): n8n and the LiteLLM gateway only (the second brain agent's model, RFC-0010 A4). Internal, so joining it gives n8n no route around the egress proxy; not LiteLLM's default network, which holds its database.
 #   egress    n8n and its egress proxy only (the second brain Slack bridge joins it too: it reaches Slack through the proxy).
 #   sbbridge  n8n and the second brain Slack bridge (sb-bridge/docker-compose.yml, RFC-0010 A4): the bridge posts mentions to n8n's webhook here.
 #   out       the proxy alone: its way to the internet. n8n itself has no route out.
@@ -131,7 +131,7 @@ networks:
     internal: true
   litellm_clients:
     name: litellm_clients
-    external: true   # created by infra/litellm (its gateway joins it, its database does not): n8n reaches http://litellm:4000/v1 here and nothing else of LiteLLM's
+    external: true   # made by hand as an --internal network, joined by the LiteLLM gateway only (not its database): n8n reaches http://litellm:4000/v1 here and nothing else of LiteLLM's
   sbbridge:
     name: sbbridge   # n8n and the second brain Slack bridge (sb-bridge/docker-compose.yml) only: the bridge reaches the mention webhook, nothing else
     internal: true

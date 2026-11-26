@@ -30,7 +30,7 @@ WS_PUBLIC_PORT = int(os.environ.get("WS_PUBLIC_PORT", WS_PORT))   # the port the
 BOT = os.environ.get("BOT_USER", "U0BOT00001")
 LOCK = threading.Lock()
 LOG = []
-S = {"threads": {}, "n": 0, "opened": 0, "conn": None, "env": 0, "mode": ""}
+S = {"threads": {}, "n": 0, "opened": 0, "conn": None, "env": 0, "mode": "", "fail_opens": 0}
 
 
 def send_frame(sock, opcode, data):
@@ -166,6 +166,8 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/__set":
             d = json.loads(raw)
             with LOCK:
+                if "fail_opens" in d:
+                    S["fail_opens"] = d["fail_opens"]
                 if "mode" in d:
                     S["mode"] = d["mode"]
                 if "threads" in d:
@@ -188,6 +190,10 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/apps.connections.open":
             with LOCK:
                 good = self.authed("SLACK_APP_TOKEN")
+                if good and S["fail_opens"] > 0:   # Slack refusing one apps.connections.open (ratelimited)
+                    S["fail_opens"] -= 1
+                    LOG.append({"call": "open", "auth": True, "failed": True, "t": time.time()})
+                    return self.send(200, {"ok": False, "error": "ratelimited"})
                 LOG.append({"call": "open", "auth": good, "t": time.time()})
                 if not good:
                     return self.send(200, {"ok": False, "error": "invalid_auth"})

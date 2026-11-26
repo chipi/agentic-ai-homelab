@@ -110,7 +110,8 @@ return [{ json: { valid: true, code: 200, response: { ok: true }, event: { chann
   respond('Refuse', '={{ $json.code }}', '={{ JSON.stringify($json.response) }}'),
   respond('Accept', '={{ $json.code }}', '={{ JSON.stringify($json.response) }}'),   // 200 at once: the rest runs after the bridge has its answer
   code('Decide', `// once per mention. The channel with ts, and the event id, are kept in THIS workflow's static data (the newest ${KEEP_SEEN}); this execution ends
-// in milliseconds (the agent runs in a separate execution, see 'Run'), so the keys are saved before the agent starts and a second delivery stops here.
+// in milliseconds (the agent runs in a separate execution, see 'Run'): the keys are saved when this one ends, a few ms after the agent was started, so a
+// second delivery that arrives while the agent runs stops here. Check-then-save, not a lock, and not exactly-once: see the README.
 const e = $input.first().json.event, sd = $getWorkflowStaticData('global');
 const k1 = e.channel + ':' + e.ts, k2 = 'ev:' + e.event_id;
 const seen = sd.seen || {};

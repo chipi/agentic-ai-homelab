@@ -2,7 +2,7 @@
 # Slack Socket Mode in, one signed POST to n8n's webhook out. It runs bridge.js in n8n's own image (the same pinned tag as ../docker-compose.yml:
 # Node's built-in WebSocket and fetch, no npm package, no build). Start the n8n stack first: it creates the two networks joined here.
 #   sbbridge   n8n and this bridge only (internal): the bridge reaches http://n8n:5678/webhook/second-brain-mention, nothing else.
-#   n8n_egress n8n's egress proxy (Smokescreen): the bridge's only way out; slack.com and *.slack.com are in ../egress/acl.yaml.
+#   n8n_egress n8n's egress proxy (Smokescreen): the bridge's only way out; slack.com, wss-primary.slack.com and wss-backup.slack.com are in ../egress/acl.yaml.
 # Secrets (mode 600, never in git, only their paths are in this file): ~/n8n/sb-bridge/slack-app.token (the app-level token, xapp-..., scope
 # connections:write) and ~/n8n/sb-bridge/hook.secret (the HMAC secret, the same file install-sb-agent.sh reads as SB_BRIDGE_SECRET_FILE).
 #   cd infra/n8n/sb-bridge && docker compose up -d

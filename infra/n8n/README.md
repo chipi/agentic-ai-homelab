@@ -339,10 +339,10 @@ once. It forwards `app_mention`s by a person (no `bot_id`; no `subtype` but `fil
 - **Forward retries:** a forward that got no 2xx (n8n down, being recreated, or not yet serving the webhook: no answer, 5xx, 404) is retried with
   backoff (1, 2, 4, 8, 16 s) for up to 2 minutes (`FORWARD_BUDGET_MS`), which covers the planned n8n recreate; a 400 or 401 is the webhook refusing the
   event and is not retried; **nothing is retried after a 2xx**, and the webhook answers 200 before it does any work. The mention is held in memory
-  only: a bridge restart inside that window loses it. Slack's own retries of an `event_id` are forwarded once.
+  only: a bridge restart inside that window loses it, and so does a mention whose budget runs out (logged as `forward gave up`: channel, ts, event_id, status; never the text; the id is already marked seen, so Slack's retry of it is not forwarded again). Slack's own retries of an `event_id` are forwarded once.
 - **Connection:** a failed or closed socket reconnects with backoff (1 s doubling to 30 s, jitter); **only** Slack's `disconnect` with reason
   `refresh_requested` reconnects at once. The backoff resets only after a socket stayed up 30 s (`STABLE_MS`), so a socket that gets `hello` and is then
-  closed (`too_many_websockets`) cannot loop. A socket that has not opened in 15 s (`CONNECT_TIMEOUT_MS`) is dropped and retried.
+  closed (`too_many_websockets`) cannot loop. A socket that has not opened in 15 s (`CONNECT_TIMEOUT_MS`) is dropped and retried; a refresh that fails (the open refused, no handshake) is retried with the same backoff while the old socket stays in use.
   **Liveness:** Node's `WebSocket` does not expose Slack's ping frames, so "no frame for 60 s" cannot be seen from this API; instead, every 10 min
   (`REFRESH_MS`) the bridge opens a fresh socket and closes the old one when the new one says `hello` (make before break), which bounds how long a
   half-open socket goes unnoticed (and quiet channels cost one reconnect, not a gap). With no open socket for 5 min (`UNHEALTHY_EXIT_MS`) the process
@@ -354,12 +354,14 @@ once. It forwards `app_mention`s by a person (no `bot_id`; no `subtype` but `fil
 **The workflows, node by node.**
 1. Mention flow (`sbaskagent00001`): `Mention` (webhook, raw body) -> `Verify`, `Sign` (crypto, credential `second brain mention hook (HMAC)`), `Authorize`:
    signature (compared in constant time), 5-minute window, the fields' shapes; `Valid?` -> `Refuse` (401 or 400) or `Accept` (200 at once).
-2. `Decide`: **once per mention**: the channel with `ts`, and the `event_id`, are kept in this workflow's static data (the newest 2,000); a second delivery of
+2. `Decide`: a record per mention (not a guarantee of exactly once): the channel with `ts`, and the `event_id`, are kept in this workflow's static data (the newest 2,000); a second delivery of
    either stops here. **Why this holds:** n8n saves static data when an execution ends, and this one ends in milliseconds, because the agent runs in a
-   *separate* execution (`Run` is Execute Workflow with "wait for sub-workflow" off). So the keys are saved before the agent starts, and a retry or
-   Slack's re-delivery that arrives while the agent is still running is dropped (proof: the same event twice, the second while the first is answering,
-   gets one answer). It is a check-then-save, not a lock: two deliveries within the same few milliseconds could both pass (the bridge dedupes on `event_id`
-   first, so this needs two sources). A Postgres or Data Table insert would be the same shape and needs a new credential; not chosen.
+   *separate* execution (`Run` is Execute Workflow with "wait for sub-workflow" off). The keys are saved when this execution ends, a few milliseconds after
+   `Run` has started the agent, so a retry or Slack's re-delivery that arrives while the agent is still running is dropped (proof: the same event twice, the second
+   while the first is answering, gets one answer).
+   It is a check-then-save, not a lock: two deliveries within the same few milliseconds, or one before this execution has ended, could both pass, and a
+   crash between starting the agent and saving the keys would answer twice; the bridge dedupes on `event_id` first, so this needs two sources. A Postgres or
+   Data Table insert would be the same shape and needs a new credential; not chosen.
 3. Who may ask (below), then: a mention with a file (`file_share`) or over 8,000 characters gets one short reply (`I can't read files; please ask in text.`,
    `That message is too long; please ask a shorter question.`) and no agent. The bot's own `<@BOT>` is cut out of the text (other mentions stay), line
    breaks stay, the question is cut at 2,000 characters; the reply goes to `thread_ts` when the mention is inside a thread, else to the mention's own `ts`.
@@ -428,11 +430,12 @@ credential is A3's, found by type (`SLACK_CRED_NAME` picks one by name when ther
 2. **The model:** in LiteLLM (`infra/litellm`), a model alias with tool calling for n8n, and a virtual key for n8n limited to that alias (`/key/generate`,
    `models`; the `mint-credential` practice), into `~/n8n/sb-agent/model.key`. The base URL is `http://litellm:4000/v1` (container port; 4001 is the host's).
 3. **Networks and the proxy: all in git, applied by compose, no egress ACL entry for the model or the MCP servers** (the proxy refuses every private
-   address, so LiteLLM and the library MCP are reached directly). `infra/litellm/docker-compose.yml` has a network `litellm_clients` that only the gateway
-   joins (not `default`, which holds LiteLLM's Postgres); `infra/n8n/docker-compose.yml` joins n8n to it (external), to `sbbridge` (new, with the bridge), and has
+   address, so LiteLLM and the library MCP are reached directly). `litellm_clients` is a network made by hand, **internal** (so joining it gives n8n no route
+   around the proxy), declared `external` in both `infra/litellm/docker-compose.yml` and `infra/n8n/docker-compose.yml`; only the gateway and n8n join it, never `default`,
+   which holds LiteLLM's Postgres. `infra/n8n/docker-compose.yml` also joins n8n to `sbbridge` (new, with the bridge), and has
    `litellm`, `sb-mcp` and `n8n` in `NO_PROXY`; `egress/acl.yaml` has `wss-primary.slack.com` and `wss-backup.slack.com` (`slack.com` was there since A3).
-   Apply in this order: `docker compose up -d --no-deps litellm` in `infra/litellm` (**recreates the gateway: about 2 minutes to answer, every consumer
-   is affected**; it creates `litellm_clients`), then in `infra/n8n`: `docker compose up -d` (recreates `n8n`: about a minute down, saved MCP sessions lost) and
+   Apply in this order: `docker network create --internal litellm_clients`; `docker network connect litellm_clients litellm` (live: **no LiteLLM restart**; its
+   next ordinary recreate matches git); then in `infra/n8n`: `docker compose up -d` (recreates `n8n`: about a minute down, saved MCP sessions lost) and
    `docker compose up -d --force-recreate egress` (the proxy reads its ACL at start). If the library MCP's container is not called `sb-mcp`, or is not on the
    `mcp` network, change `NO_PROXY` and the generator's `--library-url` to its real name.
 4. Generate and install, from a copy of `flows/`: the committed `sb-agent.json` uses the defaults; for the mini's names, regenerate it (no
@@ -453,8 +456,8 @@ credential is A3's, found by type (`SLACK_CRED_NAME` picks one by name when ther
 2. n8n stack: revert `infra/n8n/docker-compose.yml` (drop `litellm_clients` and `sbbridge` from n8n's `networks` and the `networks:` block, and `litellm`, `sb-mcp`
    from `NO_PROXY`) and `egress/acl.yaml` (drop the two `wss-*.slack.com` hosts), then `docker compose up -d` and `docker compose up -d --force-recreate egress`
    in `infra/n8n` (n8n down about a minute). Remove the leftover internal network with `docker network rm sbbridge` once nothing is on it.
-3. LiteLLM: revert `infra/litellm/docker-compose.yml` (drop `networks: [default, litellm_clients]` and the network) and `docker compose up -d --no-deps litellm`
-   (about 2 minutes to answer); `docker network rm litellm_clients`. Revoke n8n's virtual key and delete the alias if it was made for this.
+3. LiteLLM: revert `infra/litellm/docker-compose.yml` (drop `networks: [default, litellm_clients]` and the network); `docker network disconnect litellm_clients litellm`
+   (live, no restart) and `docker network rm litellm_clients` once n8n is off it (step 2). Revoke n8n's virtual key and delete the alias if it was made for this.
 4. Slack: remove the `app_mention` subscription and `app_mentions:read` if the app should stop receiving mentions; revoke the app-level token; Socket Mode can stay on.
 5. Files: `~/n8n/sb-bridge/` and `~/n8n/sb-agent/` hold only this feature's secrets. Deleting the workflows (`sbaskagent00001`, `sbaskrun0000001`) and the credentials
    `sbmodelkey000001`, `sbmentionhook0001`, `sbasklibtoken0001` in the editor removes the rest; `c1mcpdocstoken01` and `c1mcptaskstoken1` are A2's and stay.

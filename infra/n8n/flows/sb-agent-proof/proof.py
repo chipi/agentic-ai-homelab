@@ -157,6 +157,23 @@ def bridge_lines():
     return ls
 
 
+# ============================================================ the compose files: litellm_clients is created by hand as an internal network ============================================================
+def net_block(path, name):
+    t = open(path).read()
+    i = t.rfind("\nnetworks:\n")
+    m = re.search(r"\n  %s:\n((?:    .*\n|\n)*)" % name, t[i:] if i >= 0 else t)
+    return m.group(1) if m else ""
+
+
+INFRA = os.path.dirname(os.path.dirname(E["SB_BRIDGE_DIR"]))
+nb_l = net_block(INFRA + "/litellm/docker-compose.yml", "litellm_clients")
+nb_n = net_block(INFRA + "/n8n/docker-compose.yml", "litellm_clients")
+readme = open(INFRA + "/n8n/README.md").read()
+check("compose: litellm_clients is external in both stacks (so LiteLLM is not recreated for it) and the README creates it with `docker network create --internal`, connects the live gateway, and the rollback removes it",
+      "external: true" in nb_l and "name: litellm_clients" in nb_l and "external: true" in nb_n and "docker network create --internal litellm_clients" in readme
+      and "docker network connect litellm_clients litellm" in readme and "docker network disconnect litellm_clients litellm" in readme, (nb_l, nb_n))
+check("compose: the sb-bridge compose header no longer says *.slack.com", "*.slack.com" not in open(E["SB_BRIDGE_DIR"] + "/docker-compose.yml").read().replace("not *.slack.com", ""), "")
+
 # ============================================================ the bridge and its socket ============================================================
 st = req(SLACK + "/__state")
 check("bridge: it opened a Socket Mode connection with the app-level token and got hello (healthz 200, the stub has one connection)",
@@ -355,6 +372,15 @@ Tq, rq, oq, dt = ask("Which paper is about repair agents that use tools?")
 check("bridge: without any disconnect it opens a fresh socket on its own every REFRESH_MS (25 s here; make before break) and the mention after it is answered",
       bool(okr) and rq is not None and oq is not None and oq["verdict"] == "ok", (okr, rq, oq))
 
+# a refresh that fails (Slack refuses one apps.connections.open) is tried again, not forgotten
+req(SLACK + "/__set", {"fail_opens": 1})
+failed = wait(lambda: next((c for c in opens() if c.get("failed")), None), 60)
+tf = failed["t"] if failed else time.time()
+again = wait(lambda: next((c for c in opens() if c["t"] > tf and not c.get("failed")), None), 70)
+Tf, rf, of, dt = ask("Which paper covers a universal variable solution of the two-body boundary problem?")
+check("bridge: a refresh whose apps.connections.open Slack refused is tried again within the window (not left until the socket dies), and the next mention is answered",
+      failed is not None and again is not None and rf is not None and of is not None and of["verdict"] == "ok", (failed, again, rf, of))
+
 IMG = "docker.n8n.io/n8nio/n8n:2.48.7"
 
 
@@ -387,6 +413,20 @@ rc = wait(lambda: docker("inspect", "-f", "{{.State.Status}} {{.State.ExitCode}}
 b2 = docker("logs", "n8n-proof-bridge2")
 docker("rm", "-f", "n8n-proof-bridge2")
 check("bridge: with no socket for UNHEALTHY_EXIT_MS (8 s here, a refused token) the process exits 1 so the restart policy acts", rc == "exited 1" and '"unhealthy, exiting"' in b2, (rc, b2[-300:]))
+
+# a mention whose forward budget runs out is logged as given up (channel and ts, no text)
+TG_before = req(SLACK + "/__state")
+run_side("n8n-proof-bridge3", 18087, E["PROOF_SECRETS"] + "/slack-app.token", {"FORWARD_BUDGET_MS": "3000", "SB_HOOK_URL": "http://127.0.0.1:1/webhook/none"})
+wait(lambda: '"hello"' in docker("logs", "n8n-proof-bridge3"), 30)
+TG, eidg, t0 = mention("Secret question text that must never reach a log")
+time.sleep(10)
+b3 = docker("logs", "n8n-proof-bridge3")
+docker("rm", "-f", "n8n-proof-bridge3")
+gl = [json.loads(l) for l in b3.splitlines() if l.startswith("{") and '"forward gave up"' in l]
+check("bridge: a mention whose forward budget runs out is logged as `forward gave up` with its channel and ts, and no text",
+      len(gl) == 1 and gl[0]["ts"] == TG and gl[0]["channel"] == CHANNEL and "Secret question" not in b3, (gl, b3[-300:]))
+wait(lambda: req(SLACK + "/__state")["connected"], 60)
+time.sleep(1)
 
 # ============================================================ every envelope was acked; nothing secret in the bridge's log ============================================================
 log = slack_log()

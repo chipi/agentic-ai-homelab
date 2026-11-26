@@ -77,6 +77,8 @@ async function forward(ev, eventId, bot) {
     await new Promise(r => setTimeout(r, wait));
   }
   log('mention', { channel: ev.channel, ts: ev.ts, thread_ts: ev.thread_ts || null, event_id: eventId, forwarded: status, tries });
+  // the id was marked seen before the forward, so a mention whose budget ran out is not tried again by Slack's retry either: say so (ids only)
+  if (!(status >= 200 && status < 300) && status !== 400 && status !== 401) log('forward gave up', { channel: ev.channel, ts: ev.ts, event_id: eventId, status, tries });
 }
 
 function onEnvelope(sock, raw) {
@@ -124,11 +126,11 @@ async function connect() {
     const j = await r.json();
     if (!j.ok) throw new Error('slack: ' + String(j.error || 'no ok').slice(0, 60));
     url = j.url;
-  } catch (e) { log('open failed', { error: String(e && e.message).slice(0, 100) }); if (!cur) retry(false); return; }
+  } catch (e) { log('open failed', { error: String(e && e.message).slice(0, 100) }); retry(false); return; }   // also when a socket is open: a failed refresh is tried again
   const sock = new WebSocket(url);
   pending = sock;
   sock.connectTimer = setTimeout(() => {   // a socket through the proxy that never opens fires no close
-    if (pending === sock) { log('connect timeout'); pending = null; try { sock.close(); } catch (e) { /* hung */ } if (!cur) retry(false); }
+    if (pending === sock) { log('connect timeout'); pending = null; try { sock.close(); } catch (e) { /* hung */ } retry(false); }
   }, CONNECT_TIMEOUT);
   sock.onmessage = ev => onEnvelope(sock, String(ev.data));
   sock.onerror = () => { /* onclose follows */ };
@@ -139,7 +141,7 @@ async function connect() {
     if (wasCur) { cur = null; clearTimeout(stableTimer); }
     if (sock.replaced) return;
     log('closed', { code: ev.code });
-    if ((wasCur || wasPending) && !cur && !pending) retry(false);
+    if (wasCur ? !pending : wasPending) retry(false);   // the current one died and none is coming, or a new one died before hello (a failed refresh included)
   };
 }
 
