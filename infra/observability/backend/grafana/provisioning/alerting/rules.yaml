@@ -1028,6 +1028,78 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [20] } }]
 
+      # --- CI runners (RFC-0011): the collector (infra/homelab-home/ci-job.js) pushes gh_* every 5 minutes ---
+      # A runner GitHub reports offline for 15 minutes (gh_runner_up 0); one alert per repo and runner.
+      - uid: gh-runner-offline
+        title: "CI runner offline"
+        condition: threshold
+        for: 15m
+        noDataState: OK
+        labels: { severity: warning, kind: ci }
+        annotations:
+          summary: "CI runner {{ $labels.runner }} ({{ $labels.repo }}) has been offline for 15 minutes. Check its unit on {{ $labels.machine }} (infra/x3/ci-runner)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'min by (repo, runner, machine) (last_over_time(gh_runner_up[10m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [1] } }]
+      # The longest current wait in a repo's queue, in seconds: over 30 minutes.
+      - uid: gh-job-queued-long
+        title: "CI job queued over 30 minutes"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: ci }
+        annotations:
+          summary: "A job in {{ $labels.repo }} has waited {{ printf `%.0f` $values.q.Value }} s for a runner (alert over 1800 s). See the hub's CI tab."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max by (repo) (last_over_time(gh_job_queue_seconds_max[10m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [1800] } }]
+      # The collector writes gh_ci_collector_last_success_timestamp only when it read every repo, so a revoked
+      # token or a missing permission shows up here too.
+      - uid: gh-ci-collector-stale
+        title: "CI collector stale"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: hub }
+        annotations:
+          summary: "The CI collector has not read every repo for {{ printf `%.0f` $values.q.Value }} min (it runs every 5 minutes on the mini). Check /tmp/hub-ci.log there."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '(time() - max(last_over_time(gh_ci_collector_last_success_timestamp[1d]))) / 60'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [20] } }]
+
   - orgId: 1
     name: app-health
     folder: "Alerts"

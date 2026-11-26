@@ -3,7 +3,7 @@
 # The page's JS and the status module are tested here (dependency-free node:
 # test_page.js / test_uptime.js / test_hetzner_bar.js extract page functions from
 # gen.sh with a stub DOM and fixture VM vectors; test_status.js tests
-# hub-status.js's data, test_slo.js hub-slo.js's service levels). Anything that
+# hub-status.js's data, test_slo.js hub-slo.js's service levels, test_ci.js hub-ci.js and ci-job.js). Anything that
 # reaches origin/main has passed them on neutral infrastructure. The mini's deploy stays pull + gen.sh; since
 # 2026-11-03 (operator decision, RFC-0008) the mini also runs node for the
 # status and briefing jobs (status-job.js, briefing-job.js).
@@ -48,3 +48,4 @@ jobs:
         run: |
           node infra/homelab-home/test_status.js
           node infra/homelab-home/test_slo.js
+          node infra/homelab-home/test_ci.js

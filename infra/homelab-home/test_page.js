@@ -202,7 +202,8 @@ const check = (name, cond, detail) => {
       check('slo.json ' + name + ': says so, grey dash, nothing green', /missing or unreadable/.test(e.slo_tab.innerHTML) && /7a7a8c/.test(e.ov_slo.innerHTML) && !/dot up/.test(e.slo_tab.innerHTML + e.ov_slo.innerHTML), e.slo_tab.innerHTML);
     }
     // gen.sh wiring: the tab between Sites and Hosts, the card, the Projects slot, the module inlined, the refresh
-    check('gen.sh: Levels tab sits between Sites and Hosts, in TABS too', /<a href="#sites"[^>]*>Sites<\/a><a href="#levels"[^>]*>Levels<\/a><a href="#hosts"/.test(src) && /TABS=\['overview','projects','sites','levels','hosts'/.test(src));
+    check('gen.sh: Levels tab sits between Sites and CI, CI before Hosts, in TABS too', /<a href="#sites"[^>]*>Sites<\/a><a href="#levels"[^>]*>Levels<\/a><a href="#ci"[^>]*>CI<\/a><a href="#hosts"/.test(src) && /TABS=\['overview','projects','sites','levels','ci','hosts'/.test(src));
+    check('gen.sh: the CI section, hub-ci.js inlined, ci.json fetched and refreshed with the page', /<section class=tab id=t-ci>/.test(src) && /id=ci_tab/.test(src) && /cat .*\/hub-ci\.js"/.test(src) && /fetch\('\/ci\.json'/.test(src) && /sloLevels\(\);ciTab\(\);/.test(src));
     check('gen.sh: the section, the Overview card and the Projects slot exist', /<section class=tab id=t-levels>/.test(src) && /id=slo_tab/.test(src) && /id=ov_slo/.test(src) && /id=pj_slo/.test(src));
     check('gen.sh: hub-slo.js is inlined and refreshed with the page', /cat .*\/hub-slo\.js"/.test(src) && /function refresh\(\)\{sloLevels\(\);/.test(src));
     check('gen.sh: mobile first (a row stacks by default, one line from 641 px)', /\.slo-row\{[^}]*flex-direction:column/.test(src) && /@media\(min-width:641px\)\{\s*\.slo-row\{display:grid/.test(src));

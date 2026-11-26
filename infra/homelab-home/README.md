@@ -132,12 +132,49 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   pushes the headline to the phone through Home Assistant (`notify.mobile_app_iphone`, token
   `~/home-automation-secrets/ha-token`), records `hub_briefing_last_success_timestamp` (alert
   `hub-briefing-missing`). `node briefing-job.js --dry-run` builds the page without pushing.
-- `hub-sources.js` — where both jobs read from (the mini's localhost services and token files).
+- `ci-job.js` + `hub-ci.js` — the CI tab (RFC-0011, phase A). `ci-job.js` runs every 5 minutes (launchd
+  `com.homelab.hub-ci`), reads only, and writes `www/ci.json` (served at `/ci.json`: `www/` is mounted whole,
+  so `default.conf` needs no change) and the `gh_*` gauges. `hub-ci.js` holds the status semantics (a job
+  waiting over 5 min amber, over 30 min red; a runner offline under 15 min amber, 15 min or more red; a failed
+  or timed-out job red; a repo with half of 3 or more jobs failed red; a `ci.json` older than 15 min grey) and
+  draws the tab from `ci.json`; the page computes nothing else. Tests: `test_ci.js` (the module, and the
+  collector over `fixtures-ci/`, saved answers of the real API for the five repos, plus the job as a process
+  against a fake VictoriaMetrics); `test_page.js` checks the wiring in `gen.sh`.
+  - **What it reads** (GET only, `api.github.com`), for `chipi/closelistening-studio`, `-common`, `-player`,
+    `-integration` and `chipi/infra` (override: `HUB_CI_REPOS`, comma list):
+    `actions/runners` (name, status, busy, labels; the machine is the label that is not
+    `self-hosted`/`linux`/`x64`, today `x3`), `actions/runs?per_page=50`, and `actions/runs/<id>/jobs` for each
+    run that is queued, running or finished in the last 24 h (queue wait = started - created, duration =
+    completed - started, `where` = self-hosted if the job's labels say so). A finished run's jobs are read once
+    and kept in `www/ci-state.json`, which also keeps a ledger of finished jobs for 30 days: the 30 d minutes
+    count from the collector's first run, not from GitHub's history.
+  - **Token: the assistant's read-only token**, `~/assistant-github-readonly.env` (`GITHUB_TOKEN=...`, the
+    same file `hub-sources.js` reads for Issues; override `HUB_CI_TOKEN_FILE`). No new file. That token must
+    also cover the five repos with **Actions: Read** (runs and jobs) and **Administration: Read** (the
+    runners list), both needed and verified on the mini on 2026-11-26 (reported by the operator's check: with the
+    permissions missing, the runners and runs endpoints both answered 403; with them, 200 on all five repos). The
+    token's row in `docs/recipes/agent-access.md` lists them. A repo the
+    token cannot read shows as an error on the tab, the job exits 1, and the heartbeat is not written, so
+    `gh-ci-collector-stale` fires after 20 minutes. The token is never logged.
+  - **Gauges** (VictoriaMetrics, labels bounded: no per-job series): `gh_runner_up`, `gh_runner_busy`
+    `{repo,runner,machine}`; `gh_jobs_queued`, `gh_job_queue_seconds_max` `{repo}`; `gh_jobs_finished_24h`
+    `{repo,conclusion}`; `gh_minutes_24h` `{repo,where}`; `gh_ci_collector_last_success_timestamp`.
+  - **Alerts** (`infra/observability/backend/grafana/provisioning/alerting/rules.yaml`, beside
+    `hub-status-stale`): `gh-runner-offline` (offline 15 min), `gh-job-queued-long` (waiting over 30 min),
+    `gh-ci-collector-stale` (no full read for 20 min).
+  - **Try it without a token:** `HUB_CI_FIXTURES=fixtures-ci HUB_CI_NOW=1795730580 HUB_CI_OUT=/tmp/ci/ci.json
+    HUB_VM=http://127.0.0.1:1 node ci-job.js` (the push fails and is reported; the file is written).
+  - **Install** on the mini: add `com.homelab.hub-ci` to the install loop below, after putting the token's
+    new permissions in place; check `/tmp/hub-ci.log` and `www/ci.json`, then `./gen.sh` for the tab.
+    **Rollback:** `sudo launchctl bootout system/com.homelab.hub-ci; sudo rm /Library/LaunchDaemons/com.homelab.hub-ci.plist`,
+    delete the three `gh-*` rules and the CI tab from `gen.sh`; the `gh_*` series age out of VictoriaMetrics,
+    `www/ci.json` and `www/ci-state.json` can be deleted.
+- `hub-sources.js` — where the jobs read from (the mini's localhost services and token files).
 
-Install the two jobs (system LaunchDaemons running as the operator, from this checkout, as the
+Install the jobs (system LaunchDaemons running as the operator, from this checkout, as the
 mini-metrics jobs do):
 ```sh
-for j in hub-status hub-briefing; do
+for j in hub-status hub-briefing hub-ci; do
   sudo cp com.homelab.$j.plist /Library/LaunchDaemons/ && sudo chown root:wheel /Library/LaunchDaemons/com.homelab.$j.plist
   sudo chmod 644 /Library/LaunchDaemons/com.homelab.$j.plist && sudo launchctl bootstrap system /Library/LaunchDaemons/com.homelab.$j.plist
 done

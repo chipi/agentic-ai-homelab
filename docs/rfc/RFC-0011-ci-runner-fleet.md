@@ -1,6 +1,6 @@
 # RFC-0011 — A self-hosted CI runner fleet across the homelab, with a CI view in the hub
 
-**Status:** Proposed (2026-11-26).
+**Status:** Accepted (2026-11-26, operator); phase A being built.
 **Relates to:** [ADR-0015](../adr/ADR-0015-x3-github-actions-runners.md) (the X3 runners, the current
 design), [`infra/x3/ci-runner/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/x3/ci-runner)
 and [`infra/x3/x3-ci-runner-setup.sh`](https://github.com/chipi/agentic-ai-homelab/blob/main/infra/x3/x3-ci-runner-setup.sh),

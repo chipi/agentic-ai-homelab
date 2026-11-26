@@ -196,7 +196,7 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 <div id=remindbar></div>
 </details>
 <nav class=tabs>
-  <a href="#overview" target=_self>Overview</a><a href="#projects" target=_self>Projects</a><a href="#sites" target=_self>Sites</a><a href="#levels" target=_self>Levels</a><a href="#hosts" target=_self>Hosts</a><a href="#automation" target=_self>Automation</a><a href="#spend" target=_self>Spend</a>
+  <a href="#overview" target=_self>Overview</a><a href="#projects" target=_self>Projects</a><a href="#sites" target=_self>Sites</a><a href="#levels" target=_self>Levels</a><a href="#ci" target=_self>CI</a><a href="#hosts" target=_self>Hosts</a><a href="#automation" target=_self>Automation</a><a href="#spend" target=_self>Spend</a>
 </nav>
 <section class=tab id=t-overview>
 <div class=charts>
@@ -241,6 +241,9 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 </section>
 <section class=tab id=t-levels>
 <div id=slo_tab><p class=muted>loading&hellip;</p></div>
+</section>
+<section class=tab id=t-ci>
+<div id=ci_tab><p class=muted>loading&hellip;</p></div>
 </section>
 <section class=tab id=t-sites>
 <!-- Uptime: outside-in probes from the mini (job site-probe, every minute through Cloudflare)
@@ -495,6 +498,8 @@ echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-status.js"; echo '</scr
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-project.js"; echo '</script>'
 # the service levels (hub-slo.js), tested by test_slo.js; the page reads the status job's slo.json
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-slo.js"; echo '</script>'
+# the CI tab (hub-ci.js), tested by test_ci.js; the page reads the CI job's ci.json
+echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-ci.js"; echo '</script>'
 # the operator's dated reminders (reminders.json): in the page as it was when generated
 echo '<script>const REMINDERS='; cat "$(cd "$(dirname "$0")" && pwd)/reminders.json"; echo ';</script>'
 cat <<'SCRIPT'
@@ -1654,7 +1659,7 @@ document.getElementById('sp_mven')?.addEventListener('change',modelFilter);
 document.getElementById('sp_mq')?.addEventListener('input',modelFilter);
 // Tabs: the hash picks one (#overview default), so links and the back button work.
 // Hosts has sub-tabs (#hosts/prod default, #hosts/mini, #hosts/dgx, #hosts/delivery).
-const TABS=['overview','projects','sites','levels','hosts','automation','spend'],SUBS=['prod','mini','dgx','x3','delivery'];
+const TABS=['overview','projects','sites','levels','ci','hosts','automation','spend'],SUBS=['prod','mini','dgx','x3','delivery'];
 // Projects: #projects/<app>/<period>/<compare>, rendered by hub-project.js from the page's proxies.
 const PJ_SRC={now:()=>Date.now()/1000,
   async vmRange(e,s,en,st){const j=await(await fetch('/vm/api/v1/query_range?query='+encodeURIComponent(e)+'&start='+s+'&end='+en+'&step='+st)).json();return((j.data.result[0]||{}).values||[]).map(p=>[+p[0],+p[1]]);},
@@ -1677,6 +1682,17 @@ function sloPaint(){
   set('slo_tab',HubSlo.levelsHtml(v));set('ov_slo',HubSlo.cardHtml(v));
   const a=location.hash.slice(1).split('/')[1];
   set('pj_slo',location.hash.startsWith('#projects')?HubSlo.bandHtml(v,HubProject.APPS[a]?a:'cl'):'');
+}
+// CI (hub-ci.js): the CI job's ci.json as it is, drawn on the CI tab; the page computes no number, and numbers
+// older than 15 minutes are grey.
+let CI_DOC=null;
+async function ciTab(){
+  try{const r=await fetch('/ci.json',{cache:'no-store'});CI_DOC=r.ok?await r.json():null;}catch(e){CI_DOC=null;}
+  ciPaint();
+}
+function ciPaint(){
+  const e=document.getElementById('ci_tab'),n=Date.now()/1000,h=HubCi.html(HubCi.view(CI_DOC,n),n);
+  if(e&&e.innerHTML!==h)e.innerHTML=h;
 }
 let PJ_KEY='',PJ_T=0;
 function projectsPage(force){const [,a,p,c,u]=location.hash.slice(1).split('/'),apps=HubProject.APPS,id=apps[a]?a:'cl';
@@ -1913,7 +1929,7 @@ async function overview(){
   const low=C.low;
   set('ov_credit','<div class=cv'+(low?' style="color:#f85149"':'')+'>'+usd(c)+'</div><div class=muted style="font-size:12px">'+(low?'under $1: auto top-up did not refill it':'of credit bought')+'</div>');
   set('ov_credit_s',usd(c));}
-function refresh(){sloLevels();overview();services().then(projects);spendModels();siteGroups();fleetCards();automation();fleetDetail();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
+function refresh(){sloLevels();ciTab();overview();services().then(projects);spendModels();siteGroups();fleetCards();automation();fleetDetail();hetzner();reminders();cloudflare();providers();uptime();alerts();podcastHealth();mini();dgx();x3();prod();fleet();delivery();fresh();if(document.getElementById('t-projects')?.classList.contains('on'))projectsPage();}
 refresh();setInterval(refresh,30000);
 </script>
 SCRIPT
