@@ -1,0 +1,182 @@
+[
+ {
+  "id": "case1mcptasks001",
+  "name": "case 1: tasks read server (MCP)",
+  "active": true,
+  "settings": {
+   "executionOrder": "v1",
+   "saveDataSuccessExecution": "none"
+  },
+  "nodes": [
+   {
+    "id": "case1mcptasks001-0",
+    "name": "MCP Server Trigger",
+    "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+    "typeVersion": 2,
+    "position": [
+     0,
+     0
+    ],
+    "webhookId": "b2d81e62-3c4f-4097-8e15-7f2c8dab1022",
+    "credentials": {
+     "httpBearerAuth": {
+      "id": "c1mcptaskstoken1",
+      "name": "case 1 tasks MCP (bearer)"
+     }
+    },
+    "parameters": {
+     "path": "case1-tasks",
+     "authentication": "bearerAuth",
+     "instructions": "Read-only access to the open follow-up tasks. list returns every open task: title, due date, notes and a link or id."
+    }
+   },
+   {
+    "id": "case1mcptasks001-1",
+    "name": "list",
+    "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+    "typeVersion": 2.2,
+    "position": [
+     -220,
+     80
+    ],
+    "parameters": {
+     "description": "List the open follow-up tasks: title, due date (YYYY-MM-DD), notes (cut) and ref (a link to the task when Google gives one, else its id). Takes no arguments.",
+     "source": "database",
+     "workflowId": {
+      "__rl": true,
+      "value": "case1mcptlist0001",
+      "mode": "id"
+     },
+     "workflowInputs": {
+      "mappingMode": "defineBelow",
+      "value": {},
+      "matchingColumns": [],
+      "schema": [],
+      "attemptToConvertTypes": false,
+      "convertFieldsToString": false
+     }
+    }
+   }
+  ],
+  "connections": {
+   "list": {
+    "ai_tool": [
+     [
+      {
+       "node": "MCP Server Trigger",
+       "type": "ai_tool",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  }
+ },
+ {
+  "id": "case1mcptlist0001",
+  "name": "case 1 tasks.list (sub-workflow of the tasks MCP server)",
+  "active": false,
+  "settings": {
+   "executionOrder": "v1",
+   "saveDataSuccessExecution": "none"
+  },
+  "nodes": [
+   {
+    "id": "case1mcptlist0001-0",
+    "name": "In",
+    "type": "n8n-nodes-base.executeWorkflowTrigger",
+    "typeVersion": 1.1,
+    "position": [
+     220,
+     0
+    ],
+    "parameters": {
+     "inputSource": "passthrough"
+    }
+   },
+   {
+    "id": "case1mcptlist0001-1",
+    "name": "Open tasks",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     440,
+     0
+    ],
+    "credentials": {
+     "googleOAuth2Api": {
+      "id": "__GOOGLE_RO_CRED_ID__",
+      "name": "Google read-only (case 1)"
+     }
+    },
+    "parameters": {
+     "method": "GET",
+     "url": "https://www.googleapis.com/tasks/v1/lists/ai1ER3E5cXFzZWRCUnNTZQ/tasks",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleOAuth2Api",
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "showCompleted",
+        "value": "false"
+       },
+       {
+        "name": "showHidden",
+        "value": "false"
+       },
+       {
+        "name": "maxResults",
+        "value": "100"
+       }
+      ]
+     },
+     "options": {
+      "response": {
+       "response": {
+        "neverError": true
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case1mcptlist0001-2",
+    "name": "Format",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     660,
+     0
+    ],
+    "parameters": {
+     "jsCode": "const r = $input.first().json;\nif (r.error || (r.items !== undefined && !Array.isArray(r.items))) throw new Error('tasks.list: Google Tasks did not answer: ' + JSON.stringify(r.error || r).slice(0, 200));\nconst items = r.items || [];\nif (!items.length) return [{ json: { open: 0, note: 'no open tasks' } }];\nreturn items.map(t => ({ json: { title: t.title || '(no title)', due: t.due ? String(t.due).slice(0, 10) : null,\n  notes: t.notes ? (t.notes.length > 300 ? t.notes.slice(0, 300) + '...' : t.notes) : null, ref: t.webViewLink || t.id, id: t.id } }));"
+    }
+   }
+  ],
+  "connections": {
+   "In": {
+    "main": [
+     [
+      {
+       "node": "Open tasks",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Open tasks": {
+    "main": [
+     [
+      {
+       "node": "Format",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  }
+ }
+]
