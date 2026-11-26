@@ -24,7 +24,10 @@ echo "Google read-only credential: $(q "select name from credentials_entity wher
 cred() {  # id, name, token file
   local f="$3"
   [ -f "$f" ] || { echo "STOP: $f missing"; exit 1; }
-  echo "$2: file mode $(stat -c %a "$f" 2>/dev/null || stat -f %Lp "$f"), $(tr -d '[:space:]' < "$f" | wc -c | tr -d ' ') chars"
+  local n; n=$(tr -d '[:space:]' < "$f" | wc -c | tr -d ' ')
+  echo "$2: file mode $(stat -c %a "$f" 2>/dev/null || stat -f %Lp "$f"), $n chars"
+  # an empty or short file would become a bearer token anyone can guess
+  [ "$n" -ge 32 ] || { echo "STOP: $f holds $n characters, fewer than 32"; exit 1; }
   if [ -n "$(q "select 1 from credentials_entity where id='$1'")" ]; then echo "  exists, left as is"; return; fi
   local S; S=$(tr -d '[:space:]' < "$f")
   printf '[{"id":"%s","name":"%s","type":"httpBearerAuth","data":{"token":"%s"}}]' "$1" "$2" "$S" \
