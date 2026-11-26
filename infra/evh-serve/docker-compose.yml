@@ -63,7 +63,9 @@ services:
       EVAL_MAX_COST_USD: "0"
     volumes:
       - repo:/project:ro
-    command: ["evh", "mcp", "--http", "--bind", "0.0.0.0", "--port", "8081", "--path", "/mcp", "--allowed-host", "${HOST:?}"]
+    # MCP_FLAGS (instances/<name>.env): --no-agent-tools on a harness at 0.8.2 or later drops study-ask and study-tell;
+    # an older harness refuses the flag, so it is set per instance.
+    command: evh mcp --http --bind 0.0.0.0 --port 8081 --path /mcp --allowed-host ${HOST:?} ${MCP_FLAGS:-}
 
 volumes:
   repo:
