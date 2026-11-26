@@ -184,6 +184,17 @@ check("reply: a thread that is not a Slack ts is refused (400)", raw_call(dict(s
 check("reply: a text over 3000 characters is refused (400)", raw_call(dict(send, params=dict(params, text="x" * 3001)), delivery="plan-rawcheck0004") == 400)
 check("reply: the refused and unsigned calls posted nothing", len(slack_log("post")) == n, len(slack_log("post")) - n)
 
+# a broadcast in the answer: flotilla's sender refuses it before anything is sent, and the flow itself, for any caller that skips
+# that sender, neutralises every <! (shown as text, pinging nobody) and keeps links
+params4 = dict(params, text="[flotilla] see <!channel> and <!here|here>, and <https://example.org|the doc>")
+plan4 = {"action": action, "params": params4, "plan_hash": call.plan_hash(case["id"], action, params4)}
+n = len(slack_log("post"))
+o = call.execute(case, plan4, env)
+check("reply: flotilla's sender refuses a text that calls the whole channel, and nothing is posted", o["outcome"] == "escalate" and len(slack_log("post")) == n, o)
+code = raw_call(dict(send, params=params4), delivery="plan-rawcheck0005")
+t = (slack_log("post")[n:] or [{"body": {}}])[0]["body"].get("text", "")
+check("reply: a signed call that skips the sender has every '<!' neutralised (links kept)", code == 200 and "<!" not in t and "&lt;!channel>" in t and "&lt;!here|here>" in t and "<https://example.org|the doc>" in t, (code, t))
+
 # Slack refusing the post: a 502, nothing is recorded, and the retry posts once
 params3 = dict(params, text="[flotilla] a reply while Slack refuses")
 plan3 = {"action": action, "params": params3, "plan_hash": call.plan_hash(case["id"], action, params3)}
