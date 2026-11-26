@@ -5,6 +5,9 @@
 # a docker prune or volume removal, compose down -v, terraform apply/destroy. Those get
 # `permissionDecision: "ask"`, so the operator is asked (a headless run, where nobody can answer, refuses).
 #
+# One path denies instead of asking: a docker command that changes state and names no engine (see
+# docker_unpinned; the fix is `docker --context dev ...`).
+#
 # Everything else is left to auto mode and the agent's judgment of ~/.config/AGENTS.md: deletes and installs
 # are scoped there ("on shared infra", "into a shared environment"), and a text pattern can't see that scope.
 # The 2026-11-21 refactor put rm -rf and installs here and in 20 permissions.ask rules; every delete of an
@@ -37,6 +40,12 @@ allow() { exit 0; }
 ask() {
     jq -n --arg r "$1" \
       '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$r}}' \
+      2>/dev/null || allow
+    exit 0
+}
+deny() {
+    jq -n --arg r "$1" \
+      '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}' \
       2>/dev/null || allow
     exit 0
 }
@@ -170,6 +179,65 @@ dev_engine_only() {   # $1 = the ERE of the destructive command
     done < <(printf '%s\n' "$text" | tr ';&|' '\n\n\n')
     return 0
 }
+
+# A docker command that changes state and names no engine goes to the mini's production engine (AGENTS.md
+# section 3; 2026-11-26: a session ran `docker run` and `docker network create` with nothing named). Denied,
+# not asked: the operator does not want to be asked, the fix is the dev engine. An engine is named by
+# --context <x>, -c <x> or -H/--host right after docker, a DOCKER_CONTEXT=/DOCKER_HOST= prefix on the same
+# segment, or an earlier `export DOCKER_CONTEXT=`/`export DOCKER_HOST=`. A command with `ssh ` runs on another
+# host (operating the mini's services goes through ssh): out of scope. Read-only subcommands (ps, images,
+# inspect, logs, info, version, context, compose ps/logs/config) are not matched. Not seen: `$D run` where
+# D holds "docker ..." (no docker word in the segment).
+docker_unpinned() {   # 0 = a state-changing docker command names no engine
+    local seg rest w sub act pinned re="${S}docker([[:space:]]+(.*))?\$"
+    printf '%s' "$cmd" | grep -Eq -- "${S}ssh[[:space:]]" && return 1
+    printf '%s' "$cmd" | grep -Eq -- "(^|[;&|[:space:]])export[[:space:]]+DOCKER_(CONTEXT|HOST)=" && return 1
+    while IFS= read -r seg; do
+        [[ "$seg" =~ $re ]] || continue
+        printf '%s' "$seg" | grep -Eq -- "DOCKER_(CONTEXT|HOST)=" && continue
+        rest="${BASH_REMATCH[3]}"
+        set -f; set -- $rest; set +f
+        pinned=0; sub=""; act=""
+        while [ $# -gt 0 ]; do
+            w="$1"; shift
+            case "$w" in
+                --context|-c|-H|--host) pinned=1; shift ;;
+                --context=*|--host=*|-H?*) pinned=1 ;;
+                --config|--log-level|-l|--tlscacert|--tlscert|--tlskey) shift ;;
+                -*) ;;
+                *) sub="$w"; break ;;
+            esac
+        done
+        [ "$pinned" = 1 ] && continue
+        case "$sub" in
+            compose)
+                while [ $# -gt 0 ]; do
+                    w="$1"; shift
+                    case "$w" in
+                        -f|--file|-p|--project-name|--profile|--env-file|--project-directory|--ansi|--parallel) shift ;;
+                        -*) ;;
+                        *) act="$w"; break ;;
+                    esac
+                done
+                case "$act" in up|down|run|rm|build) return 0 ;; esac ;;
+            network|volume|system|image|container|builder)
+                while [ $# -gt 0 ]; do
+                    w="$1"; shift
+                    case "$w" in -*) ;; *) act="$w"; break ;; esac
+                done
+                case "$sub:$act" in
+                    *:prune|network:create|network:rm|volume:create|volume:rm) return 0 ;;
+                    image:rm|image:pull|image:push|image:build) return 0 ;;
+                    container:run|container:create|container:start|container:rm|container:exec) return 0 ;;
+                esac ;;
+            run|create|start|rm|rmi|build|pull|push|exec) return 0 ;;
+        esac
+    done < <(printf '%s\n' "$text" | tr ';&|' '\n\n\n')
+    return 1
+}
+if docker_unpinned; then
+    deny "command-ask-guard: a docker command that changes state names no engine, so it runs on the production Docker engine (~/.config/AGENTS.md, section 3: the production engine is closed to development). Run it on the dev engine: \`devengine start\`, then \`docker --context dev ...\` (or DOCKER_CONTEXT=dev); \`devengine stop\` when done."
+fi
 
 check() {   # $1 = ERE, $2 = what, $3 = the AGENTS.md rule
     if printf '%s' "$text" | grep -Eq -- "$1"; then

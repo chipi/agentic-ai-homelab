@@ -62,5 +62,28 @@ if jq -e '.hookSpecificOutput.permissionDecisionReason | test("model: \"sonnet\"
   pass=$((pass+1)); echo "  ok   deny reason names the type and the fix"
 else fail=$((fail+1)); echo "  FAIL deny reason: $out"; fi
 
+# Launch ledger: a fake clock and a throwaway ledger dir.
+L="$(mktemp -d)"
+adv() { printf '{"session_id":"%s","tool_name":"Agent","tool_input":{"subagent_type":"advisor","prompt":"p"}}' "$1"; }
+wk()  { printf '{"session_id":"%s","tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","model":"sonnet","prompt":"p"}}' "$1"; }
+LD="SUBAGENT_GUARD_LEDGER_DIR=$L"
+run allow "$(adv A)" "advisor 1st in the session" "$LD" SUBAGENT_GUARD_NOW=1000
+run allow "$(adv A)" "advisor 2nd"                "$LD" SUBAGENT_GUARD_NOW=1100
+run deny  "$(adv A)" "advisor 3rd denied"         "$LD" SUBAGENT_GUARD_NOW=1200
+run deny  "$(adv A)" "advisor 3rd still denied just inside the window" "$LD" SUBAGENT_GUARD_NOW=4500
+run allow "$(adv A)" "advisor allowed again after the window" "$LD" SUBAGENT_GUARD_NOW=4700
+run allow "$(adv B)" "another session's advisor is independent" "$LD" SUBAGENT_GUARD_NOW=1200
+for i in 1 2 3 4 5; do run allow "$(adv '')" "no session_id: allowed ($i)" "$LD" SUBAGENT_GUARD_NOW=1200; done
+for i in 1 2 3 4; do run allow "$(wk C)" "fan-out: agent $i of 4 allowed" "$LD" SUBAGENT_GUARD_NOW=$((5000+i)); done
+run deny  "$(wk C)" "fan-out: 5th within 10 minutes denied" "$LD" SUBAGENT_GUARD_NOW=5100
+run deny  "$(adv C)" "fan-out counts the advisor too" "$LD" SUBAGENT_GUARD_NOW=5100
+run allow "$(wk D)" "fan-out: another session unaffected" "$LD" SUBAGENT_GUARD_NOW=5100
+run allow "$(wk C)" "fan-out: allowed after the 10 minute window" "$LD" SUBAGENT_GUARD_NOW=5700
+run deny  '{"session_id":"E","tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","prompt":"p"}}' "a model-less call is still denied with a ledger" "$LD" SUBAGENT_GUARD_NOW=100
+run allow "$(adv A)" "limits off with SUBAGENT_MODEL_GUARD=off" "$LD" SUBAGENT_GUARD_NOW=4800 SUBAGENT_MODEL_GUARD=off
+for i in 1 2 3 4 5 6; do run allow '{"session_id":"F","tool_name":"Workflow","tool_input":{"script":"x"}}' "workflow calls are not counted ($i)" "$LD" SUBAGENT_GUARD_NOW=100; done
+run allow "$(wk G)" "unwritable ledger dir fails open" SUBAGENT_GUARD_LEDGER_DIR=/proc/nope/x SUBAGENT_GUARD_NOW=100
+rm -rf "$L"
+
 echo "subagent-model-guard: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -4,10 +4,11 @@
 set -uo pipefail
 H="$(cd "$(dirname "$0")" && pwd)/command-ask-guard.sh"
 pass=0; fail=0
-t() {   # $1 expected (ask|allow), $2 tool, $3 command
+t() {   # $1 expected (ask|deny|allow), $2 tool, $3 command
     local out got
     out="$(jq -n --arg t "$2" --arg c "$3" '{tool_name:$t, tool_input:{command:$c}}' | bash "$H")"
     got=allow; printf '%s' "$out" | grep -q '"permissionDecision": *"ask"' && got=ask
+    printf '%s' "$out" | grep -q '"permissionDecision": *"deny"' && got=deny
     if [ "$got" = "$1" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL want $1 got $got: [$2] $3"; fi
 }
 # pushes, through both tools, plain and compound. 2026-11-26, operator: "lets allow agents to push to main";
@@ -62,12 +63,12 @@ t allow   mcp__lean-ctx__ctx_shell  "cd /tmp && rm -fr cache"
 t allow   Bash                      "rm -r -f src"
 t allow Bash                      "rm build/out.o"
 t allow Bash                      "rm -f /tmp/x.json"
-t ask   Bash                      "docker system prune -af"
-t ask   Bash                      "docker volume prune"
-t ask   Bash                      "docker volume rm data"
-t ask   Bash                      "docker compose down -v"
-t ask   Bash                      "docker compose -p x down --volumes"
-t allow Bash                      "docker compose down"
+t deny  Bash                      "docker system prune -af"
+t deny  Bash                      "docker volume prune"
+t deny  Bash                      "docker volume rm data"
+t deny  Bash                      "docker compose down -v"
+t deny  Bash                      "docker compose -p x down --volumes"
+t deny  Bash                      "docker compose down"
 t allow Bash                      "docker system df"
 t ask   Bash                      "terraform apply -auto-approve"
 t allow Bash                      "terraform plan"
@@ -109,7 +110,7 @@ t allow Bash                      $'cat > x.sh <<\'EOF\'\nrm -rf build\nEOF\nbas
 t allow   Bash                      $'/home/marko/.local/bin/lean-ctx -c \'S=/tmp/x\nrm -rf /work/t/run_steps4 && cp -a a b\''
 t allow Bash                      "lean-ctx -c 'git push origin main'"
 t allow Bash                      $'{ /home/marko/.local/bin/lean-ctx -c \'cd /w && git push\'\n} && pwd -P >| /home/marko/.cache/claude-tmp/claude-0b4f-cwd'
-t ask   Bash                      "lean-ctx -c 'cd /w && sudo -u x sh -c '\\''docker volume rm y'\\'''"
+t deny  Bash                      "lean-ctx -c 'cd /w && sudo -u x sh -c '\\''docker volume rm y'\\'''"
 t allow Bash                      "lean-ctx -c 'git push origin main'; echo done"
 t allow Bash                      "lean-ctx -c 'git status --short'"
 t allow Bash                      $'lean-ctx -c \'git commit -q -F - <<\'\\\'\'EOF\'\\\'\'\nsee the git push docs\nEOF\''
@@ -120,7 +121,7 @@ t allow Bash                      $'bash <<\'EOF\'\ngit push origin main\nEOF'
 t allow   Bash                      $'ssh host \'bash -s\' <<\'EOF\'\nrm -rf ~/data\nEOF'
 t allow   Bash                      'bash -c "rm -rf /srv/data"'
 t allow Bash                      'ssh homelab "cd repo && git push origin main"'
-t ask   Bash                      "sudo -u claude sh -c 'docker volume rm x'"
+t deny  Bash                      "sudo -u claude sh -c 'docker volume rm x'"
 t allow Bash                      'eval "git push origin main"'
 t allow Bash                      'echo "git push origin main" | sh'
 t allow   Bash                      'd=$(mktemp -d); rm -rf "$d" "$HOME/data"'
@@ -147,14 +148,14 @@ t allow Bash                      $'cd hooks && D=$(ssh -i ~/.ssh/k -o Identitie
 t allow Bash                      $'D=$(timeout 30 ssh host mktemp -d); ssh host "rm -rf $D"'
 t allow   Bash                      $'D=$(ssh host \'cat /etc/mktemp-list\'); ssh host "rm -rf $D"'
 t allow   Bash                      $'D=$(ssh host \'echo /srv\'); ssh host "rm -rf $D"'
-t ask   Bash                      'docker compose down -v # cleanup'
+t deny  Bash                      'docker compose down -v # cleanup'
 # 2026-11-26, operator: the dev engine is throwaway; a down -v or volume rm there needs no go
 t allow Bash                      'cd /w/slack-proof && D="docker --context dev"; $D compose -p n8nslackproof -f docker-compose.yml down -v --remove-orphans 2>&1 | tail -2; rm -rf /tmp/sf; for i in 1 2; do bash run.sh; done; $D volume ls | grep n8nslack'
 t allow Bash                      'cd /w/slack-proof && docker --context dev compose -p n8nslackproof -f docker-compose.yml down -v --remove-orphans 2>&1 | tail -2; rm -rf /tmp/sf; echo cleaned'
 t allow Bash                      'DOCKER_CONTEXT=dev docker compose -p x down -v'
 t allow Bash                      'docker --context=dev volume rm proof_data'
 t allow mcp__lean-ctx__ctx_shell  'docker --context dev compose -p x down --volumes'
-t ask   Bash                      'docker --context dev ps; docker compose down -v'
+t deny  Bash                      'docker --context dev ps; docker compose down -v'
 t ask   Bash                      'docker --context dev ps; docker --context default compose down -v'
 t ask   Bash                      'DOCKER_CONTEXT=dev DOCKER_HOST=unix:///var/run/docker.sock docker compose down -v'
 t ask   Bash                      'docker --context dev ps && docker -H unix:///var/run/docker.sock volume rm data'
@@ -164,6 +165,41 @@ t ask   Bash                      'docker --context default system prune -af'
 t allow Bash                      'docker ps --format x | grep volume'
 t allow Bash                      'export DOCKER_CONTEXT=dev; docker compose -p p down -v'
 t ask   Bash                      'docker --context dev system prune -af'
+# docker that changes state and names no engine: denied (2026-11-26, a session ran `docker run` and
+# `docker network create` on the production engine). Prunes and volume rm with a context named still ask.
+t deny  Bash                      "docker run --rm alpine true"
+t deny  Bash                      "docker network create proof"
+t deny  Bash                      "cd /w && docker build -t x ."
+t deny  Bash                      "docker compose -f a.yml up -d"
+t deny  mcp__lean-ctx__ctx_shell  "docker exec n8n ls"
+t deny  Bash                      "docker -l debug run alpine true"
+t deny  Bash                      "docker --context dev ps; docker run alpine true"
+t deny  Bash                      "docker image rm x"
+t allow Bash                      "docker --context dev run --rm alpine true"
+t allow Bash                      "docker -c dev run --rm alpine true"
+t allow Bash                      "DOCKER_CONTEXT=dev docker run --rm alpine true"
+t allow Bash                      "export DOCKER_CONTEXT=dev; docker run --rm alpine true"
+t allow Bash                      "docker -H unix:///x run alpine true"
+t allow Bash                      "docker --host=tcp://h:2375 run alpine true"
+t allow Bash                      "DOCKER_HOST=unix:///x docker network create n"
+t allow Bash                      "docker --context dev compose up -d"
+t allow Bash                      "docker --context dev compose -f a.yml -p x up -d"
+t allow Bash                      "docker --context prod run alpine true"
+t allow Bash                      "docker ps -a"
+t allow Bash                      "docker images"
+t allow Bash                      "docker inspect n8n"
+t allow Bash                      "docker logs -f n8n"
+t allow Bash                      "docker info"
+t allow Bash                      "docker version"
+t allow Bash                      "docker context ls"
+t allow Bash                      "docker compose ps"
+t allow Bash                      "docker compose -f a.yml logs -f"
+t allow Bash                      "docker compose config"
+t allow Bash                      "docker network ls; docker volume ls"
+t allow Bash                      "ssh homelab 'docker exec n8n ls'"
+t allow Bash                      "ssh -i k mini 'cd /srv && docker compose up -d'"
+t ask   Bash                      "docker --context dev volume prune"
+t allow Bash                      "echo 'docker run is closed here'"
 # other tools and the escape hatch
 t allow Read                      "git push origin main"
 out="$(jq -n '{tool_name:"Bash",tool_input:{command:"git push"}}' | COMMAND_ASK_GUARD=off bash "$H")"

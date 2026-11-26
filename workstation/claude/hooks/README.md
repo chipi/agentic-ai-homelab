@@ -12,7 +12,7 @@ alone is never auto-loaded, so that pointer is what makes any of this discoverab
 | `session-reap.sh`        | SessionEnd  | Reaps this session's tool processes + sweeps runaway `gh run` poll loops and orphaned `tail -f … \| grep` watchers in the project family (↓ documented in full). |
 | `session-orphan-report.sh` | SessionStart | Reports (never kills) long-running CPU-heavy processes in the project family (↓ documented in full). |
 | `secrets-guard.sh`       | PreToolUse  | Blocks writes/commits that would leak secrets. |
-| `subagent-model-guard.sh` | PreToolUse | No subagent on Opus; fable for the advisor only (operator, 2026-11-19). Denies on `Agent`/`Task`: a fork (it always runs on the main model, Opus), a call that names no `model` (it would run on the fallback: `CLAUDE_CODE_SUBAGENT_MODEL`, else the main model), and a model naming `opus` or `fable` (any case, full ids, `opusplan`) unless `subagent_type` is `advisor`. On `Workflow` it reads the script (inline, `scriptPath`, or a saved workflow by `name`) and denies an `opus`/`fable` model literal or a fork; a model name built at runtime is not seen. `SUBAGENT_MODEL_GUARD=off` passes everything; it is the operator's only, agents never set it unless the operator explicitly says so (AGENTS.md). Fail-open on its own errors. Tests: `bash subagent-model-guard.test.sh` (37). |
+| `subagent-model-guard.sh` | PreToolUse | No subagent on Opus; fable for the advisor only (operator, 2026-11-19). Denies on `Agent`/`Task`: a fork (it always runs on the main model, Opus), a call that names no `model` (it would run on the fallback: `CLAUDE_CODE_SUBAGENT_MODEL`, else the main model), and a model naming `opus` or `fable` (any case, full ids, `opusplan`) unless `subagent_type` is `advisor`. On `Workflow` it reads the script (inline, `scriptPath`, or a saved workflow by `name`) and denies an `opus`/`fable` model literal or a fork; a model name built at runtime is not seen. `SUBAGENT_MODEL_GUARD=off` passes everything; it is the operator's only, agents never set it unless the operator explicitly says so (AGENTS.md). Fail-open on its own errors. Also a per-session ledger (`${XDG_CACHE_HOME:-~/.cache}/subagent-model-guard/<session_id>`, written only for allowed launches): at most 2 `advisor` launches per 60 minutes (the 3rd is denied: a worker or auditor runs on sonnet), and an `Agent`/`Task` launch is denied once 4 agents of any type ran in the last 10 minutes (state the count and cost to the operator and ask first). `Workflow` calls are not counted. No `session_id` or an unwritable ledger: allowed. Tests: `bash subagent-model-guard.test.sh` (65; `SUBAGENT_GUARD_LEDGER_DIR`/`SUBAGENT_GUARD_NOW` are for the tests only). |
 | `lean-ctx-rewrite-gate.sh` | PreToolUse | Bash: lean-ctx's `hook rewrite`, except a command that names git inside an agent worktree (`*/.claude/worktrees/*`), which runs unwrapped so Claude Code's worktree isolation can verify it (↓ 2026-11-24). Tests: `bash lean-ctx-rewrite-gate.test.sh` (11). |
 | `lean-ctx-*`             | Pre/Post    | lean-ctx tool redirect/rewrite shims. |
 
@@ -288,6 +288,17 @@ failed the suite.
 
 There are now 77 cases, passing on the X3 and on the mini's bash 3.2. Both mutants of the unwrapping
 (none, and no fallback) failed the suite.
+
+**2026-11-26: a docker command that changes state and names no engine is denied (not asked).** A peer
+session ran `docker run` and `docker network create` with no engine, which hits the mini's production
+engine. `run`, `create`, `start`, `rm`, `rmi`, `build`, `pull`, `push`, `exec`, `network|volume create|rm`,
+`compose up|down|run|rm|build` and the prunes now get `permissionDecision: "deny"` with the fix
+(`docker --context dev ...`) unless an engine is named: `--context`, `-c` or `-H`/`--host` after `docker`,
+a `DOCKER_CONTEXT=`/`DOCKER_HOST=` prefix, or an earlier `export DOCKER_CONTEXT=`/`DOCKER_HOST=`. Read-only
+subcommands (`ps`, `images`, `inspect`, `logs`, `info`, `version`, `context ls`, `compose ps|logs|config`)
+pass, and so does any command containing `ssh ` (another host). With an engine named, the prunes and
+`volume rm`/`down -v` ask or pass as before. Not seen: `$D run` where `D` holds `docker ...`, and a
+script file that runs docker. 174 cases.
 
 **Escape hatch:** `COMMAND_ASK_GUARD=off`. It is the operator's alone; an agent never sets it.
 
