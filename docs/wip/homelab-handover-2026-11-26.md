@@ -11,9 +11,12 @@ says what is in flight and what was promised to whom. State checked at 2026-11-2
    (run 45722744424): `e2e` right after #22's `e2e`, passed. database has the main sha for
    Integration's lock. If "webServer exited early" ever returns, check that the runner container
    restarted after the previous job (README in `infra/x3/ci-runner/`).
-2. **Self-hosted runners, next repos: after the 2026-11-26 morning deploy** (operator's go,
-   2026-11-25). Order: closelistening-common (one job; open its `runs-on: [self-hosted, x3]` PR, as
-   with Studio #20), then closelistening-player (six jobs: register `closelistening-player-2` and `-3`
+2. **Self-hosted runners, next repos: the morning deploy is done; go ahead** (operator, 2026-11-26:
+   "Deploy is done, we can continue with gh runners"). Nothing is pushed yet: common's change was
+   checked on a throwaway branch (`test.yml` has one job, line 22, `runs-on: ubuntu-latest`; no
+   `docker://` actions, no container jobs) and dropped when the session ended. Redo it: clone
+   chipi/closelistening-common, branch `ci/x3-runner`, `runs-on: [self-hosted, x3]`, open the PR, watch
+   its Tests run on `x3-closelistening-common-1`, merge on the operator's go. Then closelistening-player (six jobs: register `closelistening-player-2` and `-3`
    first; its session changes `runs-on`), then closelistening-integration. `infra`'s deploy, backup and
    drill jobs stay on GitHub (ADR-0015). Details: NEXT_STEPS, X3 section.
 
@@ -38,7 +41,8 @@ says what is in flight and what was promised to whom. State checked at 2026-11-2
 
 ## The DGX
 
-- Mode `prod` (checked 00:10). photogrammetry (Recce) has the operator's standing go to switch
+- Mode `prod` (switched back and checked after Recce's RC-P10 window, 2026-11-26 morning: both
+  vLLMs healthy, /v1/models answering on :8003 and :8005). photogrammetry (Recce) has the operator's standing go to switch
   it to `free` for daytime GPU windows: it switches as `markodragoljevic@dgx-llm-1`, sends "done",
   and homelab switches back with `~/bin/gpu-mode-swap.sh prod --json`, then checks both vLLMs
   (healthy, `/v1/models` on :8003 and :8005). The operator: "I tell any agent and any agent can flip
