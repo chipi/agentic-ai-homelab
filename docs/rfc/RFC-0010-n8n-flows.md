@@ -113,11 +113,11 @@ Added from the review: the read path, shadows, the `smoke` hook, and the route o
 
 ### A2. RFC-0014 case 1, flotilla answers a question from documents and tasks (2026-11-26)
 
-- **The connector:** Google again, on **one new credential**, `Google read-only (case 1)` (type Google OAuth2 API,
-  made by the operator's sign-in in the editor). Its scopes are exactly `drive.readonly` and `tasks.readonly`, so it
-  cannot write: the read path's rule (above) that reads have their own credentials, separate from the callback
-  flows' write ones. It uses the same OAuth client and Google Cloud project as A1; the consent screen needs
-  those two scopes added.
+- **The connector:** Google again, on **one new credential** of the generic type Google OAuth2 API (any name:
+  `install-mcp.sh` finds it by type), made by the operator's sign-in in the editor. Its scopes are exactly
+  `drive.readonly` and `tasks.readonly`, so it cannot write: the read path's rule (above) that reads have their
+  own credentials, separate from the callback flows' write ones. It uses the same OAuth client and Google Cloud
+  project as A1; the consent screen needs those two scopes added.
 - **The hosts:** none new. Drive and Tasks are `www.googleapis.com`, the token refresh is `oauth2.googleapis.com`;
   both are in `infra/n8n/egress/acl.yaml` since A1.
 - **The flows, the read path of the rule (n8n's MCP Server Trigger fronting read-only tools):**
@@ -141,6 +141,20 @@ Added from the review: the read path, shadows, the `smoke` hook, and the route o
 - **Shadows never call them** (the rule above): a read creates a saved execution. These flows save no data of a
   successful sub-run, but n8n still keeps the server run, which holds each tool's answer (a document's text) in
   `n8n-db` until n8n prunes executions (README, "Case 1 read servers (MCP)").
+
+### A3. RFC-0014 case 1, questions asked in Slack and answered in their thread (2026-11-26)
+
+- **The connector:** Slack, on one credential (type Slack API): the bot token of the operator's Slack app,
+  created and installed by the operator on 2026-11-26, its allowed domains limited to `slack.com`. Its bot
+  scopes are `channels:history` (read `#ask`) and `chat:write` (post the reply); no token rotation, which n8n's
+  fixed-token credential cannot follow.
+- **The host:** `slack.com` (the Web API, `https://slack.com/api/...`), added to `infra/n8n/egress/acl.yaml`.
+- **No inbound:** Slack's Events API needs a public HTTPS address and n8n is tailnet only, so the question flow
+  polls `#ask` once a minute (`conversations.history` since the last message it saw) instead of being called.
+- **The flows (to be built):** the question flow, a top-level human message in `#ask` to flotilla's signed hook
+  `ask` (thread, user, text); the reply flow, flotilla's signed `plumbing.reply` callback, verified like A1's, to
+  `chat.postMessage` in the question's thread. Their single outputs: the hook call, and one message per approved
+  reply.
 
 ## Not covered
 
