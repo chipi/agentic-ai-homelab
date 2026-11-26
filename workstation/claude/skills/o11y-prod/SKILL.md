@@ -15,7 +15,7 @@ python3 ~/.claude/skills/o11y-prod/scripts/review.py --project orrery \
     --start 2026-10-01T18:00:00Z --end 2026-10-02T08:00:00Z --handover /tmp/handover.md
 ```
 
-**Projects:** `closelistening` (alias `podcast`), `orrery`, `homelab`. To add one, add an entry to `PROJECTS` in the script:
+**Projects:** `closelistening` (alias `podcast`), `orrery`, `homelab`, `evals`, `flotilla`. To add one, add an entry to `PROJECTS` in the script:
 - `logs`: a VictoriaLogs filter;
 - `glitchtip`: GlitchTip short-id prefixes;
 - `traces`: trace service names;

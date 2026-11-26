@@ -53,6 +53,21 @@ PROFILES = {
         # whatever the sampled flag says. A 200 or 5xx means the auth path changed: FAIL.
         "trace_probes": [{"service": "orrery-mcp", "url": "https://mcp.orrerylearn.com/mcp", "status": 401}],
     },
+    # chipi/eval-harness: evals.humancopilot.eu on the prod VPS. --release is sha-<7>, the
+    # service.version the inspector and the MCP server report. No Langfuse keys; the MCP server
+    # sends its tool calls to the "Eval Harness" Umami site.
+    "evals": {
+        "log_services": ["evals-web", "evals-inspector", "evals-mcp"],
+        "trace_services": ["evals-inspector", "evals-mcp"],
+        "scrape_jobs": ["evals-inspector", "evals-mcp"],
+        "counters": ['evals_inspector_requests_total{service="evals-inspector"}',
+                     'evals_mcp_calls_total{service="evals-mcp"}',
+                     'evals_mcp_umami_events_total{service="evals-mcp"}'],
+        "glitchtip": ["evals-web", "evals-inspector", "evals-mcp"],
+        "langfuse_keys": None,
+        "umami_sites": ["Eval Harness"],
+        "live_url": None,
+    },
     # chipi/flotilla on the mini: a homelab service, so its lines carry environment=operations.
     # Its metrics are pushed, not scraped; --release is the image tag (sha-<7>) flotillad reports
     # as service.version. No GlitchTip project yet, no Langfuse keys, no site.

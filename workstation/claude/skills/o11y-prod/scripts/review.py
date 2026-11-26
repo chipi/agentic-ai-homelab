@@ -30,6 +30,10 @@ PROJECTS = {
                                   "delivery-worker", "operator-public-api"], "repo": "chipi/podcast_scraper"},
     "orrery": {"logs": "app:orrery", "glitchtip": ["ORRERY"], "traces": [], "repo": "chipi/orrery"},
     "homelab": {"logs": "instance:homelab", "glitchtip": ["LITELLM"], "traces": [], "repo": "chipi/agentic-ai-homelab"},
+    "evals": {"logs": "app:evals", "glitchtip": ["EVALS-WEB", "EVALS-INSPECTOR", "EVALS-MCP"],
+              "traces": ["evals-inspector", "evals-mcp"], "repo": "chipi/eval-harness"},
+    "flotilla": {"logs": "(service:flotillad OR service:flotilla-worker-triage OR service:flotilla-egress)",
+                 "glitchtip": ["FLOTILLA"], "traces": ["flotillad"], "repo": "chipi/flotilla"},
 }
 PROJECTS["podcast"] = PROJECTS["closelistening"]
 

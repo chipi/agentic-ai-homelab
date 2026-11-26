@@ -23,7 +23,7 @@ $R homelab $V compare --project closelistening --baseline /tmp/cl-base.json --re
 $R homelab $V compare --project orrery --since 2026-10-17T08:21:00Z --sourcemaps
 ```
 
-- **Projects:** `closelistening`, `orrery` and `flotilla`. The `PROFILES` table in the script lists
+- **Projects:** `closelistening`, `orrery`, `flotilla` and `evals`. The `PROFILES` table in the script lists
   each one's services, scrape jobs, counters, GlitchTip projects, Langfuse key file, Umami sites,
   live URL, and the `environment` its live lines carry (default `prod`; flotilla's is `operations`).
   Add a project there.
