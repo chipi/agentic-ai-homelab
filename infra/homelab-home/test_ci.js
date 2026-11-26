@@ -16,7 +16,8 @@ const NOW = Date.parse('2026-11-26T22:03:00Z') / 1000;
 const REPOS = ['chipi/closelistening-studio', 'chipi/closelistening-common', 'chipi/closelistening-player', 'chipi/closelistening-integration', 'chipi/infra'];
 
 let failed = 0;
-const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else { failed++; console.error('FAIL ' + name + (got !== undefined ? ' (got ' + JSON.stringify(got) + ')' : '')); } };
+// Printed as '## [': the Actions runner reads '##[error]' in a step's output as an error annotation.
+const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (cond) console.log('ok   ' + name); else { failed++; console.error('FAIL ' + name + (got !== undefined ? ' (got ' + JSON.stringify(got) + ')' : '')); } };
 
 (async () => {
   // semantics

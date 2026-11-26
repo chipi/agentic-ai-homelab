@@ -83,7 +83,9 @@ const aggResult = (v) =>
   [{ metric: { __name__: 'prod_ops_health_aggregate', app: 'podcast' }, value: [NOW, String(v)] }];
 
 let failures = 0;
+// Printed as '## [': the Actions runner reads '##[error]' in a step's output as an error annotation.
 const check = (name, cond, detail) => {
+  name = name.replace(/##\[/g, '## [');
   if (cond) console.log('  ok  ' + name);
   else { failures++; console.log('  FAIL ' + name + (detail ? ' — ' + detail : '')); }
 };
