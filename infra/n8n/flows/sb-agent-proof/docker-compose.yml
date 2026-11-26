@@ -72,6 +72,7 @@ services:
       SB_HOOK_URL: "http://127.0.0.1:${PROOF_PORT:-15680}/webhook/second-brain-mention"
       SLACK_API_BASE: "http://127.0.0.1:${SLACK_STUB_PORT:-18081}"
       PORT: "${BRIDGE_PORT:-18085}"
+      REFRESH_MS: "25000"   # the proof watches a make-before-break refresh happen on its own
     volumes:
       - "${SB_BRIDGE_DIR:?run.sh sets it}/bridge.js:/app/bridge.js:ro"
       - "${PROOF_SECRETS:?run.sh sets it}/slack-app.token:/run/sb/slack-app.token:ro"

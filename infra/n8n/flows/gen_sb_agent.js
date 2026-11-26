@@ -23,13 +23,14 @@ const URLS = {
 };
 const OUT = args[0] || __dirname;
 
-const ID = 'sbaskagent00001';
+const ID = 'sbaskagent00001', ID2 = 'sbaskrun0000001';
 const HOOK_PATH = 'second-brain-mention';
-const MAX_QUESTION = 2000, MAX_ANSWER = 1500, MAX_STEPS = 8, TOOL_TIMEOUT_MS = 60000;
+const MAX_TEXT = 8000, MAX_QUESTION = 2000, MAX_ANSWER = 1500, MAX_STEPS = 8, TOOL_TIMEOUT_MS = 60000;
 const CTX_MESSAGES = 20, CTX_CHARS = 6000, CTX_EACH = 1000, KEEP_SEEN = 2000, KEEP_OUTCOMES = 100, WINDOW_S = 300;
 const LABEL = '[second brain] ';
 const NOT_FOUND = 'I could not find a sourced answer.';
 const FAILED = 'I hit an error answering this; try again later.';
+const REFUSED = 'I only answer for my owner here.', FILE = "I can't read files; please ask in text.", LONG = 'That message is too long; please ask a shorter question.';
 
 const SLACK_ID_PLACEHOLDER = '__SLACK_CRED_ID__';
 const CRED = {
@@ -89,7 +90,10 @@ return [{ json: { ts, sig, raw, toSign: ts + '.' + raw } }];`),
 const fail = (code, error) => [{ json: { valid: false, code, response: { error } } }];
 if (!v.raw) return fail(400, 'no body');
 if (!/^\\d+$/.test(v.ts) || Math.abs(Math.floor(Date.now() / 1000) - Number(v.ts)) > ${WINDOW_S}) return fail(401, 'stale or missing timestamp');
-if (v.sig !== 'sha256=' + v.expected) return fail(401, 'bad signature');
+const want = 'sha256=' + v.expected;   // compared in constant time (the Code node has no crypto.timingSafeEqual: no builtin modules)
+let diff = v.sig.length ^ want.length;
+for (let i = 0; i < want.length; i++) diff |= (v.sig.charCodeAt(i) || 0) ^ want.charCodeAt(i);
+if (diff !== 0) return fail(401, 'bad signature');
 let b; try { b = JSON.parse(v.raw); } catch (e) { return fail(400, 'body is not JSON'); }
 const ID = /^[CGD][A-Z0-9]{2,20}$/, TS = /^\\d{1,12}\\.\\d{1,9}$/, USER = /^[UW][A-Z0-9]{2,20}$/;
 if (!b || typeof b !== 'object') return fail(400, 'body is not an object');
@@ -99,23 +103,45 @@ if (b.thread_ts != null && !TS.test(String(b.thread_ts))) return fail(400, 'thre
 if (!USER.test(String(b.user))) return fail(400, 'user');
 if (b.bot != null && !USER.test(String(b.bot))) return fail(400, 'bot');
 if (!/^[A-Za-z0-9_-]{1,64}$/.test(String(b.event_id))) return fail(400, 'event_id');
-if (typeof b.text !== 'string' || b.text.length > 8000) return fail(400, 'text');
-return [{ json: { valid: true, code: 200, response: { ok: true }, event: { channel: b.channel, ts: b.ts, thread_ts: b.thread_ts || '', user: b.user, bot: b.bot || '', event_id: b.event_id, text: b.text } } }];`),
+if (b.subtype != null && b.subtype !== 'file_share') return fail(400, 'subtype');
+if (typeof b.text !== 'string' || b.text.length > 40000) return fail(400, 'text');
+return [{ json: { valid: true, code: 200, response: { ok: true }, event: { channel: b.channel, ts: b.ts, thread_ts: b.thread_ts || '', user: b.user, bot: b.bot || '', event_id: b.event_id, subtype: b.subtype || '', text: b.text } } }];`),
   iff('Valid?', '={{ $json.valid }}'),
   respond('Refuse', '={{ $json.code }}', '={{ JSON.stringify($json.response) }}'),
   respond('Accept', '={{ $json.code }}', '={{ JSON.stringify($json.response) }}'),   // 200 at once: the rest runs after the bridge has its answer
-  code('Decide', `// once per mention: the channel and ts, and the event id, are kept in this workflow's static data (the newest ${KEEP_SEEN}); a second delivery stops here
+  code('Decide', `// once per mention. The channel with ts, and the event id, are kept in THIS workflow's static data (the newest ${KEEP_SEEN}); this execution ends
+// in milliseconds (the agent runs in a separate execution, see 'Run'), so the keys are saved before the agent starts and a second delivery stops here.
 const e = $input.first().json.event, sd = $getWorkflowStaticData('global');
 const k1 = e.channel + ':' + e.ts, k2 = 'ev:' + e.event_id;
 const seen = sd.seen || {};
 if (seen[k1] || seen[k2]) return [];
 const now = Date.now();
 sd.seen = Object.fromEntries(Object.entries(Object.assign({}, seen, { [k1]: now, [k2]: now })).sort((a, b) => b[1] - a[1]).slice(0, ${KEEP_SEEN}));
-// the bot's own mention is not part of the question; the other mentions stay
+// who may ask (fail closed): install-sb-agent.sh puts the operator's Slack user ids (and, optionally, channel ids) here; none = nobody, * = everyone (every channel for CHANNELS)
+const USERS = '__SB_ALLOWED_USERS__'.split(',').map(s => s.trim()).filter(Boolean);
+const CHANNELS = '__SB_ALLOWED_CHANNELS__'.split(',').map(s => s.trim()).filter(Boolean);
+// the bot's own mention is not part of the question; the other mentions stay; line breaks stay (a thread's message is not one line)
 const own = e.bot ? new RegExp('<@' + e.bot + '(\\\\|[^>]*)?>', 'g') : /^\\s*<@[UW][A-Z0-9]+(\\|[^>]*)?>/;
-const question = Array.from(e.text.replace(own, ' ').replace(/\\s+/g, ' ').trim()).slice(0, ${MAX_QUESTION}).join('');
+const question = Array.from(e.text.replace(own, ' ').replace(/[ \\t]+/g, ' ').replace(/\\n{3,}/g, '\\n\\n').trim()).slice(0, ${MAX_QUESTION}).join('');
 const thread = e.thread_ts && e.thread_ts !== e.ts ? e.thread_ts : '';
-return [{ json: { channel: e.channel, ts: e.ts, user: e.user, event_id: e.event_id, question, thread, replyTo: thread || e.ts } }];`),
+const replyTo = thread || e.ts;
+let kind = 'agent', say = '';
+if (!(USERS.includes('*') || USERS.includes(e.user)) || (CHANNELS.length && !CHANNELS.includes('*') && !CHANNELS.includes(e.channel))) { kind = 'refused'; say = ${JSON.stringify(REFUSED)}; }
+else if (e.subtype === 'file_share') { kind = 'file'; say = ${JSON.stringify(FILE)}; }
+else if (e.text.length > ${MAX_TEXT}) { kind = 'long'; say = ${JSON.stringify(LONG)}; }
+return [{ json: { kind, channel: e.channel, ts: e.ts, user: e.user, event_id: e.event_id, question, thread, replyTo,
+  request: { channel: e.channel, thread_ts: replyTo, text: ${JSON.stringify(LABEL)} + say, unfurl_links: false, unfurl_media: false } } }];`),
+  iff('Agent mention?', "={{ $json.kind === 'agent' }}"),
+  { name: 'Run', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: pos(),
+    parameters: { source: 'database', workflowId: { __rl: true, value: ID2, mode: 'id' }, mode: 'once', options: { waitForSubWorkflow: false } } },   // not waited for: this execution ends now
+  { name: 'Canned', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: pos(), credentials: CRED.slack, parameters: {
+      method: 'POST', url: BASE + '/api/chat.postMessage', authentication: 'predefinedCredentialType', nodeCredentialType: 'slackApi',
+      sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.request) }}',
+      options: { response: { response: { neverError: true } } } } },
+];
+x = 0;
+const nodes2 = [
+  { name: 'In', type: 'n8n-nodes-base.executeWorkflowTrigger', typeVersion: 1.1, position: pos(), parameters: { inputSource: 'passthrough' } },
   iff('In a thread?', '={{ !!$json.thread }}'),
   { name: 'Replies', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: pos(), credentials: CRED.slack,
     parameters: { method: 'GET', url: BASE + '/api/conversations.replies', authentication: 'predefinedCredentialType', nodeCredentialType: 'slackApi',
@@ -124,7 +150,7 @@ return [{ json: { channel: e.channel, ts: e.ts, user: e.user, event_id: e.event_
       options: { response: { response: { neverError: true } } } } },
   code('Prompt', `// what the agent is given: the thread so far (the newest ${CTX_MESSAGES} messages, ${CTX_CHARS} characters at most, the mention itself left out) and the question.
 // A thread Slack would not give (a private channel needs groups:history) is answered without it, and the execution says so.
-const d = $('Decide').first().json;
+const d = $('In').first().json;
 let lines = [], note = '';
 if (d.thread) {
   let r = null; try { r = $('Replies').isExecuted ? $('Replies').first().json : null; } catch (e) { r = null; }
@@ -159,13 +185,14 @@ let answer = typeof j.output === 'string' ? j.output : '';
 const steps = Array.isArray(j.intermediateSteps) ? j.intermediateSteps : [];
 ${SEAM ? `const FORCE = 'PROOF-FORCE-ANSWER:';
 const forced = q.question.startsWith(FORCE);
-if (forced) { answer = q.question.slice(FORCE.length).trim(); delete j.error; }   // the proof's seam: the agent's output replaced, the tool outputs still the agent's
+let extraSeen = '';
+if (forced) { const rest = q.question.slice(FORCE.length); const k = rest.indexOf('\\nPROOF-FORCE-SEEN:'); answer = (k < 0 ? rest : rest.slice(0, k)).trim(); extraSeen = k < 0 ? '' : rest.slice(k + 18); delete j.error; }   // the proof's seam: the agent's output replaced; PROOF-FORCE-SEEN adds text a tool "returned"
 ` : `const forced = false;
 `}if (j.error && !forced) {
   verdict = 'error'; reason = String(j.error.message || j.error).slice(0, 300);
   out = ${JSON.stringify(FAILED)};
 } else {
-  const seen = norm(steps.map(s => flat(s.observation)).join(' \\n '));
+  const seen = norm(steps.map(s => flat(s.observation)).join(' \\n ') + ' \\n ' + ${SEAM ? 'extraSeen' : "''"});
   const sp = answer.split(/\\n\\s*sources:?[ \\t]*\\n/i);
   const body = sp.length > 1 ? sp.slice(0, -1).join('\\n') : answer;
   const srcLines = sp.length > 1 ? sp[sp.length - 1].split('\\n').map(l => l.trim()).filter(Boolean) : [];
@@ -178,8 +205,11 @@ if (forced) { answer = q.question.slice(FORCE.length).trim(); delete j.error; } 
   if (!src.size) bad.push('no sources list');
   for (const n of cited) if (!src.has(n)) bad.push('[' + n + '] is not in the sources list');
   for (const [n, line] of src) {
-    const parts = line.split('|').map(s => s.trim()).filter(Boolean);   // <ref> | <title>, in either order: one of them must be what a tool returned
-    if (!parts.some(p => seen.includes(norm(p)))) bad.push('[' + n + '] ' + (parts[0] || '').slice(0, 80) + ' was not returned by a tool');
+    // <ref> | <title>: the cited ref itself (an id, a link, a task's title; at least 6 characters) must be what a tool returned, and a title of 12 characters
+    // or more must be there verbatim too, so a real reference cannot carry an invented title. A short title proves nothing and is not used.
+    const parts = line.split('|').map(s => s.trim()).filter(Boolean), ref = parts[0] || '', title = parts[1] || '';
+    if (ref.length < 6 || !seen.includes(norm(ref))) bad.push('[' + n + '] ' + ref.slice(0, 80) + ' was not returned by a tool');
+    else if (title.length >= 12 && !seen.includes(norm(title))) bad.push('[' + n + '] the title ' + title.slice(0, 60) + ' was not returned by a tool');
   }
   for (const m of answer.matchAll(/\\b(?:(?:arxiv|ntrs|doi|url):|https?:[/][/])[^\\s,;)\\]|]+/gi)) { const t = m[0].replace(/[.:]+$/, ''); if (!seen.includes(norm(t))) bad.push(t.slice(0, 80) + ' was not returned by a tool'); }
   if (bad.length) { verdict = 'unsourced'; reason = [...new Set(bad)].join('; ').slice(0, 400); out = ${JSON.stringify(NOT_FOUND)}; }
@@ -209,12 +239,13 @@ const rec = { ts: c.ts, channel: c.channel, event_id: c.event_id, reply: r.ts, v
 sd.outcomes = (sd.outcomes || []).concat([rec]).slice(-${KEEP_OUTCOMES});
 return { json: rec };`),
 ];
-const conns = wire([['Mention', 'Verify'], ['Verify', 'Sign'], ['Sign', 'Authorize'], ['Authorize', 'Valid?'], ['Valid?', 'Accept', 0], ['Valid?', 'Refuse', 1],
-  ['Accept', 'Decide'], ['Decide', 'In a thread?'], ['In a thread?', 'Replies', 0], ['In a thread?', 'Prompt', 1], ['Replies', 'Prompt'],
+const conns1 = wire([['Mention', 'Verify'], ['Verify', 'Sign'], ['Sign', 'Authorize'], ['Authorize', 'Valid?'], ['Valid?', 'Accept', 0], ['Valid?', 'Refuse', 1],
+  ['Accept', 'Decide'], ['Decide', 'Agent mention?'], ['Agent mention?', 'Run', 0], ['Agent mention?', 'Canned', 1]]);
+const conns2 = wire([['In', 'In a thread?'], ['In a thread?', 'Replies', 0], ['In a thread?', 'Prompt', 1], ['Replies', 'Prompt'],
   ['Prompt', 'Agent'], ['Agent', 'Check'], ['Check', 'Post'], ['Post', 'Mark'],
   ['Model', 'Agent', 0, 'ai_languageModel'], ['library', 'Agent', 0, 'ai_tool'], ['docs', 'Agent', 0, 'ai_tool'], ['tasks', 'Agent', 0, 'ai_tool']]);
 
-const wf = [{ id: ID, name: 'second brain: Slack mention -> answer in thread', active: false, settings: { executionOrder: 'v1' },
-  nodes: nodes.map((n, i) => Object.assign({ id: `${ID}-${i}` }, n)), connections: conns }];
+const mk = (id, name, ns, c) => ({ id, name, active: false, settings: { executionOrder: 'v1' }, nodes: ns.map((n, i) => Object.assign({ id: `${id}-${i}` }, n)), connections: c });
+const wf = [mk(ID, 'second brain: Slack mention -> answer in thread', nodes, conns1), mk(ID2, 'second brain: answer one mention (called by the mention flow)', nodes2, conns2)];
 fs.writeFileSync(path.join(OUT, 'sb-agent.json'), JSON.stringify(wf, null, 1) + '\n');
-console.log('wrote sb-agent.json', nodes.length, 'nodes' + (SEAM ? ' (WITH the proof seam)' : ''));
+console.log('wrote sb-agent.json', nodes.length + ' + ' + nodes2.length, 'nodes' + (SEAM ? ' (WITH the proof seam)' : ''));

@@ -30,6 +30,7 @@ services:
       # above, which this stack already has.
       STORE_MODEL_IN_DB: "True"
     command: ["--config", "/app/config.yaml", "--port", "4000"]
+    networks: [default, litellm_clients]
     logging:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
@@ -68,6 +69,11 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
+
+networks:
+  # clients that only need the gateway (n8n's second brain agent, RFC-0010 A4) join this one, never `default`, which holds postgres
+  litellm_clients:
+    name: litellm_clients
 
 volumes:
   litellm-pg:

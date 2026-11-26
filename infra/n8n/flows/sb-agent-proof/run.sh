@@ -15,10 +15,10 @@ export SB_MODEL_URL="${SB_MODEL_URL:-http://100.92.54.65:11435/v1}" SB_MODEL="${
 $D info >/dev/null 2>&1 || { echo "STOP: no dev engine ($D info failed)"; exit 1; }
 SOCK="$($D context inspect "${DEV_CONTEXT:-dev}" --format '{{.Endpoints.docker.Host}}')"
 case "$SOCK" in unix://*) ;; *) echo "STOP: the dev context is not a local socket ($SOCK)"; exit 1;; esac
-$D ps -a --format '{{.Names}}' | grep -qxE 'n8n|n8n-db|n8n-proof-slack|n8n-proof-library|n8n-proof-docs|n8n-proof-tasks|n8n-proof-bridge' && { echo "STOP: a container of this proof (n8n, n8n-db, n8n-proof-*) already exists on this engine"; exit 1; }
+$D ps -a --format '{{.Names}}' | grep -qxE 'n8n|n8n-db|n8n-proof-slack|n8n-proof-library|n8n-proof-docs|n8n-proof-tasks|n8n-proof-bridge|n8n-proof-bridge2|n8n-proof-bridge3' && { echo "STOP: a container of this proof (n8n, n8n-db, n8n-proof-*) already exists on this engine"; exit 1; }
 curl -fsS -m 10 "${SB_MODEL_URL%/v1}/api/ps" | grep -q "$SB_MODEL" || echo "NOTE: $SB_MODEL is not listed as loaded at $SB_MODEL_URL (the first answer will wait for it to load)"
 W="$(mktemp -d)"; chmod 755 "$W"; export PROOF_HOME="$W/home"; mkdir -p "$PROOF_HOME" "$W/flows" "$W/sb"
-cleanup() { [ "${KEEP:-0}" = 1 ] && { echo "KEEP=1: project n8nsbagentproof left up, $W kept"; return; }; $C --profile bridge down -v --remove-orphans >/dev/null 2>&1; rm -rf "$W"; echo "torn down: project n8nsbagentproof and its volumes, $W"; }
+cleanup() { $D rm -f n8n-proof-bridge2 n8n-proof-bridge3 >/dev/null 2>&1; [ "${KEEP:-0}" = 1 ] && { echo "KEEP=1: project n8nsbagentproof left up, $W kept"; return; }; $C --profile bridge down -v --remove-orphans >/dev/null 2>&1; rm -rf "$W"; echo "torn down: project n8nsbagentproof and its volumes, $W"; }
 export PROOF_PORT="${PROOF_PORT:-15680}" PROOF_BROKER_PORT=15690 DB_PORT="${DB_PORT:-15432}" SLACK_STUB_PORT="${SLACK_STUB_PORT:-18081}" SLACK_WS_PORT="${SLACK_WS_PORT:-18084}" BRIDGE_PORT="${BRIDGE_PORT:-18085}" LIB_PORT="${LIB_PORT:-18790}" DOCS_PORT="${DOCS_PORT:-18082}" TASKS_PORT="${TASKS_PORT:-18083}"
 export PROOF_DB_PASSWORD="$(openssl rand -hex 16)" PROOF_ENCRYPTION_KEY="$(openssl rand -hex 24)" PROOF_SLACK_TOKEN="$(openssl rand -hex 24)" PROOF_APP_TOKEN="xapp-proof-$(openssl rand -hex 16)" PROOF_BRIDGE_SECRET="$(openssl rand -hex 32)"
 export PROOF_DOCS_TOKEN="$(openssl rand -hex 24)" PROOF_TASKS_TOKEN="$(openssl rand -hex 24)" PROOF_LIB_TOKEN="$(openssl rand -hex 24)" PROOF_MODEL_KEY="$(openssl rand -hex 24)"
@@ -54,7 +54,7 @@ printf '[{"id":"proofslack000001","name":"Slack (proof)","type":"slackApi","data
 cp "$FLOWS/install-sb-agent.sh" "$W/flows/"
 node "$FLOWS/gen_sb_agent.js" "$W/flows" --proof-seam --model "$SB_MODEL" --slack-base "http://127.0.0.1:$SLACK_STUB_PORT" \
   --library-url "http://127.0.0.1:$LIB_PORT/mcp" --docs-url "http://127.0.0.1:$DOCS_PORT/mcp" --tasks-url "http://127.0.0.1:$TASKS_PORT/mcp"
-SB_BRIDGE_SECRET_FILE="$W/secrets/hook.secret" SB_MODEL_KEY_FILE="$W/model.key" SB_LIBRARY_TOKEN_FILE="$W/lib.token" SB_DOCS_TOKEN_FILE="$W/docs.token" SB_TASKS_TOKEN_FILE="$W/tasks.token" \
+SB_ALLOWED_USERS=U0PROOFUSR1 SB_ALLOWED_CHANNELS=C0PROOFASK1 SB_BRIDGE_SECRET_FILE="$W/secrets/hook.secret" SB_MODEL_KEY_FILE="$W/model.key" SB_LIBRARY_TOKEN_FILE="$W/lib.token" SB_DOCS_TOKEN_FILE="$W/docs.token" SB_TASKS_TOKEN_FILE="$W/tasks.token" \
   HOME="$PROOF_HOME" bash "$W/flows/install-sb-agent.sh" || { echo "STOP: install failed"; exit 1; }
 # the publish step the README documents (the installer never does it); n8n registers a production webhook at start
 $D exec n8n n8n publish:workflow --id=sbaskagent00001 2>&1 | grep -viE "^$|deprecat|license|migration lock|postgres"
@@ -62,6 +62,7 @@ $D restart n8n >/dev/null; for i in $(seq 1 60); do $D exec n8n wget -qO- http:/
 $C --profile bridge up -d bridge >/dev/null 2>&1 || { echo "STOP: the bridge did not start"; exit 1; }
 for i in $(seq 1 30); do curl -fsS -m 2 "http://127.0.0.1:$BRIDGE_PORT/healthz" >/dev/null 2>&1 && break; sleep 1; done
 curl -fsS -m 2 "http://127.0.0.1:$BRIDGE_PORT/healthz" >/dev/null || { echo "STOP: the bridge is not healthy (no Socket Mode hello)"; exit 1; }
+export SB_MODEL_KEY_FILE="$W/model.key" SB_LIBRARY_TOKEN_FILE="$W/lib.token" SB_DOCS_TOKEN_FILE="$W/docs.token" SB_TASKS_TOKEN_FILE="$W/tasks.token" SB_BRIDGE_SECRET_FILE="$W/secrets/hook.secret" PROOF_FLOWS="$W/flows" PROOF_HOME PROOF_PORT
 export N8N_URL="http://127.0.0.1:$PROOF_PORT" BRIDGE_URL="http://127.0.0.1:$BRIDGE_PORT" WS_URL="http://127.0.0.1:$SLACK_WS_PORT" PROOF_APP_TOKEN PROOF_BRIDGE_SECRET
 export DEV_CONTEXT="${DEV_CONTEXT:-dev}" SLACK_URL="http://127.0.0.1:$SLACK_STUB_PORT" LIB_URL="http://127.0.0.1:$LIB_PORT" DOCS_URL="http://127.0.0.1:$DOCS_PORT" TASKS_URL="http://127.0.0.1:$TASKS_PORT"
 if [ "${PROOF:-1}" = 0 ]; then echo "PROOF=0: environment up, proof not run"; trap - EXIT; echo "W=$W"; exit 0; fi

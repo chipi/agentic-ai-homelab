@@ -65,7 +65,7 @@ def docker(*a):
 
 
 def outcomes():
-    raw = docker("exec", "n8n-db", "psql", "-U", "n8n", "-d", "n8n", "-tAc", "select \"staticData\"::text from workflow_entity where id='sbaskagent00001'").strip()
+    raw = docker("exec", "n8n-db", "psql", "-U", "n8n", "-d", "n8n", "-tAc", "select \"staticData\"::text from workflow_entity where id='sbaskrun0000001'").strip()
     try:
         return (json.loads(raw) or {}).get("global", {}).get("outcomes", []) if raw else []
     except ValueError:
@@ -100,11 +100,11 @@ def next_ts():
     return "%d.%06d" % (1800000000 + _seq[0], 100 + _seq[0])
 
 
-def mention(text, thread_ts=None, ts=None, event_id=None, retry=0, extra=None):
+def mention(text, thread_ts=None, ts=None, event_id=None, retry=0, extra=None, user=None, channel=None):
     """Inject an app_mention through the stub's Socket Mode server. Returns (ts, event_id, injected at)."""
     ts = ts or next_ts()
     event_id = event_id or "Ev%s" % ts.replace(".", "")
-    ev = {"type": "app_mention", "user": USER, "channel": CHANNEL, "ts": ts, "text": "<@%s> %s" % (BOT, text)}
+    ev = {"type": "app_mention", "user": user or USER, "channel": channel or CHANNEL, "ts": ts, "text": "<@%s> %s" % (BOT, text)}
     if thread_ts:
         ev["thread_ts"] = thread_ts
     ev.update(extra or {})
@@ -114,13 +114,13 @@ def mention(text, thread_ts=None, ts=None, event_id=None, retry=0, extra=None):
     return ts, event_id, t
 
 
-def ask(text, thread_ts=None, timeout=300, ts=None):
+def ask(text, thread_ts=None, timeout=300, ts=None, user=None, channel=None, extra=None, canned=False):
     """A mention, then wait for its one reply and its outcome record. Returns (ts, reply body or None, outcome or None, seconds)."""
-    ts, eid, t0 = mention(text, thread_ts, ts=ts)
+    ts, eid, t0 = mention(text, thread_ts, ts=ts, user=user, channel=channel, extra=extra)
     root = thread_ts or ts
     got = wait(lambda: replies_in(root) if any(p["body"]["thread_ts"] == root for p in posts()) else None, timeout)
     dt = time.time() - t0
-    oc = wait(lambda: next((o for o in outcomes() if o["event_id"] == eid), None), 30)
+    oc = None if canned else wait(lambda: next((o for o in outcomes() if o["event_id"] == eid), None), 30)
     if oc:
         LATENCY.append((text[:48], dt, oc["latencyMs"] / 1000.0))
     return ts, (got[-1] if got else None), oc, dt
@@ -275,6 +275,119 @@ T9, r9, o9, dt = ask("Which paper is about repair agents that use tools?")
 check("the next mention is answered again, with a source a library tool returned",
       r9 is not None and o9 is not None and o9["verdict"] == "ok" and bool(sources(r9["text"])) and set(sources(r9["text"])) <= FIXTURE_IDS, (r9, o9))
 
+# ============================================================ who may ask: the allowlist (fail closed) ============================================================
+REFUSED = LABEL + "I only answer for my owner here."
+n0 = lib_calls()
+T10, r10, o10, dt = ask("Which paper covers frontier exploration?", user="U0INTRUDER01", canned=True)
+time.sleep(4)
+check("allowlist: a mention from a user who is not allowed gets one short refusal in its thread, no agent run, no tool call",
+      r10 is not None and len(replies_in(T10)) == 1 and r10["text"] == REFUSED and lib_calls() == n0
+      and not any(o["ts"] == T10 for o in outcomes()), (replies_in(T10), lib_calls() - n0))
+T11, r11, o11, dt = ask("Which paper covers frontier exploration?", channel="C0OTHERCHAN1", canned=True)
+time.sleep(3)
+check("allowlist: an allowed user in a channel that is not on SB_ALLOWED_CHANNELS gets the same refusal and no agent run",
+      r11 is not None and len(replies_in(T11)) == 1 and r11["text"] == REFUSED and lib_calls() == n0, (replies_in(T11), lib_calls() - n0))
+check("allowlist: the allowed user's mentions above were answered (the list admits them)", o1 is not None and o1["verdict"] == "ok", o1)
+
+# ============================================================ a file, a very long message: a short reply, not silence ============================================================
+T12, r12, o12, dt = ask("here is a file", extra={"subtype": "file_share"}, canned=True)
+check("a mention with a file (subtype file_share) gets a short reply, once, and no agent run",
+      r12 is not None and len(replies_in(T12)) == 1 and r12["text"] == LABEL + "I can't read files; please ask in text." and not any(o["ts"] == T12 for o in outcomes()), (replies_in(T12)))
+T13, r13, o13, dt = ask("x" * 8100, canned=True)
+check("a mention over 8000 characters gets a short reply, once, and no agent run",
+      r13 is not None and len(replies_in(T13)) == 1 and r13["text"] == LABEL + "That message is too long; please ask a shorter question." and not any(o["ts"] == T13 for o in outcomes()), (replies_in(T13)))
+
+# ============================================================ the citation check: a real reference next to an invented title, a short title ============================================================
+GOOD = "arxiv:2001.00001 Frontier Exploration with Learned Occupancy Maps"
+SEEN = "\nPROOF-FORCE-SEEN: " + GOOD
+T14, r14, o14, dt = ask("PROOF-FORCE-ANSWER: Learned maps shorten exploration [1].\n\nSources:\n[1] arxiv:2001.00001 | Frontier Exploration with Learned Occupancy Maps" + SEEN)
+check("citation check (positive control): the cited id and its verbatim title, both among what the tools returned, pass",
+      r14 is not None and o14 is not None and o14["verdict"] == "ok" and r14["text"].startswith(LABEL + "Learned maps") , (r14, o14))
+T15, r15, o15, dt = ask("PROOF-FORCE-ANSWER: Learned maps shorten exploration [1].\n\nSources:\n[1] arxiv:2001.00001 | An Entirely Invented Paper Title Here" + SEEN)
+check("citation check: a real reference next to an invented title is replaced, and the reason names the title",
+      r15 is not None and r15["text"] == NOT_FOUND and o15 is not None and o15["verdict"] == "unsourced" and "title" in o15["reason"], (r15, o15))
+T16, r16, o16, dt = ask("PROOF-FORCE-ANSWER: Learned maps shorten exploration [1].\n\nSources:\n[1] ai | map" + SEEN)
+check("citation check: a very short reference that is merely contained in what the tools returned does not pass",
+      r16 is not None and r16["text"] == NOT_FOUND and o16 is not None and o16["verdict"] == "unsourced", (r16, o16))
+
+# ============================================================ the same event while its first execution is still running: one answer ============================================================
+body = {"channel": CHANNEL, "ts": next_ts(), "thread_ts": None, "user": USER, "bot": BOT, "event_id": "EvInflight0001",
+        "text": "<@%s> Which paper in the library covers frontier exploration with learned occupancy maps, and what does it show?" % BOT}
+s1, _ = hook_call(body)
+time.sleep(1.0)
+running = not replies_in(body["ts"])
+s2, _ = hook_call(body)
+wait(lambda: replies_in(body["ts"]), 240)
+time.sleep(10)
+check("in-flight duplicate: the same event delivered again while the first execution is still running (agent not yet done): both 200, one answer",
+      s1 == 200 and s2 == 200 and running and len(replies_in(body["ts"])) == 1, (s1, s2, running, len(replies_in(body["ts"]))))
+
+# ============================================================ n8n down while a mention arrives: the bridge keeps trying ============================================================
+docker("stop", "n8n")
+TB, eidb, t0 = mention("Which paper is about repair agents that use tools?")
+time.sleep(12)
+check("n8n down: nothing is posted yet and the mention is not given up", not replies_in(TB), replies_in(TB))
+docker("start", "n8n")
+got = wait(lambda: replies_in(TB), 240)
+L = [l for l in bridge_lines() if l.get("msg") == "mention" and l.get("event_id") == eidb]
+check("n8n back (about a minute later): the bridge's retries delivered it, once (forwarded 200 after several tries), one reply, answered",
+      got is not None and len(got) == 1 and len(L) == 1 and L[0]["forwarded"] == 200 and L[0]["tries"] > 1 and got[0]["text"] != FAILED, (got, L))
+
+# ============================================================ the connection: no hot loop, connect timeout, refresh, exit when unhealthy ============================================================
+def opens():
+    return [c for c in slack_log() if c["call"] == "open"]
+
+
+req(SLACK + "/__set", {"mode": "close_after_hello"})
+n_open = len(opens())
+req(SLACK + "/__disconnect", {"reason": "warning"})
+time.sleep(14)
+n_loop = len(opens()) - n_open
+req(SLACK + "/__set", {"mode": ""})
+check("bridge: a socket that gets hello and is closed again does not loop (%d reconnects in 14 s with backoff; a loop would be hundreds)" % n_loop, 2 <= n_loop <= 7, n_loop)
+back = wait(lambda: req(SLACK + "/__state")["connected"], 90)
+Tr, rr, orr, dt = ask("Which paper covers a universal variable solution of the two-body boundary problem?")
+check("bridge: when the closing stops it connects again by itself and the next mention is answered", bool(back) and rr is not None and orr is not None and orr["verdict"] == "ok", (back, rr, orr))
+
+o0 = len(opens())
+okr = wait(lambda: len(opens()) > o0 and req(SLACK + "/__state")["connected"], 90)
+Tq, rq, oq, dt = ask("Which paper is about repair agents that use tools?")
+check("bridge: without any disconnect it opens a fresh socket on its own every REFRESH_MS (25 s here; make before break) and the mention after it is answered",
+      bool(okr) and rq is not None and oq is not None and oq["verdict"] == "ok", (okr, rq, oq))
+
+IMG = "docker.n8n.io/n8nio/n8n:2.48.7"
+
+
+
+def run_side(name, port, token_file, extra_env):
+    cmd = ["run", "-d", "--name", name, "--network", "host", "-v", E["SB_BRIDGE_DIR"] + "/bridge.js:/app/bridge.js:ro",
+           "-v", token_file + ":/run/sb/slack-app.token:ro", "-v", E["PROOF_SECRETS"] + "/hook.secret:/run/sb/hook.secret:ro",
+           "-e", "SLACK_APP_TOKEN_FILE=/run/sb/slack-app.token", "-e", "SB_HOOK_SECRET_FILE=/run/sb/hook.secret", "-e", "SB_HOOK_URL=" + HOOK,
+           "-e", "SLACK_API_BASE=" + SLACK, "-e", "PORT=%d" % port]
+    for k, v in extra_env.items():
+        cmd += ["-e", "%s=%s" % (k, v)]
+    docker(*(cmd + ["--entrypoint", "node", IMG, "/app/bridge.js"]))
+
+
+req(SLACK + "/__set", {"mode": "no_handshake"})
+o0 = len(opens())
+run_side("n8n-proof-bridge3", 18087, E["PROOF_SECRETS"] + "/slack-app.token", {"CONNECT_TIMEOUT_MS": "3000"})
+time.sleep(14)
+b3 = docker("logs", "n8n-proof-bridge3")
+req(SLACK + "/__set", {"mode": ""})
+docker("rm", "-f", "n8n-proof-bridge3")
+check("bridge: a socket that never opens is dropped after CONNECT_TIMEOUT_MS (3 s here) and tried again with backoff", b3.count('"connect timeout"') >= 2, b3[-400:])
+
+bad = E["PROOF_SECRETS"] + "/bad-app.token"
+with open(bad, "w") as f:
+    f.write("xapp-proof-not-the-token")
+os.chmod(bad, 0o644)
+run_side("n8n-proof-bridge2", 18086, bad, {"UNHEALTHY_EXIT_MS": "8000"})
+rc = wait(lambda: docker("inspect", "-f", "{{.State.Status}} {{.State.ExitCode}}", "n8n-proof-bridge2").strip() if docker("inspect", "-f", "{{.State.Status}}", "n8n-proof-bridge2").strip() == "exited" else None, 60)
+b2 = docker("logs", "n8n-proof-bridge2")
+docker("rm", "-f", "n8n-proof-bridge2")
+check("bridge: with no socket for UNHEALTHY_EXIT_MS (8 s here, a refused token) the process exits 1 so the restart policy acts", rc == "exited 1" and '"unhealthy, exiting"' in b2, (rc, b2[-300:]))
+
 # ============================================================ every envelope was acked; nothing secret in the bridge's log ============================================================
 log = slack_log()
 sent = [c["frame"]["envelope_id"] for c in log if c["call"] == "sent" and c["frame"].get("envelope_id")]
@@ -285,6 +398,35 @@ texts = ["frontier", "Borealis", "occupancy", "football", "universal variable", 
 check("bridge log: no token, no secret, no socket URL ticket and no message text",
       APP_TOKEN not in blog and SECRET not in blog and "ticket" not in blog and not any(t.lower() in blog.lower() for t in texts), [t for t in texts if t.lower() in blog.lower()])
 
+
+# ============================================================ an empty allowlist refuses everyone (fail closed); a re-install keeps a live flow live ============================================================
+def active(i):
+    return docker("exec", "n8n-db", "psql", "-U", "n8n", "-d", "n8n", "-tAc", "select active from workflow_entity where id='%s'" % i).strip()
+
+
+was = active("sbaskagent00001")
+env = dict(E, SB_ALLOWED_USERS="", HOME=E["PROOF_HOME"])
+p = subprocess.run(["bash", E["PROOF_FLOWS"] + "/install-sb-agent.sh"], env=env, capture_output=True, text=True)
+check("installer: re-running it over a live mention flow leaves it active (it says so), and an empty SB_ALLOWED_USERS is warned about",
+      was == "t" and active("sbaskagent00001") == "t" and "active again" in p.stdout and "refuse everyone" in p.stdout, (was, active("sbaskagent00001"), p.stdout[-400:], p.stderr[-200:]))
+docker("restart", "n8n")
+wait(lambda: sh("curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-m", "3", N8N + "/healthz") == "200", 120)
+time.sleep(10)
+n0 = lib_calls()
+T20, r20, o20, dt = ask("Which paper covers frontier exploration?", canned=True)
+time.sleep(3)
+check("empty list: the owner's own mention is refused too (nobody is allowed), once, with no agent run and no tool call",
+      r20 is not None and len(replies_in(T20)) == 1 and r20["text"] == REFUSED and lib_calls() == n0 and not any(o["ts"] == T20 for o in outcomes()), (replies_in(T20), lib_calls() - n0))
+
+# ---- SB_ALLOWED_USERS=* : everyone ----
+env = dict(E, SB_ALLOWED_USERS="*", SB_ALLOWED_CHANNELS="*", HOME=E["PROOF_HOME"])
+p = subprocess.run(["bash", E["PROOF_FLOWS"] + "/install-sb-agent.sh"], env=env, capture_output=True, text=True)
+docker("restart", "n8n")
+wait(lambda: sh("curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-m", "3", N8N + "/healthz") == "200", 120)
+time.sleep(10)
+T21, r21, o21, dt = ask("Which paper covers frontier exploration with learned occupancy maps?", user="U0INTRUDER01", channel="C0OTHERCHAN1")
+check("SB_ALLOWED_USERS=* and SB_ALLOWED_CHANNELS=*: a user who is not the owner, in another channel, is answered with a sourced answer (the installer says so)",
+      "anyone in a channel" in p.stdout and r21 is not None and o21 is not None and o21["verdict"] == "ok" and bool(sources(r21["text"])), (p.stdout[-300:], r21, o21))
 print()
 print("latency per mention, from the injected event to the reply in the thread (the model is the X3's local Ollama, qwen3 30B-A3B: no vendor, no network hop beyond the tailnet host); in-flow = the agent's start to its answer")
 for name, a, b in LATENCY:

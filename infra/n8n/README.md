@@ -327,32 +327,59 @@ flotilla. It **replaces flotilla case 1's ask flow** (`case1slackask001`, "Case 
 
 | Piece | Where | What it does |
 |---|---|---|
-| Slack bridge | `sb-bridge/bridge.js`, `sb-bridge/docker-compose.yml` (container `sb-bridge`) | Slack **Socket Mode**: opens the socket with the app-level token, acks every envelope at once, reconnects on `disconnect` or a closed socket, forwards each `app_mention` by a person once per `event_id` to n8n, signed |
-| Workflow `second brain: Slack mention -> answer in thread` | `sbaskagent00001`, `flows/sb-agent.json` (from `flows/gen_sb_agent.js`), **inactive** after install | webhook `POST /webhook/second-brain-mention` -> agent -> citation check -> reply in the thread |
+| Slack bridge | `sb-bridge/bridge.js`, `sb-bridge/docker-compose.yml` (container `sb-bridge`) | Slack **Socket Mode**: opens the socket with the app-level token, acks every envelope at once, reconnects, forwards each `app_mention` by a person once per `event_id` to n8n, signed |
+| Workflow `second brain: Slack mention -> answer in thread` | `sbaskagent00001`, `flows/sb-agent.json` (from `flows/gen_sb_agent.js`), **inactive** after install | webhook `POST /webhook/second-brain-mention`: signature, once per mention, who may ask; starts the second workflow and ends in milliseconds |
+| Workflow `second brain: answer one mention` | `sbaskrun0000001`, same file, published by the installer (no trigger of its own, called by id) | thread context -> agent -> citation check -> reply in the thread |
 
 **The bridge.** Node built-ins only (the global `WebSocket` and `fetch`, `node:http`, `node:crypto`), run from n8n's own pinned image
-(`docker.n8n.io/n8nio/n8n:2.48.7`, Node 26.13: nothing to install or build). It POSTs `{channel, ts, thread_ts, user, text, event_id, bot}`
+(`docker.n8n.io/n8nio/n8n:2.48.7`, Node 26.13: nothing to install or build). It POSTs `{channel, ts, thread_ts, user, text, event_id, bot, subtype}`
 to `http://n8n:5678/webhook/second-brain-mention` with `X-SB-Timestamp` (seconds) and `X-SB-Signature: sha256=` +
 `HMAC-SHA256(secret, timestamp + "." + body)`; the webhook refuses (401) a bad signature or a timestamp more than 5 minutes off, and answers 200 at
-once. It ignores `app_mention`s with a `bot_id` or a `subtype` (edits) and every other event type, still acking them. Retries of the
-forward: 4 tries (1, 2, 4 s) on a network error or 5xx; Slack's own retries of an `event_id` are forwarded once. `GET :8080/healthz` is 200
-while the socket is open. One JSON log line per event: channel, ts, thread_ts, event_id and the forward's status; never the text, a token or the socket URL.
-In the proof, `NODE_USE_ENV_PROXY=1` was shown to make this Node's `fetch` and `WebSocket` send `CONNECT host:443` to the proxy in
-`HTTPS_PROXY` (against a fake proxy), which is how the bridge reaches Slack through `n8n-egress` on the mini.
+once. It forwards `app_mention`s by a person (no `bot_id`; no `subtype` but `file_share`) and ignores every other event, still acking it.
+- **Forward retries:** a forward that got no 2xx (n8n down, being recreated, or not yet serving the webhook: no answer, 5xx, 404) is retried with
+  backoff (1, 2, 4, 8, 16 s) for up to 2 minutes (`FORWARD_BUDGET_MS`), which covers the planned n8n recreate; a 400 or 401 is the webhook refusing the
+  event and is not retried; **nothing is retried after a 2xx**, and the webhook answers 200 before it does any work. The mention is held in memory
+  only: a bridge restart inside that window loses it. Slack's own retries of an `event_id` are forwarded once.
+- **Connection:** a failed or closed socket reconnects with backoff (1 s doubling to 30 s, jitter); **only** Slack's `disconnect` with reason
+  `refresh_requested` reconnects at once. The backoff resets only after a socket stayed up 30 s (`STABLE_MS`), so a socket that gets `hello` and is then
+  closed (`too_many_websockets`) cannot loop. A socket that has not opened in 15 s (`CONNECT_TIMEOUT_MS`) is dropped and retried.
+  **Liveness:** Node's `WebSocket` does not expose Slack's ping frames, so "no frame for 60 s" cannot be seen from this API; instead, every 10 min
+  (`REFRESH_MS`) the bridge opens a fresh socket and closes the old one when the new one says `hello` (make before break), which bounds how long a
+  half-open socket goes unnoticed (and quiet channels cost one reconnect, not a gap). With no open socket for 5 min (`UNHEALTHY_EXIT_MS`) the process
+  exits 1 and `restart: unless-stopped` restarts it (that policy ignores an unhealthy flag, hence the exit). `GET :8080/healthz` is 200 while a socket is open.
+- **Log:** one JSON line per event: channel, ts, thread_ts, event_id, the forward's status and tries; never the text, a token or the socket URL.
+- In the proof, `NODE_USE_ENV_PROXY=1` was shown to make this Node's `fetch` and `WebSocket` send `CONNECT host:443` to the proxy in
+  `HTTPS_PROXY` (against a fake proxy), which is how the bridge reaches Slack through `n8n-egress` on the mini.
 
-**The workflow, node by node.**
-1. `Mention` (webhook, raw body) -> `Verify`, `Sign` (crypto, credential `second brain mention hook (HMAC)`), `Authorize`: signature, window and the
-   fields' shapes (channel, ts, user, event id); `Valid?` -> `Refuse` (401 or 400) or `Accept` (200 at once; the rest runs after it).
-2. `Decide`: once per mention. The channel with `ts`, and the `event_id`, are kept in the workflow's static data (the newest 2,000); a second
-   delivery of either stops here. The bot's own `<@BOT>` is cut out of the text (other mentions stay), the question is cut at 2,000 characters;
-   the reply goes to `thread_ts` when the mention is inside a thread, else to the mention's own `ts` (it starts a thread).
-3. In a thread: `Replies` is `conversations.replies` (Slack credential), and `Prompt` gives the agent the thread so far (the newest 20
-   messages without the mention itself, each cut at 1,000 characters, 6,000 in all, the bot's own earlier replies marked `second brain`) before
-   the question. If Slack refuses the thread (a private channel without `groups:history`) the agent gets the question alone and the execution's
-   `ctxNote` says `thread not read: <slack error>`.
-4. `Agent` (see below) -> `Check` -> `Post` (`chat.postMessage`, `thread_ts`, `unfurl_links` and `unfurl_media` off, every `<!` sent as `&lt;!`,
+**The workflows, node by node.**
+1. Mention flow (`sbaskagent00001`): `Mention` (webhook, raw body) -> `Verify`, `Sign` (crypto, credential `second brain mention hook (HMAC)`), `Authorize`:
+   signature (compared in constant time), 5-minute window, the fields' shapes; `Valid?` -> `Refuse` (401 or 400) or `Accept` (200 at once).
+2. `Decide`: **once per mention**: the channel with `ts`, and the `event_id`, are kept in this workflow's static data (the newest 2,000); a second delivery of
+   either stops here. **Why this holds:** n8n saves static data when an execution ends, and this one ends in milliseconds, because the agent runs in a
+   *separate* execution (`Run` is Execute Workflow with "wait for sub-workflow" off). So the keys are saved before the agent starts, and a retry or
+   Slack's re-delivery that arrives while the agent is still running is dropped (proof: the same event twice, the second while the first is answering,
+   gets one answer). It is a check-then-save, not a lock: two deliveries within the same few milliseconds could both pass (the bridge dedupes on `event_id`
+   first, so this needs two sources). A Postgres or Data Table insert would be the same shape and needs a new credential; not chosen.
+3. Who may ask (below), then: a mention with a file (`file_share`) or over 8,000 characters gets one short reply (`I can't read files; please ask in text.`,
+   `That message is too long; please ask a shorter question.`) and no agent. The bot's own `<@BOT>` is cut out of the text (other mentions stay), line
+   breaks stay, the question is cut at 2,000 characters; the reply goes to `thread_ts` when the mention is inside a thread, else to the mention's own `ts`.
+4. Answer flow (`sbaskrun0000001`): in a thread, `Replies` is `conversations.replies` (Slack credential) and `Prompt` gives the agent the thread so far (the newest 20
+   messages without the mention itself, each cut at 1,000 characters, 6,000 in all, the bot's own earlier replies marked `second brain`) before the
+   question. If Slack refuses the thread (a private channel without `groups:history`) the agent gets the question alone and the execution's `ctxNote`
+   says `thread not read: <slack error>`.
+5. `Agent` (below) -> `Check` -> `Post` (`chat.postMessage`, `thread_ts`, `unfurl_links` and `unfurl_media` off, every `<!` sent as `&lt;!`,
    `@channel`, `@here`, `@everyone` as plain words) -> `Mark`: the outcome, without text (ids, `verdict`, `reason`, tools called, `ctxMessages`,
-   latency, reply ts), is kept in static data (the newest 100). A reply Slack refuses fails the execution.
+   latency, reply ts), is kept in the answer flow's static data (the newest 100). A reply Slack refuses fails the execution.
+
+**Who may ask (the authorization point).** Anyone who can mention the bot in a channel it is in can make it read the library, the Docs folder and the Tasks list.
+The installer puts the allowlist into the mention flow (`Decide`), checked before any agent call:
+- `SB_ALLOWED_USERS`: Slack user ids, comma-separated; the operator's is `U09QUSYGLTF`. **`*` means every user, and it is the installer's default for this
+  installation** (unset = `*`). Set but empty means nobody: the bot refuses everyone (fail closed; the installer warns).
+- `SB_ALLOWED_CHANNELS`: optional channel ids; empty or `*` = every channel the bot is in.
+- A mention from someone not allowed (or in a channel not listed) gets no agent call, no tool call and one short reply: `[second brain] I only answer for my owner here.`
+- **With `*`, anyone in a channel the bot is in gets answers drawn from the operator's private Docs (meeting notes and the decisions doc) and Tasks (the
+  follow-up list), and from the library.** To narrow it: `SB_ALLOWED_USERS=U09QUSYGLTF` (or a list of ids) and re-run the installer (it keeps a live flow live), or
+  keep `*` and only invite the bot to channels whose members may see all of that, optionally with `SB_ALLOWED_CHANNELS`.
 
 **The agent.** n8n 2.48.7 ships these AI nodes (listed in the image's `n8n-nodes-langchain/dist/nodes`); the workflow uses the ones in bold:
 **AI Agent** (`@n8n/n8n-nodes-langchain.agent`, v3.1, the Tools Agent: `returnIntermediateSteps` on, at most 8 steps),
@@ -371,11 +398,12 @@ used: the citation check is code.
   `Sources:` and `[n] <ref> | <title>` lines (the paper id for the library, the link or id for a doc, the task's title for a task);
   say plainly when nothing relevant was found; at most about 1,500 characters; no `@channel`, `@here`, `@everyone`.
 - **The citation check** (`Check`, code, deterministic, after the model): the answer must have a `[n]` in its text and a `Sources:` list, every
-  `[n]` must be in the list, every listed line must have its ref or its title among what a tool returned **in that execution** (read from the
-  agent's intermediate steps), and any `arxiv:`, `ntrs:`, `doi:`, `url:` id or link in the text must have been returned too. Otherwise the reply
-  is `[second brain] I could not find a sourced answer.` and the execution's `Check` output has `verdict: unsourced` and the reason. A model
-  or tool error gives `[second brain] I hit an error answering this; try again later.` (`verdict: error`) once. An answer over 1,500 characters
-  loses the end of its text, never its sources. Nothing else is posted for the question.
+  `[n]` must be in the list, and every listed line `<ref> | <title>` needs **the cited ref itself** (an id, a link, a task title; at least 6 characters)
+  among what a tool returned **in that execution** (read from the agent's intermediate steps), and a title of 12 characters or more verbatim too (a real
+  reference cannot carry an invented title; a short title is not used for matching). Any `arxiv:`, `ntrs:`, `doi:`, `url:` id or link in the text must
+  have been returned as well. Otherwise the reply is `[second brain] I could not find a sourced answer.` and the execution's `Check` output has
+  `verdict: unsourced` and the reason. A model or tool error gives `[second brain] I hit an error answering this; try again later.` (`verdict: error`)
+  once. An answer over 1,500 characters loses the end of its text, never its sources. Nothing else is posted for the question.
 
 **Credentials** (`install-sb-agent.sh` makes them from files given by path, through stdin, never printed; an existing one is left as is):
 `second brain model (OpenAI-compatible)` (`sbmodelkey000001`), `second brain mention hook (HMAC)` (`sbmentionhook0001`), `second brain library MCP
@@ -394,74 +422,106 @@ credential is A3's, found by type (`SLACK_CRED_NAME` picks one by name when ther
 6. Invite the bot to each channel it should answer in (`/invite @Second Brain`); it answers where it is mentioned and nowhere else.
 
 *On the mini:*
-1. Secrets, mode 600 (`umask 077`): `mkdir -p ~/n8n/sb-bridge; openssl rand -hex 32 > ~/n8n/sb-bridge/hook.secret`; the app-level token into
+1. Secrets, mode 600 (`umask 077`): `mkdir -p ~/n8n/sb-bridge ~/n8n/sb-agent; openssl rand -hex 32 > ~/n8n/sb-bridge/hook.secret`; the app-level token into
    `~/n8n/sb-bridge/slack-app.token` (paste with `pbpaste >` or an editor, never `echo`); the library MCP's token as second-brain's
-   `--token-file` has it (a copy for n8n, e.g. `~/n8n/sb-agent/library.token`); the docs and tasks tokens are A2's (`~/flotilla/config/mcp/*.token`).
-2. **The model:** in LiteLLM, a model alias with tool calling for n8n, and a virtual key for n8n limited to that alias (`/key/generate`, `models`),
-   into `~/n8n/sb-agent/model.key`. The base URL is the one n8n can reach on a Docker network, for example `http://litellm:4000/v1`.
-3. **Network, no egress ACL entry for the model or the MCP servers:** the proxy refuses every private address, so LiteLLM and the library MCP are
-   reached directly. n8n must share a network with each (the `mcp` network for the library MCP, if `sb-mcp` is on it; add LiteLLM's network to n8n's
-   `networks` in `docker-compose.yml`), and their host names go into n8n's `NO_PROXY` (`n8n` is there already). The new things in this stack
-   (the `sbbridge` network, `NO_PROXY`, `*.slack.com` in `egress/acl.yaml`) are applied with
-   `docker compose up -d` in `infra/n8n` (it recreates `n8n`: about a minute down, saved MCP sessions lost) and
-   `docker compose up -d --force-recreate egress` (the proxy reads its ACL at start).
+   `--token-file` has it (a copy for n8n: `~/n8n/sb-agent/library.token`); the docs and tasks tokens are A2's (`~/flotilla/config/mcp/*.token`).
+2. **The model:** in LiteLLM (`infra/litellm`), a model alias with tool calling for n8n, and a virtual key for n8n limited to that alias (`/key/generate`,
+   `models`; the `mint-credential` practice), into `~/n8n/sb-agent/model.key`. The base URL is `http://litellm:4000/v1` (container port; 4001 is the host's).
+3. **Networks and the proxy: all in git, applied by compose, no egress ACL entry for the model or the MCP servers** (the proxy refuses every private
+   address, so LiteLLM and the library MCP are reached directly). `infra/litellm/docker-compose.yml` has a network `litellm_clients` that only the gateway
+   joins (not `default`, which holds LiteLLM's Postgres); `infra/n8n/docker-compose.yml` joins n8n to it (external), to `sbbridge` (new, with the bridge), and has
+   `litellm`, `sb-mcp` and `n8n` in `NO_PROXY`; `egress/acl.yaml` has `wss-primary.slack.com` and `wss-backup.slack.com` (`slack.com` was there since A3).
+   Apply in this order: `docker compose up -d --no-deps litellm` in `infra/litellm` (**recreates the gateway: about 2 minutes to answer, every consumer
+   is affected**; it creates `litellm_clients`), then in `infra/n8n`: `docker compose up -d` (recreates `n8n`: about a minute down, saved MCP sessions lost) and
+   `docker compose up -d --force-recreate egress` (the proxy reads its ACL at start). If the library MCP's container is not called `sb-mcp`, or is not on the
+   `mcp` network, change `NO_PROXY` and the generator's `--library-url` to its real name.
 4. Generate and install, from a copy of `flows/`: the committed `sb-agent.json` uses the defaults; for the mini's names, regenerate it (no
-   `--proof-seam`):
-   `SB_MODEL=<alias> SB_LIBRARY_URL=http://<sb-mcp host>:8790/mcp node gen_sb_agent.js` then
-   `SB_MODEL_URL=http://litellm:4000/v1 SB_MODEL_KEY_FILE=~/n8n/sb-agent/model.key SB_LIBRARY_TOKEN_FILE=~/n8n/sb-agent/library.token SB_BRIDGE_SECRET_FILE=~/n8n/sb-bridge/hook.secret bash install-sb-agent.sh`.
-   It imports the credentials and the workflow **inactive** and never publishes. Re-run it after changing the flow (existing credentials stay).
-5. **Publish, a separate explicit step:** `docker exec n8n n8n publish:workflow --id=sbaskagent00001` (a running n8n applies it shortly; the proof restarted n8n after publishing, so restart it if the webhook still answers 404). Until
-   then the webhook does not exist: the bridge logs `forwarded: 404` for each mention and the mention is lost (a 4xx is not retried).
+   `--proof-seam`): `SB_MODEL=<alias> SB_LIBRARY_URL=http://sb-mcp:8790/mcp node gen_sb_agent.js` then
+   `SB_MODEL_URL=http://litellm:4000/v1 SB_MODEL_KEY_FILE=~/n8n/sb-agent/model.key SB_LIBRARY_TOKEN_FILE=~/n8n/sb-agent/library.token SB_BRIDGE_SECRET_FILE=~/n8n/sb-bridge/hook.secret bash install-sb-agent.sh`
+   (add `SB_ALLOWED_USERS=U09QUSYGLTF` to narrow it to the owner; unset it is `*`, see "Who may ask"). It imports the credentials and both workflows,
+   publishes the answer flow, and leaves the mention flow **inactive**. **A re-install keeps a mention flow that was live live** (it publishes it again and says
+   so; a running n8n applies it shortly: restart n8n if it still answers with the old version). Existing credentials stay.
+5. **Publish, a separate explicit step:** `docker exec n8n n8n publish:workflow --id=sbaskagent00001` (restart n8n if the webhook still answers 404).
+   Until then the webhook does not exist: the bridge retries for 2 minutes per mention, then drops it.
 6. Start the bridge: `cd infra/n8n/sb-bridge && docker compose up -d`; `docker inspect --format '{{.State.Health.Status}}' sb-bridge` is `healthy`
    once Slack said `hello`. Mention the bot in a channel it is in.
-   To stop: `docker compose down` in `sb-bridge`, and `docker exec n8n n8n unpublish:workflow --id=sbaskagent00001`.
 7. Look: the editor's Executions (the `Check` node's `verdict`, `reason`, `tools`), `docker logs sb-bridge`.
+
+**Rollback** (each step undoes one of the above; none touches flotilla):
+1. Stop answering: `docker exec n8n n8n unpublish:workflow --id=sbaskagent00001`, and `cd infra/n8n/sb-bridge && docker compose down`. The workflows,
+   credentials and the Slack app settings can stay; nothing is posted without the bridge and the published webhook.
+2. n8n stack: revert `infra/n8n/docker-compose.yml` (drop `litellm_clients` and `sbbridge` from n8n's `networks` and the `networks:` block, and `litellm`, `sb-mcp`
+   from `NO_PROXY`) and `egress/acl.yaml` (drop the two `wss-*.slack.com` hosts), then `docker compose up -d` and `docker compose up -d --force-recreate egress`
+   in `infra/n8n` (n8n down about a minute). Remove the leftover internal network with `docker network rm sbbridge` once nothing is on it.
+3. LiteLLM: revert `infra/litellm/docker-compose.yml` (drop `networks: [default, litellm_clients]` and the network) and `docker compose up -d --no-deps litellm`
+   (about 2 minutes to answer); `docker network rm litellm_clients`. Revoke n8n's virtual key and delete the alias if it was made for this.
+4. Slack: remove the `app_mention` subscription and `app_mentions:read` if the app should stop receiving mentions; revoke the app-level token; Socket Mode can stay on.
+5. Files: `~/n8n/sb-bridge/` and `~/n8n/sb-agent/` hold only this feature's secrets. Deleting the workflows (`sbaskagent00001`, `sbaskrun0000001`) and the credentials
+   `sbmodelkey000001`, `sbmentionhook0001`, `sbasklibtoken0001` in the editor removes the rest; `c1mcpdocstoken01` and `c1mcptaskstoken1` are A2's and stay.
 
 **The proof, on a dev engine, never the mini:** `bash flows/sb-agent-proof/run.sh` (second-brain at `SB_CHECKOUT`, default `/work/second-brain/main`;
 the model `SB_MODEL_URL` / `SB_MODEL`, default the X3's Ollama and the one model it keeps loaded). A throwaway compose project: n8n at this pin
 and a Postgres, **second-brain's real server** (`docker build --target serve`, over an index made by `sb seed` and `sb build` from its own
 `tests/fixtures`, with a generated token), `stub_mcp.py` (docs and tasks: two made-up documents and two made-up tasks, bearer-checked),
-`stub_slack.py` (Slack's Web API and a Socket Mode server that sends `hello`, injected `events_api` envelopes and `disconnect`, and records every
-ack), and the real bridge from n8n's image. The workflow is generated with `gen_sb_agent.js --proof-seam` (a mention whose text starts
-`PROOF-FORCE-ANSWER:` uses the rest as the agent's output, to prove the citation check), installed with `install-sb-agent.sh`, published, and
-driven by `proof.py`. Every credential, token and key is generated per run; the project, its volumes and the temp dir are removed at the end.
+`stub_slack.py` (Slack's Web API and a Socket Mode server that sends `hello`, injected `events_api` envelopes and `disconnect`, can close right after
+`hello` or never finish a handshake, and records every ack), and the real bridge from n8n's image (and, for two checks, short-lived copies of it). The
+workflows are generated with `gen_sb_agent.js --proof-seam` (a mention whose text starts `PROOF-FORCE-ANSWER:` uses the rest as the agent's output, and
+`PROOF-FORCE-SEEN:` adds text a tool "returned", to prove the citation check), installed with `install-sb-agent.sh` (allowlist: one user, one channel),
+published, and driven by `proof.py`. Every credential, token and key is generated per run; the project, its volumes and the temp dir are removed at the end.
 **n8n and the bridge run on the host network** (listening on 127.0.0.1): the X3's Ollama listens on its tailnet address only, which a bridge
-container cannot reach (a connection from the dev engine's bridge to it times out). 2026-11-26: **26 of 26 PASS, run twice, EXIT=0 both**:
-- the bridge opens the socket and gets `hello`; a mention gets one reply in its own thread, labelled, whose sources are fixture paper ids a
-  library tool call returned (the real server's own log shows the calls); the bridge logs it without its text;
-- a mention inside a thread fetches the thread (`conversations.replies`, the root's ts), replies in that thread and cites the NTRS fixture the
-  root message names: only the thread's context could tell the agent which paper "that" was;
+container cannot reach (a connection from the dev engine's bridge to it times out). Checks (PASS/FAIL lines of `proof.py`; the last run is in the
+commit message):
+- the bridge opens the socket and gets `hello`; a mention gets one reply in its own thread, labelled, whose sources are fixture paper ids a library tool
+  call returned (the real server's own log shows the calls); the bridge logs it without its text;
+- a mention inside a thread fetches the thread (`conversations.replies`, the root's ts), replies in that thread and cites the NTRS fixture the root message
+  names: only the thread's context could tell the agent which paper "that" was;
 - a docs mention cites the Borealis document, a tasks mention a task, an unanswerable one gets the not-found message and no citation;
-- a plain message event, a bot's mention and an edit are ignored (acked, not forwarded); the same `event_id` twice (Slack's retry) is forwarded
-  once and gets one reply; a forced answer citing `arxiv:9999.99999`, which no tool returned, is replaced by the not-found message and the
-  execution's record says `unsourced` and names it; so is one citing a real fixture id no tool returned in that execution;
-- the webhook: a bad signature, a wrong secret, missing headers and a stale timestamp are 401 (nothing posted), a signed call is 200 before
-  the reply is posted, the same event again posts nothing, a malformed channel is 400;
-- after Slack's `disconnect` the bridge reconnects by itself and the next mention is answered; every envelope the stub sent (14) was acked once;
+- a plain message event, a bot's mention and an edit are ignored (acked, not forwarded); the same `event_id` twice (Slack's retry) is forwarded once and gets
+  one reply; **the same event delivered again while the first execution is still answering gets one answer**;
+- the citation check: a forced answer citing `arxiv:9999.99999`, which no tool returned, is replaced by the not-found message and the execution's record says
+  `unsourced`; so is one citing a real fixture id no tool returned in that execution, **a real reference next to an invented title**, and **a very short
+  reference that is merely contained in what the tools returned**; a positive control (the id and its verbatim title, both returned) passes;
+- the webhook: a bad signature, a wrong secret, missing headers and a stale timestamp are 401 (nothing posted), a signed call is 200 before the reply is
+  posted, the same event again posts nothing, a malformed channel is 400;
+- **the allowlist:** a user not on the list, and an allowed user in a channel not on the list, each get the one refusal and no agent or tool call; a mention with a
+  file and one over 8,000 characters get their short replies; with an empty list the owner is refused too; with `*` a non-owner in another channel is answered;
+  re-running the installer over a live mention flow leaves it active;
+- **the connection:** a socket that gets `hello` and is closed again reconnects with backoff (a handful of attempts in 14 s, not a loop) and the next mention
+  is answered once it stops; the bridge opens a fresh socket on its own at `REFRESH_MS` (25 s in the proof) and the mention after it is answered; a socket that
+  never opens is dropped at `CONNECT_TIMEOUT_MS`; a bridge that cannot get a socket for `UNHEALTHY_EXIT_MS` exits 1; after Slack's `disconnect` it reconnects
+  and the next mention is answered; every envelope the stub sent was acked once;
+- **n8n stopped while a mention arrives:** the bridge keeps trying and, when n8n is back, the mention is answered once (forwarded 200 after several tries);
 - the docs server stopped: the mention gets the error reply once (`verdict: error`), so does a second one, neither is asked again when the server
   is back, and the next mention is answered; no token, secret, socket ticket or message text is in the bridge's log.
-- **Latency** (event injected to reply posted, the model local on the X3, already loaded): 1 to 8 s per mention, median 3 s over the two runs;
+- **Latency** (event injected to reply posted, the model local on the X3, already loaded): a few seconds per mention, 1 to 8 s over the runs, median 3 s;
   an error reply is immediate; the first question after the model was unloaded would add its load time (not measured).
 
 Not covered (second brain agent):
 - **Real Slack.** The stub speaks the Socket Mode frames, `apps.connections.open`, `conversations.replies` and `chat.postMessage` as the bridge and
-  the flow read them; real envelope shapes beyond those, `disconnect` reasons and timing (`warning`, `refresh_requested`), rate limits,
+  the flow read them; real envelope shapes beyond those, `disconnect` reasons and timing (`warning`, `refresh_requested`, `too_many_websockets`), rate limits,
   `Retry-After`, the app's scopes and membership, and a thread in a private channel are not proven. The first real mention is the check.
 - **The proxy path.** The proof had no Smokescreen: that Node's `fetch` and `WebSocket` honour `NODE_USE_ENV_PROXY` was shown only against a fake
   proxy that logged the `CONNECT`; real TLS through `n8n-egress` to `wss-primary.slack.com` is not run. Nor is whether n8n's own outbound filter
-  allows private model and MCP addresses on the mini (in the proof they were loopback).
+  allows private model and MCP addresses on the mini (in the proof they were loopback), or the `litellm_clients` network and the `NO_PROXY` names.
+- **Half-open sockets.** Pings are not visible to the bridge; detection is the periodic refresh (10 min), not a frame timeout. A dead socket can lose
+  mentions for up to that long. The exit-when-unhealthy path was proven with a refused token, not with a socket that dies silently.
+- **The bridge's queue is memory:** a mention waiting for n8n (up to 2 minutes) is lost if the bridge restarts then, and one n8n never answers within
+  the budget is dropped (logged with `forwarded` 0 or the last status).
+- **The dedupe is check-then-save** (see `Decide`): two deliveries of one event in the same few milliseconds could both start an answer; the proof sends the
+  second one a second later, while the first answer was running.
 - **The model.** Only the X3's Ollama `qwen3:30b-a3b-instruct-2507-q4_K_M` ran. LiteLLM, its alias, tool calling through it, the answer quality
   of the mini's model, and what a mini-sized model does with long threads are not proven; the citation check bounds what it may post, not
   whether the answer is good. The agent can still choose not to call a tool and be replaced by the not-found message.
+  The check passes a reference that a tool returned for another question (it checks "returned in this execution", not "relevant").
 - **The library MCP on the mini** (its URL, token, network) and the A2 servers' real Google data: the proof used the stub for docs and tasks.
-- **Concurrency.** Two mentions at once run as two executions that each save the workflow's static data at the end: one can overwrite the
-  other's `seen` or `outcomes` entry (a lost entry can only let a duplicate through; the bridge also dedupes on `event_id`). The proof sent one
-  mention at a time. Several bridge instances are not supported.
+- **Concurrency of two different mentions.** Two answer executions each save the answer flow's static data at the end: one can overwrite the other's
+  `outcomes` entry (the log, not the behaviour). The proof sent one mention at a time. Several bridge instances are not supported.
 - **Lost answers.** A mention is marked done before it is answered (so a crash or Slack refusing the post is not repeated): that person asks again.
   An execution that fails after `Accept` is visible only in the editor's Executions.
 - **Where the text is kept:** saved executions hold each question, the thread, the tools' answers and the reply in `n8n-db` (and its backups) until
   n8n prunes them (default 336 h); the library's passages and the docs' text included.
 - **Prompt injection** from a document or a thread message is mitigated (tool text is declared data, sources must be what a tool returned, the
-  reply carries no broadcast), not excluded: the reply is text in the thread and the agent has read-only tools only.
+  reply carries no broadcast), not excluded: the reply is text in the thread and the agent has read-only tools only. The allowlist is the user's Slack id as the
+  event reports it; there is no per-document access control inside Docs and Tasks.
 - **The mini:** nothing here has run there; credentials, files, networks and the Slack app are the operator's steps above. Secret files on the
   mini must be readable by the container user (`node`, uid 1000) through the bind mount.

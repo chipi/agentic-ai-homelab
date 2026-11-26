@@ -177,18 +177,22 @@ Added from the review: the read path, shadows, the `smoke` hook, and the route o
   Slack retries of one `event_id` to one call, and POSTs `{channel, ts, thread_ts, user, text, event_id, bot}` to the
   workflow's webhook, signed `HMAC-SHA256(secret, timestamp + "." + body)` in `X-SB-Timestamp` and `X-SB-Signature`
   (the style of flotilla's hooks), 5-minute window. Its log lines carry ids and a status, never text or a token.
-- **The hosts and networks:** `*.slack.com` is added to `infra/n8n/egress/acl.yaml` (the socket is
-  `wss-primary.slack.com`; `slack.com` has been there since A3). The bridge reaches Slack through the same Smokescreen
+- **The hosts and networks:** `wss-primary.slack.com` and `wss-backup.slack.com` (the socket; not `*.slack.com`, n8n shares the proxy) are added to `infra/n8n/egress/acl.yaml` (
+  `slack.com` has been there since A3). The bridge reaches Slack through the same Smokescreen
   proxy as n8n (Node's `NODE_USE_ENV_PROXY`), and n8n by a new internal network `sbbridge` that only n8n and the bridge
   join. The model and the MCP servers are **not** reached through the proxy (it refuses private addresses): n8n reaches
-  them on their own networks, and their host names go into n8n's `NO_PROXY` (`n8n` is there already).
-- **The flow** (`second brain: Slack mention -> answer in thread`, `sbaskagent00001`, imported inactive): webhook
+  them on their own networks, declared in the compose files (n8n joins `litellm_clients`, a new network that only the LiteLLM gateway shares, not the one that holds its
+  database), and their host names are in n8n's `NO_PROXY`.
+- **Who may ask:** the mention flow checks the asker against an allowlist (`SB_ALLOWED_USERS`, Slack user ids; `*` is everyone and is this installation's default; set
+  but empty is nobody; optional `SB_ALLOWED_CHANNELS`) before any agent call; anyone else gets one short refusal. With `*`, anyone in a channel the bot is in gets answers
+  from the private Docs and Tasks: the operator's decision, stated in the README.
+- **The flows** (`sbaskagent00001`, imported inactive, and `sbaskrun0000001`, the answer flow it starts in a separate execution so that its once-per-mention record is saved before the agent runs): webhook
   `/webhook/second-brain-mention` (signature and window, 401 otherwise; 200 at once) -> once per mention (channel and
   `ts`, and `event_id`, kept in static data) -> the bot's own `<@BOT>` taken out of the text -> in a thread,
   `conversations.replies` (the newest 20 messages, 6,000 characters) as context -> the Tools Agent (an OpenAI-compatible
   chat model on one n8n credential, three MCP Client Tools with bearer credentials, a system prompt that allows only
   what the tools returned and asks for `[n]` citations and a `Sources:` list) -> a **citation check** in code (every
-  listed source must be an id, link or title that a tool returned in that same execution; otherwise the answer is
+  listed source's cited reference, and its title if 12+ characters, must be what a tool returned in that same execution; otherwise the answer is
   replaced by "I could not find a sourced answer." and the execution records why) -> `chat.postMessage` in the thread
   (`[second brain]` label, unfurling off, `<!` sent as `&lt;!`). A model or tool error for one mention is logged and
   answered "I hit an error answering this; try again later." once. Credentials: the Slack one (A3), the model one (an

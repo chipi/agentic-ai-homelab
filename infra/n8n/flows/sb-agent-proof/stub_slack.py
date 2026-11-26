@@ -30,7 +30,7 @@ WS_PUBLIC_PORT = int(os.environ.get("WS_PUBLIC_PORT", WS_PORT))   # the port the
 BOT = os.environ.get("BOT_USER", "U0BOT00001")
 LOCK = threading.Lock()
 LOG = []
-S = {"threads": {}, "n": 0, "opened": 0, "conn": None, "env": 0}
+S = {"threads": {}, "n": 0, "opened": 0, "conn": None, "env": 0, "mode": ""}
 
 
 def send_frame(sock, opcode, data):
@@ -64,6 +64,10 @@ def read_frame(sock):
 
 
 def ws_session(sock):
+    if S["mode"] == "no_handshake":   # a socket that connects and never opens (through a proxy, say)
+        time.sleep(40)
+        sock.close()
+        return
     req = b""
     while b"\r\n\r\n" not in req:
         req += sock.recv(4096)
@@ -74,6 +78,11 @@ def ws_session(sock):
         S["conn"] = sock
         LOG.append({"call": "ws_connected"})
         send_frame(sock, 1, json.dumps({"type": "hello", "num_connections": 1, "connection_info": {"app_id": "A0STUB"}}).encode())
+        if S["mode"] == "close_after_hello":   # as Slack does at too_many_websockets: hello, then the socket is closed
+            sock.close()
+            S["conn"] = None
+            LOG.append({"call": "ws_closed"})
+            return
     try:
         while True:
             op, data = read_frame(sock)
@@ -157,6 +166,8 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/__set":
             d = json.loads(raw)
             with LOCK:
+                if "mode" in d:
+                    S["mode"] = d["mode"]
                 if "threads" in d:
                     S["threads"] = d["threads"]
                 if d.get("reset_log"):
@@ -177,7 +188,7 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/apps.connections.open":
             with LOCK:
                 good = self.authed("SLACK_APP_TOKEN")
-                LOG.append({"call": "open", "auth": good})
+                LOG.append({"call": "open", "auth": good, "t": time.time()})
                 if not good:
                     return self.send(200, {"ok": False, "error": "invalid_auth"})
                 S["opened"] += 1
