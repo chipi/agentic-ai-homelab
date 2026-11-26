@@ -8,7 +8,7 @@ Requires=docker@%i.service
 
 [Service]
 Environment=DOCKER_HOST=unix://%t/e-%i/docker.sock
-Environment=IMAGE=ci-runner:2.338.2-2
+Environment=IMAGE=ci-runner:2.338.2-3
 # The image is built from ~/ci-runner/image/Dockerfile, once per engine; later starts find it.
 ExecStartPre=/bin/sh -c 'docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" %h/ci-runner/image'
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i

@@ -12,4 +12,10 @@ RUN apt-get update \
 # test_the_image_script_writes_the_record, run 45806431765 attempt 2).
 ENV AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache RUNNER_TOOL_CACHE=/opt/hostedtoolcache
 RUN install -d -o runner -g runner /opt/hostedtoolcache
+# docker compose: the base image has docker and buildx only, and integration's stack test stopped at
+# `docker compose -f ...`: "unknown shorthand flag: 'f'" (2026-11-26).
+RUN curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose \
+      https://github.com/docker/compose/releases/download/v5.8.0/docker-compose-linux-x86_64 \
+ && echo "b8840f5008c447f41fce0a57ae3adeab42c89b1eb6e6012524bcabbfb4ffbaf6  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c - \
+ && chmod 755 /usr/local/lib/docker/cli-plugins/docker-compose
 USER runner
