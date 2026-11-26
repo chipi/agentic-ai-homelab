@@ -36,11 +36,6 @@ Do not create logins, publish ports or change groups to "get access".
   `claude` is in the `docker` group (it can restart containers) and `~/bin/gpu-mode-swap.sh`
   only reads the mode: `/etc/sudoers.d/claude-gpu-mode-status` allows `status` and
   `--mode-only`, so a switch fails with "sudo: a password is required". No other sudo.
-- From the X3, `ssh markodragoljevic@dgx-llm-1` (Tailscale SSH, no key) is allowed, and the `gpu-mode`
-  skill switches modes that way. So **any agent session on the X3 can stop prod**: only the
-  operator's go for that switch, every time, holds it back (it ran so on 2026-11-24, `free` for a
-  photogrammetry benchmark and back to `prod`, both on the operator's go). Plain `marko@dgx-llm-1` is
-  refused by the tailnet policy.
 - On the mini, non-interactive shells lack `/usr/local/bin` on `PATH`: call
   `/usr/local/bin/docker`.
 - **Run multi-line recipes as a script file on the host** (`scp` it, `bash file.sh`),
