@@ -2,42 +2,54 @@
 
 Handover from the homelab owner session that ran 2026-11-24 to 2026-11-26 (sessions
 `c9fb6ef6…` and `014cvkLE…`). The standing punch list is [NEXT_STEPS](NEXT_STEPS.md); this note
-says what is in flight and what was promised to whom. State checked at 2026-11-26 00:10 CET.
+says what is in flight and what was promised to whom. Updated 2026-11-26 22:40Z.
 
-## In flight: watch these first
+## Tomorrow (2026-11-27)
 
-1. **Done: the fresh container per job is proven.** Studio #22 (477f7f7cf, run 45721319358): `e2e`
-   started 2 s after `viewer` on `x3-closelistening-studio-1` and passed. Studio main 21d87707
-   (run 45722744424): `e2e` right after #22's `e2e`, passed. database has the main sha for
-   Integration's lock. If "webServer exited early" ever returns, check that the runner container
-   restarted after the previous job (README in `infra/x3/ci-runner/`).
-2. **Self-hosted runners, next repos: the morning deploy is done; go ahead** (operator, 2026-11-26:
-   "Deploy is done, we can continue with gh runners"). Nothing is pushed yet: common's change was
-   checked on a throwaway branch (`test.yml` has one job, line 22, `runs-on: ubuntu-latest`; no
-   `docker://` actions, no container jobs) and dropped when the session ended. Redo it: clone
-   chipi/closelistening-common, branch `ci/x3-runner`, `runs-on: [self-hosted, x3]`, open the PR, watch
-   its Tests run on `x3-closelistening-common-1`, merge on the operator's go. Then closelistening-player (six jobs: register `closelistening-player-2` and `-3`
-   first; its session changes `runs-on`), then closelistening-integration. `infra`'s deploy, backup and
-   drill jobs stay on GitHub (ADR-0015). Details: NEXT_STEPS, X3 section.
+1. **Robotics R7** (robotics-lab's request, its message of 2026-11-26 ~22:25Z): one run in an
+   afternoon window ending by 23:20Z. **Needs the operator's go first** (the go of 2026-11-26 covered
+   M1 and M2 only). microduck-nav 4248b0e, `Mjlab-Nav-Ours-MicroDuck`, 4096 envs,
+   `--agent.max-iterations 400 --agent.save-interval 50 --agent.logger tensorboard`,
+   ROBOTICS_MAX_RUNTIME=180m; MICRODUCK_WALKER_ONNX as M2; MICRODUCK_POOL = a copy of
+   `/work/microduck-nav-runs/pools/ours-v1.jsonl.gz` (gz sha256 0b23ce53533b23616b853a34fd193e1fa60160390099cd7b70404b718fd004ec,
+   check on the DGX). Report the iteration time at 10 (over 26 s does not fit 180 min); stop if the
+   first reset does not say "25000 kept; held out: 5000 doorway; skipped ... 0". Copy to
+   `/work/microduck-nav-runs/r7/`, swap back to prod, check both vLLMs.
+2. **Second brain in Slack (#195, merged 22abc9f):** the mini is ready up to the bridge (litellm_clients,
+   alias `second-brain`, key `n8n-second-brain`, n8n recreated, `sbaskrun0000001` live,
+   `sbaskagent00001` installed inactive). The operator does the Slack app steps with flotilla and
+   writes `~/n8n/sb-bridge/slack-app.token`; flotilla says when. Then: `docker exec n8n n8n
+   publish:workflow --id=sbaskagent00001`, `cd infra/n8n/sb-bridge && docker compose up -d`, check
+   `healthy` and that its socket opens through the proxy (README, Second brain agent, steps 5-7).
 
 ## The runners (ADR-0015), as they are
 
-- `gh-runner` on the X3 (uid 959, not in the docker group); per runner a rootless engine
-  `docker@<repo>-<n>` and a container `ci-runner@<repo>-<n>`; all of it capped at 8 cores and 32 GB.
-- Online: `x3-closelistening-studio-1`, `-player-1`, `-common-1`. Only Studio's workflows use them
-  so far (#20, merged).
-- Changes to `infra/x3/ci-runner/` reach the X3 only when the operator runs
-  `sudo bash ~/deploy/agentic-ai-homelab/infra/x3/x3-ci-runner-setup.sh` (pull the deploy checkout
-  first). A runner registration: an agent writes a one-hour token
-  (`gh api -X POST repos/chipi/<repo>/actions/runners/registration-token -q .token`) to a mode-600
-  file in `~/deploy/`, the operator runs `register.sh <repo> <n> <file>`.
-- Fixed on the way, each reproduced in the image first: the engine's netns (a host-net runner
-  reaching its job's services), root's sudo (`--group-add sudo`; the image's sudoers has no
-  sudoers.d), apt's downloads kept (`docker-clean` removed), one engine per runner (5432 collisions),
-  a fresh container per job.
-- Open: true ephemeral registration, an image prune per engine, metrics and an alert. GitHub's
-  announced fee for self-hosted runners on private repos was postponed; its current state is
-  unchecked.
+- All five private repos run CI on the X3: studio, common, player (#49, #50), integration (#19,
+  cf97f4c), infra (#121: quality, llms-txt, delivery-test, caddy; deploys and drills stay on GitHub).
+  podcast_scraper is public and stays on GitHub's runners. 8 runners: studio-1, common-1, player-1..3,
+  integration-1..2, infra-1.
+- **Runner fixes need no sudo now:** copy the files to `/srv/ci-runner-src` (the line in
+  `infra/x3/ci-runner/sync.sh`'s header); `ci-runner-sync.timer` (gh-runner, every 2 min) installs them
+  and restarts each runner that is behind only while idle. Log: `/srv/ci-runner-src/log/sync.log`.
+  The setup script is still needed for packages, the slice cap, subordinate ids and a new
+  registration (`register.sh`, root).
+- Fixed 2026-11-26 (ADR-0015 consequences): jobs run as user runner; a start clears a killed job's
+  containers; the work folder and TMPDIR are host paths at the same path; docker compose and the
+  browsers' libraries in the image (2.338.2-4); a job's `/var/run/docker.sock` is the runner's own
+  engine; setup restarts only idle runners.
+- **Seen on the Hub's CI tab (https://hub.tail6d0ed4.ts.net/#ci, RFC-0011 phase A, live):** player
+  queues (14 jobs behind 3 runners at 22:08Z); a 4th player runner would need a registration
+  (root). Cache restores are slow over the X3's home line (~100 Mbit; a 10 min segment timeout, and
+  "tar exit 2" twice on player); a local cache would fix it, not proposed yet.
+- At 22:35Z player-1 and -2 had not taken the sync's restart (busy); they take it when idle.
+
+## Guard hooks (2026-11-26, d8f6473)
+
+- subagent-model-guard: one advisor per session per hour (operator: "one advisor at a time"), a 5th
+  agent within 10 minutes denied (state the count and cost to the operator), no session_id counted in
+  a shared bucket. command-ask-guard: a state-changing docker command that names no engine is denied.
+  Attack run against the live hook: the six-advisor pattern allows 1 of 6. After the ingestion
+  session ran six Fable "advisors" as auditors.
 
 ## The DGX
 
@@ -53,7 +65,7 @@ says what is in flight and what was promised to whom. State checked at 2026-11-2
 - https://{fleet,podcast,bakeoff}-evals.tail6d0ed4.ts.net, MCP at `/mcp`; listed on the Hub.
 - The 5-minute sync runs (`/tmp/evh-serve.log` on the mini: all three UP TO DATE at 23:09Z), but no
   new commit has reached any of the three since the deploy, so "a new commit appears" is unproven.
-- The two writing MCP tools (`study-ask`, `study-tell`) stay offered until eval-harness 0.8.2 adds a
+- podcast-evals serves no write tools since 2026-11-26 (`--no-agent-tools`, harness 0.8.2; eval probed 73 tools). fleet- and bakeoff-evals are on an older harness: the two writing MCP tools (`study-ask`, `study-tell`) stay offered there until it adds a
   flag; the containers are the guard (read-only checkout, no keys, $0 cap, internal network).
 
 ## GitHub hardware choice (for the operator)
