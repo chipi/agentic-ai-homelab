@@ -1,0 +1,767 @@
+[
+ {
+  "id": "case1mcpdocs0001",
+  "name": "case 1: docs read server (MCP)",
+  "active": true,
+  "settings": {
+   "executionOrder": "v1",
+   "saveDataSuccessExecution": "none"
+  },
+  "nodes": [
+   {
+    "id": "case1mcpdocs0001-0",
+    "name": "MCP Server Trigger",
+    "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+    "typeVersion": 2,
+    "position": [
+     0,
+     0
+    ],
+    "webhookId": "a1c70d51-2b3e-4f86-9d04-6e1b7c9a0f11",
+    "credentials": {
+     "httpBearerAuth": {
+      "id": "c1mcpdocstoken01",
+      "name": "case 1 docs MCP (bearer)"
+     }
+    },
+    "parameters": {
+     "path": "case1-docs",
+     "authentication": "bearerAuth",
+     "instructions": "Read-only access to the company documents: meeting notes in one folder and the decisions doc. search finds documents by words; read returns one document's text. Every document has a link: quote it as it is given."
+    }
+   },
+   {
+    "id": "case1mcpdocs0001-1",
+    "name": "search",
+    "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+    "typeVersion": 2.2,
+    "position": [
+     -220,
+     0
+    ],
+    "parameters": {
+     "description": "Search the company documents (meeting notes and the decisions doc) for words. Returns up to 10 documents, each with its id, name, modified time and link (webViewLink). Use the id with read.",
+     "source": "database",
+     "workflowId": {
+      "__rl": true,
+      "value": "case1mcpdsearch01",
+      "mode": "id"
+     },
+     "workflowInputs": {
+      "mappingMode": "defineBelow",
+      "matchingColumns": [],
+      "attemptToConvertTypes": false,
+      "convertFieldsToString": false,
+      "value": {
+       "query": "={{ $fromAI('query', \"The words to look for, for example a topic, a name or a decision\", 'string') }}"
+      },
+      "schema": [
+       {
+        "id": "query",
+        "displayName": "query",
+        "required": true,
+        "defaultMatch": false,
+        "display": true,
+        "canBeUsedToMatch": false,
+        "type": "string"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "case1mcpdocs0001-2",
+    "name": "read",
+    "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+    "typeVersion": 2.2,
+    "position": [
+     -220,
+     160
+    ],
+    "parameters": {
+     "description": "Read one document by the id that search returned. Returns its title, link (webViewLink) and text (cut at 60000 characters). Refuses any document outside the meeting notes folder and the decisions doc.",
+     "source": "database",
+     "workflowId": {
+      "__rl": true,
+      "value": "case1mcpdread00001",
+      "mode": "id"
+     },
+     "workflowInputs": {
+      "mappingMode": "defineBelow",
+      "matchingColumns": [],
+      "attemptToConvertTypes": false,
+      "convertFieldsToString": false,
+      "value": {
+       "id": "={{ $fromAI('id', \"The document id exactly as search returned it\", 'string') }}"
+      },
+      "schema": [
+       {
+        "id": "id",
+        "displayName": "id",
+        "required": true,
+        "defaultMatch": false,
+        "display": true,
+        "canBeUsedToMatch": false,
+        "type": "string"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "connections": {
+   "search": {
+    "ai_tool": [
+     [
+      {
+       "node": "MCP Server Trigger",
+       "type": "ai_tool",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "read": {
+    "ai_tool": [
+     [
+      {
+       "node": "MCP Server Trigger",
+       "type": "ai_tool",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  }
+ },
+ {
+  "id": "case1mcpdsearch01",
+  "name": "case 1 docs.search (sub-workflow of the docs MCP server)",
+  "active": false,
+  "settings": {
+   "executionOrder": "v1",
+   "saveDataSuccessExecution": "none"
+  },
+  "nodes": [
+   {
+    "id": "case1mcpdsearch01-0",
+    "name": "In",
+    "type": "n8n-nodes-base.executeWorkflowTrigger",
+    "typeVersion": 1.1,
+    "position": [
+     220,
+     0
+    ],
+    "parameters": {
+     "inputSource": "passthrough"
+    }
+   },
+   {
+    "id": "case1mcpdsearch01-1",
+    "name": "Query",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     440,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// the model's words go into a Drive query: cut, control characters out, and \\ and ' escaped, so they stay a string literal\nconst raw = String($input.first().json.query ?? '').replace(/[\\u0000-\\u001f\\u007f]+/g, ' ').trim().slice(0, 200);\nif (!raw) return [{ json: { ok: false, error: 'search needs a non-empty query' } }];\nconst esc = raw.replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\");\nreturn [{ json: { ok: true, query: raw, q: \"'19-16sCI6H6egNTbB1G6RJx6cdVdJnq5Q' in parents and fullText contains '\" + esc + \"' and trashed = false\" } }];"
+    }
+   },
+   {
+    "id": "case1mcpdsearch01-2",
+    "name": "Valid?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     660,
+     0
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "id": "c1",
+        "leftValue": "={{ $json.ok }}",
+        "rightValue": "",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   },
+   {
+    "id": "case1mcpdsearch01-3",
+    "name": "Refuse",
+    "type": "n8n-nodes-base.stopAndError",
+    "typeVersion": 1,
+    "position": [
+     880,
+     0
+    ],
+    "parameters": {
+     "errorMessage": "={{ 'docs.search: ' + $json.error }}"
+    }
+   },
+   {
+    "id": "case1mcpdsearch01-4",
+    "name": "Folder files",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1100,
+     0
+    ],
+    "credentials": {
+     "googleOAuth2Api": {
+      "id": "__GOOGLE_RO_CRED_ID__",
+      "name": "Google read-only (case 1)"
+     }
+    },
+    "parameters": {
+     "method": "GET",
+     "url": "https://www.googleapis.com/drive/v3/files",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleOAuth2Api",
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "q",
+        "value": "={{ $json.q }}"
+       },
+       {
+        "name": "fields",
+        "value": "files(id,name,modifiedTime,webViewLink)"
+       },
+       {
+        "name": "pageSize",
+        "value": "10"
+       },
+       {
+        "name": "supportsAllDrives",
+        "value": "true"
+       }
+      ]
+     },
+     "options": {
+      "response": {
+       "response": {
+        "neverError": true
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case1mcpdsearch01-5",
+    "name": "Decisions doc",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1320,
+     0
+    ],
+    "credentials": {
+     "googleOAuth2Api": {
+      "id": "__GOOGLE_RO_CRED_ID__",
+      "name": "Google read-only (case 1)"
+     }
+    },
+    "parameters": {
+     "method": "GET",
+     "url": "https://www.googleapis.com/drive/v3/files/1uzHJ3t00ZdVsUlyLHQdYLo05z-Ugd5FnRLU8V4BW0os",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleOAuth2Api",
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "fields",
+        "value": "id,name,modifiedTime,webViewLink,trashed"
+       },
+       {
+        "name": "supportsAllDrives",
+        "value": "true"
+       }
+      ]
+     },
+     "options": {
+      "response": {
+       "response": {
+        "neverError": true
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case1mcpdsearch01-6",
+    "name": "Decisions text",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1540,
+     0
+    ],
+    "credentials": {
+     "googleOAuth2Api": {
+      "id": "__GOOGLE_RO_CRED_ID__",
+      "name": "Google read-only (case 1)"
+     }
+    },
+    "parameters": {
+     "method": "GET",
+     "url": "https://www.googleapis.com/drive/v3/files/1uzHJ3t00ZdVsUlyLHQdYLo05z-Ugd5FnRLU8V4BW0os/export",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleOAuth2Api",
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "mimeType",
+        "value": "text/plain"
+       }
+      ]
+     },
+     "options": {
+      "response": {
+       "response": {
+        "neverError": true,
+        "responseFormat": "text",
+        "outputPropertyName": "data"
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case1mcpdsearch01-7",
+    "name": "Format",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1760,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// the folder's hits, then the decisions doc when every word of the query is in its name or text (Drive cannot filter by id)\nconst q = $('Query').first().json, folder = $('Folder files').first().json, doc = $('Decisions doc').first().json, text = String($input.first().json.data ?? '');\nif (!Array.isArray(folder.files)) throw new Error('docs.search: Drive did not answer the search: ' + JSON.stringify(folder.error || folder).slice(0, 200));\nconst hits = folder.files.map(f => ({ id: f.id, name: f.name, modified: f.modifiedTime, webViewLink: f.webViewLink }));\nconst terms = q.query.toLowerCase().split(/\\s+/).filter(Boolean), hay = ((doc.name || '') + '\\n' + text).toLowerCase();\nif (doc.id === '1uzHJ3t00ZdVsUlyLHQdYLo05z-Ugd5FnRLU8V4BW0os' && !doc.trashed && terms.every(t => hay.includes(t)) && !hits.some(h => h.id === doc.id))\n  hits.push({ id: doc.id, name: doc.name, modified: doc.modifiedTime, webViewLink: doc.webViewLink });\nif (!hits.length) return [{ json: { matches: 0, query: q.query, note: 'no document in the documents folder or the decisions doc matches' } }];\nreturn hits.slice(0, 10).map(h => ({ json: h }));"
+    }
+   }
+  ],
+  "connections": {
+   "In": {
+    "main": [
+     [
+      {
+       "node": "Query",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Query": {
+    "main": [
+     [
+      {
+       "node": "Valid?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Valid?": {
+    "main": [
+     [
+      {
+       "node": "Folder files",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Refuse",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Folder files": {
+    "main": [
+     [
+      {
+       "node": "Decisions doc",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Decisions doc": {
+    "main": [
+     [
+      {
+       "node": "Decisions text",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Decisions text": {
+    "main": [
+     [
+      {
+       "node": "Format",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  }
+ },
+ {
+  "id": "case1mcpdread00001",
+  "name": "case 1 docs.read (sub-workflow of the docs MCP server)",
+  "active": false,
+  "settings": {
+   "executionOrder": "v1",
+   "saveDataSuccessExecution": "none"
+  },
+  "nodes": [
+   {
+    "id": "case1mcpdread00001-0",
+    "name": "In",
+    "type": "n8n-nodes-base.executeWorkflowTrigger",
+    "typeVersion": 1.1,
+    "position": [
+     220,
+     0
+    ],
+    "parameters": {
+     "inputSource": "passthrough"
+    }
+   },
+   {
+    "id": "case1mcpdread00001-1",
+    "name": "Check id",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     440,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// a Drive id only: it goes into a URL path\nconst id = String($input.first().json.id ?? '').trim();\nreturn [{ json: { ok: /^[A-Za-z0-9_-]{1,128}$/.test(id), id, error: 'read needs a document id as the search returned it' } }];"
+    }
+   },
+   {
+    "id": "case1mcpdread00001-2",
+    "name": "Id ok?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     660,
+     0
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "id": "c1",
+        "leftValue": "={{ $json.ok }}",
+        "rightValue": "",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   },
+   {
+    "id": "case1mcpdread00001-3",
+    "name": "Refuse id",
+    "type": "n8n-nodes-base.stopAndError",
+    "typeVersion": 1,
+    "position": [
+     880,
+     0
+    ],
+    "parameters": {
+     "errorMessage": "={{ 'docs.read: ' + $json.error }}"
+    }
+   },
+   {
+    "id": "case1mcpdread00001-4",
+    "name": "Meta",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1100,
+     0
+    ],
+    "credentials": {
+     "googleOAuth2Api": {
+      "id": "__GOOGLE_RO_CRED_ID__",
+      "name": "Google read-only (case 1)"
+     }
+    },
+    "parameters": {
+     "method": "GET",
+     "url": "=https://www.googleapis.com/drive/v3/files/{{ $json.id }}",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleOAuth2Api",
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "fields",
+        "value": "id,name,parents,webViewLink,mimeType,modifiedTime,trashed"
+       },
+       {
+        "name": "supportsAllDrives",
+        "value": "true"
+       }
+      ]
+     },
+     "options": {
+      "response": {
+       "response": {
+        "neverError": true
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case1mcpdread00001-5",
+    "name": "Gate",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1320,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// the one rule that matters: a file is read only when it is in the documents folder, or is the decisions doc\nconst m = $input.first().json;\nconst refuse = why => [{ json: { ok: false, error: 'docs.read: ' + why } }];\nif (!m.id) return refuse('no document with that id, or it cannot be read');\nif (!(m.id === '1uzHJ3t00ZdVsUlyLHQdYLo05z-Ugd5FnRLU8V4BW0os' || (Array.isArray(m.parents) && m.parents.includes('19-16sCI6H6egNTbB1G6RJx6cdVdJnq5Q')))) return refuse('refused: that document is not in the documents folder');\nif (m.trashed) return refuse('that document is in the trash');\nconst doc = m.mimeType === 'application/vnd.google-apps.document';\nif (!doc && m.mimeType !== 'text/plain' && m.mimeType !== 'text/markdown') return refuse('only Google Docs, .txt and .md files can be read (this is ' + m.mimeType + ')');\nreturn [{ json: { ok: true, id: m.id, title: m.name, webViewLink: m.webViewLink, modified: m.modifiedTime,\n  url: 'https://www.googleapis.com/drive/v3/files/' + m.id + (doc ? '/export' : ''), qs: doc ? { mimeType: 'text/plain' } : { alt: 'media' } } }];"
+    }
+   },
+   {
+    "id": "case1mcpdread00001-6",
+    "name": "Allowed?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     1540,
+     0
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "id": "c1",
+        "leftValue": "={{ $json.ok }}",
+        "rightValue": "",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   },
+   {
+    "id": "case1mcpdread00001-7",
+    "name": "Refuse",
+    "type": "n8n-nodes-base.stopAndError",
+    "typeVersion": 1,
+    "position": [
+     1760,
+     0
+    ],
+    "parameters": {
+     "errorMessage": "={{ $json.error }}"
+    }
+   },
+   {
+    "id": "case1mcpdread00001-8",
+    "name": "Text",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1980,
+     0
+    ],
+    "credentials": {
+     "googleOAuth2Api": {
+      "id": "__GOOGLE_RO_CRED_ID__",
+      "name": "Google read-only (case 1)"
+     }
+    },
+    "parameters": {
+     "method": "GET",
+     "url": "={{ $json.url }}",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "googleOAuth2Api",
+     "sendQuery": true,
+     "specifyQuery": "json",
+     "jsonQuery": "={{ JSON.stringify($json.qs) }}",
+     "options": {
+      "response": {
+       "response": {
+        "neverError": false,
+        "responseFormat": "text",
+        "outputPropertyName": "data"
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case1mcpdread00001-9",
+    "name": "Answer",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     2200,
+     0
+    ],
+    "parameters": {
+     "jsCode": "const r = $input.first().json, g = $('Gate').first().json;  // a Drive error here fails the call: the HTTP node throws on non-2xx\nconst full = String(r.data ?? ''), cut = full.length > 60000;\nreturn [{ json: { title: g.title, webViewLink: g.webViewLink, id: g.id, modified: g.modified, truncated: cut,\n  text: cut ? full.slice(0, 60000) + '\\n[cut: the document goes on for ' + (full.length - 60000) + ' more characters]' : full } }];"
+    }
+   }
+  ],
+  "connections": {
+   "In": {
+    "main": [
+     [
+      {
+       "node": "Check id",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Check id": {
+    "main": [
+     [
+      {
+       "node": "Id ok?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Id ok?": {
+    "main": [
+     [
+      {
+       "node": "Meta",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Refuse id",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Meta": {
+    "main": [
+     [
+      {
+       "node": "Gate",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Gate": {
+    "main": [
+     [
+      {
+       "node": "Allowed?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Allowed?": {
+    "main": [
+     [
+      {
+       "node": "Text",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Refuse",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Text": {
+    "main": [
+     [
+      {
+       "node": "Answer",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  }
+ }
+]

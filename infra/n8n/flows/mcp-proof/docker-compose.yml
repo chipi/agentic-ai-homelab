@@ -1,0 +1,36 @@
+# THROWAWAY proof of the case 1 MCP read servers (README "Case 1 read servers (MCP)"), on a dev engine only:
+# n8n at the production pin with its own Postgres (container names n8n and n8n-db, so install-mcp.sh runs unchanged),
+# and a stub of the Google endpoints. No egress proxy, no real credential, nothing from the mini. run.sh brings it up and down.
+name: n8nmcpproof
+services:
+  n8n-db:
+    image: postgres:16.4
+    container_name: n8n-db
+    environment: {POSTGRES_DB: n8n, POSTGRES_USER: n8n, POSTGRES_PASSWORD: "${PROOF_DB_PASSWORD:?run.sh sets it}"}
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U n8n -d n8n"], interval: 3s, timeout: 3s, retries: 20}
+  stub:
+    image: python:3.12-slim
+    container_name: n8n-proof-stub
+    command: ["python", "/stub_google.py", "${FOLDER}", "${DOC}", "${LIST}"]
+    volumes: ["./stub_google.py:/stub_google.py:ro"]
+    ports: ["127.0.0.1:${STUB_PORT:-18080}:8080"]
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.48.7
+    container_name: n8n
+    depends_on: {n8n-db: {condition: service_healthy}}
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: n8n-db
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: "${PROOF_DB_PASSWORD:?run.sh sets it}"
+      N8N_ENCRYPTION_KEY: "${PROOF_ENCRYPTION_KEY:?run.sh sets it}"
+      N8N_HOST: n8n
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://n8n:5678/
+      GENERIC_TIMEZONE: UTC
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+    ports: ["127.0.0.1:${PROOF_PORT:-15678}:5678"]

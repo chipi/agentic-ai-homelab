@@ -15,6 +15,7 @@ offered to others as a service.
   - `plumbing`: n8n, flotillad (flotilla's compose joins it as an external network) and alloy-homelab
     (scrapes `/metrics`).
   - `n8n_db`: n8n and its Postgres only.
+  - `mcp` (external, created before this stack): n8n and flotilla's reads proxy, for the case 1 MCP servers (below).
   - `n8n_ui`: n8n and caddy only: the editor at **https://n8n.tail6d0ed4.ts.net** (tailnet only; caddy answers 404 for webhook paths there). Deploy n8n before `infra/reverse-proxy`.
 - **Base URL for webhooks, as flotillad's container sees it:** `http://n8n:5678/` (webhooks under
   `/webhook/<path>`, test webhooks under `/webhook-test/<path>`).
@@ -132,3 +133,96 @@ from flotilla's secret files (`~/flotilla/config/hooks/meeting.secret`,
 `flows/test_callbacks.sh` signs calls as flotilla does: status before, a bad signature (401), a stale
 timestamp (401), send, a re-send (same ref, nothing new), status after. 2026-11-23: 16 of 16 PASS, leaving
 one `[test]` task and one `[test]` Doc line.
+
+## Case 1 read servers (MCP) (flotilla RFC-0014 case 1; RFC-0010 amendment A2)
+
+Two read-only MCP servers for flotilla's `knowledge/answer` station (its reads `docs` and `tasks`), built on n8n's
+**MCP Server Trigger** and flotilla's own client. Built and proven on a dev engine 2026-11-26; **not yet installed on the mini**.
+
+| Server | Workflow (id) | URL, as flotillad's network sees it | Tools | Bearer credential |
+|---|---|---|---|---|
+| `docs` | `case 1: docs read server (MCP)` (`case1mcpdocs0001`) | `http://n8n:5678/mcp/case1-docs` | `search {query}`, `read {id}` | `case 1 docs MCP (bearer)` (`c1mcpdocstoken01`) |
+| `tasks` | `case 1: tasks read server (MCP)` (`case1mcptasks001`) | `http://n8n:5678/mcp/case1-tasks` | `list {}` | `case 1 tasks MCP (bearer)` (`c1mcptaskstoken1`) |
+
+- **Transport and URL (checked in the 2.48.7 image):** the trigger (node version 2) speaks **streamable HTTP and the
+  legacy SSE** at the one path `{WEBHOOK_URL}mcp/<path>` (`GET` = SSE stream, `POST` = messages, `DELETE` = end the
+  session). Version 1 of the node used `/sse` and `/messages` under the path; the flows use version 2. A `POST`
+  answers `text/event-stream` with one `event: message` (flotilla's `McpClient` reads that), protocol `2025-06-18`,
+  session in `Mcp-Session-Id`, kept in n8n's memory: a restart loses it and the client starts a new one on the 404.
+  A wrong or missing bearer token is **403**. The server's name is `MCP_Server_Trigger`.
+- **Why sub-workflows:** a `Call n8n Workflow Tool` node takes the model's argument names (`query`, `id`) from
+  `$fromAI` only when it calls a workflow **by id**; with the workflow inlined, n8n drops those mappings and the tool
+  gets one argument called `input` (seen in 2.48.7). So each tool is a small sub-workflow
+  (`case1mcpdsearch01`, `case1mcpdread00001`, `case1mcptlist0001`, no trigger of their own) that n8n runs only when it is
+  **published**; `install-mcp.sh` publishes them. `tasks.list` shows an optional `input` argument that nothing reads.
+- **What they read (constants at the top of `flows/gen_mcp_flows.js`, the case 3 ids; change them there and re-run
+  `node flows/gen_mcp_flows.js` and `install-mcp.sh`):** the Drive folder `FOLDER` (meeting notes), the Doc `DOC`
+  (decisions) and the Tasks list `LIST` (follow-ups).
+  - `search`: Drive `files.list`, `'FOLDER' in parents and fullText contains '<query>' and trashed = false`, at most
+    10; the query is cut at 200 characters, control characters out, `\` and `'` escaped. The decisions doc is added
+    when every word of the query is in its name or text (Drive cannot filter by id, so the flow reads the doc).
+    Each result carries `id`, `name`, `modified` and `webViewLink`.
+  - `read`: `files.get` for the metadata first, **refused** unless `FOLDER` is among the parents or the id is `DOC`
+    (also refused: trashed, or not a Doc, `.txt` or `.md`); then the text (`export?mimeType=text/plain`, or
+    `alt=media`), cut at 60,000 characters with a visible `[cut: ...]` line. The answer starts `title`, `webViewLink`.
+    The id must be a Drive id (`[A-Za-z0-9_-]`, it goes into a URL path).
+  - `list`: open tasks of `LIST` (first 100), each `title`, `due`, `notes` (cut at 300) and `ref`: the task's
+    `webViewLink`, else its id.
+  - A refusal is an MCP tool error (`isError`, text `There was an error: "docs.read: refused: ..."`), not a protocol error.
+  - Results are JSON text (n8n serialises the sub-workflow's items), links and ids as Google gave them.
+- **Credentials.** Two bearer ones, made by `install-mcp.sh` from flotilla's token files; one Google one, **made by
+  the operator's sign-in in the editor** (`install-mcp.sh` looks its id up):
+  1. Editor, Credentials, Create, **Google OAuth2 API** (the generic type, not Drive or Tasks).
+  2. Any name: `install-mcp.sh` takes the one Google OAuth2 API credential (with several, set
+     `GOOGLE_RO_CRED_NAME`). Client ID and secret: the OAuth client of case 3
+     (Google Cloud project `homelab-n8n`); its redirect URI is the one case 3's credentials already use.
+  3. **Scope**, the whole field, space-separated: `https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/tasks.readonly`. Nothing else: this is what makes the servers unable to write.
+  4. Optional hardening: Allowed HTTP Request Domains, Specific Domains, `www.googleapis.com`.
+  5. **Sign in with Google** and consent as the operator. In Google Cloud, OAuth consent screen (Data access), add the same
+     two scopes to the app first. If the app's status is Testing, Google expires its refresh tokens after 7 days:
+     set it to In production (internal use) or sign in again each week.
+- **Secrets, on the mini (values never printed):**
+  `umask 077; mkdir -p ~/flotilla/config/mcp; openssl rand -hex 32 > ~/flotilla/config/mcp/docs.token; openssl rand -hex 32 > ~/flotilla/config/mcp/tasks.token`.
+  They are the same files flotilla's reads worker mounts (`config/mcp/<server>.token`).
+- **Network.** n8n joins the **external** network `mcp` (`docker-compose.yml`; this stack does not create it). It must
+  exist first (`docker network inspect mcp`), or `docker compose up -d` fails; the run recreates `n8n` (about a minute
+  down, saved sessions lost). The network carries n8n's whole port, as `plumbing` does: the editor login and the
+  callback signatures are what protect those, so only flotilla's reads proxy belongs on `mcp`.
+  Flotilla side (its `deploy/compose/README.md`, "The reads worker"): in `config/worker-reads.env`
+  `ROUTINE_MCP_DOCS_URL=http://n8n:5678/mcp/case1-docs`, `ROUTINE_MCP_DOCS_TOKEN_FILE=/run/flotilla/mcp-docs.token`, and the
+  same two for `TASKS` (`.../mcp/case1-tasks`); `n8n` in `config/egress-reads-acl.yaml`; the `mcp` network's range in
+  `allow_ranges`.
+- **Egress.** No new host: Drive and Tasks are `www.googleapis.com`, the token refresh `oauth2.googleapis.com`, both
+  listed since case 3.
+- **Install on the mini** (after the credential, the secrets and the network): from a copy of `flows/`,
+  `bash install-mcp.sh`. It stops without the Google credential, imports the two bearer credentials through stdin
+  (skips existing ones), puts the Google credential's id into the two files, imports the five workflows (overwriting)
+  and publishes them. Re-run it after changing a flow.
+- **Test** (reads only; writes nothing anywhere): `flows/test_mcp.py` drives both servers with flotilla's
+  `runtime/mcp_client.py`, from a container on `mcp` since n8n publishes nothing:
+  ```sh
+  docker run --rm --network mcp -v ~/flotilla/config/mcp:/t:ro -v <flotilla checkout>/runtime:/rt:ro \
+    -v "$PWD/flows/test_mcp.py":/test_mcp.py:ro -e PYTHONPATH=/rt \
+    -e MCP_DOCS_URL=http://n8n:5678/mcp/case1-docs -e MCP_DOCS_TOKEN_FILE=/t/docs.token \
+    -e MCP_TASKS_URL=http://n8n:5678/mcp/case1-tasks -e MCP_TASKS_TOKEN_FILE=/t/tasks.token \
+    -e TEST_QUERY=<a word the folder has> -e OUTSIDE_ID=<a Drive id outside the folder> python:3.12-slim python /test_mcp.py
+  ```
+  It checks the tool list, a search with links, a read, the two refusals, a wrong and a missing token, and
+  `tasks.list`; ends `N of M PASS`.
+- **The proof, on a dev engine, never the mini:** `FLOTILLA_RUNTIME=<flotilla checkout>/runtime bash flows/mcp-proof/run.sh`
+  starts a throwaway compose project (n8n at this pin and a Postgres, plus `stub_google.py`, a stand-in for the Drive and
+  Tasks endpoints), generates the flows with `node flows/gen_mcp_flows.js <dir> --base http://stub:8080`, installs them
+  with the same `install-mcp.sh`, runs `test_mcp.py` with the fixture checks, and removes the project and its volumes.
+  2026-11-26: 27 of 27 PASS.
+
+Not covered (case 1 flows):
+- **Real Google.** The stub answers the one query shape the flow sends, so Google's own `fullText` semantics (multi-word
+  queries, prefixes, ranking), the scopes, the `drive.readonly` export, shared drives and the token refresh are not
+  proven; the credential in the proof is a stand-in with a made-up token. The first real search is the check.
+- **Where the text is kept.** A server run's saved execution holds each tool's answer, so a document's text sits in
+  `n8n-db` (and its backups) until n8n prunes executions (default 336 h). The sub-workflows save no data of a success.
+- **Shadows** (flotilla serves them recorded reads, so none reaches here): not exercised.
+- The caps: `search` 10 hits, `list` the first 100 tasks (no paging), `read` 60,000 characters (Drive refuses to export
+  a Doc over 10 MB: that is a tool error). The station's own `max_result_chars` (20,000) cuts a long read again.
+- A session across an n8n restart (the client's 404 handling is flotilla's, tested there) and concurrent callers.
+- That `mcp` exists, and flotilla's reads worker reaching these URLs through its proxy: homelab and flotilla plans, not this stack.

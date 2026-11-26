@@ -111,6 +111,37 @@ Added from the review: the read path, shadows, the `smoke` hook, and the route o
 - **The secrets:** the `meeting` hook's secret and the two callback secrets are n8n credentials
   (option a, as the smoke flow's).
 
+### A2. RFC-0014 case 1, flotilla answers a question from documents and tasks (2026-11-26)
+
+- **The connector:** Google again, on **one new credential**, `Google read-only (case 1)` (type Google OAuth2 API,
+  made by the operator's sign-in in the editor). Its scopes are exactly `drive.readonly` and `tasks.readonly`, so it
+  cannot write: the read path's rule (above) that reads have their own credentials, separate from the callback
+  flows' write ones. It uses the same OAuth client and Google Cloud project as A1; the consent screen needs
+  those two scopes added.
+- **The hosts:** none new. Drive and Tasks are `www.googleapis.com`, the token refresh is `oauth2.googleapis.com`;
+  both are in `infra/n8n/egress/acl.yaml` since A1.
+- **The flows, the read path of the rule (n8n's MCP Server Trigger fronting read-only tools):**
+  - `case 1: docs read server (MCP)` (`case1mcpdocs0001`, served at `/mcp/case1-docs`): tools `search {query}` and
+    `read {id}`. `search` is Drive's `files.list` on the meeting-notes folder, plus the decisions doc when every word
+    of the query is in its name or text. `read` fetches the file's metadata first and refuses unless the folder is
+    among its parents or it is the decisions doc, then returns the text (a Doc exported as plain text, a `.txt`
+    or `.md` as is), cut at 60,000 characters and saying so;
+  - `case 1: tasks read server (MCP)` (`case1mcptasks001`, `/mcp/case1-tasks`): tool `list {}`, the open tasks of
+    the follow-ups list;
+  - each tool's steps are a sub-workflow (`case1mcpdsearch01`, `case1mcpdread00001`, `case1mcptlist0001`) that the
+    tool node calls by id; they have no trigger of their own and are published only because n8n runs no other kind.
+  The model gives the one argument; the folder, the doc, the list and every limit are fixed in the flow
+  (`flows/gen_mcp_flows.js`, constants at its top). Refusals come back as an MCP tool error.
+- **Their single outputs:** none. Both servers only read; the credential could not write if they tried.
+- **Who may call them:** a bearer token per server (n8n credentials `case 1 docs MCP (bearer)` and
+  `case 1 tasks MCP (bearer)`, the secrets in flotilla's `config/mcp/*.token`). They are on the external
+  `mcp` network, beside flotilla's reads proxy. n8n serves its whole port on every network it joins, as on `plumbing`:
+  what keeps a caller on `mcp` out of the editor and the signed callback webhooks is n8n's login and those webhooks'
+  signatures, so only flotilla's reads proxy and the MCP servers it fronts belong on `mcp`.
+- **Shadows never call them** (the rule above): a read creates a saved execution. These flows save no data of a
+  successful sub-run, but n8n still keeps the server run, which holds each tool's answer (a document's text) in
+  `n8n-db` until n8n prunes executions (README, "Case 1 read servers (MCP)").
+
 ## Not covered
 
 - Which company tools connect first, and the hook's design: flotilla RFC-0014.

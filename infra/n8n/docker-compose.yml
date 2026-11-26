@@ -2,7 +2,7 @@
 # Runs on the homelab Mac mini's production engine beside flotilla. n8n is under the Sustainable Use
 # License: the installation's own internal use only, never offered to others as a service.
 #
-# Networks, all internal but `out` (nothing published on the host; RFC-0014 §5):
+# Networks, all internal but `out` and the external `mcp` (nothing published on the host; RFC-0014 §5):
 #   plumbing  n8n, flotillad (joins it as an external network) and alloy-homelab (scrapes /metrics).
 #             flotillad reaches n8n's webhooks at http://n8n:5678/webhook/..., n8n reaches flotillad by
 #             container name on the same network.
@@ -10,6 +10,8 @@
 #   ui        n8n and the installation's caddy only (named n8n_ui): the editor at
 #             https://n8n.tail6d0ed4.ts.net. Caddy is not on plumbing, so the tailnet node reaches
 #             n8n's editor and nothing of flotilla's. Deploy this stack before reverse-proxy.
+#   mcp       n8n and flotilla's reads proxy (egress-reads), an EXTERNAL network created before this stack: n8n's MCP read servers
+#             (case 1, flows/case1-mcp-*.json) at http://n8n:5678/mcp/<path>. Not internal: the network is flotilla's plan, n8n joins it only.
 #   egress    n8n and its egress proxy only.
 #   out       the proxy alone: its way to the internet. n8n itself has no route out.
 # The proxy (Smokescreen, the image flotilla builds, pinned by digest) admits only the hosts in
@@ -83,7 +85,7 @@ services:
       NO_PROXY: flotillad,n8n-db,egress,localhost,127.0.0.1
     volumes:
       - n8n-data:/home/node/.n8n
-    networks: [plumbing, db, ui, egress]
+    networks: [plumbing, db, ui, egress, mcp]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz >/dev/null || exit 1"]
       interval: 30s
@@ -126,6 +128,9 @@ networks:
   egress:
     internal: true
   out: {}
+  mcp:
+    name: mcp
+    external: true   # created before this stack (README "Case 1 read servers (MCP)"): n8n joins it and never creates it
 
 volumes:
   n8n-db-data:

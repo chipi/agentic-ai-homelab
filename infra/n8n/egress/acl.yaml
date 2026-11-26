@@ -8,6 +8,7 @@ default:
   action: enforce
   allowed_domains:
     # case 3 (2026-11-23): Google Drive trigger, Google Docs, Google Tasks; OAuth2 token exchange
+    # case 1 (2026-11-26, RFC-0010 A2): the read servers call Drive and Tasks on these same two hosts (and the token refresh): no new host
     - oauth2.googleapis.com
     - www.googleapis.com
     - docs.googleapis.com
