@@ -24,6 +24,41 @@ devengine stop                   # when you are done
 | VM | `_dockerdev`, vz + virtiofs, 4 CPU / 6 GiB / 60 GiB | `_dockerhost`, qemu, 20 GiB |
 | Lifetime | on demand; stops itself after 30 min idle | always on |
 
+## Which engine am I talking to?
+
+Every `docker` command on the mini goes to production unless it names the dev engine. The CLI
+picks the engine from, in this order: `-H`/`--host`, `DOCKER_HOST`, `--context`,
+`DOCKER_CONTEXT`, then the current context (`docker context show`; on the operator's account it
+is `default`, which is **production**).
+
+| Check | Dev | Production |
+|---|---|---|
+| `docker context inspect <context> --format '{{.Endpoints.docker.Host}}'` | `unix:///var/run/docker-dev.sock` | `unix:///var/run/docker.sock` |
+| `docker context show` | `dev` | `default` |
+| in the command | `--context dev`, `DOCKER_CONTEXT=dev` | anything else, including nothing |
+
+`docker info --format '{{.Name}}'` does not tell them apart: both VMs answer `colima`.
+
+- **Name the engine in the command itself** (`docker --context dev …`, or `D="docker --context
+  dev"; $D …`). Don't rely on `docker context use dev` from an earlier command: another session or
+  a new shell is back on `default`.
+- **The ask guard knows the difference** (`workstation/claude/hooks/command-ask-guard.sh`,
+  2026-11-26). A `compose down -v` or `docker volume rm` that names only the dev engine runs
+  without a prompt. The same command on production, or with any other `--context`,
+  `DOCKER_HOST` or `-H` in it, asks the operator. Prunes ask on every engine.
+- **Production's files are read by `_dockerhost`, not by you.** A bind mount from a mode-700
+  folder of the operator's (`~/flotilla/config`, `~/.config/...`) is unreadable inside a
+  production container, even with `--user $(id -u)`. Pass secrets on stdin instead (`… | docker
+  run -i … sh -c 'cat > /s/token'`, or `tar -cf - … | docker run -i --tmpfs /w …`), as
+  infra/second-brain and flotilla's `secrets.sh` do (2026-11-26).
+- **A script pins its engine.** The backup dump of 2026-11-21 read "SKIP" for every database
+  because its CLI fell back to another socket. Scripts that must reach production set
+  `DOCKER_HOST=unix:///var/_dockerhost/.colima/default/docker.sock` and fail loudly if `docker ps`
+  errors (`infra/backup/dump-observability-dbs.sh`).
+- **Other hosts:** the X3's CI runners each have their own rootless engine
+  (`docker@<repo>-<n>`, user `gh-runner`, ADR-0015), apart from the X3's system engine. The DGX
+  has one engine, shared by prod vLLM and robotics: change it only through `gpu-mode-swap.sh`.
+
 ## The contract
 
 1. **Use the `dev` context only.** Never the production socket, never `DOCKER_HOST`

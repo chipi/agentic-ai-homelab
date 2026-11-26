@@ -94,7 +94,10 @@ The reasons and incidents behind these rules: `agentic-ai-homelab/docs/reference
 
 - **The Mac mini's production Docker engine** (`/var/run/docker.sock`) is closed to development: use the
   dev engine (`devengine start`, `docker --context dev`, `devengine stop`); never change the production
-  socket, groups or VM (`docs/recipes/dev-docker-engine.md`).
+  socket, groups or VM (`docs/recipes/dev-docker-engine.md`). A `docker` command that does not name
+  the dev engine (`--context dev`, `DOCKER_CONTEXT=dev`) goes to production: name it in every
+  command, and pass secrets to production containers on stdin, not by bind mount (that recipe,
+  "Which engine am I talking to?").
 - **Operating the operator's services** (Grafana, Victoria*, GlitchTip, Langfuse, LiteLLM, the DGX):
   follow `agentic-ai-homelab/docs/recipes/agent-access.md`; never request new logins, ports or groups.
 - **Observability:** before opening a PR, read your branch's dev errors, logs and traces (`o11y-dev`).
