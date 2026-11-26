@@ -148,6 +148,22 @@ t allow Bash                      $'D=$(timeout 30 ssh host mktemp -d); ssh host
 t allow   Bash                      $'D=$(ssh host \'cat /etc/mktemp-list\'); ssh host "rm -rf $D"'
 t allow   Bash                      $'D=$(ssh host \'echo /srv\'); ssh host "rm -rf $D"'
 t ask   Bash                      'docker compose down -v # cleanup'
+# 2026-11-26, operator: the dev engine is throwaway; a down -v or volume rm there needs no go
+t allow Bash                      'cd /w/slack-proof && D="docker --context dev"; $D compose -p n8nslackproof -f docker-compose.yml down -v --remove-orphans 2>&1 | tail -2; rm -rf /tmp/sf; for i in 1 2; do bash run.sh; done; $D volume ls | grep n8nslack'
+t allow Bash                      'cd /w/slack-proof && docker --context dev compose -p n8nslackproof -f docker-compose.yml down -v --remove-orphans 2>&1 | tail -2; rm -rf /tmp/sf; echo cleaned'
+t allow Bash                      'DOCKER_CONTEXT=dev docker compose -p x down -v'
+t allow Bash                      'docker --context=dev volume rm proof_data'
+t allow mcp__lean-ctx__ctx_shell  'docker --context dev compose -p x down --volumes'
+t ask   Bash                      'docker --context dev ps; docker compose down -v'
+t ask   Bash                      'docker --context dev ps; docker --context default compose down -v'
+t ask   Bash                      'DOCKER_CONTEXT=dev DOCKER_HOST=unix:///var/run/docker.sock docker compose down -v'
+t ask   Bash                      'docker --context dev ps && docker -H unix:///var/run/docker.sock volume rm data'
+t ask   Bash                      'DOCKER_CONTEXT=devx docker compose down -v'
+t ask   Bash                      'docker -H tcp://host:2375 volume rm data'
+t ask   Bash                      'docker --context default system prune -af'
+t allow Bash                      'docker ps --format x | grep volume'
+t allow Bash                      'export DOCKER_CONTEXT=dev; docker compose -p p down -v'
+t ask   Bash                      'docker --context dev system prune -af'
 # other tools and the escape hatch
 t allow Read                      "git push origin main"
 out="$(jq -n '{tool_name:"Bash",tool_input:{command:"git push"}}' | COMMAND_ASK_GUARD=off bash "$H")"

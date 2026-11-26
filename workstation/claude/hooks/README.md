@@ -445,6 +445,17 @@ Every push without force or delete is allowed now, main, default and release bra
 `--mirror`, `--prune`, and `--force-with-lease` to a default or release branch or with no branch named.
 `~/.config/AGENTS.md` section 1 and the `ship` skill say the same. Tests: 126 of 126.
 
+## 2026-11-26: the dev engine's teardown needs no go
+
+Operator, after three prompts for a proof stack's teardown (`docker --context dev compose -p n8nslackproof ...
+down -v`): a `compose down -v` or `docker volume rm` on the dev engine is allowed. The dev engine counts when the
+command names it and nothing else: `--context dev` or a `DOCKER_CONTEXT=dev` prefix in the same segment, a `$VAR`
+the command set to `"docker --context dev"`, or `export DOCKER_CONTEXT=dev`. Any other `--context`,
+`DOCKER_CONTEXT`, `DOCKER_HOST`, `-H` or `--host` anywhere in the command, and it asks as before; prunes still
+ask on every engine. The same change closed a gap: the prune and `volume rm` patterns missed a flag between
+`docker` and the subcommand (`docker -H tcp://x volume rm data`, `docker --context default system prune` were
+allowed). Tests: 141 of 141 on the X3 and on the mini's bash 3.2.
+
 ## 2026-11-24: git in an isolated agent worktree (lean-ctx-rewrite-gate.sh)
 
 orrery's worktree-isolated subagents (`isolation: worktree`) could not run git on 2026-11-23: every call was

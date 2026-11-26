@@ -149,16 +149,39 @@ push_ok() {
     return 0
 }
 
+# The dev docker engine (`docker --context dev`, DOCKER_CONTEXT=dev) is throwaway: a compose down -v or a
+# volume rm there needs no go (2026-11-26, operator: a proof stack's teardown on the dev engine asked). Read
+# from the raw command, since `D="docker --context dev"; $D compose ... down -v` keeps the context in a quoted
+# string. Any other context, DOCKER_HOST or -H anywhere in the command, and it asks as before.
+dev_engine_only() {   # $1 = the ERE of the destructive command
+    local seg v
+    printf '%s' "$cmd" | grep -Eo -- "--context[= ][^[:space:]\"';&|)]+" | grep -Evq -- '^--context[= ]dev$' && return 1
+    printf '%s' "$cmd" | grep -Eo -- "DOCKER_CONTEXT=[^[:space:]\"';&|)]*" | grep -vqx 'DOCKER_CONTEXT=dev' && return 1
+    printf '%s' "$cmd" | grep -Eq -- "DOCKER_HOST=|(^|[[:space:]])-H[[:space:]=]|--host[[:space:]=]" && return 1
+    printf '%s' "$cmd" | grep -Eq -- "(^|[;&|[:space:]])export[[:space:]]+DOCKER_CONTEXT=dev([[:space:];&|]|\$)" && return 0
+    # otherwise each segment that runs it names the dev engine itself: --context dev, a DOCKER_CONTEXT=dev
+    # prefix, or a $VAR the command set to "docker --context dev"
+    while IFS= read -r seg; do
+        printf '%s' "$seg" | grep -Eq -- "$1" || continue
+        printf '%s' "$seg" | grep -Eq -- "--context[= ]dev([[:space:]]|\$)|DOCKER_CONTEXT=dev[[:space:]]" && continue
+        v=$(printf '%s' "$seg" | sed -nE 's/^[[:space:]]*\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?[[:space:]]+compose.*/\1/p; s/^[[:space:]]*\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?[[:space:]]+volume.*/\1/p' | head -1)
+        [ -n "$v" ] && printf '%s' "$cmd" | grep -Eq -- "(^|[;&|[:space:]])${v}=[\"']docker --context dev[\"']" && continue
+        return 1
+    done < <(printf '%s\n' "$text" | tr ';&|' '\n\n\n')
+    return 0
+}
+
 check() {   # $1 = ERE, $2 = what, $3 = the AGENTS.md rule
     if printf '%s' "$text" | grep -Eq -- "$1"; then
         [ "$2" = "a force push or branch delete" ] && push_ok && return 0
+        case "$2" in "compose down with volumes"|"deleting a docker volume") dev_engine_only "$1" && return 0 ;; esac
         ask "command-ask-guard: ${2}. The operator approves this per instance (~/.config/AGENTS.md, ${3}). Ask in the conversation before running it; in a headless run it is refused."
     fi
 }
 check "${S}git([[:space:]]+-[^;&|]*)?([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+push([[:space:]]|\$)" "a force push or branch delete" "1: force-pushes and branch deletes need a per-instance go"
 check "${S}gh[[:space:]]+issue[[:space:]]+create" "opening a GitHub issue" "1: never open a GitHub issue without the operator's explicit ask"
-check "${S}docker[[:space:]]+(system|volume|image|container|builder|network)[[:space:]]+prune" "a docker prune" "1: destructive changes need a per-instance go"
-check "${S}docker[[:space:]]+volume[[:space:]]+rm" "deleting a docker volume" "1: destructive changes need a per-instance go"
+check "${S}docker([[:space:]]+[^;&|]*)?[[:space:]]+(system|volume|image|container|builder|network)[[:space:]]+prune" "a docker prune" "1: destructive changes need a per-instance go"
+check "${S}docker([[:space:]]+[^;&|]*)?[[:space:]]+volume[[:space:]]+rm" "deleting a docker volume" "1: destructive changes need a per-instance go"
 check "compose([[:space:]]+[^;&|]*)?[[:space:]]+down([[:space:]]+[^;&|]*)?[[:space:]]+(-v|--volumes)([[:space:]]|\$)" "compose down with volumes" "1: destructive changes need a per-instance go"
 check "${S}terraform[[:space:]]+(apply|destroy)" "terraform apply/destroy" "1: destructive changes need a per-instance go"
 allow
