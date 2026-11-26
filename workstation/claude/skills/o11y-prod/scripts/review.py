@@ -76,6 +76,9 @@ req = urllib.request.Request("http://127.0.0.1:8090/api/0/organizations/homelab/
                              headers={"Authorization": "Bearer " + env.get("GLITCHTIP_TOKEN", "")})
 gt = []
 for i in json.load(urllib.request.urlopen(req, timeout=30)):
+    # A prefix also matches the project's -dev and -shadow siblings, which never count as prod (as signal-fleet treats them).
+    if i["shortId"].rsplit("-", 1)[0].endswith(("-DEV", "-SHADOW")):
+        continue
     if any(i["shortId"].startswith(p) for p in cfg["glitchtip"]) and start[:16] <= i["lastSeen"][:16] <= end[:16]:
         gt.append([i["shortId"], i["count"], i["firstSeen"][:16], i["lastSeen"][:16], i["status"],
                    i["firstSeen"][:16] >= start[:16], i["title"][:120]])

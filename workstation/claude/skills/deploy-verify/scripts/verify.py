@@ -70,7 +70,7 @@ PROFILES = {
     },
     # chipi/flotilla on the mini: a homelab service, so its lines carry environment=operations.
     # Its metrics are pushed, not scraped; --release is the image tag (sha-<7>) flotillad reports
-    # as service.version. No GlitchTip project yet, no Langfuse keys, no site.
+    # as service.version. GlitchTip: flotilla (39), not flotilla-shadow (42, shadow runs never alarm). No Langfuse keys, no site.
     "flotilla": {
         "environment": "operations",
         "log_services": ["flotillad", "flotilla-worker-triage", "flotilla-egress"],
@@ -78,7 +78,7 @@ PROFILES = {
         "scrape_jobs": [],
         "counters": ['flotilla_up{service="flotillad"}', 'flotilla_run{routine="platform/heartbeat",status="ok"}',
                      'flotilla_routine_last_success_timestamp_seconds{routine="platform/heartbeat"}'],
-        "glitchtip": [],
+        "glitchtip": ["flotilla"],
         "langfuse_keys": None,
         "umami_sites": [],
         "live_url": None,
