@@ -7,6 +7,14 @@ USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends build-essential pkg-config wget zip xz-utils zstd file rsync \
  && rm -rf /var/lib/apt/lists/*
+# The browsers' system libraries, which GitHub's VMs have (they ship Firefox and Chrome): Playwright's
+# Firefox stopped at "Host system is missing dependencies to run browsers" (integration's stack test,
+# 2026-11-26). The list is the one Playwright printed.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libasound2t64 libatk1.0-0t64 libcairo2 libcairo-gobject2 \
+      libfontconfig1 libfreetype6 libgdk-pixbuf-2.0-0 libgtk-3-0t64 libpango-1.0-0 libpangocairo-1.0-0 \
+      libx11-xcb1 libxcb-shm0 libxcomposite1 libxcursor1 libxdamage1 libxfixes3 libxi6 libxrandr2 libxrender1 \
+ && rm -rf /var/lib/apt/lists/*
 # setup-python's prebuilt Pythons find libpython through a RUNPATH fixed at /opt/hostedtoolcache;
 # in the runner's default _work/_tool a Python started without LD_LIBRARY_PATH exits 127 (common's
 # test_the_image_script_writes_the_record, run 45806431765 attempt 2).
