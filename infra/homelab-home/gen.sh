@@ -1708,7 +1708,7 @@ function ciPaint(){
   if(e.innerHTML===h)return;
   const keep={};e.querySelectorAll('pre.ci-log').forEach(p=>{const j=p.closest('[data-job]');if(j)keep[j.dataset.job]=[p.scrollTop,p.scrollLeft];});
   e.innerHTML=h;
-  e.querySelectorAll('pre.ci-log').forEach(p=>{const j=p.closest('[data-job]'),k=j&&keep[j.dataset.job];if(k){p.scrollTop=k[0];p.scrollLeft=k[1];}});
+  e.querySelectorAll('pre.ci-log').forEach(p=>{const j=p.closest('[data-job]'),k=j&&keep[j.dataset.job];if(k){p.scrollTop=k[0];p.scrollLeft=k[1];}else p.scrollTop=p.scrollHeight;});
 }
 async function ciRoute(){
   const rt=HubCi.parseRoute(location.hash),k=rt&&rt.kind==='run'?'run/'+rt.repo+'/'+rt.id:'list';
