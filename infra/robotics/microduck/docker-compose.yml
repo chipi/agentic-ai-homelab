@@ -37,6 +37,9 @@ services:
       - UV_LINK_MODE=copy
       # the first sync pulls ~2 GB of CUDA wheels (the repo's README, for DGX Spark)
       - UV_HTTP_TIMEOUT=600
+      # microduck-nav's tasks drive Pollen's walker policy and refuse to start without it, e.g.
+      # /cache/assets/walker-seed-v10/velstand.onnx (duck-sim seed-v10, sha256 ce894d30…63e0a)
+      - MICRODUCK_WALKER_ONNX=${MICRODUCK_WALKER_ONNX:-}
     # One run, bounded: past ROBOTICS_MAX_RUNTIME (GNU timeout: one number, one unit, e.g. 210m, never
     # 3h30m) the trainer gets SIGINT (and the stack's grace below);
     # it resumes from its last checkpoint with ROBOTICS_TRAIN_ARGS="--agent.resume True ...".

@@ -45,6 +45,7 @@ on the DGX (not in git), as for the vLLM stacks:
 | `ROBOTICS_PROJECT` | `microduck_rl` | which checkout trains: `microduck_rl` (Pollen's walker) or `microduck-nav` ([chipi/microduck-nav](https://github.com/chipi/microduck-nav), obstacle avoidance on that walker). Each has its own venv (`/opt/robotics/cache/venv-<project>`; `microduck_rl` unset keeps `venv`), its logs in its own checkout |
 | `ROBOTICS_TRAIN_ENTRY` | `train` | the project's train command (`uv run <entry> <task> …`) |
 | `ROBOTICS_TASK` | `Mjlab-Velocity-Flat-MicroDuck` | the task the entry trains |
+| `MICRODUCK_WALKER_ONNX` | | microduck-nav only: Pollen's walker policy in the container, `/cache/assets/walker-seed-v10/velstand.onnx` (on the DGX `/opt/robotics/cache/assets/…`; duck-sim seed-v10, sha256 `ce894d30…63e0a`) |
 
 A second project: `sudo -u ops …/prepare.sh microduck-nav <REF>` (it has no reviewed pin yet, so the
 commit is required), then `ROBOTICS_PROJECT=microduck-nav` and its task in `.env`. `gpu-mode-swap.sh
