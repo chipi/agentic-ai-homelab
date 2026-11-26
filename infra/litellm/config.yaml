@@ -107,6 +107,19 @@ model_list:
       input_cost_per_token: 0
       output_cost_per_token: 0
 
+  # `second-brain`: the n8n second brain agent's model (infra/n8n README, RFC-0010 A4): the same X3
+  # copy as `assistant`, with tool calling (Ollama's /v1 takes OpenAI tools), and no cloud fallback
+  # (operator, 2026-11-26): when the X3 does not answer, the agent says so instead.
+  - model_name: second-brain
+    litellm_params:
+      model: openai/qwen3:30b-a3b-instruct-2507-q4_K_M
+      api_base: http://100.92.54.65:11435/v1
+      api_key: ollama
+      timeout: 120
+      num_retries: 0
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+
   - model_name: homelab-qwen37-flash
     litellm_params:
       model: openrouter/qwen/qwen3.7-flash
