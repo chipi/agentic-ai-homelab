@@ -56,6 +56,8 @@ organization or an enterprise, not on a personal account: each repo gets its own
   collided. The cost is disk: each engine pulls its own images.
 - Each job gets a fresh container (a job-completed hook stops the runner, systemd starts a new one): on 2026-11-25 a job's leftover server and files broke the next job's e2e.
 - The work folder is a host folder (`~gh-runner/ci-runner/work/<repo>-<n>`) mounted at the same path inside the runner container, and emptied at each container start: a job's `docker run -v <checkout>/file:…` names a path the engine, outside the container, must find (player's nginx test, 2026-11-26). `TMPDIR` points into it for the same reason: a `mktemp -d` the job mounts into `docker run` (infra's caddy check). The registration itself is kept, so the runner is not ephemeral in GitHub's sense; that needs a token that may register runners.
+- Jobs run as the image's user `runner` (uid 1001, passwordless sudo), as on GitHub's VMs; the entrypoint does its set-up as root. As root, infra's read-only-folder test could not fail (2026-11-26). Each start also removes every other container on the runner's engine: a killed job's Postgres kept 5432.
+- `x3-ci-runner-setup.sh` restarts only idle runners; a busy one takes the new files in the fresh container after its job.
 - If the X3 is off, the jobs wait; GitHub does not fall back to its own runners.
 - macOS jobs stay on GitHub.
 - Never attach a runner to a public repo: a fork's pull request would run code on the X3.

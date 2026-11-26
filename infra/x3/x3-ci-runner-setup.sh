@@ -116,10 +116,29 @@ for i in smoke-a smoke-b; do
   rm -rf "$HOMEDIR/.local/share/docker-$i"
 done
 
+# Never restart a runner that has a job: restarting all eight for one fix killed every job in flight
+# (operator, 2026-11-26). A busy runner takes the new files on its own, in the fresh container it
+# starts after the job (entrypoint.sh); only idle runners are restarted here. A job is busy when a
+# Runner.Worker runs under that instance's engine (its containerd-shim names the socket e-<instance>).
+# A job a runner takes in the moment between the check and its restart is still lost.
+busy_instances() {
+  local w p a
+  for w in $(pgrep -u "$U" -f 'bin/Runner.Worker'); do
+    p=$w
+    while [ "${p:-1}" -gt 1 ]; do
+      a=$(ps -o args= -p "$p")
+      if [[ $a == *containerd-shim* ]]; then grep -oE 'e-[A-Za-z0-9_.-]+' <<<"$a" | head -1 | sed 's/^e-//'; break; fi
+      p=$(ps -o ppid= -p "$p" | tr -d ' ')
+    done
+  done
+}
 if [ -n "$runner_changed" ]; then
-  step "runners: restart the registered ones for their changed files (a running job is stopped)"
+  step "runners: restart the idle ones for their changed files; a busy one takes them after its job"
+  busy=" $(busy_instances | tr '\n' ' ') "
   for u in $(UC list-units --all --plain --no-legend 'ci-runner@*' 2>/dev/null | awk '{print $1}'); do
-    UC restart "$u" && ok "restarted $u" || bad "could not restart $u"
+    i=${u#ci-runner@}; i=${i%.service}
+    if [[ $busy == *" $i "* ]]; then ok "$u has a job: it takes the change when the job ends"; continue; fi
+    UC restart "$u" && ok "restarted $u (idle)" || bad "could not restart $u"
   done
 fi
 

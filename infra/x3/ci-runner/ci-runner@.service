@@ -13,8 +13,8 @@ Environment=IMAGE=ci-runner:2.338.2-3
 ExecStartPre=/bin/sh -c 'docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" %h/ci-runner/image'
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
 ExecStartPre=/bin/mkdir -p %h/ci-runner/work/%i
-# Root in the container is gh-runner on the X3 (rootless), so the runner may run as root; that is
-# also what lets it open the engine's socket. --network host is the engine's own network, where a
+# Root in the container is gh-runner on the X3 (rootless); entrypoint.sh does its set-up as root and
+# runs the runner and its jobs as the image's user runner, as on GitHub's VMs. --network host is the engine's own network, where a
 # job's service containers publish their ports. Jobs written for GitHub's runners call sudo; this
 # image's /etc/sudoers allows only the sudo group (no sudoers.d), and a group added after start does
 # not reach the running process, so root joins it here (--group-add sudo).
