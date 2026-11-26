@@ -11,10 +11,10 @@ how to *act*, not which tool to reach for.
 
 ## NON-NEGOTIABLE — break these and we have a problem
 
-1. **Never push to main (or another default or release branch) without explicit approval.** Not
-   even a doc-only commit. Show `git status` + `git diff` → wait for "push" / "ship it" / "go" →
-   then push. Approval for the previous push does not carry to this one. A push of a feature
-   branch, including `--force-with-lease` after a rebase, needs no approval (2026-11-23).
+1. **Pushes need no approval, main included** (2026-11-26). Rebase, run the gates that cover the
+   change, push, then watch CI on what was pushed until it is green; red main after your push is
+   yours to fix at once. A force push (other than `--force-with-lease` of a feature branch) or a
+   branch delete still needs a per-instance go.
 
 2. **Always rebase onto `main` (or the canonical trunk) before pushing a
    feature branch.** Every push, not just the first. `git fetch origin main &&

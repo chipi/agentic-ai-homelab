@@ -219,10 +219,10 @@ both scratchpad roots) and `bash workstation/claude/hooks/session-tmpdir.test.sh
 
 ---
 
-## command-ask-guard.sh — ask the operator before a push to main, an issue, a docker prune, compose down -v or terraform (PreToolUse)
+## command-ask-guard.sh — ask the operator before a force push or branch delete, an issue, a docker prune, compose down -v or terraform (PreToolUse)
 
 Makes the "ask first" rules of the global `AGENTS.md` (section 1) deterministic. A shell command that
-pushes, opens a GitHub issue, deletes or prunes destructively, or installs into a shared environment gets
+force-pushes or deletes a branch, opens a GitHub issue, deletes or prunes destructively, or installs into a shared environment gets
 `permissionDecision: "ask"`. In an interactive session Claude Code asks the operator; in a headless run
 (`claude -p`) it is refused (`permission_denials`). The patterns and what they don't cover are at the top of
 the script.
@@ -435,6 +435,15 @@ Now:
 - Tests: the 32 cases that expected a prompt for `rm -rf` or an install now expect none; 116 of 116 pass.
 - Not covered: what auto mode itself does with a risky `rm -rf` or a push to main once these layers are gone;
   checked separately on a throwaway repo (see the commit that follows this one).
+
+## 2026-11-26: pushes to main need no go
+
+Operator: "lets allow agents to push to main" (a plain `lean-ctx -c 'git push origin HEAD:main ...'` asked).
+Every push without force or delete is allowed now, main, default and release branches included, also a bare
+`git push`, `--all`, `--tags`, and pushes inside `bash -c`, ssh, eval or a pipe into sh. Still asks: `--force`,
+`-f` (also in a bundle such as `-uf`), `--force-if-includes`, a `+refspec`, a `:branch` delete, `--delete`/`-d`,
+`--mirror`, `--prune`, and `--force-with-lease` to a default or release branch or with no branch named.
+`~/.config/AGENTS.md` section 1 and the `ship` skill say the same. Tests: 126 of 126.
 
 ## 2026-11-24: git in an isolated agent worktree (lean-ctx-rewrite-gate.sh)
 

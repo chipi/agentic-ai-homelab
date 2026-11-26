@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # command-ask-guard.sh — Claude Code PreToolUse hook. A short backstop for the few actions that leave the
-# machine or can't be undone: a push to main (or another default or release branch), opening a GitHub issue,
+# machine or can't be undone: a push that forces or deletes (plain pushes, main included, are allowed since
+# 2026-11-26), opening a GitHub issue,
 # a docker prune or volume removal, compose down -v, terraform apply/destroy. Those get
 # `permissionDecision: "ask"`, so the operator is asked (a headless run, where nobody can answer, refuses).
 #
@@ -17,7 +18,7 @@
 # matcher `Bash|bash|mcp__lean-ctx__ctx_shell|mcp__lean-ctx__shell|mcp__lean-ctx__ctx_execute`.
 #
 # Asked about (anywhere the shell runs it, so `cd x && git push origin main` is caught too):
-#   git push to a default or release branch, or one whose branch can't be seen (see push_ok) ·
+#   a git push that forces or deletes (see push_ok) ·
 #   gh issue create · docker system|volume|image|container|builder|network prune · docker volume rm ·
 #   compose down -v/--volumes · terraform apply|destroy
 # Not asked about: the same words in text that is not run (a heredoc written to a file, a commit message, an
@@ -115,44 +116,46 @@ if reruns; then
     text="$(printf '%s' "$cmd" | tr "\"'" '  ')"; raw=1
 fi
 
-# A push of a feature branch needs no go (operator, 2026-11-23): every push in the command names a remote and
-# only branches that are not a default or release branch, with no flag beyond these (--force-with-lease after
-# a rebase is one). Still asks: a bare `git push` or one with no branch (where it goes depends on the checkout),
-# main, master and the like, HEAD without a destination, --force/-f, a +refspec, a :branch delete, --all,
-# --mirror, --tags, --delete, any other flag, and any push in text another shell re-runs (ssh, eval, bash -c,
-# a pipe into sh), where the words can't be trusted.
+# Pushes need no go, main included (operator, 2026-11-26: "lets allow agents to push to main"; feature
+# branches since 2026-11-23). What still asks is a push that can destroy history or branches: --force/-f
+# (alone or in a bundle such as -uf), --force-if-includes, a +refspec, a :branch delete, --delete/-d,
+# --mirror, --prune, and --force-with-lease to a default or release branch or with no branch named (with a
+# feature branch it is the normal push after a rebase). Text another shell re-runs (bash -c, lean-ctx -c,
+# ssh, eval, a pipe into sh) is read the same way, with its quotes as spaces.
 PUSH_DEFAULT_BRANCHES="main master trunk develop development production prod stable release gh-pages HEAD"
 push_ok() {
-    local seg a dest n
-    [ "$raw" = 0 ] || return 1
+    local seg a dest n lease protected
     while IFS= read -r seg; do
         seg="${seg#* push}"
         set -f; set -- $seg; set +f
-        n=0
+        n=0; lease=0; protected=0
         for a in "$@"; do
             case "$a" in
                 *'>'*|*'<'*) continue ;;
-                --force-with-lease|--force-with-lease=*|-u|--set-upstream|-q|--quiet|-v|--verbose|--no-verify|--porcelain|-n|--dry-run) continue ;;
-                -*|+*|:*) return 1 ;;
+                --force-with-lease|--force-with-lease=*) lease=1; continue ;;
+                --force|--force-if-includes|--delete|--mirror|--prune) return 1 ;;
+                --*) continue ;;
+                -*) case "${a#-}" in *[fd]*) return 1 ;; esac; continue ;;
+                +*|:*) return 1 ;;
             esac
             n=$((n + 1))
             [ $n -eq 1 ] && continue
             dest="${a#*:}"; dest="${dest#refs/heads/}"
-            case " $PUSH_DEFAULT_BRANCHES " in *" $dest "*) return 1 ;; esac
-            case "$dest" in ""|release/*|releases/*|*[!A-Za-z0-9._/-]*) return 1 ;; esac
+            case " $PUSH_DEFAULT_BRANCHES " in *" $dest "*) protected=1 ;; esac
+            case "$dest" in release/*|releases/*) protected=1 ;; esac
         done
-        [ $n -ge 2 ] || return 1
+        if [ "$lease" = 1 ] && { [ "$protected" = 1 ] || [ $n -lt 2 ]; }; then return 1; fi
     done < <(printf '%s\n' "$text" | grep -oE -- "${S}git([[:space:]]+-[^;&|]*)?([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+push([[:space:]][^;&|)]*)?")
     return 0
 }
 
 check() {   # $1 = ERE, $2 = what, $3 = the AGENTS.md rule
     if printf '%s' "$text" | grep -Eq -- "$1"; then
-        [ "$2" = "git push to a default branch" ] && push_ok && return 0
+        [ "$2" = "a force push or branch delete" ] && push_ok && return 0
         ask "command-ask-guard: ${2}. The operator approves this per instance (~/.config/AGENTS.md, ${3}). Ask in the conversation before running it; in a headless run it is refused."
     fi
 }
-check "${S}git([[:space:]]+-[^;&|]*)?([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+push([[:space:]]|\$)" "git push to a default branch" "1: never push to main without the operator's go"
+check "${S}git([[:space:]]+-[^;&|]*)?([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+push([[:space:]]|\$)" "a force push or branch delete" "1: force-pushes and branch deletes need a per-instance go"
 check "${S}gh[[:space:]]+issue[[:space:]]+create" "opening a GitHub issue" "1: never open a GitHub issue without the operator's explicit ask"
 check "${S}docker[[:space:]]+(system|volume|image|container|builder|network)[[:space:]]+prune" "a docker prune" "1: destructive changes need a per-instance go"
 check "${S}docker[[:space:]]+volume[[:space:]]+rm" "deleting a docker volume" "1: destructive changes need a per-instance go"

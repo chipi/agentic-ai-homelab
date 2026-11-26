@@ -1,24 +1,24 @@
 ---
 name: ship
-description: The pre-push ritual — rebase onto the trunk, run the right validation gates, confirm green, show the diff, push only with the operator's approval, then watch CI on what was pushed until it settles. Covers feature branches with PRs and the direct-to-main path for small fixes on trunk-based repos. Enforces never-push-without-approval, always-rebase-before-push, green-local-then-push and verify-after-push. Use when about to push anything — a branch, a PR, or a commit straight to main.
+description: The pre-push ritual — rebase onto the trunk, run the right validation gates, confirm green, show the diff, push (no approval needed, main included), then watch CI on what was pushed until it settles. Covers feature branches with PRs and the direct-to-main path for small fixes on trunk-based repos. Enforces always-rebase-before-push, green-local-then-push and verify-after-push. Use when about to push anything — a branch, a PR, or a commit straight to main.
 ---
 
 # ship
 
 The disciplined path from "work is done" to "pushed and green", so nothing lands unrebased,
-unvalidated, unapproved or unwatched. **A push to main (or another default or release branch)
-is shared state and needs the operator's approval** (below: per push, or for an arc when the
-operator grants it that way). A push of a feature branch, including `--force-with-lease` after a
-rebase, needs none (operator, 2026-11-23); the other steps still apply to it.
+unvalidated or unwatched. **No push needs the operator's approval, main included** (operator,
+2026-11-26: "lets allow agents to push to main"; feature branches since 2026-11-23). What still
+needs a per-instance go is a force push other than `--force-with-lease` of a feature branch, and a
+branch delete; the command-ask-guard hook asks for those.
 
 ## Pick the path
 
 | Path | When |
 | --- | --- |
 | **A. Feature branch + PR** | the default; anything that wants review; any repo without a trunk-based habit |
-| **B. Direct to main** | a repo that works trunk-based *and* the operator has said so for this kind of change: a small fix, a red main after a merge, a doc fix, or an arc where the operator said "push everything when done" |
+| **B. Direct to main** | a repo that works trunk-based, or a change that wants no review: a small fix, a red main after a merge, a doc fix |
 
-Path B is never self-granted. Without the operator's word for this repo and arc, use A.
+A repo whose main is protected (required reviews or checks) takes path A whatever the change.
 
 ## Steps (both paths)
 
@@ -36,18 +36,12 @@ Path B is never self-granted. Without the operator's word for this repo and arc,
    in the report.
 5. **Show what ships.** `git status`, plus `git --no-pager diff origin/main...HEAD --stat`, plus
    the commit log about to land. Summarize it.
-6. **Approval** (path B, and any push to a default or release branch; path A's feature branch
-   needs none).
-   - *Per push* by default: wait for "push" / "ship it" / "go". Approval for a previous push
-     does not carry to this one.
-   - *Per arc* only when the operator granted it that way ("push everything when done", "stop
-     asking me per commit"). That covers this arc's pushes, never the next arc's. Never ask per
-     commit inside it.
+6. **No approval step** (2026-11-26). Push once steps 1–5 are green; report what landed.
 7. **Push.**
    - *A:* `git push --force-with-lease origin <branch>` if the branch is already on the remote,
      else `git push -u origin <branch>`. Name the remote and the branch: the command-ask-guard
-     hook lets a feature-branch push through only when it can see both. PRs default to ready, not
-     draft, unless asked otherwise.
+     hook asks for `--force-with-lease` when it cannot see a feature branch as the destination.
+     PRs default to ready, not draft, unless asked otherwise.
    - *B:* `git push origin HEAD:main`. If it is rejected because main moved, fetch, rebase and
      re-check step 3; never force main.
 8. **Watch what you pushed.** Load `ci-watch` and run it on the pushed SHA under the Monitor
@@ -61,8 +55,8 @@ Path B is never self-granted. Without the operator's word for this repo and arc,
 
 ## Non-negotiables this enforces
 
-- **Never push to main without explicit approval** (rule #1): per push, unless the operator granted
-  an arc. A feature branch needs none.
+- **Pushes need no approval, main included; force pushes and branch deletes do** (rule #1).
+  Never force main.
 - **Always rebase onto the trunk before pushing** (rule #2).
 - **Red required CI = fix until green** (rule #3). "Green" means a `VERDICT GREEN` line from
   `ci-watch` (or the repo's gate), cited.

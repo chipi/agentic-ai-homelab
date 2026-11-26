@@ -10,37 +10,48 @@ t() {   # $1 expected (ask|allow), $2 tool, $3 command
     got=allow; printf '%s' "$out" | grep -q '"permissionDecision": *"ask"' && got=ask
     if [ "$got" = "$1" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL want $1 got $got: [$2] $3"; fi
 }
-# pushes, through both tools, plain and compound
-t ask   Bash                      "git push origin main"
-t ask   mcp__lean-ctx__ctx_shell  "git push origin main"
+# pushes, through both tools, plain and compound. 2026-11-26, operator: "lets allow agents to push to main";
+# a push that forces or deletes still asks
+t allow Bash                      "git push origin main"
+t allow mcp__lean-ctx__ctx_shell  "git push origin main"
 t ask   mcp__lean-ctx__ctx_shell  "cd /work/x && git push --force-with-lease"
-t ask   Bash                      "git -C /work/x push"
-t ask   Bash                      "git fetch -q origin main && git rebase origin/main && git push origin HEAD:main"
+t allow Bash                      "git -C /work/x push"
+t allow Bash                      "git fetch -q origin main && git rebase origin/main && git push origin HEAD:main"
+t allow Bash                      "/home/marko/.local/bin/lean-ctx -c 'git push origin HEAD:main 2>&1 | tail -1 && git rev-parse HEAD'"
+t ask   Bash                      "git push --force-with-lease origin main"
+t ask   Bash                      "git push --force-with-lease origin HEAD:main"
+t ask   Bash                      "git push --force-with-lease=main origin release/2"
+t ask   Bash                      "git push -uf origin feat/x"
+t ask   Bash                      "git push --mirror backup"
+t ask   Bash                      "git push --prune origin"
+t ask   Bash                      "lean-ctx -c 'git push --force origin main'"
+t ask   Bash                      'ssh host "cd r && git push -f origin feat/x"'
+t ask   Bash                      'bash -c "git push origin --delete feat/x"'
 t allow Bash                      "git status --short"
 t allow Bash                      "git log --oneline origin/main..HEAD"
 t allow Bash                      "echo 'remember to git-push later'"
 t allow Bash                      "grep -n push README.md"
-# 2026-11-23, operator: a push of a feature branch needs no go; default branches, force and deletes still ask
+# 2026-11-23, operator: a push of a feature branch needs no go; since 2026-11-26 default branches too
 t allow mcp__lean-ctx__ctx_shell  'cd /work/infra/wt-runsteps && git fetch -q origin && git rebase origin/main 2>&1 | tail -1 && git push --force-with-lease origin feat/corpus-migration-run-steps 2>&1 | tail -1'
 t allow Bash                      'git push -u origin fix/guard-rm'
 t allow Bash                      'git push -q origin HEAD:refs/heads/feat/x'
 t allow Bash                      'git -C /work/x push origin chore/harness-v0.8.0'
-t ask   Bash                      'git push origin'
-t ask   Bash                      'git push -u origin HEAD'
-t ask   Bash                      'git push origin master'
-t ask   Bash                      'git push origin HEAD:refs/heads/main'
-t ask   Bash                      'git push origin release/1.2'
+t allow Bash                      'git push origin'
+t allow Bash                      'git push -u origin HEAD'
+t allow Bash                      'git push origin master'
+t allow Bash                      'git push origin HEAD:refs/heads/main'
+t allow Bash                      'git push origin release/1.2'
 t ask   Bash                      'git push -f origin feat/x'
 t ask   Bash                      'git push --force origin feat/x'
 t ask   Bash                      'git push origin +feat/x'
 t ask   Bash                      'git push origin :feat/x'
 t ask   Bash                      'git push origin --delete feat/x'
-t ask   Bash                      'git push --all origin'
-t ask   Bash                      'git push --tags origin'
-t ask   Bash                      'git push origin feat/x main'
-t ask   Bash                      'git push origin feat/x && git push origin main'
-t ask   Bash                      'ssh host "cd r && git push origin feat/x"'
-t ask   Bash                      $'printf \'git push origin feat/x\\n\' | sh'
+t allow Bash                      'git push --all origin'
+t allow Bash                      'git push --tags origin'
+t allow Bash                      'git push origin feat/x main'
+t allow Bash                      'git push origin feat/x && git push origin main'
+t allow Bash                      'ssh host "cd r && git push origin feat/x"'
+t allow Bash                      $'printf \'git push origin feat/x\\n\' | sh'
 # issues
 t ask   Bash                      "gh issue create --title x --body y"
 t allow Bash                      "gh issue view 87 --repo chipi/x"
@@ -87,31 +98,31 @@ t allow Bash                      "rm -rf /private/tmp/claude-$(id -u)/proj/sess
 # 2026-11-23: running a script file does not run the command's quoted text (this one asked)
 t allow Bash                      'cd /tmp/s && sed -i '\''s|^t "#2" .*|t "#2" "$(printf "%s" "$C2" \| grep -v "git push -q -u")"|'\'' cases.sh && bash cases.sh'
 t allow Bash                      'grep -n "rm -rf" README.md; bash scripts/check.sh'
-t ask   Bash                      'bash -lc "git push origin main"'
+t allow Bash                      'bash -lc "git push origin main"'
 t allow   Bash                      "sh -ec 'rm -rf /srv/data'"
-t ask   Bash                      "printf 'git push origin main\\n' | bash"
+t allow Bash                      "printf 'git push origin main\\n' | bash"
 # 2026-11-23 (operator): a script written by a heredoc and run in the same command is a script file like any
 # other, not checked (a test script pushing to a throwaway local repo asked)
 t allow Bash                      $'cat > t.sh <<\'EOF\'\nW="$(mktemp -d)"\ntrap \'rm -rf "$W"\' EXIT\ngit push -q origin HEAD:refs/heads/main\nEOF\nbash t.sh; echo EXIT=$?'
 t allow Bash                      $'cat > x.sh <<\'EOF\'\nrm -rf build\nEOF\nbash x.sh'
 # 2026-11-23: lean-ctx's rewrite `lean-ctx -c '...'` runs its argument: it is checked as the command itself
 t allow   Bash                      $'/home/marko/.local/bin/lean-ctx -c \'S=/tmp/x\nrm -rf /work/t/run_steps4 && cp -a a b\''
-t ask   Bash                      "lean-ctx -c 'git push origin main'"
-t ask   Bash                      $'{ /home/marko/.local/bin/lean-ctx -c \'cd /w && git push\'\n} && pwd -P >| /home/marko/.cache/claude-tmp/claude-0b4f-cwd'
+t allow Bash                      "lean-ctx -c 'git push origin main'"
+t allow Bash                      $'{ /home/marko/.local/bin/lean-ctx -c \'cd /w && git push\'\n} && pwd -P >| /home/marko/.cache/claude-tmp/claude-0b4f-cwd'
 t ask   Bash                      "lean-ctx -c 'cd /w && sudo -u x sh -c '\\''docker volume rm y'\\'''"
-t ask   Bash                      "lean-ctx -c 'git push origin main'; echo done"
+t allow Bash                      "lean-ctx -c 'git push origin main'; echo done"
 t allow Bash                      "lean-ctx -c 'git status --short'"
 t allow Bash                      $'lean-ctx -c \'git commit -q -F - <<\'\\\'\'EOF\'\\\'\'\nsee the git push docs\nEOF\''
 t allow Bash                      "lean-ctx -c 'sed -i '\\''s|git push|x|'\\'' f && bash f'"
 # ... and a real one next to or inside text that runs still asks
-t ask   Bash                      'git commit -m "release" && git push origin main'
-t ask   Bash                      $'bash <<\'EOF\'\ngit push origin main\nEOF'
+t allow Bash                      'git commit -m "release" && git push origin main'
+t allow Bash                      $'bash <<\'EOF\'\ngit push origin main\nEOF'
 t allow   Bash                      $'ssh host \'bash -s\' <<\'EOF\'\nrm -rf ~/data\nEOF'
 t allow   Bash                      'bash -c "rm -rf /srv/data"'
-t ask   Bash                      'ssh homelab "cd repo && git push origin main"'
+t allow Bash                      'ssh homelab "cd repo && git push origin main"'
 t ask   Bash                      "sudo -u claude sh -c 'docker volume rm x'"
-t ask   Bash                      'eval "git push origin main"'
-t ask   Bash                      'echo "git push origin main" | sh'
+t allow Bash                      'eval "git push origin main"'
+t allow Bash                      'echo "git push origin main" | sh'
 t allow   Bash                      'd=$(mktemp -d); rm -rf "$d" "$HOME/data"'
 t allow   Bash                      'rm -rf "$d"'
 t allow   Bash                      "rm -rf /tmp/claude-$(id -u)/../../home/x"
