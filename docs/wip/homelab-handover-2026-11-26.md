@@ -6,13 +6,11 @@ says what is in flight and what was promised to whom. State checked at 2026-11-2
 
 ## In flight: watch these first
 
-1. **Studio PR from the database session, tonight.** database will message "homelab" when it starts.
-   It moves Studio's `PUBLIC_REF`/`COMMON_REF` with public #2557, and its Tests run is the first push
-   since the runner's fresh-container-per-job change (2026-11-25). What must hold: `e2e` passes after
-   another job on `x3-closelistening-studio-1`. If it fails with "webServer exited early" again,
-   the fresh-container hook did not work: check that the runner container restarted after the
-   previous job (`ci-runner@closelistening-studio-1`, README in `infra/x3/ci-runner/`). Integration's
-   lock needs a passing Tests run on whatever Studio commit gets locked; database passes it to infra.
+1. **Done: the fresh container per job is proven.** Studio #22 (477f7f7cf, run 45721319358): `e2e`
+   started 2 s after `viewer` on `x3-closelistening-studio-1` and passed. Studio main 21d87707
+   (run 45722744424): `e2e` right after #22's `e2e`, passed. database has the main sha for
+   Integration's lock. If "webServer exited early" ever returns, check that the runner container
+   restarted after the previous job (README in `infra/x3/ci-runner/`).
 2. **Self-hosted runners, next repos: after the 2026-11-26 morning deploy** (operator's go,
    2026-11-25). Order: closelistening-common (one job; open its `runs-on: [self-hosted, x3]` PR, as
    with Studio #20), then closelistening-player (six jobs: register `closelistening-player-2` and `-3`
