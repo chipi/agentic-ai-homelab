@@ -26,9 +26,9 @@ sudo docker logs -f robotics-train       # uv sync, then the trainer's output
 |---|---|
 | The stack | `infra/robotics/microduck/docker-compose.yml` in the ops checkout (`/home/ops/agentic-ai-homelab`), container `robotics-train`, as uid 1001 (ops) |
 | The image | `ghcr.io/astral-sh/uv:python3.12-bookworm`, pinned by digest; nothing is installed on the host |
-| The training code | `/opt/robotics/microduck_rl`, the commit pinned in `prepare.sh` (change it in a reviewed commit) |
+| The training code | `/opt/robotics/<project>` (`microduck_rl` by default), the commit pinned in `prepare.sh` (change it in a reviewed commit) |
 | The venv, uv's cache, uv's Python | `/opt/robotics/cache` (the first `uv sync` pulls ~2 GB of CUDA wheels) |
-| Checkpoints, TensorBoard logs | `/opt/robotics/microduck_rl/logs/` (rsl_rl's default) |
+| Checkpoints, TensorBoard logs | `/opt/robotics/<project>/logs/` (rsl_rl's default) |
 | Its log | `docker logs robotics-train` (Alloy ships container logs) |
 
 The run: `uv sync --frozen`, then `uv run train Mjlab-Velocity-Flat-MicroDuck --env.scene.num-envs 4096`,
@@ -42,6 +42,13 @@ on the DGX (not in git), as for the vLLM stacks:
 | `ROBOTICS_NUM_ENVS` | `4096` | parallel environments |
 | `ROBOTICS_LOGGER` | `tensorboard` | mjlab's default is `wandb`, which stops at once without an API key (the first run, 2026-11-13) |
 | `ROBOTICS_TRAIN_ARGS` | | more trainer flags, e.g. `--agent.resume True --agent.load-checkpoint ...` to resume |
+| `ROBOTICS_PROJECT` | `microduck_rl` | which checkout trains: `microduck_rl` (Pollen's walker) or `microduck-nav` ([chipi/microduck-nav](https://github.com/chipi/microduck-nav), obstacle avoidance on that walker). Each has its own venv (`/opt/robotics/cache/venv-<project>`; `microduck_rl` unset keeps `venv`), its logs in its own checkout |
+| `ROBOTICS_TRAIN_ENTRY` | `train` | the project's train command (`uv run <entry> <task> …`) |
+| `ROBOTICS_TASK` | `Mjlab-Velocity-Flat-MicroDuck` | the task the entry trains |
+
+A second project: `sudo -u ops …/prepare.sh microduck-nav <REF>` (it has no reviewed pin yet, so the
+commit is required), then `ROBOTICS_PROJECT=microduck-nav` and its task in `.env`. `gpu-mode-swap.sh
+robotics` refuses with exit 3 when the named project has no checkout, before it stops anything.
 
 ## When the DGX may leave prod
 

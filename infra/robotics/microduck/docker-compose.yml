@@ -2,9 +2,12 @@
 # rsl_rl PPO). A GPU slot like the vLLM stacks: `gpu-mode-swap.sh robotics` brings it up, every other
 # mode brings it down. Recipe: docs/recipes/robotics-training.md.
 #
-# The training repo is checked out at /opt/robotics/microduck_rl by ./prepare.sh (a pinned commit);
-# its venv, uv's cache and the Python uv installs live under /opt/robotics/cache; checkpoints and
-# TensorBoard logs land in the checkout's logs/ (rsl_rl's default). Nothing is installed on the host.
+# The training repo is checked out at /opt/robotics/<project> by ./prepare.sh (a pinned commit);
+# ROBOTICS_PROJECT picks which: microduck_rl (Pollen's walker, the default) or microduck-nav
+# (chipi/microduck-nav, obstacle avoidance on that walker). Each project has its own venv under
+# /opt/robotics/cache (their lock files differ); uv's cache and the Python uv installs are shared.
+# Checkpoints and TensorBoard logs land in the checkout's logs/ (rsl_rl's default). Nothing is
+# installed on the host.
 #
 # GB10 memory is one pool for CPU and GPU (121 GiB usable): the container is capped so a runaway job
 # cannot squeeze the host (the wedges in infra/dgx/bin/gpu-mode-swap.sh's notes). Raise the cap only
@@ -19,9 +22,9 @@ services:
     mem_limit: ${ROBOTICS_MEM_LIMIT:-64g}
     memswap_limit: ${ROBOTICS_MEM_LIMIT:-64g}
     shm_size: 8g
-    working_dir: /work/microduck_rl
+    working_dir: /work/${ROBOTICS_PROJECT:-microduck_rl}
     volumes:
-      - ${ROBOTICS_ROOT:-/opt/robotics}/microduck_rl:/work/microduck_rl
+      - ${ROBOTICS_ROOT:-/opt/robotics}/${ROBOTICS_PROJECT:-microduck_rl}:/work/${ROBOTICS_PROJECT:-microduck_rl}
       - ${ROBOTICS_ROOT:-/opt/robotics}/cache:/cache
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
@@ -29,7 +32,8 @@ services:
       - HOME=/cache/home
       - UV_CACHE_DIR=/cache/uv
       - UV_PYTHON_INSTALL_DIR=/cache/python
-      - UV_PROJECT_ENVIRONMENT=/cache/venv
+      # microduck_rl keeps the venv it had before there were two projects
+      - UV_PROJECT_ENVIRONMENT=/cache/venv${ROBOTICS_PROJECT:+-${ROBOTICS_PROJECT}}
       - UV_LINK_MODE=copy
       # the first sync pulls ~2 GB of CUDA wheels (the repo's README, for DGX Spark)
       - UV_HTTP_TIMEOUT=600
@@ -42,7 +46,7 @@ services:
       - >-
         uv sync --frozen &&
         exec timeout --signal=INT --kill-after=120 ${ROBOTICS_MAX_RUNTIME:-2h}
-        uv run --frozen train ${ROBOTICS_TASK:-Mjlab-Velocity-Flat-MicroDuck}
+        uv run --frozen ${ROBOTICS_TRAIN_ENTRY:-train} ${ROBOTICS_TASK:-Mjlab-Velocity-Flat-MicroDuck}
         --env.scene.num-envs ${ROBOTICS_NUM_ENVS:-4096}
         --agent.logger ${ROBOTICS_LOGGER:-tensorboard} ${ROBOTICS_TRAIN_ARGS:-}
     restart: "no"
