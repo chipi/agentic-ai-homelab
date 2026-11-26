@@ -12,13 +12,23 @@ set -uo pipefail
 BACKUP_DIR="${DB_BACKUP_DIR:-/Users/markodragoljevic/db-backups}"
 KEEP="${DB_BACKUP_KEEP:-14}"
 PATH=/usr/local/bin:/usr/bin:/bin:$PATH
-D="${DB_BACKUP_DOCKER:-sudo -u _dockerhost env PATH=$PATH HOME=/var/_dockerhost docker}"
+# The engine's own socket, not the CLI's current context: on 2026-11-21 the CLI fell back to the
+# relay /var/run/docker.sock, which _dockerhost may not open, and nothing was dumped.
+D="${DB_BACKUP_DOCKER:-sudo -u _dockerhost env PATH=$PATH HOME=/var/_dockerhost DOCKER_HOST=unix:///var/_dockerhost/.colima/default/docker.sock docker}"
 STAMP=$(date +%Y%m%d-%H%M%S)
 # The dumps and HA's .storage hold credentials: owner-only, never world-readable (the mini
 # has other accounts, e.g. other agents' `claude`).
 umask 077
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
+
+# A docker error must not read as "not running" for every container.
+if ! RUNNING=$($D ps --format '{{.Names}}' 2>&1); then
+  echo "FAIL docker unreachable: $RUNNING"
+  echo "backup run $STAMP done (rc=1); dir=$BACKUP_DIR"
+  exit 1
+fi
+running() { printf '%s\n' "$RUNNING" | grep -qx "$1"; }
 
 # container : pg-user : db
 DBS="glitchtip-postgres-1:glitchtip:glitchtip umami-db:umami:umami langfuse-postgres-1:postgres:postgres litellm-postgres:litellm:litellm n8n-db:n8n:n8n"
@@ -27,7 +37,7 @@ rc=0
 for spec in $DBS; do
   c="${spec%%:*}"; rest="${spec#*:}"; u="${rest%%:*}"; db="${rest##*:}"
   out="$BACKUP_DIR/${c}-${STAMP}.sql.gz"
-  if $D ps --format '{{.Names}}' | grep -qx "$c"; then
+  if running "$c"; then
     if $D exec "$c" pg_dump -U "$u" "$db" 2>/dev/null | gzip > "$out"; then
       sz=$(stat -f%z "$out" 2>/dev/null || echo 0)
       if [ "$sz" -gt 200 ]; then echo "OK   $c -> $out ($sz bytes)"; else echo "FAIL $c -> dump too small ($sz)"; rm -f "$out"; rc=1; fi
@@ -59,7 +69,7 @@ if os.path.exists(db):
 out.close()
 '
 out="$BACKUP_DIR/${HA}-${STAMP}.tar.gz"
-if $D ps --format '{{.Names}}' | grep -qx "$HA"; then
+if running "$HA"; then
   if $D exec -i "$HA" python3 -c "$HA_PY" > "$out" 2>/dev/null; then
     sz=$(wc -c < "$out" | tr -d ' ')
     if [ "$sz" -gt 200 ]; then echo "OK   $HA -> $out ($sz bytes)"; else echo "FAIL $HA -> archive too small ($sz)"; rm -f "$out"; rc=1; fi
@@ -70,7 +80,7 @@ else echo "SKIP $HA -> not running"; fi
 # replaces atomically on autosave) and /mosquitto/config (passwd: hashed users).
 MQ=mosquitto
 out="$BACKUP_DIR/${MQ}-${STAMP}.tar.gz"
-if $D ps --format '{{.Names}}' | grep -qx "$MQ"; then
+if running "$MQ"; then
   if $D exec "$MQ" tar -czf - -C /mosquitto data config > "$out" 2>/dev/null; then
     sz=$(wc -c < "$out" | tr -d ' ')
     if [ "$sz" -gt 100 ]; then echo "OK   $MQ -> $out ($sz bytes)"; else echo "FAIL $MQ -> archive too small ($sz)"; rm -f "$out"; rc=1; fi
@@ -82,7 +92,7 @@ else echo "SKIP $MQ -> not running"; fi
 # `docker cp` streams the directory as a tar.
 FL=flotillad
 out="$BACKUP_DIR/${FL}-${STAMP}.tar.gz"
-if $D ps --format '{{.Names}}' | grep -qx "$FL"; then
+if running "$FL"; then
   if $D cp "$FL":/var/lib/flotilla/backup - 2>/dev/null | gzip > "$out"; then
     sz=$(wc -c < "$out" | tr -d ' ')
     if [ "$sz" -gt 200 ]; then echo "OK   $FL -> $out ($sz bytes)"; else echo "FAIL $FL -> archive too small ($sz)"; rm -f "$out"; rc=1; fi
