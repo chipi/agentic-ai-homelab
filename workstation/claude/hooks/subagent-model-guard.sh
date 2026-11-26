@@ -4,8 +4,9 @@
 # no subagent runs on Opus (operator, 2026-11-19: sessions launched Opus subagents the rules forbid).
 #
 # Agent / Task calls, in order:
-#   - subagent_type "advisor": allowed, with any model or none (its frontmatter sets fable), at most 2 per
-#     session per 60 minutes (it answers one hard decision; a worker or auditor runs on sonnet);
+#   - subagent_type "advisor": allowed, with any model or none (its frontmatter sets fable), one per
+#     session per 60 minutes (operator, 2026-11-26: one advisor at a time; a launch hook cannot see an
+#     advisor end, so one an hour). A worker or auditor runs on sonnet;
 #   - subagent_type "fork": denied. A fork always runs on the main conversation's model (Opus
 #     here) and ignores `model`, so it is an Opus subagent by construction;
 #   - no non-empty `model`: denied. The subagent would run on the fallback (CLAUDE_CODE_SUBAGENT_MODEL
@@ -43,13 +44,14 @@ BANNED_RE='(opus|fable)'   # any model id containing them: opus, opusplan, claud
 
 # Launch ledger: one file per session, a line "<epoch> <advisor|other>" per ALLOWED launch, under
 # ${SUBAGENT_GUARD_LEDGER_DIR:-${XDG_CACHE_HOME:-~/.cache}/subagent-model-guard}. SUBAGENT_GUARD_LEDGER_DIR and
-# SUBAGENT_GUARD_NOW (a fake epoch) exist for the tests only. No session_id or an unwritable ledger: allow.
-ADVISOR_MAX=2; ADVISOR_WINDOW=3600   # the advisor answers one hard decision at a time
+# SUBAGENT_GUARD_NOW (a fake epoch) exist for the tests only. No session_id: one shared bucket, not a free
+# pass (six advisors passed without one, 2026-11-26). An unwritable ledger: allow (fail-open).
+ADVISOR_MAX=1; ADVISOR_WINDOW=3600   # one advisor at a time (operator, 2026-11-26)
 FANOUT_MAX=4;  FANOUT_WINDOW=600     # agents of any type before the operator is told the count and cost
 launch_gate() {   # $1 = session_id, $2 = subagent_type; denies, or records the launch and returns
     local sid="$1" stype="$2" dir f now kept adv all kind=other
-    [ -n "$sid" ] || return 0
-    case "$sid" in */*|*..*) return 0 ;; esac
+    [ -n "$sid" ] || sid=no-session-id
+    case "$sid" in */*|*..*) sid=bad-session-id ;; esac
     dir="${SUBAGENT_GUARD_LEDGER_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/subagent-model-guard}"
     mkdir -p "$dir" 2>/dev/null && [ -w "$dir" ] || return 0
     f="$dir/$sid"

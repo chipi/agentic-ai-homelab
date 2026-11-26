@@ -10,7 +10,10 @@ pass=0; fail=0
 run() {  # run <expect: allow|deny> <payload-json> <label> [env...]
   local expect="$1" payload="$2" label="$3" out got
   shift 3
-  out="$(printf '%s' "$payload" | env "$@" bash "$HOOK" 2>/dev/null)"
+  # a fresh ledger per call unless the case passes its own, so cases never share (or touch the real) ledger
+  local fresh; fresh="$(mktemp -d)"
+  out="$(printf '%s' "$payload" | env SUBAGENT_GUARD_LEDGER_DIR="$fresh" "$@" bash "$HOOK" 2>/dev/null)"
+  rm -rf "$fresh"
   got="allow"; printf '%s' "$out" | grep -Eq '"permissionDecision":[[:space:]]*"deny"' && got="deny"
   if [ "$got" = "$expect" ]; then pass=$((pass+1)); printf '  ok   [%s] %s\n' "$got" "$label"
   else fail=$((fail+1)); printf '  FAIL exp=%s got=%s : %s\n' "$expect" "$got" "$label"; fi
@@ -68,12 +71,13 @@ adv() { printf '{"session_id":"%s","tool_name":"Agent","tool_input":{"subagent_t
 wk()  { printf '{"session_id":"%s","tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","model":"sonnet","prompt":"p"}}' "$1"; }
 LD="SUBAGENT_GUARD_LEDGER_DIR=$L"
 run allow "$(adv A)" "advisor 1st in the session" "$LD" SUBAGENT_GUARD_NOW=1000
-run allow "$(adv A)" "advisor 2nd"                "$LD" SUBAGENT_GUARD_NOW=1100
-run deny  "$(adv A)" "advisor 3rd denied"         "$LD" SUBAGENT_GUARD_NOW=1200
-run deny  "$(adv A)" "advisor 3rd still denied just inside the window" "$LD" SUBAGENT_GUARD_NOW=4500
+run deny  "$(adv A)" "advisor 2nd within the hour denied (one at a time)" "$LD" SUBAGENT_GUARD_NOW=1100
+for i in 3 4 5 6; do run deny "$(adv A)" "advisor #$i denied (the six-advisor pattern)" "$LD" SUBAGENT_GUARD_NOW=$((1100+i)); done
+run deny  "$(adv A)" "advisor still denied just inside the window" "$LD" SUBAGENT_GUARD_NOW=4500
 run allow "$(adv A)" "advisor allowed again after the window" "$LD" SUBAGENT_GUARD_NOW=4700
 run allow "$(adv B)" "another session's advisor is independent" "$LD" SUBAGENT_GUARD_NOW=1200
-for i in 1 2 3 4 5; do run allow "$(adv '')" "no session_id: allowed ($i)" "$LD" SUBAGENT_GUARD_NOW=1200; done
+run allow "$(adv '')" "no session_id: the 1st advisor allowed" "$LD" SUBAGENT_GUARD_NOW=1200
+for i in 2 3 4 5 6; do run deny "$(adv '')" "no session_id: advisor #$i denied (shared bucket, not a free pass)" "$LD" SUBAGENT_GUARD_NOW=1200; done
 for i in 1 2 3 4; do run allow "$(wk C)" "fan-out: agent $i of 4 allowed" "$LD" SUBAGENT_GUARD_NOW=$((5000+i)); done
 run deny  "$(wk C)" "fan-out: 5th within 10 minutes denied" "$LD" SUBAGENT_GUARD_NOW=5100
 run deny  "$(adv C)" "fan-out counts the advisor too" "$LD" SUBAGENT_GUARD_NOW=5100
