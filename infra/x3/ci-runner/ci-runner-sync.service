@@ -1,0 +1,7 @@
+# Installs runner fixes from /srv/ci-runner-src and restarts idle runners that are behind (sync.sh).
+[Unit]
+Description=Sync the CI runner files from /srv/ci-runner-src
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash %h/ci-runner/sync.sh

@@ -13,6 +13,11 @@ Environment=IMAGE=ci-runner:2.338.2-4
 ExecStartPre=/bin/sh -c 'docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" %h/ci-runner/image'
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
 ExecStartPre=/bin/mkdir -p %h/ci-runner/work/%i
+# A job's `-v /var/run/docker.sock:...` (integration's stack test mounts it into its API container) is
+# resolved by the engine, inside rootlesskit's mount namespace, where /run/docker.sock was the X3's own
+# system socket: "permission denied while trying to connect to the docker API" (2026-11-26). Point it at
+# this runner's engine, in that namespace, at every start; the engine keeps running.
+ExecStartPre=/bin/sh -c 'nsenter -U --preserve-credentials -m -t "$$(cat %t/e-%i/dockerd-rootless/child_pid)" ln -sfn %t/e-%i/docker.sock /run/docker.sock'
 # Root in the container is gh-runner on the X3 (rootless); entrypoint.sh does its set-up as root and
 # runs the runner and its jobs as the image's user runner, as on GitHub's VMs. --network host is the
 # engine's own network, where a

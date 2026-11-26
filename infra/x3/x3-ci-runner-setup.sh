@@ -74,10 +74,25 @@ install -m 755 -o "$U" -g "$U" "$CR/entrypoint.sh" "$HOMEDIR/ci-runner/entrypoin
 install -m 644 -o "$U" -g "$U" "$CR/Dockerfile" "$HOMEDIR/ci-runner/image/Dockerfile"
 ok "docker@.service, ci-runner@.service, entrypoint.sh, image/Dockerfile"
 
+step "the sync: runner fixes without sudo (ci-runner/sync.sh, as $U every 2 minutes)"
+OP=${SUDO_USER:-}
+if [ -n "$OP" ] && [ "$OP" != root ]; then
+  install -d -m 755 -o "$OP" -g "$OP" /srv/ci-runner-src
+  install -d -m 755 -o "$U" -g "$U" /srv/ci-runner-src/log
+  for f in docker@.service ci-runner@.service entrypoint.sh Dockerfile sync.sh; do install -m 644 -o "$OP" -g "$OP" "$CR/$f" /srv/ci-runner-src/; done
+  ok "/srv/ci-runner-src (writable by $OP, read by $U), log in /srv/ci-runner-src/log"
+else
+  bad "run through sudo from the operator's account, so /srv/ci-runner-src gets its owner"
+fi
+install -m 755 -o "$U" -g "$U" "$CR/sync.sh" "$HOMEDIR/ci-runner/sync.sh"
+install -m 644 -o "$U" -g "$U" "$CR/ci-runner-sync.service" "$CR/ci-runner-sync.timer" "$UD/"
+ok "ci-runner-sync.service, ci-runner-sync.timer"
+
 UC() { systemctl --user -M "$U@" "$@"; }
 # AS <instance> <command…>: a command as gh-runner against that instance's engine.
 AS() { local i=$1; shift; sudo -u "$U" env XDG_RUNTIME_DIR="/run/user/$UID_R" DOCKER_HOST="unix:///run/user/$UID_R/e-$i/docker.sock" "$@"; }
 UC daemon-reload
+UC enable --now ci-runner-sync.timer >/dev/null 2>&1 && ok "ci-runner-sync.timer enabled" || bad "ci-runner-sync.timer"
 
 # Until 2026-11-25 all runners shared one engine (docker.service); each now has its own.
 if [ -f "$UD/docker.service" ]; then
@@ -123,11 +138,12 @@ done
 # A job a runner takes in the moment between the check and its restart is still lost.
 busy_instances() {
   local w p a
-  for w in $(pgrep -u "$U" -f 'bin/Runner.Worker'); do
+  # Not pgrep -u gh-runner: jobs run as runner, uid 201000 on the X3 (entrypoint.sh).
+  for w in $(pgrep -f 'bin/Runner.Worker'); do
     p=$w
     while [ "${p:-1}" -gt 1 ]; do
       a=$(ps -o args= -p "$p")
-      if [[ $a == *containerd-shim* ]]; then grep -oE 'e-[A-Za-z0-9_.-]+' <<<"$a" | head -1 | sed 's/^e-//'; break; fi
+      if [[ $a == *containerd-shim* ]]; then grep -oE "/run/user/$UID_R/e-[A-Za-z0-9_.-]+/" <<<"$a" | head -1 | sed -E 's#.*/e-##; s#/$##'; break; fi
       p=$(ps -o ppid= -p "$p" | tr -d ' ')
     done
   done
