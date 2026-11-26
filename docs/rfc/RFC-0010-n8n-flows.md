@@ -151,10 +151,15 @@ Added from the review: the read path, shadows, the `smoke` hook, and the route o
 - **The host:** `slack.com` (the Web API, `https://slack.com/api/...`), added to `infra/n8n/egress/acl.yaml`.
 - **No inbound:** Slack's Events API needs a public HTTPS address and n8n is tailnet only, so the question flow
   polls `#ask` once a minute (`conversations.history` since the last message it saw) instead of being called.
-- **The flows (to be built):** the question flow, a top-level human message in `#ask` to flotilla's signed hook
-  `ask` (thread, user, text); the reply flow, flotilla's signed `plumbing.reply` callback, verified like A1's, to
-  `chat.postMessage` in the question's thread. Their single outputs: the hook call, and one message per approved
-  reply.
+- **The flows (built and proven on a dev engine 2026-11-26, not yet on the mini):** `case 1: Slack #ask -> flotilla ask hook`
+  (`case1slackask001`) polls `conversations.history` each minute with the last message's `ts` kept in the workflow's static
+  data, and sends each top-level human message (`{thread, user, text}`, delivery id `slack-<channel>-<ts>`) to flotilla's signed
+  hook `ask`, oldest first, advancing only past a message whose call succeeded; its first run sends nothing (no backfill). It is
+  imported inactive: publishing it is the operator's explicit step, because it starts the polling. `case 1: flotilla reply ->
+  Slack thread` (`case1slackreply1`) is flotilla's signed `plumbing.reply` callback, verified like A1's (signature, 5-minute
+  window), idempotent per delivery id, and posts with `chat.postMessage` in the question's thread (`channel` `general` is `#ask`,
+  unfurling off). Their single outputs: the hook call, and one message per approved reply. Credentials: the Slack one above, and
+  two HMAC ones from flotilla's `ask` and `reply` secret files. Details, install and the proof: `infra/n8n/README.md`, "Case 1 Slack flows".
 
 ## Not covered
 

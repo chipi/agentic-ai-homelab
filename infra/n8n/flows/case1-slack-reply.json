@@ -1,0 +1,372 @@
+[
+ {
+  "id": "case1slackreply1",
+  "name": "case 1: flotilla reply -> Slack thread",
+  "active": true,
+  "settings": {
+   "executionOrder": "v1"
+  },
+  "nodes": [
+   {
+    "id": "case1slackreply1-0",
+    "name": "Webhook",
+    "type": "n8n-nodes-base.webhook",
+    "typeVersion": 2,
+    "position": [
+     220,
+     0
+    ],
+    "webhookId": "3e8a6d14-9b27-4c05-8f1e-6a4d2c9b7e03",
+    "parameters": {
+     "httpMethod": "POST",
+     "path": "flotilla-reply",
+     "responseMode": "responseNode",
+     "options": {
+      "rawBody": true
+     }
+    }
+   },
+   {
+    "id": "case1slackreply1-1",
+    "name": "Verify",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     440,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// flotilla's plumbing.call: HMAC-SHA256(secret, timestamp + \".\" + delivery + \".\" + raw body), 5-minute window\nlet raw = '';\ntry { raw = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8'); } catch (e) { raw = ''; }\nconst h = $input.first().json.headers || {};\nconst ts = String(h['x-flotilla-timestamp'] || ''), delivery = String(h['x-flotilla-delivery'] || ''), sig = String(h['x-flotilla-signature'] || '');\nconst fresh = /^\\d+$/.test(ts) && Math.abs(Math.floor(Date.now() / 1000) - Number(ts)) <= 300;\nreturn [{ json: { ts, delivery, sig, raw, fresh, okDelivery: /^[A-Za-z0-9._:-]{1,128}$/.test(delivery), toSign: ts + '.' + delivery + '.' + raw } }];"
+    }
+   },
+   {
+    "id": "case1slackreply1-2",
+    "name": "Sign",
+    "type": "n8n-nodes-base.crypto",
+    "typeVersion": 2,
+    "position": [
+     660,
+     0
+    ],
+    "credentials": {
+     "crypto": {
+      "id": "c1slackreplycb01",
+      "name": "flotilla reply callback (HMAC)"
+     }
+    },
+    "parameters": {
+     "action": "hmac",
+     "type": "SHA256",
+     "value": "={{ $json.toSign }}",
+     "dataPropertyName": "expected",
+     "encoding": "hex"
+    }
+   },
+   {
+    "id": "case1slackreply1-3",
+    "name": "Check",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     880,
+     0
+    ],
+    "parameters": {
+     "jsCode": "const v = $input.first().json;\nconst fail = (code, error) => [{ json: { valid: false, code, response: { error } } }];\nif (!v.raw) return fail(400, 'no body');\nif (!v.okDelivery) return fail(400, 'bad delivery id');\nif (!v.fresh) return fail(401, 'stale or missing timestamp');\nif (v.sig !== 'sha256=' + v.expected) return fail(401, 'bad signature');\nlet b; try { b = JSON.parse(v.raw); } catch (e) { return fail(400, 'body is not JSON'); }\nif (b.action !== 'plumbing.reply') return fail(400, 'this webhook takes plumbing.reply only');\nif (b.mode !== 'send' && b.mode !== 'status') return fail(400, 'mode must be send or status');\nconst p = b.params || {};\nif (b.mode === 'send') {\n  if (p.channel !== 'general') return fail(400, 'params.channel: general only');\n  if (typeof p.thread !== 'string' || !/^[0-9]{1,20}\\.[0-9]{1,10}$/.test(p.thread)) return fail(400, 'params.thread: a Slack message ts');\n  if (typeof p.text !== 'string' || !p.text.trim() || Array.from(p.text).length > 3000) return fail(400, 'params.text: 1 to 3000 characters');\n}\nreturn [{ json: { valid: true, mode: b.mode, delivery: v.delivery, thread: String(p.thread || ''), text: String(p.text || '') } }];"
+    }
+   },
+   {
+    "id": "case1slackreply1-4",
+    "name": "Valid?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     1100,
+     0
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "id": "c1",
+        "leftValue": "={{ $json.valid }}",
+        "rightValue": "",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   },
+   {
+    "id": "case1slackreply1-5",
+    "name": "Refuse",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1.1,
+    "position": [
+     1320,
+     0
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ JSON.stringify($json.response) }}",
+     "options": {
+      "responseCode": "={{ $json.code }}"
+     }
+    }
+   },
+   {
+    "id": "case1slackreply1-6",
+    "name": "Decide",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1540,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// the reply is kept by its delivery id in this workflow's static data once Slack took it: a re-send finds it and posts nothing\nconst c = $input.first().json, sd = $getWorkflowStaticData('global');\nconst done = (sd.sent || {})[c.delivery];\nif (c.mode === 'status') return [{ json: { post: false, code: 200, response: done ? { done: true, ref: done.ref } : { done: false } } }];\nif (done) return [{ json: { post: false, code: 200, response: { ref: done.ref } } }];\nreturn [{ json: { post: true, delivery: c.delivery, request: { channel: 'C0CM2K87SR1', thread_ts: c.thread, text: c.text, unfurl_links: false, unfurl_media: false } } }];"
+    }
+   },
+   {
+    "id": "case1slackreply1-7",
+    "name": "Post?",
+    "type": "n8n-nodes-base.if",
+    "typeVersion": 2.2,
+    "position": [
+     1760,
+     0
+    ],
+    "parameters": {
+     "conditions": {
+      "options": {
+       "caseSensitive": true,
+       "leftValue": "",
+       "typeValidation": "strict",
+       "version": 2
+      },
+      "conditions": [
+       {
+        "id": "c1",
+        "leftValue": "={{ $json.post }}",
+        "rightValue": "",
+        "operator": {
+         "type": "boolean",
+         "operation": "true",
+         "singleValue": true
+        }
+       }
+      ],
+      "combinator": "and"
+     },
+     "options": {}
+    }
+   },
+   {
+    "id": "case1slackreply1-8",
+    "name": "Answer",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1.1,
+    "position": [
+     1980,
+     0
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ JSON.stringify($json.response) }}",
+     "options": {
+      "responseCode": "={{ $json.code }}"
+     }
+    }
+   },
+   {
+    "id": "case1slackreply1-9",
+    "name": "Post",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     2200,
+     0
+    ],
+    "credentials": {
+     "slackApi": {
+      "id": "__SLACK_CRED_ID__",
+      "name": "Slack API (case 1)"
+     }
+    },
+    "parameters": {
+     "method": "POST",
+     "url": "https://slack.com/api/chat.postMessage",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "slackApi",
+     "sendBody": true,
+     "specifyBody": "json",
+     "jsonBody": "={{ JSON.stringify($json.request) }}",
+     "options": {
+      "response": {
+       "response": {
+        "neverError": true
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case1slackreply1-10",
+    "name": "Made",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     2420,
+     0
+    ],
+    "parameters": {
+     "jsCode": "const r = $input.first().json, d = $('Decide').first().json;\nif (r.ok !== true || !r.ts) return [{ json: { code: 502, response: { error: 'Slack did not take the reply: ' + String(r.error || JSON.stringify(r)).slice(0, 200) } } }];\nconst sd = $getWorkflowStaticData('global');\nconst ref = ('Slack #ask thread ' + d.request.thread_ts + ', reply ' + r.ts).slice(0, 200);\nsd.sent = sd.sent || {};\nsd.sent[d.delivery] = { ref, at: Date.now() };\n// the newest 1000 are kept (a delivery is re-sent within minutes, not months); assigned whole, as the code runner passes back assignments only\nconst keep = Object.entries(sd.sent).sort((a, b) => b[1].at - a[1].at).slice(0, 1000);\nsd.sent = Object.fromEntries(keep);\nreturn [{ json: { code: 200, response: { ref } } }];"
+    }
+   },
+   {
+    "id": "case1slackreply1-11",
+    "name": "Answer made",
+    "type": "n8n-nodes-base.respondToWebhook",
+    "typeVersion": 1.1,
+    "position": [
+     2640,
+     0
+    ],
+    "parameters": {
+     "respondWith": "json",
+     "responseBody": "={{ JSON.stringify($json.response) }}",
+     "options": {
+      "responseCode": "={{ $json.code }}"
+     }
+    }
+   }
+  ],
+  "connections": {
+   "Webhook": {
+    "main": [
+     [
+      {
+       "node": "Verify",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Verify": {
+    "main": [
+     [
+      {
+       "node": "Sign",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Sign": {
+    "main": [
+     [
+      {
+       "node": "Check",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Check": {
+    "main": [
+     [
+      {
+       "node": "Valid?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Valid?": {
+    "main": [
+     [
+      {
+       "node": "Decide",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Refuse",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Decide": {
+    "main": [
+     [
+      {
+       "node": "Post?",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Post?": {
+    "main": [
+     [
+      {
+       "node": "Post",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Answer",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Post": {
+    "main": [
+     [
+      {
+       "node": "Made",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Made": {
+    "main": [
+     [
+      {
+       "node": "Answer made",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  }
+ }
+]

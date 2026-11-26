@@ -1,0 +1,398 @@
+[
+ {
+  "id": "case1slackask001",
+  "name": "case 1: Slack #ask -> flotilla ask hook",
+  "active": false,
+  "settings": {
+   "executionOrder": "v1"
+  },
+  "nodes": [
+   {
+    "id": "case1slackask001-0",
+    "name": "Every minute",
+    "type": "n8n-nodes-base.scheduleTrigger",
+    "typeVersion": 1.2,
+    "position": [
+     220,
+     0
+    ],
+    "parameters": {
+     "rule": {
+      "interval": [
+       {
+        "field": "minutes",
+        "minutesInterval": 1
+       }
+      ]
+     }
+    }
+   },
+   {
+    "id": "case1slackask001-1",
+    "name": "Run now",
+    "type": "n8n-nodes-base.manualTrigger",
+    "typeVersion": 1,
+    "position": [
+     440,
+     0
+    ],
+    "parameters": {}
+   },
+   {
+    "id": "case1slackask001-2",
+    "name": "State",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     660,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// the last message seen is kept in the workflow's static data. No state yet = the first run: it asks for the newest message only\nconst sd = $getWorkflowStaticData('global');\nconst skipped = sd.skipped || [];\nsd.skipped = [];   // assigned, not deleted: the code runner passes back assignments only\nreturn [{ json: { first: !sd.last, oldest: sd.last || '0', skipped } }];"
+    }
+   },
+   {
+    "id": "case1slackask001-3",
+    "name": "Report",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     880,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// a message flotilla refused for itself was moved past (Mark): say so here, once, so it shows as a failed run in n8n\nconst s = $input.first().json.skipped;\nif (s.length) throw new Error('flotilla refused, and the flow moved past: ' + s.join('; '));\nreturn $input.all();"
+    }
+   },
+   {
+    "id": "case1slackask001-4",
+    "name": "History",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     1100,
+     0
+    ],
+    "credentials": {
+     "slackApi": {
+      "id": "__SLACK_CRED_ID__",
+      "name": "Slack API (case 1)"
+     }
+    },
+    "parameters": {
+     "method": "GET",
+     "url": "https://slack.com/api/conversations.history",
+     "authentication": "predefinedCredentialType",
+     "nodeCredentialType": "slackApi",
+     "sendQuery": true,
+     "queryParameters": {
+      "parameters": [
+       {
+        "name": "channel",
+        "value": "C0CM2K87SR1"
+       },
+       {
+        "name": "oldest",
+        "value": "={{ $json.oldest }}"
+       },
+       {
+        "name": "limit",
+        "value": "={{ $json.first ? 1 : 50 }}"
+       }
+      ]
+     },
+     "options": {
+      "response": {
+       "response": {
+        "neverError": true
+       }
+      },
+      "pagination": {
+       "pagination": {
+        "paginationMode": "updateAParameterInEachRequest",
+        "parameters": {
+         "parameters": [
+          {
+           "type": "qs",
+           "name": "cursor",
+           "value": "={{ $response.body.response_metadata.next_cursor }}"
+          }
+         ]
+        },
+        "paginationCompleteWhen": "other",
+        "completeExpression": "={{ $response.body.ok !== true || $response.body.has_more !== true || !$response.body.response_metadata || !$response.body.response_metadata.next_cursor || $('State').first().json.first }}",
+        "limitPagesFetched": true,
+        "maxRequests": 10
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case1slackask001-5",
+    "name": "Pick",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1320,
+     0
+    ],
+    "parameters": {
+     "jsCode": "const cmp = (a, b) => { const [ai, af = ''] = String(a).split('.'), [bi, bf = ''] = String(b).split('.');\n  const d = BigInt(ai || 0) - BigInt(bi || 0); return d !== 0n ? (d > 0n ? 1 : -1) : af.padEnd(9, '0').localeCompare(bf.padEnd(9, '0')); };\n// Slack's answer: check it, then keep top-level human messages, oldest first. Nothing is advanced unless every page came.\nconst sd = $getWorkflowStaticData('global');\nconst pages = $input.all().map(i => i.json);\nif (!pages.length) throw new Error('Slack conversations.history: no answer');\nfor (const p of pages) if (p.ok !== true) throw new Error('Slack conversations.history: ' + String(p.error || 'no ok in the answer').slice(0, 200));\nconst msgs = pages.flatMap(p => p.messages || []).filter(m => m && /^\\d+\\.\\d+$/.test(String(m.ts)));\nif (!sd.last) {  // the first run: remember the newest message (or now) and post nothing: no backfill of old history\n  const t = msgs.map(m => m.ts).sort(cmp).pop();\n  sd.last = t || (Date.now() / 1000).toFixed(6);\n  return [];\n}\nif (pages[pages.length - 1].has_more === true) throw new Error('Slack conversations.history: more than ' + 500 + ' messages since ' + sd.last + '; nothing advanced');\nconst fresh = msgs.filter(m => cmp(m.ts, sd.last) > 0);\nconst seen = new Set();\nconst humans = fresh.filter(m => !m.subtype && !m.bot_id && m.user && typeof m.text === 'string' && m.text.trim()\n  && (!m.thread_ts || m.thread_ts === m.ts) && !seen.has(m.ts) && seen.add(m.ts))\n  .sort((a, b) => cmp(a.ts, b.ts));\nconst newest = fresh.map(m => m.ts).sort(cmp).pop();\nif (!humans.length) { if (newest) sd.last = newest; return []; }\nreturn humans.map(m => ({ json: { ts: m.ts, user: String(m.user), text: m.text, newest } }));"
+    }
+   },
+   {
+    "id": "case1slackask001-6",
+    "name": "One at a time",
+    "type": "n8n-nodes-base.splitInBatches",
+    "typeVersion": 3,
+    "position": [
+     1540,
+     0
+    ],
+    "parameters": {
+     "batchSize": 1,
+     "options": {}
+    }
+   },
+   {
+    "id": "case1slackask001-7",
+    "name": "Build",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     1760,
+     0
+    ],
+    "parameters": {
+     "jsCode": "// flotilla's ask hook body {thread, user, text}; the delivery id is the channel and the message's ts, so a re-post is a replay\nconst text = Array.from(String($json.text)).slice(0, 2000).join('');\nconst delivery = 'slack-C0CM2K87SR1-' + $json.ts;\nconst body = JSON.stringify({ thread: $json.ts, user: $json.user, text });\nconst ts = String(Math.floor(Date.now() / 1000));\nreturn { json: { thread: $json.ts, delivery, ts, body, toSign: ts + '.' + delivery + '.' + body } };",
+     "mode": "runOnceForEachItem"
+    }
+   },
+   {
+    "id": "case1slackask001-8",
+    "name": "Sign",
+    "type": "n8n-nodes-base.crypto",
+    "typeVersion": 2,
+    "position": [
+     1980,
+     0
+    ],
+    "credentials": {
+     "crypto": {
+      "id": "c1slackaskhook01",
+      "name": "flotilla ask hook (HMAC)"
+     }
+    },
+    "parameters": {
+     "action": "hmac",
+     "type": "SHA256",
+     "value": "={{ $json.toSign }}",
+     "dataPropertyName": "expected",
+     "encoding": "hex"
+    }
+   },
+   {
+    "id": "case1slackask001-9",
+    "name": "Send",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4.2,
+    "position": [
+     2200,
+     0
+    ],
+    "parameters": {
+     "method": "POST",
+     "url": "http://flotillad:8488/hooks/ask",
+     "sendHeaders": true,
+     "headerParameters": {
+      "parameters": [
+       {
+        "name": "X-Flotilla-Timestamp",
+        "value": "={{ $json.ts }}"
+       },
+       {
+        "name": "X-Flotilla-Delivery",
+        "value": "={{ $json.delivery }}"
+       },
+       {
+        "name": "X-Flotilla-Signature",
+        "value": "=sha256={{ $json.expected }}"
+       }
+      ]
+     },
+     "sendBody": true,
+     "contentType": "raw",
+     "rawContentType": "application/json",
+     "body": "={{ $json.body }}",
+     "options": {
+      "response": {
+       "response": {
+        "fullResponse": true,
+        "neverError": true,
+        "responseFormat": "text"
+       }
+      }
+     }
+    }
+   },
+   {
+    "id": "case1slackask001-10",
+    "name": "Mark",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     2420,
+     0
+    ],
+    "parameters": {
+     "jsCode": "const cmp = (a, b) => { const [ai, af = ''] = String(a).split('.'), [bi, bf = ''] = String(b).split('.');\n  const d = BigInt(ai || 0) - BigInt(bi || 0); return d !== 0n ? (d > 0n ? 1 : -1) : af.padEnd(9, '0').localeCompare(bf.padEnd(9, '0')); };\n// 202: a question case opened; 200: a replay of this message. Either way the message is done and the stored ts moves past it.\n// 400, 413 and 422 are flotilla refusing this message itself (a field too long, a body too big): retrying never helps, so it is\n// moved past and reported by the next run's Report node. Anything else (5xx, 401, 429, a network error) fails the run right here: the stored\n// ts stays before this message and the next minute sends it again.\nconst sd = $getWorkflowStaticData('global');\nconst r = $json, f = $('Build').item.json;\nif (r.statusCode === 202 || r.statusCode === 200) { if (cmp(f.thread, sd.last) > 0) sd.last = f.thread; return { json: { thread: f.thread, status: r.statusCode } }; }\nif ([400, 413, 422].includes(r.statusCode)) {\n  sd.skipped = (sd.skipped || []).concat(f.thread + ' (' + r.statusCode + ': ' + String(r.body ?? r.data).slice(0, 120) + ')');\n  if (cmp(f.thread, sd.last) > 0) sd.last = f.thread; return { json: { thread: f.thread, status: r.statusCode } };\n}\nthrow new Error('flotilla ask hook answered ' + r.statusCode + ' for ' + f.delivery + ': ' + String(r.body ?? r.data).slice(0, 300) + '; it is sent again next run');",
+     "mode": "runOnceForEachItem"
+    }
+   },
+   {
+    "id": "case1slackask001-11",
+    "name": "Done",
+    "type": "n8n-nodes-base.code",
+    "typeVersion": 2,
+    "position": [
+     2640,
+     0
+    ],
+    "parameters": {
+     "jsCode": "const cmp = (a, b) => { const [ai, af = ''] = String(a).split('.'), [bi, bf = ''] = String(b).split('.');\n  const d = BigInt(ai || 0) - BigInt(bi || 0); return d !== 0n ? (d > 0n ? 1 : -1) : af.padEnd(9, '0').localeCompare(bf.padEnd(9, '0')); };\n// every message sent: the ts moves past the ignored ones after the last (bots, thread replies)\nconst sd = $getWorkflowStaticData('global');\nconst newest = $('Pick').first().json.newest;\nif (newest && cmp(newest, sd.last) > 0) sd.last = newest;\nreturn [{ json: { last: sd.last } }];"
+    }
+   }
+  ],
+  "connections": {
+   "Every minute": {
+    "main": [
+     [
+      {
+       "node": "State",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Run now": {
+    "main": [
+     [
+      {
+       "node": "State",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "State": {
+    "main": [
+     [
+      {
+       "node": "Report",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Report": {
+    "main": [
+     [
+      {
+       "node": "History",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "History": {
+    "main": [
+     [
+      {
+       "node": "Pick",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Pick": {
+    "main": [
+     [
+      {
+       "node": "One at a time",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "One at a time": {
+    "main": [
+     [
+      {
+       "node": "Done",
+       "type": "main",
+       "index": 0
+      }
+     ],
+     [
+      {
+       "node": "Build",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Build": {
+    "main": [
+     [
+      {
+       "node": "Sign",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Sign": {
+    "main": [
+     [
+      {
+       "node": "Send",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Send": {
+    "main": [
+     [
+      {
+       "node": "Mark",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   },
+   "Mark": {
+    "main": [
+     [
+      {
+       "node": "One at a time",
+       "type": "main",
+       "index": 0
+      }
+     ]
+    ]
+   }
+  }
+ }
+]

@@ -226,3 +226,92 @@ Not covered (case 1 flows):
   a Doc over 10 MB: that is a tool error). The station's own `max_result_chars` (20,000) cuts a long read again.
 - A session across an n8n restart (the client's 404 handling is flotilla's, tested there) and concurrent callers.
 - That `mcp` exists, and flotilla's reads worker reaching these URLs through its proxy: homelab and flotilla plans, not this stack.
+
+## Case 1 Slack flows (flotilla RFC-0014 case 1; RFC-0010 amendment A3)
+
+Questions asked in Slack `#ask` (channel id `C0CM2K87SR1`, a constant at the top of `flows/gen_slack_flows.js`) reach
+flotilla's signed `ask` hook, and an approved answer goes back to the question's thread. n8n has no public address, so
+Slack's Events API is not used: the question flow **polls**. Built and proven on a dev engine 2026-11-26; **not yet installed on the mini**.
+
+| Workflow | id | State after install | What it does |
+|---|---|---|---|
+| `case 1: Slack #ask -> flotilla ask hook` | `case1slackask001` | **inactive** (the operator publishes it) | every minute: `conversations.history` since the last message seen; each top-level human message is sent signed to `http://flotillad:8488/hooks/ask` as `{thread, user, text}` |
+| `case 1: flotilla reply -> Slack thread` | `case1slackreply1` | published | `POST /webhook/flotilla-reply` (flotilla's `plumbing.reply` callback): checks the signature and timestamp, posts the text with `chat.postMessage` in the question's thread |
+
+**Question flow, in detail**
+- **State** is the last message `ts`, in the workflow's static data. The first run (no state) records the newest message's ts
+  (or now) and sends nothing: old history is never backfilled. The state survives a re-import of the workflow (checked)
+  and a stop: a message posted while the flow is inactive is read when it is next activated, one posted before the very
+  first run never is.
+- **What counts as a question:** a message with no `subtype`, no `bot_id`, a `user`, non-empty text, and no `thread_ts` or
+  `thread_ts == ts`. Bots, thread replies, joins, edits and file shares (a `file_share` subtype) are ignored.
+- **The call:** body `{"thread": "<ts>", "user": "<user id>", "text": "<text, cut at 2000 characters>"}`, delivery id
+  `slack-C0CM2K87SR1-<ts>` (so a re-post is a replay, 200, on flotilla's side), signed with the credential
+  `flotilla ask hook (HMAC)` as case 3's meeting flow does. 202 and 200 are success.
+- **Order and failure:** messages go oldest first, one at a time. The stored ts moves past a message only after its call
+  succeeded, and the first failure (a 5xx, a 401, a network error) fails the run: the message is sent again next minute.
+  Flotilla refusing a message for itself (400, 413, 422: a body over its `max_body`, which non-ASCII text of 2000 characters
+  can exceed) is not retried for ever: the flow moves past it and the **next** run fails once, naming it.
+- **Paging:** Slack returns the newest messages first, so a gap would open if only the first page were read. The history
+  call follows `next_cursor` (50 per page, at most 10 pages) before anything is sent; a longer backlog fails the run and advances nothing.
+- **Slack errors:** an `ok: false` answer (a revoked token, a missing scope) fails the run with Slack's `error`, state unchanged.
+  Failed runs show in the editor's Executions.
+
+**Reply flow, in detail**
+- The request is what `plumbing/call.py` sends: `{mode: send|status, action: "plumbing.reply", case_id, plan_hash, params}`;
+  `params` are `channel` (only `general`, mapped to `C0CM2K87SR1`; anything else is 400), `thread` (a Slack ts,
+  `^[0-9]{1,20}\.[0-9]{1,10}$`) and `text` (1 to 3000 characters). The post is `chat.postMessage` with `channel`, `thread_ts`,
+  `text`, `unfurl_links: false`, `unfurl_media: false`. A bad signature or a timestamp more than 5 minutes off is 401.
+- **Idempotence** is per delivery id (flotilla's `plan-<hash>`): after Slack accepts a post, the delivery id and its ref
+  (`Slack #ask thread <thread>, reply <ts>`) are kept in the flow's static data (the newest 1000). A re-send answers the same
+  ref and posts nothing; `status` answers `{done: true, ref}` for a delivery in that store, else `{done: false}`, which is what
+  flotilla's `plumbing_confirmed` check needs. Unlike case 3, the store is the flow's, not the target's: Slack's message does not carry the id,
+  so a store lost with the workflow (deleting it, a restore of the database from before the post) would let a re-send post a second time.
+- Slack refusing the post (`ok: false`) answers 502 and records nothing, so the retry posts once.
+
+**Credentials.** Two `crypto` (HMAC) ones from flotilla's secret files, imported through stdin by `flows/install-slack.sh`
+(never printed): `flotilla ask hook (HMAC)` (`c1slackaskhook01`, `~/flotilla/config/hooks/ask.secret`) and
+`flotilla reply callback (HMAC)` (`c1slackreplycb01`, `~/flotilla/config/plumbing/reply.secret`). One **Slack API** credential,
+**made by the operator in the editor** (the bot token of the Slack app, scopes `channels:history` and `chat:write`; the app must be
+a member of `#ask`): the install script takes the one credential of that type, whatever its name, and stops listing the names when
+there are none or several (`SLACK_CRED_NAME` picks one). **Egress:** `slack.com` is in `egress/acl.yaml` (A3).
+
+**The operator's steps on the mini, in order**
+1. Secrets (mode 600, the same files flotilla's side mounts): `umask 077; openssl rand -hex 32 > ~/flotilla/config/hooks/ask.secret;
+   openssl rand -hex 32 > ~/flotilla/config/plumbing/reply.secret`.
+2. From a copy of `flows/`: `bash install-slack.sh`. It imports the credentials and both workflows (overwriting) and publishes
+   the reply flow only. Re-run it after changing a flow: it deactivates the question flow again (step 4).
+3. Flotilla side, before any question: in `flotillad.yaml` the `ask` hook (`secret_file` the ask secret, `kind: question`,
+   `target: thread`, `target_pattern: '[0-9.]{1,32}'`, `asker: {field: user, tool: slack}`,
+   `fields: {thread: {type: text, max: 64}, user: {type: text, max: 40}, text: {type: text, max: 2000}}`, the default `max_body` (64 KiB), if not set lower, is enough
+   for 2000 characters of any script); in the private host registry `plumbing.reply`'s URL `http://n8n:5678/webhook/flotilla-reply` and its secret file
+   (`PLUMBING_REPLY_URL`, `PLUMBING_REPLY_SECRET_FILE`); and in the people file the operator's Slack id under `ids.slack`
+   (`U09QUSYGLTF`), which is how the asker is resolved.
+4. **Test the reply flow** while the question flow is still inactive: sign a `plumbing.reply` call with `plumbing/call.py` (its
+   `execute` and `check`, as `flows/slack-proof/proof.py` does; it posts a real message) and see it land in the thread of a message you made in `#ask`.
+5. **Activate the question flow, last and explicitly:** `docker exec n8n n8n publish:workflow --id=case1slackask001` (a running n8n
+   applies it shortly) or Publish in the editor. This starts the polling: from the next minute every top-level human message in `#ask`
+   opens a question case in flotilla. To stop: `docker exec n8n n8n unpublish:workflow --id=case1slackask001`.
+   To run one poll by hand: `docker exec -e N8N_RUNNERS_BROKER_PORT=5690 n8n n8n execute --id=case1slackask001`.
+
+**The proof, on a dev engine, never the mini:** `FLOTILLA_PLUMBING=<flotilla checkout>/plumbing bash flows/slack-proof/run.sh` starts a
+throwaway compose project (n8n at this pin and a Postgres, `stub_slack.py` as Slack's Web API and as flotilla's `ask` hook under the
+name `flotillad`, which checks the signature with flotilla's own `call.sign`, the window and the delivery pattern), generates the flows with
+`node flows/gen_slack_flows.js <dir> --base http://slack:8080`, installs them with the same `install-slack.sh`, runs `proof.py`
+(each poll started with `n8n execute`, the reply calls made with flotilla's `plumbing/call.py` `execute` and `check`), and removes the
+project and its volumes. Every credential and secret is generated per run. 2026-11-26: 33 of 33 PASS, run twice (EXIT=0 both), the project and its volumes gone after each.
+
+Not covered (case 1 Slack flows):
+- **Real Slack.** The stub speaks the response shapes of `conversations.history` and `chat.postMessage` as the flows read them; real
+  rate limits (`ratelimited` is a failed run, retried next minute), pagination limits, scopes, the app's membership of `#ask`, message
+  edits and deletions, and `Retry-After` are not proven. The first real question is the check.
+- **Real flotilla.** The hook stub ports `internal/hook`'s checks (and uses `call.sign`); it is not flotillad. The end-to-end run with
+  flotilla's `knowledge/answer` and the approval is flotilla's e2e plus the first real question.
+- **Latency and misses:** a question waits up to a minute for the poll. Messages in a thread, edited text, deleted messages and
+  file shares are not questions.
+- **Where the text is kept:** the question flow's saved executions hold each question's text in `n8n-db` (and its backups) until
+  n8n prunes executions (default 336 h); the reply flow's, the reply's.
+- **A crash between Slack accepting a reply and n8n saving the delivery id** posts again on the re-send (a window of milliseconds,
+  and flotilla's executor never retries a timed-out call).
+- **Concurrent callers** of the reply flow with one delivery id at once, and several instances of n8n.
+- **The mini:** nothing here has run there; credentials, files and flotilla's config are the operator's steps above.
