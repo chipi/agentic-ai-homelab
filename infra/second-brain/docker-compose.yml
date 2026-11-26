@@ -1,0 +1,98 @@
+# second-brain's read server (`sb serve`, chipi/second-brain) for flotilla's reads worker, and its
+# weekly index build. update.sh runs everything here; see README.md.
+#
+# Networks:
+#   mcp      internal, owned here (name `mcp`, a fixed subnet for egress-reads' allow_ranges). sb-mcp,
+#            flotilla's egress-reads, n8n's MCP workflows and alloy-homelab join it; nothing on it
+#            reaches the internet.
+#   bridge   the sync and batch steps only: GitHub (a read-only deploy key) and the paper sources
+#            (arXiv, NASA NTRS, OpenAlex, Crossref, open-access DOIs).
+#   backend  the metrics push only (VictoriaMetrics' import endpoint).
+# The data volume is written by the batch steps and mounted read-only by the server, which re-reads
+# DATA/current per request: a new index is served without a restart.
+name: second-brain
+
+services:
+  sync:
+    profiles: [tools]
+    image: alpine/git:v2.49.1
+    network_mode: bridge
+    environment:
+      REPO_URL: ${CONTENT_REPO_URL:?}
+      BRANCH: ${CONTENT_BRANCH:?}
+    volumes:
+      - content:/content
+      - ./github_known_hosts:/run/known_hosts:ro
+      - ./sync.sh:/sync.sh:ro
+    entrypoint: ["sh", "/sync.sh"]
+
+  # As root: the bearer token for /mcp from stdin into the secrets volume, readable by sb's uid
+  # (10001) only, and the metrics volume handed to that uid (a new volume is root's).
+  token:
+    profiles: [tools]
+    image: alpine/git:v2.49.1
+    network_mode: none
+    volumes:
+      - secrets:/s
+      - metrics:/m
+    entrypoint: ["sh", "-c", "umask 077; cat > /s/token && chown 10001 /s/token /m && test -s /s/token"]
+
+  # fetch, fulltext and build; update.sh passes the command.
+  batch:
+    profiles: [tools]
+    image: local/second-brain:build-${SB_REF:?}
+    network_mode: bridge
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 2g
+    volumes:
+      - content:/content:ro
+      - data:/data
+      - metrics:/out
+
+  push:
+    profiles: [tools]
+    image: curlimages/curl:8.17.0
+    networks: [backend]
+    volumes:
+      - metrics:/out:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        set -e; for f in /out/*.prom; do
+        curl -fsS --max-time 30 --data-binary "@$$f"
+        'http://victoriametrics:8428/api/v1/import/prometheus?extra_label=job=second-brain&extra_label=instance=homelab';
+        done
+
+  mcp:
+    image: local/second-brain:serve-${SB_REF:?}
+    container_name: sb-mcp
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 512m
+    volumes:
+      - data:/data:ro
+      - secrets:/run/secrets:ro
+    command: ["serve", "--data", "/data", "--host", "0.0.0.0", "--port", "8790", "--token-file", "/run/secrets/token"]
+    networks: [mcp]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  content:
+  data:
+  metrics:
+  secrets:
+
+networks:
+  mcp:
+    name: mcp
+    internal: true
+    ipam:
+      config:
+        - subnet: 192.168.160.0/20
+  backend:
+    external: true
+    name: backend_default

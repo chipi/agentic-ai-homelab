@@ -4144,3 +4144,62 @@ groups:
               type: threshold
               expression: reduced
               conditions: [{ evaluator: { type: lt, params: [1] } }]
+
+  # --- second-brain (infra/second-brain: sb serve for flotilla's reads worker; 2026-11-26) ---------
+  # sb-mcp down is the generic infra-target-down (up{job="second-brain"} == 0, Alloy scrapes it).
+  - orgId: 1
+    name: second-brain
+    folder: "Alerts"
+    interval: 5m
+    rules:
+      # The weekly build (update.sh, Sundays 05:30) pushes sb_build_last_success_timestamp_seconds
+      # only after a build that completed; a failed run pushes nothing, so the age grows. 8 days, as
+      # docker-prune-stale: one missed Sunday fires. No series at all (never built) fires too.
+      - uid: second-brain-build-stale
+        title: "second-brain index build has not succeeded in 8 days"
+        condition: threshold
+        for: 15m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra, host: homelab, instance: homelab, service: second-brain, environment: operations }
+        annotations:
+          summary: "The weekly second-brain build has not completed in over 8 days; sb-mcp still serves the previous index. Check /tmp/second-brain.log on the mini for the FAIL line (sync, fetch, fulltext, build or the push), then run infra/second-brain/update.sh by hand."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 864000, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - max(last_over_time(sb_build_last_success_timestamp_seconds{job="second-brain"}[30d]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [691200] } }]
+      # Requests that ended in an unexpected exception (status="error"; a tool's own isError, 401s and
+      # bad requests are counted apart). The baseline is 0; 3 in 30 min is past a one-off.
+      - uid: second-brain-mcp-errors
+        title: "second-brain MCP server: requests failing"
+        condition: threshold
+        for: 0m
+        noDataState: OK
+        execErrState: Alerting
+        labels: { severity: warning, kind: app, host: homelab, instance: homelab, service: second-brain, environment: operations }
+        annotations:
+          summary: "More than 2 sb-mcp requests ended in an error in 30 min. The traceback: VictoriaLogs `container:=\"sb-mcp\" level:=error`."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(increase(sb_requests_total{job="second-brain",status="error"}[30m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [2] } }]
