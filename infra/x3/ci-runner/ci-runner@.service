@@ -22,6 +22,7 @@ ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo
   --env-file %h/ci-runner/%i.env -e RUNNER_ALLOW_RUNASROOT=1 \
   -v ci-runner-%i:/home/runner/state \
   -v %h/ci-runner/work/%i:%h/ci-runner/work/%i -e RUNNER_WORK=%h/ci-runner/work/%i \
+  -e TMPDIR=%h/ci-runner/work/%i/_tmp \
   -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
   -v %t/e-%i/docker.sock:/var/run/docker.sock \
   ${IMAGE} bash /entrypoint.sh

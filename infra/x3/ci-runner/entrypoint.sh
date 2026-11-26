@@ -22,9 +22,12 @@ fi
 # <checkout>/file:...` names a path the engine (on the host, outside this container) must find, and
 # under the container's /home/runner it found nothing ("mkdir /home/runner: permission denied",
 # player's nginx test, 2026-11-26). It outlives the container, so it is emptied here, before the job.
+# TMPDIR lives in it too: a job's `mktemp -d` that it then mounts into `docker run` (infra's
+# caddy/validate.sh: "open Caddyfile: no such file or directory") must also be a host path.
 if [ -n "${RUNNER_WORK:-}" ]; then
   find "$RUNNER_WORK" -mindepth 1 -delete
   sed -i -E 's#"workFolder": *"[^"]*"#"workFolder": "'"$RUNNER_WORK"'"#' .runner
+  if [ -n "${TMPDIR:-}" ]; then install -d -m 1777 "$TMPDIR"; fi
 fi
 # One job per container, as on GitHub's VMs: a job left its API server on its port, or its
 # web/.e2e-corpus, and the next job's e2e web server "exited early" (studio main, 2026-11-25). The
