@@ -1,7 +1,7 @@
 #!/bin/bash
 # Inside the runner container: restore the registration from the state volume, or register once
-# with the token register.sh left there; then run. Everything else (the work folder, tools a job
-# installs) lives in the container and is gone when it restarts.
+# with the token register.sh left there; then run. Tools a job installs live in the container and
+# are gone when it restarts; the work folder is a host folder, emptied at each start (below).
 set -euo pipefail
 # Ubuntu's container images delete every downloaded .deb after an install; GitHub's runner VMs do
 # not, and jobs that cache their apt downloads (podcast_scraper's install-ffmpeg) count on them.
@@ -14,9 +14,17 @@ done
 if [ ! -f .runner ]; then
   [ -s "$S/token" ] || { echo "not registered: run infra/x3/ci-runner/register.sh"; exit 3; }
   ./config.sh --unattended --url "$REPO_URL" --token "$(cat "$S/token")" \
-    --name "$RUNNER_NAME" --labels "$RUNNER_LABELS" --work _work --replace --disableupdate
+    --name "$RUNNER_NAME" --labels "$RUNNER_LABELS" --work "${RUNNER_WORK:-_work}" --replace --disableupdate
   cp .runner .credentials .credentials_rsaparams "$S/"
   rm -f "$S/token"
+fi
+# The work folder is a host folder mounted at its own host path: a job's `docker run -v
+# <checkout>/file:...` names a path the engine (on the host, outside this container) must find, and
+# under the container's /home/runner it found nothing ("mkdir /home/runner: permission denied",
+# player's nginx test, 2026-11-26). It outlives the container, so it is emptied here, before the job.
+if [ -n "${RUNNER_WORK:-}" ]; then
+  find "$RUNNER_WORK" -mindepth 1 -delete
+  sed -i -E 's#"workFolder": *"[^"]*"#"workFolder": "'"$RUNNER_WORK"'"#' .runner
 fi
 # One job per container, as on GitHub's VMs: a job left its API server on its port, or its
 # web/.e2e-corpus, and the next job's e2e web server "exited early" (studio main, 2026-11-25). The

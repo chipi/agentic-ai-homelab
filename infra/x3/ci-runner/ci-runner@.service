@@ -12,6 +12,7 @@ Environment=IMAGE=ci-runner:2.338.2-2
 # The image is built from ~/ci-runner/image/Dockerfile, once per engine; later starts find it.
 ExecStartPre=/bin/sh -c 'docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" %h/ci-runner/image'
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
+ExecStartPre=/bin/mkdir -p %h/ci-runner/work/%i
 # Root in the container is gh-runner on the X3 (rootless), so the runner may run as root; that is
 # also what lets it open the engine's socket. --network host is the engine's own network, where a
 # job's service containers publish their ports. Jobs written for GitHub's runners call sudo; this
@@ -20,6 +21,7 @@ ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
 ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo --network host \
   --env-file %h/ci-runner/%i.env -e RUNNER_ALLOW_RUNASROOT=1 \
   -v ci-runner-%i:/home/runner/state \
+  -v %h/ci-runner/work/%i:%h/ci-runner/work/%i -e RUNNER_WORK=%h/ci-runner/work/%i \
   -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
   -v %t/e-%i/docker.sock:/var/run/docker.sock \
   ${IMAGE} bash /entrypoint.sh
