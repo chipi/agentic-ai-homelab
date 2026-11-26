@@ -30,6 +30,7 @@ services:
       # above, which this stack already has.
       STORE_MODEL_IN_DB: "True"
     command: ["--config", "/app/config.yaml", "--port", "4000"]
+    networks: [default, litellm_clients]
     logging:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
@@ -68,6 +69,14 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
+
+networks:
+  # clients that only need the gateway (n8n's second brain agent, RFC-0010 A4) join this one, never `default`, which holds postgres. Made by hand,
+  # INTERNAL (a network with a gateway would give its members a route around n8n's egress proxy): docker network create --internal litellm_clients
+  # and `docker network connect litellm_clients litellm` on the live gateway (no recreate); `up` here then matches. See infra/n8n/README.md.
+  litellm_clients:
+    external: true
+    name: litellm_clients
 
 volumes:
   litellm-pg:

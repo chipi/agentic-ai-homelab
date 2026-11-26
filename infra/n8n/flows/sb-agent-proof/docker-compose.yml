@@ -1,0 +1,79 @@
+# THROWAWAY proof of the second brain agent (README "Second brain agent (n8n only)"), on a dev engine only: n8n at the production pin on the HOST
+# network (the model, the X3's Ollama, listens on the tailnet address only, which a bridge container cannot reach; n8n listens on 127.0.0.1),
+# its own Postgres (container names n8n and n8n-db, so install-sb-agent.sh runs unchanged), second-brain's real read server over a fixture
+# index, a stub of docs and tasks MCP, a stub of Slack (Web API and Socket Mode), and the real bridge. Everything else is published on 127.0.0.1 only. No egress proxy, no real
+# credential, nothing from the mini. run.sh brings it up and down.
+name: n8nsbagentproof
+services:
+  n8n-db:
+    image: postgres:16.4
+    container_name: n8n-db
+    environment: {POSTGRES_DB: n8n, POSTGRES_USER: n8n, POSTGRES_PASSWORD: "${PROOF_DB_PASSWORD:?run.sh sets it}"}
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U n8n -d n8n"], interval: 3s, timeout: 3s, retries: 20}
+    ports: ["127.0.0.1:${DB_PORT:-15432}:5432"]
+  slack:
+    image: python:3.12-slim
+    container_name: n8n-proof-slack
+    command: ["python", "/stub_slack.py", "8080", "8081"]
+    environment: {SLACK_TOKEN: "${PROOF_SLACK_TOKEN:?run.sh sets it}", SLACK_APP_TOKEN: "${PROOF_APP_TOKEN:?run.sh sets it}", WS_HOST: 127.0.0.1, WS_PUBLIC_PORT: "${SLACK_WS_PORT:-18084}", BOT_USER: U0BOT00001}
+    volumes: ["./stub_slack.py:/stub_slack.py:ro"]
+    ports: ["127.0.0.1:${SLACK_STUB_PORT:-18081}:8080", "127.0.0.1:${SLACK_WS_PORT:-18084}:8081"]
+  library:
+    image: "${SB_IMAGE:?run.sh sets it}"
+    container_name: n8n-proof-library
+    command: ["serve", "--data", "/data", "--host", "0.0.0.0", "--token-file", "/run/sb-token"]
+    volumes: ["${SB_DATA:?run.sh sets it}:/data:ro", "${SB_TOKEN_FILE:?run.sh sets it}:/run/sb-token:ro"]
+    ports: ["127.0.0.1:${LIB_PORT:-18790}:8790"]
+  docs:
+    image: python:3.12-slim
+    container_name: n8n-proof-docs
+    command: ["python", "/stub_mcp.py", "docs", "8080"]
+    environment: {MCP_TOKEN: "${PROOF_DOCS_TOKEN:?run.sh sets it}"}
+    volumes: ["./stub_mcp.py:/stub_mcp.py:ro"]
+    ports: ["127.0.0.1:${DOCS_PORT:-18082}:8080"]
+  tasks:
+    image: python:3.12-slim
+    container_name: n8n-proof-tasks
+    command: ["python", "/stub_mcp.py", "tasks", "8080"]
+    environment: {MCP_TOKEN: "${PROOF_TASKS_TOKEN:?run.sh sets it}"}
+    volumes: ["./stub_mcp.py:/stub_mcp.py:ro"]
+    ports: ["127.0.0.1:${TASKS_PORT:-18083}:8080"]
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.48.7
+    container_name: n8n
+    network_mode: host
+    depends_on: {n8n-db: {condition: service_healthy}}
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: 127.0.0.1
+      DB_POSTGRESDB_PORT: "${DB_PORT:-15432}"
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: "${PROOF_DB_PASSWORD:?run.sh sets it}"
+      N8N_ENCRYPTION_KEY: "${PROOF_ENCRYPTION_KEY:?run.sh sets it}"
+      N8N_LISTEN_ADDRESS: 127.0.0.1
+      N8N_PORT: "${PROOF_PORT:-15680}"
+      N8N_RUNNERS_BROKER_PORT: "${PROOF_BROKER_PORT:-15690}"
+      N8N_PROTOCOL: http
+      GENERIC_TIMEZONE: UTC
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+  bridge:
+    # the real sb-bridge/bridge.js, in n8n's image as on the mini, on the host network with n8n: Socket Mode from the stub, the signed POST to n8n
+    image: docker.n8n.io/n8nio/n8n:2.48.7
+    container_name: n8n-proof-bridge
+    profiles: [bridge]
+    network_mode: host
+    entrypoint: ["node", "/app/bridge.js"]
+    environment:
+      SLACK_APP_TOKEN_FILE: /run/sb/slack-app.token
+      SB_HOOK_SECRET_FILE: /run/sb/hook.secret
+      SB_HOOK_URL: "http://127.0.0.1:${PROOF_PORT:-15680}/webhook/second-brain-mention"
+      SLACK_API_BASE: "http://127.0.0.1:${SLACK_STUB_PORT:-18081}"
+      PORT: "${BRIDGE_PORT:-18085}"
+      REFRESH_MS: "25000"   # the proof watches a make-before-break refresh happen on its own
+    volumes:
+      - "${SB_BRIDGE_DIR:?run.sh sets it}/bridge.js:/app/bridge.js:ro"
+      - "${PROOF_SECRETS:?run.sh sets it}/slack-app.token:/run/sb/slack-app.token:ro"
+      - "${PROOF_SECRETS:?run.sh sets it}/hook.secret:/run/sb/hook.secret:ro"

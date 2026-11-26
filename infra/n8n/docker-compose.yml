@@ -12,7 +12,9 @@
 #             n8n's editor and nothing of flotilla's. Deploy this stack before reverse-proxy.
 #   mcp       n8n and flotilla's reads proxy (egress-reads), an EXTERNAL network created before this stack: n8n's MCP read servers
 #             (case 1, flows/case1-mcp-*.json) at http://n8n:5678/mcp/<path>. Not internal: the network is flotilla's plan, n8n joins it only.
-#   egress    n8n and its egress proxy only.
+#   litellm_clients  EXTERNAL and INTERNAL, made by hand (`docker network create --internal litellm_clients`; infra/n8n/README.md): n8n and the LiteLLM gateway only (the second brain agent's model, RFC-0010 A4). Internal, so joining it gives n8n no route around the egress proxy; not LiteLLM's default network, which holds its database.
+#   egress    n8n and its egress proxy only (the second brain Slack bridge joins it too: it reaches Slack through the proxy).
+#   sbbridge  n8n and the second brain Slack bridge (sb-bridge/docker-compose.yml, RFC-0010 A4): the bridge posts mentions to n8n's webhook here.
 #   out       the proxy alone: its way to the internet. n8n itself has no route out.
 # The proxy (Smokescreen, the image flotilla builds, pinned by digest) admits only the hosts in
 # egress/acl.yaml, empty until a connector is decided (RFC-0010), and no private address at all.
@@ -82,10 +84,10 @@ services:
       N8N_PERSONALIZATION_ENABLED: "false"
       HTTP_PROXY: http://egress:4750
       HTTPS_PROXY: http://egress:4750
-      NO_PROXY: flotillad,n8n-db,egress,localhost,127.0.0.1
+      NO_PROXY: flotillad,n8n-db,egress,localhost,127.0.0.1,n8n,litellm,sb-mcp   # n8n: the docs and tasks MCP servers on its own port; litellm: the second brain agent's model (litellm_clients network); sb-mcp: the library MCP (mcp network). The proxy refuses private addresses, so these are reached directly
     volumes:
       - n8n-data:/home/node/.n8n
-    networks: [plumbing, db, ui, egress, mcp]
+    networks: [plumbing, db, ui, egress, mcp, sbbridge, litellm_clients]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz >/dev/null || exit 1"]
       interval: 30s
@@ -126,6 +128,12 @@ networks:
     name: n8n_ui
     internal: true
   egress:
+    internal: true
+  litellm_clients:
+    name: litellm_clients
+    external: true   # made by hand as an --internal network, joined by the LiteLLM gateway only (not its database): n8n reaches http://litellm:4000/v1 here and nothing else of LiteLLM's
+  sbbridge:
+    name: sbbridge   # n8n and the second brain Slack bridge (sb-bridge/docker-compose.yml) only: the bridge reaches the mention webhook, nothing else
     internal: true
   out: {}
   mcp:
