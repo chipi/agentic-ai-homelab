@@ -1,14 +1,19 @@
-// The hub's CI view (RFC-0011, phase A): what counts as ok, slow or bad for the self-hosted runners and the
-// jobs on them, and the CI tab drawn from the collector's ci.json. The collector (ci-job.js) writes the
-// numbers; the page only reads that file and applies these rules, so no threshold lives in two places.
-// Pure: no I/O of its own.
+// The hub's CI view (RFC-0011, phase A and the drill-down): what counts as ok, slow or bad for the self-hosted
+// runners, the runs and the jobs on them, and the CI tab drawn from the collector's ci.json (the cards, the
+// per-repo table, the runners, the queue, the paged list of past runs) and, at #ci/run/<repo>/<id>, one run's
+// page drawn from its ci-runs/<repo>/<id>.json and its jobs' ci-logs/<repo>/<job>.txt. The collector (ci-job.js)
+// writes the numbers; the page only reads those files and applies these rules, so no threshold lives in two
+// places. Everything that comes from GitHub (names, branches, commit messages, log lines) is untrusted text and
+// is escaped. Pure: no I/O of its own.
 (function (root) {
   'use strict';
   const QUEUE_WARN = 300;        // a job waiting longer than this (s) is amber
   const QUEUE_BAD = 1800;        // ... and this long is red (the Grafana alert "a job queued > 30 min")
   const OFFLINE_BAD = 900;       // a runner offline this long (s) is red (the alert's 15 minutes); shorter is amber
   const STALE_AFTER = 900;       // a ci.json older than this (s) is grey, never green
+  const PER_PAGE = 25;           // rows of the Past runs table
   const FAILED = ['failure', 'timed_out'];
+  const CONCLUSIONS = ['all', 'success', 'failure', 'cancelled', 'running'];
 
   const runnerState = (r, now) => {
     if (r.status === 'online') return 'ok';
@@ -16,19 +21,23 @@
   };
   const queueState = s => s >= QUEUE_BAD ? 'bad' : s >= QUEUE_WARN ? 'warn' : 'ok';
   // success is ok; cancelled is amber (someone or a newer push stopped it); failure and timeout are red;
-  // anything else (neutral, action_required) is left unjudged
+  // anything else (neutral, action_required, skipped) is left unjudged
   const jobState = c => c === 'success' ? 'ok' : c === 'cancelled' ? 'warn' : FAILED.includes(c) ? 'bad' : 'none';
+  // a run or a step that has not finished is unjudged (grey); a finished one is judged like a job
+  const runState = r => r.status && r.status !== 'completed' ? 'none' : jobState(r.conclusion);
   // a repo with any failure in 24 h is amber; red when at least 3 jobs finished and half or more of them failed
   const repoState = f => !f || !f.failed ? 'ok' : f.failed >= 3 && f.failed / f.finished >= 0.5 ? 'bad' : 'warn';
   const WORST = ['none', 'ok', 'warn', 'bad'];
   const worst = list => list.reduce((a, b) => WORST.indexOf(b) > WORST.indexOf(a) ? b : a, 'ok');
+
+  const short = repo => String(repo).split('/').pop();
 
   function view(doc, now) {
     const ok = !!(doc && doc.takenAt && Array.isArray(doc.runners) && Array.isArray(doc.queued));
     const taken = ok ? Date.parse(doc.takenAt) / 1000 : null;
     const ageS = ok && Number.isFinite(taken) ? now - taken : null;
     const stale = !ok || ageS == null || ageS > STALE_AFTER;
-    if (!ok) return { ok: false, stale: true, ageS: null, takenAt: null, machines: [], queued: [], recent: [], failures: [], minutes: null, errors: [], state: 'stale' };
+    if (!ok) return { ok: false, stale: true, ageS: null, takenAt: null, repos: [], machines: [], queued: [], recent: [], runs: [], failures: [], minutes: null, stats: null, logs: null, idleOther: 0, errors: [], state: 'stale' };
     const machines = {};
     for (const r of doc.runners) {
       const m = machines[r.machine || 'unknown'] || (machines[r.machine || 'unknown'] = { machine: r.machine || 'unknown', runners: [], online: 0, busy: 0, offline: 0 });
@@ -40,11 +49,63 @@
     ms.forEach(m => { m.runners.sort((a, b) => a.repo < b.repo ? -1 : a.repo > b.repo ? 1 : a.name < b.name ? -1 : 1); m.state = worst(m.runners.map(r => r.state)); });
     const queued = doc.queued.map(j => { const w = Math.max(0, now - Date.parse(j.createdAt) / 1000); return Object.assign({}, j, { waitS: w, state: queueState(w) }); })
       .sort((a, b) => b.waitS - a.waitS);
+    // idle runners in repos with nothing queued: they cannot take another repo's jobs (a personal account has no shared runner pool)
+    const queuedRepos = new Set(queued.map(j => j.repo));
+    const idleOther = doc.runners.filter(r => r.status === 'online' && !r.busy && !queuedRepos.has(r.repo)).length;
     const recent = (doc.recent || []).map(j => Object.assign({}, j, { state: jobState(j.conclusion) }));
+    const runs = (doc.runs || []).map(r => Object.assign({}, r, { state: runState(r) }));
     const failures = Object.entries(doc.failures || {}).map(([repo, f]) => Object.assign({ repo }, f, { state: repoState(f) })).sort((a, b) => b.failed - a.failed || (a.repo < b.repo ? -1 : 1));
     const state = stale ? 'stale' : worst([].concat(ms.map(m => m.state), queued.map(q => q.state), failures.map(f => f.state)));
-    return { ok: true, stale, ageS, takenAt: doc.takenAt, machines: ms, queued, recent, failures, minutes: doc.minutes || null, errors: doc.errors || [], state };
+    return { ok: true, stale, ageS, takenAt: doc.takenAt, repos: doc.repos || [], machines: ms, queued, recent, runs, failures, minutes: doc.minutes || null, stats: doc.stats || null, logs: doc.logs || null, idleOther, errors: doc.errors || [], state };
   }
+
+  // ---- routes: #ci (the list), #ci/runs/<page>/<repo>/<conclusion> (the list, paged and filtered), #ci/run/<repo>/<id> (one run)
+  const SAFE = /^[A-Za-z0-9._-]+$/;
+  function parseRoute(hash) {
+    const p = String(hash || '').replace(/^#/, '').split('/');
+    if (p[0] !== 'ci') return null;
+    const dec = s => { try { return decodeURIComponent(s); } catch (e) { return ''; } };
+    if (p[1] === 'run' && p[2] && /^\d+$/.test(p[3] || '') && SAFE.test(dec(p[2]))) return { kind: 'run', repo: dec(p[2]), id: p[3] };
+    if (p[1] === 'runs') {
+      const repo = p[3] && SAFE.test(dec(p[3])) ? dec(p[3]) : 'all';
+      return { kind: 'list', page: Math.max(1, parseInt(p[2], 10) || 1), repo, concl: CONCLUSIONS.includes(p[4]) ? p[4] : 'all' };
+    }
+    return { kind: 'list', page: 1, repo: 'all', concl: 'all' };
+  }
+  const runHref = (repo, id) => '#ci/run/' + encodeURIComponent(short(repo)) + '/' + id;
+  const listHref = (o) => {
+    const page = Math.max(1, o.page || 1), repo = o.repo && o.repo !== 'all' ? o.repo : 'all', concl = o.concl || 'all';
+    return page === 1 && repo === 'all' && concl === 'all' ? '#ci' : '#ci/runs/' + page + '/' + encodeURIComponent(repo) + '/' + concl;
+  };
+  function filterRuns(runs, f) {
+    return runs.filter(r => (!f.repo || f.repo === 'all' || short(r.repo) === f.repo)
+      && (f.concl === 'all' || !f.concl || (f.concl === 'running' ? r.status !== 'completed' : f.concl === 'failure' ? r.status === 'completed' && FAILED.includes(r.conclusion) : r.status === 'completed' && r.conclusion === f.concl)));
+  }
+  function pageRuns(runs, route, per) {
+    per = per || PER_PAGE;
+    const all = filterRuns(runs, route), pages = Math.max(1, Math.ceil(all.length / per)), page = Math.min(Math.max(1, route.page || 1), pages);
+    return { rows: all.slice((page - 1) * per, page * per), total: all.length, page, pages, per };
+  }
+
+  // ---- numbers
+  // a change against the period before: direction and whole percent; nothing when both are empty or the old one is unknown
+  function delta(a, b) {
+    if (a == null || b == null) return null;
+    if (!a && !b) return null;
+    if (!b) return { dir: 'new', pct: null };
+    const pct = Math.round(Math.abs(a - b) / b * 100);
+    return { dir: pct === 0 ? 'flat' : a > b ? 'up' : 'down', pct };
+  }
+  const deltaText = (d, label) => !d ? '' : d.dir === 'new' ? 'from 0' + (label ? ' vs ' + label : '') : d.dir === 'flat' ? 'no change' + (label ? ' vs ' + label : '') : (d.dir === 'up' ? '&#9650;' : '&#9660;') + (d.pct >= 1000 ? '&gt;10&times;' : d.pct + '%') + (label ? ' vs ' + label : '');
+  // a rate against the period before, in percentage points
+  function deltaPP(a, b) {
+    if (a == null || b == null) return null;
+    const pp = Math.round((a - b) * 100);
+    return { dir: pp === 0 ? 'flat' : pp > 0 ? 'up' : 'down', pct: Math.abs(pp), pp: true };
+  }
+  const deltaPPText = (d, label) => !d ? '' : d.dir === 'flat' ? 'no change' + (label ? ' vs ' + label : '') : (d.dir === 'up' ? '&#9650;' : '&#9660;') + d.pct + ' pp' + (label ? ' vs ' + label : '');
+  // success rate: finished runs that succeeded of those that succeeded or failed; cancelled runs are not a verdict
+  const rate = (ok, failed) => ok + failed ? ok / (ok + failed) : null;
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const DOT = { ok: 'up', warn: 'mid', bad: 'down', none: 'stale', stale: 'stale' };
@@ -56,47 +117,210 @@
     const mins = Math.round(s / 60), h = Math.floor(mins / 60), m = mins % 60;
     return h ? h + ' h ' + m + ' min' : m + ' min';
   }
-  const short = repo => String(repo).replace(/^chipi\//, '');
   const hhmm = iso => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const when = iso => iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '&mdash;';
+  const whenFull = iso => iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '&mdash;';
+  const num = x => x == null ? '&mdash;' : Math.round(x).toLocaleString('en-US');
   const mins = x => x == null ? '&mdash;' : Math.round(x).toLocaleString('en-US');
+  const usd = x => x == null ? '&mdash;' : '$' + (x >= 100 ? x.toFixed(0) : x.toFixed(2));
+  const pct = x => x == null ? '&mdash;' : (Math.round(x * 1000) / 10) + '%';
   const link = (u, t) => /^https:\/\/github\.com\//.test(u || '') ? '<a href="' + esc(u) + '">' + t + '</a>' : t;
+  const ghRunUrl = (repos, repo, id) => { const full = (repos || []).find(r => short(r) === short(repo)); return full ? 'https://github.com/' + full + '/actions/runs/' + id : null; };
+  const RUNNER_NOTE = 'Runners belong to one repo each (chipi is a personal account, so there is no organisation pool): a queue in one repo does not use idle runners in another.';
 
-  function runnerRow(r, now, stale) {
-    const what = r.status !== 'online' ? 'offline' + (r.offlineSince != null ? ' ' + dur(now - r.offlineSince) : '') : r.busy ? 'busy' : 'idle';
-    return '<tr><td>' + dot(r.state, stale) + esc(r.name) + '</td><td class=u>' + esc(short(r.repo)) + '</td><td>' + what + '</td></tr>';
+  const sq = c => '<span style="color:' + c + '">&#9632;</span> ';
+  const bar = parts => {
+    const p = parts.filter(x => x[1] > 0);
+    return p.length ? '<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">' + p.map(([, v, c]) => '<span style="flex:' + v + ';background:' + c + '"></span>').join('') + '</div>'
+      + '<div class=muted style="font-size:12px">' + p.map(([k, v, c]) => sq(c) + num(v) + ' ' + k).join(' &middot; ') + '</div>' : '';
+  };
+  const mut = t => t ? '<div class=muted style="font-size:12px">' + t + '</div>' : '';
+  // a small daily line, like the Spend tab's
+  function spark(d) {
+    if (!d || !d.some(x => x != null && x > 0)) return '';
+    const w = 56, h = 16, mx = Math.max.apply(0, d.map(x => x || 0)) || 1;
+    const pts = d.map((x, i) => (i * (w - 2) / (d.length - 1) + 1).toFixed(1) + ',' + (h - 1 - (x || 0) / mx * (h - 2)).toFixed(1)).join(' ');
+    return ' <svg width=' + w + ' height=' + h + ' viewBox="0 0 ' + w + ' ' + h + '" class=sl style="vertical-align:middle" aria-label="daily values, 14 days"><polyline points="' + pts + '" fill=none stroke=#7aa2ff stroke-width=1.5 vector-effect=non-scaling-stroke /></svg>';
+  }
+  const kv = rows => '<div class=subkv>' + rows.filter(Boolean).map(([l, x, t]) => '<span' + (t ? ' title="' + esc(t) + '"' : '') + '>' + l + '</span><b>' + x + '</b>').join('') + '</div>';
+  const card = (title, tip, body) => '<div class="card ci"><h3' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + title + '</h3>' + body + '</div>';
+
+  // One metric over the six windows: the last 7 days is the big number, set against the 7 before; today is set against
+  // yesterday at the same time of day, because today is not over.
+  function metricCard(title, tip, st, o) {
+    const W = st.total, g = o.get, f = o.fmt, dl = o.pp ? (a, b, l) => deltaPPText(deltaPP(a, b), l) : (a, b, l) => deltaText(delta(a, b), l);
+    const t = g(W.today), y = g(W.yesterday), yf = g(W.yesterdayFull), d7 = g(W.d7), p7 = g(W.p7), d30 = g(W.d30);
+    const tr = dl(t, y, '');
+    return card(title, tip, '<div class=cv>' + f(d7) + (o.spark || '') + '</div>' + (o.extra || '')
+      + mut('last 7 days' + (dl(d7, p7, 'the 7 days before') ? ' &middot; ' + dl(d7, p7, 'the 7 days before') : ''))
+      + kv([['Today so far', f(t), 'Since 00:00 UTC'], ['Yesterday, same time', f(y)], tr ? ['Today vs that', tr, 'Today so far against yesterday up to this time of day'] : null, ['Yesterday, whole day', f(yf)],
+        ['The 7 days before', f(p7)], ['Last 30 days', f(d30)]].concat(o.rows || [])));
   }
 
-  function html(v, now) {
-    const head = '<h2>CI &middot; self-hosted runners</h2>';
-    if (!v.ok) return head + '<div class="abar plumb">No CI numbers: ci.json is missing or unreadable. Nothing is shown as green.</div>';
+  function cardsHtml(v) {
+    const st = v.stats;
+    if (!st || !st.total) return '<p class=muted>No history yet: the collector has not written the numbers for the cards (it fills them over its first runs).</p>';
+    const W = st.total, d = st.daily || [], series = k => d.map(x => x[k]);
+    const sh = 'self-hosted', gh = 'hosted';
+    const by = (a, b) => [['X3 (self-hosted)', a, '#7aa2ff'], ['GitHub (hosted)', b, '#8888aa']];
+    const cs = [
+      metricCard('Runs', 'Workflow runs that finished in the period', st, { get: w => w.runs, fmt: num, spark: spark(series('runs')),
+        extra: bar([['succeeded', W.d7.runsOk, '#3fb950'], ['failed', W.d7.runsFailed, '#f85149'], ['cancelled', W.d7.runsCancelled, '#55556b']]) }),
+      metricCard('Jobs', 'Jobs that finished in the period (skipped jobs not counted)', st, { get: w => w.jobs, fmt: num, spark: spark(series('jobs')),
+        extra: bar(by(W.d7.jobsBy[sh], W.d7.jobsBy[gh])) }),
+      metricCard('Minutes on the X3', 'Wall-clock minutes of finished jobs that ran on the self-hosted runners', st, { get: w => w.min[sh], fmt: mins, spark: spark(series(sh)),
+        rows: [['Jobs, last 7 days', num(W.d7.jobsBy[sh])]] }),
+      metricCard('Minutes on GitHub', 'Wall-clock minutes of finished jobs that ran on GitHub-hosted runners. GitHub bills each job separately and rounds it up to the whole minute, so this understates the billed minutes', st, { get: w => w.min[gh], fmt: mins, spark: spark(series(gh)),
+        rows: [['Jobs, last 7 days', num(W.d7.jobsBy[gh])]] }),
+      metricCard('Success rate', 'Finished runs that succeeded, of those that succeeded or failed (a cancelled run is not a verdict; a timeout is a failure)', st, { pp: true, get: w => rate(w.runsOk, w.runsFailed), fmt: pct,
+        extra: bar([['succeeded', W.d7.runsOk, '#3fb950'], ['failed', W.d7.runsFailed, '#f85149']]),
+        rows: [['Jobs, last 7 days', pct(rate(W.d7.jobsOk, W.d7.jobsFailed)), 'The same, counted over jobs'], ['Cancelled runs, 7 days', num(W.d7.runsCancelled)]] }),
+      metricCard('Median queue wait', 'The time from a job being created to a runner starting it, the middle one of the finished jobs', st, { get: w => w.queueMedianS.all, fmt: dur,
+        extra: mut('X3 ' + dur(W.d7.queueMedianS[sh]) + ' &middot; GitHub ' + dur(W.d7.queueMedianS[gh]) + ' (last 7 days)') }),
+      metricCard('GitHub minutes saved (est.)', 'The minutes the self-hosted runners ran, at GitHub\'s list price of $' + st.rate + ' a minute for a Linux 2-core hosted runner. Wall-clock time understates what GitHub would bill: it rounds every job up to the whole minute, and runs parallel jobs separately. The private repos\' free monthly minutes are not subtracted', st,
+        { get: w => w.savedUsd, fmt: usd, spark: spark(d.map(x => x[sh] * st.rate)), extra: mut('X3 minutes &times; $' + st.rate + ' per minute; wall-clock understates the billed minutes'),
+          rows: [['X3 minutes, 7 days', mins(W.d7.min[sh])]] })];
+    return '<div class=charts>' + cs.join('') + '</div>';
+  }
+
+  function repoTable(v) {
+    const st = v.stats;
+    if (!st || !st.repos) return '';
+    const repos = Object.keys(st.repos).sort((a, b) => st.repos[b].d7.runs - st.repos[a].d7.runs || (a < b ? -1 : 1));
+    const sh = 'self-hosted', gh = 'hosted', T = st.total;
+    const row = (label, p) => '<td>' + label + '</td><td>' + num(p.d7.runs) + '</td><td class=u>' + (deltaText(delta(p.d7.runs, p.p7.runs)) || '&mdash;') + '</td><td>' + pct(rate(p.d7.runsOk, p.d7.runsFailed)) + '</td><td>' + num(p.d7.jobs)
+      + '</td><td>' + mins(p.d7.min[sh]) + '</td><td>' + mins(p.d7.min[gh]) + '</td><td>' + dur(p.d7.queueMedianS.all) + '</td><td>' + usd(p.d30.savedUsd) + '</td>';
+    return '<h3 class=sectitle>By repo, last 7 days</h3><table class=ctbl><thead><tr><th>Repo</th><th>Runs</th><th title="against the 7 days before">vs before</th><th title="succeeded of succeeded or failed">Success</th><th>Jobs</th><th>X3 min</th><th>GitHub min</th><th title="median, created to started">Queue</th><th title="X3 minutes of the last 30 days at the list price">Saved, 30 d</th></tr></thead><tbody>'
+      + repos.map(r => '<tr>' + row('<a href="' + listHref({ repo: short(r) }) + '" target=_self>' + esc(short(r)) + '</a>', st.repos[r]) + '</tr>').join('')
+      + '<tr style="font-weight:600">' + row('All', { d7: T.d7, p7: T.p7, d30: T.d30 }) + '</tr></tbody></table>'
+      + '<p class=sec>Windows end now and are rolling; the 30 d column counts the history the collector holds (30 days of finished runs and jobs). A repo that could not be read keeps its last numbers.</p>';
+  }
+
+  function runnerCard(r, now, stale) {
+    const what = r.status !== 'online' ? 'offline' + (r.offlineSince != null ? ' ' + dur(now - r.offlineSince) : '') : r.busy ? 'busy' : 'idle';
+    const cur = r.now ? '<a href="' + runHref(r.repo, r.now.runId) + '" target=_self title="' + esc(r.now.workflow + ' / ' + r.now.job) + '">' + esc(r.now.job) + '</a>'
+      : r.status !== 'online' ? '&mdash;' : r.busy ? 'a job (not in the runs read)' : 'nothing';
+    return '<div class="card ci"><h3>' + esc(short(r.repo)) + '</h3><div class=cv style="font-size:15px">' + dot(r.state, stale) + what + '</div>'
+      + kv([['Runner', esc(r.name)], ['Running', cur], ['Jobs, 24 h', num(r.jobs24)], ['Minutes, 24 h', mins(r.min24)]]) + '</div>';
+  }
+
+  function listHtml(v, now, route) {
     const st = v.stale;
-    let h = head + '<p class=sec>updated ' + hhmm(v.takenAt) + ' &middot; ' + v.machines.map(m => esc(m.machine) + ': ' + m.online + ' online, ' + m.busy + ' busy' + (m.offline ? ', ' + m.offline + ' offline' : '')).join(' &middot; ')
-      + ' &middot; ' + v.queued.length + ' queued</p>';
-    if (st) h += '<div class="abar warn">The numbers are ' + Math.round(v.ageS / 60) + ' minutes old (the CI job writes them every 5): everything is grey until it runs again.</div>';
-    if (v.errors.length) h += '<div class="abar warn">The collector could not read: ' + v.errors.map(esc).join('; ') + '. Those repos are missing below.</div>';
+    let h = '';
+    h += cardsHtml(v) + repoTable(v);
 
-    h += '<h3 class=sectitle>Runners</h3>' + (v.machines.length ? v.machines.map(m => '<h3 class=sectitle style="margin-top:8px">' + dot(m.state, st) + esc(m.machine) + '</h3><table class=ctbl>' + m.runners.map(r => runnerRow(r, now, st)).join('') + '</table>').join('')
-      : '<p class=muted>no runners registered on these repos</p>');
+    h += '<h3 class=sectitle>Runners</h3>' + (v.machines.length ? v.machines.map(m => '<h3 class=sectitle style="margin-top:8px;border:0">' + dot(m.state, st) + esc(m.machine) + ' <span class=muted style="font-weight:400;text-transform:none">' + m.online + ' online, ' + m.busy + ' busy' + (m.offline ? ', ' + m.offline + ' offline' : '') + '</span></h3><div class=charts>' + m.runners.map(r => runnerCard(r, now, st)).join('') + '</div>').join('')
+      : '<p class=muted>no runners registered on these repos</p>') + '<p class=sec>' + RUNNER_NOTE + '</p>';
 
-    h += '<h3 class=sectitle>Queue now</h3>' + (v.queued.length ? '<table class=ctbl>' + v.queued.map(j => '<tr><td>' + dot(j.state, st) + esc(short(j.repo)) + '</td><td>' + link(j.url, esc(j.workflow) + ' / ' + esc(j.name)) + '</td><td>waiting ' + dur(j.waitS) + '</td></tr>').join('') + '</table>'
+    h += '<h3 class=sectitle>Queue now</h3>' + (v.queued.length ? '<table class=ctbl>' + v.queued.map(j => '<tr><td>' + dot(j.state, st) + esc(short(j.repo)) + '</td><td>' + (j.runId ? '<a href="' + runHref(j.repo, j.runId) + '" target=_self>' + esc(j.workflow) + ' / ' + esc(j.name) + '</a>' : esc(j.workflow) + ' / ' + esc(j.name)) + '</td><td>waiting ' + dur(j.waitS) + '</td><td class=u>' + link(j.url, 'GitHub') + '</td></tr>').join('') + '</table>'
+      + (v.idleOther ? '<p class=sec>' + v.queued.length + ' queued while ' + v.idleOther + ' runner' + (v.idleOther === 1 ? ' is' : 's are') + ' idle in repos with nothing queued. ' + RUNNER_NOTE + '</p>' : '')
       : '<p class=muted>nothing queued</p>');
 
-    h += '<h3 class=sectitle>Failures, last 24 h</h3><table class=ctbl>' + v.failures.map(f => '<tr><td>' + dot(f.state, st) + esc(short(f.repo)) + '</td><td>' + f.failed + ' failed</td><td class=u>of ' + f.finished + ' finished</td></tr>').join('') + '</table>';
+    h += '<h3 class=sectitle>Failures, last 24 h</h3><table class=ctbl>' + v.failures.map(f => '<tr><td>' + dot(f.state, st) + '<a href="' + listHref({ repo: short(f.repo), concl: 'failure' }) + '" target=_self>' + esc(short(f.repo)) + '</a></td><td>' + f.failed + ' failed</td><td class=u>of ' + f.finished + ' finished jobs</td></tr>').join('') + '</table>';
 
-    const m = v.minutes;
-    if (m) {
-      const row = (label, w) => '<tr><td>' + label + '</td><td>' + mins(w && w['self-hosted']) + ' min on the runners</td><td class=u>' + mins(w && w.hosted) + ' min on GitHub</td></tr>';
-      h += '<h3 class=sectitle>Minutes: runners vs GitHub</h3><table class=ctbl>' + row('24 h', m['24h']) + row('30 d' + (m.since30d ? ' (since ' + esc(String(m.since30d).slice(0, 10)) + ')' : ''), m['30d']) + '</table>'
-        + '<p class=sec>Wall-clock minutes of finished jobs, by the runner labels. GitHub bills parallel jobs separately and rounds up, so this understates what the runners saved. The 30 d figure counts from the first run of the collector.</p>';
-    }
-
-    h += '<h3 class=sectitle>Recent jobs</h3>' + (v.recent.length ? '<table class=ctbl>' + v.recent.map(j => '<tr><td>' + dot(j.state, st) + esc(j.conclusion) + '</td><td>' + esc(short(j.repo)) + '</td><td>' + esc(j.workflow) + ' / ' + esc(j.job) + '</td><td class=u>' + esc(j.runner || j.where) + '</td><td>queue ' + dur(j.queueS) + '</td><td>' + dur(j.durS) + '</td><td>' + link(j.url, 'open') + '</td></tr>').join('') + '</table>'
-      : '<p class=muted>no finished jobs in the last 24 h</p>');
-    h += '<p class=sec>Amber: a job waiting over ' + QUEUE_WARN / 60 + ' min, a runner offline under ' + OFFLINE_BAD / 60 + ' min, a cancelled job, a repo with a failure in 24 h. Red: a job waiting over ' + QUEUE_BAD / 60 + ' min, a runner offline ' + OFFLINE_BAD / 60 + ' min or more, a failed or timed-out job, a repo where half of 3 or more jobs failed.</p>';
+    h += pastRuns(v, route, st);
+    h += '<p class=sec>Amber: a job waiting over ' + QUEUE_WARN / 60 + ' min, a runner offline under ' + OFFLINE_BAD / 60 + ' min, a cancelled run or job, a repo with a failure in 24 h. Red: a job waiting over ' + QUEUE_BAD / 60 + ' min, a runner offline ' + OFFLINE_BAD / 60 + ' min or more, a failed or timed-out run or job, a repo where half of 3 or more jobs failed.</p>';
     return h;
   }
 
-  const api = { QUEUE_WARN, QUEUE_BAD, OFFLINE_BAD, STALE_AFTER, runnerState, queueState, jobState, repoState, view, html, dur };
+  function pastRuns(v, route, stale) {
+    const pg = pageRuns(v.runs, route), repos = v.repos.map(short);
+    const opt = (val, label, cur) => '<option value="' + esc(val) + '"' + (val === cur ? ' selected' : '') + '>' + esc(label) + '</option>';
+    let h = '<h3 class=sectitle>Past runs</h3>';
+    h += '<div class=ci-bar><label>Repo <select id=ci_f_repo>' + opt('all', 'all repos', route.repo) + repos.map(r => opt(r, r, route.repo)).join('') + '</select></label> '
+      + '<label>Result <select id=ci_f_concl>' + CONCLUSIONS.map(c => opt(c, c === 'all' ? 'any result' : c === 'running' ? 'running or queued' : c === 'failure' ? 'failed or timed out' : c, route.concl)).join('') + '</select></label>'
+      + '<span class=muted> ' + num(pg.total) + ' run' + (pg.total === 1 ? '' : 's') + (v.runs.length ? ' of the last 30 days' : '') + '</span></div>';
+    if (!v.runs.length) return h + '<p class=muted>The collector has not listed any run yet.</p>';
+    if (!pg.total) return h + '<p class=muted>No run matches this filter.</p>';
+    h += '<table class=ctbl><thead><tr><th>Result</th><th>Repo</th><th>Run</th><th>Branch</th><th>Event</th><th>Finished</th><th>Duration</th><th title="from the first job being created to a runner starting it">Queue</th><th title="jobs, of them on the X3">Jobs</th><th></th></tr></thead><tbody>'
+      + pg.rows.map(r => '<tr><td>' + dot(r.state, stale) + esc(r.status === 'completed' ? r.conclusion || 'done' : r.status === 'in_progress' ? 'running' : r.status) + '</td><td class=u>' + esc(short(r.repo)) + '</td><td><a href="' + runHref(r.repo, r.id) + '" target=_self>' + esc(r.workflow) + '</a>'
+        + (r.attempt > 1 ? ' <span class=muted>#' + r.attempt + '</span>' : '') + '<div class=muted style="font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.title) + '">' + esc(r.title) + '</div></td><td class=u>' + esc(r.branch) + '</td><td class=u>' + esc(r.event)
+        + '</td><td>' + (r.finishedAt ? when(r.finishedAt) : '&mdash;') + '</td><td>' + dur(r.durS) + '</td><td>' + dur(r.queueS) + '</td><td class=u>' + r.jobs + (r.selfHosted ? ' (' + r.selfHosted + ' X3)' : '') + '</td><td style="white-space:nowrap">' + link(r.url, '<span class=muted style="font-size:11px">GitHub &#8599;</span>') + '</td></tr>').join('') + '</tbody></table>';
+    const a = (p, t) => p < 1 || p > pg.pages || p === pg.page ? '<span class=muted>' + t + '</span>' : '<a href="' + listHref({ page: p, repo: route.repo, concl: route.concl }) + '" target=_self>' + t + '</a>';
+    h += '<p class=sec style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">' + a(1, '&laquo; first') + a(pg.page - 1, '&lsaquo; newer') + '<span>page ' + pg.page + ' of ' + pg.pages + ' &middot; ' + pg.per + ' per page</span>' + a(pg.page + 1, 'older &rsaquo;') + a(pg.pages, 'last &raquo;') + '</p>';
+    return h;
+  }
+
+  // ---- one run
+  const whereLabel = j => j.where === 'self-hosted' ? (((j.labels || []).find(l => !['self-hosted', 'linux', 'x64'].includes(l))) || 'self-hosted') + ' (self-hosted)' : 'GitHub (hosted)';
+  const secs = (a, b) => a && b ? Math.max(0, (Date.parse(b) - Date.parse(a)) / 1000) : null;
+  function runSummary(d) {
+    const js = d.jobs || [], started = js.filter(j => j.started), done = js.filter(j => j.completed);
+    const finished = d.status === 'completed' && done.length ? done.map(j => j.completed).sort().slice(-1)[0] : null;
+    return { finishedAt: finished, durS: finished ? secs(d.started || d.created, finished) : null,
+      queueS: started.length ? Math.max(0, Math.min.apply(0, started.map(j => Date.parse(j.started))) / 1000 - Math.min.apply(0, js.map(j => Date.parse(j.created))) / 1000) : null,
+      selfHosted: js.filter(j => j.where === 'self-hosted').length };
+  }
+
+  // log text -> lines marked: ##[error] red, ##[warning] amber, the collector's own header lines dim
+  function logLines(text) {
+    return String(text).split('\n').map(l => ({ text: l, kind: /^# (ci-log|\.\.\.)/.test(l) ? 'meta' : l.includes('##[error]') ? 'err' : l.includes('##[warning]') ? 'warn' : /##\[(group|endgroup)\]/.test(l) ? 'grp' : '' }))
+      .filter((l, i, a) => !(i === a.length - 1 && l.text === ''));
+  }
+  const logHtml = text => {
+    const ls = logLines(text), errs = ls.filter(l => l.kind === 'err').length;
+    return '<div class=muted style="font-size:12px;margin:2px 0">' + ls.length + ' lines kept' + (errs ? ' &middot; <span style="color:#f85149">' + errs + ' ##[error] line' + (errs === 1 ? '' : 's') + '</span>' : '') + '</div>'
+      + '<pre class=ci-log tabindex=0>' + ls.map(l => '<span class="ln' + (l.kind ? ' ' + l.kind : '') + '">' + (l.text === '' ? ' ' : esc(l.text)) + '</span>').join('') + '</pre>';
+  };
+
+  function jobLog(j, logs, keep) {
+    const L = logs && logs[j.id];
+    const ghLink = ' ' + link(j.url, 'full log on GitHub');
+    if (j.status !== 'completed') return '<p class=muted>The job has not finished; its log is fetched after it does.' + ghLink + '</p>';
+    if (j.conclusion === 'skipped') return '<p class=muted>The job was skipped: it has no log.</p>';
+    if (!L || L.st === 'loading') return '<p class=muted>loading the log&hellip;</p>';
+    if (L.st === 'none') return '<p class=muted>The log is not fetched yet: the collector reads the log of each finished job once, for the newest ' + (keep || 200) + ' jobs, every 5 minutes. Older jobs are not kept.' + ghLink + '</p>';
+    if (L.st === 'error') return '<p class=muted>The log could not be loaded (' + esc(L.msg || 'error') + ').' + ghLink + '</p>';
+    return logHtml(L.text) + '<p class=sec style="margin-top:4px">The last lines of the log, and every ##[error] line from before them, as the collector kept them.' + ghLink + '</p>';
+  }
+
+  function stepsTable(j, stale) {
+    if (!j.steps || !j.steps.length) return '<p class=muted>No steps recorded.</p>';
+    return '<table class=ctbl><thead><tr><th>#</th><th>Step</th><th>Result</th><th>Started</th><th>Duration</th></tr></thead><tbody>'
+      + j.steps.map(s => '<tr><td class=u>' + esc(s.n) + '</td><td>' + esc(s.name) + '</td><td>' + dot(s.status !== 'completed' ? 'none' : jobState(s.conclusion), stale) + esc(s.status === 'completed' ? s.conclusion : s.status) + '</td><td class=u>' + (s.started ? hhmm(s.started) : '&mdash;') + '</td><td>' + (s.conclusion === 'skipped' ? '&mdash;' : dur(secs(s.started, s.completed))) + '</td></tr>').join('') + '</tbody></table>';
+  }
+
+  function runHtml(v, route, ctx) {
+    const st = v.stale, back = '<p><a href="#ci" target=_self>&larr; All runs</a></p>', run = ctx && ctx.run || { st: 'loading' };
+    const gh = ghRunUrl(v.repos, route.repo, route.id);
+    if (run.st === 'loading') return back + '<p class=muted>loading the run&hellip;</p>';
+    if (run.st === 'missing') return back + '<div class="abar plumb">No detail for run ' + esc(route.id) + ' of ' + esc(route.repo) + ': the collector writes a run\'s page when it reads the run (every 5 minutes) and keeps runs for 30 days.' + (gh ? ' ' + link(gh, 'Open it on GitHub') : '') + '</div>';
+    if (run.st !== 'ok' || !run.d) return back + '<div class="abar warn">The run could not be loaded' + (run.msg ? ' (' + esc(run.msg) + ')' : '') + '.' + (gh ? ' ' + link(gh, 'Open it on GitHub') : '') + '</div>';
+    const d = run.d, sm = runSummary(d), rs = runState(d), repoFull = (v.repos || []).find(r => short(r) === short(d.repo)) || d.repo;
+    const commit = d.sha && /^[0-9a-f]{7,40}$/.test(d.sha) ? link('https://github.com/' + repoFull + '/commit/' + d.sha, '<code>' + esc(d.sha.slice(0, 7)) + '</code>') + ' ' : '';
+    const result = d.status === 'completed' ? d.conclusion || 'done' : d.status === 'in_progress' ? 'running' : d.status;
+    let h = back + '<h2>' + dot(rs, st) + esc(short(d.repo)) + ' &middot; ' + esc(d.workflow) + ' <span class=muted style="font-weight:400">' + esc(result) + '</span></h2>'
+      + '<p class=sec style="margin-top:-4px">' + link(d.url, 'Run on GitHub &#8599;') + '</p>';
+    h += '<div class="card ci ci-wide"><h3>Run</h3>' + kv([['Repo', '<a href="' + listHref({ repo: short(d.repo) }) + '" target=_self>' + esc(short(d.repo)) + '</a>'], ['Workflow', esc(d.workflow)], ['Branch', esc(d.branch)],
+      ['Commit', commit + esc(d.msg || '')], ['Event', esc(d.event)], ['Actor', esc(d.actor)], ['Attempt', esc(d.attempt)],
+      ['Created', whenFull(d.created)], ['Started', whenFull(d.started)], ['Finished', sm.finishedAt ? whenFull(sm.finishedAt) : d.status === 'completed' ? '&mdash;' : 'not yet'],
+      ['Total duration', dur(sm.durS), 'From the run starting to its last job ending'], ['Queue wait', dur(sm.queueS), 'From the first job being created to a runner starting a job'],
+      ['Result', dot(rs, st) + esc(result)]]).replace(/class=subkv/, 'class="subkv ci-kv"') + '</div>';
+
+    h += '<h3 class=sectitle>Jobs</h3>' + ((d.jobs || []).length ? '<table class=ctbl><thead><tr><th>Job</th><th>Where</th><th>Runner</th><th>Labels</th><th>Queue</th><th>Duration</th><th>Result</th></tr></thead><tbody>'
+      + d.jobs.map(j => '<tr><td>' + esc(j.name) + '</td><td>' + esc(whereLabel(j)) + '</td><td class=u>' + esc(j.runner || '') + '</td><td class=u>' + esc((j.labels || []).join(', ')) + '</td><td>' + dur(secs(j.created, j.started)) + '</td><td>' + dur(secs(j.started, j.completed)) + '</td><td>'
+        + dot(j.status !== 'completed' ? 'none' : jobState(j.conclusion), st) + esc(j.status === 'completed' ? j.conclusion : j.status) + '</td></tr>').join('') + '</tbody></table>'
+      : '<p class=muted>The run has no jobs (yet).</p>');
+    for (const j of d.jobs || []) {
+      h += '<h3 class=sectitle>' + dot(j.status !== 'completed' ? 'none' : jobState(j.conclusion), st) + esc(j.name) + ' <span class=muted style="font-weight:400;text-transform:none">' + esc(whereLabel(j)) + ' &middot; ' + dur(secs(j.started, j.completed)) + '</span> ' + link(j.url, '<span class=muted style="font-weight:400;text-transform:none">GitHub &#8599;</span>') + '</h3>'
+        + '<div class=ci-job data-job="' + esc(j.id) + '"><h4 class=ci-h4>Steps</h4>' + stepsTable(j, st) + '<h4 class=ci-h4>Log</h4>' + jobLog(j, ctx && ctx.logs, v.logs && v.logs.jobsMax) + '</div>';
+    }
+    return h;
+  }
+
+  function html(v, now, ctx) {
+    const head = '<h2>CI &middot; self-hosted runners</h2>';
+    if (!v.ok) return head + '<div class="abar plumb">No CI numbers: ci.json is missing or unreadable. Nothing is shown as green.</div>';
+    const st = v.stale, route = ctx && ctx.route || { kind: 'list', page: 1, repo: 'all', concl: 'all' };
+    let h = head + '<p class=sec>updated ' + hhmm(v.takenAt) + ' &middot; ' + v.machines.map(m => esc(m.machine) + ': ' + m.online + ' online, ' + m.busy + ' busy' + (m.offline ? ', ' + m.offline + ' offline' : '')).join(' &middot; ')
+      + ' &middot; ' + v.queued.length + ' queued</p>';
+    if (st) h += '<div class="abar warn">The numbers are ' + Math.round(v.ageS / 60) + ' minutes old (the CI job writes them every 5): everything is grey until it runs again.</div>';
+    if (v.errors.length) h += '<div class="abar warn">The collector could not read: ' + v.errors.map(esc).join('; ') + '. Those repos are missing from the queue and the failures; the history numbers use their last successful read.</div>';
+    if (v.logs && v.logs.errors && v.logs.errors.length) h += '<div class="abar plumb">Some logs could not be fetched: ' + v.logs.errors.slice(0, 3).map(esc).join('; ') + '.</div>';
+    return h + (route.kind === 'run' ? runHtml(v, route, ctx) : listHtml(v, now, route));
+  }
+
+  const api = { QUEUE_WARN, QUEUE_BAD, OFFLINE_BAD, STALE_AFTER, PER_PAGE, runnerState, queueState, jobState, runState, repoState, view, html, dur, parseRoute, runHref, listHref, filterRuns, pageRuns, delta, deltaText, deltaPP, rate, logLines, logHtml, runSummary, whereLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HubCi = api;
 })(typeof window !== 'undefined' ? window : globalThis);

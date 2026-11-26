@@ -141,6 +141,12 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
 .slo-spark polyline{fill:none;stroke:#7aa2ff;stroke-width:1.5;vector-effect:non-scaling-stroke}.slo-spark circle{fill:#7aa2ff}
 .slo-spark line{stroke:#5a5a78;stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
 .slo-spark.grey polyline{stroke:#7a7a8c}.slo-spark.grey circle{fill:#7a7a8c}
+div.card.ci{flex:0 1 250px;min-width:210px}div.card.ci .subkv b{white-space:nowrap;overflow-wrap:normal}div.card.ci .subkv b a{overflow-wrap:anywhere;white-space:normal}div.card.ci-wide{flex:1 1 100%;min-width:0}
+.ci-bar{display:flex;gap:8px 16px;flex-wrap:wrap;align-items:center;margin:0 0 8px;font-size:13px}.ci-bar select{background:#14141f;color:#e6e6ef;border:1px solid #26263a;border-radius:6px;padding:4px 6px;font:inherit}
+.ci-kv{grid-template-columns:120px 1fr;font-size:13px;overflow-wrap:anywhere}.ci-kv b{text-align:left;color:#e6e6ef}
+.ci-job{margin:0 0 14px;min-width:0}.ci-h4{margin:8px 0 4px;font-size:11px;color:#8888aa;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+pre.ci-log{margin:0;max-height:380px;overflow:auto;max-width:100%;box-sizing:border-box;background:#0a0a12;border:1px solid #26263a;border-radius:6px;padding:8px 0;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c8c8e0;white-space:pre}
+pre.ci-log .ln{display:block;padding:0 10px;min-width:max-content}pre.ci-log .err{background:#3d1114;color:#ffb4ae}pre.ci-log .warn{background:#3a2d0e;color:#f0d28a}pre.ci-log .meta{color:#7aa2ff}pre.ci-log .grp{color:#8888aa}
 @media(min-width:641px){
   .slo-row{display:grid;grid-template-columns:minmax(220px,1.3fr) minmax(330px,2fr) 130px;align-items:center;gap:14px}
   .slo-left,.slo-days{flex-basis:auto}
@@ -168,6 +174,8 @@ table.models td{white-space:nowrap}table.models th,table.models td{padding-left:
   .subtabs .dot{width:7px;height:7px;margin-right:4px}
   code{word-break:break-all}
   .sysrow,.dock,.sec,.health{font-size:12.5px}
+  div.card.ci{flex:0 0 calc(50% - 4px);min-width:0;padding:9px 10px;overflow-wrap:anywhere}div.card.ci-wide{flex:1 1 100%}.ci-kv{grid-template-columns:96px 1fr}
+  pre.ci-log{max-height:300px;font-size:11.5px}.ci-bar select{max-width:46vw}
 }</style></head><body>
 <h1>homelab</h1>
 <!-- Banners: critical ones are copied to #critbar and always shown; the rest fold into one
@@ -1685,15 +1693,47 @@ function sloPaint(){
 }
 // CI (hub-ci.js): the CI job's ci.json as it is, drawn on the CI tab; the page computes no number, and numbers
 // older than 15 minutes are grey.
-let CI_DOC=null;
+// Routes: #ci (the list), #ci/runs/<page>/<repo>/<result> (paged, filtered: in the hash, so reload and back keep them),
+// #ci/run/<repo>/<id> (one run: ci-runs/<repo>/<id>.json, and each finished job's ci-logs/<repo>/<job>.txt, read once).
+// The 30 s refresh redraws only when the text changed, and keeps each log block's scroll.
+let CI_DOC=null,CI_LOADED=false,CI_RUN={key:'',st:'loading',d:null},CI_LOGS={},CI_SEEN='';
 async function ciTab(){
   try{const r=await fetch('/ci.json',{cache:'no-store'});CI_DOC=r.ok?await r.json():null;}catch(e){CI_DOC=null;}
-  ciPaint();
+  CI_LOADED=true;ciPaint();await ciRoute();
 }
 function ciPaint(){
-  const e=document.getElementById('ci_tab'),n=Date.now()/1000,h=HubCi.html(HubCi.view(CI_DOC,n),n);
-  if(e&&e.innerHTML!==h)e.innerHTML=h;
+  const e=document.getElementById('ci_tab');if(!e||!CI_LOADED)return;
+  const n=Date.now()/1000,rt=HubCi.parseRoute(location.hash)||{kind:'list',page:1,repo:'all',concl:'all'};
+  const h=HubCi.html(HubCi.view(CI_DOC,n),n,{route:rt,run:rt.kind==='run'&&CI_RUN.key===rt.repo+'/'+rt.id?CI_RUN:null,logs:CI_LOGS});
+  if(e.innerHTML===h)return;
+  const keep={};e.querySelectorAll('pre.ci-log').forEach(p=>{const j=p.closest('[data-job]');if(j)keep[j.dataset.job]=[p.scrollTop,p.scrollLeft];});
+  e.innerHTML=h;
+  e.querySelectorAll('pre.ci-log').forEach(p=>{const j=p.closest('[data-job]'),k=j&&keep[j.dataset.job];if(k){p.scrollTop=k[0];p.scrollLeft=k[1];}});
 }
+async function ciRoute(){
+  const rt=HubCi.parseRoute(location.hash),k=rt&&rt.kind==='run'?'run/'+rt.repo+'/'+rt.id:'list';
+  if(k!==CI_SEEN){CI_SEEN=k;if(location.hash.startsWith('#ci'))window.scrollTo(0,0);}
+  if(!rt||rt.kind!=='run')return;
+  const key=rt.repo+'/'+rt.id,fresh=CI_RUN.key!==key,recent=j=>Date.now()-Date.parse(j.completed)<3600000;
+  if(fresh){CI_RUN={key,st:'loading',d:null};CI_LOGS={};ciPaint();}
+  const wantLog=j=>j.status==='completed'&&j.conclusion!=='skipped'&&(!CI_LOGS[j.id]||(CI_LOGS[j.id].st==='none'&&recent(j)));
+  if(!fresh&&CI_RUN.st==='ok'&&CI_RUN.d.status==='completed'&&!(CI_RUN.d.jobs||[]).some(wantLog))return;
+  try{const r=await fetch('/ci-runs/'+encodeURIComponent(rt.repo)+'/'+rt.id+'.json',{cache:'no-store'});
+    if(CI_RUN.key!==key)return;
+    if(r.ok){CI_RUN.d=await r.json();CI_RUN.st='ok';CI_RUN.msg='';}else{CI_RUN.st=r.status===404?'missing':'error';CI_RUN.msg='HTTP '+r.status;}
+  }catch(e){if(CI_RUN.key!==key)return;CI_RUN.st='error';CI_RUN.msg=String(e.message||e);}
+  ciPaint();
+  if(CI_RUN.st!=='ok')return;
+  await Promise.all((CI_RUN.d.jobs||[]).filter(wantLog).map(async j=>{
+    if(!CI_LOGS[j.id]){CI_LOGS[j.id]={st:'loading'};ciPaint();}
+    try{const r=await fetch('/ci-logs/'+encodeURIComponent(rt.repo)+'/'+j.id+'.txt',{cache:'no-store'});
+      if(CI_RUN.key!==key)return;
+      CI_LOGS[j.id]=r.ok?{st:'ok',text:await r.text()}:r.status===404?{st:'none'}:{st:'error',msg:'HTTP '+r.status};
+    }catch(e){if(CI_RUN.key!==key)return;CI_LOGS[j.id]={st:'error',msg:String(e.message||e)};}
+    ciPaint();}));
+}
+document.getElementById('ci_tab')?.addEventListener('change',e=>{if(e.target.id!=='ci_f_repo'&&e.target.id!=='ci_f_concl')return;
+  location.hash=HubCi.listHref({page:1,repo:document.getElementById('ci_f_repo').value,concl:document.getElementById('ci_f_concl').value});});
 let PJ_KEY='',PJ_T=0;
 function projectsPage(force){const [,a,p,c,u]=location.hash.slice(1).split('/'),apps=HubProject.APPS,id=apps[a]?a:'cl';
   const period=HubProject.PERIODS[p]?p:'7d',compare=HubProject.COMPARES[c]&&(c!=='week'||period==='today')?c:'prev',aud=u==='beta'?'beta':'all',k=id+'/'+period+'/'+compare+'/'+aud;
@@ -1703,6 +1743,7 @@ function projectsPage(force){const [,a,p,c,u]=location.hash.slice(1).split('/'),
   HubProject.render(document.getElementById('pj_page'),HubProject.resolve(apps[id],UMAMI_SITES,HUB_OPERATOR_IDS),period,compare,PJ_SRC,aud);}
 function showTab(){const [h0,sb,mk,...mr]=location.hash.slice(1).split('/'),h=h0==='fleets'?'automation':h0,t=TABS.includes(h)?h:'overview',u=SUBS.includes(sb)?sb:'prod';
   if(t==='projects')projectsPage();
+  if(t==='ci'){ciPaint();ciRoute();}
   MODEL_ID=t==='spend'&&mk==='m'?decodeURIComponent(mr.join('/')):'';
   document.querySelectorAll('section.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));
   document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+t));

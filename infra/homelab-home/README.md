@@ -139,7 +139,32 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   or timed-out job red; a repo with half of 3 or more jobs failed red; a `ci.json` older than 15 min grey) and
   draws the tab from `ci.json`; the page computes nothing else. Tests: `test_ci.js` (the module, and the
   collector over `fixtures-ci/`, saved answers of the real API for the five repos, plus the job as a process
-  against a fake VictoriaMetrics); `test_page.js` checks the wiring in `gen.sh`.
+  against a fake VictoriaMetrics); `test_page.js` runs the tab's page code (routes, fetches, refresh, filters) and
+  checks the wiring in `gen.sh`.
+  - **The drill-down.** Cards at the top (as on Spend): runs, jobs, minutes on the X3 and on GitHub, success rate,
+    median queue wait, estimated GitHub minutes saved, each for today so far (against yesterday up to the same
+    time), yesterday, the last 7 days against the 7 before, and 30 days; a per-repo table; a card per runner
+    (state, the run it is on, jobs and minutes in 24 h; runners are per repo because `chipi` is a personal
+    account). The saved estimate is X3 minutes at $0.008 a minute (GitHub's Linux 2-core list price, `GH_RATE_USD_PER_MIN`);
+    wall-clock understates billed minutes (each job rounds up to a minute) and free minutes are not subtracted.
+    The success rate is succeeded of succeeded plus failed runs; cancelled runs are shown apart. Past runs are
+    paged client-side, 25 a page, over the last 30 days, filtered by repo and result; the page and filters live in
+    the hash (`#ci/runs/<page>/<repo>/<result>`), a run is `#ci/run/<repo>/<id>` (repo without `chipi/`).
+    Each run row links to our run page and, small, to GitHub's.
+  - **Files the job writes** next to `ci.json` (`www/`, tailnet-only like everything else, no new exposure):
+    `ci-state.json` (30 days of runs with their jobs, a ledger of finished jobs, the logs already fetched),
+    `ci-runs/<repo>/<run_id>.json` (run header, jobs, steps; written when the run is read, pruned with the 30 days;
+    about 9 KB a run), `ci-logs/<repo>/<job_id>.txt` (ANSI codes stripped, the last 600 lines plus every
+    `##[error]` line from before them with its line number, up to 50; lines cut at 2000 characters). Logs are fetched
+    once per finished job (`GET actions/jobs/<id>/logs`, a redirect followed without the token), for the newest 200
+    jobs only, at most 40 a collection; a log not yet fetched says so on the run page; files of jobs that leave the
+    newest 200 are deleted. A 404 within an hour of the job ending is retried, later it is given up on.
+  - **API budget.** Runs: up to 4 pages of 100 per repo while they are inside 30 days; jobs of a run once (at most
+    100 first reads per repo per collection, so a first run backfills 30 days over a few runs); open runs every time.
+    Logs as above. `ci.json` lists at most 1000 runs (~0.7 MB); the history is only as old as the collector's reads.
+  - **Fixtures** (`fixtures-ci/`) are `gh api` GETs of 2026-11-26 trimmed to the fields used (runs: sha, first
+    line of the commit message, actor; jobs: steps), plus two real job logs (`log-<repo>-<job>.txt`, GitHub-masked,
+    one CI-only database password replaced by `***`).
   - **What it reads** (GET only, `api.github.com`), for `chipi/closelistening-studio`, `-common`, `-player`,
     `-integration` and `chipi/infra` (override: `HUB_CI_REPOS`, comma list):
     `actions/runners` (name, status, busy, labels; the machine is the label that is not
@@ -147,7 +172,7 @@ chart/badge deep-links to the matching Grafana dashboard or service.
     run that is queued, running or finished in the last 24 h (queue wait = started - created, duration =
     completed - started, `where` = self-hosted if the job's labels say so). A finished run's jobs are read once
     and kept in `www/ci-state.json`, which also keeps a ledger of finished jobs for 30 days: the 30 d minutes
-    count from the collector's first run, not from GitHub's history.
+    count from the 30 days of runs the collector read (it backfills the newest runs on its first collections).
   - **Token: the assistant's read-only token**, `~/assistant-github-readonly.env` (`GITHUB_TOKEN=...`, the
     same file `hub-sources.js` reads for Issues; override `HUB_CI_TOKEN_FILE`). No new file. That token must
     also cover the five repos with **Actions: Read** (runs and jobs) and **Administration: Read** (the

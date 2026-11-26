@@ -209,6 +209,61 @@ const check = (name, cond, detail) => {
     check('gen.sh: mobile first (a row stacks by default, one line from 641 px)', /\.slo-row\{[^}]*flex-direction:column/.test(src) && /@media\(min-width:641px\)\{\s*\.slo-row\{display:grid/.test(src));
   }
 
+  // 8. CI tab: the page's own code (routes, the run page's fetches, the 30 s refresh) over a stub DOM and fetch
+  {
+    console.log('scenario: CI tab (list, run page, logs, refresh, filters)');
+    const HubCi = require('./hub-ci.js'), JOB = require('./ci-job.js');
+    const FX = path.join(__dirname, 'fixtures-ci'), CNOW = Date.parse('2026-11-26T22:03:00Z') / 1000;
+    const repos = ['chipi/closelistening-studio', 'chipi/closelistening-common', 'chipi/closelistening-player', 'chipi/closelistening-integration', 'chipi/infra'];
+    const col = await JOB.collect({ api: JOB.fixtureApi(FX), now: CNOW, repos, state: JOB.emptyState() });
+    const rid = 45889548679, det = Object.values(col.details).find(d => d.repo.endsWith('closelistening-common') && d.id === rid) || Object.values(col.details).find(d => d.repo.endsWith('closelistening-common'));
+    const jid = det.jobs[0].id, logText = '# ci-log: 3 lines in the full log; all kept\nok\n##[error]<b>bad</b>\n';
+    const mCi = src.match(/let CI_DOC=null,CI_LOADED[\s\S]*?location\.hash=HubCi\.listHref\(\{[^\n]*\}\);\}\);/);
+    check('gen.sh: the CI page code is in the page', !!mCi);
+    const mk = (hash, o) => {
+      o = o || {};
+      const els = {}, calls = [], handlers = {}, loc = { hash };
+      const el = id => els[id] || (els[id] = { id, innerHTML: '', value: '', addEventListener: (t, f) => { handlers[t] = f; }, querySelectorAll: () => [] });
+      const document = { getElementById: el };
+      const fetchStub = async u => {
+        calls.push(u);
+        if (u === '/ci.json') return { ok: true, json: async () => col.doc };
+        if (u === '/ci-runs/' + det.repo.split('/').pop() + '/' + det.id + '.json') return o.noRun ? { ok: false, status: 404 } : { ok: true, json: async () => det };
+        const lm = u.match(/^\/ci-logs\/[^/]+\/(\d+)\.txt$/);
+        if (lm) return +lm[1] === jid ? { ok: true, text: async () => logText } : { ok: false, status: 404 };
+        throw new Error('unexpected ' + u);
+      };
+      const win = { scrollTo: () => calls.push('scrollTo') };
+      const ctx = new Function('document', 'fetch', 'location', 'Date', 'HubCi', 'window', mCi[0] + '\nreturn {ciTab,ciRoute,ciPaint};')(document, fetchStub, loc, { now: () => CNOW * 1000 + 60000, parse: Date.parse }, HubCi, win);
+      return { els, calls, handlers, loc, ctx };
+    };
+    let t = mk('#ci/run/' + det.repo.split('/').pop() + '/' + det.id);
+    t.ctx.ciPaint();
+    check('ci page: nothing is drawn before ci.json has been read (no flash of "missing")', t.els.ci_tab === undefined || t.els.ci_tab.innerHTML === '');
+    await t.ctx.ciTab();
+    const h1 = t.els.ci_tab.innerHTML;
+    check('ci page: the run page opens from the hash, fetches its file and the finished jobs\' logs once each', t.calls.filter(c => /^\/ci-runs\//.test(c)).length === 1 && t.calls.filter(c => /^\/ci-logs\//.test(c)).length === det.jobs.filter(j => j.status === 'completed' && j.conclusion !== 'skipped').length, t.calls);
+    check('ci page: the run page shows the job, its steps, the log with the ##[error] line marked and escaped, and the job without a log says so', /All runs/.test(h1) && />Steps</.test(h1) && /class="ln err">##\[error\]&lt;b&gt;bad&lt;\/b&gt;/.test(h1) && !/<b>bad<\/b>/.test(h1) && (det.jobs.length === 1 || /not fetched yet/.test(h1)), h1.slice(0, 200));
+    check('ci page: the route scrolls to the top once', t.calls.filter(c => c === 'scrollTo').length === 1);
+    const before = t.calls.length;
+    await t.ctx.ciTab(); await t.ctx.ciTab();
+    check('ci page: the refresh re-reads ci.json only: a finished run and its logs are not fetched again, and the page is unchanged', t.calls.slice(before).every(c => c === '/ci.json' || c === 'scrollTo') && t.els.ci_tab.innerHTML === h1, t.calls.slice(before));
+    check('ci page: the refresh does not scroll the page again', t.calls.filter(c => c === 'scrollTo').length === 1);
+    t = mk('#ci/run/' + det.repo.split('/').pop() + '/' + det.id, { noRun: true });
+    await t.ctx.ciTab();
+    check('ci page: a run with no detail file says so and links to GitHub, no log is asked for', /No detail for run/.test(t.els.ci_tab.innerHTML) && /Open it on GitHub/.test(t.els.ci_tab.innerHTML) && !t.calls.some(c => /^\/ci-logs\//.test(c)));
+    t = mk('#ci/runs/2/infra/failure');
+    await t.ctx.ciTab();
+    check('ci page: a filtered, paged list route is drawn from the hash, with no run or log fetch', /<option value="infra" selected>/.test(t.els.ci_tab.innerHTML) && /<option value="failure" selected>/.test(t.els.ci_tab.innerHTML) && !t.calls.some(c => /^\/ci-(runs|logs)\//.test(c)), t.calls);
+    t.els.ci_f_repo = { id: 'ci_f_repo', value: 'closelistening-player' }; t.els.ci_f_concl = { id: 'ci_f_concl', value: 'cancelled' };
+    t.handlers.change({ target: t.els.ci_f_concl });
+    check('ci page: changing a filter puts the page, repo and result in the hash (page 1), so reload and back keep them', t.loc.hash === '#ci/runs/1/closelistening-player/cancelled', t.loc.hash);
+    t.loc.hash = '#ci';
+    t.handlers.change({ target: { id: 'something_else' } });
+    check('ci page: other changes in the tab are ignored', t.loc.hash === '#ci');
+    check('gen.sh: the run page and log fetches, the hash routes, the select handler and the tab hook', /fetch\('\/ci-runs\/'/.test(src) && /fetch\('\/ci-logs\/'/.test(src) && /if\(t==='ci'\)\{ciPaint\(\);ciRoute\(\);\}/.test(src) && /div\.card\.ci\{/.test(src) && /pre\.ci-log\{[^}]*overflow:auto/.test(src) && /@media\(max-width:640px\)\{[^]*div\.card\.ci\{flex:0 0 calc\(50% - 4px\)/.test(src));
+  }
+
   if (failures) { console.log('TEST_PAGE FAIL (' + failures + ')'); process.exit(1); }
   console.log('TEST_PAGE PASS');
 })();
