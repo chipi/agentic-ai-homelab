@@ -46,8 +46,13 @@ fi
 # web/.e2e-corpus, and the next job's e2e web server "exited early" (studio main, 2026-11-25). The
 # job-completed hook marks the job done; once its worker has exited, the runner stops cleanly and
 # systemd starts a fresh container (Restart=always). The registration survives in the state volume.
-printf '#!/bin/sh\ntouch /tmp/.job-done\n' > /tmp/job-done.sh && chmod 755 /tmp/job-done.sh
+printf '#!/bin/sh\ntouch /tmp/.job-done\nrm -f "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-done.sh && chmod 755 /tmp/job-done.sh
 export ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/tmp/job-done.sh
+# .job-running in the work folder (a host path) tells sync.sh this runner has a job, beside its process
+# check: sync.sh restarted player-1 2 min into a job it judged idle (2026-11-26 22:42Z). The folder is
+# emptied at every start, so a job killed mid-run leaves no stale marker.
+printf '#!/bin/sh\ntouch "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-start.sh && chmod 755 /tmp/job-start.sh
+export ACTIONS_RUNNER_HOOK_JOB_STARTED=/tmp/job-start.sh
 chown runner:runner .runner .credentials .credentials_rsaparams
 AS_RUNNER ./run.sh & pid=$!
 while kill -0 "$pid" 2>/dev/null; do
