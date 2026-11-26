@@ -93,6 +93,9 @@ shell_allowlist_extra = [
     "long-job.sh",
     "run.sh",
     "scp",
+    "bsdtar",
+    "taskset",
+    "nice",
 ]
 
 [cloud]
