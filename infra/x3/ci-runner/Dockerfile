@@ -7,4 +7,9 @@ USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends build-essential pkg-config wget zip xz-utils zstd file rsync \
  && rm -rf /var/lib/apt/lists/*
+# setup-python's prebuilt Pythons find libpython through a RUNPATH fixed at /opt/hostedtoolcache;
+# in the runner's default _work/_tool a Python started without LD_LIBRARY_PATH exits 127 (common's
+# test_the_image_script_writes_the_record, run 45806431765 attempt 2).
+ENV AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache RUNNER_TOOL_CACHE=/opt/hostedtoolcache
+RUN install -d -o runner -g runner /opt/hostedtoolcache
 USER runner
