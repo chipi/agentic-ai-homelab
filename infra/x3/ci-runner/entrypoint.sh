@@ -28,7 +28,13 @@ export ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/tmp/job-done.sh
 while kill -0 "$pid" 2>/dev/null; do
   if [ -f /tmp/.job-done ] && ! pgrep -f Runner.Worker >/dev/null; then
     echo "job finished: stopping for a fresh container"
-    kill -INT "$pid"; wait "$pid"; exit 0
+    # Not SIGINT to run.sh: bash ignores SIGINT in a background job, run.sh and the listener inherit
+    # that, and the runner went on to take the next job in the same container (common main,
+    # 2026-11-26). The listener ends its session on SIGTERM. Then exit whatever happened: this is
+    # PID 1, so the container stops and systemd starts a fresh one.
+    pkill -TERM -f Runner.Listener
+    for _ in $(seq 30); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+    exit 0
   fi
   sleep 2
 done
