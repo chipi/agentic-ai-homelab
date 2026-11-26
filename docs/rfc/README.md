@@ -44,3 +44,4 @@ landed on an answer.
 - [RFC-0008 — A local assistant on the X3, and the X3 as a deployment surface](RFC-0008-x3-local-assistant.md) — *Proposed*
 - [RFC-0009 — Service levels: SLIs and SLOs for every service, shown on the Hub](RFC-0009-service-slos.md) — *Proposed*
 - [RFC-0010 — What n8n is for on the homelab, and which flows to build](RFC-0010-n8n-flows.md) — *Accepted*
+- [RFC-0011 — A self-hosted CI runner fleet across the homelab, with a CI view in the hub](RFC-0011-ci-runner-fleet.md) — *Proposed*

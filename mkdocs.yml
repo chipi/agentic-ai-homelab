@@ -143,6 +143,7 @@ nav:
     - RFC-0008 — Local assistant on the X3: rfc/RFC-0008-x3-local-assistant.md
     - RFC-0009 — Service levels (SLIs and SLOs): rfc/RFC-0009-service-slos.md
     - RFC-0010 — What n8n is for, and which flows: rfc/RFC-0010-n8n-flows.md
+    - RFC-0011 — A self-hosted CI runner fleet, with a CI view in the hub: rfc/RFC-0011-ci-runner-fleet.md
   - In progress:
     - Overview: wip/README.md
     - Next steps: wip/NEXT_STEPS.md
