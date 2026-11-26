@@ -1,0 +1,50 @@
+# The second brain's Slack bridge on the mini's production engine (RFC-0010 amendment A4; README "Second brain agent (n8n only)").
+# Slack Socket Mode in, one signed POST to n8n's webhook out. It runs bridge.js in n8n's own image (the same pinned tag as ../docker-compose.yml:
+# Node's built-in WebSocket and fetch, no npm package, no build). Start the n8n stack first: it creates the two networks joined here.
+#   sbbridge   n8n and this bridge only (internal): the bridge reaches http://n8n:5678/webhook/second-brain-mention, nothing else.
+#   n8n_egress n8n's egress proxy (Smokescreen): the bridge's only way out; slack.com and *.slack.com are in ../egress/acl.yaml.
+# Secrets (mode 600, never in git, only their paths are in this file): ~/n8n/sb-bridge/slack-app.token (the app-level token, xapp-..., scope
+# connections:write) and ~/n8n/sb-bridge/hook.secret (the HMAC secret, the same file install-sb-agent.sh reads as SB_BRIDGE_SECRET_FILE).
+#   cd infra/n8n/sb-bridge && docker compose up -d
+name: sb-bridge
+services:
+  sb-bridge:
+    image: docker.n8n.io/n8nio/n8n:2.48.7
+    container_name: sb-bridge
+    restart: unless-stopped
+    entrypoint: ["node", "/app/bridge.js"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    cpus: 0.25
+    environment:
+      SLACK_APP_TOKEN_FILE: /run/sb/slack-app.token
+      SB_HOOK_SECRET_FILE: /run/sb/hook.secret
+      SB_HOOK_URL: http://n8n:5678/webhook/second-brain-mention
+      NODE_USE_ENV_PROXY: "1"        # fetch and the WebSocket go through the proxy (CONNECT); n8n itself is on NO_PROXY
+      HTTP_PROXY: http://egress:4750
+      HTTPS_PROXY: http://egress:4750
+      NO_PROXY: n8n,localhost,127.0.0.1
+    volumes:
+      - ./bridge.js:/app/bridge.js:ro
+      - ${HOME}/n8n/sb-bridge/slack-app.token:/run/sb/slack-app.token:ro
+      - ${HOME}/n8n/sb-bridge/hook.secret:/run/sb/hook.secret:ro
+    networks: [sbbridge, egress]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/healthz').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+networks:
+  sbbridge:
+    external: true
+    name: sbbridge
+  egress:
+    external: true
+    name: n8n_egress

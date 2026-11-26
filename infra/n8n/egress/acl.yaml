@@ -14,3 +14,5 @@ default:
     - docs.googleapis.com
     # case 1 (2026-11-26, RFC-0010 A3): Slack, the #ask channel read once a minute and the approved reply posted in its thread
     - slack.com
+    # second brain (2026-11-26, RFC-0010 A4): Slack Socket Mode, the bridge opens a wss connection to wss-primary.slack.com (and wss-backup)
+    - "*.slack.com"
