@@ -8,7 +8,9 @@ Requires=docker@%i.service
 
 [Service]
 Environment=DOCKER_HOST=unix://%t/e-%i/docker.sock
-Environment=IMAGE=ghcr.io/actions/actions-runner:2.338.2
+Environment=IMAGE=ci-runner:2.338.2-1
+# The image is built from ~/ci-runner/image/Dockerfile, once per engine; later starts find it.
+ExecStartPre=/bin/sh -c 'docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" %h/ci-runner/image'
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
 # Root in the container is gh-runner on the X3 (rootless), so the runner may run as root; that is
 # also what lets it open the engine's socket. --network host is the engine's own network, where a
@@ -24,6 +26,8 @@ ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo
 ExecStop=/usr/bin/docker stop -t 60 ci-runner-%i
 Restart=always
 RestartSec=10
+# The first start of an engine pulls the base image and builds (a few minutes).
+TimeoutStartSec=15min
 # 3: not registered yet (entrypoint.sh); restarting would not help.
 RestartPreventExitStatus=3
 
