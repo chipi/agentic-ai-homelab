@@ -43,29 +43,17 @@ if [ -n "${RUNNER_WORK:-}" ]; then
   if [ -n "${TMPDIR:-}" ]; then install -d -m 1777 "$TMPDIR"; fi
 fi
 # One job per container, as on GitHub's VMs: a job left its API server on its port, or its
-# web/.e2e-corpus, and the next job's e2e web server "exited early" (studio main, 2026-11-25). The
-# job-completed hook marks the job done; once its worker has exited, the runner stops cleanly and
-# systemd starts a fresh container (Restart=always). The registration survives in the state volume.
-printf '#!/bin/sh\ntouch /tmp/.job-done\nrm -f "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-done.sh && chmod 755 /tmp/job-done.sh
-export ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/tmp/job-done.sh
+# web/.e2e-corpus, and the next job's e2e web server "exited early" (studio main, 2026-11-25). With
+# --once the listener takes one job, leaves any later job request for another runner, and exits when
+# the job ends; systemd then starts a fresh container (Restart=always). The registration survives in
+# the state volume. It replaces a SIGTERM to the listener after the job-completed hook: the listener
+# was by then taking the next job, which GitHub lost 10 minutes later ("lost communication with the
+# server": player-1 22:39:55Z and player-2 22:57:21Z, 2026-11-26).
 # .job-running in the work folder (a host path) tells sync.sh this runner has a job, beside its process
-# check: sync.sh restarted player-1 2 min into a job it judged idle (2026-11-26 22:42Z). The folder is
-# emptied at every start, so a job killed mid-run leaves no stale marker.
+# check. The folder is emptied at every start, so a job killed mid-run leaves no stale marker.
+printf '#!/bin/sh\nrm -f "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-done.sh && chmod 755 /tmp/job-done.sh
+export ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/tmp/job-done.sh
 printf '#!/bin/sh\ntouch "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-start.sh && chmod 755 /tmp/job-start.sh
 export ACTIONS_RUNNER_HOOK_JOB_STARTED=/tmp/job-start.sh
 chown runner:runner .runner .credentials .credentials_rsaparams
-AS_RUNNER ./run.sh & pid=$!
-while kill -0 "$pid" 2>/dev/null; do
-  if [ -f /tmp/.job-done ] && ! pgrep -f Runner.Worker >/dev/null; then
-    echo "job finished: stopping for a fresh container"
-    # Not SIGINT to run.sh: bash ignores SIGINT in a background job, run.sh and the listener inherit
-    # that, and the runner went on to take the next job in the same container (common main,
-    # 2026-11-26). The listener ends its session on SIGTERM. Then exit whatever happened: this is
-    # PID 1, so the container stops and systemd starts a fresh one.
-    pkill -TERM -f Runner.Listener
-    for _ in $(seq 30); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
-    exit 0
-  fi
-  sleep 2
-done
-wait "$pid"
+exec setpriv --reuid=runner --regid=runner --init-groups env HOME=/home/runner USER=runner ./run.sh --once

@@ -52,8 +52,7 @@ for u in $(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' |
   { read -r have_r have_e < "$CR/applied/$i"; } 2>/dev/null || { have_r=""; have_e=""; }
   [ "$have_r $have_e" = "$runner_v $engine_v" ] && continue
   if [[ $busy == *" $i "* ]]; then log "$i has a job: restart later"; continue; fi
-  # entrypoint.sh's job-started hook: a job is running even when the process check above misses it
-  # (sync.sh restarted player-1 two minutes into a job, 2026-11-26 22:42Z).
+  # entrypoint.sh's job-started hook: a job is running even when the process check above misses it.
   if [ -e "$CR/work/$i/.job-running" ]; then log "$i has a job (marker): restart later"; continue; fi
   # A job the runner takes in the moment between the check above and the restart is still lost.
   if [ "$have_e" != "$engine_v" ]; then systemctl --user restart "docker@$i.service" || { log "FAIL restart docker@$i"; continue; }; fi

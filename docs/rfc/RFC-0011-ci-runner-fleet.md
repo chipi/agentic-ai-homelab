@@ -37,7 +37,7 @@ the unit:
 |---|---|
 | `make` and build tools missing | `build-essential`, `pkg-config` and others in the image |
 | setup-python's prebuilt Pythons find libpython through a RUNPATH fixed at `/opt/hostedtoolcache` | `AGENT_TOOLSDIRECTORY` and `RUNNER_TOOL_CACHE` set to it, the folder created in the image |
-| one job per container: a job's leftovers broke the next job; the listener ignored SIGINT | the entrypoint stops the listener with SIGTERM after the job-completed hook; systemd starts a fresh container |
+| one job per container: a job's leftovers broke the next job; the listener ignored SIGINT; a SIGTERM after the job lost the next job it was taking | the listener runs with `--once` and exits after its job; systemd starts a fresh container |
 | no Chrome | not added; lighthouse now uses Playwright's Chromium |
 | no `docker compose` plugin | v5.8.0 added to the image, checksum-pinned |
 | bind mounts from the checkout and from `mktemp` name host paths the engine must find | the work folder is mounted at the same path on host and in container; `TMPDIR` is inside it |
