@@ -64,13 +64,15 @@ for i in $(seq 20); do [ -S "/run/user/$UID_R/bus" ] && break; sleep 0.5; done
 
 step "units and runner files in $HOMEDIR"
 UD="$HOMEDIR/.config/systemd/user"
-install -d -m 755 -o "$U" -g "$U" "$HOMEDIR/.config" "$HOMEDIR/.config/systemd" "$UD" "$HOMEDIR/ci-runner"
+install -d -m 755 -o "$U" -g "$U" "$HOMEDIR/.config" "$HOMEDIR/.config/systemd" "$UD" "$HOMEDIR/ci-runner" "$HOMEDIR/ci-runner/image"
 runner_changed=""
 for f in docker@.service ci-runner@.service; do cmp -s "$CR/$f" "$UD/$f" || runner_changed=1; done
 cmp -s "$CR/entrypoint.sh" "$HOMEDIR/ci-runner/entrypoint.sh" || runner_changed=1
+cmp -s "$CR/Dockerfile" "$HOMEDIR/ci-runner/image/Dockerfile" || runner_changed=1
 install -m 644 -o "$U" -g "$U" "$CR/docker@.service" "$CR/ci-runner@.service" "$UD/"
 install -m 755 -o "$U" -g "$U" "$CR/entrypoint.sh" "$HOMEDIR/ci-runner/entrypoint.sh"
-ok "docker@.service, ci-runner@.service, entrypoint.sh"
+install -m 644 -o "$U" -g "$U" "$CR/Dockerfile" "$HOMEDIR/ci-runner/image/Dockerfile"
+ok "docker@.service, ci-runner@.service, entrypoint.sh, image/Dockerfile"
 
 UC() { systemctl --user -M "$U@" "$@"; }
 # AS <instance> <command…>: a command as gh-runner against that instance's engine.

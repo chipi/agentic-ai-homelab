@@ -9,6 +9,7 @@ when it arrives.
 | `../x3-ci-runner-setup.sh` | as root, once: the packages, the `gh-runner` user, the cap, its rootless engine, a smoke test |
 | `docker@.service` | one rootless Docker engine per runner (user unit), e.g. `docker@closelistening-studio-1`; publishes no port on the X3 |
 | `ci-runner@.service` | one runner container per instance (user unit), e.g. `ci-runner@closelistening-studio-1` |
+| `Dockerfile` | the runner image: GitHub's `actions-runner` plus the tools GitHub's VMs have and it lacks (make, gcc, zstd …); each engine builds it on its first start |
 | `entrypoint.sh` | inside the container: restore or make the registration, then run |
 | `register.sh` | as root, per runner: write its settings, hand it a registration token, start it |
 | `dockerd-rootless.sh` | Docker's own script, moby `docker-v29.7.2`, checksum-pinned in the setup |
@@ -29,7 +30,9 @@ sudo bash ~/deploy/agentic-ai-homelab/infra/x3/ci-runner/register.sh <repo> 1 <f
 - Status: `sudo systemctl --user -M gh-runner@ status 'ci-runner@*'`; the runner's log:
   `sudo -u gh-runner env XDG_RUNTIME_DIR=/run/user/$(id -u gh-runner) DOCKER_HOST=unix:///run/user/$(id -u gh-runner)/e-<instance>/docker.sock docker logs ci-runner-<instance>`.
 - The cap: `systemctl show user-$(id -u gh-runner).slice -p CPUQuotaPerSecUSec -p MemoryMax`.
-- A new runner image: change `IMAGE` in `ci-runner@.service`, rerun the setup, restart the instances.
+- A new runner image: change the `FROM` in `Dockerfile` and the tag in `IMAGE` (`ci-runner@.service`), then
+  rerun the setup; it restarts the instances and each engine builds the new tag on its next start. A
+  changed Dockerfile needs a new tag too, or the engines keep the image they built.
 - The runner does not update itself (`--disableupdate`); GitHub refuses runners that fall too far
   behind, so bump the image when it says so.
 
