@@ -176,4 +176,26 @@ reset; rm -f "$FAKE/ollama-active"
 "$SWAP" prod >/dev/null 2>&1; rc=$?
 [[ $rc == 0 && "$(vllms)" == "vllm-prod-vllm vllm-translate " && ! -f "$FAKE/ollama-active" ]] \
     && pass "research-ollama -> prod: both back, ollama stopped" || bad "back to prod: rc=$rc vllms='$(vllms)'"
+# --- robotics: the training checkout is the project the stack's .env names (2026-11-26) ---
+mkdir -p "$T/stacks/robotics" "$T/robotics"
+echo robotics-train >"$T/stacks/robotics/.svc"
+export GPU_MODE_ROBOTICS_DIR="$T/stacks/robotics" GPU_MODE_ROBOTICS_ROOT="$T/robotics"
+# 15. .env names microduck-nav, no checkout of it: exit 3 naming that project; nothing stopped or started
+reset; "$SWAP" prod >/dev/null 2>&1; rm -f "$FAKE/calls"
+mkdir -p "$T/robotics/microduck_rl/.git"
+echo 'ROBOTICS_PROJECT=microduck-nav' >"$T/stacks/robotics/.env"
+out="$("$SWAP" robotics 2>&1)"; rc=$?
+[[ $rc == 3 ]] && grep -q 'no training checkout at .*/microduck-nav' <<<"$out$(cat "$T/state/last.log")" && ! grep -q 'compose' "$FAKE/calls" 2>/dev/null \
+    && pass "robotics: missing microduck-nav checkout refused (exit 3), prod untouched" || bad "robotics nav missing: rc=$rc calls=$(tr '\n' ';' <"$FAKE/calls" 2>/dev/null)"
+# 16. its checkout present: the training stack runs, no vLLM left
+mkdir -p "$T/robotics/microduck-nav/.git"
+"$SWAP" robotics >/dev/null 2>&1; rc=$?
+[[ $rc == 0 && -z "$(vllms)" && -f "$FAKE/containers/robotics-train" && "$(lastline)" == "MODE=robotics OK" ]] \
+    && pass "robotics with microduck-nav: robotics-train up, no vLLM" || bad "robotics nav: rc=$rc vllms='$(vllms)' last='$(lastline)'"
+# 17. no ROBOTICS_PROJECT in .env: microduck_rl, as before there were two projects
+reset; rm -rf "$T/robotics/microduck-nav"
+echo 'ROBOTICS_MAX_RUNTIME=30m' >"$T/stacks/robotics/.env"
+"$SWAP" robotics >/dev/null 2>&1; rc=$?
+[[ $rc == 0 && -f "$FAKE/containers/robotics-train" && "$(lastline)" == "MODE=robotics OK" ]] \
+    && pass "robotics without ROBOTICS_PROJECT: microduck_rl as before" || bad "robotics default: rc=$rc last='$(lastline)'"
 (( FAILS == 0 )) && echo "ALL PASS" || { echo "$FAILS FAILED"; exit 1; }

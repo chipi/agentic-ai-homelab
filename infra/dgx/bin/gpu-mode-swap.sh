@@ -941,8 +941,13 @@ action_robotics() {
         ((JSON)) && emit_json robotics true || true
         return 0
     fi
-    [[ -d "$ROBOTICS_ROOT/microduck_rl/.git" ]] \
-        || fail 3 "no training checkout at $ROBOTICS_ROOT/microduck_rl: run infra/robotics/microduck/prepare.sh as ops first"
+    # The project the stack's .env names (ROBOTICS_PROJECT; docker-compose.yml's default otherwise).
+    local project
+    project=$( { sed -n 's/^ROBOTICS_PROJECT=//p' "$ROBOTICS_DIR/.env" 2>/dev/null || true; } | tail -1 | tr -d "\"'")
+    project="${project:-microduck_rl}"
+    [[ -d "$ROBOTICS_ROOT/$project/.git" ]] \
+        || fail 3 "no training checkout at $ROBOTICS_ROOT/$project: run infra/robotics/microduck/prepare.sh $project <REF> as ops first"
+    log "robotics project: $project"
     log "→ robotics (current: $current)"
     local apps_before; apps_before=$(gpu_compute_app_count)
     stop_all_composes_including_translate "$ROBOTICS_DIR"
