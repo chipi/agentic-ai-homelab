@@ -46,9 +46,12 @@ if [ "${1:-}" != up ]; then
   out="$(dc run --rm -T sync < "$KEYS/content_deploy_key" 2>&1)" || fail "sync: $(tail2 "$out")"
   sha="$(sed -n 's/^SHA=//p' <<<"$out")"
   [ -n "$sha" ] || fail "sync printed no commit"
+  # A paper that will not fetch is skipped and retried next run; it never fails the step (operator,
+  # 2026-11-26: one rate-limited PDF of 291 kept the first index from ever serving). Its count is in
+  # the step's metrics file. The step still fails on its own errors.
   for step in fetch fulltext; do
     # shellcheck disable=SC2086  # SB_BATCH_ARGS is word-split on purpose (e.g. "--limit 3" for a test run)
-    out="$(dc run --rm -T batch "$step" --content /content --data /data --metrics-file "/out/$step.prom" ${SB_BATCH_ARGS:-} 2>&1)" \
+    out="$(dc run --rm -T batch "$step" --content /content --data /data --metrics-file "/out/$step.prom" --max-failed-share 1 ${SB_BATCH_ARGS:-} 2>&1)" \
       || fail "$step at ${sha:0:7}; the previous index still serves: $(tail2 "$out")"
   done
   out="$(dc run --rm -T batch build --content /content --data /data --version "${sha:0:7}" --metrics-file /out/build.prom 2>&1)" \
