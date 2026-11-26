@@ -136,7 +136,7 @@
      0
     ],
     "parameters": {
-     "jsCode": "// the reply is kept by its delivery id in this workflow's static data once Slack took it: a re-send finds it and posts nothing\nconst c = $input.first().json, sd = $getWorkflowStaticData('global');\nconst done = (sd.sent || {})[c.delivery];\nif (c.mode === 'status') return [{ json: { post: false, code: 200, response: done ? { done: true, ref: done.ref } : { done: false } } }];\nif (done) return [{ json: { post: false, code: 200, response: { ref: done.ref } } }];\nreturn [{ json: { post: true, delivery: c.delivery, request: { channel: 'C0CM2K87SR1', thread_ts: c.thread, text: c.text, unfurl_links: false, unfurl_media: false } } }];"
+     "jsCode": "// the reply is kept by its delivery id in this workflow's static data once Slack took it: a re-send finds it and posts nothing\nconst c = $input.first().json, sd = $getWorkflowStaticData('global');\nconst done = (sd.sent || {})[c.delivery];\nif (c.mode === 'status') return [{ json: { post: false, code: 200, response: done ? { done: true, ref: done.ref } : { done: false } } }];\nif (done) return [{ json: { post: false, code: 200, response: { ref: done.ref } } }];\n// a broadcast (<!channel>, <!here>, <!everyone>, <!subteam^...>) is shown as text, never sent: the answer is built from documents anyone can edit\nconst text = c.text.replace(/<!/g, '&lt;!');\nreturn [{ json: { post: true, delivery: c.delivery, request: { channel: 'C0CM2K87SR1', thread_ts: c.thread, text, unfurl_links: false, unfurl_media: false } } }];"
     }
    },
    {

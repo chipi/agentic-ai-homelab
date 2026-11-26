@@ -261,7 +261,9 @@ Slack's Events API is not used: the question flow **polls**. Built and proven on
 - The request is what `plumbing/call.py` sends: `{mode: send|status, action: "plumbing.reply", case_id, plan_hash, params}`;
   `params` are `channel` (only `general`, mapped to `C0CM2K87SR1`; anything else is 400), `thread` (a Slack ts,
   `^[0-9]{1,20}\.[0-9]{1,10}$`) and `text` (1 to 3000 characters). The post is `chat.postMessage` with `channel`, `thread_ts`,
-  `text`, `unfurl_links: false`, `unfurl_media: false`. A bad signature or a timestamp more than 5 minutes off is 401.
+  `text`, `unfurl_links: false`, `unfurl_media: false`; every `<!` in the text is sent as `&lt;!`, so a broadcast
+  (`<!channel>`, `<!here>`, `<!everyone>`, a group) shows as text and pings nobody. A bad signature or a timestamp more
+  than 5 minutes off is 401.
 - **Idempotence** is per delivery id (flotilla's `plan-<hash>`): after Slack accepts a post, the delivery id and its ref
   (`Slack #ask thread <thread>, reply <ts>`) are kept in the flow's static data (the newest 1000). A re-send answers the same
   ref and posts nothing; `status` answers `{done: true, ref}` for a delivery in that store, else `{done: false}`, which is what

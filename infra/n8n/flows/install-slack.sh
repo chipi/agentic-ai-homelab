@@ -23,22 +23,31 @@ case "$SLACK" in *[!A-Za-z0-9]*) echo "STOP: the credential id has an unexpected
 echo "Slack credential: $(q "select name from credentials_entity where id='$SLACK'")"
 cred() {  # id, name, secret file
   local f="$3"
-  [ -f "$f" ] || { echo "STOP: $f missing"; exit 1; }
-  echo "$2: file mode $(stat -c %a "$f" 2>/dev/null || stat -f %Lp "$f"), $(tr -d '[:space:]' < "$f" | wc -c | tr -d ' ') chars"
+  [ -s "$f" ] || { echo "STOP: $f missing or empty"; exit 1; }
+  local n; n=$(tr -d '[:space:]' < "$f" | wc -c | tr -d ' ')
+  echo "$2: file mode $(stat -c %a "$f" 2>/dev/null || stat -f %Lp "$f"), $n chars"
+  # an empty or short key would let anyone on the plumbing network sign a call
+  [ "$n" -ge 32 ] || { echo "STOP: $f holds $n characters, want 32 or more"; exit 1; }
   if [ -n "$(q "select 1 from credentials_entity where id='$1'")" ]; then echo "  exists, left as is"; return; fi
   local S; S=$(tr -d '[:space:]' < "$f")
   printf '[{"id":"%s","name":"%s","type":"crypto","data":{"hmacSecret":"%s"}}]' "$1" "$2" "$S" \
-    | docker exec -i n8n sh -c 'umask 077; cat > /tmp/c.json; n8n import:credentials --input=/tmp/c.json --userId='"$OWNER"' 2>&1 | grep -iE "success|error"; rm -f /tmp/c.json'
+    | docker exec -i n8n sh -c 'umask 077; cat > /tmp/c.json; n8n import:credentials --input=/tmp/c.json --userId='"$OWNER"' > /tmp/c.out 2>&1; s=$?; rm -f /tmp/c.json; grep -iE "success|error" /tmp/c.out; rm -f /tmp/c.out; exit $s' \
+    || { echo "STOP: importing $2 failed"; exit 1; }
   unset S
+  [ -n "$(q "select 1 from credentials_entity where id='$1'")" ] || { echo "STOP: $2 is not in n8n after the import"; exit 1; }
 }
 cred c1slackaskhook01 'flotilla ask hook (HMAC)' ~/flotilla/config/hooks/ask.secret
 cred c1slackreplycb01 'flotilla reply callback (HMAC)' ~/flotilla/config/plumbing/reply.secret
-docker exec n8n sh -c 'ls /tmp/c.json 2>/dev/null && echo "STOP: temp file left" || echo "temp credential file: gone"'
+docker exec n8n sh -c 'ls /tmp/c.json 2>/dev/null' && { echo "STOP: temp credential file left in the container"; exit 1; }
+echo "temp credential file: gone"
 for f in case1-slack-reply.json case1-slack-ask.json; do
   sed "s/__SLACK_CRED_ID__/$SLACK/g" "$f" \
-    | docker exec -i n8n sh -c 'cat > /tmp/w.json; n8n import:workflow --input=/tmp/w.json --userId='"$OWNER"' 2>&1 | grep -iE "success|error"; rm -f /tmp/w.json'
+    | docker exec -i n8n sh -c 'cat > /tmp/w.json; n8n import:workflow --input=/tmp/w.json --userId='"$OWNER"' > /tmp/w.out 2>&1; s=$?; rm -f /tmp/w.json; grep -iE "success|error" /tmp/w.out; rm -f /tmp/w.out; exit $s' \
+    || { echo "STOP: importing $f failed"; exit 1; }
 done
-docker exec n8n n8n publish:workflow --id=case1slackreply1 2>&1 | grep -viE "^$|deprecat|license|migration lock|postgres"
+P=$(docker exec n8n n8n publish:workflow --id=case1slackreply1 2>&1) || { printf '%s\n' "$P"; echo "STOP: publishing the reply flow failed"; exit 1; }
+printf '%s\n' "$P" | grep -viE "^$|deprecat|license|migration lock|postgres"
+[ "$(q "select active from workflow_entity where id='case1slackreply1'")" = t ] || { echo "STOP: the reply flow is not active after publishing"; exit 1; }
 echo "-- workflows (the question flow stays inactive until you publish it):"; q "select id, name, active from workflow_entity where id like 'case1slack%' order by id"
 echo "-- the reply callback URL flotilla's PLUMBING_REPLY_URL takes (as its network sees it): http://n8n:5678/webhook/flotilla-reply"
 echo "-- to start the question flow: docker exec n8n n8n publish:workflow --id=case1slackask001, (README)"

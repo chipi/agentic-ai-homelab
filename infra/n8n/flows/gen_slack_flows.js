@@ -168,7 +168,9 @@ const c = $input.first().json, sd = $getWorkflowStaticData('global');
 const done = (sd.sent || {})[c.delivery];
 if (c.mode === 'status') return [{ json: { post: false, code: 200, response: done ? { done: true, ref: done.ref } : { done: false } } }];
 if (done) return [{ json: { post: false, code: 200, response: { ref: done.ref } } }];
-return [{ json: { post: true, delivery: c.delivery, request: { channel: '${CHANNEL}', thread_ts: c.thread, text: c.text, unfurl_links: false, unfurl_media: false } } }];`),
+// a broadcast (<!channel>, <!here>, <!everyone>, <!subteam^...>) is shown as text, never sent: the answer is built from documents anyone can edit
+const text = c.text.replace(/<!/g, '&lt;!');
+return [{ json: { post: true, delivery: c.delivery, request: { channel: '${CHANNEL}', thread_ts: c.thread, text, unfurl_links: false, unfurl_media: false } } }];`),
   iff('Post?', '={{ $json.post }}'),
   respond('Answer'),
   { name: 'Post', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: pos(), credentials: CRED.slack, parameters: {
