@@ -46,6 +46,16 @@ On dgx-llm-1 (`ssh -o BatchMode=yes markodragoljevic@dgx-llm-1`):
     - At the cap (start + 180 min + 5 min), copy the run to `/work/microduck-nav-runs/m2bw/` and message
       robotics lab.
 
+## Progress
+
+- 17:42Z: M2c had exited 0 at 17:23:53Z (model_1499). Copied to `/work/microduck-nav-runs/m2c/`: 35 files,
+  88,765,508 bytes, matching the source, with the container log beside it.
+- 17:43:37Z: M2bw started (`logs/rsl_rl/microduck_nav_deploy_room/2026-11-27_17-43-37`). Iteration 10 took
+  23.18 s, so the run should end near 20:20Z. `room` is reset term 7; there are no "no room" lines.
+- **20:49Z (21:49 local, cron `49 21 27 11 *`): M2bw end.** Copy the run to `/work/microduck-nav-runs/m2bw/`
+  as for M2c (tar over ssh, the container log beside it as `m2bw-2026-11-27T1743Z.log`), check the file
+  count and byte sum, and message robotics lab. Swap nothing.
+
 ## 2. 22:37Z (23:37 local, cron `37 23 27 11 *`): swap the DGX to prod
 
 1. Confirm that M2c's folder was copied to `/work/microduck-nav-runs/m2c/`, and that nothing is still
