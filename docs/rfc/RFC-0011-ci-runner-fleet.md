@@ -327,6 +327,34 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
       the time, so the CPU-wait level (item 25) read 0.834 against 0.95. With 10 slots, more jobs would
       only slow each other; with 7 the rest wait for a slot. Giving CI more than 12 CPUs is the other way,
       left for the operator to decide from a few days of the CPU-wait level and the slot-wait alert.
+    - **Live the same evening:**
+      - 16 runners online on GitHub (the operator registered the six new ones).
+      - On a real job, player-3's docs (140697214710) waited 40 s, took `s-1`, and its completed hook ran
+        clean.
+      - Three fixes followed:
+        - The completed hook exits 0 when the job holds no slot (6546b5c).
+        - `wait/` is writable by the hook's user (dbe6d4c). Waits were not recorded before, and the
+          harness, run as one user, could not catch it.
+        - `x3_ci_slot_held{slot,runner}` shows which runner holds which slot.
+    - **Two jobs lost to the sync's update restart** (player #60: 140697214368 on player-1 and
+      140697214738 on player-4):
+      - Each container had just started and taken a job. 53 s later the sync restarted it as idle, and
+        GitHub declared the job lost 10 minutes after.
+      - Why neither the worker check nor the `.job-running` marker saw the jobs is not established. Both
+        most likely sat in the slot wait.
+      - Two guards since:
+        - no update restart of a container started under 10 minutes ago (80c284f): a container takes new
+          files at its next start anyway;
+        - none of a runner that holds or waits for a slot (25420b2).
+27. **npm's cache kept per runner** (2026-11-27). Lighthouse's setup-node took 78 s on player-4:
+    - Node came from the kept tool cache in under a second.
+    - The rest was restoring setup-node's 129 MB npm cache from GitHub's cache. npm's cache lived in the
+      container's HOME and was lost after each job.
+    - `npm_config_cache` now points at `$CI_CACHE/npm`, pruned as one entry.
+    - A workflow turns setup-node's cache off on the X3 (`cache: ${{ !startsWith(runner.name, 'x3-') &&
+      'npm' || '' }}`), asked of Player.
+    - The public checkout (230-317 s against about 19 s) is Player's to change: a shallow fetch, or a
+      kept mirror under `$CI_CACHE/git`.
 
 ## Non-goals
 
