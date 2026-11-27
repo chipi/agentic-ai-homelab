@@ -124,7 +124,11 @@ fi
 # x3-host.sh to push: the log folder is the one place both gh-runner and the operator's account reach.
 { if [ -d "$SL" ]; then
     now=$(date +%s); held=0; waiting=0; oldest=0
-    for d in "$SL"/[rs]-*; do [ -d "$d" ] && held=$((held + 1)); done
+    for d in "$SL"/[rs]-*; do
+      [ -d "$d" ] || continue
+      held=$((held + 1))
+      printf 'x3_ci_slot_held{box="x3",slot="%s",runner="%s"} 1\n' "$(basename "$d")" "$(cut -d' ' -f1 "$d/owner" 2>/dev/null)"
+    done
     for w in "$SL"/wait/*; do
       [ -f "$w" ] || continue
       waiting=$((waiting + 1)); a=$(( now - $(cat "$w") )); [ "$a" -gt "$oldest" ] && oldest=$a
