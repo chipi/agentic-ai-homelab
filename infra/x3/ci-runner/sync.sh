@@ -108,9 +108,33 @@ for s in /run/user/"$(id -u)"/e-*/docker.sock; do
     for id in $ids; do echo "$id $now"; done; } > "$f.tmp" && mv "$f.tmp" "$f"
 done
 
+# Job slots (entrypoint.sh, RFC-0011 item 26). A runner frees its own slot at its next start; a slot whose
+# runner unit is no longer active (a runner removed, or stopped for good) is freed here.
+SL="$CR/slots"
+if [ -d "$SL" ]; then
+  for o in "$SL"/*/owner; do
+    [ -f "$o" ] || continue
+    r=$(cut -d' ' -f1 "$o"); i=${r#x3-}
+    systemctl --user is-active -q "ci-runner@$i.service" && continue
+    rm -rf "$(dirname "$o")" && log "freed job slot $(basename "$(dirname "$o")") of $r (ci-runner@$i is not active)"
+  done
+fi
+
 # Each runner's disk, as its last start measured it (entrypoint.sh ci_disk writes cache/<i>/.sizes), for
 # x3-host.sh to push: the log folder is the one place both gh-runner and the operator's account reach.
-{ for f in "$CR"/cache/*/.sizes; do
+{ if [ -d "$SL" ]; then
+    now=$(date +%s); held=0; waiting=0; oldest=0
+    for d in "$SL"/[rs]-*; do [ -d "$d" ] && held=$((held + 1)); done
+    for w in "$SL"/wait/*; do
+      [ -f "$w" ] || continue
+      waiting=$((waiting + 1)); a=$(( now - $(cat "$w") )); [ "$a" -gt "$oldest" ] && oldest=$a
+    done
+    repos=$(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' | awk '{print $1}' | sed -E 's/^ci-runner@(.*)-[0-9]+\.service$/\1/' | sort -u | wc -l)
+    shared=$(grep -oE 'CI_SLOTS_SHARED=[0-9]+' "$UD/ci-runner@.service" | head -1 | cut -d= -f2)
+    printf 'x3_ci_slots_held{box="x3"} %d\nx3_ci_slots_total{box="x3"} %d\n' "$held" "$(( repos + ${shared:-0} ))"
+    printf 'x3_ci_jobs_waiting_for_slot{box="x3"} %d\nx3_ci_slot_wait_oldest_seconds{box="x3"} %d\n' "$waiting" "$oldest"
+  fi
+  for f in "$CR"/cache/*/.sizes; do
     [ -r "$f" ] || continue
     i=$(basename "$(dirname "$f")")
     awk -v i="$i" '{ printf "x3_ci_runner_%s{box=\"x3\",runner=\"%s\"} %s\n", $1, i, $2 }' "$f"

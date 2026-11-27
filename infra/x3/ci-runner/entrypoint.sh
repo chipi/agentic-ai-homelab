@@ -105,9 +105,41 @@ fi
 # server": player-1 22:39:55Z and player-2 22:57:21Z, 2026-11-26).
 # .job-running in the work folder (a host path) tells sync.sh this runner has a job, beside its process
 # check. The folder is emptied at every start, so a job killed mid-run leaves no stale marker.
-printf '#!/bin/sh\nrm -f "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-done.sh && chmod 755 /tmp/job-done.sh
+# Job slots (RFC-0011 item 26): every runner of every repo shares $CI_SLOTS (a host folder), so at most
+# one job per repo plus CI_SLOTS_SHARED more run at once, whatever the runner count. A job takes its repo's
+# own slot (r-<repo>) or a free shared one (s-<n>) in its started hook, by mkdir (atomic on the shared folder),
+# and waits there while all are taken; the completed hook frees it. The cap counts running jobs, not
+# listening runners, so an idle runner holds nothing. A job killed before its completed hook leaves its slot
+# named for this runner, and this container is the runner's only one, so slots and waits it owns are freed here.
+if [ -n "${CI_SLOTS:-}" ] && [ -d "$CI_SLOTS" ]; then
+  mkdir -p "$CI_SLOTS/wait" 2>/dev/null || true
+  for o in "$CI_SLOTS"/*/owner; do
+    [ -f "$o" ] && [ "$(cut -d' ' -f1 "$o")" = "$RUNNER_NAME" ] && rm -rf "$(dirname "$o")"
+  done
+  rm -f "$CI_SLOTS/wait/$RUNNER_NAME"
+  cat > /tmp/job-slot.sh <<EOF
+#!/bin/sh
+D="$CI_SLOTS"; me="$RUNNER_NAME"; repo="${REPO_URL##*/}"; mark="${RUNNER_WORK:-/tmp}/.slot"; t0=\$(date +%s); said=0
+while :; do
+  for s in "r-\$repo" \$(seq -f 's-%g' 1 "${CI_SLOTS_SHARED:-5}"); do
+    if mkdir "\$D/\$s" 2>/dev/null; then
+      echo "\$me \$(date +%s)" > "\$D/\$s/owner"; echo "\$s" > "\$mark"; rm -f "\$D/wait/\$me"
+      [ "\$said" = 1 ] && echo "x3: took job slot \$s after \$(( \$(date +%s) - t0 )) s"
+      exit 0
+    fi
+  done
+  [ "\$said" = 1 ] || { echo "x3: every job slot is taken (one per repo plus ${CI_SLOTS_SHARED:-5} shared); waiting"; echo "\$t0" > "\$D/wait/\$me"; said=1; }
+  sleep 5
+done
+EOF
+fi
+printf '#!/bin/sh\nrm -f "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-done.sh
+[ -f /tmp/job-slot.sh ] && printf 's=$(cat "%s/.slot" 2>/dev/null) && [ -n "$s" ] && rm -rf "%s/$s"\n' "${RUNNER_WORK:-/tmp}" "$CI_SLOTS" >> /tmp/job-done.sh
+chmod 755 /tmp/job-done.sh
 export ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/tmp/job-done.sh
-printf '#!/bin/sh\ntouch "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-start.sh && chmod 755 /tmp/job-start.sh
+printf '#!/bin/sh\ntouch "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-start.sh
+[ -f /tmp/job-slot.sh ] && { chmod 755 /tmp/job-slot.sh; echo 'exec /tmp/job-slot.sh' >> /tmp/job-start.sh; }
+chmod 755 /tmp/job-start.sh
 export ACTIONS_RUNNER_HOOK_JOB_STARTED=/tmp/job-start.sh
 chown runner:runner .runner .credentials .credentials_rsaparams
 exec setpriv --reuid=runner --regid=runner --init-groups env HOME="${JOB_HOME:-/home/runner}" USER=runner ./run.sh --once

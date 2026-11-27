@@ -290,6 +290,38 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
       seen so far (9.5%, 11:24Z).
     - Not verified yet: that a job container reports 12 from `nproc` after the change, and how the
       pressure moves once the jobs share 12 CPUs instead of being throttled.
+    - Applied 2026-11-27 (the operator ran the setup): `cpuset.cpus.effective` is `4-15`, every one of the
+      slice's 187 processes is allowed 4-15, and `x3_ci_cpu_allowed_cores` reads 12.
+26. **Runners per repo, and a cap on running jobs** (operator, 2026-11-27: "at least 3 runners" per repo
+    for contingency, "and then some other level to cap the total"). Over the metrics held (about 3 days):
+
+    | Repo | Runners | Most busy at once | Minutes all busy | Longest wait |
+    |---|---|---|---|---|
+    | player | 5 | 5 | 230 | 84 min, mostly the backlog of 26-27 Nov |
+    | common | 1 | 1 | 61 | 14 min |
+    | infra | 1 | 1 | 48 | 7.5 min |
+    | integration | 2 | 2 | 19 | 20 min |
+    | studio | 1 | 0 | 0 | 0 |
+
+    - **Runners:** 3 for common, infra and integration (each filled what it had), 2 for studio (no X3 job
+      yet; the second is contingency), player stays at 5: 16 runners. Disk: 16 x 18 GB = 288 GB for the
+      fleet (item 21), against 584 GB free. Each runner keeps its own caches, so more runners also means
+      more first jobs that build them.
+    - **The cap counts running jobs, not runners.** GitHub cannot cap across repos here: chipi is a user
+      account, and runner groups are for organisations. A runner that is listening holds nothing; a job
+      takes a slot in its job-started hook (`entrypoint.sh`), in a folder every runner shares
+      (`~gh-runner/ci-runner/slots`, `mkdir` is atomic): its repo's own slot `r-<repo>`, else one of
+      `CI_SLOTS_SHARED` (5, `ci-runner@.service`). With five repos that is 10 jobs at once at most, each
+      repo always able to run one. While every slot is taken the job waits in its "Set up job" step, which
+      says so, and its time counts against the job's timeout. The completed hook frees the slot; a runner's
+      next start frees any slot it still holds (its job was killed), and `sync.sh` frees one whose runner
+      unit is not active. Memory peaked at 26.8 GiB of 48 with 6 jobs at once; the slice's CPU and memory
+      cap (items 16, 25) still bounds them all together.
+    - **Metrics** (`sync.sh`, through `ci-sizes.prom`): `x3_ci_slots_held`, `x3_ci_slots_total`,
+      `x3_ci_jobs_waiting_for_slot`, `x3_ci_slot_wait_oldest_seconds`.
+    - Tested with a harness over the hook block (three runners of one repo and one of another, one shared
+      slot): the third waits, the other repo's job does not, a freed slot is taken within 5 s, a restart
+      frees a killed job's slot. Not tested yet inside a runner container on a real job.
 
 ## Non-goals
 

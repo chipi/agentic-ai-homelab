@@ -9,6 +9,9 @@ Requires=docker@%i.service
 [Service]
 Environment=DOCKER_HOST=unix://%t/e-%i/docker.sock
 Environment=IMAGE=ci-runner:2.338.2-4
+# Shared job slots beyond one per repo: 10 jobs at most with five repos (memory peaked at 26.8 GiB of 48
+# with 6 at once, 2026-11-27; operator, the same day).
+Environment=CI_SLOTS_SHARED=5
 # The image is built from ~/ci-runner/image/Dockerfile, once per engine; later starts find it.
 ExecStartPre=/bin/sh -c 'docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" %h/ci-runner/image'
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
@@ -23,6 +26,8 @@ ExecStartPre=/bin/mkdir -p %h/ci-runner/work/%i
 # as one entry (its blobs are shared between models). ImageOS/ImageVersion, which GitHub's images set and
 # cache keys use (public's install-ffmpeg, install-playwright), name this image, so an X3 entry is never
 # restored on GitHub's VMs or across X3 images ("ubuntu24-unknown" before, 2026-11-27).
+# The job slots every runner shares (entrypoint.sh, RFC-0011 item 26): one per repo plus CI_SLOTS_SHARED.
+ExecStartPre=/usr/bin/install -d -m 1777 %h/ci-runner/slots
 ExecStartPre=/bin/mkdir -p %h/ci-runner/cache/%i/toolcache %h/ci-runner/cache/%i/ms-playwright %h/ci-runner/cache/%i/apt %h/ci-runner/cache/%i/huggingface %h/ci-runner/cache/%i/venvs
 # A job's `-v /var/run/docker.sock:...` (integration's stack test mounts it into its API container) is
 # resolved by the engine, inside rootlesskit's mount namespace, where /run/docker.sock was the X3's own
@@ -43,6 +48,7 @@ ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo
   -v %h/ci-runner/cache/%i:%h/ci-runner/cache/%i -e CI_CACHE=%h/ci-runner/cache/%i \
   -e RUNNER_TOOL_CACHE=%h/ci-runner/cache/%i/toolcache -e PLAYWRIGHT_BROWSERS_PATH=%h/ci-runner/cache/%i/ms-playwright \
   -e ImageOS=ubuntu24 -e ImageVersion=${IMAGE} \
+  -v %h/ci-runner/slots:%h/ci-runner/slots -e CI_SLOTS=%h/ci-runner/slots -e CI_SLOTS_SHARED=${CI_SLOTS_SHARED} \
   -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
   -v %t/e-%i/docker.sock:/var/run/docker.sock \
   ${IMAGE} bash /entrypoint.sh
