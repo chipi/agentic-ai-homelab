@@ -1,0 +1,9 @@
+[Unit]
+Description=Prune the X3 dev engine weekly (Sunday night)
+
+[Timer]
+OnCalendar=Sun *-*-* 03:17
+Persistent=true
+
+[Install]
+WantedBy=timers.target

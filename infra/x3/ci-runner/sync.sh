@@ -90,5 +90,7 @@ done
     [ -r "$f" ] || continue
     i=$(basename "$(dirname "$f")")
     awk -v i="$i" '{ printf "x3_ci_runner_%s{box=\"x3\",runner=\"%s\"} %s\n", $1, i, $2 }' "$f"
+    s="$(dirname "$f")/.image-seen"
+    [ -r "$s" ] && printf 'x3_ci_runner_images_seen{box="x3",runner="%s"} %d\n' "$i" "$(wc -l < "$s")"
   done; } > "$SRC/log/ci-sizes.prom.tmp" 2>/dev/null && mv "$SRC/log/ci-sizes.prom.tmp" "$SRC/log/ci-sizes.prom"
 exit 0

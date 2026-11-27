@@ -1,0 +1,8 @@
+[Unit]
+Description=Prune the X3 dev engine's old build cache and images; report stopped containers and unused volumes
+
+[Service]
+Type=oneshot
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/usr/bin/bash %h/deploy/agentic-ai-homelab/infra/x3/dev-engine-prune.sh

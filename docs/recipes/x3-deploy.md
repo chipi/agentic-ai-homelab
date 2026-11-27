@@ -26,8 +26,10 @@ ln -sfn $D/infra/x3/ollama.service ~/.config/systemd/user/ollama.service
 ln -sfn $D/infra/observability/hosts/x3/alloy-research.service ~/.config/systemd/user/alloy-research.service
 ln -sfn $D/infra/x3/x3-host.service ~/.config/systemd/user/x3-host.service
 ln -sfn $D/infra/x3/x3-host.timer ~/.config/systemd/user/x3-host.timer
+ln -sfn $D/infra/x3/dev-engine-prune.service ~/.config/systemd/user/dev-engine-prune.service
+ln -sfn $D/infra/x3/dev-engine-prune.timer ~/.config/systemd/user/dev-engine-prune.timer
 systemctl --user daemon-reload
-systemctl --user enable --now ollama x3-host.timer
+systemctl --user enable --now ollama x3-host.timer dev-engine-prune.timer
 systemctl --user restart alloy-research
 ```
 
