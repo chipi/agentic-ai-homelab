@@ -229,8 +229,24 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
     82.1%, 89.1% and 100% (10:10Z, 2026-11-27), so the first three start below objective. Two events
     caused it:
     - the backlog from the jobs lost on 26–27 Nov, before `--once` fixed it;
-    - every X3 runner offline from 02:35Z to 03:30Z on 2026-11-27. The X3 was not rebooted, and its log
-      shows Wi-Fi rescans and "UDP is blocked" from tailscaled. The cause has not been found.
+    - the X3 runners shown offline by GitHub for 25–31 minutes each on 2026-11-27, in two stretches (item
+      23).
+
+23. **Runners GitHub shows offline while they run.** On 2026-11-27 the home line dropped for a minute or
+    two at 02:29Z: every runner's poll to GitHub's broker timed out ("The HTTP request timed out after
+    00:01:40"), and the mini's egress probe failed at 02:30Z. GitHub showed the runners offline from 02:31Z
+    to 02:35Z, then again for 20–25 minutes from about 03:01Z. `gh-runner`'s journal shows them polling
+    without an error from 02:30Z on, and refreshing their tokens on schedule. The X3 is wired; its Wi-Fi
+    is on but unconnected, so the rescans in its log are only searching. GitHub's status page lists no
+    incident then. `sync.sh` now restarts a runner, which opens a new session, when all of these hold:
+    - GitHub showed it offline in every sample of the last 10 minutes (`gh_runner_up` in VictoriaMetrics,
+      from the collector), with 2 or more samples;
+    - its unit has been up for 15 minutes;
+    - it is idle;
+    - it was not restarted this way in the last 30 minutes.
+
+    No answer from VictoriaMetrics means no restart. On that night's data it would have restarted every
+    runner at about 03:11Z, and the 5-minute drop at 02:31Z would not have triggered it.
 
 ## Non-goals
 
@@ -273,8 +289,9 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
   platform fee; the GitHub API's rate use by the collector at 5-minute polling over five repos (expected to
   be small, not measured); whether macOS lets a memory cap be enforced.
 - Disk use outside the per-runner budget (item 21). The X3's own system engine, the dev engine, held
-  474 GB on 2026-11-27. It is not the runners', and nothing prunes it.
-- Whether the caches in item 20 pay off (to be measured), and the cause of the 02:35–03:30Z outage on
+  474 GB on 2026-11-27. It is not the runners'; since that day `infra/x3/dev-engine-prune.sh` prunes it
+  weekly (the first run freed 120 GB), and the Hub's Docker disk tables show every engine.
+- Whether the caches in item 20 pay off (to be measured), and why GitHub showed the runners offline from 03:01Z on
   2026-11-27.
 - The CI box's hardware and where it lives.
 - Secrets handling for runners beyond "a workstation runner holds no production secret".

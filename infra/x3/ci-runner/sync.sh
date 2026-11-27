@@ -67,6 +67,30 @@ for u in $(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' |
   log "$i restarted (idle) at runner $runner_v engine $engine_v"
 done
 
+# A runner GitHub shows offline while it runs here: on 2026-11-27 the home line dropped for a minute or two
+# at 02:29Z (every runner's broker poll timed out; the mini's egress probe failed at 02:30Z), GitHub showed the
+# runners offline 02:31-02:35Z, and then again for 20-25 minutes from about 03:01Z, while gh-runner's journal
+# shows them polling without an error (operator's go for this fix the same day). A restart opens a new session. Read from VictoriaMetrics, where the mini's
+# collector writes GitHub's view every 5 minutes (gh_runner_up): offline in every sample of the last 10
+# minutes, with 2 or more samples (a stale collector is no evidence), the unit up for 15 minutes (a runner
+# just started has not shown up yet), idle, and not healed in the last 30 minutes. No answer from
+# VictoriaMetrics means no restart.
+VMQ=${CI_RUNNER_VM_QUERY:-https://vm.tail6d0ed4.ts.net/api/v1/query}
+offline=$(curl -s -m10 "$VMQ" --data-urlencode 'query=(max by (runner) (max_over_time(gh_runner_up{machine="x3"}[10m])) == 0) and on (runner) (count_over_time(gh_runner_up{machine="x3"}[10m]) >= 2)' 2>/dev/null \
+  | jq -r '.data.result[]?.metric.runner' 2>/dev/null)
+for r in $offline; do
+  i=${r#x3-}; u="ci-runner@$i.service"
+  systemctl --user is-active -q "$u" || continue
+  up=$(date -d "$(systemctl --user show -p ActiveEnterTimestamp --value "$u")" +%s 2>/dev/null || echo "$(date +%s)")
+  [ $(( $(date +%s) - up )) -ge 900 ] || continue
+  h="$CR/applied/$i.heal"
+  [ -f "$h" ] && [ $(( $(date +%s) - $(cat "$h") )) -lt 1800 ] && continue
+  if busy "$i" || [ -e "$CR/work/$i/.job-running" ]; then log "$i offline on GitHub for 10 min but has a job: no restart"; continue; fi
+  systemctl --user restart "$u" || { log "FAIL restart $u (offline on GitHub)"; continue; }
+  date +%s > "$h"
+  log "$i restarted: GitHub showed it offline for 10 min while it ran here"
+done
+
 # When each runner's engine last ran each image: Docker records no last use, and entrypoint.sh's pruning
 # needs one for the agreed rule (an image no job ran for 7 days goes; operator, 2026-11-27). Every 2 minutes,
 # the images of the engine's running containers get the time now in cache/<i>/.image-seen ("<image id>
