@@ -146,6 +146,87 @@ Three phases, in order. Each stands alone.
     CI tab lists failed jobs with the runner name, so a parity gap is seen from the failure, not from a
     session finding it by hand.
 
+## Runner health: capacity, caches, disk budget, service levels (built 2026-11-27)
+
+The operator agreed this plan on 2026-11-27 after a review of the X3 runners. Each item below is built and
+live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/x3/ci-runner).
+
+16. **Capacity.** Five player runners (player-1..5, ten runners in all), and the `gh-runner` slice raised to
+    12 cores and 48 GB (`x3-ci-runner-setup.sh`: `CPU_QUOTA=1200%`, `MEM_MAX=48G`).
+17. **A stop that cannot fail the unit.** A runner with `--once` removes its own container when its job
+    ends, so `docker stop` found no container and the unit was logged as failed. The fix is
+    `ExecStop=-/usr/bin/docker stop …`.
+18. **Rollouts without sudo, and without losing jobs.** `ci-runner-sync.timer` (as `gh-runner`, every
+    2 min) installs what the operator's account copies to `/srv/ci-runner-src`. It restarts a runner that
+    is behind only while that runner has no job, and it now checks for a job just before each restart. An
+    earlier version checked every runner once, before the first restart. At the f40081d rollout that check
+    was 6 and 11 s old when player-1 and player-3 were restarted. Both had just taken a job, and GitHub
+    cancelled the two jobs ("A task was canceled.", 3b1e084). A job taken in the moment between the check
+    and the restart is still lost.
+19. **Throttling and memory metrics.** `x3-host.sh` pushes the slice's figures as `x3_ci_*`: CPU usage,
+    CFS periods and throttled periods, the quota in cores, CPU and memory pressure, memory used, peak,
+    `memory.high` and `memory.max`, the events at those limits, and OOM kills.
+20. **Caches kept per runner.** Every job starts in a fresh container. Before this change, each job also
+    fetched its tools again over the home line. Medians on the X3 against GitHub's VMs (player, 2026-11):
+
+    | Step | X3 | GitHub |
+    |---|---|---|
+    | HuggingFace cache restore (1.16 GB) | 358 s, and the restore failed | 19 s |
+    | Python environment cache restore | 226 s | 34 s |
+    | Playwright browsers | 126 s | 10 s |
+    | setup-node | 58 s | 3 s |
+    | ffmpeg | 52 s | 9 s |
+    | setup-python | 34 s | 2 s |
+
+    The downloads stall for about 13 s, then run at 2.8–5 MB/s. Each runner now has its own folder,
+    `~/ci-runner/cache/<i>`, kept across its jobs. It is mounted at its host path and named by `$CI_CACHE`.
+    It holds:
+    - `toolcache/` (`RUNNER_TOOL_CACHE`);
+    - `ms-playwright/` (`PLAYWRIGHT_BROWSERS_PATH`);
+    - `apt/` (the image's `docker-clean` is removed and `/var/cache/apt/archives` links here);
+    - `huggingface/`, for a job to point `HF_HOME` at. Player does this from its PR #56.
+
+    Each runner has its own folder, so two jobs never write to one folder at once. Three fixes went with
+    it:
+    - `HOME` is the work folder's parent, as on GitHub's VMs. With `HOME` elsewhere, actions/cache stored
+      `~/.cache/huggingface` as a path relative to the workspace and restored it into a folder that does
+      not exist ("Cannot mkdir").
+    - `ImageOS=ubuntu24` and `ImageVersion=<image tag>` are set as GitHub's images set them. Cache keys
+      built from them no longer read `ubuntu24-unknown`, so an X3 entry is never restored on GitHub's VMs
+      or across X3 images.
+    - **Not verified yet:** that these caches fill and shorten the steps above. The check is a comparison
+      of step times on player jobs after the runners took f40081d (10:04–10:06Z, 2026-11-27).
+21. **Disk budget** (operator, 2026-11-27): 150 GB for the whole fleet, which is 5 GB of downloads and
+    10 GB of engine per runner. `entrypoint.sh` (`ci_disk`) checks both at every container start. It is
+    best effort: a failure is logged and the job still runs.
+    - **Downloads:** each tool version, browser, `.deb` and the HuggingFace folder counts as one entry.
+      An entry not read for 14 days goes. Then the least recently read entries go until the folder is under
+      5 GB. Read times come from atime under `relatime`, which is precise to about a day.
+    - **The runner's own engine:** untagged images are removed at every start. Over 10 GB of layers and
+      build cache, the build cache and every image no container uses are removed. The agreed rule was
+      "unused for 7 days", but Docker records no last use, so that rule cannot be implemented. The next
+      job pulls what it needs.
+    - **Reporting:** each start writes `$CI_CACHE/.sizes`, and `sync.sh` gathers the files into
+      `log/ci-sizes.prom`. `x3-host.sh` pushes them as `x3_ci_runner_{cache,engine}_bytes` and
+      `x3_ci_runner_measured_at` per runner, with `x3_ci_disk_{free,size}_bytes` for
+      `/var/lib/gh-runner`. The first reading, at 09:50Z on 2026-11-27, showed engines of 2.7–5.8 GB and
+      empty caches.
+22. **Service levels** on the Hub's Levels tab (`slo-catalogue.json`, Platform group, linked to `#ci`):
+
+    | Service | SLI | Objective | Query, in short |
+    |---|---|---|---|
+    | X3 CI runners | online, as a share of runner-minutes | 99% | `avg(gh_runner_up{machine="x3"})` |
+    | X3 CI runners | no job waiting over 10 min | 95% | `max(gh_job_queue_seconds_max) < 600` |
+    | X3 CI runners | CPU headroom: throttled in under 5% of CPU periods, per 5 min | 95% | `rate(x3_ci_cpu_throttled_periods_total) <= 0.05 * rate(x3_ci_cpu_periods_total)`; an idle slice counts as good |
+    | Hub CI collector | fresh within 15 min | 99% | `gh_ci_collector_last_success_timestamp` |
+
+    History starts at about 22:00Z on 2026-11-26. Over that history the four levels stood at 95.5%,
+    82.1%, 89.1% and 100% (10:10Z, 2026-11-27), so the first three start below objective. Two events
+    caused it:
+    - the backlog from the jobs lost on 26–27 Nov, before `--once` fixed it;
+    - every X3 runner offline from 02:35Z to 03:30Z on 2026-11-27. The X3 was not rebooted, and its log
+      shows Wi-Fi rescans and "UDP is blocked" from tailscaled. The cause has not been found.
+
 ## Non-goals
 
 - Public repos. podcast_scraper stays on GitHub's runners.
@@ -186,7 +267,10 @@ Three phases, in order. Each stands alone.
 - **Not verified:** the token permissions; whether Alloy runs on the X3; the status of GitHub's self-hosted
   platform fee; the GitHub API's rate use by the collector at 5-minute polling over five repos (expected to
   be small, not measured); whether macOS lets a memory cap be enforced.
-- Disk use of eight rootless engines' image stores (ADR-0015 names the cost, no number here).
+- Disk use outside the per-runner budget (item 21). The X3's own system engine, the dev engine, held
+  474 GB on 2026-11-27. It is not the runners', and nothing prunes it.
+- Whether the caches in item 20 pay off (to be measured), and the cause of the 02:35–03:30Z outage on
+  2026-11-27.
 - The CI box's hardware and where it lives.
 - Secrets handling for runners beyond "a workstation runner holds no production secret".
 - Cost accounting beyond minutes: electricity, the operator's time.
