@@ -16,7 +16,7 @@ const src = (fx, qr) => ({
   q: async e => { for (const [n, r] of fx) if (e.includes(n)) { if (r instanceof Error) throw r; return typeof r === 'function' ? r(e) : r; } return []; },
   qr: qr || (async (e, start, end) => { for (const [n, r] of fx) if (e.includes(n.split('[')[0])) { if (r instanceof Error) throw r; return range(Array(28).fill(0.999), end); } return []; }),
 });
-const E = (name, objective, extra) => Object.assign({ service: name, group: 'G', sli: 'availability', good_ratio: 'avg_over_time(' + name + '[window])', objective, link: '#x' }, extra);
+const E = (name, objective, extra) => Object.assign({ id: name.replace(/_/g, '-'), service: name, group: 'G', sli: 'availability', good_ratio: 'avg_over_time(' + name + '[window])', objective, link: '#x' }, extra);
 
 let failed = 0;
 const check = (name, cond, got) => { if (cond) console.log('ok   ' + name); else { failed++; console.error('FAIL ' + name + (got !== undefined ? ' (got ' + JSON.stringify(got) + ')' : '')); } };
@@ -91,6 +91,10 @@ const near = (a, b, eps = 1e-6) => a != null && Math.abs(a - b) < eps;
   const apps = [...new Set(file.map(e => e.app).filter(Boolean))].sort();
   check('catalogue: every Projects page has rows', apps.join() === 'cl,evals,orrery,web', apps);
   check('lint: catches a missing placeholder, a bad objective and a duplicate', SLO.lint([E('d', 1.2, { good_ratio: 'up' }), E('d', 0.9)]).length === 3, SLO.lint([E('d', 1.2, { good_ratio: 'up' }), E('d', 0.9)]));
+  check('lint: every row needs an id of lowercase letters, digits and dashes, unique in the catalogue', SLO.lint([E('a', 0.9, { id: undefined })]).length === 1 && SLO.lint([E('a', 0.9, { id: 'A b' })]).length === 1
+    && SLO.lint([E('a', 0.9), E('b', 0.9, { id: 'a' })]).join().includes('listed twice') && SLO.lint([E('a', 0.9), E('b', 0.9)]).length === 0);
+  check('catalogue: every row has an id, none shared', file.every(e => /^[a-z0-9][a-z0-9-]*$/.test(e.id)) && new Set(file.map(e => e.id)).size === file.length);
+  check('evaluate: the row carries the catalogue id into slo.json', clamped.id === 'm-over');
   check('lint: an empty catalogue is refused', SLO.lint([]).length === 1 && SLO.lint(null).length === 1);
 
   // view: what the page decides from slo.json and the clock

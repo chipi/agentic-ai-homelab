@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const crypto = require('crypto');
 const S = require('./hub-sources.js');
 
 const E = process.env;
@@ -124,6 +125,9 @@ function computeStats(ledger, runs, repos, now) {
 // window and the one before it. Ranked by the time the X3 loses: (X3 median - GitHub median) x the X3 runs of the step; a
 // step GitHub never ran is ranked by its whole X3 time and has gh null. Steps are read from the run files (the state keeps
 // jobs, not steps): only runs holding a job in the windows are opened, so the cost follows the 30 days held, not the repo count.
+// A row is one (repo, workflow, job, step name); its id, a hash of those, is what readers that compare snapshots match on
+// (flotilla's performance watch, RFC-0017), so a renamed step starts a new row. `windows` gives each period's [from, to),
+// the window before it, and whether that one is held whole (prevHeld), as ISO times.
 const STEPS_TOP = 15;
 const onX3 = j => /^x3-/.test(j.runner || '');
 function computeSteps({ runs, detailOf, repos, now, since }) {
@@ -143,10 +147,10 @@ function computeSteps({ runs, detailOf, repos, now, since }) {
       if (!inWin.length) continue;
       for (const s of j.steps || []) {
         if (s.conclusion !== 'success' || !s.started || !s.completed) continue;
-        const secs = Math.max(0, ts(s.completed) - ts(s.started)), key = rec.repo + '\n' + j.name + '\n' + s.name;
+        const secs = Math.max(0, ts(s.completed) - ts(s.started)), key = [rec.repo, j.workflow || '', j.name, s.name].join('\n');
         for (const [name] of inWin) {
           const m = agg[name];
-          if (!m.has(key)) m.set(key, { repo: rec.repo, job: j.name, step: s.name, x3: [], gh: [] });
+          if (!m.has(key)) m.set(key, { repo: rec.repo, workflow: j.workflow || '', job: j.name, step: s.name, x3: [], gh: [] });
           m.get(key)[side(j)].push(secs);
         }
       }
@@ -159,9 +163,10 @@ function computeSteps({ runs, detailOf, repos, now, since }) {
     const held = since != null && W[p + 'Prev'][0] >= since;
     out[p] = Array.from(agg[p].entries()).filter(([, e]) => e.x3.length).map(([key, e]) => {
       const x3 = stat(e.x3), gh = stat(e.gh), pv = held ? agg[p + 'Prev'].get(key) : null;
-      return { repo: e.repo, job: e.job, step: e.step, x3, gh, lost: gh ? Math.max(0, x3.med - gh.med) * x3.n : x3.med * x3.n, x3Prev: pv ? stat(pv.x3) : null, key };
+      return { id: crypto.createHash('sha1').update(key).digest('hex').slice(0, 12), repo: e.repo, workflow: e.workflow, job: e.job, step: e.step, x3, gh, lost: gh ? Math.max(0, x3.med - gh.med) * x3.n : x3.med * x3.n, x3Prev: pv ? stat(pv.x3) : null, key };
     }).sort((a, b) => b.lost - a.lost || b.x3.n - a.x3.n || (a.key < b.key ? -1 : 1)).slice(0, STEPS_TOP).map(({ key, ...r }) => r);
   }
+  out.windows = Object.fromEntries(PERIODS.map(p => [p, { from: iso(W[p][0]), to: iso(W[p][1]), prevFrom: iso(W[p + 'Prev'][0]), prevTo: iso(W[p + 'Prev'][1]), prevHeld: since != null && W[p + 'Prev'][0] >= since }]));
   return out;
 }
 

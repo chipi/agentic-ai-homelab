@@ -26,11 +26,13 @@
     for (const e of cat) {
       const k = e && e.service ? rowKey(e) : JSON.stringify(e);
       for (const f of ['service', 'group', 'sli', 'good_ratio', 'link']) if (!e || typeof e[f] !== 'string' || !e[f]) bad.push(k + ': no ' + f);
+      // the row's stable name for readers that compare snapshots (flotilla, RFC-0017): kept when service or sli text changes
+      if (!e || typeof e.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(e.id)) bad.push(k + ': no id (lowercase letters, digits, dashes)');
       if (!e || !(e.objective > 0 && e.objective < 1)) bad.push(k + ': objective must be between 0 and 1');
       if (!e || typeof e.good_ratio !== 'string') continue;
       if (!/\[window[\]:]/.test(e.good_ratio)) bad.push(k + ': good_ratio has no [window] placeholder');
       if (/probe_(success|duration_seconds)/.test(e.good_ratio) && !e.good_ratio.includes(EGRESS)) bad.push(k + ': a probe query without the egress gate');
-      if (seen.has(k)) bad.push(k + ': listed twice'); seen.add(k);
+      if (seen.has(k) || (e && e.id && seen.has('id:' + e.id))) bad.push(k + ': listed twice'); seen.add(k); if (e && e.id) seen.add('id:' + e.id);
     }
     return bad;
   }
@@ -43,7 +45,7 @@
   }
 
   async function evaluate(src, e) {
-    const row = { service: e.service, group: e.group, sli: e.sli, app: e.app || null, link: e.link, note: e.note || null, objective: e.objective,
+    const row = { id: e.id, service: e.service, group: e.group, sli: e.sli, app: e.app || null, link: e.link, note: e.note || null, objective: e.objective,
                   ratio: { '28d': null, '7d': null, '1d': null }, daily: Array(WINDOW_DAYS).fill(null), errors: [] };
     const inst = async w => { try { const r = await src.q(fill(e.good_ratio, w)); return r && r.length ? num(r[0].value[1]) : null; } catch (x) { row.errors.push(w + ': ' + (x && x.message || x)); return null; } };
     const clamp = v => v == null ? null : Math.min(1, Math.max(0, v));

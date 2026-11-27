@@ -311,7 +311,7 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   let sid = 0;
   // job: [name, runner, where, conclusion, daysBack, [[step, secs, conclusion]...]]
   const addRun = (repo, [name, runner, where, conclusion, back, steps]) => {
-    const id = ++sid, jobs = [{ id, name, runner, where, conclusion, completed: dayAt(back), steps: steps.map(([n, s, c], i) => ({ n: i + 1, name: n, status: 'completed', conclusion: c || 'success', started: dayAt(back), completed: new Date(Date.parse(dayAt(back)) + s * 1000).toISOString().replace(/\.\d+Z$/, 'Z') })) }];
+    const id = ++sid, jobs = [{ id, workflow: 'CI', name, runner, where, conclusion, completed: dayAt(back), steps: steps.map(([n, s, c], i) => ({ n: i + 1, name: n, status: 'completed', conclusion: c || 'success', started: dayAt(back), completed: new Date(Date.parse(dayAt(back)) + s * 1000).toISOString().replace(/\.\d+Z$/, 'Z') })) }];
     sruns[id] = { repo, status: 'completed', jobs: jobs.map(j => ({ name: j.name, runner: j.runner, where: j.where, conclusion: j.conclusion, completed: j.completed })) };
     sdet[repo + '|' + id] = { jobs };
   };
@@ -341,6 +341,14 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   for (let i = 1; i <= 20; i++) { slow[i] = { repo: 'chipi/r1', status: 'completed', jobs: [{ name: 'j', runner: X3, where: 'self-hosted', conclusion: 'success', completed: dayAt(1) }] }; slowDet['chipi/r1|' + i] = { jobs: [{ name: 'j', runner: X3, where: 'self-hosted', conclusion: 'success', completed: dayAt(1), steps: [{ name: 's' + i, conclusion: 'success', started: dayAt(1), completed: new Date(Date.parse(dayAt(1)) + i * 1000).toISOString() }] }] }; }
   const top = JOB.computeSteps({ runs: slow, detailOf: (r, id) => slowDet[r + '|' + id], repos: ['chipi/r1'], now: NOW, since: SINCE })['7d'];
   check('steps: the top 15 only, the slowest first', top.length === 15 && top[0].step === 's20' && top[14].step === 's6', top.map(r => r.step));
+  const ids = stp['30d'].map(r => r.id);
+  check('steps: each row has a 12-hex id from repo, workflow, job and step, the same in every period and run', ids.every(i => /^[0-9a-f]{12}$/.test(i)) && new Set(ids).size === ids.length && row('7d', 'Build').id === row('30d', 'Build').id && row('7d', 'Build').workflow === 'CI'
+    && row('7d', 'Build').id === JOB.computeSteps({ runs: sruns, detailOf, repos: ['chipi/r1'], now: NOW + 3600, since: SINCE })['7d'].find(r => r.step === 'Build').id, ids);
+  const wf2 = JSON.parse(JSON.stringify(sdet)), wfr = Object.keys(wf2).find(k => wf2[k].jobs[0].steps.some(s => s.name === 'NoGH'));
+  wf2[wfr].jobs[0].workflow = 'Other';
+  check('steps: the same job and step name in another workflow is another row', JOB.computeSteps({ runs: sruns, detailOf: (r, id) => wf2[r + '|' + id], repos: ['chipi/r1'], now: NOW, since: SINCE })['7d'].filter(r => r.step === 'NoGH').length === 2);
+  check('steps: windows per period, [from, to) and the one before, and whether that one is held', JSON.stringify(stp.windows['7d']) === JSON.stringify({ from: '2026-11-19T00:00:00Z', to: '2026-11-26T00:00:00Z', prevFrom: '2026-11-12T00:00:00Z', prevTo: '2026-11-19T00:00:00Z', prevHeld: true })
+    && shortSince.windows['7d'].prevHeld === false && Object.keys(stp.windows).join() === 'month,30d,7d,yesterday', stp.windows);
   let opened = 0;
   JOB.computeSteps({ runs: Object.assign({ x: { repo: 'chipi/r1', status: 'completed', jobs: [{ name: 'j', runner: X3, where: 'self-hosted', conclusion: 'failure', completed: dayAt(1) }] }, y: { repo: 'chipi/r1', status: 'completed', jobs: [{ name: 'j', runner: X3, where: 'self-hosted', conclusion: 'success', completed: dayAt(100) }] } }, slow), detailOf: (r, id) => { opened++; return slowDet[r + '|' + id]; }, repos: ['chipi/r1'], now: NOW, since: SINCE });
   check('steps: a run with no successful job in the windows is not opened', opened === 20, opened);

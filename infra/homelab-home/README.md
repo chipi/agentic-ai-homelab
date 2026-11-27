@@ -22,8 +22,9 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   capacity. It returns data; `gen.sh` inlines it and the page draws from it. Tests:
   `test_status.js` (the module), `test_page.js` / `test_uptime.js` (the page on top of it).
 - `hub-slo.js` + `slo-catalogue.json` — the service levels (RFC-0009, plan `docs/wip/slo-plan.md`): the
-  catalogue has one entry per SLI (`service`, `group`, `sli`, `good_ratio`, `objective`, `link`, optional
-  `app` for the Projects band and `note`). `good_ratio` is a PromQL ratio of good to all with a `[window]`
+  catalogue has one entry per SLI (`id`, `service`, `group`, `sli`, `good_ratio`, `objective`, `link`, optional
+  `app` for the Projects band and `note`). `id` (lowercase letters, digits, dashes, unique) is the row's stable name in
+  `slo.json` for readers that compare snapshots (flotilla, RFC-0017): keep it when the service or sli text changes. `good_ratio` is a PromQL ratio of good to all with a `[window]`
   placeholder the job fills with `28d`, `7d` and `1d` (`[window:1m]` for a subquery). The module turns a ratio
   into the error budget (`1 - objective` of 28 days), a state (meeting: 25 % of the budget or more left; at risk:
   under 25 %; breached: under 0; stale: no data, or numbers older than 15 minutes), the rows sorted by budget left
@@ -161,8 +162,10 @@ chart/badge deep-links to the matching Grafana dashboard or service.
     page and filters live in the hash (`#ci/runs/<page>/<repo>/<result>[/<period>[/period]]`), a run is `#ci/run/<repo>/<id>` (repo without `chipi/`).
     Each run row links to our run page and, small, to GitHub's.
   - **Slowest steps on the X3 vs GitHub** (under the per-repo table, following the period). `ci.json` `steps` is
-    `{<period>: [{repo, job, step, x3: {med, n}, gh: {med, n} | null, lost, x3Prev: {med, n} | null}]}`: the successful
-    steps of successful jobs per (repo, job, step) in the period's window, X3 being runners named `x3-*` and GitHub the
+    `{<period>: [{id, repo, workflow, job, step, x3: {med, n}, gh: {med, n} | null, lost, x3Prev: {med, n} | null}],
+    windows: {<period>: {from, to, prevFrom, prevTo, prevHeld}}}`: the successful steps of successful jobs per (repo,
+    workflow, job, step) in the period's window [from, to) (ISO, UTC days); `id` is 12 hex of a hash of those four, the
+    same in every period and snapshot (a renamed step is a new row), X3 being runners named `x3-*` and GitHub the
     hosted ones; only steps with an X3 sample; medians in seconds. Ranked by `lost` = (X3 median - GitHub median, at
     least 0) x X3 runs (a step GitHub never ran: the whole X3 time, `gh` null), the top 15 a period. `x3Prev` is the X3
     median in the window before, null when it had none or the collector does not hold all of that window. Steps are read
