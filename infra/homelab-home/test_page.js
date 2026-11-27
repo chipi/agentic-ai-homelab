@@ -225,7 +225,7 @@ const check = (name, cond, detail) => {
     const mk = (hash, o) => {
       o = o || {};
       const els = {}, calls = [], handlers = {}, loc = { hash };
-      const el = id => els[id] || (els[id] = { id, innerHTML: '', value: '', addEventListener: (t, f) => { handlers[t] = f; }, querySelectorAll: () => [] });
+      const el = id => els[id] || (els[id] = { id, innerHTML: '', value: '', addEventListener: (t, f) => { handlers[t] = f; }, querySelectorAll: () => [], scrollIntoView: () => calls.push('into:' + id) });
       const document = { getElementById: el };
       const fetchStub = async u => {
         calls.push(u);
@@ -257,9 +257,21 @@ const check = (name, cond, detail) => {
     t = mk('#ci/runs/2/infra/failure');
     await t.ctx.ciTab();
     check('ci page: a filtered, paged list route is drawn from the hash, with no run or log fetch', /<option value="infra" selected>/.test(t.els.ci_tab.innerHTML) && /<option value="failure" selected>/.test(t.els.ci_tab.innerHTML) && !t.calls.some(c => /^\/ci-(runs|logs)\//.test(c)), t.calls);
-    t.els.ci_f_repo = { id: 'ci_f_repo', value: 'closelistening-player' }; t.els.ci_f_concl = { id: 'ci_f_concl', value: 'cancelled' };
+    check('ci page: a filtered list opens at the past runs, not at the top', t.calls.includes('into:ci_runs') && !t.calls.includes('scrollTo'), t.calls);
+    t.els.ci_f_repo = { id: 'ci_f_repo', value: 'closelistening-player' }; t.els.ci_f_concl = { id: 'ci_f_concl', value: 'cancelled' }; t.els.ci_f_when = { id: 'ci_f_when', value: 'any' };
     t.handlers.change({ target: t.els.ci_f_concl });
     check('ci page: changing a filter puts the page, repo and result in the hash (page 1), so reload and back keep them', t.loc.hash === '#ci/runs/1/closelistening-player/cancelled', t.loc.hash);
+    t.loc.hash = '#ci/runs/1/infra/all/7d'; t.els.ci_f_when.value = 'period'; t.els.ci_f_repo.value = 'infra'; t.els.ci_f_concl.value = 'all';
+    t.handlers.change({ target: t.els.ci_f_when });
+    check('ci page: "when" keeps the chosen period in the hash', t.loc.hash === '#ci/runs/1/infra/all/7d/period', t.loc.hash);
+    t = mk('#ci');
+    await t.ctx.ciTab();
+    const nScroll = t.calls.filter(c => c === 'scrollTo' || /^into:/.test(c)).length;
+    check('ci page: the period row is drawn, the last 30 days chosen', /id=ci_period/.test(t.els.ci_tab.innerHTML) && /data-p=30d target=_self class=on/.test(t.els.ci_tab.innerHTML));
+    t.loc.hash = '#ci/7d'; t.ctx.ciPaint(); await t.ctx.ciRoute();
+    check('ci page: choosing a period redraws the cards for it and does not move the page', /data-p=7d target=_self class=on/.test(t.els.ci_tab.innerHTML) && /vs the 7 days before/.test(t.els.ci_tab.innerHTML) && t.calls.filter(c => c === 'scrollTo' || /^into:/.test(c)).length === nScroll, t.calls);
+    t.loc.hash = '#ci/runs/1/all/all/7d/period'; t.ctx.ciPaint(); await t.ctx.ciRoute();
+    check('ci page: a card\'s link (the runs of the period) opens at the past runs', t.calls[t.calls.length - 1] === 'into:ci_runs' && /finished in the period/.test(t.els.ci_tab.innerHTML), t.calls.slice(-3));
     t.loc.hash = '#ci';
     t.handlers.change({ target: { id: 'something_else' } });
     check('ci page: other changes in the tab are ignored', t.loc.hash === '#ci');

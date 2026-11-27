@@ -141,15 +141,18 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   collector over `fixtures-ci/`, saved answers of the real API for the five repos, plus the job as a process
   against a fake VictoriaMetrics); `test_page.js` runs the tab's page code (routes, fetches, refresh, filters) and
   checks the wiring in `gen.sh`.
-  - **The drill-down.** Cards at the top (as on Spend): runs, jobs, minutes on the X3 and on GitHub, success rate,
-    median queue wait, estimated GitHub minutes saved, each for today so far (against yesterday up to the same
-    time), yesterday, the last 7 days against the 7 before, and 30 days; a per-repo table; a card per runner
+  - **The drill-down.** Spend's period row (This month, Last 30 days, Last 7 days, Yesterday; completed UTC
+    days, `#ci/<period>`, default 30 days), then cards for the chosen period: runs, jobs, minutes on the X3 and
+    on GitHub, success rate, median queue wait, estimated GitHub minutes saved, each against the period of the
+    same length before it, with "Today so far" the one live row. The collector holds 30 days, so a period whose
+    previous one starts before the oldest record (`stats.since`) is not compared. Runs and Success rate open
+    the past runs of the period (`when: period`); a per-repo table for the period; a card per runner
     (state, the run it is on, jobs and minutes in 24 h; runners are per repo because `chipi` is a personal
     account). The saved estimate is X3 minutes at $0.008 a minute (GitHub's Linux 2-core list price, `GH_RATE_USD_PER_MIN`);
     wall-clock understates billed minutes (each job rounds up to a minute) and free minutes are not subtracted.
     The success rate is succeeded of succeeded plus failed runs; cancelled runs are shown apart. Past runs are
-    paged client-side, 25 a page, over the last 30 days, filtered by repo and result; the page and filters live in
-    the hash (`#ci/runs/<page>/<repo>/<result>`), a run is `#ci/run/<repo>/<id>` (repo without `chipi/`).
+    paged client-side, 25 a page, over the last 30 days or the chosen period, filtered by repo and result; the
+    page and filters live in the hash (`#ci/runs/<page>/<repo>/<result>[/<period>[/period]]`), a run is `#ci/run/<repo>/<id>` (repo without `chipi/`).
     Each run row links to our run page and, small, to GitHub's.
   - **Files the job writes** next to `ci.json` (`www/`, tailnet-only like everything else, no new exposure):
     `ci-state.json` (30 days of runs with their jobs, a ledger of finished jobs, the logs already fetched),

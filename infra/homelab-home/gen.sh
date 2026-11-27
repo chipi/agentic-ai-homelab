@@ -1711,8 +1711,11 @@ function ciPaint(){
   e.querySelectorAll('pre.ci-log').forEach(p=>{const j=p.closest('[data-job]'),k=j&&keep[j.dataset.job];if(k){p.scrollTop=k[0];p.scrollLeft=k[1];}else p.scrollTop=p.scrollHeight;});
 }
 async function ciRoute(){
-  const rt=HubCi.parseRoute(location.hash),k=rt&&rt.kind==='run'?'run/'+rt.repo+'/'+rt.id:'list';
-  if(k!==CI_SEEN){CI_SEEN=k;if(location.hash.startsWith('#ci'))window.scrollTo(0,0);}
+  // a run page opens at the top; a filtered list (a card, a repo, a failure row, a page of runs) at the past runs;
+  // a change of period alone does not move the page
+  const rt=HubCi.parseRoute(location.hash),run=rt&&rt.kind==='run',k=!rt?'':run?'run/'+rt.repo+'/'+rt.id:'list/'+rt.page+'/'+rt.repo+'/'+rt.concl+'/'+rt.when;
+  if(k!==CI_SEEN){const was=CI_SEEN;CI_SEEN=k;
+    if(run)window.scrollTo(0,0);else if(rt&&k!=='list/1/all/all/any')document.getElementById('ci_runs')?.scrollIntoView();else if(rt&&was.startsWith('run/'))window.scrollTo(0,0);}
   if(!rt||rt.kind!=='run')return;
   const key=rt.repo+'/'+rt.id,fresh=CI_RUN.key!==key,recent=j=>Date.now()-Date.parse(j.completed)<3600000;
   if(fresh){CI_RUN={key,st:'loading',d:null};CI_LOGS={};ciPaint();}
@@ -1732,8 +1735,9 @@ async function ciRoute(){
     }catch(e){if(CI_RUN.key!==key)return;CI_LOGS[j.id]={st:'error',msg:String(e.message||e)};}
     ciPaint();}));
 }
-document.getElementById('ci_tab')?.addEventListener('change',e=>{if(e.target.id!=='ci_f_repo'&&e.target.id!=='ci_f_concl')return;
-  location.hash=HubCi.listHref({page:1,repo:document.getElementById('ci_f_repo').value,concl:document.getElementById('ci_f_concl').value});});
+document.getElementById('ci_tab')?.addEventListener('change',e=>{if(!['ci_f_repo','ci_f_concl','ci_f_when'].includes(e.target.id))return;
+  const rt=HubCi.parseRoute(location.hash)||{};
+  location.hash=HubCi.listHref({page:1,period:rt.period,when:document.getElementById('ci_f_when').value,repo:document.getElementById('ci_f_repo').value,concl:document.getElementById('ci_f_concl').value});});
 let PJ_KEY='',PJ_T=0;
 function projectsPage(force){const [,a,p,c,u]=location.hash.slice(1).split('/'),apps=HubProject.APPS,id=apps[a]?a:'cl';
   const period=HubProject.PERIODS[p]?p:'7d',compare=HubProject.COMPARES[c]&&(c!=='week'||period==='today')?c:'prev',aud=u==='beta'?'beta':'all',k=id+'/'+period+'/'+compare+'/'+aud;

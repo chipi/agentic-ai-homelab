@@ -69,11 +69,23 @@ function runTimes(rec) {
   return { done: rec.status === 'completed' ? done : null, durS: rec.status === 'completed' && start != null ? Math.max(0, done - start) : null, queueS: q };
 }
 
+// The Spend tab's periods (gen.sh spendRange): completed UTC days ending at 00:00 today, each with the period of the
+// same length just before it (<p>Prev); "today" is the one live window.
+const PERIODS = ['month', '30d', '7d', 'yesterday'];
+function periodWindows(now) {
+  const mid = Math.floor(now / DAY) * DAY, d = new Date(mid * 1000), m0 = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000;
+  const days = { month: Math.round((mid - m0) / DAY), '30d': 30, '7d': 7, yesterday: 1 };
+  const W = { today: [mid, now + 1] };
+  for (const p of PERIODS) { const a = mid - days[p] * DAY; W[p] = [a, mid]; W[p + 'Prev'] = [a - days[p] * DAY, a]; }
+  return { W, days, mid };
+}
+
 function computeStats(ledger, runs, repos, now) {
-  const mid = Math.floor(now / DAY) * DAY;
-  const WIN = { today: [mid, now + 1], yesterday: [mid - DAY, now - DAY + 1], yesterdayFull: [mid - DAY, mid], d7: [now - 7 * DAY, now + 1], p7: [now - 14 * DAY, now - 7 * DAY], d30: [now - 30 * DAY, now + 1] };
+  const { W: WIN, days, mid } = periodWindows(now);
   const mk = () => Object.fromEntries(Object.keys(WIN).map(k => [k, newWindow()]));
-  const total = mk(), per = Object.fromEntries(repos.map(r => [r, { d7: newWindow(), p7: newWindow(), d30: newWindow() }]));
+  const total = mk(), per = Object.fromEntries(repos.map(r => [r, mk()]));
+  // the oldest finished job or run held: a period that starts before it is not complete, and is not compared
+  let since = Infinity;
   const daily = Array.from({ length: 14 }, (_, i) => ({ day: iso(mid - (13 - i) * DAY).slice(0, 10), runs: 0, jobs: 0, failed: 0, 'self-hosted': 0, hosted: 0 }));
   const dayOf = t => { if (t > now) return null; const i = 13 - Math.floor((mid + DAY - 1 - t) / DAY); return i >= 0 && i < 14 ? daily[i] : null; };
   const into = (repo, t, fn) => {
@@ -81,6 +93,7 @@ function computeStats(ledger, runs, repos, now) {
   };
   for (const [done, durS, where, repo, conclusion, queueS] of Object.values(ledger)) {
     if (!(repos.includes(repo))) continue;
+    since = Math.min(since, done);
     into(repo, done, w => {
       w.jobs++; w.jobsBy[where]++; w.min[where] += durS / 60;
       if (conclusion === 'success') w.jobsOk++; else if (FAILED.includes(conclusion)) w.jobsFailed++; else if (conclusion === 'cancelled') w.jobsCancelled++;
@@ -91,13 +104,15 @@ function computeStats(ledger, runs, repos, now) {
   for (const rec of Object.values(runs)) {
     if (rec.status !== 'completed' || !repos.includes(rec.repo)) continue;
     const t = runTimes(rec).done; if (!t) continue;
+    since = Math.min(since, t);
     into(rec.repo, t, w => { w.runs++; if (rec.conclusion === 'success') w.runsOk++; else if (FAILED.includes(rec.conclusion)) w.runsFailed++; else if (rec.conclusion === 'cancelled') w.runsCancelled++; });
     const d = dayOf(t); if (d) { d.runs++; if (FAILED.includes(rec.conclusion)) d.failed++; }
   }
   Object.values(total).forEach(closeWindow);
   Object.values(per).forEach(p => Object.values(p).forEach(closeWindow));
   daily.forEach(d => { d['self-hosted'] = round1(d['self-hosted']); d.hosted = round1(d.hosted); });
-  return { rate: GH_RATE_USD_PER_MIN, windows: Object.fromEntries(Object.entries(WIN).map(([k, [a, b]]) => [k, [iso(a), iso(Math.min(b, now))]])), total, repos: per, daily };
+  return { rate: GH_RATE_USD_PER_MIN, windows: Object.fromEntries(Object.entries(WIN).map(([k, [a, b]]) => [k, [iso(a), iso(Math.min(b, now))]])), days,
+    since: since === Infinity ? null : iso(since), total, repos: per, daily };
 }
 
 // ---- the logs -----------------------------------------------------------------------------------------------
@@ -341,4 +356,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(e => { console.error('ci-job failed: ' + (e && e.message || e)); process.exit(2); });
-module.exports = { collect, fixtureApi, fixtureLog, machineOf, emptyState, computeStats, trimLog, syncLogs, pruneTree, runFile, logFile, LOG_TAIL, LOG_JOBS, GH_RATE_USD_PER_MIN };
+module.exports = { collect, fixtureApi, fixtureLog, machineOf, emptyState, computeStats, periodWindows, PERIODS, trimLog, syncLogs, pruneTree, runFile, logFile, LOG_TAIL, LOG_JOBS, GH_RATE_USD_PER_MIN };

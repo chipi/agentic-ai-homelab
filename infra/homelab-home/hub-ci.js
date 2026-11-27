@@ -59,7 +59,13 @@
     return { ok: true, stale, ageS, takenAt: doc.takenAt, repos: doc.repos || [], machines: ms, queued, recent, runs, failures, minutes: doc.minutes || null, stats: doc.stats || null, logs: doc.logs || null, idleOther, errors: doc.errors || [], state };
   }
 
-  // ---- routes: #ci (the list), #ci/runs/<page>/<repo>/<conclusion> (the list, paged and filtered), #ci/run/<repo>/<id> (one run)
+  // ---- the period row, as on the Spend tab: completed UTC days; the collector's windows (ci-job.js periodWindows)
+  const PERIODS = [['month', 'This month'], ['30d', 'Last 30 days'], ['7d', 'Last 7 days'], ['yesterday', 'Yesterday']];
+  const PERIOD_DEFAULT = '30d';
+  const isPeriod = p => PERIODS.some(x => x[0] === p);
+
+  // ---- routes: #ci[/<period>] (the list), #ci/runs/<page>/<repo>/<conclusion>[/<period>] (the list, paged and
+  // filtered), #ci/run/<repo>/<id> (one run)
   const SAFE = /^[A-Za-z0-9._-]+$/;
   function parseRoute(hash) {
     const p = String(hash || '').replace(/^#/, '').split('/');
@@ -68,17 +74,21 @@
     if (p[1] === 'run' && p[2] && /^\d+$/.test(p[3] || '') && SAFE.test(dec(p[2]))) return { kind: 'run', repo: dec(p[2]), id: p[3] };
     if (p[1] === 'runs') {
       const repo = p[3] && SAFE.test(dec(p[3])) ? dec(p[3]) : 'all';
-      return { kind: 'list', page: Math.max(1, parseInt(p[2], 10) || 1), repo, concl: CONCLUSIONS.includes(p[4]) ? p[4] : 'all' };
+      return { kind: 'list', page: Math.max(1, parseInt(p[2], 10) || 1), repo, concl: CONCLUSIONS.includes(p[4]) ? p[4] : 'all', period: isPeriod(p[5]) ? p[5] : PERIOD_DEFAULT, when: p[6] === 'period' ? 'period' : 'any' };
     }
-    return { kind: 'list', page: 1, repo: 'all', concl: 'all' };
+    return { kind: 'list', page: 1, repo: 'all', concl: 'all', period: isPeriod(p[1]) ? p[1] : PERIOD_DEFAULT, when: 'any' };
   }
   const runHref = (repo, id) => '#ci/run/' + encodeURIComponent(short(repo)) + '/' + id;
+  // when: 'any' (every run held) or 'period' (runs that finished in the chosen period: where a card leads)
   const listHref = (o) => {
-    const page = Math.max(1, o.page || 1), repo = o.repo && o.repo !== 'all' ? o.repo : 'all', concl = o.concl || 'all';
-    return page === 1 && repo === 'all' && concl === 'all' ? '#ci' : '#ci/runs/' + page + '/' + encodeURIComponent(repo) + '/' + concl;
+    const page = Math.max(1, o.page || 1), repo = o.repo && o.repo !== 'all' ? o.repo : 'all', concl = o.concl || 'all', per = isPeriod(o.period) ? o.period : PERIOD_DEFAULT, when = o.when === 'period' ? 'period' : 'any';
+    if (page === 1 && repo === 'all' && concl === 'all' && when === 'any') return per === PERIOD_DEFAULT ? '#ci' : '#ci/' + per;
+    return '#ci/runs/' + page + '/' + encodeURIComponent(repo) + '/' + concl + (per === PERIOD_DEFAULT && when === 'any' ? '' : '/' + per + (when === 'period' ? '/period' : ''));
   };
+  // f.win: [from, to) in ms; only runs that finished inside it
   function filterRuns(runs, f) {
-    return runs.filter(r => (!f.repo || f.repo === 'all' || short(r.repo) === f.repo)
+    return runs.filter(r => (!f.win || (r.finishedAt && Date.parse(r.finishedAt) >= f.win[0] && Date.parse(r.finishedAt) < f.win[1]))
+      && (!f.repo || f.repo === 'all' || short(r.repo) === f.repo)
       && (f.concl === 'all' || !f.concl || (f.concl === 'running' ? r.status !== 'completed' : f.concl === 'failure' ? r.status === 'completed' && FAILED.includes(r.conclusion) : r.status === 'completed' && r.conclusion === f.concl)));
   }
   function pageRuns(runs, route, per) {
@@ -145,55 +155,70 @@
   const kv = rows => '<div class=subkv>' + rows.filter(Boolean).map(([l, x, t]) => '<span' + (t ? ' title="' + esc(t) + '"' : '') + '>' + l + '</span><b>' + x + '</b>').join('') + '</div>';
   const card = (title, tip, body) => '<div class="card ci"><h3' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + title + '</h3>' + body + '</div>';
 
-  // One metric over the six windows: the last 7 days is the big number, set against the 7 before; today is set against
-  // yesterday at the same time of day, because today is not over.
-  function metricCard(title, tip, st, o) {
-    const W = st.total, g = o.get, f = o.fmt, dl = o.pp ? (a, b, l) => deltaPPText(deltaPP(a, b), l) : (a, b, l) => deltaText(delta(a, b), l);
-    const t = g(W.today), y = g(W.yesterday), yf = g(W.yesterdayFull), d7 = g(W.d7), p7 = g(W.p7), d30 = g(W.d30);
-    const tr = dl(t, y, '');
-    return card(title, tip, '<div class=cv>' + f(d7) + (o.spark || '') + '</div>' + (o.extra || '')
-      + mut('last 7 days' + (dl(d7, p7, 'the 7 days before') ? ' &middot; ' + dl(d7, p7, 'the 7 days before') : ''))
-      + kv([['Today so far', f(t), 'Since 00:00 UTC'], ['Yesterday, same time', f(y)], tr ? ['Today vs that', tr, 'Today so far against yesterday up to this time of day'] : null, ['Yesterday, whole day', f(yf)],
-        ['The 7 days before', f(p7)], ['Last 30 days', f(d30)]].concat(o.rows || [])));
+  // The chosen period (the row above the cards, as on the Spend tab): its number is the big one, set against the period of
+  // the same length before it; "Today so far" is the one live row. A period that starts before the oldest run or job the
+  // collector holds is not complete, so it is shown as not held and not compared.
+  function periodInfo(st, per) {
+    const w = st.windows && st.windows[per], pw = st.windows && st.windows[per + 'Prev'], n = (st.days || {})[per] || 0;
+    const day = iso => String(iso).slice(0, 10), lastDay = iso => new Date(Date.parse(iso) - 86400000).toISOString().slice(0, 10);
+    const label = n && w ? day(w[0]) + ' to ' + lastDay(w[1]) + ' (UTC, ' + n + ' day' + (n > 1 ? 's' : '') + ')' : 'no completed day this month yet';
+    const held = !!(pw && st.since && Date.parse(pw[0]) >= Date.parse(st.since));
+    const before = n === 1 ? 'the day before' : 'the ' + n + ' days before';
+    return { n, label, held, before, cur: st.total[per], prev: held ? st.total[per + 'Prev'] : null };
+  }
+  function periodNav(per, route) {
+    return '<nav class=subtabs id=ci_period>' + PERIODS.map(([p, t]) => '<a href="' + listHref(Object.assign({}, route, { page: route.page, period: p })) + '" data-p=' + p + ' target=_self' + (p === per ? ' class=on' : '') + '>' + t + '</a>').join('') + '</nav>';
   }
 
-  function cardsHtml(v) {
+  function metricCard(title, tip, pi, today, o) {
+    const g = o.get, f = o.fmt, cur = pi.cur ? g(pi.cur) : null, prev = pi.prev ? g(pi.prev) : null;
+    const dl = o.pp ? deltaPPText(deltaPP(cur, prev), pi.before) : deltaText(delta(cur, prev), pi.before);
+    const body = '<div class=cv>' + (pi.n ? f(cur) : '&mdash;') + (o.spark || '') + '</div>' + (o.extra || '')
+      + mut(dl || (pi.n && !pi.held ? 'no comparison: ' + pi.before + ' are not all held' : ''))
+      + kv((o.rows || []).concat([o.perDay && pi.n ? ['Per day', o.perDay(cur / pi.n)] : null,
+        [pi.before.charAt(0).toUpperCase() + pi.before.slice(1), pi.held ? f(prev) : '&mdash;', pi.held ? '' : 'The collector holds 30 days of finished runs and jobs; this period starts before them'],
+        ['Today so far (live)', f(g(today)), 'Since 00:00 UTC']]));
+    return o.href ? '<a class="card ci" href="' + o.href + '" target=_self' + (tip ? ' title="' + esc(tip) + '"' : '') + '><h3>' + title + '</h3>' + body + '</a>' : card(title, tip, body);
+  }
+
+  function cardsHtml(v, per, route) {
     const st = v.stats;
-    if (!st || !st.total) return '<p class=muted>No history yet: the collector has not written the numbers for the cards (it fills them over its first runs).</p>';
-    const W = st.total, d = st.daily || [], series = k => d.map(x => x[k]);
-    const sh = 'self-hosted', gh = 'hosted';
+    if (!st || !st.total || !st.total[per]) return '<p class=muted>No history yet: the collector has not written the numbers for the cards (it fills them over its first runs).</p>';
+    const pi = periodInfo(st, per), W = pi.cur, T = st.total.today, d = st.daily || [], series = k => d.map(x => x[k]);
+    const sh = 'self-hosted', gh = 'hosted', one = x => Math.round(x * 10) / 10;
     const by = (a, b) => [['X3 (self-hosted)', a, '#7aa2ff'], ['GitHub (hosted)', b, '#8888aa']];
+    const runs = o => listHref(Object.assign({ period: per }, o));
     const cs = [
-      metricCard('Runs', 'Workflow runs that finished in the period', st, { get: w => w.runs, fmt: num, spark: spark(series('runs')),
-        extra: bar([['succeeded', W.d7.runsOk, '#3fb950'], ['failed', W.d7.runsFailed, '#f85149'], ['cancelled', W.d7.runsCancelled, '#55556b']]) }),
-      metricCard('Jobs', 'Jobs that finished in the period (skipped jobs not counted)', st, { get: w => w.jobs, fmt: num, spark: spark(series('jobs')),
-        extra: bar(by(W.d7.jobsBy[sh], W.d7.jobsBy[gh])) }),
-      metricCard('Minutes on the X3', 'Wall-clock minutes of finished jobs that ran on the self-hosted runners', st, { get: w => w.min[sh], fmt: mins, spark: spark(series(sh)),
-        rows: [['Jobs, last 7 days', num(W.d7.jobsBy[sh])]] }),
-      metricCard('Minutes on GitHub', 'Wall-clock minutes of finished jobs that ran on GitHub-hosted runners. GitHub bills each job separately and rounds it up to the whole minute, so this understates the billed minutes', st, { get: w => w.min[gh], fmt: mins, spark: spark(series(gh)),
-        rows: [['Jobs, last 7 days', num(W.d7.jobsBy[gh])]] }),
-      metricCard('Success rate', 'Finished runs that succeeded, of those that succeeded or failed (a cancelled run is not a verdict; a timeout is a failure)', st, { pp: true, get: w => rate(w.runsOk, w.runsFailed), fmt: pct,
-        extra: bar([['succeeded', W.d7.runsOk, '#3fb950'], ['failed', W.d7.runsFailed, '#f85149']]),
-        rows: [['Jobs, last 7 days', pct(rate(W.d7.jobsOk, W.d7.jobsFailed)), 'The same, counted over jobs'], ['Cancelled runs, 7 days', num(W.d7.runsCancelled)]] }),
-      metricCard('Median queue wait', 'The time from a job being created to a runner starting it, the middle one of the finished jobs', st, { get: w => w.queueMedianS.all, fmt: dur,
-        extra: mut('X3 ' + dur(W.d7.queueMedianS[sh]) + ' &middot; GitHub ' + dur(W.d7.queueMedianS[gh]) + ' (last 7 days)') }),
-      metricCard('GitHub minutes saved (est.)', 'The minutes the self-hosted runners ran, at GitHub\'s list price of $' + st.rate + ' a minute for a Linux 2-core hosted runner. Wall-clock time understates what GitHub would bill: it rounds every job up to the whole minute, and runs parallel jobs separately. The private repos\' free monthly minutes are not subtracted', st,
-        { get: w => w.savedUsd, fmt: usd, spark: spark(d.map(x => x[sh] * st.rate)), extra: mut('X3 minutes &times; $' + st.rate + ' per minute; wall-clock understates the billed minutes'),
-          rows: [['X3 minutes, 7 days', mins(W.d7.min[sh])]] })];
+      metricCard('Runs', 'Workflow runs that finished in the period. Opens the past runs', pi, T, { get: w => w.runs, fmt: num, spark: spark(series('runs')), perDay: one, href: runs({ when: 'period' }),
+        extra: bar([['succeeded', W.runsOk, '#3fb950'], ['failed', W.runsFailed, '#f85149'], ['cancelled', W.runsCancelled, '#55556b']]) }),
+      metricCard('Jobs', 'Jobs that finished in the period (skipped jobs not counted)', pi, T, { get: w => w.jobs, fmt: num, spark: spark(series('jobs')), perDay: one,
+        extra: bar(by(W.jobsBy[sh], W.jobsBy[gh])) }),
+      metricCard('Minutes on the X3', 'Wall-clock minutes of finished jobs that ran on the self-hosted runners', pi, T, { get: w => w.min[sh], fmt: mins, spark: spark(series(sh)), perDay: mins,
+        rows: [['Jobs', num(W.jobsBy[sh])]] }),
+      metricCard('Minutes on GitHub', 'Wall-clock minutes of finished jobs that ran on GitHub-hosted runners. GitHub bills each job separately and rounds it up to the whole minute, so this understates the billed minutes', pi, T, { get: w => w.min[gh], fmt: mins, spark: spark(series(gh)), perDay: mins,
+        rows: [['Jobs', num(W.jobsBy[gh])]] }),
+      metricCard('Success rate', 'Finished runs that succeeded, of those that succeeded or failed (a cancelled run is not a verdict; a timeout is a failure). Opens the failed runs', pi, T, { pp: true, get: w => rate(w.runsOk, w.runsFailed), fmt: pct, href: runs({ concl: 'failure', when: 'period' }),
+        extra: bar([['succeeded', W.runsOk, '#3fb950'], ['failed', W.runsFailed, '#f85149']]),
+        rows: [['Over jobs', pct(rate(W.jobsOk, W.jobsFailed)), 'The same, counted over jobs'], ['Cancelled runs', num(W.runsCancelled)]] }),
+      metricCard('Median queue wait', 'The time from a job being created to a runner starting it, the middle one of the finished jobs', pi, T, { get: w => w.queueMedianS.all, fmt: dur,
+        rows: [['X3', dur(W.queueMedianS[sh])], ['GitHub', dur(W.queueMedianS[gh])]] }),
+      metricCard('GitHub minutes saved (est.)', 'The minutes the self-hosted runners ran, at GitHub\'s list price of $' + st.rate + ' a minute for a Linux 2-core hosted runner. Wall-clock time understates what GitHub would bill: it rounds every job up to the whole minute, and runs parallel jobs separately. The private repos\' free monthly minutes are not subtracted', pi, T,
+        { get: w => w.savedUsd, fmt: usd, spark: spark(d.map(x => x[sh] * st.rate)), perDay: usd,
+          rows: [['X3 minutes', mins(W.min[sh])], ['Rate', '$' + st.rate + ' / min']] })];
     return '<div class=charts>' + cs.join('') + '</div>';
   }
 
-  function repoTable(v) {
+  function repoTable(v, per) {
     const st = v.stats;
-    if (!st || !st.repos) return '';
-    const repos = Object.keys(st.repos).sort((a, b) => st.repos[b].d7.runs - st.repos[a].d7.runs || (a < b ? -1 : 1));
-    const sh = 'self-hosted', gh = 'hosted', T = st.total;
-    const row = (label, p) => '<td>' + label + '</td><td>' + num(p.d7.runs) + '</td><td class=u>' + (deltaText(delta(p.d7.runs, p.p7.runs)) || '&mdash;') + '</td><td>' + pct(rate(p.d7.runsOk, p.d7.runsFailed)) + '</td><td>' + num(p.d7.jobs)
-      + '</td><td>' + mins(p.d7.min[sh]) + '</td><td>' + mins(p.d7.min[gh]) + '</td><td>' + dur(p.d7.queueMedianS.all) + '</td><td>' + usd(p.d30.savedUsd) + '</td>';
-    return '<h3 class=sectitle>By repo, last 7 days</h3><table class=ctbl><thead><tr><th>Repo</th><th>Runs</th><th title="against the 7 days before">vs before</th><th title="succeeded of succeeded or failed">Success</th><th>Jobs</th><th>X3 min</th><th>GitHub min</th><th title="median, created to started">Queue</th><th title="X3 minutes of the last 30 days at the list price">Saved, 30 d</th></tr></thead><tbody>'
-      + repos.map(r => '<tr>' + row('<a href="' + listHref({ repo: short(r) }) + '" target=_self>' + esc(short(r)) + '</a>', st.repos[r]) + '</tr>').join('')
-      + '<tr style="font-weight:600">' + row('All', { d7: T.d7, p7: T.p7, d30: T.d30 }) + '</tr></tbody></table>'
-      + '<p class=sec>Windows end now and are rolling; the 30 d column counts the history the collector holds (30 days of finished runs and jobs). A repo that could not be read keeps its last numbers.</p>';
+    if (!st || !st.repos || !st.total || !st.total[per]) return '';
+    const pi = periodInfo(st, per), sh = 'self-hosted', gh = 'hosted', T = st.total;
+    const repos = Object.keys(st.repos).sort((a, b) => st.repos[b][per].runs - st.repos[a][per].runs || (a < b ? -1 : 1));
+    const row = (label, c, p) => '<td>' + label + '</td><td>' + num(c.runs) + '</td><td class=u>' + ((pi.held && deltaText(delta(c.runs, p.runs))) || '&mdash;') + '</td><td>' + pct(rate(c.runsOk, c.runsFailed)) + '</td><td>' + num(c.jobs)
+      + '</td><td>' + mins(c.min[sh]) + '</td><td>' + mins(c.min[gh]) + '</td><td>' + dur(c.queueMedianS.all) + '</td><td>' + usd(c.savedUsd) + '</td>';
+    return '<h3 class=sectitle>By repo &middot; ' + esc(pi.label) + '</h3><table class=ctbl><thead><tr><th>Repo</th><th>Runs</th><th title="against ' + pi.before + '">vs before</th><th title="succeeded of succeeded or failed">Success</th><th>Jobs</th><th>X3 min</th><th>GitHub min</th><th title="median, created to started">Queue</th><th title="X3 minutes at the list price">Saved</th></tr></thead><tbody>'
+      + repos.map(r => '<tr>' + row('<a href="' + listHref({ repo: short(r), period: per, when: 'period' }) + '" target=_self>' + esc(short(r)) + '</a>', st.repos[r][per], st.repos[r][per + 'Prev']) + '</tr>').join('')
+      + '<tr style="font-weight:600">' + row('All', T[per], T[per + 'Prev']) + '</tr></tbody></table>'
+      + '<p class=sec>A repo links to its past runs. A repo that could not be read keeps its last numbers.</p>';
   }
 
   function runnerCard(r, now, stale) {
@@ -207,7 +232,10 @@
   function listHtml(v, now, route) {
     const st = v.stale;
     let h = '';
-    h += cardsHtml(v) + repoTable(v);
+    const per = route.period || PERIOD_DEFAULT;
+    h += periodNav(per, route) + (v.stats && v.stats.total && v.stats.total[per] ? '<p class=sec style="margin:-8px 0 12px">' + esc(periodInfo(v.stats, per).label)
+      + ' &middot; every number covers the same completed UTC days; only "Today so far" is live</p>' : '');
+    h += cardsHtml(v, per, route) + repoTable(v, per);
 
     h += '<h3 class=sectitle>Runners</h3>' + (v.machines.length ? v.machines.map(m => '<h3 class=sectitle style="margin-top:8px;border:0">' + dot(m.state, st) + esc(m.machine) + ' <span class=muted style="font-weight:400;text-transform:none">' + m.online + ' online, ' + m.busy + ' busy' + (m.offline ? ', ' + m.offline + ' offline' : '') + '</span></h3><div class=charts>' + m.runners.map(r => runnerCard(r, now, st)).join('') + '</div>').join('')
       : '<p class=muted>no runners registered on these repos</p>') + '<p class=sec>' + RUNNER_NOTE + '</p>';
@@ -216,7 +244,7 @@
       + (v.idleOther ? '<p class=sec>' + v.queued.length + ' queued while ' + v.idleOther + ' runner' + (v.idleOther === 1 ? ' is' : 's are') + ' idle in repos with nothing queued. ' + RUNNER_NOTE + '</p>' : '')
       : '<p class=muted>nothing queued</p>');
 
-    h += '<h3 class=sectitle>Failures, last 24 h</h3><table class=ctbl>' + v.failures.map(f => '<tr><td>' + dot(f.state, st) + '<a href="' + listHref({ repo: short(f.repo), concl: 'failure' }) + '" target=_self>' + esc(short(f.repo)) + '</a></td><td>' + f.failed + ' failed</td><td class=u>of ' + f.finished + ' finished jobs</td></tr>').join('') + '</table>';
+    h += '<h3 class=sectitle>Failures, last 24 h</h3><table class=ctbl>' + v.failures.map(f => '<tr><td>' + dot(f.state, st) + '<a href="' + listHref({ repo: short(f.repo), concl: 'failure', period: route.period }) + '" target=_self>' + esc(short(f.repo)) + '</a></td><td>' + f.failed + ' failed</td><td class=u>of ' + f.finished + ' finished jobs</td></tr>').join('') + '</table>';
 
     h += pastRuns(v, route, st);
     h += '<p class=sec>Amber: a job waiting over ' + QUEUE_WARN / 60 + ' min, a runner offline under ' + OFFLINE_BAD / 60 + ' min, a cancelled run or job, a repo with a failure in 24 h. Red: a job waiting over ' + QUEUE_BAD / 60 + ' min, a runner offline ' + OFFLINE_BAD / 60 + ' min or more, a failed or timed-out run or job, a repo where half of 3 or more jobs failed.</p>';
@@ -224,19 +252,23 @@
   }
 
   function pastRuns(v, route, stale) {
-    const pg = pageRuns(v.runs, route), repos = v.repos.map(short);
+    const per = route.period || PERIOD_DEFAULT, pw = v.stats && v.stats.windows && v.stats.windows[per];
+    const win = route.when === 'period' && pw ? [Date.parse(pw[0]), Date.parse(pw[1])] : null;
+    const pg = pageRuns(v.runs, Object.assign({}, route, { win }), undefined), repos = v.repos.map(short);
     const opt = (val, label, cur) => '<option value="' + esc(val) + '"' + (val === cur ? ' selected' : '') + '>' + esc(label) + '</option>';
-    let h = '<h3 class=sectitle>Past runs</h3>';
-    h += '<div class=ci-bar><label>Repo <select id=ci_f_repo>' + opt('all', 'all repos', route.repo) + repos.map(r => opt(r, r, route.repo)).join('') + '</select></label> '
+    const perLabel = (PERIODS.find(x => x[0] === per) || [, per])[1];
+    let h = '<h3 class=sectitle id=ci_runs>Past runs</h3>';
+    h += '<div class=ci-bar><label>When <select id=ci_f_when>' + opt('any', 'any time', route.when || 'any') + opt('period', perLabel.toLowerCase() + (pw ? ' (' + String(pw[0]).slice(0, 10) + ' to ' + new Date(Date.parse(pw[1]) - 86400000).toISOString().slice(0, 10) + ')' : ''), route.when || 'any') + '</select></label> '
+      + '<label>Repo <select id=ci_f_repo>' + opt('all', 'all repos', route.repo) + repos.map(r => opt(r, r, route.repo)).join('') + '</select></label> '
       + '<label>Result <select id=ci_f_concl>' + CONCLUSIONS.map(c => opt(c, c === 'all' ? 'any result' : c === 'running' ? 'running or queued' : c === 'failure' ? 'failed or timed out' : c, route.concl)).join('') + '</select></label>'
-      + '<span class=muted> ' + num(pg.total) + ' run' + (pg.total === 1 ? '' : 's') + (v.runs.length ? ' of the last 30 days' : '') + '</span></div>';
+      + '<span class=muted> ' + num(pg.total) + ' run' + (pg.total === 1 ? '' : 's') + (v.runs.length ? win ? ' finished in the period' : ' of the last 30 days' : '') + '</span></div>';
     if (!v.runs.length) return h + '<p class=muted>The collector has not listed any run yet.</p>';
     if (!pg.total) return h + '<p class=muted>No run matches this filter.</p>';
     h += '<table class=ctbl><thead><tr><th>Result</th><th>Repo</th><th>Run</th><th>Branch</th><th>Event</th><th>Finished</th><th>Duration</th><th title="from the first job being created to a runner starting it">Queue</th><th title="jobs, of them on the X3">Jobs</th><th></th></tr></thead><tbody>'
       + pg.rows.map(r => '<tr><td>' + dot(r.state, stale) + esc(r.status === 'completed' ? r.conclusion || 'done' : r.status === 'in_progress' ? 'running' : r.status) + '</td><td class=u>' + esc(short(r.repo)) + '</td><td><a href="' + runHref(r.repo, r.id) + '" target=_self>' + esc(r.workflow) + '</a>'
         + (r.attempt > 1 ? ' <span class=muted>#' + r.attempt + '</span>' : '') + '<div class=muted style="font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.title) + '">' + esc(r.title) + '</div></td><td class=u>' + esc(r.branch) + '</td><td class=u>' + esc(r.event)
         + '</td><td>' + (r.finishedAt ? when(r.finishedAt) : '&mdash;') + '</td><td>' + dur(r.durS) + '</td><td>' + dur(r.queueS) + '</td><td class=u>' + r.jobs + (r.selfHosted ? ' (' + r.selfHosted + ' X3)' : '') + '</td><td style="white-space:nowrap">' + link(r.url, '<span class=muted style="font-size:11px">GitHub &#8599;</span>') + '</td></tr>').join('') + '</tbody></table>';
-    const a = (p, t) => p < 1 || p > pg.pages || p === pg.page ? '<span class=muted>' + t + '</span>' : '<a href="' + listHref({ page: p, repo: route.repo, concl: route.concl }) + '" target=_self>' + t + '</a>';
+    const a = (p, t) => p < 1 || p > pg.pages || p === pg.page ? '<span class=muted>' + t + '</span>' : '<a href="' + listHref(Object.assign({}, route, { page: p })) + '" target=_self>' + t + '</a>';
     h += '<p class=sec style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">' + a(1, '&laquo; first') + a(pg.page - 1, '&lsaquo; newer') + '<span>page ' + pg.page + ' of ' + pg.pages + ' &middot; ' + pg.per + ' per page</span>' + a(pg.page + 1, 'older &rsaquo;') + a(pg.pages, 'last &raquo;') + '</p>';
     return h;
   }

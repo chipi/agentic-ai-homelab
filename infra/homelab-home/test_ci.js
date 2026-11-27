@@ -82,7 +82,7 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   check('view: a missing ci.json is not ok', !CI.view(null, NOW).ok && !CI.view({ takenAt: 'x' }, NOW).ok);
 
   const html = CI.html(CI.view(d, NOW + 60), NOW + 60);
-  check('html: cards, by repo, runners, queue, failures, past runs, links to GitHub', ['Runs</h3>', 'Jobs</h3>', 'Minutes on the X3', 'Minutes on GitHub', 'Success rate', 'Median queue wait', 'GitHub minutes saved', 'By repo, last 7 days', 'Runners', 'Queue now', 'Failures, last 24 h', 'Past runs'].every(s => html.includes(s)) && /href="https:\/\/github\.com\/chipi\//.test(html), html.slice(0, 200));
+  check('html: cards, by repo, runners, queue, failures, past runs, links to GitHub', ['Runs</h3>', 'Jobs</h3>', 'Minutes on the X3', 'Minutes on GitHub', 'Success rate', 'Median queue wait', 'GitHub minutes saved', 'By repo &middot; ', 'Runners', 'Queue now', 'Failures, last 24 h', 'Past runs'].every(s => html.includes(s)) && /href="https:\/\/github\.com\/chipi\//.test(html), html.slice(0, 200));
   check('html: the offline runner is said so', /offline 0 s|offline 5 min|offline/.test(html) && /dot down/.test(html));
   const stale = CI.html(CI.view(d, NOW + 3600), NOW + 3600);
   check('html: stale numbers are grey with a notice, no green, amber or red dot', /dot stale/.test(stale) && !/dot up|dot mid|dot down/.test(stale) && /60 minutes old/.test(stale));
@@ -100,17 +100,18 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   const fin = fxJobs.filter(j => j.status === 'completed' && j.conclusion !== 'skipped' && j.started_at && j.completed_at);
   const within = (a, b) => fin.filter(j => { const t = Date.parse(j.completed_at) / 1000; return t >= a && t < b; });
   const sumMin = (js, where) => js.filter(j => (j.labels.includes(SH) ? SH : 'hosted') === where).reduce((s, j) => s + (Date.parse(j.completed_at) - Date.parse(j.started_at)) / 60000, 0);
-  const T = d.stats.total;
-  for (const [name, a, b] of [['today', Math.floor(NOW / D) * D, NOW + 1], ['last 7 d', NOW - 7 * D, NOW + 1], ['the 7 d before', NOW - 14 * D, NOW - 7 * D], ['last 30 d', NOW - 30 * D, NOW + 1]]) {
-    const w = T[{ today: 'today', 'last 7 d': 'd7', 'the 7 d before': 'p7', 'last 30 d': 'd30' }[name]], js = within(a, b);
-    check('stats ' + name + ': jobs and minutes split X3 / GitHub match the saved jobs', w.jobs === js.length && Math.abs(w.min[SH] - sumMin(js, SH)) < 0.2 && Math.abs(w.min.hosted - sumMin(js, 'hosted')) < 0.2
+  const T = d.stats.total, PW = JOB.periodWindows(NOW).W;
+  for (const k of ['today', '7d', '7dPrev', '30d', 'yesterday', 'month']) {
+    const w = T[k], js = within(PW[k][0], PW[k][1]);
+    check('stats ' + k + ': jobs and minutes split X3 / GitHub match the saved jobs', w.jobs === js.length && Math.abs(w.min[SH] - sumMin(js, SH)) < 0.2 && Math.abs(w.min.hosted - sumMin(js, 'hosted')) < 0.2
       && w.jobsBy[SH] + w.jobsBy.hosted === w.jobs, [w.jobs, js.length, w.min, sumMin(js, SH), sumMin(js, 'hosted')]);
   }
-  check('stats: the fixtures hold both kinds in the last 7 days, and some earlier history', T.d7.jobsBy[SH] > 0 && T.d7.jobsBy.hosted > 0 && T.p7.jobs > 0 && T.d30.jobs > T.d7.jobs);
-  check('stats: runs counted, outcomes never above runs; jobs the same', T.d7.runs > 0 && T.d7.runsOk + T.d7.runsFailed + T.d7.runsCancelled <= T.d7.runs && T.d7.jobsOk + T.d7.jobsFailed + T.d7.jobsCancelled <= T.d7.jobs);
+  check('stats: the fixtures hold both kinds in the last 7 days, and some earlier history', T['7d'].jobsBy[SH] > 0 && T['7d'].jobsBy.hosted > 0 && T['7dPrev'].jobs > 0 && T['30d'].jobs > T['7d'].jobs);
+  check('stats: runs counted, outcomes never above runs; jobs the same', T['7d'].runs > 0 && T['7d'].runsOk + T['7d'].runsFailed + T['7d'].runsCancelled <= T['7d'].runs && T['7d'].jobsOk + T['7d'].jobsFailed + T['7d'].jobsCancelled <= T['7d'].jobs);
   check('stats: 30 days of runs are in the list, newest first, each with a result or a status', d.runs.length > 100 && d.runs.every((r, i, a) => r.status && (i === 0 || (a[i - 1].finishedAt || a[i - 1].created) >= (r.finishedAt || r.created))), d.runs.length);
-  check('stats: per repo, the repos add up to the total', Object.values(d.stats.repos).reduce((s, p) => s + p.d7.jobs, 0) === T.d7.jobs && Object.keys(d.stats.repos).length === 5);
-  check('stats: saved is the X3 minutes at the stated rate', T.d30.savedUsd === Math.round(T.d30.min[SH] * 0.008 * 100) / 100 && d.stats.rate === 0.008);
+  check('stats: per repo, every period, the repos add up to the total', ['7d', '30d', 'month', 'yesterday', '7dPrev'].every(k => Object.values(d.stats.repos).reduce((s, p) => s + p[k].jobs, 0) === T[k].jobs) && Object.keys(d.stats.repos).length === 5);
+  check('stats: saved is the X3 minutes at the stated rate', T['30d'].savedUsd === Math.round(T['30d'].min[SH] * 0.008 * 100) / 100 && d.stats.rate === 0.008);
+  check('stats: the days of each period and the oldest record held are stated', d.stats.days['7d'] === 7 && d.stats.days['30d'] === 30 && d.stats.days.yesterday === 1 && d.stats.days.month === 25 && /^2026-1[01]-\d\dT/.test(d.stats.since), [d.stats.days, d.stats.since]);
   check('stats: 14 daily points, oldest first, ending today', d.stats.daily.length === 14 && d.stats.daily[13].day === '2026-11-26' && d.stats.daily[0].day === '2026-11-13');
 
   // the windows, by hand: 2026-11-26 12:00 UTC; today so far against yesterday up to 12:00, 7 d against the 7 before
@@ -124,12 +125,16 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
     6: Object.assign(mkRun('r/a', at(0, 11), null), { status: 'in_progress' }) };
   const S0 = JOB.computeStats(led, runs0, ['r/a', 'r/b'], N0), W0 = S0.total;
   check('windows: today so far is 00:00 UTC to now (a job "after now" and one 40 days old are in none)', W0.today.jobs === 2 && W0.today.min[SH] === 10 && W0.today.min.hosted === 20 && W0.today.jobsOk === 1 && W0.today.jobsFailed === 1, W0.today);
-  check('windows: yesterday the same time is 00:00 to 12:00, the whole day is more', W0.yesterday.jobs === 1 && W0.yesterday.min[SH] === 5 && W0.yesterdayFull.jobs === 2 && W0.yesterdayFull.min.hosted === 50, [W0.yesterday, W0.yesterdayFull]);
-  check('windows: 7 d and the 7 before do not overlap; 30 d holds both and the older one', W0.d7.jobs === 5 && W0.p7.jobs === 1 && W0.p7.min.hosted === 1 && W0.d30.jobs === 7 && W0.d30.min[SH] === 47, [W0.d7.jobs, W0.p7.jobs, W0.d30]);
-  check('windows: medians of the queue waits, split X3 / GitHub; none gives null', W0.today.queueMedianS.all === 20 && W0.d7.queueMedianS.all === 20 && W0.d7.queueMedianS[SH] === 10 && W0.p7.queueMedianS[SH] === null && W0.p7.queueMedianS.hosted === 40, W0.d7.queueMedianS);
-  check('windows: saved = X3 minutes x $0.008, rounded to the cent', W0.today.savedUsd === 0.08 && W0.d30.savedUsd === 0.38 && W0.p7.savedUsd === 0, [W0.today.savedUsd, W0.d30.savedUsd]);
-  check('windows: runs by result (an open run is not counted); the 7 days keep cancelled apart', W0.today.runs === 2 && W0.d7.runs === 5 && W0.d7.runsOk === 2 && W0.d7.runsFailed === 2 && W0.d7.runsCancelled === 1 && W0.yesterday.runs === 1, W0.d7);
-  check('windows: per repo', S0.repos['r/a'].d7.jobs === 3 && S0.repos['r/b'].d7.jobs === 2 && S0.repos['r/b'].d30.jobs === 3, [S0.repos['r/a'].d7.jobs, S0.repos['r/b'].d7.jobs]);
+  check('windows: the periods are completed UTC days and leave today out; yesterday is the whole day', W0.yesterday.jobs === 2 && W0.yesterday.min[SH] === 5 && W0.yesterday.min.hosted === 50 && W0.yesterdayPrev.jobs === 0, [W0.yesterday, W0.yesterdayPrev]);
+  check('windows: 7 days and the 7 before do not overlap; 30 days holds both and the 20-day-old one; the 40-day-old one is only in the 30 before', W0['7d'].jobs === 3 && W0['7dPrev'].jobs === 1 && W0['7dPrev'].min.hosted === 1 && W0['30d'].jobs === 5 && W0['30d'].min[SH] === 37 && W0['30dPrev'].jobs === 1, [W0['7d'].jobs, W0['7dPrev'].jobs, W0['30d']]);
+  check('windows: this month is the 1st to yesterday (25 days); the month before is the same 25 days before the 1st', S0.days.month === 25 && W0.month.jobs === 5 && W0.monthPrev.jobs === 1 && S0.windows.month[0] === '2026-11-01T00:00:00Z' && S0.windows.month[1] === '2026-11-26T00:00:00Z' && S0.windows.monthPrev[0] === '2026-10-07T00:00:00Z', [S0.windows.month, S0.windows.monthPrev]);
+  check('windows: the oldest record held is stated, so a period before it is not compared', S0.since === new Date(at(40, 12) * 1000).toISOString().replace(/\.\d+Z$/, 'Z'));
+  const S1 = JOB.computeStats(led, runs0, ['r/a', 'r/b'], Date.parse('2026-12-01T10:00:00Z') / 1000);
+  check('windows: on the 1st, this month has no completed day and holds nothing', S1.days.month === 0 && S1.total.month.jobs === 0 && S1.total.monthPrev.jobs === 0);
+  check('windows: medians of the queue waits, split X3 / GitHub; none gives null', W0.today.queueMedianS.all === 20 && W0['7d'].queueMedianS.all === 20 && W0['7d'].queueMedianS[SH] === 10 && W0['7dPrev'].queueMedianS[SH] === null && W0['7dPrev'].queueMedianS.hosted === 40, W0['7d'].queueMedianS);
+  check('windows: saved = X3 minutes x $0.008, rounded to the cent', W0.today.savedUsd === 0.08 && W0['30d'].savedUsd === 0.3 && W0['7dPrev'].savedUsd === 0, [W0.today.savedUsd, W0['30d'].savedUsd]);
+  check('windows: runs by result (an open run is not counted); the 7 days keep cancelled apart', W0.today.runs === 2 && W0['7d'].runs === 3 && W0['7d'].runsOk === 1 && W0['7d'].runsFailed === 1 && W0['7d'].runsCancelled === 1 && W0.yesterday.runs === 1, W0['7d']);
+  check('windows: per repo', S0.repos['r/a']['7d'].jobs === 1 && S0.repos['r/b']['7d'].jobs === 2 && S0.repos['r/b']['30d'].jobs === 3, [S0.repos['r/a']['7d'].jobs, S0.repos['r/b']['7d'].jobs]);
   check('windows: daily has today last, yesterday before it', S0.daily[13].jobs === 2 && S0.daily[12].jobs === 2 && S0.daily[11].jobs === 0 && S0.daily[10].jobs === 1 && S0.daily[13].runs === 2, S0.daily.slice(-4));
   check('delta: whole percent, direction, from 0, nothing when both empty or unknown', CI.delta(150, 100).pct === 50 && CI.delta(150, 100).dir === 'up' && CI.delta(50, 100).dir === 'down' && CI.delta(5, 0).dir === 'new' && CI.delta(0, 0) === null && CI.delta(1, null) === null && CI.delta(100, 100).dir === 'flat');
   check('delta: a rate moves in percentage points; success rate counts success of success + failure', CI.deltaPP(0.9, 0.8).pct === 10 && CI.deltaPP(0.9, 0.8).dir === 'up' && CI.rate(2, 2) === 0.5 && CI.rate(0, 0) === null);
@@ -137,10 +142,17 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
 
   // the cards and tables drawn from them
   const vv = CI.view(d, NOW + 60), ph = CI.html(vv, NOW + 60);
-  check('cards: the Spend tab\'s card, subkv rows and comparisons: today, yesterday, 7 d vs 7 d, 30 d', /class="card ci"/.test(ph) && /class=subkv/.test(ph) && ['Today so far', 'Yesterday, same time', 'Yesterday, whole day', 'The 7 days before', 'Last 30 days'].every(s => ph.includes(s)) && /vs the 7 days before/.test(ph));
-  check('cards: the saved estimate states the rate and that wall-clock understates', /\$0\.008 per minute/.test(ph) && /understates the billed minutes/.test(ph) && /rounds every job up to the whole minute/.test(ph));
-  check('cards: the numbers on the page are the collector\'s (jobs of 7 d, X3 minutes)', ph.includes('>' + T.d7.jobs.toLocaleString('en-US') + '<') && ph.includes('>' + Math.round(T.d7.min[SH]).toLocaleString('en-US') + '<'));
-  check('by repo: one row per repo and the total, each repo links to its filtered list', (ph.match(/href="#ci\/runs\/1\/closelistening-/g) || []).length >= 4 && />All</.test(ph));
+  // the period row, as on Spend: the default is the last 30 days; the cards show the chosen period only
+  check('period row: the Spend tab\'s four periods, the default (last 30 days) marked, the days stated', /<nav class=subtabs id=ci_period>/.test(ph) && ['This month', 'Last 30 days', 'Last 7 days', 'Yesterday'].every(s => ph.includes('>' + s + '</a>'))
+    && /href="#ci" data-p=30d target=_self class=on>/.test(ph) && /href="#ci\/7d" data-p=7d/.test(ph) && ph.includes('2026-10-27 to 2026-11-25 (UTC, 30 days)') && /only "Today so far" is live/.test(ph));
+  check('cards: no fixed time rows inside a card any more (no "Yesterday, same time", no "Last 30 days" row)', !/Yesterday, same time|Yesterday, whole day|The 7 days before<|Today vs that/.test(ph));
+  check('cards: the 30 days are not compared: the 30 before are not held', /no comparison: the 30 days before are not all held/.test(ph) && /The 30 days before<\/span><b>&mdash;/.test(ph));
+  check('cards: the saved estimate states the rate and that wall-clock understates', /\$0\.008 a minute/.test(ph) && /rounds every job up to the whole minute/.test(ph));
+  check('cards: the numbers on the page are the collector\'s for the period (jobs, X3 minutes of 30 days), and today so far is live', ph.includes('>' + T['30d'].jobs.toLocaleString('en-US') + '<') && ph.includes('>' + Math.round(T['30d'].min[SH]).toLocaleString('en-US') + '<') && /Today so far \(live\)/.test(ph));
+  const p7 = CI.html(vv, NOW + 60, { route: CI.parseRoute('#ci/7d') });
+  check('cards, 7 days: the 7 days\' numbers, compared with the 7 before', /href="#ci\/7d" data-p=7d target=_self class=on>/.test(p7) && p7.includes('>' + T['7d'].jobs.toLocaleString('en-US') + '<') && /vs the 7 days before/.test(p7) && p7.includes('2026-11-19 to 2026-11-25 (UTC, 7 days)') && /By repo &middot; 2026-11-19 to 2026-11-25/.test(p7));
+  check('cards: Runs opens the runs of the period, Success rate its failed runs', /<a class="card ci" href="#ci\/runs\/1\/all\/all\/7d\/period"/.test(p7) && /<a class="card ci" href="#ci\/runs\/1\/all\/failure\/7d\/period"/.test(p7));
+  check('by repo: one row per repo and the total, each repo links to its runs in the period', (p7.match(/href="#ci\/runs\/1\/closelistening-[a-z]+\/all\/7d\/period"/g) || []).length >= 4 && />All</.test(p7));
   const quiet = JSON.parse(JSON.stringify(d)); delete quiet.stats;
   check('cards: without stats (an old ci.json) it says so, shows no zero', /No history yet/.test(CI.html(CI.view(quiet, NOW), NOW)));
   const busyR = d.runners.filter(x => x.busy && x.now);
@@ -155,6 +167,11 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
     && R('#ci/run/closelistening-player/45901968925').kind === 'run' && R('#ci/run/closelistening-player/45901968925').id === '45901968925' && R('#ci/run/x/notanumber').kind === 'list' && R('#spend') === null);
   check('route: a hostile repo or result in the hash is dropped, a page below 1 is page 1', R('#ci/runs/0/..%2F..%2Fetc/x').repo === 'all' && R('#ci/runs/0/a/x').concl === 'all' && R('#ci/runs/0/a/x').page === 1 && R('#ci/run/..%2Fx/12') .kind === 'list' && R('#ci/runs/abc').page === 1);
   check('route: hrefs round-trip', CI.listHref({}) === '#ci' && R(CI.listHref({ page: 4, repo: 'closelistening-player', concl: 'failure' })).page === 4 && CI.runHref('chipi/closelistening-player', 7) === '#ci/run/closelistening-player/7');
+  check('route: the period is in the hash (#ci/7d; a filtered list carries it), an unknown one is the default', R('#ci/7d').period === '7d' && R('#ci').period === '30d' && R('#ci/bogus').period === '30d' && CI.listHref({ period: '30d' }) === '#ci' && CI.listHref({ period: 'month' }) === '#ci/month'
+    && R(CI.listHref({ page: 2, repo: 'infra', concl: 'all', period: 'yesterday', when: 'period' })).period === 'yesterday' && R(CI.listHref({ page: 2, repo: 'infra', period: 'yesterday', when: 'period' })).when === 'period' && R('#ci/runs/2/infra/all').when === 'any' && R('#ci/runs/2/infra/all/7d/bogus').when === 'any');
+  const fw = Date.parse('2026-11-19T00:00:00Z'), tw = Date.parse('2026-11-26T00:00:00Z'), inP = d.runs.filter(r => r.finishedAt && Date.parse(r.finishedAt) >= fw && Date.parse(r.finishedAt) < tw).length;
+  check('route: "when: period" lists only the runs that finished in the period', CI.pageRuns(d.runs, { page: 1, repo: 'all', concl: 'all', win: [fw, tw] }).total === inP && inP > 0 && inP < d.runs.length
+    && /finished in the period/.test(CI.html(vv, NOW + 60, { route: R('#ci/runs/1/all/all/7d/period') })) && /<option value="period" selected>last 7 days \(2026-11-19 to 2026-11-25\)/.test(CI.html(vv, NOW + 60, { route: R('#ci/runs/1/all/all/7d/period') })), inP);
   const many = Array.from({ length: 60 }, (_, i) => ({ repo: i % 3 ? 'chipi/infra' : 'chipi/closelistening-studio', id: i, status: i % 10 === 0 ? 'in_progress' : 'completed', conclusion: i % 10 === 0 ? null : i % 4 === 0 ? 'failure' : i % 7 === 0 ? 'timed_out' : i % 5 === 0 ? 'cancelled' : 'success', created: '2026-11-26T00:00:00Z' }));
   const p1 = CI.pageRuns(many, { page: 1, repo: 'all', concl: 'all' }), p3 = CI.pageRuns(many, { page: 3, repo: 'all', concl: 'all' }), p9 = CI.pageRuns(many, { page: 9, repo: 'all', concl: 'all' });
   check('paging: 25 a page, 60 runs are 3 pages, the last holds 10; a page past the end is the last', p1.rows.length === 25 && p1.pages === 3 && p1.total === 60 && p3.rows.length === 10 && p9.page === 3 && p9.rows[0].id === p3.rows[0].id && p1.rows[0].id === 0 && p1.rows[24].id === 24);
