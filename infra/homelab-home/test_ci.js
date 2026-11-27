@@ -150,6 +150,12 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   check('cards: the saved estimate states the rate and that wall-clock understates', /\$0\.008 a minute/.test(ph) && /rounds every job up to the whole minute/.test(ph));
   check('cards: the numbers on the page are the collector\'s for the period (jobs, X3 minutes of 30 days), and today so far is live', ph.includes('>' + T['30d'].jobs.toLocaleString('en-US') + '<') && ph.includes('>' + Math.round(T['30d'].min[SH]).toLocaleString('en-US') + '<') && /Today so far \(live\)/.test(ph));
   const p7 = CI.html(vv, NOW + 60, { route: CI.parseRoute('#ci/7d') });
+  const cardOf = (h, t, next) => h.slice(h.indexOf('>' + t + '</h3>'), h.indexOf('>' + next + '</h3>'));
+  const shares = c => (c.match(/(\d+(?:\.\d)?)% (succeeded|failed|cancelled|other)/g) || []);
+  const rC = cardOf(p7, 'Runs', 'Jobs'), jC = cardOf(p7, 'Jobs', 'Minutes on the X3'), sum100 = c => Math.abs(shares(c).reduce((s, x) => s + parseFloat(x), 0) - 100) < 0.5;
+  const W7 = T['7d'], pc = (v, t) => (Math.round(v / t * 1000) / 10) + '%';
+  check('cards: Runs and Jobs have the same bar, by result, in percent adding to 100, counts in the tooltip', shares(rC).length >= 2 && shares(jC).length >= 2 && sum100(rC) && sum100(jC)
+    && rC.includes(pc(W7.runsOk, W7.runs) + ' succeeded') && jC.includes(pc(W7.jobsOk, W7.jobs) + ' succeeded') && rC.includes('title="' + W7.runsOk.toLocaleString('en-US') + ' runs succeeded"') && !/X3 \(self-hosted\)/.test(jC), [shares(rC), shares(jC)]);
   const x3Card = p7.slice(p7.indexOf('Minutes on the X3'), p7.indexOf('Minutes on GitHub')), topRepo = Object.keys(d.stats.repos).sort((a, b) => d.stats.repos[b]['7d'].min[SH] - d.stats.repos[a]['7d'].min[SH])[0];
   check('cards: the minutes cards have a bar split per repo, largest first, the repo\'s minutes of the period', /display:flex;height:6px/.test(x3Card) && x3Card.indexOf(topRepo.split('/').pop()) > 0
     && x3Card.includes(Math.round(d.stats.repos[topRepo]['7d'].min[SH]).toLocaleString('en-US') + ' ' + topRepo.split('/').pop()) && /Minutes on GitHub[^]*closelistening-[a-z]+[^]*Success rate/.test(p7), x3Card.slice(0, 300));

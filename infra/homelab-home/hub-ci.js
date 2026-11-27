@@ -144,6 +144,16 @@
     return p.length ? '<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">' + p.map(([, v, c]) => '<span style="flex:' + v + ';background:' + c + '"></span>').join('') + '</div>'
       + '<div class=muted style="font-size:12px">' + p.map(([k, v, c]) => sq(c) + num(v) + ' ' + k).join(' &middot; ') + '</div>' : '';
   };
+  // Runs and Jobs: the same split by result, as shares of the total so the two cards compare directly; the counts are
+  // in the tooltip. "other" is what is neither (a neutral or skipped-by-condition result), so the shares add to 100%.
+  const resultBar = (total, ok, failed, cancelled, what) => {
+    const other = Math.max(0, total - ok - failed - cancelled);
+    const p = [['succeeded', ok, '#3fb950'], ['failed', failed, '#f85149'], ['cancelled', cancelled, '#55556b'], ['other', other, '#8888aa']].filter(x => x[1] > 0);
+    if (!total || !p.length) return '';
+    const share = v => (Math.round(v / total * 1000) / 10) + '%';
+    return '<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;margin:6px 0 4px">' + p.map(([k, v, c]) => '<span title="' + num(v) + ' ' + what + ' ' + k + '" style="flex:' + v + ';background:' + c + '"></span>').join('') + '</div>'
+      + '<div class=muted style="font-size:12px">' + p.map(([k, v, c]) => '<span title="' + num(v) + ' ' + what + '">' + sq(c) + share(v) + ' ' + k + '</span>').join(' &middot; ') + '</div>';
+  };
   const mut = t => t ? '<div class=muted style="font-size:12px">' + t + '</div>' : '';
   // a small daily line, like the Spend tab's
   function spark(d) {
@@ -194,9 +204,9 @@
     const repoBar = where => bar(repoNames.map((r, i) => [short(r), Math.round(((st.repos[r][per] || {}).min || {})[where] || 0), REPO_COLOURS[i % REPO_COLOURS.length]]).sort((a, b) => b[1] - a[1]));
     const cs = [
       metricCard('Runs', 'Workflow runs that finished in the period. Opens the past runs', pi, T, { get: w => w.runs, fmt: num, spark: spark(series('runs')), perDay: one, href: runs({ when: 'period' }),
-        extra: bar([['succeeded', W.runsOk, '#3fb950'], ['failed', W.runsFailed, '#f85149'], ['cancelled', W.runsCancelled, '#55556b']]) }),
+        extra: resultBar(W.runs, W.runsOk, W.runsFailed, W.runsCancelled, 'runs') }),
       metricCard('Jobs', 'Jobs that finished in the period (skipped jobs not counted)', pi, T, { get: w => w.jobs, fmt: num, spark: spark(series('jobs')), perDay: one,
-        extra: bar(by(W.jobsBy[sh], W.jobsBy[gh])) }),
+        extra: resultBar(W.jobs, W.jobsOk, W.jobsFailed, W.jobsCancelled, 'jobs') }),
       metricCard('Minutes on the X3', 'Wall-clock minutes of finished jobs that ran on the self-hosted runners', pi, T, { get: w => w.min[sh], fmt: mins, spark: spark(series(sh)), perDay: mins,
         extra: repoBar(sh), rows: [['Jobs', num(W.jobsBy[sh])]] }),
       metricCard('Minutes on GitHub', 'Wall-clock minutes of finished jobs that ran on GitHub-hosted runners. GitHub bills each job separately and rounds it up to the whole minute, so this understates the billed minutes', pi, T, { get: w => w.min[gh], fmt: mins, spark: spark(series(gh)), perDay: mins,
