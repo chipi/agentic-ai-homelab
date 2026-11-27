@@ -37,7 +37,7 @@
     const taken = ok ? Date.parse(doc.takenAt) / 1000 : null;
     const ageS = ok && Number.isFinite(taken) ? now - taken : null;
     const stale = !ok || ageS == null || ageS > STALE_AFTER;
-    if (!ok) return { ok: false, stale: true, ageS: null, takenAt: null, repos: [], machines: [], queued: [], recent: [], runs: [], failures: [], minutes: null, stats: null, logs: null, idleOther: 0, errors: [], state: 'stale' };
+    if (!ok) return { ok: false, stale: true, ageS: null, takenAt: null, repos: [], machines: [], queued: [], recent: [], runs: [], failures: [], minutes: null, stats: null, steps: null, logs: null, idleOther: 0, errors: [], state: 'stale' };
     const machines = {};
     for (const r of doc.runners) {
       const m = machines[r.machine || 'unknown'] || (machines[r.machine || 'unknown'] = { machine: r.machine || 'unknown', runners: [], online: 0, busy: 0, offline: 0 });
@@ -56,7 +56,7 @@
     const runs = (doc.runs || []).map(r => Object.assign({}, r, { state: runState(r) }));
     const failures = Object.entries(doc.failures || {}).map(([repo, f]) => Object.assign({ repo }, f, { state: repoState(f) })).sort((a, b) => b.failed - a.failed || (a.repo < b.repo ? -1 : 1));
     const state = stale ? 'stale' : worst([].concat(ms.map(m => m.state), queued.map(q => q.state), failures.map(f => f.state)));
-    return { ok: true, stale, ageS, takenAt: doc.takenAt, visibility: doc.visibility || {}, runsHeld: doc.runsHeld == null ? (doc.runs || []).length : doc.runsHeld, repos: doc.repos || [], machines: ms, queued, recent, runs, failures, minutes: doc.minutes || null, stats: doc.stats || null, logs: doc.logs || null, idleOther, errors: doc.errors || [], state };
+    return { ok: true, stale, ageS, takenAt: doc.takenAt, visibility: doc.visibility || {}, runsHeld: doc.runsHeld == null ? (doc.runs || []).length : doc.runsHeld, repos: doc.repos || [], machines: ms, queued, recent, runs, failures, minutes: doc.minutes || null, stats: doc.stats || null, steps: doc.steps || null, logs: doc.logs || null, idleOther, errors: doc.errors || [], state };
   }
 
   // ---- the period row, as on the Spend tab: completed UTC days; the collector's windows (ci-job.js periodWindows)
@@ -246,6 +246,23 @@
       + '<p class=sec>A repo links to its past runs. A repo that could not be read keeps its last numbers.</p>';
   }
 
+  // The steps that cost the X3 most against GitHub (ci-job.js computeSteps): median of the successful runs of the step in the
+  // period, the GitHub median beside it, the X3 median of the period before. Each row opens the repo's runs of the period.
+  function slowStepsTable(v, per) {
+    const rows = v.steps && v.steps[per];
+    if (!rows) return '';
+    const st = v.stats, pi = st && st.total && st.total[per] ? periodInfo(st, per) : null;
+    const head = '<h3 class=sectitle>Slowest steps on the X3 vs GitHub' + (pi ? ' &middot; ' + esc(pi.label) : '') + '</h3>';
+    if (!rows.length) return head + '<p class=muted>No successful step ran on the X3 in this period.</p>';
+    const med = x => x ? dur(x.med) + ' <span class=muted>(' + num(x.n) + ')</span>' : '&mdash;';
+    const diff = r => !r.gh ? '&mdash;' : (r.x3.med >= r.gh.med ? '+' : '&minus;') + dur(r.x3.med - r.gh.med);
+    return head + '<table class=ctbl><thead><tr><th>Repo / job / step</th><th title="median of the successful runs of the step on the X3, and how many">X3</th><th title="the same on GitHub-hosted runners">GitHub</th><th title="X3 minus GitHub, the median of each">Difference</th>'
+      + '<th title="the X3 median in ' + esc(pi ? pi.before : 'the period before') + ', and the change to this period">X3 before</th></tr></thead><tbody>'
+      + rows.map(r => '<tr><td><a href="' + listHref({ repo: short(r.repo), period: per, when: 'period' }) + '" target=_self>' + esc(short(r.repo)) + '</a> &middot; ' + esc(r.job) + ' &middot; ' + esc(r.step) + '</td><td>' + med(r.x3) + '</td><td>' + med(r.gh) + '</td><td>' + diff(r)
+        + '</td><td>' + med(r.x3Prev) + (r.x3Prev ? ' <span class=u>' + (deltaText(delta(r.x3.med, r.x3Prev.med)) || '') + '</span>' : '') + '</td></tr>').join('') + '</tbody></table>'
+      + '<p class=sec>Successful steps of successful jobs, the 15 where the X3 loses most time against GitHub (the difference of the medians times the X3 runs; a step GitHub did not run is ranked by its whole X3 time). A step links to its repo\'s runs of the period.</p>';
+  }
+
   function runnerCard(r, now, stale) {
     const what = r.status !== 'online' ? 'offline' + (r.offlineSince != null ? ' ' + dur(now - r.offlineSince) : '') : r.busy ? 'busy' : 'idle';
     const cur = r.now ? '<a href="' + runHref(r.repo, r.now.runId) + '" target=_self title="' + esc(r.now.workflow + ' / ' + r.now.job) + '">' + esc(r.now.job) + '</a>'
@@ -260,7 +277,7 @@
     const per = route.period || PERIOD_DEFAULT;
     h += periodNav(per, route) + (v.stats && v.stats.total && v.stats.total[per] ? '<p class=sec style="margin:-8px 0 12px">' + esc(periodInfo(v.stats, per).label)
       + ' &middot; every number covers the same completed UTC days; only "Today so far" is live</p>' : '');
-    h += cardsHtml(v, per, route) + repoTable(v, per);
+    h += cardsHtml(v, per, route) + repoTable(v, per) + slowStepsTable(v, per);
 
     h += '<h3 class=sectitle>Runners</h3>' + (v.machines.length ? v.machines.map(m => '<h3 class=sectitle style="margin-top:8px;border:0">' + dot(m.state, st) + esc(m.machine) + ' <span class=muted style="font-weight:400;text-transform:none">' + m.online + ' online, ' + m.busy + ' busy' + (m.offline ? ', ' + m.offline + ' offline' : '') + '</span></h3><div class=charts>' + m.runners.map(r => runnerCard(r, now, st)).join('') + '</div>').join('')
       : '<p class=muted>no runners registered on these repos</p>') + '<p class=sec>' + RUNNER_NOTE + '</p>';

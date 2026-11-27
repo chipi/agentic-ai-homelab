@@ -120,6 +120,51 @@ function computeStats(ledger, runs, repos, now) {
     since: since === Infinity ? null : iso(since), total, repos: per, daily };
 }
 
+// Slowest steps on the X3 against GitHub: the successful steps of successful jobs, per (repo, job, step), in each period's
+// window and the one before it. Ranked by the time the X3 loses: (X3 median - GitHub median) x the X3 runs of the step; a
+// step GitHub never ran is ranked by its whole X3 time and has gh null. Steps are read from the run files (the state keeps
+// jobs, not steps): only runs holding a job in the windows are opened, so the cost follows the 30 days held, not the repo count.
+const STEPS_TOP = 15;
+const onX3 = j => /^x3-/.test(j.runner || '');
+function computeSteps({ runs, detailOf, repos, now, since }) {
+  const { W } = periodWindows(now);
+  const wins = [];
+  for (const p of PERIODS) wins.push([p, W[p]], [p + 'Prev', W[p + 'Prev']]);
+  const lo = Math.min.apply(0, wins.map(w => w[1][0]));
+  const side = j => onX3(j) ? 'x3' : j.where === 'hosted' ? 'gh' : null;
+  const usable = j => j.conclusion === 'success' && j.completed && side(j) && ts(j.completed) >= lo && ts(j.completed) < now;
+  const agg = Object.fromEntries(wins.map(w => [w[0], new Map()]));
+  for (const [id, rec] of Object.entries(runs)) {
+    if (rec.status !== 'completed' || !repos.includes(rec.repo) || !(rec.jobs || []).some(usable)) continue;
+    const d = detailOf(rec.repo, id);
+    if (!d) continue;
+    for (const j of (d.jobs || []).filter(usable)) {
+      const t = ts(j.completed), inWin = wins.filter(w => t >= w[1][0] && t < w[1][1]);
+      if (!inWin.length) continue;
+      for (const s of j.steps || []) {
+        if (s.conclusion !== 'success' || !s.started || !s.completed) continue;
+        const secs = Math.max(0, ts(s.completed) - ts(s.started)), key = rec.repo + '\n' + j.name + '\n' + s.name;
+        for (const [name] of inWin) {
+          const m = agg[name];
+          if (!m.has(key)) m.set(key, { repo: rec.repo, job: j.name, step: s.name, x3: [], gh: [] });
+          m.get(key)[side(j)].push(secs);
+        }
+      }
+    }
+  }
+  const stat = xs => xs.length ? { med: median(xs), n: xs.length } : null;
+  const out = {};
+  for (const p of PERIODS) {
+    // the previous window is compared only when the collector holds all of it, as the cards do
+    const held = since != null && W[p + 'Prev'][0] >= since;
+    out[p] = Array.from(agg[p].entries()).filter(([, e]) => e.x3.length).map(([key, e]) => {
+      const x3 = stat(e.x3), gh = stat(e.gh), pv = held ? agg[p + 'Prev'].get(key) : null;
+      return { repo: e.repo, job: e.job, step: e.step, x3, gh, lost: gh ? Math.max(0, x3.med - gh.med) * x3.n : x3.med * x3.n, x3Prev: pv ? stat(pv.x3) : null, key };
+    }).sort((a, b) => b.lost - a.lost || b.x3.n - a.x3.n || (a.key < b.key ? -1 : 1)).slice(0, STEPS_TOP).map(({ key, ...r }) => r);
+  }
+  return out;
+}
+
 // ---- the logs -----------------------------------------------------------------------------------------------
 // ANSI colour and cursor codes out; the last LOG_TAIL lines kept; every ##[error] line from before them kept too,
 // with its line number, so the cause is not lost in a long log. The page marks any line holding ##[error].
@@ -185,7 +230,7 @@ const stepsOf = x => (x.steps || []).map(s => ({ n: s.number, name: s.name, stat
 const runRec = (repo, run, jobs) => ({ repo, u: run.updated_at, wf: run.name, br: run.head_branch, sha: run.head_sha || null, msg: firstLine((run.head_commit || {}).message || run.display_title),
   ev: run.event, ac: (run.actor || {}).login || null, at: run.run_attempt || 1, created: run.created_at, started: run.run_started_at || run.created_at, status: run.status, conclusion: run.conclusion, url: run.html_url, jobs });
 
-async function collect({ api, now, repos, state, hasDetail = () => true, runnerRepos = repos, jobsBudget = Infinity }) {
+async function collect({ api, now, repos, state, hasDetail = () => true, readDetail = () => null, runnerRepos = repos, jobsBudget = Infinity }) {
   const budget = { left: jobsBudget };
   const errors = [], runners = [], queued = [], recent = [], running = [], details = {};
   const st = { runs: {}, ledger: Object.assign({}, state.ledger), offline: {}, logged: state.logged || {}, partial: {}, vis: Object.assign({}, state.vis) };
@@ -269,6 +314,7 @@ async function collect({ api, now, repos, state, hasDetail = () => true, runnerR
   minutes.since30d = oldest == null ? null : iso(oldest);
 
   const stats = computeStats(st.ledger, st.runs, repos, now);
+  const steps = computeSteps({ runs: st.runs, detailOf: (repo, id) => details[repo + '|' + id] || readDetail(repo, id), repos, now, since: stats.since ? ts(stats.since) : null });
   const runsDoc = Object.entries(st.runs).filter(([, r]) => repos.includes(r.repo)).map(([id, r]) => {
     const t = runTimes(r);
     return { repo: r.repo, id: +id, workflow: r.wf, branch: r.br, event: r.ev, actor: r.ac, attempt: r.at, title: r.msg, created: r.created, finishedAt: t.done ? iso(t.done) : null,
@@ -281,7 +327,7 @@ async function collect({ api, now, repos, state, hasDetail = () => true, runnerR
   for (const r of repos) if (errors.some(e => e.startsWith(r + ':'))) delete failures[r];
   const allRuns = Object.values(st.runs).filter(r => repos.includes(r.repo)).length;
   const doc = { takenAt: iso(now), repos, runnerRepos, visibility: Object.fromEntries(repos.map(r => [r, st.vis[r] || null])), runners, queued, recent: recent.slice(0, RECENT), runs: runsDoc,
-    runsHeld: allRuns, runsCap: RUNS_IN_DOC, failures, minutes, stats, errors };
+    runsHeld: allRuns, runsCap: RUNS_IN_DOC, failures, minutes, stats, steps, errors };
   const failedRepos = new Set(errors.map(e => e.split(':')[0]));
   const gauges = [];
   for (const r of runners) { const l = { repo: r.repo, runner: r.name, machine: r.machine }; gauges.push(['gh_runner_up', r.status === 'online' ? 1 : 0, l], ['gh_runner_busy', r.busy ? 1 : 0, l]); }
@@ -346,7 +392,8 @@ async function main() {
   }
   let prev = emptyState();
   try { prev = Object.assign(prev, JSON.parse(fs.readFileSync(STATE, 'utf8'))); } catch (e) { /* first run */ }
-  const r = await collect({ api, now, repos: REPOS, runnerRepos: RUNNER_REPOS, jobsBudget: JOBS_PER_COLLECTION, state: prev, hasDetail: (repo, id) => fs.existsSync(runFile(dir, repo, id)) });
+  const r = await collect({ api, now, repos: REPOS, runnerRepos: RUNNER_REPOS, jobsBudget: JOBS_PER_COLLECTION, state: prev, hasDetail: (repo, id) => fs.existsSync(runFile(dir, repo, id)),
+    readDetail: (repo, id) => { try { return JSON.parse(fs.readFileSync(runFile(dir, repo, id), 'utf8')); } catch (e) { return null; } } });
   for (const d of Object.values(r.details)) S.writeAtomic(runFile(dir, d.repo, d.id), JSON.stringify(d));
   const runKeep = new Set(Object.entries(r.state.runs).map(([id, x]) => short(x.repo) + '/' + id));
   const prunedRuns = pruneTree(path.join(dir, 'ci-runs'), (rp, id) => runKeep.has(rp + '/' + id));
@@ -369,4 +416,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(e => { console.error('ci-job failed: ' + (e && e.message || e)); process.exit(2); });
-module.exports = { collect, fixtureApi, fixtureLog, machineOf, emptyState, computeStats, periodWindows, PERIODS, trimLog, syncLogs, pruneTree, runFile, logFile, LOG_TAIL, LOG_JOBS, GH_RATE_USD_PER_MIN };
+module.exports = { collect, fixtureApi, fixtureLog, machineOf, emptyState, computeStats, computeSteps, periodWindows, PERIODS, trimLog, syncLogs, pruneTree, runFile, logFile, LOG_TAIL, LOG_JOBS, GH_RATE_USD_PER_MIN };

@@ -160,6 +160,14 @@ chart/badge deep-links to the matching Grafana dashboard or service.
     paged client-side, 25 a page, over the last 30 days or the chosen period, filtered by repo and result; the
     page and filters live in the hash (`#ci/runs/<page>/<repo>/<result>[/<period>[/period]]`), a run is `#ci/run/<repo>/<id>` (repo without `chipi/`).
     Each run row links to our run page and, small, to GitHub's.
+  - **Slowest steps on the X3 vs GitHub** (under the per-repo table, following the period). `ci.json` `steps` is
+    `{<period>: [{repo, job, step, x3: {med, n}, gh: {med, n} | null, lost, x3Prev: {med, n} | null}]}`: the successful
+    steps of successful jobs per (repo, job, step) in the period's window, X3 being runners named `x3-*` and GitHub the
+    hosted ones; only steps with an X3 sample; medians in seconds. Ranked by `lost` = (X3 median - GitHub median, at
+    least 0) x X3 runs (a step GitHub never ran: the whole X3 time, `gh` null), the top 15 a period. `x3Prev` is the X3
+    median in the window before, null when it had none or the collector does not hold all of that window. Steps are read
+    from `ci-runs/` (the state keeps jobs, not steps), opening only runs with a job in the windows. A row links to the
+    repo's runs of the period.
   - **Files the job writes** next to `ci.json` (`www/`, tailnet-only like everything else, no new exposure):
     `ci-state.json` (30 days of runs with their jobs, a ledger of finished jobs, the logs already fetched),
     `ci-runs/<repo>/<run_id>.json` (run header, jobs, steps; written when the run is read, pruned with the 30 days;

@@ -305,6 +305,65 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   check('collect: details carry steps, the commit and the actor for the run page', Object.values(run1.details).length === 250 && Object.values(run1.details).every(x => x.sha && x.actor && x.jobs.every(j => Array.isArray(j.steps))) && Object.values(run1.details).some(x => x.jobs.some(j => j.steps.length > 3)), Object.keys(run1.details).length);
   check('collect: state keeps the runs of the 30 days and drops older ones', Object.keys(run1.state.runs).length >= 245 && Object.keys(run3.state.runs).filter(id => run3.state.runs[id].status === 'completed').length === 0);
 
+  // slowest steps, X3 against GitHub: synthetic runs (the step names are made up); days are UTC days back from 2026-11-26
+  const MID = Math.floor(NOW / D) * D, dayAt = day => new Date((MID - day * D + 3600) * 1000).toISOString().replace(/\.\d+Z$/, 'Z');
+  const sruns = {}, sdet = {};
+  let sid = 0;
+  // job: [name, runner, where, conclusion, daysBack, [[step, secs, conclusion]...]]
+  const addRun = (repo, [name, runner, where, conclusion, back, steps]) => {
+    const id = ++sid, jobs = [{ id, name, runner, where, conclusion, completed: dayAt(back), steps: steps.map(([n, s, c], i) => ({ n: i + 1, name: n, status: 'completed', conclusion: c || 'success', started: dayAt(back), completed: new Date(Date.parse(dayAt(back)) + s * 1000).toISOString().replace(/\.\d+Z$/, 'Z') })) }];
+    sruns[id] = { repo, status: 'completed', jobs: jobs.map(j => ({ name: j.name, runner: j.runner, where: j.where, conclusion: j.conclusion, completed: j.completed })) };
+    sdet[repo + '|' + id] = { jobs };
+  };
+  const X3 = 'x3-a-1', HOSTED = 'GitHub Actions 7';
+  const job = (runner, back, steps, concl) => ['test', runner, runner === X3 ? 'self-hosted' : 'hosted', concl || 'success', back, steps];
+  for (const s of [10, 20, 60]) addRun('chipi/r1', job(X3, 2, [['Build', s], ['Cache', 100], ['Flaky', 500, 'failure']]));
+  for (const s of [5, 7]) addRun('chipi/r1', job(HOSTED, 3, [['Build', s], ['Cache', 100], ['GhOnly', 900]]));
+  for (const s of [30, 30]) addRun('chipi/r1', job(X3, 4, [['NoGH', s]]));
+  addRun('chipi/r1', job(X3, 2, [['Failed job step', 999]], 'failure'));
+  addRun('chipi/r1', ['test', 'mac-1', 'self-hosted', 'success', 2, [['Other self-hosted', 999]]]);
+  addRun('chipi/r2', job(X3, 1, [['Yesterday only', 40]]));
+  for (const s of [40, 80]) addRun('chipi/r1', job(X3, 10, [['Build', s]]));
+  for (const s of [8, 12]) addRun('chipi/r1', job(HOSTED, 9, [['Build', s]]));
+  const SINCE = Date.parse('2026-10-01T00:00:00Z') / 1000;
+  const detailOf = (repo, id) => sdet[repo + '|' + id] || null;
+  const stp = JOB.computeSteps({ runs: sruns, detailOf, repos: ['chipi/r1', 'chipi/r2'], now: NOW, since: SINCE });
+  const row = (p, step) => stp[p].find(r => r.step === step);
+  check('steps: X3 and GitHub medians and counts per (repo, job, step); the other self-hosted runner and GitHub-less keys', JSON.stringify(row('7d', 'Build').x3) === '{"med":20,"n":3}' && JSON.stringify(row('7d', 'Build').gh) === '{"med":6,"n":2}' && row('7d', 'Build').job === 'test' && row('7d', 'Build').repo === 'chipi/r1', row('7d', 'Build'));
+  check('steps: lost is (X3 median - GitHub median) x X3 runs; with no GitHub sample, the whole X3 time and gh null', row('7d', 'Build').lost === 42 && row('7d', 'NoGH').gh === null && row('7d', 'NoGH').lost === 60 && row('7d', 'Cache').lost === 0, stp['7d']);
+  check('steps: ranked by time lost', stp['7d'].map(r => r.step).join() === 'NoGH,Build,Yesterday only,Cache' && stp['7d'].every((r, i, a) => !i || a[i - 1].lost >= r.lost), stp['7d'].map(r => r.step));
+  check('steps: failed steps, steps of failed jobs, other runners and GitHub-only steps are left out', !['Flaky', 'Failed job step', 'Other self-hosted', 'GhOnly'].some(n => stp['30d'].some(r => r.step === n)), stp['30d'].map(r => r.step));
+  check('steps: each period has its own window (yesterday: the one job of that day; today and older ones not)', stp.yesterday.length === 1 && stp.yesterday[0].step === 'Yesterday only' && stp.yesterday[0].repo === 'chipi/r2' && row('30d', 'Build').x3.n === 5, stp.yesterday);
+  check('steps: the X3 median of the window before, with its count; null when it had none', JSON.stringify(row('7d', 'Build').x3Prev) === '{"med":60,"n":2}' && row('7d', 'NoGH').x3Prev === null, row('7d', 'Build'));
+  const shortSince = JOB.computeSteps({ runs: sruns, detailOf, repos: ['chipi/r1', 'chipi/r2'], now: NOW, since: Date.parse('2026-11-14T00:00:00Z') / 1000 });
+  check('steps: a previous window the collector does not hold whole is not compared', shortSince['7d'].every(r => r.x3Prev === null) && JOB.computeSteps({ runs: sruns, detailOf, repos: ['chipi/r1'], now: NOW, since: null })['7d'].every(r => r.x3Prev === null));
+  const slow = {}, slowDet = {};
+  for (let i = 1; i <= 20; i++) { slow[i] = { repo: 'chipi/r1', status: 'completed', jobs: [{ name: 'j', runner: X3, where: 'self-hosted', conclusion: 'success', completed: dayAt(1) }] }; slowDet['chipi/r1|' + i] = { jobs: [{ name: 'j', runner: X3, where: 'self-hosted', conclusion: 'success', completed: dayAt(1), steps: [{ name: 's' + i, conclusion: 'success', started: dayAt(1), completed: new Date(Date.parse(dayAt(1)) + i * 1000).toISOString() }] }] }; }
+  const top = JOB.computeSteps({ runs: slow, detailOf: (r, id) => slowDet[r + '|' + id], repos: ['chipi/r1'], now: NOW, since: SINCE })['7d'];
+  check('steps: the top 15 only, the slowest first', top.length === 15 && top[0].step === 's20' && top[14].step === 's6', top.map(r => r.step));
+  let opened = 0;
+  JOB.computeSteps({ runs: Object.assign({ x: { repo: 'chipi/r1', status: 'completed', jobs: [{ name: 'j', runner: X3, where: 'self-hosted', conclusion: 'failure', completed: dayAt(1) }] }, y: { repo: 'chipi/r1', status: 'completed', jobs: [{ name: 'j', runner: X3, where: 'self-hosted', conclusion: 'success', completed: dayAt(100) }] } }, slow), detailOf: (r, id) => { opened++; return slowDet[r + '|' + id]; }, repos: ['chipi/r1'], now: NOW, since: SINCE });
+  check('steps: a run with no successful job in the windows is not opened', opened === 20, opened);
+  check('collect: ci.json carries steps for every period, at most 15 each, the collector\'s own X3 runners only', ['month', '30d', '7d', 'yesterday'].every(p => Array.isArray(d.steps[p]) && d.steps[p].length <= 15)
+    && d.steps['30d'].length > 0 && d.steps['30d'].every(r => r.x3.n >= 1 && r.x3.med >= 0 && (r.gh === null || r.gh.n >= 1) && r.lost >= 0), d.steps['30d'].slice(0, 2));
+
+  // the table on the CI tab
+  const sdoc = Object.assign({}, JSON.parse(JSON.stringify(d)), { steps: {
+    '7d': [{ repo: 'chipi/r1', job: '<i>job</i>', step: '"><b>step</b>', x3: { med: 120, n: 9 }, gh: { med: 30, n: 4 }, lost: 810, x3Prev: { med: 100, n: 5 } },
+      { repo: 'chipi/r2', job: 'build', step: 'Only here', x3: { med: 45, n: 2 }, gh: null, lost: 90, x3Prev: null },
+      { repo: 'chipi/r1', job: 'build', step: 'Faster', x3: { med: 10, n: 3 }, gh: { med: 40, n: 3 }, lost: 0, x3Prev: { med: 20, n: 3 } }],
+    '30d': [{ repo: 'chipi/r1', job: 'only30', step: 'in 30 days', x3: { med: 5, n: 1 }, gh: null, lost: 5, x3Prev: null }], yesterday: [], month: [] } });
+  const sv = CI.view(sdoc, NOW + 60), s7 = CI.html(sv, NOW + 60, { route: CI.parseRoute('#ci/7d') }), s30 = CI.html(sv, NOW + 60), sy = CI.html(sv, NOW + 60, { route: CI.parseRoute('#ci/yesterday') });
+  const tbl = s7.slice(s7.indexOf('Slowest steps on the X3 vs GitHub'), s7.indexOf('Runners</h3>'));
+  check('steps html: a table under the repo table, following the period', s7.indexOf('By repo') < s7.indexOf('Slowest steps on the X3 vs GitHub') && s7.indexOf('Slowest steps on the X3 vs GitHub') < s7.indexOf('Runners</h3>') && /Only here/.test(tbl) && !/in 30 days/.test(tbl)
+    && /in 30 days/.test(s30) && !/Only here/.test(s30) && /No successful step ran on the X3 in this period/.test(sy), tbl.slice(0, 200));
+  check('steps html: GitHub and X3 medians with counts, the difference signed, a dash where there is no GitHub run', /2 min <span class=muted>\(9\)<\/span><\/td><td>30 s <span class=muted>\(4\)<\/span><\/td><td>\+2 min<\/td>/.test(tbl) && /<td>45 s <span class=muted>\(2\)<\/span><\/td><td>&mdash;<\/td><td>&mdash;<\/td><td>&mdash;<\/td>/.test(tbl) && /&minus;30 s/.test(tbl), tbl);
+  check('steps html: the X3 before, with the change up or down; a dash when there is none', /2 min <span class=muted>\(5\)<\/span> <span class=u>&#9650;20%<\/span>/.test(tbl) && /20 s <span class=muted>\(3\)<\/span> <span class=u>&#9660;50%<\/span>/.test(tbl), tbl);
+  check('steps html: names are escaped; a row links to the repo\'s runs of the period', /&lt;i&gt;job&lt;\/i&gt;/.test(tbl) && /&quot;&gt;&lt;b&gt;step&lt;\/b&gt;/.test(tbl) && !/<i>job|<b>step/.test(tbl)
+    && tbl.includes('href="#ci/runs/1/r1/all/7d/period"') && tbl.includes('href="#ci/runs/1/r2/all/7d/period"') && s30.includes('href="#ci/runs/1/r1/all/30d/period"'),tbl.slice(0, 300));
+  const noSteps = JSON.parse(JSON.stringify(d)); delete noSteps.steps;
+  check('steps html: an old ci.json without steps draws no table', !/Slowest steps/.test(CI.html(CI.view(noSteps, NOW), NOW)));
+
   // the process: ci-job.js over the fixtures, gauges to a fake VictoriaMetrics
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hub-ci-test-'));
   const bodies = [];
