@@ -94,6 +94,8 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
 
   const html = CI.html(CI.view(d, NOW + 60), NOW + 60);
   check('html: cards, by repo, runners, queue, failures, past runs, links to GitHub', ['Runs</h3>', 'Jobs</h3>', 'Minutes on the X3', 'Minutes on GitHub', 'Success rate', 'Median queue wait', 'GitHub minutes saved', 'By repo &middot; ', 'Runners', 'Queue now', 'Failures, last 24 h', 'Past runs'].every(s => html.includes(s)) && /href="https:\/\/github\.com\/chipi\//.test(html), html.slice(0, 200));
+  check('html: the Grafana runners board under Runners, and each X3 runner\'s name opens it on that runner', /Runners<\/h3><p class=sec[^>]*><a href="https:\/\/grafana\.tail6d0ed4\.ts\.net\/d\/ci-runners">Grafana dashboard<\/a>/.test(html)
+    && html.includes('href="https://grafana.tail6d0ed4.ts.net/d/ci-runners?var-runner=x3-closelistening-player-3"'));
   check('html: the offline runner is said so', /offline 0 s|offline 5 min|offline/.test(html) && /dot down/.test(html));
   const stale = CI.html(CI.view(d, NOW + 3600), NOW + 3600);
   check('html: stale numbers are grey with a notice, no green, amber or red dot', /dot stale/.test(stale) && !/dot up|dot mid|dot down/.test(stale) && /60 minutes old/.test(stale));

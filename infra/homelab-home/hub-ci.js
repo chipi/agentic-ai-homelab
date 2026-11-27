@@ -136,7 +136,8 @@
   const pct = x => x == null ? '&mdash;' : (Math.round(x * 1000) / 10) + '%';
   const link = (u, t) => /^https:\/\/github\.com\//.test(u || '') ? '<a href="' + esc(u) + '">' + t + '</a>' : t;
   const ghRunUrl = (repos, repo, id) => { const full = (repos || []).find(r => short(r) === short(repo)); return full ? 'https://github.com/' + full + '/actions/runs/' + id : null; };
-  const RUNNER_NOTE = 'Runners belong to one repo each (chipi is a personal account, so there is no organisation pool): a queue in one repo does not use idle runners in another.';
+  const GRAFANA_RUNNERS = 'https://grafana.tail6d0ed4.ts.net/d/ci-runners';
+  const RUNNER_NOTE ='Runners belong to one repo each (chipi is a personal account, so there is no organisation pool): a queue in one repo does not use idle runners in another.';
 
   const sq = c => '<span style="color:' + c + '">&#9632;</span> ';
   const bar = parts => {
@@ -268,7 +269,7 @@
     const cur = r.now ? '<a href="' + runHref(r.repo, r.now.runId) + '" target=_self title="' + esc(r.now.workflow + ' / ' + r.now.job) + '">' + esc(r.now.job) + '</a>'
       : r.status !== 'online' ? '&mdash;' : r.busy ? 'a job (not in the runs read)' : 'nothing';
     return '<div class="card ci"><h3>' + esc(short(r.repo)) + '</h3><div class=cv style="font-size:15px">' + dot(r.state, stale) + what + '</div>'
-      + kv([['Runner', esc(r.name)], ['Running', cur], ['Jobs, 24 h', num(r.jobs24)], ['Minutes, 24 h', mins(r.min24)]]) + '</div>';
+      + kv([['Runner', /^x3-/.test(r.name || '') ? '<a href="' + GRAFANA_RUNNERS + '?var-runner=' + encodeURIComponent(r.name) + '" title="This runner in Grafana">' + esc(r.name) + '</a>' : esc(r.name)], ['Running', cur], ['Jobs, 24 h', num(r.jobs24)], ['Minutes, 24 h', mins(r.min24)]]) + '</div>';
   }
 
   function listHtml(v, now, route) {
@@ -279,7 +280,7 @@
       + ' &middot; every number covers the same completed UTC days; only "Today so far" is live</p>' : '');
     h += cardsHtml(v, per, route) + repoTable(v, per) + slowStepsTable(v, per);
 
-    h += '<h3 class=sectitle>Runners</h3>' + (v.machines.length ? v.machines.map(m => '<h3 class=sectitle style="margin-top:8px;border:0">' + dot(m.state, st) + esc(m.machine) + ' <span class=muted style="font-weight:400;text-transform:none">' + m.online + ' online, ' + m.busy + ' busy' + (m.offline ? ', ' + m.offline + ' offline' : '') + '</span></h3><div class=charts>' + m.runners.map(r => runnerCard(r, now, st)).join('') + '</div>').join('')
+    h += '<h3 class=sectitle>Runners</h3><p class=sec style="margin:-6px 0 10px"><a href="' + GRAFANA_RUNNERS + '">Grafana dashboard</a> for the X3 fleet: CPU, memory, disk, job slots, the sync log</p>' + (v.machines.length ? v.machines.map(m => '<h3 class=sectitle style="margin-top:8px;border:0">' + dot(m.state, st) + esc(m.machine) + ' <span class=muted style="font-weight:400;text-transform:none">' + m.online + ' online, ' + m.busy + ' busy' + (m.offline ? ', ' + m.offline + ' offline' : '') + '</span></h3><div class=charts>' + m.runners.map(r => runnerCard(r, now, st)).join('') + '</div>').join('')
       : '<p class=muted>no runners registered on these repos</p>') + '<p class=sec>' + RUNNER_NOTE + '</p>';
 
     h += '<h3 class=sectitle>Queue now</h3>' + (v.queued.length ? '<table class=ctbl>' + v.queued.map(j => '<tr><td>' + dot(j.state, st) + esc(short(j.repo)) + '</td><td>' + (j.runId ? '<a href="' + runHref(j.repo, j.runId) + '" target=_self>' + esc(j.workflow) + ' / ' + esc(j.name) + '</a>' : esc(j.workflow) + ' / ' + esc(j.name)) + '</td><td>waiting ' + dur(j.waitS) + '</td><td class=u>' + link(j.url, 'GitHub') + '</td></tr>').join('') + '</table>'
