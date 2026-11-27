@@ -112,7 +112,8 @@ fi
 # listening runners, so an idle runner holds nothing. A job killed before its completed hook leaves its slot
 # named for this runner, and this container is the runner's only one, so slots and waits it owns are freed here.
 if [ -n "${CI_SLOTS:-}" ] && [ -d "$CI_SLOTS" ]; then
-  mkdir -p "$CI_SLOTS/wait" 2>/dev/null || true
+  # wait/ is written by the job's hook, which runs as runner, not as this root
+  mkdir -p "$CI_SLOTS/wait" && chmod 1777 "$CI_SLOTS/wait" || true
   for o in "$CI_SLOTS"/*/owner; do
     [ -f "$o" ] && [ "$(cut -d' ' -f1 "$o")" = "$RUNNER_NAME" ] && rm -rf "$(dirname "$o")"
   done
