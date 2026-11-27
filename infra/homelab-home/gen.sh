@@ -372,6 +372,9 @@ pre.ci-log .ln{display:block;padding:0 10px;min-width:max-content}pre.ci-log .er
   <table class=ctbl><tbody id=mctr></tbody></table>
   </details>
   <div class=dock><a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=mdocker>&hellip;</span></a></div>
+  <details class=sect><summary class=sectitle id=engsum_mini>Docker disk</summary>
+  <table class=ctbl><tbody id=eng_mini></tbody></table>
+  </details>
   <details class=sect><summary class=sectitle>Services &amp; credentials</summary>
   <table><thead><tr><th>Service</th><th>Port</th><th>User</th><th>Password</th></tr></thead><tbody>
 HDR
@@ -417,6 +420,9 @@ cat <<MID
   <table class=ctbl><tbody id=dgxctr></tbody></table>
   </details>
   <div class=dock><a href="$DASH_CAD" style=color:inherit;text-decoration:none><span id=ddocker>&hellip;</span></a></div>
+  <details class=sect><summary class=sectitle id=engsum_dgx>Docker disk</summary>
+  <table class=ctbl><tbody id=eng_dgx></tbody></table>
+  </details>
   <details class=sect><summary class=sectitle>Services</summary>
   <table><thead><tr><th>Service</th><th>Port</th><th>Role</th></tr></thead><tbody>
 MID
@@ -445,6 +451,9 @@ cat <<MID2
     <a class=card href="$DASH_X3"><h3>Network</h3><div id=x_net>&hellip;</div></a>
   </div>
   <div id=svc_x3 class=svcs></div>
+  <details class=sect><summary class=sectitle id=engsum_x3>Docker disk</summary>
+  <table class=ctbl><tbody id=eng_x3></tbody></table>
+  </details>
   <p class=sec>The operator's workstation; also runs Ollama (the ollama unit, :11435), which serves LiteLLM's assistant (RFC-0008). Containers and unit health come from <code>infra/x3/x3-host.sh</code> (a user timer, every minute); no cAdvisor here, so the cards show state and uptime, not memory or CPU.</p>
 </div>
 <div class="col sub" data-sub=prod>
@@ -509,6 +518,8 @@ echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-project.js"; echo '</sc
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-slo.js"; echo '</script>'
 # the CI tab (hub-ci.js), tested by test_ci.js; the page reads the CI job's ci.json
 echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-ci.js"; echo '</script>'
+# the Docker disk tables (hub-engines.js), tested by test_engines.js; the page queries VictoriaMetrics for them
+echo '<script>'; cat "$(cd "$(dirname "$0")" && pwd)/hub-engines.js"; echo '</script>'
 # the operator's dated reminders (reminders.json): in the page as it was when generated
 echo '<script>const REMINDERS='; cat "$(cd "$(dirname "$0")" && pwd)/reminders.json"; echo ';</script>'
 cat <<'SCRIPT'
@@ -538,6 +549,14 @@ async function draw(id,qq,fmt,max){
   el.innerHTML='<div class=cv>'+fmt(vs[vs.length-1])+'</div><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio=none class=spark><polyline points="'+pts+'"/></svg>';
 }
 function fmtUp(s){s=+s;const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?d+'d '+h+'h':(h?h+'h '+m+'m':m+'m');}
+// Docker disk per box (hub-engines.js draws; engine-df.py measures hourly, so the reads look back 3 h, the prunes 10 d)
+async function engines(box){
+  const L='{box="'+box+'"}',lb=x=>'last_over_time('+x+'[3h])';
+  const [bytes,reclaim,count,measured,pruned,freed]=await Promise.all([q(lb('docker_engine_bytes'+L)),q(lb('docker_engine_reclaimable_bytes'+L)),q(lb('docker_engine_count'+L)),q(lb('docker_engine_measured_timestamp'+L)),q('last_over_time(homelab_maintenance_last_run_timestamp[10d])'),q('last_over_time(docker_prune_reclaimed_bytes'+L+'[10d])')]);
+  const m=HubEngines.model({bytes,reclaim,count,measured,pruned,freed},box,Date.now()/1000);
+  const tb=document.getElementById('eng_'+box),sm=document.getElementById('engsum_'+box);
+  if(tb)tb.innerHTML=HubEngines.rows(m);if(sm)sm.innerHTML=HubEngines.summary(m);
+}
 async function ctable(elId,box,cpuq,memq){
   const rows=await q('container_uptime_seconds{box=\"'+box+'\"}');
   const el=document.getElementById(elId);if(!el)return;
@@ -562,6 +581,7 @@ async function mini(){
   const run=await g1('mini_docker_running'),tot=await g1('mini_docker_total'),rst=await g1('mini_docker_restarting'),unh=await g1('mini_docker_unhealthy');
   const md=document.getElementById('mdocker');if(md&&run)md.innerHTML='<b>'+run[1]+'/'+tot[1]+'</b> running'+(rst&&+rst[1]?' &middot; <span style=color:#f85149>'+rst[1]+' restarting</span>':'')+(unh&&+unh[1]?' &middot; <span style=color:#f85149>'+unh[1]+' unhealthy</span>':'');
   ctable('mctr','mini','sum by (name) (rate(mini_container_cpu_seconds_total[5m]))*100','mini_container_mem_bytes');
+  engines('mini');
 }
 async function dgx(){
   draw('g_temp','DCGM_FI_DEV_GPU_TEMP',x=>x.toFixed(0)+'&deg;C');
@@ -586,6 +606,7 @@ async function dgx(){
   const mem=await g1('sum(container_memory_working_set_bytes{instance="dgx-llm-1",name!=""})');
   const dd=document.getElementById('ddocker');if(dd)dd.innerHTML='<b>'+(dr1?dr1[1]:'0')+'/'+(dt1?dt1[1]:'&mdash;')+'</b> running &middot; <b>'+(mem?(+mem[1]/1e9).toFixed(1)+' GB':'&mdash;')+'</b> in containers';
   ctable('dgxctr','dgx');
+  engines('dgx');
 }
 async function x3(){
   const X='{instance="x3"}',L=x=>x?(+x[1]).toFixed(2):'&mdash;',GB=v=>(v/1073741824).toFixed(0)+' GB';
@@ -603,6 +624,7 @@ async function x3(){
   const sw=await g1('node_memory_SwapTotal_bytes'+X+'-node_memory_SwapFree_bytes'+X),ps=await g1('rate(node_pressure_memory_waiting_seconds_total'+X+'[5m])*100');
   const up=await g1('node_time_seconds'+X+'-node_boot_time_seconds'+X);
   const r=document.getElementById('x3row');if(r)r.innerHTML='Load <b>'+L(l1)+' / '+L(l5)+' / '+L(l15)+'</b> &middot; Swap used <b>'+(sw?GB(+sw[1]):'&mdash;')+'</b> &middot; Memory pressure <b>'+(ps?(+ps[1]).toFixed(1)+'%':'&mdash;')+'</b> &middot; Up <b>'+(up?fmtUp(up[1]):'&mdash;')+'</b>';
+  engines('x3');
 }
 async function prod(){
   const P='{instance="prod-podcast"}';

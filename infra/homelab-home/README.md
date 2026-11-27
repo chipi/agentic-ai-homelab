@@ -132,6 +132,12 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   pushes the headline to the phone through Home Assistant (`notify.mobile_app_iphone`, token
   `~/home-automation-secrets/ha-token`), records `hub_briefing_last_success_timestamp` (alert
   `hub-briefing-missing`). `node briefing-job.js --dry-run` builds the page without pushing.
+- `hub-engines.js` — the "Docker disk" section in the mini, DGX and X3 columns (operator, 2026-11-27): each
+  engine's images, build cache, volumes and containers, what docker counts as reclaimable, and its weekly
+  prune (when, what it freed; `docker-prune` on the mini's production engine, `dev-engine-prune` on the X3's
+  dev engine; the DGX has none, its vLLM images must stay). The sizes come hourly from
+  `mini-metrics/engine-df.py` (`docker_engine_*{box,engine,type}`), run by `mini-metrics/push.sh`,
+  `dgx-scrape/push.sh` (inside its existing SSH) and `infra/x3/x3-host.sh`. Tests: `test_engines.js`.
 - `ci-job.js` + `hub-ci.js` — the CI tab (RFC-0011, phase A). `ci-job.js` runs every 5 minutes (launchd
   `com.homelab.hub-ci`), reads only, and writes `www/ci.json` (served at `/ci.json`: `www/` is mounted whole,
   so `default.conf` needs no change) and the `gh_*` gauges. `hub-ci.js` holds the status semantics (a job

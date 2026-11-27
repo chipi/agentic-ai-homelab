@@ -27,6 +27,7 @@ fi
 HOMELAB="$(cd "$(dirname "$0")/../.." && pwd)"
 DRIFT_EVERY=45
 CPU_EVERY=3
+ENGINE_EVERY=180
 loop=0
 while true; do
   loop=$((loop + 1))
@@ -136,5 +137,14 @@ while true; do
   $D inspect $($D ps -aq) --format "$CFMT" 2>/dev/null \
     | python3 "$(cd "$(dirname "$0")" && pwd)/ctr.py" mini \
     | curl -s -m8 -o /dev/null --data-binary @- "$VM" || true
+  # Each engine's disk by type, about hourly (every 180th loop), for the Hub's Docker disk table: the
+  # production engine (read-only `system df`), and the dev engine when it runs (ADR-0009; the operator
+  # starts it, so it is often down). The weekly docker-prune (infra/docker-maintenance) keeps the first small.
+  if [ $(( loop % ENGINE_EVERY )) -eq 1 ]; then
+    { $D system df --format '{{json .}}' 2>/dev/null | python3 "$HOMELAB/infra/mini-metrics/engine-df.py" mini prod
+      [ -S /var/run/docker-dev.sock ] && $D --context dev system df --format '{{json .}}' 2>/dev/null \
+        | python3 "$HOMELAB/infra/mini-metrics/engine-df.py" mini dev
+    } | curl -s -m8 -o /dev/null --data-binary @- "$VM" || true
+  fi
   sleep 20
 done

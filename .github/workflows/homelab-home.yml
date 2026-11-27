@@ -49,3 +49,4 @@ jobs:
           node infra/homelab-home/test_status.js
           node infra/homelab-home/test_slo.js
           node infra/homelab-home/test_ci.js
+          node infra/homelab-home/test_engines.js

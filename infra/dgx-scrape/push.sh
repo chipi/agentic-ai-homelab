@@ -43,6 +43,9 @@ SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-n
 # Separates the two payloads inside one connection's stdout.
 SPLIT='@@dgx-scrape-split@@'
 MSPLIT='@@dgx-scrape-mode@@'
+ESPLIT='@@dgx-scrape-engine@@'
+# docker system df every 30th inventory (~1 h)
+ENGINE_EVERY=30
 # openai-whisper (:8002) retired — speaches (:8000) won the #952 transcription
 # bake-off; its files stay on the DGX but it's no longer a monitored service. The label
 # stays "whisper" so the series and the dgx-services dashboard keep their history.
@@ -76,6 +79,10 @@ while true; do
   # per-container detail (name/state/uptime/port) for the DGX Containers table,
   # via the shared ctr.py (runs here on the mini over the SSH'd inspect output).
   CFMT=$(printf '{{.Name}}\t{{.State.Status}}\t{{.State.StartedAt}}\t{{index .Config.Labels "com.docker.compose.project"}}\t{{json .NetworkSettings.Ports}}\t{{.State.ExitCode}}\t{{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}')
+  ENGINE_CMD=""
+  if [ $(( (loop - 1) % (INVENTORY_EVERY * ENGINE_EVERY) )) -eq 0 ]; then
+    ENGINE_CMD="echo '$ESPLIT'; docker system df --format '{{json .}}'"
+  fi
   # BOTH payloads over ONE connection — see the SSH_OPTS note. Empty on any hiccup, which
   # just skips this cycle's inventory; the TCP health checks above have already shipped.
   DGX_OUT=$(ssh "${SSH_OPTS[@]}" ops@"$DGX" "
@@ -84,7 +91,18 @@ while true; do
       docker inspect \$(docker ps -aq) --format '$CFMT'
       echo '$MSPLIT'
       ~/agentic-ai-homelab/infra/dgx/bin/gpu-mode-swap.sh status --mode-only --no-color 2>/dev/null || true
+      $ENGINE_CMD
     " 2>/dev/null) || DGX_OUT=""
+  # The engine's disk by type, about hourly, in the same connection (engine-df.py, for the Hub's Docker disk
+  # table). Taken off the end first: the mode parse below reads to the end of the output.
+  case "$DGX_OUT" in
+    *"$ESPLIT"*)
+      printf '%s\n' "${DGX_OUT##*"$ESPLIT"}" \
+        | python3 "$(cd "$(dirname "$0")" && pwd)/../mini-metrics/engine-df.py" dgx default \
+        | curl -s -m8 -o /dev/null --data-binary @- "$VMPLAIN" || true
+      DGX_OUT=${DGX_OUT%%"$ESPLIT"*}
+      ;;
+  esac
   # The GPU mode, from gpu-mode-swap.sh's read-only status (no lock, ~40 ms): prod, code,
   # research-vllm, judging-*, free, or BROKEN-BOTH. "free" covers both Ollama modes; the hub
   # tells them apart by whether :11434 and :8005 answer.

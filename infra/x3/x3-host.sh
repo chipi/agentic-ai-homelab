@@ -17,7 +17,8 @@
 #      (x3_ci_*). The cap is shared by every runner, so a throttled slice slows every job at once; nothing
 #      recorded it before (player's e2e timeouts of 2026-11-26 could not be tied to it or ruled out).
 #   6. each runner's disk, its downloads and its engine, from the runners' sync (log/ci-sizes.prom), and the
-#      free space under /var/lib/gh-runner: the budget is 5 GB + 10 GB a runner (entrypoint.sh prunes to it).
+#      free space under /var/lib/gh-runner: the budget is 5 GB + 10 GB a runner (entrypoint.sh prunes to it);
+#   7. hourly, the dev engine's disk by type (mini-metrics/engine-df.py, docker_engine_*{box="x3",engine="dev"}).
 # Pushes to VictoriaMetrics over the tailnet, as the X3's Alloy does. Each part is best effort: one failing
 # never stops the others.
 set -uo pipefail
@@ -91,3 +92,11 @@ CI_UID=$(id -u gh-runner 2>/dev/null) && CG="/sys/fs/cgroup/user.slice/user-$CI_
 SIZES=/srv/ci-runner-src/log/ci-sizes.prom
 [ -r "$SIZES" ] && push ci-sizes < "$SIZES"
 df -B1 --output=avail,size /var/lib/gh-runner 2>/dev/null | awk 'NR == 2 { printf "x3_ci_disk_free_bytes{box=\"x3\"} %d\nx3_ci_disk_size_bytes{box=\"x3\"} %d\n", $1, $2 }' | push ci-disk
+
+# 7. the dev engine's disk (the local system engine, context dev), hourly: `docker system df` walks every
+# layer. For the Hub's Docker disk table, beside dev-engine-prune's weekly run.
+STAMP=~/.cache/x3-host-engine-df
+if [ ! -e "$STAMP" ] || [ -n "$(find "$STAMP" -mmin +59 2>/dev/null)" ]; then
+  mkdir -p "${STAMP%/*}" && touch "$STAMP"
+  timeout 120 docker --context dev system df --format '{{json .}}' 2>/dev/null | python3 "$HERE/../mini-metrics/engine-df.py" x3 dev | push engine-df
+fi

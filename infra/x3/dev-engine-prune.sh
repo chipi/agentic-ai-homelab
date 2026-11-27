@@ -9,17 +9,24 @@
 #     containers and the unused volumes, with sizes, for their owners.
 #   dev-engine-prune.sh           prune and report
 #   dev-engine-prune.sh --dry-run report what would go, remove nothing
-# Report: ~/.local/state/dev-engine-prune/<UTC date>.txt (the last 12 kept), and the journal.
+# Report: ~/.local/state/dev-engine-prune/<UTC date>.txt (the last 12 kept), and the journal. A real run
+# pushes homelab_maintenance_last_run_timestamp{job="dev-engine-prune"} (as the mini's docker-prune does;
+# the alert docker-prune-stale and the Hub read it), docker_prune_reclaimed_bytes and the engine's sizes.
 set -uo pipefail
 DRY=0; [ "${1:-}" = --dry-run ] && DRY=1
+HERE="$(cd "$(dirname "$0")" && pwd)"
+VM="${X3_VM_IMPORT:-https://vm.tail6d0ed4.ts.net/api/v1/import/prometheus}"
 D="docker --context dev"
 DAYS=14 KEEP=2
 OUT=~/.local/state/dev-engine-prune; mkdir -p "$OUT"
 R="$OUT/$(date -u +%F)$( ((DRY)) && echo -dry-run).txt"
 now=$(date +%s)
+sizes() { $D system df --format '{{json .}}' | python3 "$HERE/../mini-metrics/engine-df.py" x3 dev; }
+total() { awk '/^docker_engine_bytes/ { t += $2 } END { printf "%d", t }'; }
 exec > >(tee "$R") 2>&1
 echo "dev-engine-prune $(date -u +%FT%TZ)$( ((DRY)) && echo ' (dry run)')"
 echo "== before"; $D system df
+before=$(sizes | total)
 
 echo "== build cache unused for $DAYS days"
 if ((DRY)); then
@@ -56,3 +63,11 @@ echo "== volumes no container uses (never removed here)"
 $D system df -v --format '{{json .Volumes}}' | jq -r '.[] | select(.Links == "0" or .Links == 0) | "\(.Size)\t\(.Name)"' | sort -h -r | head -20 | sed 's/^/  /' 
 echo "== after"; $D system df
 ls -1t "$OUT"/*.txt 2>/dev/null | tail -n +13 | xargs -r rm -f
+((DRY)) && exit 0
+after_m=$(sizes); after=$(total <<<"$after_m")
+echo "freed $(( (before - after) / 1000000000 )) GB"
+# last, so the timestamp marks a run that completed
+code=$(printf '%s\ndocker_prune_reclaimed_bytes{box="x3",engine="dev"} %d\nhomelab_maintenance_last_run_timestamp{job="dev-engine-prune",box="x3",engine="dev"} %d\n' \
+  "$after_m" "$(( before > after ? before - after : 0 ))" "$(date +%s)" \
+  | curl -s -m10 -o /dev/null -w '%{http_code}' --data-binary @- "$VM")
+case "$code" in 2??) echo "metrics pushed" ;; *) echo "metrics push to $VM failed: HTTP ${code:-none}" ;; esac

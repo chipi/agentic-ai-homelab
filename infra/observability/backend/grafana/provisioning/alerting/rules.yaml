@@ -2232,6 +2232,31 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: gt, params: [691200] } }]
+      # The same for the X3's dev engine (infra/x3/dev-engine-prune.sh, a user timer, Sundays 03:17, persistent
+      # across the X3 being off). Its own rule, so a missing series pages for it alone.
+      - uid: dev-engine-prune-stale
+        title: "X3 dev-engine-prune weekly maintenance stale (no run in 8d)"
+        condition: threshold
+        for: 15m
+        noDataState: Alerting
+        execErrState: Alerting
+        labels: { severity: warning, kind: infra }
+        annotations:
+          summary: "The X3's dev-engine prune hasn't completed in over 8 days, so its build cache and old images grow again. On the X3: systemctl --user list-timers dev-engine-prune.timer; report in ~/.local/state/dev-engine-prune/."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 864000, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'time() - last_over_time(homelab_maintenance_last_run_timestamp{job="dev-engine-prune"}[10d])'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [691200] } }]
 
 # NOT re-homed yet — Caddy edge 5xx (the third T-11 rule). The caddy.service
 # systemd journal carries only startup/runtime stdout; the Caddy JSON ACCESS log
