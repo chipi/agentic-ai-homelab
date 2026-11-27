@@ -17,13 +17,13 @@ ExecStartPre=/bin/mkdir -p %h/ci-runner/work/%i
 # setup-node/setup-python (RUNNER_TOOL_CACHE), Playwright's browsers, apt's packages. On the X3 each job
 # fetched them again over the home line: setup-node 58 s against 3 s on GitHub's VMs, Playwright's chromium
 # 126 s against 10 s (player, medians, 2026-11). One folder per runner, so two jobs never write one at once;
-# entrypoint.sh prunes it at every start (5 GB, 14 days unused). Mounted at its host path, as the work
+# entrypoint.sh prunes it at every start (8 GB, 14 days unused). Mounted at its host path, as the work
 # folder, because the runner hands the tool cache to job containers by path.
 # huggingface/ is for a job to point HF_HOME at ($CI_CACHE/huggingface): model files kept on disk, pruned
 # as one entry (its blobs are shared between models). ImageOS/ImageVersion, which GitHub's images set and
 # cache keys use (public's install-ffmpeg, install-playwright), name this image, so an X3 entry is never
 # restored on GitHub's VMs or across X3 images ("ubuntu24-unknown" before, 2026-11-27).
-ExecStartPre=/bin/mkdir -p %h/ci-runner/cache/%i/toolcache %h/ci-runner/cache/%i/ms-playwright %h/ci-runner/cache/%i/apt %h/ci-runner/cache/%i/huggingface
+ExecStartPre=/bin/mkdir -p %h/ci-runner/cache/%i/toolcache %h/ci-runner/cache/%i/ms-playwright %h/ci-runner/cache/%i/apt %h/ci-runner/cache/%i/huggingface %h/ci-runner/cache/%i/venvs
 # A job's `-v /var/run/docker.sock:...` (integration's stack test mounts it into its API container) is
 # resolved by the engine, inside rootlesskit's mount namespace, where /run/docker.sock was the X3's own
 # system socket: "permission denied while trying to connect to the docker API" (2026-11-26). Point it at

@@ -1156,7 +1156,7 @@ groups:
         noDataState: OK
         labels: { severity: warning, kind: ci }
         annotations:
-          summary: "The disk holding /var/lib/gh-runner on the X3 is at {{ printf `%.1f` $values.q.Value }}% free. The runners keep 5 GB of downloads and 10 GB of engine each; look first at what else fills the disk (the X3's dev engine)."
+          summary: "The disk holding /var/lib/gh-runner on the X3 is at {{ printf `%.1f` $values.q.Value }}% free. The runners keep 8 GB of downloads and 10 GB of engine each; look first at what else fills the disk (the X3's dev engine)."
         data:
           - refId: q
             relativeTimeRange: { from: 900, to: 0 }
@@ -1171,7 +1171,7 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: lt, params: [15] } }]
-      # A runner over its budget (5 GB downloads, 10 GB engine) by a margin: entrypoint.sh's pruning is not
+      # A runner over its budget (8 GB downloads, 10 GB engine) by a margin: entrypoint.sh's pruning is not
       # working there. Read at each container start; an idle runner keeps its last reading, so no staleness rule.
       - uid: x3-ci-runner-over-budget
         title: "X3 CI runner over its disk budget"
@@ -1180,7 +1180,7 @@ groups:
         noDataState: OK
         labels: { severity: warning, kind: ci }
         annotations:
-          summary: "X3 runner {{ $labels.runner }} holds {{ printf `%.1f` $values.q.Value }} GiB against a budget of 15 (5 downloads, 10 engine; alert over 18): its pruning in entrypoint.sh (ci_disk) failed. Its container log says why."
+          summary: "X3 runner {{ $labels.runner }} holds {{ printf `%.1f` $values.q.Value }} GiB against a budget of 18 (8 downloads, 10 engine; alert over 21): its pruning in entrypoint.sh (ci_disk) failed. Its container log says why."
         data:
           - refId: q
             relativeTimeRange: { from: 600, to: 0 }
@@ -1194,7 +1194,7 @@ groups:
             model:
               type: threshold
               expression: q
-              conditions: [{ evaluator: { type: gt, params: [18] } }]
+              conditions: [{ evaluator: { type: gt, params: [21] } }]
 
   - orgId: 1
     name: app-health

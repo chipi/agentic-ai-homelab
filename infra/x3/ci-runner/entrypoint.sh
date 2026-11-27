@@ -12,17 +12,18 @@ rm -f /etc/apt/apt.conf.d/docker-clean
 # container is a leftover.
 docker ps -a --format '{{.ID}} {{.Names}}' | awk '$2 !~ /^ci-runner-/ {print $1}' | xargs -r docker rm -f -v >/dev/null
 docker network ls -q --filter type=custom | xargs -r docker network rm >/dev/null 2>&1 || true
-# The disk this runner may hold (operator, 2026-11-27: 5 GB of downloads and 10 GB of engine per runner).
+# The disk this runner may hold (operator, 2026-11-27: 10 GB of engine per runner, and 8 GB of downloads, up
+# from 5 the same day for kept virtualenvs: Player's runners hold two of 1-1.5 GB beside the models).
 # Downloads (ci-runner@.service's cache folder): a tool version, a browser or a package unread for 14 days
-# goes, then the least recently read until under 5 GB; relatime keeps read times to the day. The engine:
+# goes, then the least recently read until under 8 GB; relatime keeps read times to the day. The engine:
 # untagged images always, build cache unused for 7 days, and an image no job ran for 7 days (Docker records
 # no last use; sync.sh notes which images run, every 2 minutes, in $CI_CACHE/.image-seen); over 10 GB
 # (layers and build cache), all the build cache, then images least recently used first until under. Each
 # start writes the sizes to $CI_CACHE/.sizes, which sync.sh reports.
-CACHE_KB=$((5 * 1024 * 1024)) ENGINE_BYTES=$((10 * 1024 * 1024 * 1024))
+CACHE_KB=$((8 * 1024 * 1024)) ENGINE_BYTES=$((10 * 1024 * 1024 * 1024))
 ci_disk() {   # best effort: a failure here is logged, the job still runs (set -e does not apply in an || list)
   [ -n "${CI_CACHE:-}" ] && [ -d "$CI_CACHE" ] || return 0
-  entries() { find "$CI_CACHE/toolcache" -mindepth 2 -maxdepth 2 -type d; find "$CI_CACHE/ms-playwright" -mindepth 1 -maxdepth 1 -type d; find "$CI_CACHE/apt" -maxdepth 1 -name '*.deb'; find "$CI_CACHE" -mindepth 1 -maxdepth 1 -name huggingface -type d -not -empty; }
+  entries() { find "$CI_CACHE/toolcache" -mindepth 2 -maxdepth 2 -type d; find "$CI_CACHE/ms-playwright" -mindepth 1 -maxdepth 1 -type d; find "$CI_CACHE/apt" -maxdepth 1 -name '*.deb'; find "$CI_CACHE" -mindepth 1 -maxdepth 1 -name huggingface -type d -not -empty; find "$CI_CACHE/venvs" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; }
   # when a file in the entry was last read (unix s); an entry without files is junk and counts as never read
   last_read() { local t; t=$(find "$1" -type f -printf '%A@\n' 2>/dev/null | sort -n | tail -1); t=${t%.*}; echo "${t:-0}"; }
   entries | while read -r e; do [ $(( ($(date +%s) - $(last_read "$e")) / 86400 )) -gt 14 ] && rm -rf "$e"; done
@@ -33,7 +34,9 @@ ci_disk() {   # best effort: a failure here is logged, the job still runs (set -
   fi
   # apt keeps its downloads here (Ubuntu's image deletes them after each install; docker-clean is gone)
   install -d "$CI_CACHE/apt/partial" && rm -rf /var/cache/apt/archives && ln -s "$CI_CACHE/apt" /var/cache/apt/archives
-  install -d "$CI_CACHE/huggingface"; chown runner:runner "$CI_CACHE/toolcache" "$CI_CACHE/ms-playwright" "$CI_CACHE/huggingface"
+  # venvs/<key>: a job's built virtualenv, kept for the next (Common's python-env on the X3); a job copies it
+  # in with a reflink (btrfs: shared extents, seconds for a GB), so what a job installs into its copy stays there.
+  install -d "$CI_CACHE/huggingface" "$CI_CACHE/venvs"; chown runner:runner "$CI_CACHE/toolcache" "$CI_CACHE/ms-playwright" "$CI_CACHE/huggingface" "$CI_CACHE/venvs"
   docker image prune -f >/dev/null 2>&1 || true
   docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
   # Each image's last use: the newer of sync.sh's last sighting of it running ($CI_CACHE/.image-seen) and its

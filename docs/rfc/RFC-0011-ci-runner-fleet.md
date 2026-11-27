@@ -196,12 +196,13 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
       or across X3 images.
     - **Not verified yet:** that these caches fill and shorten the steps above. The check is a comparison
       of step times on player jobs after the runners took f40081d (10:04–10:06Z, 2026-11-27).
-21. **Disk budget** (operator, 2026-11-27): 150 GB for the whole fleet, which is 5 GB of downloads and
-    10 GB of engine per runner. `entrypoint.sh` (`ci_disk`) checks both at every container start. It is
-    best effort: a failure is logged and the job still runs.
-    - **Downloads:** each tool version, browser, `.deb` and the HuggingFace folder counts as one entry.
-      An entry not read for 14 days goes. Then the least recently read entries go until the folder is under
-      5 GB. Read times come from atime under `relatime`, which is precise to about a day.
+21. **Disk budget** (operator, 2026-11-27): 10 GB of engine and 8 GB of downloads per runner, 180 GB for
+    the fleet. Downloads were 5 GB (150 GB) until the same day, when kept virtualenvs (item 24) were agreed.
+    `entrypoint.sh` (`ci_disk`) checks both at every container start. It is best effort: a failure is
+    logged and the job still runs.
+    - **Downloads:** each tool version, browser, `.deb`, kept virtualenv and the HuggingFace folder counts
+      as one entry. An entry not read for 14 days goes. Then the least recently read entries go until the
+      folder is under 8 GB. Read times come from atime under `relatime`, which is precise to about a day.
     - **The runner's own engine:** at every start, untagged images go, build cache unused for 7 days goes,
       and so does an image no job ran for 7 days. Docker records a last use for build cache but not for
       images, so `sync.sh` keeps one: every 2 minutes it writes the images of each engine's running
@@ -247,6 +248,29 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
 
     No answer from VictoriaMetrics means no restart. On that night's data it would have restarted every
     runner at about 03:11Z, and the 5-minute drop at 02:31Z would not have triggered it.
+
+24. **Kept virtualenvs** (operator, 2026-11-27). Common's `python-env` action caches the whole virtualenv,
+    about 1–1.5 GB with CPU torch, in GitHub's cache. On GitHub's VMs it restores in 34 s; on the X3 it came
+    down the home line every job, in 192–284 s, the slowest step left.
+    - **On the X3,** the action skips GitHub's cache. It keeps the built venv in `$CI_CACHE/venvs/<key>`
+      and gives each job its own copy at the path it was built at, by a btrfs reflink. The copy shares the
+      file data, so it takes seconds, and whatever a job installs into its copy never reaches the next job.
+      Tested in a container across two bind mounts of the X3's root subvolume: 300 MB and 3,000 files in
+      0.05 s, every extent shared.
+    - **The key decides freshness.** Today it is the image, the Python version, a hash of public's
+      `pyproject.toml` and the extras. The operator asked how a cached venv stays true to a fresh install.
+      Two gaps: the dependencies are ranges with no lock file, so new releases inside a range never change
+      the key; and how the venv is built (the action itself) is not in the key. Agreed with the same change:
+      - the ISO week in the key, so every venv is rebuilt at least weekly, on GitHub and on the X3 alike;
+      - a hash of the action file in the key;
+      - a weekly job that builds with no cache, so a fresh install that breaks is seen within days.
+
+      Proposed to Common and public as a follow-up: a lock file in the key.
+    - **The rule for every cache:** its key names everything that shapes its contents. Anything resolved
+      at build time from outside, such as a version range, needs a time limit in the key or a pinned input.
+      A regular run with no cache proves a fresh install still works.
+    - `ci_disk` prunes each venv as one entry (item 21). Common's side is theirs to build; this item is
+      the runner's part.
 
 ## Non-goals
 
