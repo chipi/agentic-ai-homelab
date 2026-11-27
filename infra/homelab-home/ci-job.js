@@ -21,14 +21,19 @@ const https = require('https');
 const S = require('./hub-sources.js');
 
 const E = process.env;
-const REPOS = (E.HUB_CI_REPOS || 'chipi/closelistening-studio,chipi/closelistening-common,chipi/closelistening-player,chipi/closelistening-integration,chipi/infra').split(',').map(s => s.trim()).filter(Boolean);
+// Every repo of chipi's that runs GitHub Actions (15 on 2026-11-27, operator: "go for 15 repos"); runners are read only
+// on the repos that have the X3's (the token holds Administration: Read on those alone).
+const list = (v, d) => (v || d).split(',').map(s => s.trim()).filter(Boolean);
+const RUNNER_REPOS = list(E.HUB_CI_RUNNER_REPOS, 'chipi/closelistening-studio,chipi/closelistening-common,chipi/closelistening-player,chipi/closelistening-integration,chipi/infra');
+const REPOS = list(E.HUB_CI_REPOS, RUNNER_REPOS.join(',') + ',chipi/podcast_scraper,chipi/orrery,chipi/eval-harness,chipi/flotilla,chipi/agentic-ai-homelab,chipi/robotics-lab,chipi/recce,chipi/humancopilot.eu,chipi/home-automation,chipi/eu-tech-reg');
 const TOKEN_FILE = E.HUB_CI_TOKEN_FILE || S.FILES.github;
 const OUT = E.HUB_CI_OUT || path.join(__dirname, 'www/ci.json');
 const STATE = path.join(path.dirname(OUT), 'ci-state.json');
 const DAY = 86400, RECENT = 50, KEEP_DAYS = 30;
-const RUNS_PAGE = 100, RUNS_PAGES = 4;       // runs read per repo: up to 400 of the newest, while they are in the 30 days
+const RUNS_PAGE = 100, RUNS_PAGES = 30;      // runs read per repo: up to 3,000 of the newest, while they are in the 30 days and not all known
 const JOBS_PER_REPO = 100;                   // runs whose jobs are read for the first time, per repo and per collection
-const RUNS_IN_DOC = 1000;                    // runs listed in ci.json (the Past runs table pages over them)
+const JOBS_PER_COLLECTION = +E.HUB_CI_JOBS_BUDGET || 150;             // the same over all repos: 12 collections an hour stay well under the token's 5,000 requests
+const RUNS_IN_DOC = 3000;                    // runs listed in ci.json (the Past runs table pages over them); the page says when it is the cap
 const LOG_JOBS = 200, LOG_FETCH_PER_RUN = 40, LOG_TAIL = 600, LOG_MAX_ERR = 50, LINE_MAX = 2000, LOG_MAX_BYTES = 64 << 20;
 const GH_RATE_USD_PER_MIN = 0.008;           // GitHub's list price for a Linux 2-core hosted runner minute
 const CONCLUSIONS = ['success', 'failure', 'cancelled', 'timed_out'];
@@ -180,9 +185,10 @@ const stepsOf = x => (x.steps || []).map(s => ({ n: s.number, name: s.name, stat
 const runRec = (repo, run, jobs) => ({ repo, u: run.updated_at, wf: run.name, br: run.head_branch, sha: run.head_sha || null, msg: firstLine((run.head_commit || {}).message || run.display_title),
   ev: run.event, ac: (run.actor || {}).login || null, at: run.run_attempt || 1, created: run.created_at, started: run.run_started_at || run.created_at, status: run.status, conclusion: run.conclusion, url: run.html_url, jobs });
 
-async function collect({ api, now, repos, state, hasDetail = () => true }) {
+async function collect({ api, now, repos, state, hasDetail = () => true, runnerRepos = repos, jobsBudget = Infinity }) {
+  const budget = { left: jobsBudget };
   const errors = [], runners = [], queued = [], recent = [], running = [], details = {};
-  const st = { runs: {}, ledger: Object.assign({}, state.ledger), offline: {}, logged: state.logged || {}, partial: {} };
+  const st = { runs: {}, ledger: Object.assign({}, state.ledger), offline: {}, logged: state.logged || {}, partial: {}, vis: Object.assign({}, state.vis) };
   // the 30 days of runs the last collection kept; a repo that fails to read keeps its entries as they were
   const old = {};
   for (const [id, r] of Object.entries(state.runs || {})) if (r.repo && ts(r.u) >= now - KEEP_DAYS * DAY) old[id] = r;
@@ -191,7 +197,9 @@ async function collect({ api, now, repos, state, hasDetail = () => true }) {
   await Promise.all(repos.map(async repo => {
     try {
       const pageOf = n => api('/repos/' + repo + '/actions/runs?per_page=' + RUNS_PAGE + (n > 1 ? '&page=' + n : ''));
-      const [rn, first] = await Promise.all([api('/repos/' + repo + '/actions/runners?per_page=100'), pageOf(1)]);
+      const [rn, first] = await Promise.all([runnerRepos.includes(repo) ? api('/repos/' + repo + '/actions/runners?per_page=100') : { runners: [] }, pageOf(1),
+        // public or private: a public repo's hosted minutes are free; a failed read keeps the last answer
+        api('/repos/' + repo).then(r => { st.vis[repo] = r.private ? 'private' : 'public'; }, () => {})]);
       for (const r of rn.runners || []) {
         const key = repo + '|' + r.name, up = r.status === 'online';
         if (!up) st.offline[key] = (state.offline || {})[key] != null ? state.offline[key] : now;
@@ -207,9 +215,9 @@ async function collect({ api, now, repos, state, hasDetail = () => true }) {
           seen.add(String(run.id));
           let jobs;
           if (known(run)) jobs = old[run.id].jobs;
-          else if (run.status === 'completed' && filled >= JOBS_PER_REPO) { st.partial[repo] = true; if (old[run.id]) st.runs[run.id] = old[run.id]; continue; }
+          else if (run.status === 'completed' && (filled >= JOBS_PER_REPO || budget.left <= 0)) { st.partial[repo] = true; if (old[run.id]) st.runs[run.id] = old[run.id]; continue; }
           else {
-            if (run.status === 'completed') filled++;
+            if (run.status === 'completed') { filled++; budget.left--; }
             const j = await api('/repos/' + repo + '/actions/runs/' + run.id + '/jobs?per_page=100');
             jobs = (j.jobs || []).map(x => mapJob(x, run));
             const rec = runRec(repo, run, jobs);
@@ -271,14 +279,17 @@ async function collect({ api, now, repos, state, hasDetail = () => true }) {
   logJobs.sort((a, b) => b.done - a.done);
 
   for (const r of repos) if (errors.some(e => e.startsWith(r + ':'))) delete failures[r];
-  const doc = { takenAt: iso(now), repos, runners, queued, recent: recent.slice(0, RECENT), runs: runsDoc, failures, minutes, stats, errors };
+  const allRuns = Object.values(st.runs).filter(r => repos.includes(r.repo)).length;
+  const doc = { takenAt: iso(now), repos, runnerRepos, visibility: Object.fromEntries(repos.map(r => [r, st.vis[r] || null])), runners, queued, recent: recent.slice(0, RECENT), runs: runsDoc,
+    runsHeld: allRuns, runsCap: RUNS_IN_DOC, failures, minutes, stats, errors };
   const failedRepos = new Set(errors.map(e => e.split(':')[0]));
   const gauges = [];
   for (const r of runners) { const l = { repo: r.repo, runner: r.name, machine: r.machine }; gauges.push(['gh_runner_up', r.status === 'online' ? 1 : 0, l], ['gh_runner_busy', r.busy ? 1 : 0, l]); }
   for (const repo of repos) {
     if (failedRepos.has(repo)) continue;
     const q = queued.filter(j => j.repo === repo);
-    gauges.push(['gh_jobs_queued', q.length, { repo }], ['gh_job_queue_seconds_max', q.reduce((m, j) => Math.max(m, now - ts(j.createdAt)), 0), { repo }]);
+    // the queue alert (gh-job-queued-long) is about the X3's capacity: GitHub's own queue is not ours to fix
+    if (runnerRepos.includes(repo)) gauges.push(['gh_jobs_queued', q.length, { repo }], ['gh_job_queue_seconds_max', q.reduce((m, j) => Math.max(m, now - ts(j.createdAt)), 0), { repo }]);
     for (const c of CONCLUSIONS) gauges.push(['gh_jobs_finished_24h', perRepo24[repo][c] || 0, { repo, conclusion: c }]);
     for (const w of ['self-hosted', 'hosted']) gauges.push(['gh_minutes_24h', Math.round(mins24[repo][w] * 10) / 10, { repo, where: w }]);
   }
@@ -287,6 +298,8 @@ async function collect({ api, now, repos, state, hasDetail = () => true }) {
 
 function fixtureApi(dir) {
   return async p => {
+    const vm = p.match(/^\/repos\/[^/]+\/([^/?]+)$/);
+    if (vm) { const vf = path.join(dir, 'repo-' + vm[1] + '.json'); return fs.existsSync(vf) ? JSON.parse(fs.readFileSync(vf, 'utf8')) : { private: true }; }
     const m = p.match(/^\/repos\/[^/]+\/([^/]+)\/actions\/(runners|runs)(?:\/(\d+)\/jobs)?/);
     if (!m) throw new Error('fixture: no route for ' + p);
     const f = path.join(dir, m[3] ? 'jobs-' + m[1] + '-' + m[3] + '.json' : m[2] + '-' + m[1] + '.json');
@@ -333,7 +346,7 @@ async function main() {
   }
   let prev = emptyState();
   try { prev = Object.assign(prev, JSON.parse(fs.readFileSync(STATE, 'utf8'))); } catch (e) { /* first run */ }
-  const r = await collect({ api, now, repos: REPOS, state: prev, hasDetail: (repo, id) => fs.existsSync(runFile(dir, repo, id)) });
+  const r = await collect({ api, now, repos: REPOS, runnerRepos: RUNNER_REPOS, jobsBudget: JOBS_PER_COLLECTION, state: prev, hasDetail: (repo, id) => fs.existsSync(runFile(dir, repo, id)) });
   for (const d of Object.values(r.details)) S.writeAtomic(runFile(dir, d.repo, d.id), JSON.stringify(d));
   const runKeep = new Set(Object.entries(r.state.runs).map(([id, x]) => short(x.repo) + '/' + id));
   const prunedRuns = pruneTree(path.join(dir, 'ci-runs'), (rp, id) => runKeep.has(rp + '/' + id));

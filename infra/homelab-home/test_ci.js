@@ -67,6 +67,17 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   // one repo failing to read does not take the others down, and shows no false green
   const flaky = async p => { if (/closelistening-player/.test(p)) throw new Error('HTTP 403'); return api(p); };
   const run4 = await JOB.collect({ api: flaky, now: NOW, repos: REPOS, state: JOB.emptyState() });
+
+  // all of chipi's repos with Actions (2026-11-27): runners only where the X3's are, a budget of job reads shared by
+  // all repos, each repo public or private, the queue gauges (the long-queue alert) only for the X3's repos
+  const paths = [], counted = async p => { paths.push(p); return /\/repos\/chipi\/closelistening-common$/.test(p) ? { private: false } : api(p); };
+  const run6 = await JOB.collect({ api: counted, now: NOW, repos: REPOS, runnerRepos: ['chipi/closelistening-player'], jobsBudget: 30, state: JOB.emptyState() });
+  check('repos: runners are read only on the runner repos', paths.filter(p => /\/actions\/runners/.test(p)).length === 1 && run6.doc.runners.every(r => r.repo === 'chipi/closelistening-player') && run6.doc.runners.length === 3, run6.doc.runners.map(r => r.name));
+  check('repos: the job reads of first-seen finished runs share one budget over all repos', paths.filter(p => /\/runs\/\d+\/jobs/.test(p)).length <= 30 + REPOS.length * 10 && Object.keys(run6.details).filter(k => run6.details[k].status === 'completed').length === 30, Object.keys(run6.details).length);
+  check('repos: each repo is public or private (from GitHub), and the doc says which repos have runners', run6.doc.visibility['chipi/closelistening-common'] === 'public' && run6.doc.visibility['chipi/infra'] === 'private' && run6.doc.runnerRepos.join() === 'chipi/closelistening-player');
+  check('repos: the queue gauges are only for the runner repos; the 24 h gauges for all', run6.gauges.filter(g => g[0] === 'gh_jobs_queued').map(g => g[2].repo).join() === 'chipi/closelistening-player' && new Set(run6.gauges.filter(g => g[0] === 'gh_minutes_24h').map(g => g[2].repo)).size === 5);
+  check('repos: a failed public/private read keeps the last answer', (await JOB.collect({ api: async p => { if (/\/repos\/chipi\/infra$/.test(p)) throw new Error('HTTP 502'); return api(p); }, now: NOW, repos: REPOS, state: Object.assign(JOB.emptyState(), { vis: { 'chipi/infra': 'public' } }) })).doc.visibility['chipi/infra'] === 'public');
+  check('repos: the doc says how many runs are held and the cap of the list', run1.doc.runsHeld === run1.doc.runs.length && run1.doc.runsCap === 3000);
   check('error: the failing repo is named; the others are read; it has no failure row and no gauges', run4.errors.length === 1 && /closelistening-player: HTTP 403/.test(run4.errors[0]) && run4.doc.runners.length === 5
     && !('chipi/closelistening-player' in run4.doc.failures) && !run4.gauges.some(x => x[2].repo === 'chipi/closelistening-player' && x[0] === 'gh_jobs_queued'), run4.errors);
   check('error: the token never appears in an error', !JSON.stringify(run4).includes('Bearer'));
@@ -150,6 +161,14 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   check('cards: the saved estimate states the rate and that wall-clock understates', /\$0\.008 a minute/.test(ph) && /rounds every job up to the whole minute/.test(ph));
   check('cards: the numbers on the page are the collector\'s for the period (jobs, X3 minutes of 30 days), and today so far is live', ph.includes('>' + T['30d'].jobs.toLocaleString('en-US') + '<') && ph.includes('>' + Math.round(T['30d'].min[SH]).toLocaleString('en-US') + '<') && /Today so far \(live\)/.test(ph));
   const p7 = CI.html(vv, NOW + 60, { route: CI.parseRoute('#ci/7d') });
+  const dv = JSON.parse(JSON.stringify(d)); dv.visibility['chipi/infra'] = 'public'; dv.runsHeld = d.runs.length + 500;
+  const pv = CI.html(CI.view(dv, NOW + 60), NOW + 60, { route: CI.parseRoute('#ci/7d') }), ghCard = pv.slice(pv.indexOf('>Minutes on GitHub</h3>'), pv.indexOf('>Success rate</h3>'));
+  const ghPub = Math.round(d.stats.repos['chipi/infra']['7d'].min.hosted), ghAll = d.stats.total['7d'].min.hosted;
+  check('repos: GitHub minutes split private (billed) and public (free), from each repo\'s visibility', ghCard.includes('Public (free)</span><b>' + ghPub.toLocaleString('en-US') + '<') && ghCard.includes('Private (billed)</span><b>' + Math.round(ghAll - d.stats.repos['chipi/infra']['7d'].min.hosted).toLocaleString('en-US') + '<'), ghCard.slice(0, 200));
+  check('repos: a minutes bar shows the 4 largest repos and the rest as "other"; a public repo is tagged in the table', (ghCard.match(/&#9632;<\/span> /g) || []).length === 5 && /other \(1 repo\)/.test(ghCard) && /closelistening-[a-z]+<\/a> |infra<\/a> <span class=muted style="font-size:11px" title="public/.test(pv) && /infra<\/a> <span class=muted[^>]*>public</.test(pv));
+  check('repos: without visibility known for every repo the split is left out, not guessed', !/Public \(free\)/.test(CI.html(CI.view(Object.assign({}, d, { visibility: {} }), NOW + 60), NOW + 60)));
+  check('repos: the past runs say when the list is the cap', /the list holds the newest [\d,]+ of the [\d,]+ runs held, from 20/.test(pv) && !/the list holds the newest/.test(ph));
+  check('repos: the title is no longer only the self-hosted runners', /<h2>CI &middot; GitHub Actions and the X3 runners<\/h2>/.test(pv));
   const cardOf = (h, t, next) => h.slice(h.indexOf('>' + t + '</h3>'), h.indexOf('>' + next + '</h3>'));
   const shares = c => (c.match(/(\d+(?:\.\d)?)% (succeeded|failed|cancelled|other)/g) || []);
   const rC = cardOf(p7, 'Runs', 'Jobs'), jC = cardOf(p7, 'Jobs', 'Minutes on the X3'), sum100 = c => Math.abs(shares(c).reduce((s, x) => s + parseFloat(x), 0) - 100) < 0.5;
@@ -291,7 +310,7 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   const bodies = [];
   const srv = http.createServer((req, res) => { let b = ''; req.on('data', c => b += c); req.on('end', () => { bodies.push(b); res.end(); }); });
   await new Promise(r => srv.listen(0, '127.0.0.1', r));
-  const env = Object.assign({}, process.env, { HUB_CI_FIXTURES: FX, HUB_CI_NOW: String(NOW), HUB_CI_OUT: path.join(dir, 'ci.json'), HUB_VM: 'http://127.0.0.1:' + srv.address().port });
+  const env = Object.assign({}, process.env, { HUB_CI_FIXTURES: FX, HUB_CI_NOW: String(NOW), HUB_CI_OUT: path.join(dir, 'ci.json'), HUB_CI_REPOS: 'chipi/closelistening-studio,chipi/closelistening-common,chipi/closelistening-player,chipi/closelistening-integration,chipi/infra', HUB_CI_JOBS_BUDGET: '1000', HUB_VM: 'http://127.0.0.1:' + srv.address().port });
   const run = () => new Promise(r => execFile(process.execPath, [path.join(__dirname, 'ci-job.js')], { env }, (err, out, errOut) => r({ code: err ? err.code : 0, out, errOut })));
   let r = await run();
   const written = fs.existsSync(env.HUB_CI_OUT) ? JSON.parse(fs.readFileSync(env.HUB_CI_OUT, 'utf8')) : null;

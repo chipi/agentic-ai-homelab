@@ -168,8 +168,12 @@ chart/badge deep-links to the matching Grafana dashboard or service.
   - **Fixtures** (`fixtures-ci/`) are `gh api` GETs of 2026-11-26 trimmed to the fields used (runs: sha, first
     line of the commit message, actor; jobs: steps), plus two real job logs (`log-<repo>-<job>.txt`, GitHub-masked,
     one CI-only database password replaced by `***`).
-  - **What it reads** (GET only, `api.github.com`), for `chipi/closelistening-studio`, `-common`, `-player`,
-    `-integration` and `chipi/infra` (override: `HUB_CI_REPOS`, comma list):
+  - **What it reads** (GET only, `api.github.com`), for every chipi repo that runs Actions (15 since 2026-11-27,
+    `HUB_CI_REPOS`); runners only on the five with X3 runners (`HUB_CI_RUNNER_REPOS`: closelistening-studio,
+    -common, -player, -integration, chipi/infra), and only those feed the queue gauges and the long-queue alert.
+    Each repo's public/private flag (`/repos/<repo>`) splits GitHub minutes into free (public) and billed (private).
+    First-seen runs' jobs are read at most 100 per repo and 150 over all repos per collection (`HUB_CI_JOBS_BUDGET`),
+    so the first fill of the 30 days takes a few hours; ci.json lists the newest 3,000 runs and says so when capped:
     `actions/runners` (name, status, busy, labels; the machine is the label that is not
     `self-hosted`/`linux`/`x64`, today `x3`), `actions/runs?per_page=50`, and `actions/runs/<id>/jobs` for each
     run that is queued, running or finished in the last 24 h (queue wait = started - created, duration =
@@ -178,8 +182,8 @@ chart/badge deep-links to the matching Grafana dashboard or service.
     count from the 30 days of runs the collector read (it backfills the newest runs on its first collections).
   - **Token: the assistant's read-only token**, `~/assistant-github-readonly.env` (`GITHUB_TOKEN=...`, the
     same file `hub-sources.js` reads for Issues; override `HUB_CI_TOKEN_FILE`). No new file. That token must
-    also cover the five repos with **Actions: Read** (runs and jobs) and **Administration: Read** (the
-    runners list), both needed and verified on the mini on 2026-11-26 (reported by the operator's check: with the
+    also cover the runner repos with **Actions: Read** (runs and jobs) and **Administration: Read** (the
+    runners list), and the private repos among the rest with Actions: Read (public repos' runs and logs read with any token), both needed and verified on the mini on 2026-11-26 (reported by the operator's check: with the
     permissions missing, the runners and runs endpoints both answered 403; with them, 200 on all five repos). The
     token's row in `docs/recipes/agent-access.md` lists them. A repo the
     token cannot read shows as an error on the tab, the job exits 1, and the heartbeat is not written, so
