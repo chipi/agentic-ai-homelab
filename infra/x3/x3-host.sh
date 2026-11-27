@@ -12,6 +12,10 @@
 #      nvme|io}: a count since boot (it only grows until a reboot; the alert x3-storage-errors uses increase()).
 #      Nothing else reads the X3's kernel log: fs-verity refused 27 corrupted reads during docker builds on
 #      2026-11-06..13 and nobody saw them until robotics-lab's commits failed on 11-20.
+#   5. the CI runners' cap (gh-runner's user slice, ADR-0015): CPU used and throttled, memory against its high
+#      and max, pressure stall time, OOM kills, all as counters or gauges from the slice's cgroup files
+#      (x3_ci_*). The cap is shared by every runner, so a throttled slice slows every job at once; nothing
+#      recorded it before (player's e2e timeouts of 2026-11-26 could not be tied to it or ruled out).
 # Pushes to VictoriaMetrics over the tailnet, as the X3's Alloy does. Each part is best effort: one failing
 # never stops the others.
 set -uo pipefail
@@ -55,3 +59,27 @@ journalctl -k -b --no-pager -q \
     { i++ }
     END { printf "x3_storage_kernel_errors{box=\"x3\",kind=\"fsverity\"} %d\nx3_storage_kernel_errors{box=\"x3\",kind=\"btrfs\"} %d\nx3_storage_kernel_errors{box=\"x3\",kind=\"nvme\"} %d\nx3_storage_kernel_errors{box=\"x3\",kind=\"io\"} %d\n", f, b, n, i }' \
   | push storage
+
+# 5. the CI runners' cap. Rates come from the counters: throttled share = rate(throttled_periods) / rate(periods).
+CI_UID=$(id -u gh-runner 2>/dev/null) && CG="/sys/fs/cgroup/user.slice/user-$CI_UID.slice" && [ -r "$CG/cpu.stat" ] && {
+  awk '
+    FILENAME ~ /cpu.stat$/      { s[$1] = $2 }
+    FILENAME ~ /cpu.max$/       { q = ($1 == "max") ? 0 : $1 / $2 }
+    FILENAME ~ /memory.events$/ { e[$1] = $2 }
+    FILENAME ~ /cpu.pressure$/    && $1 == "some" { split($5, t, "="); cps = t[2] }
+    FILENAME ~ /memory.pressure$/ && $1 == "some" { split($5, t, "="); mps = t[2] }
+    FILENAME ~ /memory.current$/ { mc = $1 }
+    FILENAME ~ /memory.peak$/    { mp = $1 }
+    FILENAME ~ /memory.max$/     { mm = ($1 == "max") ? 0 : $1 }
+    FILENAME ~ /memory.high$/    { mh = ($1 == "max") ? 0 : $1 }
+    END {
+      L = "{box=\"x3\"}"
+      printf "x3_ci_cpu_usage_seconds_total%s %.3f\n", L, s["usage_usec"] / 1e6
+      printf "x3_ci_cpu_periods_total%s %d\nx3_ci_cpu_throttled_periods_total%s %d\n", L, s["nr_periods"], L, s["nr_throttled"]
+      printf "x3_ci_cpu_throttled_seconds_total%s %.3f\nx3_ci_cpu_quota_cores%s %g\n", L, s["throttled_usec"] / 1e6, L, q
+      printf "x3_ci_cpu_pressure_seconds_total%s %.3f\nx3_ci_memory_pressure_seconds_total%s %.3f\n", L, cps / 1e6, L, mps / 1e6
+      printf "x3_ci_memory_bytes%s %d\nx3_ci_memory_peak_bytes%s %d\nx3_ci_memory_max_bytes%s %d\nx3_ci_memory_high_bytes%s %d\n", L, mc, L, mp, L, mm, L, mh
+      printf "x3_ci_memory_high_events_total%s %d\nx3_ci_memory_max_events_total%s %d\nx3_ci_oom_kills_total%s %d\n", L, e["high"], L, e["max"], L, e["oom_kill"]
+    }' "$CG/cpu.stat" "$CG/cpu.max" "$CG/memory.events" "$CG/cpu.pressure" "$CG/memory.pressure" "$CG/memory.current" "$CG/memory.peak" "$CG/memory.max" "$CG/memory.high" \
+  | push ci-cap
+}
