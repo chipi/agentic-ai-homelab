@@ -16,9 +16,9 @@ the DGX's GPU modes ([`infra/dgx/AGENTS.md`](https://github.com/chipi/agentic-ai
 ADR-0015 (2026-11-25) moved the private repos' test suites from GitHub's runners (about $100 a month)
 to rootless runners on the X3. Eight runners are registered as of 2026-11-26, and three things are now missing.
 
-**1. What runs where.** Eight runners, each its own rootless Docker engine plus a runner container, a fresh
-container per job, all under user `gh-runner`, capped at 8 cores and 32 GB: studio-1, common-1,
-player-1..3, integration-1..2, infra-1. The repos on them:
+**1. What runs where.** Ten runners, each its own rootless Docker engine plus a runner container, a fresh
+container per job, all under user `gh-runner`, capped at 12 cores and 48 GB: studio-1, common-1,
+player-1..5, integration-1..2, infra-1. The repos on them:
 
 | Repo | State |
 |---|---|

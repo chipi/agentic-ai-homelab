@@ -38,7 +38,7 @@ organization or an enterprise, not on a personal account: each repo gets its own
 3. **Each runner is a container** of GitHub's own image (`ghcr.io/actions/actions-runner`, Ubuntu
    24.04, pinned), so jobs written for `ubuntu-latest` find what they expect. Its registration lives in
    a volume; its work folder and anything a job installs go with the container.
-4. **One cap for all of it**: gh-runner's user slice gets 8 cores and 32 GB. CI never starves the
+4. **One cap for all of it**: gh-runner's user slice gets 12 cores and 48 GB (8 and 32 until 2026-11-27: the 8 cores throttled the runners about 2,200 s in one night, and memory peaked at 26.8 of 32 GiB under 3 player runners). CI never starves the
    operator's sessions or robotics-lab (on 2026-11-24 an unbounded test run of eval-harness did).
 5. **Jobs that hold production credentials stay on GitHub's runners**: `infra`'s deploys,
    backups and drills. A workstation runner holds no production secret.

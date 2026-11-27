@@ -21,8 +21,8 @@ U=gh-runner
 HOMEDIR=/var/lib/gh-runner
 SUBID_START=200000   # marko holds 100000-165535
 ROOTLESS_SHA=904c9b9e35f6927c0a5e65afb4d35b6bc9eb1278c878044501281fc728c9be46   # moby docker-v29.7.2 contrib/dockerd-rootless.sh
-CPU_QUOTA=800%
-MEM_MAX=32G
+CPU_QUOTA=1200%   # 12 of 32 cores (operator, 2026-11-27; 8 throttled the runners ~2,200 s in one night)
+MEM_MAX=48G       # the slice peaked at 26.8 GiB of 32 under 3 player runners; 5 need more
 
 [ "$(id -u)" -eq 0 ] || { echo "!! must run as root: sudo bash $0"; exit 1; }
 fail=0

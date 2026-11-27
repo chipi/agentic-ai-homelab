@@ -32,7 +32,7 @@ ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo
   -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
   -v %t/e-%i/docker.sock:/var/run/docker.sock \
   ${IMAGE} bash /entrypoint.sh
-ExecStop=/usr/bin/docker stop -t 60 ci-runner-%i
+ExecStop=-/usr/bin/docker stop -t 60 ci-runner-%i
 Restart=always
 RestartSec=10
 # The first start of an engine pulls the base image and builds (a few minutes).
