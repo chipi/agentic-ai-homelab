@@ -1195,6 +1195,29 @@ groups:
               type: threshold
               expression: q
               conditions: [{ evaluator: { type: gt, params: [21] } }]
+      # A job waited over 15 minutes for one of the X3's job slots (RFC-0011 item 26). No data while no job waits.
+      - uid: x3-ci-slot-wait-long
+        title: "X3 CI job waited over 15 minutes for a job slot"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        labels: { severity: warning, kind: ci }
+        annotations:
+          summary: "A job on the X3 has waited {{ printf `%.0f` $values.q.Value }} s for a job slot (alert over 900 s; RFC-0011 item 26). Slots held and jobs waiting are on the CI runners board; there is one slot per repo plus 5."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max(x3_ci_slot_wait_oldest_seconds)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [900] } }]
 
   - orgId: 1
     name: app-health

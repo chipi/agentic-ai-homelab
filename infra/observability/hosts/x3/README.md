@@ -9,6 +9,7 @@ tailnet with the same series names as the DGX (`instance="x3"`, `cluster="workst
 | AMD Strix Halo GPU busy % and VRAM | the exporter's `drm` collector (`node_drm_*`) |
 | Assistant UI evaluation containers' logs (`assistant-*` only) | `loki.source.docker` (`service` = container name) |
 | Ollama's log (the `ollama` unit: loads, offload, per-request `tg = N t/s`) | `~/.local/state/ollama/ollama.log` (`job="ollama"`, `service="ollama"`; `service="assistant"` before 2026-11-19, and the eval harness's long-job Ollama log is gone) |
+| The CI runners' sync log (RFC-0011) | `/srv/ci-runner-src/log/sync.log` (`job="ci-runner-sync"`, `service="ci-runner-sync"`, `host="x3"`) |
 | LibreChat and mcp-grafana metrics | `/metrics` on `127.0.0.1:3080` (bearer secret in `~/.config/assistant-ui-eval/metrics-secret`) and `:3082` (`job="librechat"`, `job="mcp-grafana"`) |
 
 The evaluation UIs also send their own traces to VictoriaTraces (services `librechat`,

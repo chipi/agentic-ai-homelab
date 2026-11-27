@@ -17,7 +17,7 @@ right subdir and it appears in that folder within ~30s
 |---|---|---|
 | **Homelab/** | Mac mini + DGX core infra (host, GPU, containers, logs, DGX services, bug-fix fleet, orrery refresh) | [Homelab/README.md](Homelab/README.md) |
 | **Production Infra/** | prod-podcast VPS seen from outside: uptime probes + Cloudflare, Hetzner bulletins | [Production Infra/README.md](Production%20Infra/README.md) |
-| **CI Ops/** | GitHub Actions deploy/backup + CI/DORA health (`ops_event/v1` → VictoriaLogs) | [CI Ops/README.md](CI%20Ops/README.md) |
+| **CI Ops/** | GitHub Actions deploy/backup + CI/DORA health (`ops_event/v1` → VictoriaLogs), and the X3 runner fleet (`ci-runners`) | [CI Ops/README.md](CI%20Ops/README.md) |
 
 The podcast boards (Podcast Player, Podcast Operator overviews), the prod box's host,
 containers and edge-security boards, and the Delivery worker board moved to chipi/infra

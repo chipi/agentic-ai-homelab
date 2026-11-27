@@ -15,6 +15,7 @@ provisioned as code.
 |---|---|---|---|---|
 | **CI / Ops — GitHub Actions** | `podcast-ci-ops-overview` | Deploy + backup outcomes from prod workflows | VictoriaLogs (victoriametrics-logs-datasource) | Deploys / Deploy failures / Backups / Avg deploy duration (stat); Ops event volume by type + Deploys by status over time (timeseries); Event breakdown (type × surface × status) table; recent ops events tail. Var: `$env` (Env). |
 | **CI / Ops — DORA metrics** | `podcast-ci-ops-dora` | The four DORA metrics + CI health, from Tier-1 deploys + Tier-2 CI runs | VictoriaLogs (victoriametrics-logs-datasource) | Deploy frequency, change failures, CI failures, flaky runs (`attempt>1`) (stat); avg CI queue/duration + avg deploy duration + drift/drill failures (stat); deploys-by-status + CI-runs-by-status (timeseries); CI-by-workflow×status + drift/drill-outcomes (table); recent failures tail. No `$env` filter — spans prod deploys + CI. |
+| **CI runners — the X3 fleet** | `ci-runners` | The 16 GitHub Actions runners on the X3 (RFC-0011): online/busy, queue, job slots, the 12-core / 48 GB slice, disk budgets, alerts, sync log | VictoriaMetrics (`gh_*`, `x3_ci_*`, `docker_engine_bytes`), VictoriaLogs (`service="ci-runner-sync"`, shipped by the X3's Alloy) | Runners online/busy, jobs queued, longest queue wait, slots held/total, jobs waiting for a slot, oldest slot wait, collector age (stat); runners offline/idle/busy (state timeline); busy share per repo, queue wait by repo, jobs and minutes 24h; CPU vs quota, CPU wait share vs 0.1, throttled share, memory vs high/max, memory pressure, OOM and limit events; cache and engine per runner vs budget, images, disk free, X3 dev engine, dev-engine-prune age; CI alert lists; sync log tail and restarts/FAIL/freed/offline. Vars: `$repo`, `$runner`. Links: the Hub's CI tab, CI / Ops overview. |
 
 ## The `ops_event/v1` schema (what the panels query)
 
@@ -41,7 +42,7 @@ homelab DORA poller) feed the same schema and land here too — see
 
 ## Notes
 
-- **Datasource:** VictoriaLogs (`victorialogs`), LogsQL. No metrics/traces here.
+- **Datasource:** VictoriaLogs (`victorialogs`), LogsQL, for the two `ops_event` boards; the `ci-runners` board adds VictoriaMetrics.
 - **Provisioning:** auto-loads into the **CI Ops** Grafana folder within 30s
   (`../provisioning/dashboards/dashboards.yml`, `foldersFromFilesStructure`).
   Persists in git; `allowUiUpdates: true` allows UI tweaks — export back to JSON
