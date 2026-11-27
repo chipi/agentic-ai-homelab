@@ -1100,6 +1100,102 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [20] } }]
 
+      # --- The X3 runners' slice and disk (infra/x3/x3-host.sh parts 5 and 6, RFC-0011 items 19-21) ---
+      # The 12-core cap: throttled in over a quarter of the CFS periods for 15 minutes. An idle slice has no
+      # periods and reads 0.
+      - uid: x3-ci-cpu-throttled
+        title: "X3 CI runners CPU-throttled (>25% of periods, 15m)"
+        condition: threshold
+        for: 15m
+        noDataState: OK
+        labels: { severity: warning, kind: ci }
+        annotations:
+          summary: "The X3 runners' slice was throttled in {{ printf `%.0f` $values.q.Value }}% of its CPU periods for 15 minutes: jobs are waiting on the 12-core cap (x3-ci-runner-setup.sh CPU_QUOTA). See the CI tab and the SLO 'CPU headroom'."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '100 * sum(rate(x3_ci_cpu_throttled_periods_total[5m])) / clamp_min(sum(rate(x3_ci_cpu_periods_total[5m])), 1e-9)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [25] } }]
+      # A job hit the slice's 48 GB memory.max, or the kernel killed a process in it.
+      - uid: x3-ci-memory-limit
+        title: "X3 CI runners hit the memory limit or an OOM kill"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: ci }
+        annotations:
+          summary: "The X3 runners' slice reached memory.max or had an OOM kill ({{ printf `%.0f` $values.q.Value }} events in 10 minutes): a job probably failed for it. x3_ci_memory_* on the CI tab; the slice's cap is MEM_MAX in x3-ci-runner-setup.sh."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'sum(increase(x3_ci_memory_max_events_total[10m])) + sum(increase(x3_ci_oom_kills_total[10m]))'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+      # The disk under /var/lib/gh-runner (the X3's root filesystem), earlier than the host-wide 10% alert.
+      - uid: x3-ci-disk-low
+        title: "X3 CI runners' disk under 15% free"
+        condition: threshold
+        for: 15m
+        noDataState: OK
+        labels: { severity: warning, kind: ci }
+        annotations:
+          summary: "The disk holding /var/lib/gh-runner on the X3 is at {{ printf `%.1f` $values.q.Value }}% free. The runners keep 5 GB of downloads and 10 GB of engine each; look first at what else fills the disk (the X3's dev engine)."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '100 * min(x3_ci_disk_free_bytes / x3_ci_disk_size_bytes)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: lt, params: [15] } }]
+      # A runner over its budget (5 GB downloads, 10 GB engine) by a margin: entrypoint.sh's pruning is not
+      # working there. Read at each container start; an idle runner keeps its last reading, so no staleness rule.
+      - uid: x3-ci-runner-over-budget
+        title: "X3 CI runner over its disk budget"
+        condition: threshold
+        for: 0s
+        noDataState: OK
+        labels: { severity: warning, kind: ci }
+        annotations:
+          summary: "X3 runner {{ $labels.runner }} holds {{ printf `%.1f` $values.q.Value }} GiB against a budget of 15 (5 downloads, 10 engine; alert over 18): its pruning in entrypoint.sh (ci_disk) failed. Its container log says why."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max by (runner) (last_over_time(x3_ci_runner_cache_bytes[1h]) + last_over_time(x3_ci_runner_engine_bytes[1h])) / 2^30'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [18] } }]
+
   - orgId: 1
     name: app-health
     folder: "Alerts"
