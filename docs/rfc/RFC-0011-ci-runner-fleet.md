@@ -311,7 +311,7 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
       account, and runner groups are for organisations. A runner that is listening holds nothing; a job
       takes a slot in its job-started hook (`entrypoint.sh`), in a folder every runner shares
       (`~gh-runner/ci-runner/slots`, `mkdir` is atomic): its repo's own slot `r-<repo>`, else one of
-      `CI_SLOTS_SHARED` (5, `ci-runner@.service`). With five repos that is 10 jobs at once at most, each
+      `CI_SLOTS_SHARED` (2, `ci-runner@.service`). With five repos that is 7 jobs at once at most, each
       repo always able to run one. While every slot is taken the job waits in its "Set up job" step, which
       says so, and its time counts against the job's timeout. The completed hook frees the slot; a runner's
       next start frees any slot it still holds (its job was killed), and `sync.sh` frees one whose runner
@@ -322,6 +322,11 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
     - Tested with a harness over the hook block (three runners of one repo and one of another, one shared
       slot): the third waits, the other repo's job does not, a freed slot is taken within 5 s, a restart
       frees a killed job's slot. Not tested yet inside a runner container on a real job.
+    - **7 slots, not 10** (operator, the same evening). CPU is the limit, not memory: from 18:20 to 19:00Z,
+      with 5-6 jobs at once, the slice used 10-11 of its 12 cores and some task waited for a CPU 62-71% of
+      the time, so the CPU-wait level (item 25) read 0.834 against 0.95. With 10 slots, more jobs would
+      only slow each other; with 7 the rest wait for a slot. Giving CI more than 12 CPUs is the other way,
+      left for the operator to decide from a few days of the CPU-wait level and the slot-wait alert.
 
 ## Non-goals
 

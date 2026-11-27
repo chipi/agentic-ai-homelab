@@ -9,9 +9,10 @@ Requires=docker@%i.service
 [Service]
 Environment=DOCKER_HOST=unix://%t/e-%i/docker.sock
 Environment=IMAGE=ci-runner:2.338.2-4
-# Shared job slots beyond one per repo: 10 jobs at most with five repos (memory peaked at 26.8 GiB of 48
-# with 6 at once, 2026-11-27; operator, the same day).
-Environment=CI_SLOTS_SHARED=5
+# Shared job slots beyond one per repo: 7 jobs at most with five repos. CPU, not memory, is the limit:
+# with 5-6 jobs at once the slice used 10-11 of its 12 cores and some task waited for a CPU 62-71% of the
+# time (18:20-19:00Z, 2026-11-27); memory peaked at 26.8 GiB of 48. 5 until the operator's go that evening.
+Environment=CI_SLOTS_SHARED=2
 # The image is built from ~/ci-runner/image/Dockerfile, once per engine; later starts find it.
 ExecStartPre=/bin/sh -c 'docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" %h/ci-runner/image'
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i

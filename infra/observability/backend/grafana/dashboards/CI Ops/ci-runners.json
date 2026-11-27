@@ -271,7 +271,7 @@
       "id": 6,
       "type": "stat",
       "title": "Slots held / total",
-      "description": "x3_ci_slots_held and x3_ci_slots_total: job slots in use of the pool (one per repo plus 5, RFC-0011 item 26). No data until the slot script writes them.",
+      "description": "x3_ci_slots_held and x3_ci_slots_total: job slots in use of the pool (one per repo plus CI_SLOTS_SHARED shared, 2 since 2026-11-27, RFC-0011 item 26). No data until the slot script writes them.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
