@@ -188,15 +188,19 @@
     const sh = 'self-hosted', gh = 'hosted', one = x => Math.round(x * 10) / 10;
     const by = (a, b) => [['X3 (self-hosted)', a, '#7aa2ff'], ['GitHub (hosted)', b, '#8888aa']];
     const runs = o => listHref(Object.assign({ period: per }, o));
+    // the period's minutes split per repo, largest first; a repo keeps its colour across the two cards
+    const REPO_COLOURS = ['#7aa2ff', '#3fb950', '#d29922', '#bc8cff', '#f778ba', '#39c5cf', '#8888aa'];
+    const repoNames = Object.keys(st.repos || {}).sort();
+    const repoBar = where => bar(repoNames.map((r, i) => [short(r), Math.round(((st.repos[r][per] || {}).min || {})[where] || 0), REPO_COLOURS[i % REPO_COLOURS.length]]).sort((a, b) => b[1] - a[1]));
     const cs = [
       metricCard('Runs', 'Workflow runs that finished in the period. Opens the past runs', pi, T, { get: w => w.runs, fmt: num, spark: spark(series('runs')), perDay: one, href: runs({ when: 'period' }),
         extra: bar([['succeeded', W.runsOk, '#3fb950'], ['failed', W.runsFailed, '#f85149'], ['cancelled', W.runsCancelled, '#55556b']]) }),
       metricCard('Jobs', 'Jobs that finished in the period (skipped jobs not counted)', pi, T, { get: w => w.jobs, fmt: num, spark: spark(series('jobs')), perDay: one,
         extra: bar(by(W.jobsBy[sh], W.jobsBy[gh])) }),
       metricCard('Minutes on the X3', 'Wall-clock minutes of finished jobs that ran on the self-hosted runners', pi, T, { get: w => w.min[sh], fmt: mins, spark: spark(series(sh)), perDay: mins,
-        rows: [['Jobs', num(W.jobsBy[sh])]] }),
+        extra: repoBar(sh), rows: [['Jobs', num(W.jobsBy[sh])]] }),
       metricCard('Minutes on GitHub', 'Wall-clock minutes of finished jobs that ran on GitHub-hosted runners. GitHub bills each job separately and rounds it up to the whole minute, so this understates the billed minutes', pi, T, { get: w => w.min[gh], fmt: mins, spark: spark(series(gh)), perDay: mins,
-        rows: [['Jobs', num(W.jobsBy[gh])]] }),
+        extra: repoBar(gh), rows: [['Jobs', num(W.jobsBy[gh])]] }),
       metricCard('Success rate', 'Finished runs that succeeded, of those that succeeded or failed (a cancelled run is not a verdict; a timeout is a failure). Opens the failed runs', pi, T, { pp: true, get: w => rate(w.runsOk, w.runsFailed), fmt: pct, href: runs({ concl: 'failure', when: 'period' }),
         extra: bar([['succeeded', W.runsOk, '#3fb950'], ['failed', W.runsFailed, '#f85149']]),
         rows: [['Over jobs', pct(rate(W.jobsOk, W.jobsFailed)), 'The same, counted over jobs'], ['Cancelled runs', num(W.runsCancelled)]] }),
