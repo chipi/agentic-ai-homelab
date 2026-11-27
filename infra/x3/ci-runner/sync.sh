@@ -32,29 +32,35 @@ runner_v=$(cat "$UD/ci-runner@.service" "$CR/entrypoint.sh" "$CR/image/Dockerfil
 engine_v=$(sha256sum < "$UD/docker@.service" | cut -c1-16)
 
 # A runner is busy while a Runner.Worker (uid 201000 once jobs run as runner) has the runner's engine
-# shim as an ancestor; the shim's -address names /run/user/<gh-runner>/e-<instance>/.
-busy=" "
-for w in $(pgrep -f 'bin/Runner.Worker'); do
-  p=$w
-  while [ "${p:-1}" -gt 1 ]; do
-    a=$(ps -o args= -p "$p")
-    if [[ $a == *containerd-shim* ]]; then
-      i=$(grep -oE "/run/user/$(id -u)/e-[A-Za-z0-9_.-]+/" <<<"$a" | head -1 | sed -E 's#.*/e-##; s#/$##')
-      [ -n "$i" ] && busy+="$i "
-      break
-    fi
-    p=$(ps -o ppid= -p "$p" | tr -d ' ')
+# shim as an ancestor; the shim's -address names /run/user/<gh-runner>/e-<instance>/. Asked for each runner
+# just before its restart, not once for all: a snapshot taken before the loop was 6 and 11 s old when
+# player-1 and player-3 were restarted, both had taken a job meanwhile, and GitHub ended the two jobs with
+# "A task was canceled." (10:04:21Z, 2026-11-27).
+busy() {
+  local w p a i
+  for w in $(pgrep -f 'bin/Runner.Worker'); do
+    p=$w
+    while [ "${p:-1}" -gt 1 ]; do
+      a=$(ps -o args= -p "$p")
+      if [[ $a == *containerd-shim* ]]; then
+        i=$(grep -oE "/run/user/$(id -u)/e-[A-Za-z0-9_.-]+/" <<<"$a" | head -1 | sed -E 's#.*/e-##; s#/$##')
+        [ "$i" = "$1" ] && return 0
+        break
+      fi
+      p=$(ps -o ppid= -p "$p" | tr -d ' ')
+    done
   done
-done
+  return 1
+}
 
 for u in $(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' | awk '{print $1}'); do
   i=${u#ci-runner@}; i=${i%.service}
   { read -r have_r have_e < "$CR/applied/$i"; } 2>/dev/null || { have_r=""; have_e=""; }
   [ "$have_r $have_e" = "$runner_v $engine_v" ] && continue
-  if [[ $busy == *" $i "* ]]; then log "$i has a job: restart later"; continue; fi
+  if busy "$i"; then log "$i has a job: restart later"; continue; fi
   # entrypoint.sh's job-started hook: a job is running even when the process check above misses it.
   if [ -e "$CR/work/$i/.job-running" ]; then log "$i has a job (marker): restart later"; continue; fi
-  # A job the runner takes in the moment between the check above and the restart is still lost.
+  # A job the runner takes in the moment between these checks and the restart (well under a second) is still lost.
   if [ "$have_e" != "$engine_v" ]; then systemctl --user restart "docker@$i.service" || { log "FAIL restart docker@$i"; continue; }; fi
   systemctl --user restart "$u" || { log "FAIL restart $u"; continue; }
   echo "$runner_v $engine_v" > "$CR/applied/$i"
