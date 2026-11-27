@@ -58,6 +58,12 @@ for u in $(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' |
   { read -r have_r have_e < "$CR/applied/$i"; } 2>/dev/null || { have_r=""; have_e=""; }
   [ "$have_r $have_e" = "$runner_v $engine_v" ] && continue
   if busy "$i"; then log "$i has a job: restart later"; continue; fi
+  # A container lives for one job and takes the new files at its next start anyway; a restart is only for a
+  # runner that sits idle on old files. A container started under 10 minutes ago is skipped: player-1's
+  # started at 19:17:45Z, GitHub gave it a job at 19:17:51Z, and this loop restarted it as idle at 19:18:44Z
+  # (neither check above saw the job), so GitHub lost the job 10 minutes later (player #60, 2026-11-27).
+  st=$(awk '$1 == "measured_at" { print $2 }' "$CR/cache/$i/.sizes" 2>/dev/null)
+  if [ -n "$st" ] && [ $(( $(date +%s) - st )) -lt 600 ]; then continue; fi
   # entrypoint.sh's job-started hook: a job is running even when the process check above misses it.
   if [ -e "$CR/work/$i/.job-running" ]; then log "$i has a job (marker): restart later"; continue; fi
   # A job the runner takes in the moment between these checks and the restart (well under a second) is still lost.
