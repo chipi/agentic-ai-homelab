@@ -62,6 +62,8 @@ for u in $(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' |
   # runner that sits idle on old files. A container started under 10 minutes ago is skipped: player-1's
   # started at 19:17:45Z, GitHub gave it a job at 19:17:51Z, and this loop restarted it as idle at 19:18:44Z
   # (neither check above saw the job), so GitHub lost the job 10 minutes later (player #60, 2026-11-27).
+  # A job holding or waiting for a job slot (entrypoint.sh) is a job, whatever the checks above saw.
+  if [ -e "$CR/slots/wait/x3-$i" ] || grep -qs "^x3-$i " "$CR"/slots/[rs]-*/owner; then log "$i holds or waits for a job slot: restart later"; continue; fi
   st=$(awk '$1 == "measured_at" { print $2 }' "$CR/cache/$i/.sizes" 2>/dev/null)
   if [ -n "$st" ] && [ $(( $(date +%s) - st )) -lt 600 ]; then continue; fi
   # entrypoint.sh's job-started hook: a job is running even when the process check above misses it.
