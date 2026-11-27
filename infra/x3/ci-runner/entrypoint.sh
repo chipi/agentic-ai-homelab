@@ -41,6 +41,12 @@ if [ -n "${RUNNER_WORK:-}" ]; then
   chown runner:runner "$RUNNER_WORK"
   sed -i -E 's#"workFolder": *"[^"]*"#"workFolder": "'"$RUNNER_WORK"'"#' .runner
   if [ -n "${TMPDIR:-}" ]; then install -d -m 1777 "$TMPDIR"; fi
+  # HOME is the work folder's parent, as on GitHub's VMs (/home/runner/work/<repo>/<repo>): actions/cache
+  # stores a path under ~ relative to the workspace (../../../.cache/huggingface), so with HOME elsewhere
+  # every such cache restored into a folder that does not exist ("Cannot mkdir", player's 1.2 GB HuggingFace
+  # cache, 2026-11-26) and the job downloaded it all again. The folder is the container's own, not the host's.
+  JOB_HOME=$(dirname "$RUNNER_WORK")
+  chown runner:runner "$JOB_HOME"
 fi
 # One job per container, as on GitHub's VMs: a job left its API server on its port, or its
 # web/.e2e-corpus, and the next job's e2e web server "exited early" (studio main, 2026-11-25). With
@@ -56,4 +62,4 @@ export ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/tmp/job-done.sh
 printf '#!/bin/sh\ntouch "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-start.sh && chmod 755 /tmp/job-start.sh
 export ACTIONS_RUNNER_HOOK_JOB_STARTED=/tmp/job-start.sh
 chown runner:runner .runner .credentials .credentials_rsaparams
-exec setpriv --reuid=runner --regid=runner --init-groups env HOME=/home/runner USER=runner ./run.sh --once
+exec setpriv --reuid=runner --regid=runner --init-groups env HOME="${JOB_HOME:-/home/runner}" USER=runner ./run.sh --once
