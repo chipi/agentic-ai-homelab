@@ -102,7 +102,9 @@ def cmd_litellm(a):
                                      + (f" per {a.budget_duration}" if a.budget_duration else "")
                                      + (f", expires {a.duration}" if a.duration else ""),
                                      f"LITELLM_API_KEY={r['key']}",
-                                     f"LITELLM_API_BASE={a.base}"])
+                                     f"LITELLM_API_BASE={a.base}",
+                                     # the same address under the name eval-harness reads (its one name per provider, 2026-11-27)
+                                     f"LITELLM_BASE_URL={a.base}"])
     check(True, f"minted {a.alias} (token id {str(r.get('token', ''))[:10]}), stored in {path} (600)")
     key = envfile(path)["LITELLM_API_KEY"]
     auth = {"Authorization": "Bearer " + key}
@@ -118,7 +120,7 @@ def cmd_litellm(a):
     print("\nAdd this row to the credentials table in docs/recipes/agent-access.md:")
     print(f"| LiteLLM `{a.alias}` | `set -a; . {a.out}; set +a` | `LITELLM_API_KEY` (models {', '.join(models)}; "
           f"${a.budget} cap{' per ' + a.budget_duration if a.budget_duration else ''}{'; expires ' + a.duration if a.duration else ''}{'; traces to Langfuse' if a.langfuse_keys else ''}) "
-          f"+ `LITELLM_API_BASE={a.base}` |")
+          f"+ `LITELLM_API_BASE` and `LITELLM_BASE_URL` = `{a.base}` |")
 
 
 def gt_superuser(method, path, body=""):
