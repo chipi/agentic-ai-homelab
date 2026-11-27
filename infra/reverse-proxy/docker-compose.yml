@@ -25,6 +25,7 @@ services:
       - fleet-evals_internal
       - podcast-evals_internal
       - bakeoff-evals_internal
+      - robotics-evals_internal
       - home-automation_default
       - flotilla_ui
       - n8n_ui
@@ -75,6 +76,8 @@ networks:
   podcast-evals_internal:
     external: true
   bakeoff-evals_internal:
+    external: true
+  robotics-evals_internal:
     external: true
   home-automation_default:
     external: true

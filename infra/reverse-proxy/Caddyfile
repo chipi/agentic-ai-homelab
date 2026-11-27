@@ -77,7 +77,7 @@ https://compare.tail6d0ed4.ts.net {
 }
 
 # The eval projects' catalogs and MCP servers (infra/evh-serve): fleet-eval-data, podcast-scraper-eval-data
-# and harness-bakeoff, all private. Item text and outputs are served unwithheld: tailnet-only exposure is
+# harness-bakeoff and robotics-evals, all private. Item text and outputs are served unwithheld: tailnet-only exposure is
 # the access control. /mcp is the MCP server; it streams, so it is not compressed.
 https://fleet-evals.tail6d0ed4.ts.net {
 	bind tailscale/fleet-evals
@@ -109,6 +109,17 @@ https://bakeoff-evals.tail6d0ed4.ts.net {
 	handle {
 		encode zstd gzip
 		reverse_proxy bakeoff-evals-catalog:8080
+	}
+}
+
+https://robotics-evals.tail6d0ed4.ts.net {
+	bind tailscale/robotics-evals
+	handle /mcp* {
+		reverse_proxy robotics-evals-mcp:8081
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy robotics-evals-catalog:8080
 	}
 }
 

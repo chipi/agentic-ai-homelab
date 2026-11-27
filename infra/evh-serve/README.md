@@ -10,6 +10,7 @@ the static, deploy-on-demand `infra/fleet-evals` of 2026-11-05).
 | `fleet-evals` | chipi/fleet-eval-data | https://fleet-evals.tail6d0ed4.ts.net | `…/mcp` |
 | `podcast-evals` | chipi/podcast-scraper-eval-data | https://podcast-evals.tail6d0ed4.ts.net | `…/mcp` |
 | `bakeoff-evals` | chipi/harness-bakeoff | https://bakeoff-evals.tail6d0ed4.ts.net | `…/mcp` |
+| `robotics-evals` | chipi/robotics-evals | https://robotics-evals.tail6d0ed4.ts.net | `…/mcp` |
 
 An agent adds a project's MCP server once, on any tailnet machine:
 
@@ -17,6 +18,7 @@ An agent adds a project's MCP server once, on any tailnet machine:
 claude mcp add --scope user --transport http evh-fleet   https://fleet-evals.tail6d0ed4.ts.net/mcp
 claude mcp add --scope user --transport http evh-podcast https://podcast-evals.tail6d0ed4.ts.net/mcp
 claude mcp add --scope user --transport http evh-bakeoff https://bakeoff-evals.tail6d0ed4.ts.net/mcp
+claude mcp add --scope user --transport http evh-robotics https://robotics-evals.tail6d0ed4.ts.net/mcp
 ```
 
 The **Workbench** is not served here: evh keeps it and the write API on the machine that runs it,
@@ -55,13 +57,13 @@ The licensed QMSum text under podcast's `records/materialized/` is gitignored, s
 ## Install (once, on the mini)
 
 ```bash
-# 1. a read-only deploy key per instance (done 2026-11-24 for the three above)
+# 1. a read-only deploy key per instance (done 2026-11-24 for the first three, 2026-11-27 for robotics-evals)
 ssh-keygen -q -t ed25519 -N "" -C "evh-serve <name> on homelab (read-only)" -f ~/.config/evh-serve/<name>_deploy_key
 gh api repos/chipi/<repo>/keys -f title="evh-serve on homelab (read-only)" -f key="$(cat ~/.config/evh-serve/<name>_deploy_key.pub)" -F read_only=true
 # 2. the first run creates each instance's volumes and internal network
 ~/agentic-ai-homelab/infra/evh-serve/update.sh
 # 3. Caddy joins the networks (live; the reverse-proxy compose lists them for restarts), then reload
-for n in fleet-evals podcast-evals bakeoff-evals; do docker network connect ${n}_internal caddy; done
+for n in fleet-evals podcast-evals bakeoff-evals robotics-evals; do docker network connect ${n}_internal caddy; done
 docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 # 4. the timer
 sudo cp com.homelab.evh-serve.plist /Library/LaunchDaemons/

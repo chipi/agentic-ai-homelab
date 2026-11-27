@@ -391,6 +391,7 @@ row "n8n"             "https://n8n.$TS" "$N8_U" "$N8_P" "5678"
 row "Fleet evals (MCP: /mcp)"    "https://fleet-evals.$TS"   "&mdash;" "tailnet" "&mdash;"
 row "Podcast evals (MCP: /mcp)"  "https://podcast-evals.$TS" "&mdash;" "tailnet" "&mdash;"
 row "Bake-off evals (MCP: /mcp)" "https://bakeoff-evals.$TS" "&mdash;" "tailnet" "&mdash;"
+row "Robotics evals (MCP: /mcp)" "https://robotics-evals.$TS" "&mdash;" "tailnet" "&mdash;"
 cat <<MID
   </tbody></table>
   </details>
