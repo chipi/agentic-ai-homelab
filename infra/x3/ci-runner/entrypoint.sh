@@ -23,7 +23,7 @@ docker network ls -q --filter type=custom | xargs -r docker network rm >/dev/nul
 CACHE_KB=$((8 * 1024 * 1024)) ENGINE_BYTES=$((10 * 1024 * 1024 * 1024))
 ci_disk() {   # best effort: a failure here is logged, the job still runs (set -e does not apply in an || list)
   [ -n "${CI_CACHE:-}" ] && [ -d "$CI_CACHE" ] || return 0
-  entries() { find "$CI_CACHE/toolcache" -mindepth 2 -maxdepth 2 -type d; find "$CI_CACHE/ms-playwright" -mindepth 1 -maxdepth 1 -type d; find "$CI_CACHE/apt" -maxdepth 1 -name '*.deb'; find "$CI_CACHE" -mindepth 1 -maxdepth 1 -name huggingface -type d -not -empty; find "$CI_CACHE/venvs" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; }
+  entries() { find "$CI_CACHE/toolcache" -mindepth 2 -maxdepth 2 -type d; find "$CI_CACHE/ms-playwright" -mindepth 1 -maxdepth 1 -type d; find "$CI_CACHE/apt" -maxdepth 1 -name '*.deb'; find "$CI_CACHE" -mindepth 1 -maxdepth 1 \( -name huggingface -o -name npm \) -type d -not -empty; find "$CI_CACHE/venvs" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; }
   # when a file in the entry was last read (unix s); an entry without files is junk and counts as never read
   last_read() { local t; t=$(find "$1" -type f -printf '%A@\n' 2>/dev/null | sort -n | tail -1); t=${t%.*}; echo "${t:-0}"; }
   entries | while read -r e; do [ $(( ($(date +%s) - $(last_read "$e")) / 86400 )) -gt 14 ] && rm -rf "$e"; done
@@ -36,7 +36,9 @@ ci_disk() {   # best effort: a failure here is logged, the job still runs (set -
   install -d "$CI_CACHE/apt/partial" && rm -rf /var/cache/apt/archives && ln -s "$CI_CACHE/apt" /var/cache/apt/archives
   # venvs/<key>: a job's built virtualenv, kept for the next (Common's python-env on the X3); a job copies it
   # in with a reflink (btrfs: shared extents, seconds for a GB), so what a job installs into its copy stays there.
-  install -d "$CI_CACHE/huggingface" "$CI_CACHE/venvs"; chown runner:runner "$CI_CACHE/toolcache" "$CI_CACHE/ms-playwright" "$CI_CACHE/huggingface" "$CI_CACHE/venvs"
+  # npm/: npm's own download cache (npm_config_cache, ci-runner@.service), so `npm ci` finds its packages on disk;
+  # a job then skips setup-node's GitHub cache on the X3 (lighthouse: 78 s restoring 129 MB of it, 2026-11-27).
+  install -d "$CI_CACHE/huggingface" "$CI_CACHE/venvs" "$CI_CACHE/npm"; chown runner:runner "$CI_CACHE/toolcache" "$CI_CACHE/ms-playwright" "$CI_CACHE/huggingface" "$CI_CACHE/venvs" "$CI_CACHE/npm"
   docker image prune -f >/dev/null 2>&1 || true
   docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
   # Each image's last use: the newer of sync.sh's last sighting of it running ($CI_CACHE/.image-seen) and its

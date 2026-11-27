@@ -29,7 +29,7 @@ ExecStartPre=/bin/mkdir -p %h/ci-runner/work/%i
 # restored on GitHub's VMs or across X3 images ("ubuntu24-unknown" before, 2026-11-27).
 # The job slots every runner shares (entrypoint.sh, RFC-0011 item 26): one per repo plus CI_SLOTS_SHARED.
 ExecStartPre=/usr/bin/install -d -m 1777 %h/ci-runner/slots
-ExecStartPre=/bin/mkdir -p %h/ci-runner/cache/%i/toolcache %h/ci-runner/cache/%i/ms-playwright %h/ci-runner/cache/%i/apt %h/ci-runner/cache/%i/huggingface %h/ci-runner/cache/%i/venvs
+ExecStartPre=/bin/mkdir -p %h/ci-runner/cache/%i/toolcache %h/ci-runner/cache/%i/ms-playwright %h/ci-runner/cache/%i/apt %h/ci-runner/cache/%i/huggingface %h/ci-runner/cache/%i/venvs %h/ci-runner/cache/%i/npm
 # A job's `-v /var/run/docker.sock:...` (integration's stack test mounts it into its API container) is
 # resolved by the engine, inside rootlesskit's mount namespace, where /run/docker.sock was the X3's own
 # system socket: "permission denied while trying to connect to the docker API" (2026-11-26). Point it at
@@ -48,6 +48,7 @@ ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo
   -e TMPDIR=%h/ci-runner/work/%i/_tmp \
   -v %h/ci-runner/cache/%i:%h/ci-runner/cache/%i -e CI_CACHE=%h/ci-runner/cache/%i \
   -e RUNNER_TOOL_CACHE=%h/ci-runner/cache/%i/toolcache -e PLAYWRIGHT_BROWSERS_PATH=%h/ci-runner/cache/%i/ms-playwright \
+  -e npm_config_cache=%h/ci-runner/cache/%i/npm \
   -e ImageOS=ubuntu24 -e ImageVersion=${IMAGE} \
   -v %h/ci-runner/slots:%h/ci-runner/slots -e CI_SLOTS=%h/ci-runner/slots -e CI_SLOTS_SHARED=${CI_SLOTS_SHARED} \
   -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
