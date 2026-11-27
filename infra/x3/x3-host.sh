@@ -65,9 +65,12 @@ journalctl -k -b --no-pager -q \
 
 # 5. the CI runners' cap. Rates come from the counters: throttled share = rate(throttled_periods) / rate(periods).
 CI_UID=$(id -u gh-runner 2>/dev/null) && CG="/sys/fs/cgroup/user.slice/user-$CI_UID.slice" && [ -r "$CG/cpu.stat" ] && {
+  # the slice has a cpuset only with AllowedCPUs= set (RFC-0011 item 25); without one it may run on every CPU
+  CPUS="$CG/cpuset.cpus.effective"; [ -r "$CPUS" ] || CPUS=/sys/fs/cgroup/cpuset.cpus.effective
   awk '
     FILENAME ~ /cpu.stat$/      { s[$1] = $2 }
     FILENAME ~ /cpu.max$/       { q = ($1 == "max") ? 0 : $1 / $2 }
+    FILENAME ~ /cpuset.cpus.effective$/ { n = split($1, r, ","); for (i = 1; i <= n; i++) { split(r[i], b, "-"); ac += (b[2] == "" ? 1 : b[2] - b[1] + 1) } }
     FILENAME ~ /memory.events$/ { e[$1] = $2 }
     FILENAME ~ /cpu.pressure$/    && $1 == "some" { split($5, t, "="); cps = t[2] }
     FILENAME ~ /memory.pressure$/ && $1 == "some" { split($5, t, "="); mps = t[2] }
@@ -80,10 +83,11 @@ CI_UID=$(id -u gh-runner 2>/dev/null) && CG="/sys/fs/cgroup/user.slice/user-$CI_
       printf "x3_ci_cpu_usage_seconds_total%s %.3f\n", L, s["usage_usec"] / 1e6
       printf "x3_ci_cpu_periods_total%s %d\nx3_ci_cpu_throttled_periods_total%s %d\n", L, s["nr_periods"], L, s["nr_throttled"]
       printf "x3_ci_cpu_throttled_seconds_total%s %.3f\nx3_ci_cpu_quota_cores%s %g\n", L, s["throttled_usec"] / 1e6, L, q
+      printf "x3_ci_cpu_allowed_cores%s %d\n", L, ac
       printf "x3_ci_cpu_pressure_seconds_total%s %.3f\nx3_ci_memory_pressure_seconds_total%s %.3f\n", L, cps / 1e6, L, mps / 1e6
       printf "x3_ci_memory_bytes%s %d\nx3_ci_memory_peak_bytes%s %d\nx3_ci_memory_max_bytes%s %d\nx3_ci_memory_high_bytes%s %d\n", L, mc, L, mp, L, mm, L, mh
       printf "x3_ci_memory_high_events_total%s %d\nx3_ci_memory_max_events_total%s %d\nx3_ci_oom_kills_total%s %d\n", L, e["high"], L, e["max"], L, e["oom_kill"]
-    }' "$CG/cpu.stat" "$CG/cpu.max" "$CG/memory.events" "$CG/cpu.pressure" "$CG/memory.pressure" "$CG/memory.current" "$CG/memory.peak" "$CG/memory.max" "$CG/memory.high" \
+    }' "$CG/cpu.stat" "$CG/cpu.max" "$CPUS" "$CG/memory.events" "$CG/cpu.pressure" "$CG/memory.pressure" "$CG/memory.current" "$CG/memory.peak" "$CG/memory.max" "$CG/memory.high" \
   | push ci-cap
 }
 

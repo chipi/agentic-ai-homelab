@@ -152,7 +152,7 @@ The operator agreed this plan on 2026-11-27 after a review of the X3 runners. Ea
 live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/agentic-ai-homelab/tree/main/infra/x3/ci-runner).
 
 16. **Capacity.** Five player runners (player-1..5, ten runners in all), and the `gh-runner` slice raised to
-    12 cores and 48 GB (`x3-ci-runner-setup.sh`: `CPU_QUOTA=1200%`, `MEM_MAX=48G`).
+    12 cores and 48 GB (`x3-ci-runner-setup.sh`: `CPU_QUOTA=1200%`, `MEM_MAX=48G`), on CPUs 4-15 from item 25.
 17. **A stop that cannot fail the unit.** A runner with `--once` removes its own container when its job
     ends, so `docker stop` found no container and the unit was logged as failed. The fix is
     `ExecStop=-/usr/bin/docker stop …`.
@@ -223,7 +223,7 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
     |---|---|---|---|
     | X3 CI runners | online, as a share of runner-minutes | 99% | `avg(gh_runner_up{machine="x3"})` |
     | X3 CI runners | no job waiting over 10 min | 95% | `max(gh_job_queue_seconds_max) < 600` |
-    | X3 CI runners | CPU headroom: throttled in under 5% of CPU periods, per 5 min | 95% | `rate(x3_ci_cpu_throttled_periods_total) <= 0.05 * rate(x3_ci_cpu_periods_total)`; an idle slice counts as good |
+    | X3 CI runners | CPU wait: some job waiting for a CPU under 10% of the time, per 5 min (item 25) | 95% | `rate(x3_ci_cpu_pressure_seconds_total) < 0.1` |
     | Hub CI collector | fresh within 15 min | 99% | `gh_ci_collector_last_success_timestamp` |
 
     History starts at about 22:00Z on 2026-11-26. Over that history the four levels stood at 95.5%,
@@ -271,6 +271,25 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
       A regular run with no cache proves a fresh install still works.
     - `ci_disk` prunes each venv as one entry (item 21). Common's side is theirs to build; this item is
       the runner's part.
+25. **Jobs see the cores they may use** (operator, 2026-11-27). The first CPU-headroom level (throttled in
+    under 5% of CFS periods) stood at 72.8% over its first three hours, 10:00-13:00Z on 2026-11-27. Over
+    the last four of those hours the slice used 20,055 CPU-seconds, 1.4 cores on average and at most 6.7
+    in any 10 minutes, against its 12-core quota; yet 5-38% of its periods were throttled in busy 10-minute
+    windows. Every job saw all 32 CPUs and sized its worker pools to them, so a burst used up the
+    period's 1.2 s of quota within the 100 ms period. The cost was small: CPU pressure (some) of 229 s in
+    the four hours, 1.6% of the time. The throttle counter's 4,360 s adds up the time over CPUs, so it
+    overstates the delay.
+    - **`AllowedCPUs=4-15`** on the slice (`CPU_SET` in `x3-ci-runner-setup.sh`), one thread of each of 12
+      physical cores. `nproc` and every tool that reads the CPU affinity then see 12, and 12 busy CPUs use
+      exactly the quota. Kept with it, the quota only bites if the cpuset is lost. `x3-host.sh` pushes
+      `x3_ci_cpu_allowed_cores`.
+    - **The level measures waiting, not throttle counts:** a minute is good when some task in the slice
+      waited for a CPU under 10% of the time over 5 minutes (`cpu.pressure`, which counts waits from the
+      cap as well as from the jobs sharing the 12 CPUs). Its id changed with it
+      (`x3-ci-runners--cpu-wait-under-10-of-the-time-5-min`). The 10% line is above the worst 10 minutes
+      seen so far (9.5%, 11:24Z).
+    - Not verified yet: that a job container reports 12 from `nproc` after the change, and how the
+      pressure moves once the jobs share 12 CPUs instead of being throttled.
 
 ## Non-goals
 

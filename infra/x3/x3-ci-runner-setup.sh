@@ -1,7 +1,7 @@
 #!/bin/bash
 # The X3 — self-hosted GitHub Actions runners for the private repos (ADR-0015): a service user
 # `gh-runner` outside the docker group, and per runner a container on its own rootless Docker engine.
-# Everything gh-runner runs is capped together in its user slice (8 cores, 32 GB), so CI cannot
+# Everything gh-runner runs is capped together in its user slice (12 cores, 48 GB), so CI cannot
 # starve the operator's sessions or robotics-lab. The system engine is never touched.
 #
 # Idempotent. Run as root from the deploy checkout:
@@ -22,6 +22,10 @@ HOMEDIR=/var/lib/gh-runner
 SUBID_START=200000   # marko holds 100000-165535
 ROOTLESS_SHA=904c9b9e35f6927c0a5e65afb4d35b6bc9eb1278c878044501281fc728c9be46   # moby docker-v29.7.2 contrib/dockerd-rootless.sh
 CPU_QUOTA=1200%   # 12 of 32 cores (operator, 2026-11-27; 8 throttled the runners ~2,200 s in one night)
+CPU_SET=4-15      # the cores the slice may run on, one thread of each of 12 physical cores (their SMT
+                  # siblings are 20-31): jobs then see 12 CPUs and size their worker pools to the quota, where
+                  # with all 32 visible they burst past it and were throttled in 5-38% of periods at 1-7 cores
+                  # of average use (operator, 2026-11-27; RFC-0011 item 25)
 MEM_MAX=48G       # the slice peaked at 26.8 GiB of 32 under 3 player runners; 5 need more
 
 [ "$(id -u)" -eq 0 ] || { echo "!! must run as root: sudo bash $0"; exit 1; }
@@ -49,12 +53,14 @@ for f in /etc/subuid /etc/subgid; do
 done
 ok "subordinate ids: $(grep "^$U:" /etc/subuid)"
 
-step "the cap: everything $U runs shares $CPU_QUOTA CPU and $MEM_MAX memory"
+step "the cap: everything $U runs shares $CPU_QUOTA CPU on CPUs $CPU_SET and $MEM_MAX memory"
 d=/etc/systemd/system/user-$UID_R.slice.d
 mkdir -p "$d"
-printf '[Slice]\nCPUQuota=%s\nMemoryMax=%s\nMemoryHigh=%s\n' "$CPU_QUOTA" "$MEM_MAX" "$(( ${MEM_MAX%G} * 7 / 8 ))G" > "$d/50-ci-cap.conf"
+printf '[Slice]\nCPUQuota=%s\nAllowedCPUs=%s\nMemoryMax=%s\nMemoryHigh=%s\n' "$CPU_QUOTA" "$CPU_SET" "$MEM_MAX" "$(( ${MEM_MAX%G} * 7 / 8 ))G" > "$d/50-ci-cap.conf"
 systemctl daemon-reload
-ok "$(systemctl show "user-$UID_R.slice" -p CPUQuotaPerSecUSec -p MemoryMax | tr '\n' ' ')"
+ok "$(systemctl show "user-$UID_R.slice" -p CPUQuotaPerSecUSec -p AllowedCPUs -p MemoryMax | tr '\n' ' ')"
+eff=$(cat "/sys/fs/cgroup/user.slice/user-$UID_R.slice/cpuset.cpus.effective" 2>/dev/null)
+[ "$eff" = "$CPU_SET" ] && ok "cpuset.cpus.effective $eff" || bad "cpuset.cpus.effective is '$eff', not $CPU_SET"
 
 step "linger: $U's user manager runs without a login"
 loginctl enable-linger "$U"
