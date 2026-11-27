@@ -13,6 +13,13 @@ Environment=IMAGE=ci-runner:2.338.2-4
 ExecStartPre=/bin/sh -c 'docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" %h/ci-runner/image'
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
 ExecStartPre=/bin/mkdir -p %h/ci-runner/work/%i
+# This runner's own downloads, kept across its jobs (the container is fresh per job): the tool cache of
+# setup-node/setup-python (RUNNER_TOOL_CACHE), Playwright's browsers, apt's packages. On the X3 each job
+# fetched them again over the home line: setup-node 58 s against 3 s on GitHub's VMs, Playwright's chromium
+# 126 s against 10 s (player, medians, 2026-11). One folder per runner, so two jobs never write one at once;
+# entrypoint.sh prunes it at every start (5 GB, 14 days unused). Mounted at its host path, as the work
+# folder, because the runner hands the tool cache to job containers by path.
+ExecStartPre=/bin/mkdir -p %h/ci-runner/cache/%i/toolcache %h/ci-runner/cache/%i/ms-playwright %h/ci-runner/cache/%i/apt
 # A job's `-v /var/run/docker.sock:...` (integration's stack test mounts it into its API container) is
 # resolved by the engine, inside rootlesskit's mount namespace, where /run/docker.sock was the X3's own
 # system socket: "permission denied while trying to connect to the docker API" (2026-11-26). Point it at
@@ -29,6 +36,8 @@ ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo
   -v ci-runner-%i:/home/runner/state \
   -v %h/ci-runner/work/%i:%h/ci-runner/work/%i -e RUNNER_WORK=%h/ci-runner/work/%i \
   -e TMPDIR=%h/ci-runner/work/%i/_tmp \
+  -v %h/ci-runner/cache/%i:%h/ci-runner/cache/%i -e CI_CACHE=%h/ci-runner/cache/%i \
+  -e RUNNER_TOOL_CACHE=%h/ci-runner/cache/%i/toolcache -e PLAYWRIGHT_BROWSERS_PATH=%h/ci-runner/cache/%i/ms-playwright \
   -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
   -v %t/e-%i/docker.sock:/var/run/docker.sock \
   ${IMAGE} bash /entrypoint.sh

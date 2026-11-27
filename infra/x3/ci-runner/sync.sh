@@ -60,4 +60,12 @@ for u in $(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' |
   echo "$runner_v $engine_v" > "$CR/applied/$i"
   log "$i restarted (idle) at runner $runner_v engine $engine_v"
 done
+
+# Each runner's disk, as its last start measured it (entrypoint.sh ci_disk writes cache/<i>/.sizes), for
+# x3-host.sh to push: the log folder is the one place both gh-runner and the operator's account reach.
+{ for f in "$CR"/cache/*/.sizes; do
+    [ -r "$f" ] || continue
+    i=$(basename "$(dirname "$f")")
+    awk -v i="$i" '{ printf "x3_ci_runner_%s{box=\"x3\",runner=\"%s\"} %s\n", $1, i, $2 }' "$f"
+  done; } > "$SRC/log/ci-sizes.prom.tmp" 2>/dev/null && mv "$SRC/log/ci-sizes.prom.tmp" "$SRC/log/ci-sizes.prom"
 exit 0

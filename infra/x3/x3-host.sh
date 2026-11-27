@@ -16,6 +16,8 @@
 #      and max, pressure stall time, OOM kills, all as counters or gauges from the slice's cgroup files
 #      (x3_ci_*). The cap is shared by every runner, so a throttled slice slows every job at once; nothing
 #      recorded it before (player's e2e timeouts of 2026-11-26 could not be tied to it or ruled out).
+#   6. each runner's disk, its downloads and its engine, from the runners' sync (log/ci-sizes.prom), and the
+#      free space under /var/lib/gh-runner: the budget is 5 GB + 10 GB a runner (entrypoint.sh prunes to it).
 # Pushes to VictoriaMetrics over the tailnet, as the X3's Alloy does. Each part is best effort: one failing
 # never stops the others.
 set -uo pipefail
@@ -83,3 +85,9 @@ CI_UID=$(id -u gh-runner 2>/dev/null) && CG="/sys/fs/cgroup/user.slice/user-$CI_
     }' "$CG/cpu.stat" "$CG/cpu.max" "$CG/memory.events" "$CG/cpu.pressure" "$CG/memory.pressure" "$CG/memory.current" "$CG/memory.peak" "$CG/memory.max" "$CG/memory.high" \
   | push ci-cap
 }
+
+# 6. each runner's disk (its downloads and its engine), measured at its last start and written by the
+# runners' sync into its log folder, plus the free space where they live. Pushed as it is.
+SIZES=/srv/ci-runner-src/log/ci-sizes.prom
+[ -r "$SIZES" ] && push ci-sizes < "$SIZES"
+df -B1 --output=avail,size /var/lib/gh-runner 2>/dev/null | awk 'NR == 2 { printf "x3_ci_disk_free_bytes{box=\"x3\"} %d\nx3_ci_disk_size_bytes{box=\"x3\"} %d\n", $1, $2 }' | push ci-disk

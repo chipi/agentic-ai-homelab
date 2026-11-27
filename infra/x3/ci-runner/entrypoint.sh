@@ -12,6 +12,39 @@ rm -f /etc/apt/apt.conf.d/docker-clean
 # container is a leftover.
 docker ps -a --format '{{.ID}} {{.Names}}' | awk '$2 !~ /^ci-runner-/ {print $1}' | xargs -r docker rm -f -v >/dev/null
 docker network ls -q --filter type=custom | xargs -r docker network rm >/dev/null 2>&1 || true
+# The disk this runner may hold (operator, 2026-11-27: 5 GB of downloads and 10 GB of engine per runner).
+# Downloads (ci-runner@.service's cache folder): a tool version, a browser or a package unread for 14 days
+# goes, then the least recently read until under 5 GB; relatime keeps read times to the day. The engine:
+# untagged images always; over 10 GB (layers and build cache), the build cache and every image no
+# container uses (Docker records no last use, so "unused for 7 days" cannot be told; the next job pulls
+# what it needs). Each start writes the sizes to $CI_CACHE/.sizes, which sync.sh reports.
+CACHE_KB=$((5 * 1024 * 1024)) ENGINE_BYTES=$((10 * 1024 * 1024 * 1024))
+ci_disk() {   # best effort: a failure here is logged, the job still runs (set -e does not apply in an || list)
+  [ -n "${CI_CACHE:-}" ] && [ -d "$CI_CACHE" ] || return 0
+  entries() { find "$CI_CACHE/toolcache" -mindepth 2 -maxdepth 2 -type d; find "$CI_CACHE/ms-playwright" -mindepth 1 -maxdepth 1 -type d; find "$CI_CACHE/apt" -maxdepth 1 -name '*.deb'; }
+  # when a file in the entry was last read (unix s); an entry without files is junk and counts as never read
+  last_read() { local t; t=$(find "$1" -type f -printf '%A@\n' 2>/dev/null | sort -n | tail -1); t=${t%.*}; echo "${t:-0}"; }
+  entries | while read -r e; do [ $(( ($(date +%s) - $(last_read "$e")) / 86400 )) -gt 14 ] && rm -rf "$e"; done
+  used=$(du -sk "$CI_CACHE" | cut -f1)
+  if [ "$used" -gt "$CACHE_KB" ]; then
+    entries | while read -r e; do printf '%s %s\n' "$(last_read "$e")" "$e"; done | sort -n \
+      | while read -r _ e; do [ "$used" -le "$CACHE_KB" ] && break; s=$(du -sk "$e" | cut -f1); rm -rf "$e"; used=$((used - s)); done
+  fi
+  # apt keeps its downloads here (Ubuntu's image deletes them after each install; docker-clean is gone)
+  install -d "$CI_CACHE/apt/partial" && rm -rf /var/cache/apt/archives && ln -s "$CI_CACHE/apt" /var/cache/apt/archives
+  chown runner:runner "$CI_CACHE/toolcache" "$CI_CACHE/ms-playwright"
+  docker image prune -f >/dev/null 2>&1 || true
+  df=$(curl -s --unix-socket /var/run/docker.sock http://d/system/df)
+  eng=$(jq '(.LayersSize // 0) + ([.BuildCache[]?.Size] | add // 0)' <<<"$df" 2>/dev/null || echo 0)
+  if [ "${eng:-0}" -gt "$ENGINE_BYTES" ]; then
+    echo "engine at $((eng >> 20)) MB, over $((ENGINE_BYTES >> 20)) MB: removing the build cache and unused images"
+    docker builder prune -af >/dev/null 2>&1; docker image prune -af >/dev/null 2>&1
+    df=$(curl -s --unix-socket /var/run/docker.sock http://d/system/df)
+    eng=$(jq '(.LayersSize // 0) + ([.BuildCache[]?.Size] | add // 0)' <<<"$df" 2>/dev/null || echo 0)
+  fi
+  printf 'cache_bytes %d\nengine_bytes %d\nmeasured_at %d\n' "$(( $(du -sk "$CI_CACHE" | cut -f1) * 1024 ))" "${eng:-0}" "$(date +%s)" > "$CI_CACHE/.sizes"
+}
+ci_disk || echo "ci_disk: pruning or measuring the disk failed; the job runs anyway"
 # Jobs run as runner (uid 1001, passwordless sudo, in group docker), as on GitHub's VMs: as root, a
 # test that makes a folder read-only to provoke a failure saw the write succeed (infra's
 # test_install_app_compose, 2026-11-26). Root does only the set-up here.
