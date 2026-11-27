@@ -134,7 +134,7 @@ done
 EOF
 fi
 printf '#!/bin/sh\nrm -f "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-done.sh
-[ -f /tmp/job-slot.sh ] && printf 's=$(cat "%s/.slot" 2>/dev/null) && [ -n "$s" ] && rm -rf "%s/$s"\n' "${RUNNER_WORK:-/tmp}" "$CI_SLOTS" >> /tmp/job-done.sh
+[ -f /tmp/job-slot.sh ] && printf 's=$(cat "%s/.slot" 2>/dev/null) && [ -n "$s" ] && rm -rf "%s/$s"\ntrue\n' "${RUNNER_WORK:-/tmp}" "$CI_SLOTS" >> /tmp/job-done.sh
 chmod 755 /tmp/job-done.sh
 export ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/tmp/job-done.sh
 printf '#!/bin/sh\ntouch "%s/.job-running"\n' "${RUNNER_WORK:-/tmp}" > /tmp/job-start.sh
