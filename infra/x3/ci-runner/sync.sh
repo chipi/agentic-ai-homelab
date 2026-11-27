@@ -67,6 +67,23 @@ for u in $(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' |
   log "$i restarted (idle) at runner $runner_v engine $engine_v"
 done
 
+# When each runner's engine last ran each image: Docker records no last use, and entrypoint.sh's pruning
+# needs one for the agreed rule (an image no job ran for 7 days goes; operator, 2026-11-27). Every 2 minutes,
+# the images of the engine's running containers get the time now in cache/<i>/.image-seen ("<image id>
+# <unix s>" lines). A container that lives under 2 minutes can be missed; its image then counts from its
+# pull, and at worst is pulled again.
+now=$(date +%s)
+for s in /run/user/"$(id -u)"/e-*/docker.sock; do
+  [ -S "$s" ] || continue
+  i=${s%/docker.sock}; i=${i##*/e-}
+  f="$CR/cache/$i/.image-seen"
+  [ -d "$CR/cache/$i" ] || continue
+  ids=$(DOCKER_HOST="unix://$s" timeout 20 docker ps -q 2>/dev/null | xargs -r env DOCKER_HOST="unix://$s" timeout 20 docker inspect -f '{{.Image}}' 2>/dev/null | sort -u)
+  [ -n "$ids" ] || continue
+  { [ -f "$f" ] && awk -v ids="$ids" 'BEGIN { n = split(ids, a, "\n"); for (k = 1; k <= n; k++) run[a[k]] = 1 } !($1 in run)' "$f"
+    for id in $ids; do echo "$id $now"; done; } > "$f.tmp" && mv "$f.tmp" "$f"
+done
+
 # Each runner's disk, as its last start measured it (entrypoint.sh ci_disk writes cache/<i>/.sizes), for
 # x3-host.sh to push: the log folder is the one place both gh-runner and the operator's account reach.
 { for f in "$CR"/cache/*/.sizes; do

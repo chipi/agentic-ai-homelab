@@ -202,10 +202,15 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
     - **Downloads:** each tool version, browser, `.deb` and the HuggingFace folder counts as one entry.
       An entry not read for 14 days goes. Then the least recently read entries go until the folder is under
       5 GB. Read times come from atime under `relatime`, which is precise to about a day.
-    - **The runner's own engine:** untagged images are removed at every start. Over 10 GB of layers and
-      build cache, the build cache and every image no container uses are removed. The agreed rule was
-      "unused for 7 days", but Docker records no last use, so that rule cannot be implemented. The next
-      job pulls what it needs.
+    - **The runner's own engine:** at every start, untagged images go, build cache unused for 7 days goes,
+      and so does an image no job ran for 7 days. Docker records a last use for build cache but not for
+      images, so `sync.sh` keeps one: every 2 minutes it writes the images of each engine's running
+      containers, with the time, to `cache/<i>/.image-seen`. An image's last use is the newer of that and
+      its pull. A container that lives under 2 minutes can be missed; its image then counts from its pull
+      and is at worst pulled again. Over 10 GB of layers and build cache, all the build cache goes, then
+      images least recently used first until under. Tested in an isolated engine with the clock moved
+      8 days on: a seen image and one a container runs stayed, the others went, and the cap removed the
+      rest in order.
     - **Reporting:** each start writes `$CI_CACHE/.sizes`, and `sync.sh` gathers the files into
       `log/ci-sizes.prom`. `x3-host.sh` pushes them as `x3_ci_runner_{cache,engine}_bytes` and
       `x3_ci_runner_measured_at` per runner, with `x3_ci_disk_{free,size}_bytes` for

@@ -15,9 +15,10 @@ docker network ls -q --filter type=custom | xargs -r docker network rm >/dev/nul
 # The disk this runner may hold (operator, 2026-11-27: 5 GB of downloads and 10 GB of engine per runner).
 # Downloads (ci-runner@.service's cache folder): a tool version, a browser or a package unread for 14 days
 # goes, then the least recently read until under 5 GB; relatime keeps read times to the day. The engine:
-# untagged images always; over 10 GB (layers and build cache), the build cache and every image no
-# container uses (Docker records no last use, so "unused for 7 days" cannot be told; the next job pulls
-# what it needs). Each start writes the sizes to $CI_CACHE/.sizes, which sync.sh reports.
+# untagged images always, build cache unused for 7 days, and an image no job ran for 7 days (Docker records
+# no last use; sync.sh notes which images run, every 2 minutes, in $CI_CACHE/.image-seen); over 10 GB
+# (layers and build cache), all the build cache, then images least recently used first until under. Each
+# start writes the sizes to $CI_CACHE/.sizes, which sync.sh reports.
 CACHE_KB=$((5 * 1024 * 1024)) ENGINE_BYTES=$((10 * 1024 * 1024 * 1024))
 ci_disk() {   # best effort: a failure here is logged, the job still runs (set -e does not apply in an || list)
   [ -n "${CI_CACHE:-}" ] && [ -d "$CI_CACHE" ] || return 0
@@ -34,13 +35,24 @@ ci_disk() {   # best effort: a failure here is logged, the job still runs (set -
   install -d "$CI_CACHE/apt/partial" && rm -rf /var/cache/apt/archives && ln -s "$CI_CACHE/apt" /var/cache/apt/archives
   install -d "$CI_CACHE/huggingface"; chown runner:runner "$CI_CACHE/toolcache" "$CI_CACHE/ms-playwright" "$CI_CACHE/huggingface"
   docker image prune -f >/dev/null 2>&1 || true
-  df=$(curl -s --unix-socket /var/run/docker.sock http://d/system/df)
-  eng=$(jq '(.LayersSize // 0) + ([.BuildCache[]?.Size] | add // 0)' <<<"$df" 2>/dev/null || echo 0)
+  docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
+  # Each image's last use: the newer of sync.sh's last sighting of it running ($CI_CACHE/.image-seen) and its
+  # pull (LastTagTime). Oldest first; an image a container uses is refused by `docker rmi` and stays.
+  by_use() {
+    docker image ls -q --no-trunc | sort -u | while read -r id; do
+      seen=$(awk -v id="$id" '$1 == id { print $2 }' "$CI_CACHE/.image-seen" 2>/dev/null | tail -1)
+      tag=$(date -d "$(docker image inspect -f '{{.Metadata.LastTagTime}}' "$id" 2>/dev/null | cut -d' ' -f1,2)" +%s 2>/dev/null || echo 0)
+      echo "$(( ${seen:-0} > tag ? ${seen:-0} : tag )) $id"
+    done | sort -n
+  }
+  engine() { curl -s --unix-socket /var/run/docker.sock http://d/system/df | jq '(.LayersSize // 0) + ([.BuildCache[]?.Size] | add // 0)' 2>/dev/null || echo 0; }
+  by_use | while read -r t id; do [ $(( ($(date +%s) - t) / 86400 )) -ge 7 ] && docker rmi "$id" >/dev/null 2>&1; done
+  eng=$(engine)
   if [ "${eng:-0}" -gt "$ENGINE_BYTES" ]; then
-    echo "engine at $((eng >> 20)) MB, over $((ENGINE_BYTES >> 20)) MB: removing the build cache and unused images"
-    docker builder prune -af >/dev/null 2>&1; docker image prune -af >/dev/null 2>&1
-    df=$(curl -s --unix-socket /var/run/docker.sock http://d/system/df)
-    eng=$(jq '(.LayersSize // 0) + ([.BuildCache[]?.Size] | add // 0)' <<<"$df" 2>/dev/null || echo 0)
+    echo "engine at $((eng >> 20)) MB, over $((ENGINE_BYTES >> 20)) MB: removing the build cache, then the least recently used images"
+    docker builder prune -af >/dev/null 2>&1
+    by_use | while read -r _ id; do [ "$(engine)" -le "$ENGINE_BYTES" ] && break; docker rmi "$id" >/dev/null 2>&1; done
+    eng=$(engine)
   fi
   printf 'cache_bytes %d\nengine_bytes %d\nmeasured_at %d\n' "$(( $(du -sk "$CI_CACHE" | cut -f1) * 1024 ))" "${eng:-0}" "$(date +%s)" > "$CI_CACHE/.sizes"
 }
