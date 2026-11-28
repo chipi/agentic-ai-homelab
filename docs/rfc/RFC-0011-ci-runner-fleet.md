@@ -369,6 +369,9 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
     - The public checkout (230-317 s against about 19 s) is Player's to change: a shallow fetch, or a
       kept mirror under `$CI_CACHE/git`.
     - Done as the mirror (Player #64). Every Player runner had one by 2026-11-28; web checks out in 7 s.
+    - The downloads budget is 16 GB a runner from 2026-11-28 (operator's go): all five Player runners sat at
+      7.3-8.2 GB against 8 GiB, under it only by pruning, so a start could drop the mirror, a venv or a browser
+      the next job needed. The other runners hold 4 GB or less; 547 GB of the disk was free.
     - pip the same way, from 2026-11-28 (operator's go): `PIP_CACHE_DIR` is `$CI_CACHE/pip`. setup-python's
       GitHub cache restore timed out on player-4 and ran Player's lint job out of its 10 minutes (run
       46123702898), so Player turned it off on the X3 (#67, f9c7ae7).

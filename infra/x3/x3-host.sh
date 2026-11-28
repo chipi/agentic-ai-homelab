@@ -17,7 +17,7 @@
 #      (x3_ci_*). The cap is shared by every runner, so a throttled slice slows every job at once; nothing
 #      recorded it before (player's e2e timeouts of 2026-11-26 could not be tied to it or ruled out).
 #   6. each runner's disk, its downloads and its engine, from the runners' sync (log/ci-sizes.prom), and the
-#      free space under /var/lib/gh-runner: the budget is 8 GB + 10 GB a runner (entrypoint.sh prunes to it);
+#      free space under /var/lib/gh-runner: the budget is 16 GB + 10 GB a runner (entrypoint.sh prunes to it);
 #   7. hourly, the dev engine's disk by type (mini-metrics/engine-df.py, docker_engine_*{box="x3",engine="dev"}).
 # Pushes to VictoriaMetrics over the tailnet, as the X3's Alloy does. Each part is best effort: one failing
 # never stops the others.

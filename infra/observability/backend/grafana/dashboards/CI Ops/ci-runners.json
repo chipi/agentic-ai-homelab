@@ -1288,8 +1288,8 @@
     {
       "id": 24,
       "type": "bargauge",
-      "title": "Download cache per runner against 8 GiB",
-      "description": "x3_ci_runner_cache_bytes: each runner's downloads cache (budget 8 GiB, pruned in entrypoint.sh). Read at each container start.",
+      "title": "Download cache per runner against 16 GiB",
+      "description": "x3_ci_runner_cache_bytes: each runner's downloads cache (budget 16 GiB, pruned in entrypoint.sh). Read at each container start.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
