@@ -2225,6 +2225,36 @@ groups:
               expression: q
               conditions: [{ evaluator: { type: gt, params: [600] } }]
 
+      # --- Prod's DGX model not served ---------------------------------------------
+      # vLLM :8003 (NVFP4 Qwen3-30B-A3B, LiteLLM's hosted_vllm route for prod) is down in every GPU mode but
+      # prod: 16 h on 2026-11-27 (robotics 12.2 h, free 4.2 h), while prod sent it ~2,000 requests a day and
+      # LiteLLM logged "Cannot connect to host dgx:8003" (LITELLM-PROD-9, 224 events on 11-26). It fires in a
+      # deliberate robotics or code session too, since prod is hit either way; the summary names the mode.
+      # dgx_service_up is the mini's TCP check (infra/dgx-scrape); the `vllm` scrape job is the code-mode
+      # coder on :9000, down outside code mode, so it is no signal here. Operator's ask, 2026-11-28.
+      - uid: dgx-prod-model-down
+        title: "Prod's DGX model (vLLM :8003) not served"
+        condition: threshold
+        for: 15m
+        noDataState: OK
+        labels: { severity: warning, kind: infra, host: dgx-llm-1, service: vllm8003, environment: prod }
+        annotations:
+          summary: "vLLM :8003 on dgx-llm-1 has been down for 15 min, DGX mode {{ if $labels.mode }}{{ $labels.mode }}{{ else }}unknown{{ end }}: prod's LiteLLM route to the DGX model fails meanwhile. If the mode is not prod, it is a mode swap left open: ~/bin/gpu-mode-swap.sh status on dgx-llm-1, and prod is back after ~/bin/gpu-mode-swap.sh prod."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '((max(dgx_service_up{service="vllm8003"}) == bool 0) * on() group_left(mode) (max by (mode) (dgx_gpu_mode) == 1)) or on() (max(dgx_service_up{service="vllm8003"}) == bool 0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
       # --- docker-prune dead-man -------------------------------------------------
       # The weekly docker-maintenance job (infra/docker-maintenance, Sun 04:00
       # LaunchAgent on the mini) pushes homelab_maintenance_last_run_timestamp on
