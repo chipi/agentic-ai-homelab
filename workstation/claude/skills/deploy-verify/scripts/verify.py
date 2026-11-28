@@ -55,7 +55,9 @@ PROFILES = {
     },
     # chipi/eval-harness: evals.humancopilot.eu on the prod VPS. --release is sha-<7>, the
     # service.version the inspector and the MCP server report. No Langfuse keys; the MCP server
-    # sends its tool calls to the "Eval Harness" Umami site.
+    # sends its tool calls to the "Eval Harness" Umami site. evals-mcp writes a log line and a trace
+    # only at startup and per tool call, and its startup lands before the deploy run ends: make one
+    # tool call (SKILL.md, "evals") before `compare`.
     "evals": {
         "log_services": ["evals-web", "evals-inspector", "evals-mcp"],
         "trace_services": ["evals-inspector", "evals-mcp"],

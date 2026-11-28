@@ -28,6 +28,14 @@ $R homelab $V compare --project orrery --since 2026-10-17T08:21:00Z --sourcemaps
   live URL, and the `environment` its live lines carry (default `prod`; flotilla's is `operations`).
   Add a project there.
 - **`--since`:** use it when there is no baseline, i.e. the time the new version went live.
+- **`evals`:** `evals-mcp` logs and traces only at startup and per tool call (`initialize`, `tools/list` and
+  `/mcp/health` leave nothing), and its startup lands before the deploy run ends. Before `compare`, make one
+  read-only tool call (the server is stateless: no `initialize` needed), or the gate FAILs its logs and traces
+  on a healthy server:
+  ```bash
+  curl -s -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' https://evals.humancopilot.eu/mcp \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"dataset-list","arguments":{}}}' | head -c 200
+  ```
 - **`--release`:** the image tag the deploy shipped (`sha-<7>`, ADR-0010).
   - For podcast, run from the deploy's **image tag**, not the workflow commit. On 2026-10-16
     deploy-all ran from b0edbb9 and deployed `sha-ded80e0`.
