@@ -128,7 +128,8 @@ call 401s with a body naming `LiteLLM_VerificationTokenTable`.
   the mini's alloy like the other stacks' exporters); LiteLLM's own
   Prometheus endpoint is enterprise-gated upstream — spend/health truth
   lives in the DB + Langfuse, and the `litellm-gateway-down` alert probes
-  the DB exporter instead.
+  the DB exporter and, since 2026-11-28, the gateway's `/health/liveliness`
+  (the mini's `service_up{service="litellm"}`); either one down fires.
 - **Logs**: container json logs, collected by the mini's existing
   alloy docker pipeline.
 

@@ -1771,10 +1771,12 @@ groups:
 
       # --- LiteLLM gateway down ----------------------------------------------------
       # The production LLM gateway (infra/litellm). LiteLLM's own /metrics is
-      # enterprise-gated, so the probe is the stack's postgres-exporter: if it
-      # stops reporting, the stack is down (compose restarts together).
+      # enterprise-gated, so two probes: the stack's postgres-exporter, and since
+      # 2026-11-28 the gateway's own /health/liveliness (service_up, infra/mini-metrics),
+      # since a dead gateway with a live database read green on the exporter alone
+      # (flotilla's inventory; operator's go). Either one down fires.
       - uid: litellm-gateway-down
-        title: "LiteLLM gateway down (stack exporter gone)"
+        title: "LiteLLM gateway down"
         condition: threshold
         for: 5m
         # No data = this series is briefly absent (restart, push gap), not an outage:
@@ -1783,13 +1785,13 @@ groups:
         noDataState: OK
         labels: { severity: critical, kind: infra }
         annotations:
-          summary: "LiteLLM gateway stack down for 5m — production LLM routing (fleets + consumers on homelab:4001) is dead. cd ~/agentic-ai-homelab/infra/litellm && docker compose up -d."
+          summary: "LiteLLM gateway down for 5m (its stack's exporter gone, or no 200 from /health/liveliness in 3 min) — production LLM routing (fleets + consumers on homelab:4001) is dead. cd ~/agentic-ai-homelab/infra/litellm && docker compose up -d."
         data:
           - refId: q
             relativeTimeRange: { from: 300, to: 0 }
             datasourceUid: victoriametrics
             model:
-              expr: 'min(up{job="litellm-postgres"})'
+              expr: 'min(up{job="litellm-postgres"}) * min(max_over_time(service_up{host="mini",service="litellm"}[3m]))'
               instant: true
               queryType: instant
           - refId: threshold
@@ -2246,6 +2248,62 @@ groups:
             datasourceUid: victoriametrics
             model:
               expr: '((max(dgx_service_up{service="vllm8003"}) == bool 0) * on() group_left(mode) (max by (mode) (dgx_gpu_mode) == 1)) or on() (max(dgx_service_up{service="vllm8003"}) == bool 0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      # --- Prod's DGX translate model not served -----------------------------------
+      # vLLM :8005 (translate) runs beside :8003 in prod mode and is down in the others; no rule covered it
+      # (flotilla's inventory, 2026-11-28; operator's go). The same mode-aware shape as dgx-prod-model-down.
+      # Over 2026-11-21..28 it was down with :8003 up for at most 6 minutes at a time (mode swaps), so 15m.
+      - uid: dgx-translate-down
+        title: "Prod's DGX translate model (vLLM :8005) not served"
+        condition: threshold
+        for: 15m
+        noDataState: OK
+        labels: { severity: warning, kind: infra, host: dgx-llm-1, service: translate, environment: prod }
+        annotations:
+          summary: "vLLM :8005 (translate) on dgx-llm-1 has been down for 15 min, DGX mode {{ if $labels.mode }}{{ $labels.mode }}{{ else }}unknown{{ end }}: prod's translation through the DGX fails meanwhile. If the mode is not prod, it is a mode swap left open: ~/bin/gpu-mode-swap.sh status on dgx-llm-1, and prod is back after ~/bin/gpu-mode-swap.sh prod."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: '((max(dgx_service_up{service="translate"}) == bool 0) * on() group_left(mode) (max by (mode) (dgx_gpu_mode) == 1)) or on() (max(dgx_service_up{service="translate"}) == bool 0)'
+              instant: true
+              queryType: instant
+          - refId: threshold
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: q
+              conditions: [{ evaluator: { type: gt, params: [0] } }]
+
+      # --- A mini service not answering ----------------------------------------------
+      # infra/mini-metrics/push.sh asks each service's health route every 20 s (HTTP 200 within 3 s =
+      # service_up 1); no rule read it (flotilla's inventory, 2026-11-28; operator's go). One alert per
+      # service with no 200 in 3 minutes, held 5: over 2026-11-21..28 the longest gap was 2 minutes
+      # (litellm, langfuse). Grafana is left out (it cannot alert on itself; mini-forward-down and the
+      # external checks cover the mini going dark), litellm too (litellm-gateway-down, critical).
+      - uid: mini-service-down
+        title: "A mini service is not answering its health check"
+        condition: threshold
+        for: 5m
+        noDataState: OK
+        labels: { severity: warning, kind: infra, host: mini }
+        annotations:
+          summary: "{{ $labels.service }} on the mini has answered no health check with 200 for 8 min (infra/mini-metrics/push.sh). docker ps on the mini; its compose stack under ~/agentic-ai-homelab/infra."
+        data:
+          - refId: q
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: victoriametrics
+            model:
+              expr: 'max by (service) (max_over_time(service_up{host="mini",service!~"grafana|litellm"}[3m])) == bool 0'
               instant: true
               queryType: instant
           - refId: threshold
