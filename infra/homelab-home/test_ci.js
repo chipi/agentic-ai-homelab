@@ -153,6 +153,25 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   check('delta: a rate moves in percentage points; success rate counts success of success + failure', CI.deltaPP(0.9, 0.8).pct === 10 && CI.deltaPP(0.9, 0.8).dir === 'up' && CI.rate(2, 2) === 0.5 && CI.rate(0, 0) === null);
   check('delta: text carries the arrow and the label', /&#9650;50% vs the 7 days before/.test(CI.deltaText(CI.delta(150, 100), 'the 7 days before')) && /&#9660;/.test(CI.deltaText(CI.delta(50, 100))));
 
+  // flaky jobs and time lost, by hand: ledger rows are [done, durS, where, repo, conclusion, queueS, runId, runner, name, attempt]
+  const led2 = {
+    1: [at(1, 8), 120, SH, 'r/a', 'failure', 30, 201, 'x3-a-1', 'build', 1], 2: [at(1, 9), 60, SH, 'r/a', 'success', 150, 201, 'x3-a-1', 'build', 2],
+    3: [at(1, 10), 60, SH, 'r/a', 'failure', 0, 202, 'x3-a-1', 'build', 1], 4: [at(1, 11), 60, SH, 'r/a', 'failure', 0, 202, 'x3-a-1', 'build', 2],
+    5: [at(1, 12), 60, SH, 'r/a', 'success', 0, 203, 'x3-a-1', 'test', 1], 6: [at(1, 13), 60, SH, 'r/a', 'failure', 0, 203, 'x3-a-1', 'test', 2],
+    7: [at(3, 9), 180, SH, 'r/b', 'timed_out', 0, 204, 'x3-b-1', 'build', 1], 8: [at(3, 10), 60, SH, 'r/b', 'success', 0, 204, 'x3-b-1', 'build', 2],
+    9: [at(1, 14), 60, 'hosted', 'r/a', 'failure', 0, 205, null, 'build', 1], 10: [at(1, 15), 60, 'hosted', 'r/a', 'success', 0, 205, null, 'build', 2],
+    11: [at(1, 16), 600, 'hosted', 'r/a', 'cancelled', 500, 206, null, 'lint', 1], 12: [at(1, 17), 60, SH, 'r/a', 'failure', 0, 207, null] };
+  const S2 = JOB.computeStats(led2, {}, ['r/a', 'r/b'], N0), F = S2.total;
+  check('flaky: failed on one attempt, succeeded on a later one of the same run and job: counted, in the period the success finished', F.yesterday.flaky === 2 && F['7d'].flaky === 3 && F['7dPrev'].flaky === 0 && F.today.flaky === 0, [F.yesterday.flaky, F['7d'].flaky]);
+  check('flaky: a run whose retry failed too is not flaky; nor is a success followed by a failure; nor a row without name and attempt', F.yesterday.flaky === 2 && !F.yesterday.flakyTop.some(j => j.job === 'test'), F.yesterday.flakyTop);
+  check('flaky: the top job names by count, then name; per repo the same', JSON.stringify(F['7d'].flakyTop) === JSON.stringify([{ repo: 'r/a', job: 'build', n: 2 }, { repo: 'r/b', job: 'build', n: 1 }])
+    && S2.repos['r/a']['7d'].flaky === 2 && S2.repos['r/b']['7d'].flaky === 1 && S2.repos['r/b'].yesterday.flaky === 0 && !('fl' in F['7d']), F['7d'].flakyTop);
+  check('flaky: three attempts (two failed, then success) count once', JOB.computeStats({ 1: [at(1, 8), 60, SH, 'r/a', 'failure', 0, 9, 'x3', 'j', 1], 2: [at(1, 9), 60, SH, 'r/a', 'timed_out', 0, 9, 'x3', 'j', 2], 3: [at(1, 11), 60, SH, 'r/a', 'success', 0, 9, 'x3', 'j', 3] }, {}, ['r/a'], N0).total.yesterday.flaky === 1);
+  check('lost: failed and cancelled minutes split X3 / GitHub, timeouts are failures', JSON.stringify(F.yesterday.lost) === JSON.stringify({ failed: { 'self-hosted': 6, hosted: 1 }, cancelled: { 'self-hosted': 0, hosted: 10 }, queueX3: 1.5 })
+    && F['7d'].lost.failed[SH] === 9 && F['7dPrev'].lost.failed[SH] === 0, F.yesterday.lost);
+  check('lost: the X3 queue counts only beyond 60 s, a GitHub wait not at all; per repo and total agree', F.yesterday.lost.queueX3 === 1.5 && S2.repos['r/a'].yesterday.lost.queueX3 === 1.5 && S2.repos['r/b']['7d'].lost.failed[SH] === 3 && S2.repos['r/b'].yesterday.lost.queueX3 === 0, S2.repos['r/a'].yesterday.lost);
+  check('collect: the ledger keeps each job\'s name and attempt, for the flaky count', Object.values(run1.state.ledger).every(l => l.length === 10 && typeof l[8] === 'string' && l[9] >= 1), Object.values(run1.state.ledger)[0]);
+
   // the cards and tables drawn from them
   const vv = CI.view(d, NOW + 60), ph = CI.html(vv, NOW + 60);
   // the period row, as on Spend: the default is the last 30 days; the cards show the chosen period only
@@ -185,6 +204,47 @@ const check = (name, cond, got) => { name = name.replace(/##\[/g, '## ['); if (c
   check('by repo: one row per repo and the total, each repo links to its runs in the period', (p7.match(/href="#ci\/runs\/1\/closelistening-[a-z]+\/all\/7d\/period"/g) || []).length >= 4 && />All</.test(p7));
   const quiet = JSON.parse(JSON.stringify(d)); delete quiet.stats;
   check('cards: without stats (an old ci.json) it says so, shows no zero', /No history yet/.test(CI.html(CI.view(quiet, NOW), NOW)));
+  // the four cards of 2026-11: slot pressure (VictoriaMetrics), runner use, flaky jobs, time lost
+  const cardAt = (h, t) => { const i = h.indexOf('>' + t + '</h3>'); return i < 0 ? '' : h.slice(i, h.indexOf('</div></div>', h.indexOf('class=subkv', i)) + 12); };
+  const slotHtml = (slots, per) => CI.html(CI.view(d, NOW + 60), NOW + 60, { route: CI.parseRoute('#ci/' + per), slots });
+  const SLOTS = { '7d': { st: 'ok', cur: { share: 0.2, wait: 600, peak: 6, total: 8 }, prev: { share: 0.3, wait: 60, peak: 3, total: 8 }, today: { share: 0.05, wait: 30, peak: 2, total: 8 } } };
+  const slotCard = cardAt(slotHtml(SLOTS, '7d'), 'Slot pressure (X3)');
+  check('slot card: the share of the period with a job waiting, against the period before in points, the longest wait, the peak of the slots', />20%</.test(slotCard) && /&#9660;10 pp vs the 7 days before/.test(slotCard) && /Longest wait<\/span><b>10 min</.test(slotCard) && /Peak slots held<\/span><b>6 of 8</.test(slotCard)
+    && />30%<\/b>/.test(slotCard) && />5%<\/b>/.test(slotCard), slotCard);
+  check('slot card: it links to the runners board in Grafana', /<a class="card ci" href="https:\/\/grafana\.tail6d0ed4\.ts\.net\/d\/ci-runners"/.test(slotHtml(SLOTS, '7d')));
+  const slErr = cardAt(slotHtml({ '7d': { st: 'error' } }, '7d'), 'Slot pressure (X3)'), slNone = cardAt(slotHtml(undefined, '7d'), 'Slot pressure (X3)');
+  check('slot card: VictoriaMetrics not reachable shows a dash and says so; before the answer it says it is reading; no NaN', /<div class=cv>&mdash;</.test(slErr) && /VictoriaMetrics did not answer/.test(slErr) && /reading VictoriaMetrics/.test(slNone) && /<div class=cv>&mdash;</.test(slNone) && !/NaN|undefined/.test(slErr + slNone), slErr);
+  check('slot card: a period VictoriaMetrics holds no series for says so', /no slot numbers in VictoriaMetrics for this period/.test(slotHtml({ '7d': { st: 'ok', cur: { share: null, wait: null, peak: null, total: null }, prev: null, today: null } }, '7d')));
+  const asked = [], fakeQ = async (e, t) => { asked.push([e, t]); return /bool/.test(e) ? 0.5 : 7; };
+  const sst = await CI.slotStats(fakeQ, d.stats, '7d'), w7 = d.stats.windows['7d'], to7 = Date.parse(w7[1]) / 1000;
+  check('slotStats: queries the four x3 gauges over the period\'s window, ending at its end, and the same for the period before and today', sst.cur.share === 0.5 && sst.cur.peak === 7 && sst.prev && sst.today && asked.length === 12
+    && asked.some(([e, t]) => e === 'avg_over_time((x3_ci_jobs_waiting_for_slot{box="x3"} > bool 0)[604800s:1m])' && t === to7) && asked.some(([e]) => e === 'max_over_time(x3_ci_slot_wait_oldest_seconds{box="x3"}[604800s])')
+    && asked.some(([e]) => e === 'max_over_time(x3_ci_slots_held{box="x3"}[604800s])') && asked.some(([e]) => e === 'max_over_time(x3_ci_slots_total{box="x3"}[604800s])'), asked.slice(0, 4));
+  check('slotStats: a VictoriaMetrics that does not answer rejects, so the page shows the error state', await CI.slotStats(async () => { throw new Error('down'); }, d.stats, '7d').then(() => false, () => true));
+  const nov = await CI.slotStats(async () => null, d.stats, 'month'), early = JSON.parse(JSON.stringify(d.stats)); early.windows.month = [early.windows.month[1], early.windows.month[1]];
+  check('slotStats: no series gives nulls; an empty window (no completed day) is not asked', nov.cur.share === null && (await CI.slotStats(async () => { throw new Error('asked'); }, { windows: { month: early.windows.month } }, 'month')).cur === null);
+
+  const x3r = new Set(d.runners.filter(r => r.machine === 'x3').map(r => r.name)), up = new Set(d.runners.filter(r => r.machine === 'x3' && r.status === 'online').map(r => r.name));
+  const top3 = Object.keys(d.stats.repos).filter(r => d.stats.repos[r]['7d'].min[SH] > 0).sort((a, b) => d.stats.repos[b]['7d'].min[SH] - d.stats.repos[a]['7d'].min[SH]).slice(0, 3);
+  const ru = cardAt(p7, 'Runner use (X3)'), ruV = T['7d'].min[SH] * 60 / (x3r.size * 7 * D), ruP = T['7dPrev'].min[SH] * 60 / (x3r.size * 7 * D);
+  check('runner use: X3 job seconds of the period over the X3 runners times the period\'s seconds', x3r.size === 8 && ru.includes('<div class=cv>' + (Math.round(ruV * 1000) / 10) + '%<'), [ru.slice(0, 120), ruV]);
+  check('runner use: the 3 repos with most X3 minutes, and the runners online now', top3.length >= 1 && top3.length <= 3 && top3.every(r => ru.includes('<span title="X3 minutes of the period">' + r.split('/').pop() + '</span><b>' + Math.round(d.stats.repos[r]['7d'].min[SH]).toLocaleString('en-US') + ' min<')) && ru.includes('Runners online now</span><b>' + up.size + ' of ' + x3r.size + '<'), ru.slice(0, 500));
+  check('runner use: compared with the period before in points, and the day so far is the live row', (T['7dPrev'].jobs ? new RegExp('(&#9650;|&#9660;)\\d+ pp vs the 7 days before|no change vs the 7 days before').test(ru) : true) && /Today so far \(live\)/.test(ru), [ru.slice(0, 300), ruP]);
+  const noRun = JSON.parse(JSON.stringify(d)); noRun.runners = [];
+  check('runner use: with no X3 runner registered it shows a dash, not a division by zero', /<div class=cv>&mdash;</.test(cardAt(CI.html(CI.view(noRun, NOW + 60), NOW + 60, { route: CI.parseRoute('#ci/7d') }), 'Runner use (X3)')));
+
+  const dd = JSON.parse(JSON.stringify(d)); dd.stats.total['7d'] = S2.total['7d']; dd.stats.total['7dPrev'] = S2.total['7dPrev']; dd.stats.total.today = S2.total.today;
+  dd.stats.total['7d'].flakyTop = [{ repo: 'chipi/r-a', job: '<b>build</b>', n: 2 }, { repo: 'chipi/r-b', job: 'test', n: 1 }];
+  const p7d = CI.html(CI.view(dd, NOW + 60), NOW + 60, { route: CI.parseRoute('#ci/7d') }), fk = cardAt(p7d, 'Flaky jobs'), tlost = cardAt(p7d, 'Time lost');
+  check('flaky card: the count, the top job names (repo, job, count) escaped, against the period before', />3<\/div>/.test(fk) && /<span[^>]*>r-a &middot; &lt;b&gt;build&lt;\/b&gt;<\/span><b>2</.test(fk) && /<span[^>]*>r-b &middot; test<\/span><b>1</.test(fk) && !/<b>build<\/b>/.test(fk) && /from 0 vs the 7 days before/.test(fk), fk);
+  check('time lost card: failed, cancelled and X3 queue beyond a minute, split X3 / GitHub, the sum is the big number', />22</.test(tlost) && /Failed \(min\)<\/span><b>9 X3 &middot; 1 GitHub</.test(tlost) && /Cancelled \(min\)<\/span><b>0 X3 &middot; 10 GitHub</.test(tlost) && /Queue beyond 1 min \(X3\)<\/span><b>2</.test(tlost), tlost);
+  const oldDoc = JSON.parse(JSON.stringify(d));
+  for (const t of Object.values(oldDoc.stats.total)) { delete t.flaky; delete t.flakyTop; delete t.lost; }
+  for (const r of Object.values(oldDoc.stats.repos)) for (const t of Object.values(r)) { delete t.flaky; delete t.flakyTop; delete t.lost; }
+  const po = CI.html(CI.view(oldDoc, NOW + 60), NOW + 60, { route: CI.parseRoute('#ci/7d') });
+  check('old ci.json: without the new fields all four cards still draw; flaky and time lost show a dash, never NaN, undefined or a zero', ['Slot pressure (X3)', 'Runner use (X3)', 'Flaky jobs', 'Time lost'].every(t => cardAt(po, t))
+    && /<div class=cv>&mdash;</.test(cardAt(po, 'Flaky jobs')) && /<div class=cv>&mdash;</.test(cardAt(po, 'Time lost')) && /not counted in this ci.json yet/.test(po) && !/NaN|undefined/.test(po) && /Runner use \(X3\)/.test(po), cardAt(po, 'Flaky jobs'));
+  check('cards: the four new cards come after the old seven, so the others keep their place', p7.indexOf('GitHub minutes saved') < p7.indexOf('Slot pressure (X3)') && p7.indexOf('Slot pressure (X3)') < p7.indexOf('Runner use (X3)') && p7.indexOf('Runner use (X3)') < p7.indexOf('>Flaky jobs<') && p7.indexOf('>Flaky jobs<') < p7.indexOf('>Time lost<'));
   const busyR = d.runners.filter(x => x.busy && x.now);
   check('runners: a card each with state, the run it is on (our page), jobs and minutes in 24 h', busyR.length >= 1 && ph.includes('href="#ci/run/' + encodeURIComponent(busyR[0].repo.split('/').pop()) + '/' + busyR[0].now.runId + '"') && /Jobs, 24 h/.test(ph) && /Minutes, 24 h/.test(ph) && (ph.match(/class="card ci"><h3>closelistening|class="card ci"><h3>infra/g) || []).length === 8);
   check('runners: jobs in 24 h per runner come from the ledger', d.runners.reduce((s, x) => s + x.jobs24, 0) === Object.values(run1.state.ledger).filter(l => l[0] >= NOW - D && d.runners.some(x => x.repo === l[3] && x.name === l[7])).length);

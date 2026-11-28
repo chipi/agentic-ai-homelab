@@ -52,19 +52,26 @@ const firstLine = s => String(s || '').split('\n')[0].slice(0, 120);
 const emptyState = () => ({ runs: {}, ledger: {}, offline: {}, logged: {}, partial: {} });
 
 // ---- the numbers of the cards -------------------------------------------------------------------------------
-// ledger rows (finished jobs): [done, durS, where, repo, conclusion, queueS, runId, runner]; runs: state.runs.
+// ledger rows (finished jobs): [done, durS, where, repo, conclusion, queueS, runId, runner, name, attempt]; runs: state.runs.
+// name and attempt are missing on rows written before 2026-11-28: those take no part in the flaky count.
 const median = xs => { if (!xs.length) return null; const a = xs.slice().sort((x, y) => x - y), m = a.length >> 1; return Math.round(a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2); };
 const newWindow = () => ({ runs: 0, runsOk: 0, runsFailed: 0, runsCancelled: 0, jobs: 0, jobsOk: 0, jobsFailed: 0, jobsCancelled: 0,
-  jobsBy: { 'self-hosted': 0, hosted: 0 }, min: { 'self-hosted': 0, hosted: 0 }, q: { all: [], 'self-hosted': [], hosted: [] } });
+  jobsBy: { 'self-hosted': 0, hosted: 0 }, min: { 'self-hosted': 0, hosted: 0 }, q: { all: [], 'self-hosted': [], hosted: [] },
+  flaky: 0, fl: {}, lost: { failed: { 'self-hosted': 0, hosted: 0 }, cancelled: { 'self-hosted': 0, hosted: 0 }, queueX3: 0 } });
 function closeWindow(w) {
-  const q = w.q;
-  delete w.q;
+  const q = w.q, fl = w.fl;
+  delete w.q; delete w.fl;
+  w.flakyTop = Object.entries(fl).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, FLAKY_TOP).map(([k, n]) => ({ repo: k.split('\n')[0], job: k.split('\n')[1], n }));
+  for (const k of ['failed', 'cancelled']) for (const x of Object.keys(w.lost[k])) w.lost[k][x] = round1(w.lost[k][x]);
+  w.lost.queueX3 = round1(w.lost.queueX3);
   w.min = { 'self-hosted': round1(w.min['self-hosted']), hosted: round1(w.min.hosted) };
   w.queueMedianS = { all: median(q.all), 'self-hosted': median(q['self-hosted']), hosted: median(q.hosted) };
   w.savedUsd = Math.round(w.min['self-hosted'] * GH_RATE_USD_PER_MIN * 100) / 100;
   return w;
 }
 const FAILED = ['failure', 'timed_out'];
+const FLAKY_TOP = 5;              // job names kept per window by flaky count
+const QUEUE_FREE_S = 60;          // a wait on the X3 up to this long is not counted as time lost
 
 // When a run ended, how long it took, how long its first job waited: from its jobs, else from updated_at
 function runTimes(rec) {
@@ -97,15 +104,24 @@ function computeStats(ledger, runs, repos, now) {
   const into = (repo, t, fn) => {
     for (const [k, [a, b]] of Object.entries(WIN)) if (t >= a && t < b) { fn(total[k]); if (per[repo] && per[repo][k]) fn(per[repo][k]); }
   };
-  for (const [done, durS, where, repo, conclusion, queueS] of Object.values(ledger)) {
+  // the attempts of one job (repo, run, name): one that failed on an earlier attempt and succeeded on a later one is flaky,
+  // counted when the later attempt finished; a run whose retry failed too has no success and is not
+  const tries = new Map();
+  for (const [done, durS, where, repo, conclusion, queueS, runId, , name, attempt] of Object.values(ledger)) {
     if (!(repos.includes(repo))) continue;
     since = Math.min(since, done);
     into(repo, done, w => {
       w.jobs++; w.jobsBy[where]++; w.min[where] += durS / 60;
-      if (conclusion === 'success') w.jobsOk++; else if (FAILED.includes(conclusion)) w.jobsFailed++; else if (conclusion === 'cancelled') w.jobsCancelled++;
-      if (queueS != null) { w.q.all.push(queueS); w.q[where].push(queueS); }
+      if (conclusion === 'success') w.jobsOk++; else if (FAILED.includes(conclusion)) { w.jobsFailed++; w.lost.failed[where] += durS / 60; } else if (conclusion === 'cancelled') { w.jobsCancelled++; w.lost.cancelled[where] += durS / 60; }
+      if (queueS != null) { w.q.all.push(queueS); w.q[where].push(queueS); if (where === 'self-hosted') w.lost.queueX3 += Math.max(0, queueS - QUEUE_FREE_S) / 60; }
     });
     const d = dayOf(done); if (d) { d.jobs++; d[where] += durS / 60; }
+    if (name != null && attempt != null) { const k = repo + '\n' + runId + '\n' + name; if (!tries.has(k)) tries.set(k, []); tries.get(k).push({ repo, name, done, conclusion, attempt }); }
+  }
+  for (const list of tries.values()) {
+    const win = list.filter(t => t.conclusion === 'success').sort((a, b) => b.attempt - a.attempt)[0];
+    if (!win || !list.some(t => FAILED.includes(t.conclusion) && t.attempt < win.attempt)) continue;
+    into(win.repo, win.done, w => { w.flaky++; const k = win.repo + '\n' + win.name; w.fl[k] = (w.fl[k] || 0) + 1; });
   }
   for (const rec of Object.values(runs)) {
     if (rec.status !== 'completed' || !repos.includes(rec.repo)) continue;
@@ -280,7 +296,7 @@ async function collect({ api, now, repos, state, hasDetail = () => true, readDet
             if (j.status === 'in_progress' && j.runner) running.push({ repo, runner: j.runner, runId: run.id, job: j.name, workflow: j.workflow, startedAt: j.started });
             if (j.status !== 'completed' || j.conclusion === 'skipped' || !j.started || !j.completed) continue;
             const done = ts(j.completed), durS = Math.max(0, done - ts(j.started)), queueS = Math.max(0, ts(j.started) - ts(j.created));
-            st.ledger[j.id] = [done, durS, j.where, repo, j.conclusion, queueS, run.id, j.runner];
+            st.ledger[j.id] = [done, durS, j.where, repo, j.conclusion, queueS, run.id, j.runner, j.name, j.attempt];
             if (done >= now - DAY) recent.push({ repo, runId: run.id, workflow: j.workflow, job: j.name, runner: j.runner, where: j.where, conclusion: j.conclusion, queueS, durS, url: j.url, completedAt: j.completed });
           }
         }

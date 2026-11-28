@@ -192,7 +192,24 @@
     return o.href ? '<a class="card ci" href="' + o.href + '" target=_self' + (tip ? ' title="' + esc(tip) + '"' : '') + '><h3>' + title + '</h3>' + body + '</a>' : card(title, tip, body);
   }
 
-  function cardsHtml(v, per, route) {
+  // The X3 slot gauges the runners' sync job pushes to VictoriaMetrics each minute, read over a collector window: the share of it
+  // with a job waiting for a slot, the longest wait, the peak slots held and the slots there are. q(expr, time) answers a number
+  // or null (no series) and rejects when VictoriaMetrics does not answer; the page passes its /vm query.
+  const SLOT = '{box="x3"}';
+  async function slotStats(q, st, per) {
+    const one = async w => {
+      if (!w) return null;
+      const to = Date.parse(w[1]) / 1000, r = Math.round(to - Date.parse(w[0]) / 1000), R = '[' + r + 's]';
+      if (!(r > 0)) return null;
+      const [share, wait, peak, total] = await Promise.all([q('avg_over_time((x3_ci_jobs_waiting_for_slot' + SLOT + ' > bool 0)[' + r + 's:1m])', to), q('max_over_time(x3_ci_slot_wait_oldest_seconds' + SLOT + R + ')', to),
+        q('max_over_time(x3_ci_slots_held' + SLOT + R + ')', to), q('max_over_time(x3_ci_slots_total' + SLOT + R + ')', to)]);
+      return { share, wait, peak, total };
+    };
+    const ws = st.windows || {}, [cur, prev, today] = await Promise.all([one(ws[per]), one(ws[per + 'Prev']), one(ws.today)]);
+    return { cur, prev, today };
+  }
+
+  function cardsHtml(v, per, route, slots) {
     const st = v.stats;
     if (!st || !st.total || !st.total[per]) return '<p class=muted>No history yet: the collector has not written the numbers for the cards (it fills them over its first runs).</p>';
     const pi = periodInfo(st, per), W = pi.cur, T = st.total.today, d = st.daily || [], series = k => d.map(x => x[k]);
@@ -231,6 +248,28 @@
       metricCard('GitHub minutes saved (est.)', 'The minutes the self-hosted runners ran, at GitHub\'s list price of $' + st.rate + ' a minute for a Linux 2-core hosted runner. Wall-clock time understates what GitHub would bill: it rounds every job up to the whole minute, and runs parallel jobs separately. The private repos\' free monthly minutes are not subtracted', pi, T,
         { get: w => w.savedUsd, fmt: usd, spark: spark(d.map(x => x[sh] * st.rate)), perDay: usd,
           rows: [['X3 minutes', mins(W.min[sh])], ['Rate', '$' + st.rate + ' / min']] })];
+    // Slot pressure: from VictoriaMetrics (slotStats), so it can be missing or still loading; compared with the period before as the others are
+    const s = slots && slots[per], sOk = s && s.st === 'ok', sv = sOk && s.cur || {};
+    const slotNote = !s || s.st === 'loading' ? 'reading VictoriaMetrics&hellip;' : !sOk ? 'VictoriaMetrics did not answer: no slot numbers' : sv.share == null && sv.wait == null && sv.peak == null ? 'no slot numbers in VictoriaMetrics for this period' : '';
+    cs.push(metricCard('Slot pressure (X3)', 'The share of the period with a job waiting for an X3 job slot (x3_ci_jobs_waiting_for_slot, pushed every minute), the longest wait and the most slots held at once. Opens the runners board in Grafana', Object.assign({}, pi, { held: true, cur: sOk ? s.cur : null, prev: sOk ? s.prev : null }), sOk && s.today || {},
+      { get: w => w.share, fmt: pct, pp: true, href: GRAFANA_RUNNERS, extra: mut(slotNote),
+        rows: [['Longest wait', dur(sv.wait), 'The oldest job waiting for a slot, at its worst minute'], ['Peak slots held', sv.peak == null ? '&mdash;' : num(sv.peak) + (sv.total == null ? '' : ' of ' + num(sv.total))]] }));
+    // Runner use: the X3 job wall-clock seconds of the period over the X3 runners there are now times the period's seconds
+    const x3 = v.machines.find(m => m.machine === 'x3'), x3Names = x3 ? new Set(x3.runners.map(r => r.name)) : new Set(), x3Up = x3 ? new Set(x3.runners.filter(r => r.status === 'online').map(r => r.name)) : new Set();
+    const secsOf = w => w === T ? (st.windows && st.windows.today ? (Date.parse(st.windows.today[1]) - Date.parse(st.windows.today[0])) / 1000 : null) : pi.n * 86400;
+    const topX3 = Object.keys(st.repos || {}).filter(r => minOf(r, sh) > 0).sort((a, b) => minOf(b, sh) - minOf(a, sh) || (a < b ? -1 : 1)).slice(0, 3);
+    cs.push(metricCard('Runner use (X3)', 'The X3 jobs\' wall-clock time in the period as a share of what the X3 runners could have run: the runners registered now times the period\'s length. The earlier period is measured against today\'s runner count too', pi, T,
+      { get: w => { const sec = secsOf(w); return x3Names.size && sec > 0 && w.min ? w.min[sh] * 60 / (x3Names.size * sec) : null; }, fmt: pct, pp: true,
+        rows: topX3.map(r => [esc(short(r)), mins(minOf(r, sh)) + ' min', 'X3 minutes of the period']).concat([['Runners online now', x3 ? x3Up.size + ' of ' + x3Names.size : '&mdash;']]) }));
+    // Flaky jobs and Time lost: counted by the collector from the finished jobs it holds (ci-job.js computeStats); an older ci.json has neither
+    const flk = (W.flakyTop || []).slice(0, 3).map(j => [esc(short(j.repo)) + ' &middot; ' + esc(j.job), num(j.n), 'Flaky runs of this job in the period']);
+    cs.push(metricCard('Flaky jobs', 'Jobs that failed on one attempt of a run and succeeded on a later attempt of the same run, counted when the later attempt finished. Only attempts the collector saw finish are known: a retry started before it read the failed one does not count', pi, T,
+      { get: w => w.flaky, fmt: num, perDay: W.flaky == null ? null : one, extra: W.flaky == null ? mut('not counted in this ci.json yet') : '', rows: flk }));
+    const lostOf = w => w.lost ? w.lost.failed[sh] + w.lost.failed[gh] + w.lost.cancelled[sh] + w.lost.cancelled[gh] + w.lost.queueX3 : null, L = W.lost;
+    const split = k => L ? mins(L[k][sh]) + ' X3 &middot; ' + mins(L[k][gh]) + ' GitHub' : '&mdash;';
+    cs.push(metricCard('Time lost', 'Minutes of finished jobs that failed, timed out or were cancelled, plus the minutes X3 jobs waited for a runner beyond the first minute', pi, T,
+      { get: lostOf, fmt: mins, perDay: L ? mins : null, extra: L ? bar(by(Math.round(L.failed[sh] + L.cancelled[sh]), Math.round(L.failed[gh] + L.cancelled[gh]))) : mut('not counted in this ci.json yet'),
+        rows: [['Failed (min)', split('failed'), 'Failed and timed-out jobs'], ['Cancelled (min)', split('cancelled')], ['Queue beyond 1 min (X3)', L ? mins(L.queueX3) : '&mdash;', 'Minutes X3 jobs waited past the first minute between being created and starting']] }));
     return '<div class=charts>' + cs.join('') + '</div>';
   }
 
@@ -272,13 +311,13 @@
       + kv([['Runner', /^x3-/.test(r.name || '') ? '<a href="' + GRAFANA_RUNNERS + '?var-runner=' + encodeURIComponent(r.name) + '" title="This runner in Grafana">' + esc(r.name) + '</a>' : esc(r.name)], ['Running', cur], ['Jobs, 24 h', num(r.jobs24)], ['Minutes, 24 h', mins(r.min24)]]) + '</div>';
   }
 
-  function listHtml(v, now, route) {
+  function listHtml(v, now, route, slots) {
     const st = v.stale;
     let h = '';
     const per = route.period || PERIOD_DEFAULT;
     h += periodNav(per, route) + (v.stats && v.stats.total && v.stats.total[per] ? '<p class=sec style="margin:-8px 0 12px">' + esc(periodInfo(v.stats, per).label)
       + ' &middot; every number covers the same completed UTC days; only "Today so far" is live</p>' : '');
-    h += cardsHtml(v, per, route) + repoTable(v, per) + slowStepsTable(v, per);
+    h += cardsHtml(v, per, route, slots) + repoTable(v, per) + slowStepsTable(v, per);
 
     h += '<h3 class=sectitle>Runners</h3><p class=sec style="margin:-6px 0 10px"><a href="' + GRAFANA_RUNNERS + '">Grafana dashboard</a> for the X3 fleet: CPU, memory, disk, job slots, the sync log</p>' + (v.machines.length ? v.machines.map(m => '<h3 class=sectitle style="margin-top:8px;border:0">' + dot(m.state, st) + esc(m.machine) + ' <span class=muted style="font-weight:400;text-transform:none">' + m.online + ' online, ' + m.busy + ' busy' + (m.offline ? ', ' + m.offline + ' offline' : '') + '</span></h3><div class=charts>' + m.runners.map(r => runnerCard(r, now, st)).join('') + '</div>').join('')
       : '<p class=muted>no runners registered on these repos</p>') + '<p class=sec>' + RUNNER_NOTE + '</p>';
@@ -393,10 +432,10 @@
     if (st) h += '<div class="abar warn">The numbers are ' + Math.round(v.ageS / 60) + ' minutes old (the CI job writes them every 5): everything is grey until it runs again.</div>';
     if (v.errors.length) h += '<div class="abar warn">The collector could not read: ' + v.errors.map(esc).join('; ') + '. Those repos are missing from the queue and the failures; the history numbers use their last successful read.</div>';
     if (v.logs && v.logs.errors && v.logs.errors.length) h += '<div class="abar plumb">Some logs could not be fetched: ' + v.logs.errors.slice(0, 3).map(esc).join('; ') + '.</div>';
-    return h + (route.kind === 'run' ? runHtml(v, route, ctx) : listHtml(v, now, route));
+    return h + (route.kind === 'run' ? runHtml(v, route, ctx) : listHtml(v, now, route, ctx && ctx.slots));
   }
 
-  const api = { QUEUE_WARN, QUEUE_BAD, OFFLINE_BAD, STALE_AFTER, PER_PAGE, runnerState, queueState, jobState, runState, repoState, view, html, dur, parseRoute, runHref, listHref, filterRuns, pageRuns, delta, deltaText, deltaPP, rate, logLines, logHtml, runSummary, whereLabel };
+  const api = { QUEUE_WARN, QUEUE_BAD, OFFLINE_BAD, STALE_AFTER, PER_PAGE, runnerState, queueState, jobState, runState, repoState, view, html, dur, parseRoute, runHref, listHref, filterRuns, pageRuns, delta, deltaText, deltaPP, rate, slotStats, logLines, logHtml, runSummary, whereLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HubCi = api;
 })(typeof window !== 'undefined' ? window : globalThis);

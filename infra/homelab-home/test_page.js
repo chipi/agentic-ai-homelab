@@ -233,6 +233,7 @@ const check = (name, cond, detail) => {
         if (u === '/ci-runs/' + det.repo.split('/').pop() + '/' + det.id + '.json') return o.noRun ? { ok: false, status: 404 } : { ok: true, json: async () => det };
         const lm = u.match(/^\/ci-logs\/[^/]+\/(\d+)\.txt$/);
         if (lm) return +lm[1] === jid ? { ok: true, text: async () => logText } : { ok: false, status: 404 };
+        if (/^\/vm\/api\/v1\/query\?/.test(u)) { if (o.vmDown) throw new Error('vm down'); return { ok: true, json: async () => ({ data: { result: [{ value: [0, '0.25'] }] } }) }; }
         throw new Error('unexpected ' + u);
       };
       const win = { scrollTo: () => calls.push('scrollTo') };
@@ -264,12 +265,19 @@ const check = (name, cond, detail) => {
     t.loc.hash = '#ci/runs/1/infra/all/7d'; t.els.ci_f_when.value = 'period'; t.els.ci_f_repo.value = 'infra'; t.els.ci_f_concl.value = 'all';
     t.handlers.change({ target: t.els.ci_f_when });
     check('ci page: "when" keeps the chosen period in the hash', t.loc.hash === '#ci/runs/1/infra/all/7d/period', t.loc.hash);
+    t = mk('#ci', { vmDown: true });
+    await t.ctx.ciTab();
+    await new Promise(r => setImmediate(r));
+    check('ci page: with VictoriaMetrics down the Slot pressure card says so and the other cards are drawn', /VictoriaMetrics did not answer/.test(t.els.ci_tab.innerHTML) && /Median queue wait/.test(t.els.ci_tab.innerHTML));
     t = mk('#ci');
     await t.ctx.ciTab();
     const nScroll = t.calls.filter(c => c === 'scrollTo' || /^into:/.test(c)).length;
     check('ci page: the period row is drawn, the last 30 days chosen', /id=ci_period/.test(t.els.ci_tab.innerHTML) && /data-p=30d target=_self class=on/.test(t.els.ci_tab.innerHTML));
     t.loc.hash = '#ci/7d'; t.ctx.ciPaint(); await t.ctx.ciRoute();
     check('ci page: choosing a period redraws the cards for it and does not move the page', /data-p=7d target=_self class=on/.test(t.els.ci_tab.innerHTML) && /vs the 7 days before/.test(t.els.ci_tab.innerHTML) && t.calls.filter(c => c === 'scrollTo' || /^into:/.test(c)).length === nScroll, t.calls);
+    await new Promise(r => setImmediate(r));
+    const vmCalls = t.calls.filter(c => /^\/vm\//.test(c));
+    check('ci page: the Slot pressure card reads the x3 gauges from /vm once per period (12 queries each: the period, the one before, today), 30 days then 7, and shows the answer', vmCalls.length === 24 && vmCalls.every(c => /x3_ci_/.test(decodeURIComponent(c)) && /&time=\d+$/.test(c)) && /Slot pressure \(X3\)<\/h3><div class=cv>25%</.test(t.els.ci_tab.innerHTML), vmCalls.length);
     t.loc.hash = '#ci/runs/1/all/all/7d/period'; t.ctx.ciPaint(); await t.ctx.ciRoute();
     check('ci page: a card\'s link (the runs of the period) opens at the past runs', t.calls[t.calls.length - 1] === 'into:ci_runs' && /finished in the period/.test(t.els.ci_tab.innerHTML), t.calls.slice(-3));
     t.loc.hash = '#ci';

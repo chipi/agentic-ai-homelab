@@ -161,6 +161,23 @@ chart/badge deep-links to the matching Grafana dashboard or service.
     paged client-side, 25 a page, over the last 30 days or the chosen period, filtered by repo and result; the
     page and filters live in the hash (`#ci/runs/<page>/<repo>/<result>[/<period>[/period]]`), a run is `#ci/run/<repo>/<id>` (repo without `chipi/`).
     Each run row links to our run page and, small, to GitHub's.
+  - **The four X3 cards after them**, each against the period before like the others:
+    - *Slot pressure (X3)*: the share of the period in which a job waited for an X3 job slot
+      (`avg_over_time((x3_ci_jobs_waiting_for_slot{box="x3"} > bool 0)[<period>:1m])`), with the longest wait
+      (`x3_ci_slot_wait_oldest_seconds`) and the peak `x3_ci_slots_held` of `x3_ci_slots_total`. The one card read by
+      the page itself, from VictoriaMetrics through `/vm` (`HubCi.slotStats`, again after 2 minutes); `&mdash;` and a
+      note when `/vm` does not answer. Opens the Grafana runners board.
+    - *Runner use (X3)*: X3 job wall-clock seconds of the period over (the X3 runners registered now x the period's
+      seconds); top 3 repos by X3 minutes and the runners online now. The period before uses today's runner count.
+    - *Flaky jobs*: jobs that failed (or timed out) on one attempt and succeeded on a later attempt of the same run,
+      counted when the later attempt finished (`stats.<window>.flaky`, top 5 job names in `flakyTop`). The collector
+      reads the jobs of each run's latest attempt, so a failed attempt is known only if a collection read it before the
+      re-run replaced it (the ledger rows now carry the job name and attempt; older rows carry neither and are not
+      matched). A run whose retry failed too is not counted.
+    - *Time lost*: minutes of finished jobs that failed or were cancelled, split X3 / GitHub, plus the minutes X3 jobs
+      waited beyond the first 60 s between being created and starting (`stats.<window>.lost`:
+      `{failed, cancelled: {self-hosted, hosted}, queueX3}`); the big number is the sum. A `ci.json` from before these
+      fields shows `&mdash;` on Flaky jobs and Time lost.
   - **Slowest steps on the X3 vs GitHub** (under the per-repo table, following the period). `ci.json` `steps` is
     `{<period>: [{id, repo, workflow, job, step, x3: {med, n}, gh: {med, n} | null, lost, x3Prev: {med, n} | null}],
     windows: {<period>: {from, to, prevFrom, prevTo, prevHeld}}}`: the successful steps of successful jobs per (repo,

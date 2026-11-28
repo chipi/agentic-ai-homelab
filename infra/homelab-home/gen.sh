@@ -1719,15 +1719,24 @@ function sloPaint(){
 // Routes: #ci (the list), #ci/runs/<page>/<repo>/<result> (paged, filtered: in the hash, so reload and back keep them),
 // #ci/run/<repo>/<id> (one run: ci-runs/<repo>/<id>.json, and each finished job's ci-logs/<repo>/<job>.txt, read once).
 // The 30 s refresh redraws only when the text changed, and keeps each log block's scroll.
-let CI_DOC=null,CI_LOADED=false,CI_RUN={key:'',st:'loading',d:null},CI_LOGS={},CI_SEEN='';
+let CI_DOC=null,CI_LOADED=false,CI_RUN={key:'',st:'loading',d:null},CI_LOGS={},CI_SEEN='',CI_SLOTS={};
 async function ciTab(){
   try{const r=await fetch('/ci.json',{cache:'no-store'});CI_DOC=r.ok?await r.json():null;}catch(e){CI_DOC=null;}
   CI_LOADED=true;ciPaint();await ciRoute();
 }
+// The Slot pressure card is the one CI number that comes from VictoriaMetrics (the runners' slot gauges), read per period and again after 2 minutes.
+async function ciSlots(){
+  const rt=HubCi.parseRoute(location.hash),per=rt&&rt.kind==='list'?rt.period:null,c=per&&CI_SLOTS[per];
+  if(!per||!CI_DOC||!CI_DOC.stats||!CI_DOC.stats.windows||(c&&Date.now()-c.t<120000))return;
+  CI_SLOTS[per]=Object.assign({st:'loading'},c,{t:Date.now()});
+  const at=async(e,t)=>{const j=await(await fetch('/vm/api/v1/query?query='+encodeURIComponent(e)+'&time='+t)).json();const r=j.data.result[0];return r?+r.value[1]:null;};
+  try{CI_SLOTS[per]=Object.assign(await HubCi.slotStats(at,CI_DOC.stats,per),{st:'ok',t:Date.now()});}catch(e){CI_SLOTS[per]={st:'error',t:Date.now()};}
+  ciPaint();
+}
 function ciPaint(){
   const e=document.getElementById('ci_tab');if(!e||!CI_LOADED)return;
   const n=Date.now()/1000,rt=HubCi.parseRoute(location.hash)||{kind:'list',page:1,repo:'all',concl:'all'};
-  const h=HubCi.html(HubCi.view(CI_DOC,n),n,{route:rt,run:rt.kind==='run'&&CI_RUN.key===rt.repo+'/'+rt.id?CI_RUN:null,logs:CI_LOGS});
+  const h=HubCi.html(HubCi.view(CI_DOC,n),n,{route:rt,run:rt.kind==='run'&&CI_RUN.key===rt.repo+'/'+rt.id?CI_RUN:null,logs:CI_LOGS,slots:CI_SLOTS});
   if(e.innerHTML===h)return;
   const keep={};e.querySelectorAll('pre.ci-log').forEach(p=>{const j=p.closest('[data-job]');if(j)keep[j.dataset.job]=[p.scrollTop,p.scrollLeft];});
   e.innerHTML=h;
@@ -1736,6 +1745,7 @@ function ciPaint(){
 async function ciRoute(){
   // a run page opens at the top; a filtered list (a card, a repo, a failure row, a page of runs) at the past runs;
   // a change of period alone does not move the page
+  ciSlots();
   const rt=HubCi.parseRoute(location.hash),run=rt&&rt.kind==='run',k=!rt?'':run?'run/'+rt.repo+'/'+rt.id:'list/'+rt.page+'/'+rt.repo+'/'+rt.concl+'/'+rt.when;
   if(k!==CI_SEEN){const was=CI_SEEN;CI_SEEN=k;
     if(run)window.scrollTo(0,0);else if(rt&&k!=='list/1/all/all/any')document.getElementById('ci_runs')?.scrollIntoView();else if(rt&&was.startsWith('run/'))window.scrollTo(0,0);}
