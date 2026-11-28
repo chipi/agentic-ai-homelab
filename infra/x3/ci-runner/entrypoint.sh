@@ -3,6 +3,10 @@
 # with the token register.sh left there; then run. Tools a job installs live in the container and
 # are gone when it restarts; the work folder is a host folder, emptied at each start (below).
 set -euo pipefail
+# As PID 1 without a handler this script ignores SIGTERM, so a stop during its setup waited out docker stop's
+# 60 s while the runner it then started took a job, and the job was lost at the kill (player-1 and player-4,
+# 2026-11-27 19:17Z and 19:23Z, RFC-0011 item 28). run.sh, exec'd at the end, sets its own trap.
+trap 'exit 143' TERM INT
 # Ubuntu's container images delete every downloaded .deb after an install; GitHub's runner VMs do
 # not, and jobs that cache their apt downloads (podcast_scraper's install-ffmpeg) count on them.
 rm -f /etc/apt/apt.conf.d/docker-clean
@@ -23,7 +27,7 @@ docker network ls -q --filter type=custom | xargs -r docker network rm >/dev/nul
 CACHE_KB=$((8 * 1024 * 1024)) ENGINE_BYTES=$((10 * 1024 * 1024 * 1024))
 ci_disk() {   # best effort: a failure here is logged, the job still runs (set -e does not apply in an || list)
   [ -n "${CI_CACHE:-}" ] && [ -d "$CI_CACHE" ] || return 0
-  entries() { find "$CI_CACHE/toolcache" -mindepth 2 -maxdepth 2 -type d; find "$CI_CACHE/ms-playwright" -mindepth 1 -maxdepth 1 -type d; find "$CI_CACHE/apt" -maxdepth 1 -name '*.deb'; find "$CI_CACHE" -mindepth 1 -maxdepth 1 \( -name huggingface -o -name npm \) -type d -not -empty; find "$CI_CACHE/venvs" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; find "$CI_CACHE/git" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; }
+  entries() { find "$CI_CACHE/toolcache" -mindepth 2 -maxdepth 2 -type d; find "$CI_CACHE/ms-playwright" -mindepth 1 -maxdepth 1 -type d; find "$CI_CACHE/apt" -maxdepth 1 -name '*.deb'; find "$CI_CACHE" -mindepth 1 -maxdepth 1 \( -name huggingface -o -name npm -o -name pip \) -type d -not -empty; find "$CI_CACHE/venvs" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; find "$CI_CACHE/git" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; }
   # when a file in the entry was last read (unix s); an entry without files is junk and counts as never read
   last_read() { local t; t=$(find "$1" -type f -printf '%A@\n' 2>/dev/null | sort -n | tail -1); t=${t%.*}; echo "${t:-0}"; }
   entries | while read -r e; do [ $(( ($(date +%s) - $(last_read "$e")) / 86400 )) -gt 14 ] && rm -rf "$e"; done
@@ -38,10 +42,12 @@ ci_disk() {   # best effort: a failure here is logged, the job still runs (set -
   # in with a reflink (btrfs: shared extents, seconds for a GB), so what a job installs into its copy stays there.
   # npm/: npm's own download cache (npm_config_cache, ci-runner@.service), so `npm ci` finds its packages on disk;
   # a job then skips setup-node's GitHub cache on the X3 (lighthouse: 78 s restoring 129 MB of it, 2026-11-27).
+  # pip/: pip's own cache (PIP_CACHE_DIR), the same for pip: setup-python's GitHub cache restore timed out on
+  # player-4 and ran Player's lint job out of its 10 minutes (run 46123702898, 2026-11-28), so Player skips it on the X3.
   # git/<name>.git: a bare mirror a job fetches into and checks out from (Player's public checkout, 230-317 s
   # over the home line against about 19 s on GitHub; Player #64), pruned as one entry. Made here because the
   # job runs as runner and cannot create folders in $CI_CACHE itself ("Permission denied", 2026-11-27).
-  install -d "$CI_CACHE/huggingface" "$CI_CACHE/venvs" "$CI_CACHE/npm" "$CI_CACHE/git"; chown runner:runner "$CI_CACHE/toolcache" "$CI_CACHE/ms-playwright" "$CI_CACHE/huggingface" "$CI_CACHE/venvs" "$CI_CACHE/npm" "$CI_CACHE/git"
+  install -d "$CI_CACHE/huggingface" "$CI_CACHE/venvs" "$CI_CACHE/npm" "$CI_CACHE/pip" "$CI_CACHE/git"; chown runner:runner "$CI_CACHE/toolcache" "$CI_CACHE/ms-playwright" "$CI_CACHE/huggingface" "$CI_CACHE/venvs" "$CI_CACHE/npm" "$CI_CACHE/pip" "$CI_CACHE/git"
   docker image prune -f >/dev/null 2>&1 || true
   docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
   # Each image's last use: the newer of sync.sh's last sighting of it running ($CI_CACHE/.image-seen) and its

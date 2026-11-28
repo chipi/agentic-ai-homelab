@@ -59,16 +59,20 @@ for u in $(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' |
   [ "$have_r $have_e" = "$runner_v $engine_v" ] && continue
   if busy "$i"; then log "$i has a job: restart later"; continue; fi
   # A container lives for one job and takes the new files at its next start anyway; a restart is only for a
-  # runner that sits idle on old files. A container started under 10 minutes ago is skipped: player-1's
-  # started at 19:17:45Z, GitHub gave it a job at 19:17:51Z, and this loop restarted it as idle at 19:18:44Z
-  # (neither check above saw the job), so GitHub lost the job 10 minutes later (player #60, 2026-11-27).
+  # runner that sits idle on old files. A unit not running for 10 minutes is skipped: player-1's unit had
+  # restarted itself after a job at 19:17:43.55Z, this loop restarted it 0.25 s later, before its container
+  # existed (so the checks above had nothing to see), and the runner took a job during the stop (player #60,
+  # 2026-11-27; RFC-0011 item 28). The start time is systemd's: cache/<i>/.sizes is written only once the new
+  # container runs, so at that moment it still held the previous container's time.
   # A job holding or waiting for a job slot (entrypoint.sh) is a job, whatever the checks above saw.
   if [ -e "$CR/slots/wait/x3-$i" ] || grep -qs "^x3-$i " "$CR"/slots/[rs]-*/owner; then log "$i holds or waits for a job slot: restart later"; continue; fi
-  st=$(awk '$1 == "measured_at" { print $2 }' "$CR/cache/$i/.sizes" 2>/dev/null)
-  if [ -n "$st" ] && [ $(( $(date +%s) - st )) -lt 600 ]; then continue; fi
+  [ "$(systemctl --user show -p SubState --value "$u")" = running ] || continue
+  st=$(date -d "$(systemctl --user show -p ActiveEnterTimestamp --value "$u")" +%s 2>/dev/null) || continue
+  [ $(( $(date +%s) - st )) -ge 600 ] || continue
   # entrypoint.sh's job-started hook: a job is running even when the process check above misses it.
   if [ -e "$CR/work/$i/.job-running" ]; then log "$i has a job (marker): restart later"; continue; fi
-  # A job the runner takes in the moment between these checks and the restart (well under a second) is still lost.
+  # A job the runner takes between these checks and the stop's SIGTERM (under a second; run.sh's trap then ends
+  # the listener) is still lost.
   if [ "$have_e" != "$engine_v" ]; then systemctl --user restart "docker@$i.service" || { log "FAIL restart docker@$i"; continue; }; fi
   systemctl --user restart "$u" || { log "FAIL restart $u"; continue; }
   echo "$runner_v $engine_v" > "$CR/applied/$i"
@@ -86,6 +90,12 @@ done
 VMQ=${CI_RUNNER_VM_QUERY:-https://vm.tail6d0ed4.ts.net/api/v1/query}
 offline=$(curl -s -m10 "$VMQ" --data-urlencode 'query=(max by (runner) (max_over_time(gh_runner_up{machine="x3"}[10m])) == 0) and on (runner) (count_over_time(gh_runner_up{machine="x3"}[10m]) >= 2)' 2>/dev/null \
   | jq -r '.data.result[]?.metric.runner' 2>/dev/null)
+# Every runner offline at once is GitHub's view, not the runners': all 16 showed offline 03:05-03:30Z on 2026-11-27
+# and 11-28 while they polled without an error, and runners restarted at 03:12Z on 11-28 still showed offline
+# until about 03:35Z (RFC-0011 item 28). A restart then only churns, so none is made.
+active=$(systemctl --user list-units --state=active --plain --no-legend 'ci-runner@*' | wc -l)
+n=$(wc -w <<<"$offline")
+if [ "$active" -gt 1 ] && [ "$n" -ge "$active" ]; then log "all $n runners offline on GitHub at once: GitHub's side, no restart"; offline=""; fi
 for r in $offline; do
   i=${r#x3-}; u="ci-runner@$i.service"
   systemctl --user is-active -q "$u" || continue

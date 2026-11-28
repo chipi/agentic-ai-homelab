@@ -368,6 +368,34 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
       'npm' || '' }}`), asked of Player.
     - The public checkout (230-317 s against about 19 s) is Player's to change: a shallow fetch, or a
       kept mirror under `$CI_CACHE/git`.
+    - Done as the mirror (Player #64). Every Player runner had one by 2026-11-28; web checks out in 7 s.
+    - pip the same way, from 2026-11-28 (operator's go): `PIP_CACHE_DIR` is `$CI_CACHE/pip`. setup-python's
+      GitHub cache restore timed out on player-4 and ran Player's lint job out of its 10 minutes (run
+      46123702898), so Player turned it off on the X3 (#67, f9c7ae7).
+28. **The two lost jobs, and the nightly offline** (2026-11-28, operator's go).
+    - **Lost jobs, cause.** player-1 (19:17Z) and player-4 (19:23Z) on 2026-11-27 went the same way:
+      - The unit restarted itself after a job. Sync's update restart came 0.25 s later, before the new
+        container existed, so the busy check and the marker had nothing to see.
+      - `entrypoint.sh` runs as PID 1 with no handler and ignored the stop's SIGTERM. `docker stop -t 60`
+        waited the full minute, the runner meanwhile took a job (19:17:51Z, 19:23:18Z), and the kill (exit
+        137) lost it.
+      - The 10-minute guard of item 26 read `cache/<i>/.sizes`, which still held the previous container's
+        time, so it did not cover this.
+    - **Lost jobs, fix.**
+      - `entrypoint.sh` traps TERM and INT, so a stop during setup ends the container at once. Tested on the
+        X3's engine with a PID-1 script mid-setup: stop 20,471 ms with exit 137 before, 769 ms with exit
+        143 after.
+      - Sync skips a unit that has not been running for 10 minutes, using systemd's `ActiveEnterTimestamp`.
+      - Once `run.sh` runs, the image's trap (`RUNNER_MANUALLY_TRAP_SIG`) already ended an idle listener in
+        under a second (the 03:12Z restarts, 2026-11-28).
+    - **The nightly offline.** All 16 runners showed offline on GitHub 03:05-03:30Z on 2026-11-27 and 11-28.
+      - Over the same window: no X3 journal event, no runner error, the mini's egress probe never failed, and
+        the collector read GitHub every 5 minutes.
+      - Runners restarted at 03:12Z on 11-28 opened sessions within seconds and still showed offline until
+        about 03:35Z. GitHub's status page lists no incident.
+      - Sync no longer restarts when every runner is offline at once.
+      - A trivial job sent to an X3 runner at 03:15Z tests whether the runners take work while GitHub shows
+        them offline.
 
 ## Non-goals
 
