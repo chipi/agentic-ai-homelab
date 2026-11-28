@@ -62,7 +62,13 @@ while true; do
   {
     for s in $SVCS; do
       n=${s%%:*}; port=${s##*:}
-      nc -z -G2 -w2 "$DGX" "$port" 2>/dev/null && up=1 || up=0
+      # MOSS: /health must say "ok", not only accept a connection (operator, 2026-11-28; its "loading" answer
+      # shows only while it stops, infra's reading of moss-server/app.py, but the route is the server's own word).
+      if [ "$n" = moss ]; then
+        curl -s -m2 "http://$DGX:$port/health" 2>/dev/null | grep -q '"status": *"ok"' && up=1 || up=0
+      else
+        nc -z -G2 -w2 "$DGX" "$port" 2>/dev/null && up=1 || up=0
+      fi
       printf 'dgx_service_up{service="%s"} %s\n' "$n" "$up"
     done
   } | curl -s -m8 -o /dev/null --data-binary @- "$VM"
