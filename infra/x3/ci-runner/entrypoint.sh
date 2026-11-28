@@ -111,10 +111,13 @@ fi
 # .job-running in the work folder (a host path) tells sync.sh this runner has a job, beside its process
 # check. The folder is emptied at every start, so a job killed mid-run leaves no stale marker.
 # Job slots (RFC-0011 item 26): every runner of every repo shares $CI_SLOTS (a host folder), so at most
-# one job per repo plus CI_SLOTS_SHARED more run at once, whatever the runner count. A job takes its repo's
-# own slot (r-<repo>) or a free shared one (s-<n>) in its started hook, by mkdir (atomic on the shared folder),
-# and waits there while all are taken; the completed hook frees it. The cap counts running jobs, not
-# listening runners, so an idle runner holds nothing. A job killed before its completed hook leaves its slot
+# CI_SLOTS_TOTAL jobs run at once, whatever the runner count. A job takes a free slot (s-<n>) in its started
+# hook, by mkdir (atomic on the shared folder), and waits there while none may be taken; the completed hook
+# frees it. A repo that already runs a job takes one only while 2 or more are free, so one stays spare for
+# another repo's first job: a slot reserved for each repo sat unused while Player's jobs waited up to 636 s
+# and ran out of their 10-minute limits (operator, 2026-11-28). Two jobs checking at the same moment can both
+# take the last two; the spare is best effort. The cap counts running jobs, not listening runners, so an
+# idle runner holds nothing. A job killed before its completed hook leaves its slot
 # named for this runner, and this container is the runner's only one, so slots and waits it owns are freed here.
 if [ -n "${CI_SLOTS:-}" ] && [ -d "$CI_SLOTS" ]; then
   # wait/ is written by the job's hook, which runs as runner, not as this root
@@ -127,14 +130,19 @@ if [ -n "${CI_SLOTS:-}" ] && [ -d "$CI_SLOTS" ]; then
 #!/bin/sh
 D="$CI_SLOTS"; me="$RUNNER_NAME"; repo="${REPO_URL##*/}"; mark="${RUNNER_WORK:-/tmp}/.slot"; t0=\$(date +%s); said=0
 while :; do
-  for s in "r-\$repo" \$(seq -f 's-%g' 1 "${CI_SLOTS_SHARED:-5}"); do
-    if mkdir "\$D/\$s" 2>/dev/null; then
-      echo "\$me \$(date +%s)" > "\$D/\$s/owner"; echo "\$s" > "\$mark"; rm -f "\$D/wait/\$me"
-      [ "\$said" = 1 ] && echo "x3: took job slot \$s after \$(( \$(date +%s) - t0 )) s"
-      exit 0
-    fi
-  done
-  [ "\$said" = 1 ] || { echo "x3: every job slot is taken (one per repo plus ${CI_SLOTS_SHARED:-5} shared); waiting"; echo "\$t0" > "\$D/wait/\$me"; said=1; }
+  held=\$(ls -d "\$D"/[rs]-* 2>/dev/null | wc -l)
+  mine=\$(cat "\$D"/[rs]-*/owner 2>/dev/null | awk -v r="\$repo" '\$3 == r' | wc -l)
+  need=1; [ "\$mine" -gt 0 ] && need=2
+  if [ \$(( ${CI_SLOTS_TOTAL:-8} - held )) -ge "\$need" ]; then
+    for s in \$(seq -f 's-%g' 1 "${CI_SLOTS_TOTAL:-8}"); do
+      if mkdir "\$D/\$s" 2>/dev/null; then
+        echo "\$me \$(date +%s) \$repo" > "\$D/\$s/owner"; echo "\$s" > "\$mark"; rm -f "\$D/wait/\$me"
+        [ "\$said" = 1 ] && echo "x3: took job slot \$s after \$(( \$(date +%s) - t0 )) s"
+        exit 0
+      fi
+    done
+  fi
+  [ "\$said" = 1 ] || { echo "x3: no job slot this job may take (${CI_SLOTS_TOTAL:-8} in all, one kept spare for another repo); waiting"; echo "\$t0" > "\$D/wait/\$me"; said=1; }
   sleep 5
 done
 EOF

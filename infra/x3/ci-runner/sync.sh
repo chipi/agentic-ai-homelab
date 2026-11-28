@@ -141,9 +141,8 @@ fi
       [ -f "$w" ] || continue
       waiting=$((waiting + 1)); a=$(( now - $(cat "$w") )); [ "$a" -gt "$oldest" ] && oldest=$a
     done
-    repos=$(systemctl --user list-units --all --plain --no-legend 'ci-runner@*' | awk '{print $1}' | sed -E 's/^ci-runner@(.*)-[0-9]+\.service$/\1/' | sort -u | wc -l)
-    shared=$(grep -oE 'CI_SLOTS_SHARED=[0-9]+' "$UD/ci-runner@.service" | head -1 | cut -d= -f2)
-    printf 'x3_ci_slots_held{box="x3"} %d\nx3_ci_slots_total{box="x3"} %d\n' "$held" "$(( repos + ${shared:-0} ))"
+    total=$(grep -oE 'CI_SLOTS_TOTAL=[0-9]+' "$UD/ci-runner@.service" | head -1 | cut -d= -f2)
+    printf 'x3_ci_slots_held{box="x3"} %d\nx3_ci_slots_total{box="x3"} %d\n' "$held" "${total:-0}"
     printf 'x3_ci_jobs_waiting_for_slot{box="x3"} %d\nx3_ci_slot_wait_oldest_seconds{box="x3"} %d\n' "$waiting" "$oldest"
   fi
   for f in "$CR"/cache/*/.sizes; do

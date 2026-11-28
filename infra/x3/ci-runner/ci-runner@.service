@@ -9,10 +9,10 @@ Requires=docker@%i.service
 [Service]
 Environment=DOCKER_HOST=unix://%t/e-%i/docker.sock
 Environment=IMAGE=ci-runner:2.338.2-4
-# Shared job slots beyond one per repo: 7 jobs at most with five repos. CPU, not memory, is the limit:
-# with 5-6 jobs at once the slice used 10-11 of its 12 cores and some task waited for a CPU 62-71% of the
-# time (18:20-19:00Z, 2026-11-27); memory peaked at 26.8 GiB of 48. 5 until the operator's go that evening.
-Environment=CI_SLOTS_SHARED=2
+# Job slots, shared by every repo with one kept spare (entrypoint.sh): 8 jobs at most. CPU is the limit: on
+# 12 CPUs, 5-6 jobs had some task waiting for a CPU 62-71% of the time (2026-11-27); the slice has 20 since
+# 2026-11-28 (x3-ci-runner-setup.sh CPU_SET). Memory peaked at 26.8 GiB of 48 with 6 jobs.
+Environment=CI_SLOTS_TOTAL=8
 # The image is built from ~/ci-runner/image/Dockerfile, once per engine; later starts find it.
 ExecStartPre=/bin/sh -c 'docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -q -t "$IMAGE" %h/ci-runner/image'
 ExecStartPre=-/usr/bin/docker rm -f ci-runner-%i
@@ -27,7 +27,7 @@ ExecStartPre=/bin/mkdir -p %h/ci-runner/work/%i
 # as one entry (its blobs are shared between models). ImageOS/ImageVersion, which GitHub's images set and
 # cache keys use (public's install-ffmpeg, install-playwright), name this image, so an X3 entry is never
 # restored on GitHub's VMs or across X3 images ("ubuntu24-unknown" before, 2026-11-27).
-# The job slots every runner shares (entrypoint.sh, RFC-0011 item 26): one per repo plus CI_SLOTS_SHARED.
+# The job slots every runner shares (entrypoint.sh, RFC-0011 item 26): CI_SLOTS_TOTAL, one kept spare.
 ExecStartPre=/usr/bin/install -d -m 1777 %h/ci-runner/slots
 ExecStartPre=/bin/mkdir -p %h/ci-runner/cache/%i/toolcache %h/ci-runner/cache/%i/ms-playwright %h/ci-runner/cache/%i/apt %h/ci-runner/cache/%i/huggingface %h/ci-runner/cache/%i/venvs %h/ci-runner/cache/%i/npm %h/ci-runner/cache/%i/git
 # A job's `-v /var/run/docker.sock:...` (integration's stack test mounts it into its API container) is
@@ -50,7 +50,7 @@ ExecStart=/usr/bin/docker run --rm --name ci-runner-%i --user 0 --group-add sudo
   -e RUNNER_TOOL_CACHE=%h/ci-runner/cache/%i/toolcache -e PLAYWRIGHT_BROWSERS_PATH=%h/ci-runner/cache/%i/ms-playwright \
   -e npm_config_cache=%h/ci-runner/cache/%i/npm \
   -e ImageOS=ubuntu24 -e ImageVersion=${IMAGE} \
-  -v %h/ci-runner/slots:%h/ci-runner/slots -e CI_SLOTS=%h/ci-runner/slots -e CI_SLOTS_SHARED=${CI_SLOTS_SHARED} \
+  -v %h/ci-runner/slots:%h/ci-runner/slots -e CI_SLOTS=%h/ci-runner/slots -e CI_SLOTS_TOTAL=${CI_SLOTS_TOTAL} \
   -v %h/ci-runner/entrypoint.sh:/entrypoint.sh:ro \
   -v %t/e-%i/docker.sock:/var/run/docker.sock \
   ${IMAGE} bash /entrypoint.sh

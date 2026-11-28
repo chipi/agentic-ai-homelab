@@ -21,11 +21,13 @@ U=gh-runner
 HOMEDIR=/var/lib/gh-runner
 SUBID_START=200000   # marko holds 100000-165535
 ROOTLESS_SHA=904c9b9e35f6927c0a5e65afb4d35b6bc9eb1278c878044501281fc728c9be46   # moby docker-v29.7.2 contrib/dockerd-rootless.sh
-CPU_QUOTA=1200%   # 12 of 32 cores (operator, 2026-11-27; 8 throttled the runners ~2,200 s in one night)
-CPU_SET=4-15      # the cores the slice may run on, one thread of each of 12 physical cores (their SMT
-                  # siblings are 20-31): jobs then see 12 CPUs and size their worker pools to the quota, where
-                  # with all 32 visible they burst past it and were throttled in 5-38% of periods at 1-7 cores
-                  # of average use (operator, 2026-11-27; RFC-0011 item 25)
+CPU_QUOTA=2000%   # 20 of 32 CPUs (operator, 2026-11-28: on 12, 5-6 jobs had some task waiting for a CPU
+                  # 62-71% of the time; 12 from 8 on 2026-11-27, when 8 throttled the runners ~2,200 s in a night)
+CPU_SET=4-15,20-27   # the CPUs the slice may run on, as many as the quota: one thread of each of 12 physical
+                  # cores (4-15) and the second thread of 8 of them (20-27), leaving 0-3, 16-19 and 28-31 to
+                  # the host. Jobs then see 20 CPUs and size their worker pools to the quota, where with all
+                  # 32 visible they burst past it and were throttled in 5-38% of periods at 1-7 cores of
+                  # average use (operator, 2026-11-27; RFC-0011 item 25)
 MEM_MAX=48G       # the slice peaked at 26.8 GiB of 32 under 3 player runners; 5 need more
 
 [ "$(id -u)" -eq 0 ] || { echo "!! must run as root: sudo bash $0"; exit 1; }
@@ -114,7 +116,7 @@ step "smoke: two engines side by side, each publishing port 15432, neither on th
 smoke_ok=1
 for i in smoke-a smoke-b; do
   UC start "docker@$i.service" >/dev/null 2>&1
-  for t in $(seq 40); do [ -S "/run/user/$UID_R/e-$i/docker.sock" ] && break; sleep 1; done
+  for _ in $(seq 40); do [ -S "/run/user/$UID_R/e-$i/docker.sock" ] && break; sleep 1; done
   if AS "$i" docker info --format '{{json .SecurityOptions}}' 2>/dev/null | grep -q rootless \
      && AS "$i" docker run -d --name ci-smoke -p 15432:80 nginx:alpine >/dev/null 2>&1; then
     ok "engine $i up, a container publishing 15432"

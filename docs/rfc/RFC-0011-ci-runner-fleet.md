@@ -346,6 +346,19 @@ live. The X3-side files are in [`infra/x3/ci-runner/`](https://github.com/chipi/
         - no update restart of a container started under 10 minutes ago (80c284f): a container takes new
           files at its next start anyway;
         - none of a runner that holds or waits for a slot (25420b2).
+    - **One spare, not one per repo, and 20 CPUs** (operator, 2026-11-28). With a slot reserved for each
+      repo, Player had 3 slots at most (its own and the 2 shared) while the other four sat unused:
+      its docs job waited 565 s and its lint 636 s for a slot and ran out of their 10-minute limits
+      (runs 46061027627 and 46055604562). Now:
+      - every slot (`s-1` to `s-<CI_SLOTS_TOTAL>`, 8) is shared;
+      - a repo already running a job takes one only while 2 or more are free, so one stays spare for
+        another repo's first job (best effort: two jobs checking at once can both take the last two);
+      - the slice has 20 CPUs (`CPU_QUOTA=2000%`, `CPU_SET=4-15,20-27`: the 12 physical cores and the
+        second thread of 8 of them), leaving 0-3, 16-19 and 28-31 to the host;
+      - 8 slots on 20 CPUs keeps the ratio that 12 carried at about 5 jobs.
+      Tested with the harness at 3 slots: two jobs of one repo run, its third waits for the spare,
+      another repo's first takes the spare, a third repo's waits when all are taken, and a release
+      lets the waiting job in within 5 s.
 27. **npm's cache kept per runner** (2026-11-27). Lighthouse's setup-node took 78 s on player-4:
     - Node came from the kept tool cache in under a second.
     - The rest was restoring setup-node's 129 MB npm cache from GitHub's cache. npm's cache lived in the
